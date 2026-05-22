@@ -1,0 +1,2 @@
+class PlaceholderModel:
+    pass

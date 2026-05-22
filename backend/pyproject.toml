@@ -1,0 +1,18 @@
+[project]
+name = "ai-soc-assistant-backend"
+version = "0.1.0"
+description = "FastAPI backend scaffold for AI SOC Assistant"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "httpx",
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["app/tests"]
