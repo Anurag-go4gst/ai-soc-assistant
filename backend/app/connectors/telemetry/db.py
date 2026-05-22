@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -11,9 +12,21 @@ import asyncpg
 
 from app.config import settings
 from app.connectors.mcp.base import ConnectorStatus
+from app.connectors.telemetry import metrics as _telemetry_metrics_module
 from app.connectors.telemetry.base import TraceHandle
+from app.connectors.telemetry.redaction import (
+    MAX_SERIALIZED_PAYLOAD_BYTES,
+    minimize,
+    truncate,
+)
+
+# Direct submodule reference. We do not access ``metrics`` as a package
+# attribute because ``app.connectors.telemetry.__init__`` may still be
+# executing when this module is first imported.
+metrics = _telemetry_metrics_module
 
 _MIGRATION_PATH = Path(__file__).resolve().parents[2] / "db" / "migrations" / "0001_ai_soc_telemetry.sql"
+_LOGGER = logging.getLogger("ai_soc.telemetry")
 
 
 class DbTelemetryConnector:
@@ -133,6 +146,13 @@ class DbTelemetryConnector:
         )
 
     def _run(self, sql: str, *args: Any) -> None:
+        """Execute a single telemetry write.
+
+        A telemetry write failure must never crash the calling request flow.
+        On any exception we increment the in-process failure counter, emit a
+        structured warning log (without payload contents), and return — i.e.
+        we fall through to no-op behavior for this call.
+        """
         async def _inner() -> None:
             await self._ensure_schema()
             conn = await asyncpg.connect(self.database_url, timeout=1.0)
@@ -141,7 +161,18 @@ class DbTelemetryConnector:
             finally:
                 await conn.close()
 
-        asyncio.run(_inner())
+        try:
+            asyncio.run(_inner())
+        except Exception as exc:  # noqa: BLE001 — telemetry must be best-effort
+            metrics.increment("telemetry_write_failures")
+            _LOGGER.warning(
+                "telemetry_write_failed",
+                extra={
+                    "telemetry_event": "telemetry_write_failed",
+                    "sql_kind": _sql_kind(sql),
+                    "error_type": type(exc).__name__,
+                },
+            )
 
     async def _ensure_schema(self) -> None:
         if self._schema_ready:
@@ -154,27 +185,21 @@ class DbTelemetryConnector:
             await conn.close()
 
 
+def _sql_kind(sql: str) -> str:
+    head = sql.strip().split(None, 1)
+    return head[0].upper() if head else "UNKNOWN"
+
+
 def _json(value: Any) -> str:
-    return json.dumps(value, separators=(",", ":"), sort_keys=True, default=str)
+    serialized = json.dumps(value, separators=(",", ":"), sort_keys=True, default=str)
+    if len(serialized.encode("utf-8")) > MAX_SERIALIZED_PAYLOAD_BYTES:
+        return json.dumps(
+            {"__truncated__": True, "preview": serialized[:512] + "..."},
+            separators=(",", ":"),
+        )
+    return serialized
 
 
-def _minimize(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {str(k): _minimize(v) for k, v in value.items() if not _is_secret_key(str(k))}
-    if isinstance(value, (list, tuple)):
-        return [_minimize(v) for v in value[:25]]
-    if isinstance(value, str):
-        return _truncate(value)
-    return value
-
-
-def _truncate(value: Any, limit: int = 2000) -> str | None:
-    if value is None:
-        return None
-    text = str(value)
-    return text if len(text) <= limit else text[:limit] + "...[truncated]"
-
-
-def _is_secret_key(key: str) -> bool:
-    lowered = key.lower()
-    return any(part in lowered for part in ("password", "secret", "token", "credential", "api_key"))
+# Backwards-compatible internal aliases (other modules import these names).
+_minimize = minimize
+_truncate = truncate

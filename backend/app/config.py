@@ -1,11 +1,28 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# Telemetry sink values that are wired up today. ``splunk`` and ``both`` are
+# reserved for a future Splunk telemetry connector; until that connector
+# lands the config layer rejects them at startup (see ``_validate``).
+SUPPORTED_TELEMETRY_SINKS: tuple[str, ...] = ("db", "none")
+PLANNED_TELEMETRY_SINKS: tuple[str, ...] = ("splunk", "both")
+
+
+class ConfigError(RuntimeError):
+    """Raised on unsupported or unsafe configuration values."""
+
+
 class Settings(BaseSettings):
     app_env: str = "development"
     backend_port: int = 8010
     frontend_port: int = 3010
-    database_url: str = "postgresql://localhost/ai_soc_assistant"
+
+    # Default matches the Docker Compose `postgres` service hostname and the
+    # placeholder password used by `.env.example`. Production deployments
+    # MUST override DATABASE_URL via env vars and never rely on this default.
+    # This default is intentionally a dev placeholder, never a real secret.
+    database_url: str = "postgresql://ai_soc:change-me@postgres:5432/ai_soc_assistant"
+
     splunk_mcp_enabled: bool = False
     splunk_mcp_base_url: str = ""
     splunk_mcp_token: str = ""
@@ -15,12 +32,22 @@ class Settings(BaseSettings):
     reasoning_enabled: bool = False
     routing_mode: str = "llm_primary"
     debug_trace_enabled: bool = True
+    routing_deterministic_threshold: float = 0.70
+    routing_llm_shadow_enabled: bool = True
+    routing_compare_logging_enabled: bool = True
     mcp_mode: str = "mock"
     rag_mode: str = "mock"
     llm_mode: str = "mock"
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"
+
+    # ``ai_soc_telemetry_sink`` is the AI-SOC product's own telemetry sink
+    # selector (not a Splunk product setting). Supported today: ``db`` (writes
+    # to Postgres) and ``none`` (disables telemetry). ``splunk`` and ``both``
+    # are planned and will fail fast at startup until the Splunk telemetry
+    # connector is implemented.
     ai_soc_telemetry_sink: str = "db"
+
     app_auth_enabled: bool = True
     app_auth_user: str = "analyst"
     app_auth_password: str = ""
@@ -29,4 +56,20 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
-settings = Settings()
+def _validate(s: Settings) -> Settings:
+    sink = s.ai_soc_telemetry_sink.strip().lower()
+    if sink in PLANNED_TELEMETRY_SINKS:
+        raise ConfigError(
+            f"AI_SOC_TELEMETRY_SINK={sink!r} is reserved for a future Splunk "
+            "telemetry connector and is not implemented yet. "
+            f"Use one of: {SUPPORTED_TELEMETRY_SINKS}."
+        )
+    if sink not in SUPPORTED_TELEMETRY_SINKS:
+        raise ConfigError(
+            f"AI_SOC_TELEMETRY_SINK={sink!r} is not a valid value. "
+            f"Use one of: {SUPPORTED_TELEMETRY_SINKS}."
+        )
+    return s
+
+
+settings = _validate(Settings())

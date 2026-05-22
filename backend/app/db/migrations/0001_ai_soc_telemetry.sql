@@ -1,3 +1,11 @@
+-- Schema-version tracking. Idempotent: subsequent runs of this file are
+-- no-ops because of the IF NOT EXISTS guards and the ON CONFLICT clause
+-- on the version stamp at the bottom of the file.
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS ai_trace_runs (
     id BIGSERIAL PRIMARY KEY,
     trace_id TEXT NOT NULL UNIQUE,
@@ -102,3 +110,7 @@ CREATE TABLE IF NOT EXISTS user_feedback (
 CREATE INDEX IF NOT EXISTS idx_ai_trace_steps_trace_id ON ai_trace_steps(trace_id);
 CREATE INDEX IF NOT EXISTS idx_routing_disagreements_trace_id ON routing_disagreements(trace_id);
 CREATE INDEX IF NOT EXISTS idx_harness_case_results_run_id ON harness_test_case_results(test_run_id);
+
+INSERT INTO schema_migrations (version) VALUES ('0001_ai_soc_telemetry')
+ON CONFLICT (version) DO NOTHING;
+

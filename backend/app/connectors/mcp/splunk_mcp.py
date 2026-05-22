@@ -16,6 +16,8 @@ class SplunkMcpConnector:
             configured=configured,
             available=False,
             detail="placeholder_not_implemented",
+            implemented=False,
+            fallback="mock",
         )
 
     def execute_validated_spl(self, request: ValidatedSplRequest) -> dict[str, Any]:

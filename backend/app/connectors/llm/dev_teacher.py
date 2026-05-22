@@ -16,6 +16,8 @@ class DevTeacherLlmConnector:
             configured=False,
             available=False,
             detail="placeholder_not_implemented",
+            implemented=False,
+            fallback="mock",
         )
 
     def complete_skill_routing(self, payload: dict[str, Any]) -> SkillRoutingCompletion:

@@ -12,7 +12,7 @@ from app.connectors.embeddings import get_embeddings_connector
 from app.connectors.llm import get_llm_connector
 from app.connectors.mcp import get_mcp_connector
 from app.connectors.rag import get_rag_connector
-from app.connectors.telemetry import get_telemetry_connector
+from app.connectors.telemetry import get_telemetry_connector, metrics
 
 router = APIRouter()
 
@@ -34,6 +34,8 @@ def _safe_status(status: object) -> dict[str, object]:
         "configured": bool(getattr(status, "configured", False)),
         "available": bool(getattr(status, "available", False)),
         "detail": str(getattr(status, "detail", "unknown")),
+        "implemented": bool(getattr(status, "implemented", True)),
+        "fallback": getattr(status, "fallback", None),
     }
 
 
@@ -49,12 +51,15 @@ def settings_status() -> dict:
     splunk_write_enabled = False
     splunk_sink_status = "not_implemented" if telemetry_sink in {"splunk", "both"} else "disabled"
 
+    telemetry_counters = metrics.snapshot()
     return {
         "mcp": {
             "enabled": settings.mcp_mode == "splunk_mcp" and settings.splunk_mcp_enabled,
             "mode": mcp_status.mode,
             "configured": mcp_status.configured,
             "available": mcp_status.available,
+            "implemented": mcp_status.implemented,
+            "fallback": mcp_status.fallback,
             "status_detail": mcp_status.detail,
             "base_url_configured": _bool_configured(settings.splunk_mcp_base_url),
             "token_configured": _bool_configured(settings.splunk_mcp_token),
@@ -70,6 +75,8 @@ def settings_status() -> dict:
             "mode": rag_status.mode,
             "configured": rag_status.configured,
             "available": rag_status.available,
+            "implemented": rag_status.implemented,
+            "fallback": rag_status.fallback,
             "status_detail": rag_status.detail,
             "vault_path": "knowledge-vault",
             "approved_documents": 0,
@@ -87,6 +94,8 @@ def settings_status() -> dict:
             "mode": llm_status.mode,
             "configured": llm_status.configured,
             "available": llm_status.available,
+            "implemented": llm_status.implemented,
+            "fallback": llm_status.fallback,
             "status_detail": llm_status.detail,
             "primary_model": "Foundation-Sec Instruct",
             "reasoning_enabled": settings.reasoning_enabled,
@@ -112,6 +121,11 @@ def settings_status() -> dict:
         },
         "routing": {
             "mode": settings.routing_mode,
+            "deterministic_router_enabled": True,
+            "llm_shadow_router_enabled": settings.routing_llm_shadow_enabled,
+            "compare_logging_enabled": settings.routing_compare_logging_enabled,
+            "disagreement_logging_sink": "db",
+            "deterministic_threshold": settings.routing_deterministic_threshold,
             "llm_planner_enabled": True,
             "shadow_router_enabled": True,
             "compare_node_enabled": True,
@@ -137,6 +151,7 @@ def settings_status() -> dict:
             "database_telemetry_enabled": db_telemetry_enabled,
             "splunk_write_enabled": splunk_write_enabled,
             "splunk_sink_status": splunk_sink_status,
+            "telemetry_write_failures": telemetry_counters.get("telemetry_write_failures", 0),
             "recent_trace": None,
             "planner_deterministic_mismatch_count": 0,
             "fallback_count": 0,

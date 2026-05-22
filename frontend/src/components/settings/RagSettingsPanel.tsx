@@ -2,7 +2,7 @@ import { Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { SettingsStatus } from '@/types/api';
-import { BoolPill, ModeBadge, PanelMockBanner, SettingRow } from './SettingRow';
+import { BoolPill, ModeBadge, PanelMockBanner, PlaceholderConnectorBanner, SettingRow } from './SettingRow';
 
 export function RagSettingsPanel({ status }: { status: SettingsStatus['rag'] }) {
   return (
@@ -16,6 +16,7 @@ export function RagSettingsPanel({ status }: { status: SettingsStatus['rag'] }) 
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {status.implemented === false ? <PlaceholderConnectorBanner fallback={status.fallback} /> : null}
         {!status.enabled ? <PanelMockBanner /> : null}
         <div>
           <SettingRow label="RAG enabled" value={<BoolPill value={status.enabled} />} />

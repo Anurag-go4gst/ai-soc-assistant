@@ -11,6 +11,14 @@ class ConnectorStatus:
     available: bool
     detail: str = "ok"
 
+    # ``implemented`` distinguishes connectors that actually do their job
+    # (including fully-implemented mocks) from real-connector *placeholders*
+    # whose execution methods currently fall back to mock behavior.
+    # ``fallback`` names what the placeholder delegates to so the Settings
+    # surface can be unambiguous about what is actually running.
+    implemented: bool = True
+    fallback: str | None = None
+
 
 @dataclass(frozen=True)
 class ValidatedSplRequest:

@@ -2,7 +2,7 @@ import { Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { SettingsStatus } from '@/types/api';
-import { BoolPill, ModeBadge, PanelMockBanner, SettingRow } from './SettingRow';
+import { BoolPill, ModeBadge, PanelMockBanner, PlaceholderConnectorBanner, SettingRow } from './SettingRow';
 
 export function LlmSettingsPanel({ status }: { status: SettingsStatus['llm'] }) {
   return (
@@ -16,6 +16,7 @@ export function LlmSettingsPanel({ status }: { status: SettingsStatus['llm'] }) 
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {status.implemented === false ? <PlaceholderConnectorBanner fallback={status.fallback} /> : null}
         {!status.enabled ? <PanelMockBanner /> : null}
         <div>
           <SettingRow label="LLM enabled" value={<BoolPill value={status.enabled} />} />

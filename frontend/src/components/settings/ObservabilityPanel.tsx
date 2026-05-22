@@ -24,10 +24,11 @@ export function ObservabilityPanel({ status }: { status: SettingsStatus['observa
         <p className="rounded-md border border-cyan-900/60 bg-cyan-950/30 p-2 text-xs text-cyan-100">
           Splunk write is disabled by default. AI-SOC telemetry is stored in the application database.
         </p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Metric label="Recent trace" value={status.recent_trace ?? '—'} />
           <Metric label="Planner/det mismatch" value={status.planner_deterministic_mismatch_count.toString()} />
           <Metric label="Fallback count" value={status.fallback_count.toString()} />
+          <Metric label="Telemetry write fails" value={(status.telemetry_write_failures ?? 0).toString()} />
         </div>
       </CardContent>
     </Card>

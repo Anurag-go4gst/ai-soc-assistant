@@ -75,7 +75,14 @@ Trace summary cards in Cockpit link to **Debug**; the full developer surface liv
 - LLM (Foundation-Sec Instruct + Reasoning endpoint configured booleans)
 - Routing (mode, planner/shadow/compare flags, confidence thresholds)
 - Safeguards (SPL validator, blocked commands, approval requirements)
-- Observability (telemetry/trace flags, planned audit index `ai_soc_audit`)
+- Observability (telemetry/trace flags, telemetry-write failure counter)
+
+> **Telemetry storage:** `ai_soc` is this product's own namespace, not a Splunk
+> product. AI-SOC runtime telemetry is stored in Postgres / the application
+> database by default (`AI_SOC_TELEMETRY_SINK=db`). A Splunk telemetry connector
+> is **deferred and not implemented** — setting `AI_SOC_TELEMETRY_SINK=splunk`
+> or `both` makes the backend fail fast at startup with a clear configuration
+> error. Set the sink to `none` to disable telemetry entirely.
 
 The backing endpoint is `GET /api/settings/status` — it never returns tokens, passwords, or session secrets, only `*_configured: bool` flags. MCP / RAG / LLM are still mock-mode; live connectors land in a later phase.
 

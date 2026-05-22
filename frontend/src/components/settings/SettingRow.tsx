@@ -45,3 +45,12 @@ export function PanelMockBanner() {
     </div>
   );
 }
+
+export function PlaceholderConnectorBanner({ fallback }: { fallback?: string | null }) {
+  return (
+    <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+      Placeholder connector — not implemented yet. Falls back to{' '}
+      <span className="font-mono">{fallback ?? 'mock'}</span> behavior.
+    </div>
+  );
+}

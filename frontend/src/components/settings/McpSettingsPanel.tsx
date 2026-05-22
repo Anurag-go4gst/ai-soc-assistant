@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { SettingsStatus } from '@/types/api';
-import { BoolPill, ModeBadge, PanelMockBanner, SettingRow } from './SettingRow';
+import { BoolPill, ModeBadge, PanelMockBanner, PlaceholderConnectorBanner, SettingRow } from './SettingRow';
 
 export function McpSettingsPanel({ status }: { status: SettingsStatus['mcp'] }) {
   return (
@@ -17,6 +17,7 @@ export function McpSettingsPanel({ status }: { status: SettingsStatus['mcp'] }) 
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {status.implemented === false ? <PlaceholderConnectorBanner fallback={status.fallback} /> : null}
         {!status.enabled ? <PanelMockBanner /> : null}
         <div>
           <SettingRow label="MCP enabled" value={<BoolPill value={status.enabled} />} />

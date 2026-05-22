@@ -13,6 +13,8 @@ class LocalEmbeddingsConnector:
             configured=False,
             available=False,
             detail="placeholder_not_implemented",
+            implemented=False,
+            fallback="mock",
         )
 
     def embed_text(self, text: str) -> list[float]:

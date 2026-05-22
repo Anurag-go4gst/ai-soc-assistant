@@ -16,6 +16,8 @@ class LocalVectorRagConnector:
             configured=False,
             available=False,
             detail="placeholder_not_implemented",
+            implemented=False,
+            fallback="mock",
         )
 
     def retrieve(self, query: str, filters: dict[str, Any] | None = None) -> list[RagChunk]:

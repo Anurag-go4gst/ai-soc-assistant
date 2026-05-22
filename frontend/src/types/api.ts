@@ -21,6 +21,8 @@ export interface SettingsStatus {
     mode: 'mock' | 'live' | string;
     configured: boolean;
     available: boolean;
+    implemented?: boolean;
+    fallback?: string | null;
     status_detail: string;
     base_url_configured: boolean;
     token_configured: boolean;
@@ -36,6 +38,8 @@ export interface SettingsStatus {
     mode: string;
     configured: boolean;
     available: boolean;
+    implemented?: boolean;
+    fallback?: string | null;
     status_detail: string;
     vault_path: string;
     approved_documents: number;
@@ -53,6 +57,8 @@ export interface SettingsStatus {
     mode: string;
     configured: boolean;
     available: boolean;
+    implemented?: boolean;
+    fallback?: string | null;
     status_detail: string;
     primary_model: string;
     reasoning_enabled: boolean;
@@ -84,6 +90,11 @@ export interface SettingsStatus {
   };
   routing: {
     mode: string;
+    deterministic_router_enabled: boolean;
+    llm_shadow_router_enabled: boolean;
+    compare_logging_enabled: boolean;
+    disagreement_logging_sink: string;
+    deterministic_threshold: number;
     llm_planner_enabled: boolean;
     shadow_router_enabled: boolean;
     compare_node_enabled: boolean;
@@ -109,6 +120,7 @@ export interface SettingsStatus {
     database_telemetry_enabled: boolean;
     splunk_write_enabled: boolean;
     splunk_sink_status: string;
+    telemetry_write_failures?: number;
     recent_trace: string | null;
     planner_deterministic_mismatch_count: number;
     fallback_count: number;
