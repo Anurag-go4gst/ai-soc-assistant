@@ -20,6 +20,9 @@ export function McpSettingsPanel({ status }: { status: SettingsStatus['mcp'] }) 
         {!status.enabled ? <PanelMockBanner /> : null}
         <div>
           <SettingRow label="MCP enabled" value={<BoolPill value={status.enabled} />} />
+          <SettingRow label="Configured" value={<BoolPill value={status.configured} />} />
+          <SettingRow label="Available" value={<BoolPill value={status.available} />} />
+          <SettingRow label="Connector status" value={status.status_detail} mono />
           <SettingRow
             label="Base URL"
             value={<BoolPill value={status.base_url_configured} trueLabel="configured" falseLabel="not configured" />}

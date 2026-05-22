@@ -8,6 +8,11 @@ indicating whether they are configured.
 from fastapi import APIRouter
 
 from app.config import settings
+from app.connectors.embeddings import get_embeddings_connector
+from app.connectors.llm import get_llm_connector
+from app.connectors.mcp import get_mcp_connector
+from app.connectors.rag import get_rag_connector
+from app.connectors.telemetry import get_telemetry_connector
 
 router = APIRouter()
 
@@ -23,15 +28,34 @@ def _bool_configured(value: str) -> bool:
     return bool(value and value.strip())
 
 
+def _safe_status(status: object) -> dict[str, object]:
+    return {
+        "mode": getattr(status, "mode", "unknown"),
+        "configured": bool(getattr(status, "configured", False)),
+        "available": bool(getattr(status, "available", False)),
+        "detail": str(getattr(status, "detail", "unknown")),
+    }
+
+
 @router.get("/settings/status")
 def settings_status() -> dict:
-    mcp_mode = "live" if settings.splunk_mcp_enabled else "mock"
-    llm_mode = "live" if settings.llm_enabled else "mock"
+    mcp_status = get_mcp_connector().health()
+    rag_status = get_rag_connector().health()
+    llm_status = get_llm_connector().health()
+    embeddings_status = get_embeddings_connector().health()
+    telemetry_status = get_telemetry_connector().health()
+    telemetry_sink = settings.ai_soc_telemetry_sink.strip().lower()
+    db_telemetry_enabled = settings.telemetry_mode.strip().lower() == "db" and telemetry_sink in {"db", "both"}
+    splunk_write_enabled = False
+    splunk_sink_status = "not_implemented" if telemetry_sink in {"splunk", "both"} else "disabled"
 
     return {
         "mcp": {
-            "enabled": settings.splunk_mcp_enabled,
-            "mode": mcp_mode,
+            "enabled": settings.mcp_mode == "splunk_mcp" and settings.splunk_mcp_enabled,
+            "mode": mcp_status.mode,
+            "configured": mcp_status.configured,
+            "available": mcp_status.available,
+            "status_detail": mcp_status.detail,
             "base_url_configured": _bool_configured(settings.splunk_mcp_base_url),
             "token_configured": _bool_configured(settings.splunk_mcp_token),
             "allowed_tools": _ALLOWED_TOOLS,
@@ -42,8 +66,11 @@ def settings_status() -> dict:
             "last_check_status": "not_checked",
         },
         "rag": {
-            "enabled": False,
-            "mode": "mock",
+            "enabled": settings.rag_mode != "mock",
+            "mode": rag_status.mode,
+            "configured": rag_status.configured,
+            "available": rag_status.available,
+            "status_detail": rag_status.detail,
             "vault_path": "knowledge-vault",
             "approved_documents": 0,
             "draft_documents": 0,
@@ -56,8 +83,11 @@ def settings_status() -> dict:
             "last_ingestion_status": "never",
         },
         "llm": {
-            "enabled": settings.llm_enabled,
-            "mode": llm_mode,
+            "enabled": settings.llm_mode != "mock" and settings.llm_enabled,
+            "mode": llm_status.mode,
+            "configured": llm_status.configured,
+            "available": llm_status.available,
+            "status_detail": llm_status.detail,
             "primary_model": "Foundation-Sec Instruct",
             "reasoning_enabled": settings.reasoning_enabled,
             "instruct_endpoint_configured": _bool_configured(settings.foundation_sec_instruct_url),
@@ -65,6 +95,20 @@ def settings_status() -> dict:
             "temperature": 0.2,
             "timeout_seconds": 30,
             "max_context_tokens": 8000,
+        },
+        "embeddings": {
+            **_safe_status(embeddings_status),
+            "enabled": settings.embeddings_mode != "mock",
+            "model": "mock-deterministic" if embeddings_status.mode == "mock" else "local-placeholder",
+        },
+        "telemetry": {
+            **_safe_status(telemetry_status),
+            "enabled": settings.telemetry_mode != "none" and telemetry_sink != "none",
+            "sink": telemetry_sink,
+            "database_telemetry_enabled": db_telemetry_enabled,
+            "splunk_write_enabled": splunk_write_enabled,
+            "splunk_sink_status": splunk_sink_status,
+            "message": "Splunk write is disabled by default. AI-SOC telemetry is stored in the application database.",
         },
         "routing": {
             "mode": settings.routing_mode,
@@ -86,10 +130,13 @@ def settings_status() -> dict:
             "prompt_injection_filter_enabled": True,
         },
         "observability": {
-            "telemetry_enabled": True,
+            "telemetry_enabled": settings.telemetry_mode != "none" and telemetry_sink != "none",
             "trace_logging_enabled": settings.debug_trace_enabled,
-            "audit_sink_status": "mock",
-            "audit_index": "ai_soc_audit",
+            "audit_sink_status": telemetry_status.detail,
+            "telemetry_sink": telemetry_sink,
+            "database_telemetry_enabled": db_telemetry_enabled,
+            "splunk_write_enabled": splunk_write_enabled,
+            "splunk_sink_status": splunk_sink_status,
             "recent_trace": None,
             "planner_deterministic_mismatch_count": 0,
             "fallback_count": 0,

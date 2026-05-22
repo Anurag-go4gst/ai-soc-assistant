@@ -6,6 +6,7 @@ import { LlmSettingsPanel } from '@/components/settings/LlmSettingsPanel';
 import { McpSettingsPanel } from '@/components/settings/McpSettingsPanel';
 import { ObservabilityPanel } from '@/components/settings/ObservabilityPanel';
 import { RagSettingsPanel } from '@/components/settings/RagSettingsPanel';
+import { EmbeddingsSettingsPanel } from '@/components/settings/EmbeddingsSettingsPanel';
 import { RoutingSettingsPanel } from '@/components/settings/RoutingSettingsPanel';
 import { SafeguardsPanel } from '@/components/settings/SafeguardsPanel';
 import { Badge } from '@/components/ui/badge';
@@ -69,6 +70,7 @@ export function SettingsPage() {
             <TabsTrigger value="mcp">MCP</TabsTrigger>
             <TabsTrigger value="rag">RAG</TabsTrigger>
             <TabsTrigger value="llm">LLM</TabsTrigger>
+            <TabsTrigger value="embeddings">Embeddings</TabsTrigger>
             <TabsTrigger value="routing">Routing</TabsTrigger>
             <TabsTrigger value="safeguards">Safeguards</TabsTrigger>
             <TabsTrigger value="observability">Observability</TabsTrigger>
@@ -82,6 +84,9 @@ export function SettingsPage() {
             </TabsContent>
             <TabsContent value="llm" className="m-0">
               <LlmSettingsPanel status={status.llm} />
+            </TabsContent>
+            <TabsContent value="embeddings" className="m-0">
+              <EmbeddingsSettingsPanel status={status.embeddings} />
             </TabsContent>
             <TabsContent value="routing" className="m-0">
               <RoutingSettingsPanel status={status.routing} />

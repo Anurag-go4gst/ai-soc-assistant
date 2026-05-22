@@ -2,8 +2,7 @@
 
 Self-contained scaffold for testing the routing → SPL-generation →
 execution pipeline end-to-end. This package is **not** wired into the
-live orchestration graph; the harness imports nothing from
-`backend/app/`. Real routing and SPL-generation components drop in later
+live orchestration graph or backend application. Real routing and SPL-generation components drop in later
 by passing them into `Runner` in place of the bundled stubs.
 
 ```
@@ -20,9 +19,9 @@ test_harness/
 │   ├── interfaces.py  # RoutingClient / SplGenerator / SplunkSearch protocols
 │   ├── stubs.py       # keyword routing, canned SPL, in-memory Splunk
 │   ├── spl_spec.py    # clause + findings assertions
-│   ├── audit.py       # ai_soc:test_run JSONL emitter
+│   ├── audit.py       # JSONL audit emitter
 │   └── runner.py      # per-layer pass/fail runner
-├── audit_logs/        # ai_soc:test_run events appended here
+├── audit_logs/        # test_runs.jsonl is appended here by default
 └── requirements.txt
 ```
 
@@ -36,7 +35,7 @@ test_harness/
 | `SPLUNK_API_URL`         | generator clear / live search | Splunk REST URL (e.g. `https://splunk:8089`) |
 | `SPLUNK_API_TOKEN`       | generator clear / live search | Splunk auth token. Header only. |
 | `SPLUNK_API_VERIFY_TLS`  | generator clear / live search | `false` to skip TLS verify (dev only) |
-| `AI_SOC_TEST_AUDIT_PATH` | runner audit           | Override audit log path (default `audit_logs/test_runs.jsonl`) |
+| `AI_SOC_TEST_AUDIT_PATH` | runner audit           | Override audit log path (default `test_harness/audit_logs/test_runs.jsonl`) |
 
 Tokens are read from env, used only as HTTP headers, and are never
 logged or echoed.
@@ -164,10 +163,19 @@ Independence is the point — when `findings` fails but the other two
 pass, the upstream layers are fine and the bug is in SPL execution
 against the planted data.
 
-Each case also appends one `ai_soc:test_run` JSON line to
-`audit_logs/test_runs.jsonl` containing `case_id`, `trace_id`, the three
-per-layer booleans, the generated SPL, and any failure reasons. The path
-can be redirected with `AI_SOC_TEST_AUDIT_PATH`.
+Each case appends one JSON line to `test_harness/audit_logs/test_runs.jsonl`
+containing `case_id`, `trace_id`, the three per-layer booleans, the
+generated SPL, and any failure reasons. The path can be redirected with
+`AI_SOC_TEST_AUDIT_PATH`. If the default repo-local path is not writable in a
+restricted shell, the harness falls back to `/tmp/ai_soc_test_runs.jsonl`.
+
+To import JSONL audit records into the application telemetry DB, run the
+backend-owned adapter after the harness completes:
+
+```bash
+cd backend
+python3 -m app.scripts.import_harness_runs --path ../test_harness/audit_logs/test_runs.jsonl
+```
 
 ## Plugging in real components
 

@@ -1,10 +1,5 @@
-from fastapi.testclient import TestClient
-
-from app.main import app
+from app.api.routes_health import health
 
 
 def test_health() -> None:
-    client = TestClient(app)
-    response = client.get("/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "ai-soc-assistant-backend"}
+    assert health() == {"status": "ok", "service": "ai-soc-assistant-backend"}

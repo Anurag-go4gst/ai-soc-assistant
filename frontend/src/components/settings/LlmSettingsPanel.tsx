@@ -19,6 +19,9 @@ export function LlmSettingsPanel({ status }: { status: SettingsStatus['llm'] }) 
         {!status.enabled ? <PanelMockBanner /> : null}
         <div>
           <SettingRow label="LLM enabled" value={<BoolPill value={status.enabled} />} />
+          <SettingRow label="Configured" value={<BoolPill value={status.configured} />} />
+          <SettingRow label="Available" value={<BoolPill value={status.available} />} />
+          <SettingRow label="Connector status" value={status.status_detail} mono />
           <SettingRow label="Primary model" value={status.primary_model} mono />
           <SettingRow label="Reasoning enabled" value={<BoolPill value={status.reasoning_enabled} />} />
           <SettingRow

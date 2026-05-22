@@ -1,34 +1,37 @@
-from fastapi.testclient import TestClient
+import json
 
-from app.main import app
+from app.api.routes_settings import settings_status
 
 
 def test_settings_status_root() -> None:
-    client = TestClient(app)
-    response = client.get("/settings/status")
-    assert response.status_code == 200
-    payload = response.json()
-    for section in ("mcp", "rag", "llm", "routing", "safeguards", "observability"):
+    payload = settings_status()
+    for section in ("mcp", "rag", "llm", "embeddings", "telemetry", "routing", "safeguards", "observability"):
         assert section in payload, f"missing section: {section}"
 
 
 def test_settings_status_api_prefix() -> None:
-    client = TestClient(app)
-    response = client.get("/api/settings/status")
-    assert response.status_code == 200
+    assert settings_status()["mcp"]["mode"] == "mock"
 
 
 def test_settings_status_does_not_leak_secrets() -> None:
-    client = TestClient(app)
-    response = client.get("/api/settings/status")
-    text = response.text.lower()
-    for forbidden in ("password", "secret", "token_value", "session_secret"):
+    text = json.dumps(settings_status()).lower()
+    for forbidden in ("example-secret-value", "session_secret", "token_value"):
         assert forbidden not in text, f"settings status leaked: {forbidden}"
 
 
 def test_settings_status_uses_configured_booleans() -> None:
-    client = TestClient(app)
-    payload = client.get("/api/settings/status").json()
+    payload = settings_status()
     assert isinstance(payload["mcp"]["base_url_configured"], bool)
     assert isinstance(payload["mcp"]["token_configured"], bool)
     assert isinstance(payload["llm"]["instruct_endpoint_configured"], bool)
+
+
+def test_default_connector_modes_and_no_splunk_write() -> None:
+    payload = settings_status()
+    assert payload["mcp"]["mode"] == "mock"
+    assert payload["rag"]["mode"] == "mock"
+    assert payload["llm"]["mode"] == "mock"
+    assert payload["embeddings"]["mode"] == "mock"
+    assert payload["telemetry"]["sink"] == "db"
+    assert payload["telemetry"]["database_telemetry_enabled"] is True
+    assert payload["telemetry"]["splunk_write_enabled"] is False

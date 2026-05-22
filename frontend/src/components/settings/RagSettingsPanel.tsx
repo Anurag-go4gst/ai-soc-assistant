@@ -19,6 +19,9 @@ export function RagSettingsPanel({ status }: { status: SettingsStatus['rag'] }) 
         {!status.enabled ? <PanelMockBanner /> : null}
         <div>
           <SettingRow label="RAG enabled" value={<BoolPill value={status.enabled} />} />
+          <SettingRow label="Configured" value={<BoolPill value={status.configured} />} />
+          <SettingRow label="Available" value={<BoolPill value={status.available} />} />
+          <SettingRow label="Connector status" value={status.status_detail} mono />
           <SettingRow label="Vault path" value={status.vault_path} mono />
           <SettingRow label="Approved documents" value={status.approved_documents} mono />
           <SettingRow label="Draft documents" value={status.draft_documents} mono />

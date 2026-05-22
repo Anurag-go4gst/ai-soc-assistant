@@ -6,8 +6,7 @@ Per case:
   2. route the natural-language query
   3. generate SPL for the routed skill
   4. execute the SPL against Splunk (or the in-memory stub)
-  5. assert all three layers independently and emit an ai_soc:test_run
-     audit event
+  5. assert all three layers independently and append a JSONL audit record
 
 A case is "pass" only when skill, SPL-spec, and findings all pass.
 Per-layer pass/fail is reported so a failure tells you which layer broke
@@ -49,12 +48,14 @@ _DEFAULT_FINDINGS = Path(__file__).resolve().parent.parent / "cases" / "expected
 class CaseResult:
     case_id: str
     trace_id: str
+    user_query: str
     skill_pass: bool
     spl_spec_pass: bool
     findings_pass: bool
     routed_skill: str
     expected_skill: str
     spl: str
+    expected_findings: dict[str, Any]
     spl_reasons: tuple[str, ...]
     findings_reasons: tuple[str, ...]
     row_count: int
@@ -105,12 +106,14 @@ class Runner:
         return CaseResult(
             case_id=case_id,
             trace_id=decision.trace_id,
+            user_query=query,
             skill_pass=skill_pass,
             spl_spec_pass=spec_result.passed,
             findings_pass=findings_result.passed,
             routed_skill=decision.skill,
             expected_skill=expected_skill,
             spl=spl,
+            expected_findings=expected_findings,
             spl_reasons=spec_result.reasons,
             findings_reasons=findings_result.reasons,
             row_count=len(rows),
@@ -139,6 +142,7 @@ def _emit_audit(result: CaseResult) -> None:
     record = CaseAuditRecord(
         case_id=result.case_id,
         trace_id=result.trace_id,
+        user_query=result.user_query,
         skill_pass=result.skill_pass,
         spl_spec_pass=result.spl_spec_pass,
         findings_pass=result.findings_pass,
@@ -146,6 +150,7 @@ def _emit_audit(result: CaseResult) -> None:
         routed_skill=result.routed_skill,
         expected_skill=result.expected_skill,
         spl=result.spl,
+        expected_findings=result.expected_findings,
         spl_reasons=tuple(result.spl_reasons),
         findings_reasons=tuple(result.findings_reasons),
         row_count=result.row_count,
@@ -223,6 +228,7 @@ def _result_to_dict(r: CaseResult) -> dict[str, Any]:
     return {
         "case_id": r.case_id,
         "trace_id": r.trace_id,
+        "user_query": r.user_query,
         "overall_pass": r.overall_pass,
         "skill_pass": r.skill_pass,
         "spl_spec_pass": r.spl_spec_pass,
@@ -230,6 +236,7 @@ def _result_to_dict(r: CaseResult) -> dict[str, Any]:
         "routed_skill": r.routed_skill,
         "expected_skill": r.expected_skill,
         "spl": r.spl,
+        "expected_findings": r.expected_findings,
         "spl_reasons": list(r.spl_reasons),
         "findings_reasons": list(r.findings_reasons),
         "row_count": r.row_count,

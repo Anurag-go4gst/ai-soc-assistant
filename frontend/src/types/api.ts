@@ -19,6 +19,9 @@ export interface SettingsStatus {
   mcp: {
     enabled: boolean;
     mode: 'mock' | 'live' | string;
+    configured: boolean;
+    available: boolean;
+    status_detail: string;
     base_url_configured: boolean;
     token_configured: boolean;
     allowed_tools: string[];
@@ -31,6 +34,9 @@ export interface SettingsStatus {
   rag: {
     enabled: boolean;
     mode: string;
+    configured: boolean;
+    available: boolean;
+    status_detail: string;
     vault_path: string;
     approved_documents: number;
     draft_documents: number;
@@ -45,6 +51,9 @@ export interface SettingsStatus {
   llm: {
     enabled: boolean;
     mode: string;
+    configured: boolean;
+    available: boolean;
+    status_detail: string;
     primary_model: string;
     reasoning_enabled: boolean;
     instruct_endpoint_configured: boolean;
@@ -52,6 +61,26 @@ export interface SettingsStatus {
     temperature: number;
     timeout_seconds: number;
     max_context_tokens: number;
+  };
+  embeddings: {
+    enabled: boolean;
+    mode: string;
+    configured: boolean;
+    available: boolean;
+    detail: string;
+    model: string;
+  };
+  telemetry: {
+    enabled: boolean;
+    mode: string;
+    configured: boolean;
+    available: boolean;
+    detail: string;
+    sink: string;
+    database_telemetry_enabled: boolean;
+    splunk_write_enabled: boolean;
+    splunk_sink_status: string;
+    message: string;
   };
   routing: {
     mode: string;
@@ -76,7 +105,10 @@ export interface SettingsStatus {
     telemetry_enabled: boolean;
     trace_logging_enabled: boolean;
     audit_sink_status: string;
-    audit_index: string;
+    telemetry_sink: string;
+    database_telemetry_enabled: boolean;
+    splunk_write_enabled: boolean;
+    splunk_sink_status: string;
     recent_trace: string | null;
     planner_deterministic_mismatch_count: number;
     fallback_count: number;
