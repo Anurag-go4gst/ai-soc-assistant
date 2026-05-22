@@ -1,8 +1,9 @@
 services:
+  # Production access is through Nginx only. Direct ports are bound to localhost.
   backend:
     build: ./backend
     ports:
-      - "8010:8010"
+      - "127.0.0.1:8010:8010"
     env_file:
       - .env
     volumes:
@@ -13,7 +14,7 @@ services:
     image: node:22-alpine
     working_dir: /app
     ports:
-      - "3010:3010"
+      - "127.0.0.1:3010:3010"
     volumes:
       - ./frontend:/app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 3010"
@@ -21,7 +22,7 @@ services:
   postgres:
     image: postgres:16
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     environment:
       POSTGRES_DB: ai_soc_assistant
       POSTGRES_USER: ai_soc

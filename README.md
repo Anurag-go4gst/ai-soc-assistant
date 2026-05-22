@@ -20,18 +20,36 @@ docker compose build
 docker compose up -d
 ```
 
-Backend health:
+Local backend health:
 
 ```text
-http://SERVER_IP:8010/health
+http://127.0.0.1:8010/health
 ```
 
-Frontend:
+Development frontend:
 
 ```text
-http://SERVER_IP:3010
+http://127.0.0.1:3010
 ```
+
+## Internal Nginx Access
+
+Production-style access is through Nginx only. Docker ports for the backend, frontend dev server, and Postgres are bound to `127.0.0.1`.
+
+Internal URL:
+
+```text
+https://cisco-vai.vnudge.com
+```
+
+Local backend health check:
+
+```bash
+curl -s http://127.0.0.1:8010/health
+```
+
+Nginx serves the production frontend from `frontend/dist`, proxies `/api/` and `/health` to the local FastAPI backend, redirects HTTP to HTTPS, and protects the site with Basic Auth.
 
 ## Warning
 
-This is an internal development scaffold. Do not expose it publicly through nginx or SSL until authentication, authorization, data boundaries, and deployment hardening are implemented.
+This is an internal Experience Center scaffold. Public access is protected by Nginx Basic Auth; do not expose Docker service ports publicly.
