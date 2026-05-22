@@ -1,0 +1,56 @@
+{
+  "case_01_failed_login_spike_by_user": {
+    "description": "Expect svc_app to appear with exactly 184 failures.",
+    "row_assertions": [
+      {
+        "match": { "user": "svc_app" },
+        "expect": { "fail_count": 184 }
+      }
+    ],
+    "row_count_min": 1
+  },
+  "case_02_failed_logins_by_source_ip": {
+    "description": "Expect 10.1.2.55 to appear with exactly 327 failures.",
+    "row_assertions": [
+      {
+        "match": { "src": "10.1.2.55" },
+        "expect": { "fail_count": 327 }
+      }
+    ],
+    "row_count_min": 1
+  },
+  "case_03_success_after_failures": {
+    "description": "Expect alice from 10.1.2.77 with 12 prior failures and 1 success.",
+    "row_assertions": [
+      {
+        "match": { "user": "alice", "src": "10.1.2.77" },
+        "expect": { "fail_count": 12, "success_count": 1 }
+      }
+    ],
+    "row_count_min": 1
+  },
+  "case_04_top_users_by_volume": {
+    "description": "Top users by event count, descending order, exact counts.",
+    "ordered_rows": [
+      { "user": "top1", "count": 60 },
+      { "user": "top2", "count": 45 },
+      { "user": "top3", "count": 30 },
+      { "user": "top4", "count": 22 },
+      { "user": "top5", "count": 10 }
+    ]
+  },
+  "case_05_account_lockouts_over_time": {
+    "description": "Total of 7 account_locked events across the hour.",
+    "total_count": 7
+  },
+  "case_06_logins_from_new_source_ips": {
+    "description": "Three successful logins from 203.0.113.42.",
+    "row_assertions": [
+      {
+        "match": { "src": "203.0.113.42" },
+        "expect": { "count": 3 }
+      }
+    ],
+    "row_count_min": 1
+  }
+}

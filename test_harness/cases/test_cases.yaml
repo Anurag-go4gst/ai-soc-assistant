@@ -1,0 +1,109 @@
+# Authentication / access use-case fixtures.
+#
+# `expected_spl_spec` does NOT require exact string match. It specifies the
+# clauses the generated SPL must contain. Order is not enforced; case is
+# normalized to lowercase before matching.
+#
+#   must_contain          — every token must appear (substring match)
+#   must_contain_any      — at least one of these tokens must appear
+#   forbidden             — none of these tokens may appear
+#
+# `expected_skill` is drawn from the closed enum:
+#   alert_summary | spl_generation | attack_discovery | knowledge_recall
+
+cases:
+
+  - id: case_01_failed_login_spike_by_user
+    query: >-
+      In the last hour, which users have abnormally high failed login counts?
+    expected_skill: attack_discovery
+    fixture_ref: [baseline, brute_force_user]
+    expected_spl_spec:
+      must_contain:
+        - "index=pgcil_soc"
+        - "sourcetype=pgcil:auth"
+        - "action=failure"
+        - "stats"
+        - "by user"
+      must_contain_any:
+        - "earliest="
+        - "earliest_time"
+      forbidden:
+        - "| delete"
+        - "outputlookup"
+        - "sendemail"
+
+  - id: case_02_failed_logins_by_source_ip
+    query: >-
+      Top source IPs by failed login count in the last hour.
+    expected_skill: attack_discovery
+    fixture_ref: [baseline, brute_force_src]
+    expected_spl_spec:
+      must_contain:
+        - "index=pgcil_soc"
+        - "action=failure"
+        - "stats"
+        - "by src"
+      must_contain_any:
+        - "earliest="
+        - "earliest_time"
+      forbidden: ["| delete", "outputlookup"]
+
+  - id: case_03_success_after_failures
+    query: >-
+      Find successful logins that followed multiple failed login attempts
+      from the same source in the last hour.
+    expected_skill: attack_discovery
+    fixture_ref: [baseline, success_after_failures]
+    expected_spl_spec:
+      must_contain:
+        - "index=pgcil_soc"
+        - "user"
+        - "src"
+      must_contain_any:
+        - "transaction"
+        - "streamstats"
+        - "eventstats"
+      forbidden: ["| delete", "outputlookup"]
+
+  - id: case_04_top_users_by_volume
+    query: >-
+      Which users had the most authentication events in the last hour?
+    expected_skill: knowledge_recall
+    fixture_ref: [top_users_volume]
+    expected_spl_spec:
+      must_contain:
+        - "index=pgcil_soc"
+        - "stats"
+        - "by user"
+        - "sort"
+      must_contain_any:
+        - "earliest="
+        - "earliest_time"
+      forbidden: ["| delete", "outputlookup"]
+
+  - id: case_05_account_lockouts_over_time
+    query: >-
+      Show account lockouts over time in the last hour.
+    expected_skill: alert_summary
+    fixture_ref: [account_lockouts]
+    expected_spl_spec:
+      must_contain:
+        - "index=pgcil_soc"
+        - "account_locked"
+      must_contain_any:
+        - "timechart"
+        - "bin _time"
+      forbidden: ["| delete", "outputlookup"]
+
+  - id: case_06_logins_from_new_source_ips
+    query: >-
+      Show successful logins from new or unusual source IPs in the last hour.
+    expected_skill: attack_discovery
+    fixture_ref: [baseline, new_source_ips]
+    expected_spl_spec:
+      must_contain:
+        - "index=pgcil_soc"
+        - "action=success"
+        - "src"
+      forbidden: ["| delete", "outputlookup"]

@@ -1,0 +1,118 @@
+# Synthetic CIM Authentication fixtures.
+#
+# Every dataset plants a deterministic, exact-count anomaly against a known
+# baseline so the test harness can assert exact values. Time is anchored to
+# `base_timestamp` (overridable from the CLI) so reruns are reproducible.
+#
+# CIM Authentication fields used: _time, action, user, src, dest, app,
+# signature (used as lockout reason).
+
+defaults:
+  index: pgcil_soc
+  sourcetype: pgcil:auth
+  source: ai_soc_test_harness
+  host: synth-auth
+  app: corp_sso
+  dest: app01
+
+# Reference timestamp; ISO 8601 UTC. CLI flag --base-timestamp overrides.
+base_timestamp: "2026-05-22T10:00:00Z"
+
+# Single rolling window all events fall into. Width is also the test window.
+window_minutes: 60
+
+datasets:
+
+  # Quiet baseline — noise floor for spike / anomaly cases.
+  baseline:
+    description: >-
+      Quiet baseline of normal successful logins. 50 events spread evenly
+      across the window from 5 known users on 3 known internal IPs.
+    blocks:
+      - count: 50
+        action: success
+        users: [alice, bob, carol, dave, erin]
+        src_pool: [10.1.5.10, 10.1.5.11, 10.1.5.12]
+        time_distribution: even
+
+  # Case 01 plant: 184 failures vs user svc_app from one IP.
+  brute_force_user:
+    description: >-
+      184 deterministic failures targeting user=svc_app from src=10.1.2.30.
+    blocks:
+      - count: 184
+        action: failure
+        user: svc_app
+        src: 10.1.2.30
+        signature: invalid_credentials
+        time_distribution: even
+
+  # Case 02 plant: 327 failures from a single source IP across many users.
+  brute_force_src:
+    description: >-
+      327 failures from src=10.1.2.55 spraying 18 distinct users.
+    blocks:
+      - count: 327
+        action: failure
+        src: 10.1.2.55
+        user_pool_prefix: u
+        user_pool_size: 18
+        signature: invalid_credentials
+        time_distribution: even
+
+  # Case 03 plant: 12 failures followed by 1 success — alice from 10.1.2.77.
+  success_after_failures:
+    description: >-
+      Compromise-pattern plant: 12 failures then 1 success, user=alice,
+      src=10.1.2.77. Success is placed 50 minutes after the window start.
+    blocks:
+      - count: 12
+        action: failure
+        user: alice
+        src: 10.1.2.77
+        signature: invalid_credentials
+        start_offset_minutes: 0
+        end_offset_minutes: 45
+        time_distribution: even
+      - count: 1
+        action: success
+        user: alice
+        src: 10.1.2.77
+        start_offset_minutes: 50
+        end_offset_minutes: 50
+        time_distribution: even
+
+  # Case 04 plant: deterministic top-N per-user counts.
+  top_users_volume:
+    description: >-
+      Five users with deterministic descending event counts.
+    blocks:
+      - { count: 60, action: success, user: top1, time_distribution: even }
+      - { count: 45, action: success, user: top2, time_distribution: even }
+      - { count: 30, action: success, user: top3, time_distribution: even }
+      - { count: 22, action: success, user: top4, time_distribution: even }
+      - { count: 10, action: success, user: top5, time_distribution: even }
+
+  # Case 05 plant: exactly 7 account-lockout events, spread across the hour.
+  account_lockouts:
+    description: >-
+      7 account_locked failures from 7 distinct users, one every ~8 minutes.
+    blocks:
+      - count: 7
+        action: failure
+        signature: account_locked
+        user_pool_prefix: lk
+        user_pool_size: 7
+        src_pool: [10.1.5.10]
+        time_distribution: even
+
+  # Case 06 plant: 3 successes from an external/new source IP.
+  new_source_ips:
+    description: >-
+      3 successful logins from a previously-unseen external IP 203.0.113.42.
+    blocks:
+      - count: 3
+        action: success
+        user: new_user
+        src: 203.0.113.42
+        time_distribution: even
