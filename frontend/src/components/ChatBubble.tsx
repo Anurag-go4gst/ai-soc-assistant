@@ -8,6 +8,13 @@ export interface SocChatMessage {
   content: string;
   traceId?: string;
   note?: string;
+  routing?: {
+    selectedSkill?: string | null;
+    confidence?: number | null;
+    toolPlan?: string[] | null;
+    disagreement?: boolean | null;
+    disagreementReason?: string | null;
+  };
 }
 
 interface ChatBubbleProps {
@@ -42,6 +49,23 @@ export function ChatBubble({ message }: ChatBubbleProps) {
           <div className="flex flex-wrap gap-2">
             {message.traceId ? <Badge variant="secondary">trace {message.traceId.slice(0, 8)}</Badge> : null}
             {message.note ? <Badge>{message.note}</Badge> : null}
+          </div>
+        ) : null}
+        {!isUser && message.routing?.selectedSkill ? (
+          <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">{message.routing.selectedSkill}</Badge>
+              {typeof message.routing.confidence === 'number' ? (
+                <Badge>{message.routing.confidence.toFixed(2)}</Badge>
+              ) : null}
+              <Badge variant={message.routing.disagreement ? 'warning' : 'success'}>
+                {message.routing.disagreement ? 'compare: disagree' : 'compare: agree'}
+              </Badge>
+            </div>
+            {message.routing.toolPlan?.length ? (
+              <p className="mt-2 font-mono text-[0.7rem] text-slate-400">{message.routing.toolPlan.join(' → ')}</p>
+            ) : null}
+            <p className="mt-2 text-slate-400">Routing complete. SPL/MCP execution is not enabled yet.</p>
           </div>
         ) : null}
       </div>

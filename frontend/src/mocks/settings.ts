@@ -69,6 +69,13 @@ export const MOCK_SETTINGS_STATUS: SettingsStatus = {
   },
   routing: {
     mode: 'llm_primary',
+    deterministic_router_enabled: true,
+    llm_shadow_router_enabled: true,
+    compare_logging_enabled: true,
+    disagreement_logging_sink: 'db',
+    db_disagreement_logging_enabled: true,
+    chat_query_endpoint_wired: true,
+    deterministic_threshold: 0.7,
     llm_planner_enabled: true,
     shadow_router_enabled: true,
     compare_node_enabled: true,

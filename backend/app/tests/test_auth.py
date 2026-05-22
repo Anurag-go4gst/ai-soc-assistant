@@ -64,7 +64,18 @@ def test_chat_rejects_unauthenticated_request(monkeypatch) -> None:
 def test_chat_allows_authenticated_request(monkeypatch) -> None:
     _configure_auth(monkeypatch)
     user = require_auth({"username": "analyst", "role": "demo_analyst"})
+    monkeypatch.setattr("app.api.routes_chat.route_skill", _fake_route_skill)
 
     response = chat(ChatRequest(message="test"))
 
-    assert response.note == "LangGraph orchestration is not implemented yet."
+    assert response.note == "Routing only; no SPL generation, MCP execution, RAG retrieval, or synthesis was run."
+    assert response.selected_skill == "knowledge_recall"
+
+
+def _fake_route_skill(query: str, trace_id: str) -> dict:
+    return {
+        "skill": "knowledge_recall",
+        "tool_plan": ["needs_clarification"],
+        "confidence": 0.42,
+        "comparison": {"match": True, "skill_match": True, "tool_plan_match": True},
+    }

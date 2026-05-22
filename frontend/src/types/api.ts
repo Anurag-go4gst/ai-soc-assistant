@@ -13,6 +13,13 @@ export interface PlaceholderResponse {
   trace_id: string;
   message: string;
   note: string;
+  user_query?: string | null;
+  selected_skill?: string | null;
+  tool_plan?: string[] | null;
+  confidence?: number | null;
+  routing_mode?: string | null;
+  disagreement?: boolean | null;
+  disagreement_reason?: string | null;
 }
 
 export interface SettingsStatus {
@@ -94,6 +101,8 @@ export interface SettingsStatus {
     llm_shadow_router_enabled: boolean;
     compare_logging_enabled: boolean;
     disagreement_logging_sink: string;
+    db_disagreement_logging_enabled: boolean;
+    chat_query_endpoint_wired: boolean;
     deterministic_threshold: number;
     llm_planner_enabled: boolean;
     shadow_router_enabled: boolean;

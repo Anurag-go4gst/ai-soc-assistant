@@ -16,9 +16,19 @@ class MockLlmConnector:
         query = str(payload.get("query") or payload.get("user_query") or "").lower()
         if "spl" in query:
             skill = "spl_generation"
-        elif "attack" in query or "failed" in query or "brute" in query:
+        elif (
+            "attack" in query
+            or "failed" in query
+            or "failure" in query
+            or "brute" in query
+            or "successful login" in query
+            or "successful logins" in query
+            or "unusual source" in query
+            or "new source" in query
+            or "abnormally high" in query
+        ):
             skill = "attack_discovery"
-        elif "alert" in query or "lockout" in query:
+        elif "alert" in query or "lockout" in query or "lockouts" in query or "locked" in query:
             skill = "alert_summary"
         else:
             skill = "knowledge_recall"

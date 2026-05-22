@@ -125,6 +125,8 @@ def settings_status() -> dict:
             "llm_shadow_router_enabled": settings.routing_llm_shadow_enabled,
             "compare_logging_enabled": settings.routing_compare_logging_enabled,
             "disagreement_logging_sink": "db",
+            "db_disagreement_logging_enabled": db_telemetry_enabled and settings.routing_compare_logging_enabled,
+            "chat_query_endpoint_wired": True,
             "deterministic_threshold": settings.routing_deterministic_threshold,
             "llm_planner_enabled": True,
             "shadow_router_enabled": True,

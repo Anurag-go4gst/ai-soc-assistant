@@ -107,16 +107,22 @@ function TraceSummaryStrip({ trace }: { trace: PlaceholderResponse | null }) {
         <div className="flex flex-wrap items-center gap-3 text-slate-400">
           <span className="soc-eyebrow">Trace</span>
           <span>
-            Route: <span className="font-medium text-slate-200">{trace ? 'llm_primary' : '—'}</span>
+            Route: <span className="font-medium text-slate-200">{trace?.selected_skill ?? '—'}</span>
           </span>
           <span>
-            Planner: <span className="font-medium text-slate-200">{trace ? '0.82' : '—'}</span>
+            Confidence:{' '}
+            <span className="font-medium text-slate-200">
+              {typeof trace?.confidence === 'number' ? trace.confidence.toFixed(2) : '—'}
+            </span>
           </span>
           <span>
-            Deterministic: <span className="font-medium text-slate-200">{trace ? '0.74' : '—'}</span>
+            Plan: <span className="font-medium text-slate-200">{trace?.tool_plan?.join(' → ') ?? '—'}</span>
           </span>
           <span>
-            Compare: <span className="font-medium text-slate-200">{trace ? 'agree' : '—'}</span>
+            Compare:{' '}
+            <span className="font-medium text-slate-200">
+              {typeof trace?.disagreement === 'boolean' ? (trace.disagreement ? 'disagree' : 'agree') : '—'}
+            </span>
           </span>
         </div>
         <Link

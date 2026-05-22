@@ -18,6 +18,13 @@ export function RoutingSettingsPanel({ status }: { status: SettingsStatus['routi
       <CardContent className="space-y-3">
         <div>
           <SettingRow label="Routing mode" value={status.mode} mono />
+          <SettingRow label="Deterministic router" value={<BoolPill value={status.deterministic_router_enabled} />} />
+          <SettingRow label="LLM shadow router" value={<BoolPill value={status.llm_shadow_router_enabled} />} />
+          <SettingRow label="Compare logging" value={<BoolPill value={status.compare_logging_enabled} />} />
+          <SettingRow label="Disagreement sink" value={status.disagreement_logging_sink} mono />
+          <SettingRow label="DB disagreement logging" value={<BoolPill value={status.db_disagreement_logging_enabled} />} />
+          <SettingRow label="Chat endpoint wired" value={<BoolPill value={status.chat_query_endpoint_wired} />} />
+          <SettingRow label="Deterministic threshold" value={status.deterministic_threshold} mono />
           <SettingRow label="LLM planner enabled" value={<BoolPill value={status.llm_planner_enabled} />} />
           <SettingRow label="Shadow router" value={<BoolPill value={status.shadow_router_enabled} />} />
           <SettingRow label="Compare node" value={<BoolPill value={status.compare_node_enabled} />} />
