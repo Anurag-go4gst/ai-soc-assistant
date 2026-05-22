@@ -1,8 +1,7 @@
-import type { AuthResponse, HealthResponse } from '../types/api';
+import { getApiBaseUrl } from '@/lib/runtimeMode';
+import type { AuthResponse, HealthResponse, PlaceholderResponse } from '../types/api';
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ??
-  (window.location.port === '3010' ? 'http://localhost:8010/api' : '/api');
+const API_BASE_URL = getApiBaseUrl();
 
 export async function getHealth(): Promise<HealthResponse> {
   const response = await fetch(`${API_BASE_URL}/health`, { credentials: 'include' });
@@ -47,4 +46,34 @@ export async function logout(): Promise<void> {
   if (!response.ok) {
     throw new Error(`Logout failed: ${response.status}`);
   }
+}
+
+export async function sendChatMessage(message: string): Promise<PlaceholderResponse> {
+  const response = await fetch(`${API_BASE_URL}/chat`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message }),
+  });
+  if (!response.ok) {
+    throw new Error(`Chat request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function investigateAlert(alertId: string, summary?: string): Promise<PlaceholderResponse> {
+  const response = await fetch(`${API_BASE_URL}/investigate`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ alert_id: alertId, summary }),
+  });
+  if (!response.ok) {
+    throw new Error(`Investigation request failed: ${response.status}`);
+  }
+  return response.json();
 }

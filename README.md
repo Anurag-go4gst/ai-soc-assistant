@@ -7,7 +7,7 @@ This project is intended to become a production-convertible assistant using Fast
 ## Architecture Summary
 
 - FastAPI backend exposes health, chat, investigation, and scenario placeholder routes.
-- React + TypeScript frontend provides a structured SOC cockpit.
+- React + TypeScript frontend provides a structured SOC cockpit using Tailwind CSS, shadcn-style local UI primitives, Radix patterns, and lucide-react icons.
 - Splunk MCP, LangGraph, RAG, GraphRAG, LLM routing, and production safeguards are represented by clean placeholder interfaces only.
 - PostgreSQL is included in Docker Compose for later persistence work.
 
@@ -49,6 +49,8 @@ curl -s http://127.0.0.1:8010/health
 ```
 
 Nginx serves the production frontend from `frontend/dist`, proxies `/api/` and `/health` to the local FastAPI backend, and redirects HTTP to HTTPS. App-level login is handled by the FastAPI backend using credentials from `.env`.
+
+The frontend visual system was adapted from the existing Support Buddy app as a read-only UI reference. No Support Buddy secrets, auth logic, HR data, ticket logic, or runtime configuration are used by this project.
 
 ## Warning
 

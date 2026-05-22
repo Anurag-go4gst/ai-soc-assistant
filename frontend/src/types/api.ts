@@ -8,3 +8,9 @@ export interface AuthResponse {
   username?: string | null;
   role?: string | null;
 }
+
+export interface PlaceholderResponse {
+  trace_id: string;
+  message: string;
+  note: string;
+}

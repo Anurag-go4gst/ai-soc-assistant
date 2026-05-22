@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 96%;
+    --card: 222 36% 10%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 36% 10%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 190 95% 48%;
+    --primary-foreground: 222 47% 7%;
+    --secondary: 221 25% 16%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 221 24% 15%;
+    --muted-foreground: 215 18% 68%;
+    --accent: 198 75% 17%;
+    --accent-foreground: 190 95% 84%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 28% 20%;
+    --input: 215 28% 22%;
+    --ring: 190 95% 48%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  code,
+  pre {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .soc-canvas {
+    background:
+      radial-gradient(circle at 12% 18%, rgba(34, 211, 238, 0.12), transparent 31%),
+      radial-gradient(circle at 82% 2%, rgba(59, 130, 246, 0.15), transparent 28%),
+      linear-gradient(135deg, #020617 0%, #08111f 48%, #111827 100%);
+  }
+
+  .soc-grid {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .soc-panel {
+    @apply border border-slate-800/90 bg-slate-950/70 shadow-glow backdrop-blur-xl;
+  }
+
+  .soc-topbar {
+    background: rgba(2, 6, 23, 0.78);
+    backdrop-filter: saturate(160%) blur(14px);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(34, 211, 238, 0.42) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(34, 211, 238, 0.42);
+    border-radius: 999px;
+  }
+}

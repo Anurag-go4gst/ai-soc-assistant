@@ -28,6 +28,18 @@ APP_AUTH_SESSION_SECRET=<secret>
 
 Do not commit `.env`, passwords, or session secrets. The backend and Postgres remain localhost-only.
 
+## Frontend UI Foundation
+
+The frontend uses Tailwind CSS with local shadcn-style components, Radix primitives, and lucide-react icons. Support Buddy at `/var/www/support-buddy` was used only as a read-only UI/UX reference for layout, cards, chat patterns, and shell structure. AI SOC does not import from Support Buddy at runtime and does not copy its secrets, localStorage auth, HR/customer data, ticket logic, or deployment configuration.
+
+Current UI surfaces:
+
+- Public app-level login page.
+- Authenticated SOC cockpit shell.
+- Scenario rail with brute-force, DB pool, and OT anomaly examples.
+- Investigation chat workspace with starter prompts.
+- Evidence, SOP, graph context, MITRE, approval, SPL trace, and routing debug panels.
+
 ## SSL Status
 
 SSL is configured with Certbot for `cisco-vai.vnudge.com`. HTTP redirects to HTTPS.
