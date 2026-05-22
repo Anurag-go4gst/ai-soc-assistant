@@ -60,7 +60,7 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       boxShadow: {
-        glow: '0 0 0 1px rgba(34,211,238,0.22), 0 18px 60px -28px rgba(34,211,238,0.45)',
+        glow: '0 0 0 1px rgba(34,211,238,0.10), 0 14px 40px -32px rgba(34,211,238,0.30)',
       },
       keyframes: {
         'accordion-down': {

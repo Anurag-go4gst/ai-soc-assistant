@@ -1,55 +1,66 @@
-import { Activity, Bug, DatabaseZap, FileSearch, LayoutDashboard, MessageSquareText, Network } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import {
+  Activity,
+  Bug,
+  DatabaseZap,
+  FileSearch,
+  LayoutDashboard,
+  MessageSquareText,
+  Network,
+  Settings as SettingsIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type SocSection = 'cockpit' | 'chat' | 'investigations' | 'scenarios' | 'knowledge' | 'debug';
+const navItems = [
+  { to: '/cockpit', label: 'Cockpit', icon: LayoutDashboard },
+  { to: '/chat', label: 'Chat', icon: MessageSquareText },
+  { to: '/investigations', label: 'Investigations', icon: FileSearch },
+  { to: '/scenarios', label: 'Scenarios', icon: Activity },
+  { to: '/knowledge', label: 'Knowledge', icon: DatabaseZap },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon },
+  { to: '/debug', label: 'Debug', icon: Bug },
+] as const;
 
-const navItems: Array<{ id: SocSection; label: string; icon: typeof LayoutDashboard }> = [
-  { id: 'cockpit', label: 'Cockpit', icon: LayoutDashboard },
-  { id: 'chat', label: 'Chat', icon: MessageSquareText },
-  { id: 'investigations', label: 'Investigations', icon: FileSearch },
-  { id: 'scenarios', label: 'Scenarios', icon: Activity },
-  { id: 'knowledge', label: 'Knowledge', icon: DatabaseZap },
-  { id: 'debug', label: 'Debug', icon: Bug },
-];
-
-interface SideNavProps {
-  active: SocSection;
-  onChange: (section: SocSection) => void;
-}
-
-export function SideNav({ active, onChange }: SideNavProps) {
+export function SideNav() {
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-slate-800/90 bg-slate-950/80 p-4 backdrop-blur-xl lg:block">
+    <aside
+      className="hidden shrink-0 border-r border-slate-800/80 bg-slate-950/85 px-3 py-4 backdrop-blur-md lg:flex lg:flex-col"
+      style={{ width: 'var(--shell-sidebar)' }}
+    >
       <div className="mb-6 flex items-center gap-3 px-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400 text-slate-950 shadow-glow">
-          <Network className="h-5 w-5" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500 text-slate-950">
+          <Network className="h-4 w-4" />
         </div>
-        <div>
-          <p className="text-sm font-bold">AI SOC Assistant</p>
-          <p className="text-xs text-slate-500">Splunk-ready scaffold</p>
+        <div className="leading-tight">
+          <p className="text-sm font-semibold">V.AI SOC</p>
+          <p className="text-[0.65rem] text-slate-500">Experience Center</p>
         </div>
       </div>
-      <nav className="space-y-1">
+      <nav className="flex flex-col gap-0.5">
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onChange(item.id)}
-              className={cn(
-                'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition',
-                active === item.id
-                  ? 'border border-cyan-400/30 bg-cyan-400/10 text-cyan-100 shadow-sm'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100',
-              )}
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                  isActive
+                    ? 'border border-cyan-500/25 bg-cyan-500/8 text-cyan-100'
+                    : 'text-slate-400 hover:bg-slate-900/70 hover:text-slate-100',
+                )
+              }
             >
               <Icon className="h-4 w-4" />
               {item.label}
-            </button>
+            </NavLink>
           );
         })}
       </nav>
+      <p className="mt-auto px-2 pt-4 text-[0.65rem] text-slate-600">
+        Splunk-ready scaffold · mock mode
+      </p>
     </aside>
   );
 }

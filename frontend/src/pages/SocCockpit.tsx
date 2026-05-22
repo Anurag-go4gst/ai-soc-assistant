@@ -1,162 +1,132 @@
-import { useEffect, useState } from 'react';
-import { Activity, FileSearch, MessageSquareText, ShieldCheck } from 'lucide-react';
-import { getHealth } from '@/api/client';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Activity, Bug, ShieldCheck } from 'lucide-react';
 import { AlertList } from '@/components/AlertList';
-import { AppShell } from '@/components/AppShell';
 import { ApprovalPanel } from '@/components/ApprovalPanel';
 import { ChatPanel } from '@/components/ChatPanel';
 import { EvidencePanel } from '@/components/EvidencePanel';
 import { GraphContextPanel } from '@/components/GraphContextPanel';
 import { SopReferencePanel } from '@/components/SopReferencePanel';
-import { SplTracePanel } from '@/components/SplTracePanel';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CompareResultPanel } from '@/components/debug/CompareResultPanel';
-import { DeterministicRouterPanel } from '@/components/debug/DeterministicRouterPanel';
-import { NodeTimeline } from '@/components/debug/NodeTimeline';
-import { PlannerDecisionPanel } from '@/components/debug/PlannerDecisionPanel';
-import { RouteAdjudicatorPanel } from '@/components/debug/RouteAdjudicatorPanel';
-import type { SocSection } from '@/components/SideNav';
-import type { HealthResponse, PlaceholderResponse } from '@/types/api';
+import type { PlaceholderResponse } from '@/types/api';
 
-interface SocCockpitProps {
-  username: string;
-  onLogout: () => Promise<void>;
-}
-
-export function SocCockpit({ username, onLogout }: SocCockpitProps) {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<SocSection>('cockpit');
+export function SocCockpit() {
   const [lastTrace, setLastTrace] = useState<PlaceholderResponse | null>(null);
 
-  useEffect(() => {
-    getHealth()
-      .then(setHealth)
-      .catch((err: Error) => setError(err.message));
-  }, []);
-
   return (
-    <AppShell
-      activeSection={activeSection}
-      health={health}
-      healthError={error}
-      username={username}
-      onLogout={onLogout}
-      onSectionChange={setActiveSection}
-    >
-      <div className="space-y-5 p-4 lg:p-6">
-        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)_24rem]">
-          <div className="space-y-4">
-            <AlertList />
-            <Card className="soc-panel">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-cyan-300" />
-                  Scenario State
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-300">
-                <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
-                  <Badge variant="destructive">Critical</Badge>
-                  <p className="mt-2">Selected: brute-force login spike from VPN segment.</p>
+    <div className="grid h-full min-h-0 grid-cols-1 gap-4 p-4 lg:grid-cols-[19rem_minmax(0,1fr)_22rem] lg:p-5">
+      {/* Left column: alerts + scenario state */}
+      <ScrollArea className="hidden h-full lg:block">
+        <div className="space-y-4 pr-2">
+          <AlertList />
+          <Card className="soc-panel">
+            <CardHeader className="py-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                <Activity className="h-4 w-4 text-cyan-400" />
+                Scenario State
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-slate-300">
+              <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
+                <Badge variant="destructive">Critical</Badge>
+                <p className="mt-2">Selected: brute-force login spike from VPN segment.</p>
+              </div>
+              {lastTrace ? (
+                <div className="rounded-md border border-cyan-500/25 bg-cyan-500/8 p-3">
+                  <Badge>Latest trace</Badge>
+                  <p className="mt-2 break-all font-mono text-[0.7rem] text-cyan-100">{lastTrace.trace_id}</p>
                 </div>
-                {lastTrace ? (
-                  <div className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 p-3">
-                    <Badge>Latest trace</Badge>
-                    <p className="mt-2 font-mono text-xs text-cyan-100">{lastTrace.trace_id}</p>
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
+      </ScrollArea>
 
-          <div className="min-w-0">
-            <Tabs value={activeSection} onValueChange={(value) => setActiveSection(value as SocSection)}>
-              <TabsList className="mb-4 flex w-full justify-start overflow-x-auto">
-                {[
-                  ['cockpit', 'Cockpit'],
-                  ['chat', 'Chat'],
-                  ['investigations', 'Investigations'],
-                  ['scenarios', 'Scenarios'],
-                  ['knowledge', 'Knowledge'],
-                  ['debug', 'Debug'],
-                ].map(([value, label]) => (
-                  <TabsTrigger key={value} value={value}>{label}</TabsTrigger>
-                ))}
-              </TabsList>
-
-              <TabsContent value="cockpit">
-                <ChatPanel onTrace={setLastTrace} />
-              </TabsContent>
-              <TabsContent value="chat">
-                <ChatPanel onTrace={setLastTrace} />
-              </TabsContent>
-              <TabsContent value="investigations">
-                <Card className="soc-panel">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><FileSearch className="h-4 w-4 text-cyan-300" /> Investigations</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-3 md:grid-cols-2">
-                    {['INV-0001 Brute-force triage', 'INV-0002 DB pool review', 'INV-0003 OT anomaly watch'].map((item) => (
-                      <div key={item} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
-                        <Badge variant="secondary">Draft</Badge>
-                        <p className="mt-3 font-semibold text-slate-100">{item}</p>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              <TabsContent value="scenarios">
-                <AlertList />
-              </TabsContent>
-              <TabsContent value="knowledge">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <SopReferencePanel />
-                  <GraphContextPanel />
-                </div>
-              </TabsContent>
-              <TabsContent value="debug">
-                <DebugGrid />
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          <div className="space-y-4">
-            <EvidencePanel />
-            <SopReferencePanel />
-            <GraphContextPanel />
-            <Card className="soc-panel">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-cyan-300" /> MITRE Mapping</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Badge variant="warning">T1110 Brute Force</Badge>
-                <Badge variant="secondary">T1078 Valid Accounts</Badge>
-              </CardContent>
-            </Card>
-            <ApprovalPanel />
-          </div>
-        </section>
-
-        <section className="grid gap-4 xl:grid-cols-[1.2fr_2fr]">
-          <SplTracePanel />
-          <DebugGrid />
-        </section>
+      {/* Center column: chat + trace summary */}
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        <div className="min-h-0 flex-1">
+          <ChatPanel onTrace={setLastTrace} compactHeader />
+        </div>
+        <TraceSummaryStrip trace={lastTrace} />
       </div>
-    </AppShell>
+
+      {/* Right column: context tabs */}
+      <Card className="soc-panel hidden h-full min-h-0 flex-col overflow-hidden lg:flex">
+        <Tabs defaultValue="evidence" className="flex h-full min-h-0 flex-col">
+          <TabsList className="mx-3 mt-3 justify-start overflow-x-auto">
+            <TabsTrigger value="evidence">Evidence</TabsTrigger>
+            <TabsTrigger value="sop">SOP</TabsTrigger>
+            <TabsTrigger value="graph">Graph</TabsTrigger>
+            <TabsTrigger value="mitre">MITRE</TabsTrigger>
+            <TabsTrigger value="approval">Approval</TabsTrigger>
+          </TabsList>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="space-y-3 p-3">
+                <TabsContent value="evidence" className="m-0">
+                  <EvidencePanel />
+                </TabsContent>
+                <TabsContent value="sop" className="m-0">
+                  <SopReferencePanel />
+                </TabsContent>
+                <TabsContent value="graph" className="m-0">
+                  <GraphContextPanel />
+                </TabsContent>
+                <TabsContent value="mitre" className="m-0">
+                  <Card className="soc-panel">
+                    <CardHeader className="py-3">
+                      <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                        <ShieldCheck className="h-4 w-4 text-cyan-400" /> MITRE Mapping
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-wrap gap-2">
+                      <Badge variant="warning">T1110 Brute Force</Badge>
+                      <Badge variant="secondary">T1078 Valid Accounts</Badge>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                <TabsContent value="approval" className="m-0">
+                  <ApprovalPanel />
+                </TabsContent>
+              </div>
+            </ScrollArea>
+          </div>
+        </Tabs>
+      </Card>
+    </div>
   );
 }
 
-function DebugGrid() {
+function TraceSummaryStrip({ trace }: { trace: PlaceholderResponse | null }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-      <PlannerDecisionPanel />
-      <DeterministicRouterPanel />
-      <CompareResultPanel />
-      <RouteAdjudicatorPanel />
-      <NodeTimeline />
-    </div>
+    <Card className="soc-panel shrink-0">
+      <CardContent className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs">
+        <div className="flex flex-wrap items-center gap-3 text-slate-400">
+          <span className="soc-eyebrow">Trace</span>
+          <span>
+            Route: <span className="font-medium text-slate-200">{trace ? 'llm_primary' : '—'}</span>
+          </span>
+          <span>
+            Planner: <span className="font-medium text-slate-200">{trace ? '0.82' : '—'}</span>
+          </span>
+          <span>
+            Deterministic: <span className="font-medium text-slate-200">{trace ? '0.74' : '—'}</span>
+          </span>
+          <span>
+            Compare: <span className="font-medium text-slate-200">{trace ? 'agree' : '—'}</span>
+          </span>
+        </div>
+        <Link
+          to="/debug"
+          className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-900/70 px-2.5 py-1 font-medium text-slate-200 hover:border-cyan-500/50 hover:text-cyan-100"
+        >
+          <Bug className="h-3.5 w-3.5" />
+          Open Debug
+        </Link>
+      </CardContent>
+    </Card>
   );
 }

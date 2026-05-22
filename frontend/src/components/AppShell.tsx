@@ -1,36 +1,24 @@
 import { ReactNode } from 'react';
-import { SideNav, type SocSection } from './SideNav';
+import { SideNav } from './SideNav';
 import { TopBar } from './TopBar';
 import type { HealthResponse } from '@/types/api';
 
 interface AppShellProps {
-  activeSection: SocSection;
   children: ReactNode;
   health: HealthResponse | null;
   healthError: string | null;
   username: string;
   onLogout: () => Promise<void>;
-  onSectionChange: (section: SocSection) => void;
 }
 
-export function AppShell({
-  activeSection,
-  children,
-  health,
-  healthError,
-  username,
-  onLogout,
-  onSectionChange,
-}: AppShellProps) {
+export function AppShell({ children, health, healthError, username, onLogout }: AppShellProps) {
   return (
-    <main className="soc-canvas soc-grid min-h-screen text-slate-100">
-      <div className="flex min-h-screen">
-        <SideNav active={activeSection} onChange={onSectionChange} />
-        <div className="min-w-0 flex-1">
-          <TopBar username={username} health={health} healthError={healthError} onLogout={onLogout} />
-          {children}
-        </div>
+    <div className="soc-canvas soc-grid flex h-screen overflow-hidden text-slate-100">
+      <SideNav />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar username={username} health={health} healthError={healthError} onLogout={onLogout} />
+        <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
       </div>
-    </main>
+    </div>
   );
 }

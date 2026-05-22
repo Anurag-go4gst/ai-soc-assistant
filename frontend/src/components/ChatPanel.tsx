@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { sendChatMessage } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,21 +9,29 @@ import { StarterPrompts } from './StarterPrompts';
 import type { PlaceholderResponse } from '@/types/api';
 
 interface ChatPanelProps {
-  onTrace: (response: PlaceholderResponse) => void;
+  onTrace?: (response: PlaceholderResponse) => void;
+  title?: string;
+  compactHeader?: boolean;
 }
 
-export function ChatPanel({ onTrace }: ChatPanelProps) {
+export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactHeader = false }: ChatPanelProps) {
   const welcome = useMemo<SocChatMessage>(
     () => ({
       id: 'welcome',
       role: 'assistant',
-      content: 'Hi Anurag. I am V.AI SOC. Choose a starter prompt or ask for triage, SPL, MITRE mapping, or investigation notes.',
+      content:
+        'Hi Anurag. I am V.AI SOC. Choose a starter prompt or ask for triage, SPL, MITRE mapping, or investigation notes.',
       note: 'LangGraph placeholder',
     }),
     [],
   );
   const [messages, setMessages] = useState<SocChatMessage[]>([welcome]);
   const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, loading]);
 
   const handleSend = async (message: string) => {
     const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: message };
@@ -32,7 +40,7 @@ export function ChatPanel({ onTrace }: ChatPanelProps) {
 
     try {
       const response = await sendChatMessage(message);
-      onTrace(response);
+      onTrace?.(response);
       setMessages((current) => [
         ...current,
         {
@@ -51,20 +59,23 @@ export function ChatPanel({ onTrace }: ChatPanelProps) {
   };
 
   return (
-    <Card className="soc-panel flex min-h-[640px] flex-col overflow-hidden">
-      <CardHeader className="border-b border-slate-800">
-        <CardTitle>Investigation Workspace</CardTitle>
+    <Card className="soc-panel flex h-full min-h-0 flex-col overflow-hidden">
+      <CardHeader className={compactHeader ? 'border-b border-slate-800/70 py-3' : 'border-b border-slate-800/70'}>
+        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
         <StarterPrompts disabled={loading} onPick={handleSend} />
       </CardHeader>
       <CardContent className="min-h-0 flex-1 p-0">
-        <ScrollArea className="h-[460px] p-5">
-          <div className="space-y-5">
+        <ScrollArea className="h-full">
+          <div className="space-y-4 px-5 py-4">
             {messages.map((message) => (
               <ChatBubble key={message.id} message={message} />
             ))}
             {loading ? (
-              <ChatBubble message={{ id: 'typing', role: 'assistant', content: 'Preparing governed placeholder response...' }} />
+              <ChatBubble
+                message={{ id: 'typing', role: 'assistant', content: 'Preparing governed placeholder response…' }}
+              />
             ) : null}
+            <div ref={bottomRef} />
           </div>
         </ScrollArea>
       </CardContent>
