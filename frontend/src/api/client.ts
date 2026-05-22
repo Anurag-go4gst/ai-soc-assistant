@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from '@/lib/runtimeMode';
-import type { AuthResponse, HealthResponse, PlaceholderResponse } from '../types/api';
+import type { AuthResponse, HealthResponse, PlaceholderResponse, SettingsStatus } from '../types/api';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -74,6 +74,14 @@ export async function investigateAlert(alertId: string, summary?: string): Promi
   });
   if (!response.ok) {
     throw new Error(`Investigation request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getSettingsStatus(): Promise<SettingsStatus> {
+  const response = await fetch(`${API_BASE_URL}/settings/status`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`Settings status failed: ${response.status}`);
   }
   return response.json();
 }

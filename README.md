@@ -52,6 +52,33 @@ Nginx serves the production frontend from `frontend/dist`, proxies `/api/` and `
 
 The frontend visual system was adapted from the existing Support Buddy app as a read-only UI reference. No Support Buddy secrets, auth logic, HR data, ticket logic, or runtime configuration are used by this project.
 
+## UI Pages
+
+The React app now ships with these top-level routes (left sidebar):
+
+- **Cockpit** — 3-column investigation workspace (alerts/scenario, chat, context tabs)
+- **Chat** — focused chat workspace optimized for 100% browser zoom
+- **Investigations** — mock case list (persistence comes later)
+- **Scenarios** — demo scenario library
+- **Knowledge** — read-only SOPs and graph context
+- **Settings** — non-secret configuration surfaces (see below)
+- **Debug** — planner / router / compare traces, SPL trace, raw mock JSON
+
+Trace summary cards in Cockpit link to **Debug**; the full developer surface lives there, not inside Cockpit.
+
+## Settings Surfaces
+
+`Settings` exposes read-only status for:
+
+- MCP (Splunk MCP base URL / token configured booleans, allowed tools, indexes, sourcetypes)
+- RAG (knowledge vault path, doc counts, vector / BM25 / KG status)
+- LLM (Foundation-Sec Instruct + Reasoning endpoint configured booleans)
+- Routing (mode, planner/shadow/compare flags, confidence thresholds)
+- Safeguards (SPL validator, blocked commands, approval requirements)
+- Observability (telemetry/trace flags, planned audit index `ai_soc_audit`)
+
+The backing endpoint is `GET /api/settings/status` — it never returns tokens, passwords, or session secrets, only `*_configured: bool` flags. MCP / RAG / LLM are still mock-mode; live connectors land in a later phase.
+
 ## Warning
 
 This is an internal Experience Center scaffold. Do not expose Docker service ports publicly and do not commit auth credentials or session secrets.

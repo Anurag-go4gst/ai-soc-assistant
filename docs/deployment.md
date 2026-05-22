@@ -79,3 +79,19 @@ curl -i -X POST https://cisco-vai.vnudge.com/api/chat \
   -d '{"query":"test"}'
 certbot renew --dry-run
 ```
+
+## UI Routing
+
+The React app is now multi-page via `react-router-dom`. Top-level routes served from `frontend/dist`:
+
+- `/cockpit` (default redirect from `/`)
+- `/chat`, `/investigations`, `/scenarios`, `/knowledge`
+- `/settings`, `/debug`
+
+The Nginx config already serves `frontend/dist/index.html` as the SPA fallback, so client-side routes do not require additional Nginx changes.
+
+## Settings Status Endpoint
+
+`GET /api/settings/status` returns a JSON snapshot of MCP / RAG / LLM / Routing / Safeguards / Observability configuration. It is **read-only and non-secret**: tokens, passwords, and session secrets are never returned, only `*_configured: bool` flags. The Settings page in the SPA consumes this endpoint and falls back to a bundled mock if the backend is unreachable.
+
+MCP, RAG, and LLM are still in mock mode in this scaffold. The endpoint reflects that state.
