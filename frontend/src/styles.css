@@ -12,6 +12,11 @@ body {
   margin: 0;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .shell {
   min-height: 100vh;
   padding: 24px;
@@ -62,6 +67,69 @@ h2 {
 .status.warn {
   background: #fff6df;
   border-color: #e0bd61;
+}
+
+.userControls {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.secondaryButton {
+  background: #ffffff;
+  border: 1px solid #c7d1d8;
+  color: #172026;
+}
+
+.loginShell {
+  align-items: center;
+  background: #eef2f5;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.loginPanel {
+  background: #ffffff;
+  border: 1px solid #d8e0e5;
+  border-radius: 8px;
+  max-width: 440px;
+  padding: 28px;
+  width: 100%;
+}
+
+.loginCopy {
+  color: #62717b;
+  margin: 10px 0 24px;
+}
+
+.loginForm {
+  display: grid;
+  gap: 14px;
+}
+
+.loginForm label {
+  color: #33444d;
+  display: grid;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.loginForm input {
+  border: 1px solid #c7d1d8;
+  border-radius: 6px;
+  font: inherit;
+  padding: 11px 12px;
+}
+
+.formError {
+  background: #fdecec;
+  border-left: 4px solid #c92a2a;
+  border-radius: 6px;
+  color: #8f1d1d;
+  padding: 10px;
 }
 
 .grid,
@@ -167,6 +235,10 @@ code {
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .userControls {
+    width: 100%;
   }
 
   .grid,

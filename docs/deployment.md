@@ -15,7 +15,18 @@ Production access is intended to go through Nginx only. Docker service ports are
 
 ## Access Control
 
-The site is publicly reachable through Nginx and protected by Basic Auth. Do not commit the real Basic Auth password to git. The backend and Postgres remain localhost-only.
+The site is publicly reachable through Nginx and protected by app-level login in the FastAPI backend. Nginx Basic Auth has been removed from the AI SOC site config, so browsers load the React login page without a native Basic Auth popup.
+
+App auth credentials are read from `.env`:
+
+```text
+APP_AUTH_ENABLED=true
+APP_AUTH_USER=analyst
+APP_AUTH_PASSWORD=<secret>
+APP_AUTH_SESSION_SECRET=<secret>
+```
+
+Do not commit `.env`, passwords, or session secrets. The backend and Postgres remain localhost-only.
 
 ## SSL Status
 
@@ -50,7 +61,9 @@ curl -s http://127.0.0.1:8010/health
 ss -ltnp | grep -E '8010|3010|5434'
 curl -I http://cisco-vai.vnudge.com
 curl -I https://cisco-vai.vnudge.com
-curl -I -u demo:'<password>' https://cisco-vai.vnudge.com
-curl -s -u demo:'<password>' https://cisco-vai.vnudge.com/health
+curl -s https://cisco-vai.vnudge.com/health
+curl -i -X POST https://cisco-vai.vnudge.com/api/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"test"}'
 certbot renew --dry-run
 ```

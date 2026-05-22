@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     reasoning_enabled: bool = False
     routing_mode: str = "llm_primary"
     debug_trace_enabled: bool = True
+    app_auth_enabled: bool = True
+    app_auth_user: str = "analyst"
+    app_auth_password: str = ""
+    app_auth_session_secret: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

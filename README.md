@@ -48,8 +48,8 @@ Local backend health check:
 curl -s http://127.0.0.1:8010/health
 ```
 
-Nginx serves the production frontend from `frontend/dist`, proxies `/api/` and `/health` to the local FastAPI backend, redirects HTTP to HTTPS, and protects the site with Basic Auth.
+Nginx serves the production frontend from `frontend/dist`, proxies `/api/` and `/health` to the local FastAPI backend, and redirects HTTP to HTTPS. App-level login is handled by the FastAPI backend using credentials from `.env`.
 
 ## Warning
 
-This is an internal Experience Center scaffold. Public access is protected by Nginx Basic Auth; do not expose Docker service ports publicly.
+This is an internal Experience Center scaffold. Do not expose Docker service ports publicly and do not commit auth credentials or session secrets.

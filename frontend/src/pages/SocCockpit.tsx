@@ -13,7 +13,12 @@ import { NodeTimeline } from '../components/debug/NodeTimeline';
 import { PlannerDecisionPanel } from '../components/debug/PlannerDecisionPanel';
 import type { HealthResponse } from '../types/api';
 
-export function SocCockpit() {
+interface SocCockpitProps {
+  username: string;
+  onLogout: () => Promise<void>;
+}
+
+export function SocCockpit({ username, onLogout }: SocCockpitProps) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +37,12 @@ export function SocCockpit() {
         </div>
         <div className={`status ${health?.status === 'ok' ? 'ok' : 'warn'}`}>
           Backend: {health?.status ?? (error ? 'unavailable' : 'checking')}
+        </div>
+        <div className="userControls">
+          <span>{username}</span>
+          <button type="button" className="secondaryButton" onClick={() => void onLogout()}>
+            Logout
+          </button>
         </div>
       </header>
 

@@ -1,14 +1,15 @@
 from uuid import uuid4
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.auth.session import require_auth
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
 
 router = APIRouter()
 
 
-@router.post("/chat", response_model=PlaceholderResponse)
+@router.post("/chat", response_model=PlaceholderResponse, dependencies=[Depends(require_auth)])
 def chat(request: ChatRequest) -> PlaceholderResponse:
     return PlaceholderResponse(
         trace_id=str(uuid4()),
