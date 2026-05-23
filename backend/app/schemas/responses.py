@@ -1,6 +1,26 @@
 from pydantic import BaseModel
 
 
+class WorkflowStep(BaseModel):
+    order: int
+    name: str
+    status: str
+    required_connectors: list[str]
+    safety_gates: list[str]
+
+
+class WorkflowPlan(BaseModel):
+    trace_id: str
+    skill: str
+    tool_plan: list[str]
+    status: str
+    execution_enabled: bool
+    steps: list[WorkflowStep]
+    required_connectors: list[str]
+    safety_gates: list[str]
+    message: str
+
+
 class PlaceholderResponse(BaseModel):
     trace_id: str
     message: str
@@ -12,3 +32,4 @@ class PlaceholderResponse(BaseModel):
     routing_mode: str | None = None
     disagreement: bool | None = None
     disagreement_reason: str | None = None
+    workflow_plan: WorkflowPlan | None = None

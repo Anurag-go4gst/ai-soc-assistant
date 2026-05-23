@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.auth.session import require_auth
 from app.config import settings
+from app.orchestration.workflow_planner import plan_workflow
 from app.routing.skill_router import route_skill
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
@@ -17,6 +18,12 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
     routed = route_skill(request.message, trace_id=trace_id)
     comparison = routed.get("comparison", {})
     disagreement = not bool(comparison.get("match", False))
+    workflow_plan = plan_workflow(
+        selected_skill=str(routed["skill"]),
+        tool_plan=list(routed["tool_plan"]),
+        query=request.message,
+        trace_id=trace_id,
+    )
 
     return PlaceholderResponse(
         trace_id=trace_id,
@@ -28,7 +35,8 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         disagreement=disagreement,
         disagreement_reason=_disagreement_reason(comparison) if disagreement else None,
         message="Routing complete. SPL/MCP execution is not enabled yet.",
-        note="Routing only; no SPL generation, MCP execution, RAG retrieval, or synthesis was run.",
+        note="Routing and workflow planning only; no SPL generation, MCP execution, RAG retrieval, or synthesis was run.",
+        workflow_plan=workflow_plan,
     )
 
 

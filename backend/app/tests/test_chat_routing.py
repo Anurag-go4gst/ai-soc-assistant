@@ -20,6 +20,7 @@ def test_chat_query_endpoint_calls_route_skill(monkeypatch) -> None:
         }
 
     monkeypatch.setattr("app.api.routes_chat.route_skill", fake_route_skill)
+    monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
 
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
@@ -30,6 +31,9 @@ def test_chat_query_endpoint_calls_route_skill(monkeypatch) -> None:
     assert response.confidence == 0.91
     assert response.disagreement is False
     assert response.message == "Routing complete. SPL/MCP execution is not enabled yet."
+    assert response.workflow_plan is not None
+    assert response.workflow_plan.status == "not_started"
+    assert response.workflow_plan.execution_enabled is False
 
 
 def test_chat_response_reports_routing_disagreement(monkeypatch) -> None:
@@ -45,6 +49,7 @@ def test_chat_response_reports_routing_disagreement(monkeypatch) -> None:
 
     monkeypatch.setattr("app.routing.skill_router.get_telemetry_connector", lambda: telemetry)
     monkeypatch.setattr("app.routing.skill_router.route_skill_llm_shadow", fake_llm_shadow)
+    monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
 
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
@@ -65,6 +70,7 @@ def test_chat_does_not_attempt_mcp_spl_generation_or_splunk_write(monkeypatch) -
         }
 
     monkeypatch.setattr("app.api.routes_chat.route_skill", fake_route_skill)
+    monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
     response = chat(ChatRequest(message="Create SPL for failed logins."))
 
     assert response.selected_skill == "spl_generation"
@@ -82,6 +88,7 @@ def test_chat_response_does_not_expose_secrets(monkeypatch) -> None:
         }
 
     monkeypatch.setattr("app.api.routes_chat.route_skill", fake_route_skill)
+    monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
     text = json.dumps(chat(ChatRequest(message="test")).model_dump()).lower()
 
     for forbidden in ("password", "secret", "token", "credential", "raw_prompt"):
@@ -98,3 +105,25 @@ class FakeTelemetry:
 
     def record_routing_disagreement(self, trace_id: str, **fields: Any) -> None:
         self.disagreements.append({"trace_id": trace_id, **fields})
+
+
+def fake_plan_workflow(selected_skill: str, tool_plan: list[str], query: str, trace_id: str) -> dict[str, Any]:
+    return {
+        "trace_id": trace_id,
+        "skill": selected_skill,
+        "tool_plan": tool_plan,
+        "status": "not_started",
+        "execution_enabled": False,
+        "steps": [
+            {
+                "order": 1,
+                "name": "test workflow plan",
+                "status": "not_started",
+                "required_connectors": [],
+                "safety_gates": ["no_execution"],
+            }
+        ],
+        "required_connectors": [],
+        "safety_gates": ["no_execution"],
+        "message": "Workflow plan created. No SPL/MCP/RAG execution has started.",
+    }

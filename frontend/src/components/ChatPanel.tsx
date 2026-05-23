@@ -56,6 +56,7 @@ export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactH
             disagreement: response.disagreement,
             disagreementReason: response.disagreement_reason,
           },
+          workflowPlan: response.workflow_plan,
         },
       ]);
     } catch (error) {

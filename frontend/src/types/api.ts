@@ -20,6 +20,27 @@ export interface PlaceholderResponse {
   routing_mode?: string | null;
   disagreement?: boolean | null;
   disagreement_reason?: string | null;
+  workflow_plan?: WorkflowPlan | null;
+}
+
+export interface WorkflowStep {
+  order: number;
+  name: string;
+  status: string;
+  required_connectors: string[];
+  safety_gates: string[];
+}
+
+export interface WorkflowPlan {
+  trace_id: string;
+  skill: string;
+  tool_plan: string[];
+  status: string;
+  execution_enabled: boolean;
+  steps: WorkflowStep[];
+  required_connectors: string[];
+  safety_gates: string[];
+  message: string;
 }
 
 export interface SettingsStatus {
@@ -103,6 +124,9 @@ export interface SettingsStatus {
     disagreement_logging_sink: string;
     db_disagreement_logging_enabled: boolean;
     chat_query_endpoint_wired: boolean;
+    workflow_planner_enabled: boolean;
+    workflow_planner_execution_enabled: boolean;
+    workflow_plan_logging_enabled: boolean;
     deterministic_threshold: number;
     llm_planner_enabled: boolean;
     shadow_router_enabled: boolean;

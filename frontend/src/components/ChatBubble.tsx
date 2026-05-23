@@ -1,6 +1,7 @@
 import { Bot, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import type { WorkflowPlan } from '@/types/api';
 
 export interface SocChatMessage {
   id: string;
@@ -15,6 +16,7 @@ export interface SocChatMessage {
     disagreement?: boolean | null;
     disagreementReason?: string | null;
   };
+  workflowPlan?: WorkflowPlan | null;
 }
 
 interface ChatBubbleProps {
@@ -66,6 +68,31 @@ export function ChatBubble({ message }: ChatBubbleProps) {
               <p className="mt-2 font-mono text-[0.7rem] text-slate-400">{message.routing.toolPlan.join(' → ')}</p>
             ) : null}
             <p className="mt-2 text-slate-400">Routing complete. SPL/MCP execution is not enabled yet.</p>
+          </div>
+        ) : null}
+        {!isUser && message.workflowPlan ? (
+          <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">workflow plan</Badge>
+              <Badge variant="warning">{message.workflowPlan.status}</Badge>
+              <Badge variant={message.workflowPlan.execution_enabled ? 'success' : 'secondary'}>
+                execution {message.workflowPlan.execution_enabled ? 'enabled' : 'disabled'}
+              </Badge>
+            </div>
+            <ol className="mt-2 space-y-1">
+              {message.workflowPlan.steps.map((step) => (
+                <li key={`${step.order}-${step.name}`} className="flex gap-2">
+                  <span className="font-mono text-slate-500">{step.order}.</span>
+                  <span>{step.name}</span>
+                </li>
+              ))}
+            </ol>
+            {message.workflowPlan.required_connectors.length ? (
+              <p className="mt-2 font-mono text-[0.7rem] text-slate-400">
+                connectors: {message.workflowPlan.required_connectors.join(', ')}
+              </p>
+            ) : null}
+            <p className="mt-2 text-slate-400">Workflow planning only. No tool execution has happened.</p>
           </div>
         ) : null}
       </div>

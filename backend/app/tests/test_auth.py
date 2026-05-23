@@ -65,10 +65,11 @@ def test_chat_allows_authenticated_request(monkeypatch) -> None:
     _configure_auth(monkeypatch)
     user = require_auth({"username": "analyst", "role": "demo_analyst"})
     monkeypatch.setattr("app.api.routes_chat.route_skill", _fake_route_skill)
+    monkeypatch.setattr("app.api.routes_chat.plan_workflow", _fake_plan_workflow)
 
     response = chat(ChatRequest(message="test"))
 
-    assert response.note == "Routing only; no SPL generation, MCP execution, RAG retrieval, or synthesis was run."
+    assert response.note == "Routing and workflow planning only; no SPL generation, MCP execution, RAG retrieval, or synthesis was run."
     assert response.selected_skill == "knowledge_recall"
 
 
@@ -78,4 +79,26 @@ def _fake_route_skill(query: str, trace_id: str) -> dict:
         "tool_plan": ["needs_clarification"],
         "confidence": 0.42,
         "comparison": {"match": True, "skill_match": True, "tool_plan_match": True},
+    }
+
+
+def _fake_plan_workflow(selected_skill: str, tool_plan: list[str], query: str, trace_id: str) -> dict:
+    return {
+        "trace_id": trace_id,
+        "skill": selected_skill,
+        "tool_plan": tool_plan,
+        "status": "not_started",
+        "execution_enabled": False,
+        "steps": [
+            {
+                "order": 1,
+                "name": "test workflow plan",
+                "status": "not_started",
+                "required_connectors": [],
+                "safety_gates": ["no_execution"],
+            }
+        ],
+        "required_connectors": [],
+        "safety_gates": ["no_execution"],
+        "message": "Workflow plan created. No SPL/MCP/RAG execution has started.",
     }

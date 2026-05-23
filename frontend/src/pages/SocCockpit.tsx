@@ -124,6 +124,12 @@ function TraceSummaryStrip({ trace }: { trace: PlaceholderResponse | null }) {
               {typeof trace?.disagreement === 'boolean' ? (trace.disagreement ? 'disagree' : 'agree') : '—'}
             </span>
           </span>
+          <span>
+            Workflow:{' '}
+            <span className="font-medium text-slate-200">
+              {trace?.workflow_plan ? `${trace.workflow_plan.steps.length} steps, ${trace.workflow_plan.status}` : '—'}
+            </span>
+          </span>
         </div>
         <Link
           to="/debug"

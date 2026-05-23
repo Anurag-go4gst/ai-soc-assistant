@@ -24,6 +24,9 @@ export function RoutingSettingsPanel({ status }: { status: SettingsStatus['routi
           <SettingRow label="Disagreement sink" value={status.disagreement_logging_sink} mono />
           <SettingRow label="DB disagreement logging" value={<BoolPill value={status.db_disagreement_logging_enabled} />} />
           <SettingRow label="Chat endpoint wired" value={<BoolPill value={status.chat_query_endpoint_wired} />} />
+          <SettingRow label="Workflow planner" value={<BoolPill value={status.workflow_planner_enabled} />} />
+          <SettingRow label="Workflow execution" value={<BoolPill value={status.workflow_planner_execution_enabled} />} />
+          <SettingRow label="Workflow plan DB logging" value={<BoolPill value={status.workflow_plan_logging_enabled} />} />
           <SettingRow label="Deterministic threshold" value={status.deterministic_threshold} mono />
           <SettingRow label="LLM planner enabled" value={<BoolPill value={status.llm_planner_enabled} />} />
           <SettingRow label="Shadow router" value={<BoolPill value={status.shadow_router_enabled} />} />
