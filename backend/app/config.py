@@ -36,8 +36,21 @@ class Settings(BaseSettings):
     routing_llm_shadow_enabled: bool = True
     routing_compare_logging_enabled: bool = True
     mcp_mode: str = "mock"
+    mcp_servers: str = ""
+    mcp_default_server: str = "splunk_soc"
+    mcp_global_execution_enabled: bool = False
     rag_mode: str = "mock"
     llm_mode: str = "mock"
+    llm_providers: str = ""
+    llm_default_provider: str = "mock"
+    llm_router_provider: str = "mock"
+    llm_synthesis_provider: str = "mock"
+    llm_reasoning_provider: str = ""
+    llm_teacher_provider: str = ""
+    llm_concurrency_per_provider: int = 2
+    llm_global_concurrency: int = 4
+    llm_timeout_seconds: int = 30
+    llm_health_canary_enabled: bool = False
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"
 

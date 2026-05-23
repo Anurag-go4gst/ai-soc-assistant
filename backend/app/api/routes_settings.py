@@ -10,7 +10,9 @@ from fastapi import APIRouter
 from app.config import settings
 from app.connectors.embeddings import get_embeddings_connector
 from app.connectors.llm import get_llm_connector
+from app.connectors.llm.registry import load_llm_registry_status
 from app.connectors.mcp import get_mcp_connector
+from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.rag import get_rag_connector
 from app.connectors.telemetry import get_telemetry_connector, metrics
 
@@ -42,8 +44,10 @@ def _safe_status(status: object) -> dict[str, object]:
 @router.get("/settings/status")
 def settings_status() -> dict:
     mcp_status = get_mcp_connector().health()
+    mcp_registry = load_mcp_registry_status()
     rag_status = get_rag_connector().health()
     llm_status = get_llm_connector().health()
+    llm_registry = load_llm_registry_status()
     embeddings_status = get_embeddings_connector().health()
     telemetry_status = get_telemetry_connector().health()
     telemetry_sink = settings.ai_soc_telemetry_sink.strip().lower()
@@ -54,13 +58,16 @@ def settings_status() -> dict:
     telemetry_counters = metrics.snapshot()
     return {
         "mcp": {
-            "enabled": settings.mcp_mode == "splunk_mcp" and settings.splunk_mcp_enabled,
-            "mode": mcp_status.mode,
-            "configured": mcp_status.configured,
-            "available": mcp_status.available,
-            "implemented": mcp_status.implemented,
+            "enabled": mcp_registry.mode == "registry" and any(server.enabled for server in mcp_registry.servers),
+            "mode": mcp_registry.mode,
+            "default_server": mcp_registry.default_server,
+            "global_execution_enabled": mcp_registry.global_execution_enabled,
+            "configured": mcp_registry.configured,
+            "available": mcp_registry.available,
+            "implemented": mcp_registry.implemented,
             "fallback": mcp_status.fallback,
-            "status_detail": mcp_status.detail,
+            "status_detail": "connection_readiness_only" if mcp_registry.mode == "registry" else mcp_status.detail,
+            "servers": [_mcp_server_payload(server) for server in mcp_registry.servers],
             "base_url_configured": _bool_configured(settings.splunk_mcp_base_url),
             "token_configured": _bool_configured(settings.splunk_mcp_token),
             "allowed_tools": _ALLOWED_TOOLS,
@@ -90,19 +97,30 @@ def settings_status() -> dict:
             "last_ingestion_status": "never",
         },
         "llm": {
-            "enabled": settings.llm_mode != "mock" and settings.llm_enabled,
+            "enabled": any(provider.enabled for provider in llm_registry.providers),
             "mode": llm_status.mode,
-            "configured": llm_status.configured,
-            "available": llm_status.available,
-            "implemented": llm_status.implemented,
+            "providers_configured": llm_registry.providers_configured,
+            "default_provider": llm_registry.default_provider,
+            "router_provider": llm_registry.router_provider,
+            "synthesis_provider": llm_registry.synthesis_provider,
+            "reasoning_provider": llm_registry.reasoning_provider,
+            "teacher_provider": llm_registry.teacher_provider,
+            "global_concurrency": llm_registry.global_concurrency,
+            "concurrency_per_provider": llm_registry.concurrency_per_provider,
+            "health_canary_enabled": llm_registry.health_canary_enabled,
+            "role_resolution": llm_registry.role_resolution,
+            "providers": [_llm_provider_payload(provider) for provider in llm_registry.providers],
+            "configured": llm_registry.configured,
+            "available": llm_registry.available,
+            "implemented": llm_registry.implemented,
             "fallback": llm_status.fallback,
-            "status_detail": llm_status.detail,
-            "primary_model": "Foundation-Sec Instruct",
+            "status_detail": "connection_readiness_only" if llm_registry.providers_configured != ["mock"] else llm_status.detail,
+            "primary_model": _primary_model_name(llm_registry),
             "reasoning_enabled": settings.reasoning_enabled,
             "instruct_endpoint_configured": _bool_configured(settings.foundation_sec_instruct_url),
             "reasoning_endpoint_configured": _bool_configured(settings.foundation_sec_reasoning_url),
             "temperature": 0.2,
-            "timeout_seconds": 30,
+            "timeout_seconds": llm_registry.timeout_seconds,
             "max_context_tokens": 8000,
         },
         "embeddings": {
@@ -162,3 +180,64 @@ def settings_status() -> dict:
             "fallback_count": 0,
         },
     }
+
+
+def _mcp_server_payload(server: object) -> dict[str, object]:
+    return {
+        "name": getattr(server, "name", "unknown"),
+        "type": getattr(server, "type", "generic"),
+        "enabled": bool(getattr(server, "enabled", False)),
+        "implemented": bool(getattr(server, "implemented", False)),
+        "configured": bool(getattr(server, "configured", False)),
+        "available": bool(getattr(server, "available", False)),
+        "transport": getattr(server, "transport", "unknown"),
+        "url_configured": bool(getattr(server, "url_configured", False)),
+        "command_configured": bool(getattr(server, "command_configured", False)),
+        "auth_mode": getattr(server, "auth_mode", "none"),
+        "auth_configured": bool(getattr(server, "auth_configured", False)),
+        "execution_enabled": bool(getattr(server, "execution_enabled", False)),
+        "discovered_tools_count": int(getattr(server, "discovered_tools_count", 0)),
+        "discovered_tools_safe_names": list(getattr(server, "discovered_tools_safe_names", [])),
+        "blocked_tools_count": int(getattr(server, "blocked_tools_count", 0)),
+        "blocked_tools_safe_names": list(getattr(server, "blocked_tools_safe_names", [])),
+        "last_error": getattr(server, "last_error", None),
+        "splunk_app_id": getattr(server, "splunk_app_id", None),
+        "splunk_platform": getattr(server, "splunk_platform", None),
+        "search_execution_allowed": getattr(server, "search_execution_allowed", None),
+        "saia_spl_generation_allowed": getattr(server, "saia_spl_generation_allowed", None),
+        "knowledge_object_discovery_allowed": getattr(server, "knowledge_object_discovery_allowed", None),
+        "list_tools_allowed": getattr(server, "list_tools_allowed", None),
+    }
+
+
+def _llm_provider_payload(provider: object) -> dict[str, object]:
+    return {
+        "name": getattr(provider, "name", "unknown"),
+        "type": getattr(provider, "type", "mock"),
+        "family": getattr(provider, "family", "other"),
+        "model_role": getattr(provider, "model_role", "general"),
+        "enabled": bool(getattr(provider, "enabled", False)),
+        "implemented": bool(getattr(provider, "implemented", False)),
+        "configured": bool(getattr(provider, "configured", False)),
+        "available": bool(getattr(provider, "available", False)),
+        "model": getattr(provider, "model", ""),
+        "base_url_configured": bool(getattr(provider, "base_url_configured", False)),
+        "api_key_configured": bool(getattr(provider, "api_key_configured", False)),
+        "auth_mode": getattr(provider, "auth_mode", "none"),
+        "context_tokens": getattr(provider, "context_tokens", None),
+        "max_output_tokens": getattr(provider, "max_output_tokens", None),
+        "supports_streaming": bool(getattr(provider, "supports_streaming", False)),
+        "supports_json_mode": bool(getattr(provider, "supports_json_mode", False)),
+        "supports_tool_calling": bool(getattr(provider, "supports_tool_calling", False)),
+        "concurrency_limit": int(getattr(provider, "concurrency_limit", 1)),
+        "last_error": getattr(provider, "last_error", None),
+    }
+
+
+def _primary_model_name(registry: object) -> str:
+    providers = getattr(registry, "providers", [])
+    resolved = getattr(registry, "role_resolution", {}).get("router")
+    for provider in providers:
+        if getattr(provider, "name", None) == resolved:
+            return str(getattr(provider, "model", "") or provider.name)
+    return "mock-model"

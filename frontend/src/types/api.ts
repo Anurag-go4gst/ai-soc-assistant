@@ -47,11 +47,14 @@ export interface SettingsStatus {
   mcp: {
     enabled: boolean;
     mode: 'mock' | 'live' | string;
+    default_server?: string;
+    global_execution_enabled?: boolean;
     configured: boolean;
     available: boolean;
     implemented?: boolean;
     fallback?: string | null;
     status_detail: string;
+    servers?: McpServerStatus[];
     base_url_configured: boolean;
     token_configured: boolean;
     allowed_tools: string[];
@@ -83,6 +86,17 @@ export interface SettingsStatus {
   llm: {
     enabled: boolean;
     mode: string;
+    providers_configured?: string[];
+    default_provider?: string;
+    router_provider?: string;
+    synthesis_provider?: string;
+    reasoning_provider?: string;
+    teacher_provider?: string;
+    global_concurrency?: number;
+    concurrency_per_provider?: number;
+    health_canary_enabled?: boolean;
+    role_resolution?: Record<string, string | null>;
+    providers?: LlmProviderStatus[];
     configured: boolean;
     available: boolean;
     implemented?: boolean;
@@ -158,4 +172,52 @@ export interface SettingsStatus {
     planner_deterministic_mismatch_count: number;
     fallback_count: number;
   };
+}
+
+export interface McpServerStatus {
+  name: string;
+  type: string;
+  enabled: boolean;
+  implemented: boolean;
+  configured: boolean;
+  available: boolean;
+  transport: string;
+  url_configured: boolean;
+  command_configured: boolean;
+  auth_mode: string;
+  auth_configured: boolean;
+  execution_enabled: boolean;
+  discovered_tools_count: number;
+  discovered_tools_safe_names: string[];
+  blocked_tools_count: number;
+  blocked_tools_safe_names: string[];
+  last_error?: string | null;
+  splunk_app_id?: string | null;
+  splunk_platform?: string | null;
+  search_execution_allowed?: boolean | null;
+  saia_spl_generation_allowed?: boolean | null;
+  knowledge_object_discovery_allowed?: boolean | null;
+  list_tools_allowed?: boolean | null;
+}
+
+export interface LlmProviderStatus {
+  name: string;
+  type: string;
+  family: string;
+  model_role: string;
+  enabled: boolean;
+  implemented: boolean;
+  configured: boolean;
+  available: boolean;
+  model: string;
+  base_url_configured: boolean;
+  api_key_configured: boolean;
+  auth_mode: string;
+  context_tokens?: number | null;
+  max_output_tokens?: number | null;
+  supports_streaming: boolean;
+  supports_json_mode: boolean;
+  supports_tool_calling: boolean;
+  concurrency_limit: number;
+  last_error?: string | null;
 }
