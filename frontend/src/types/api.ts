@@ -20,9 +20,23 @@ export interface PlaceholderResponse {
   routing_mode?: string | null;
   disagreement?: boolean | null;
   disagreement_reason?: string | null;
+  routing_trace?: RoutingTraceEnvelope | null;
   workflow_plan?: WorkflowPlan | null;
   candidate_spl?: CandidateSplEnvelope | null;
   spl_validation?: SplValidationEnvelope | null;
+  execution?: ExecutionEnvelope | null;
+  human_review?: HumanReviewEnvelope | null;
+}
+
+export interface RoutingTraceEnvelope {
+  deterministic_skill?: string | null;
+  deterministic_confidence?: number | null;
+  deterministic_tool_plan?: string[] | null;
+  llm_shadow_skill?: string | null;
+  llm_shadow_confidence?: number | null;
+  llm_shadow_tool_plan?: string[] | null;
+  comparison_status?: 'agree' | 'disagree' | string | null;
+  comparison_reason?: string | null;
 }
 
 export interface WorkflowStep {
@@ -65,12 +79,40 @@ export interface SplValidationEnvelope {
   policy_version: string;
 }
 
+export interface ExecutionEnvelope {
+  status: 'blocked' | 'requires_human_review' | 'skipped' | 'executed' | 'failed' | string;
+  execution_intent: string;
+  selected_mcp_server?: string | null;
+  selected_mcp_tool?: string | null;
+  tool_selection_status: 'selected' | 'blocked' | 'unavailable' | 'requires_human_review' | string;
+  tool_selection_reason: string;
+  executed_spl?: string | null;
+  result_count: number;
+  results_preview: Record<string, unknown>[];
+  block_reason?: string | null;
+  duration_ms: number;
+}
+
+export interface HumanReviewEnvelope {
+  required: boolean;
+  review_type: string;
+  reason: string;
+  reviewer_role: 'analyst' | 'soc_lead' | 'platform_admin' | 'security_admin' | string;
+  allowed_actions: string[];
+  safe_message_for_user: string;
+  sop_reference?: string | null;
+  sop_excerpt?: string | null;
+  sop_action_hint?: string | null;
+}
+
 export interface SettingsStatus {
   mcp: {
     enabled: boolean;
     mode: 'mock' | 'live' | string;
     default_server?: string;
     global_execution_enabled?: boolean;
+    discovery_enabled?: boolean;
+    discovery_status?: string;
     configured: boolean;
     available: boolean;
     implemented?: boolean;
@@ -117,6 +159,8 @@ export interface SettingsStatus {
     global_concurrency?: number;
     concurrency_per_provider?: number;
     health_canary_enabled?: boolean;
+    tool_recommendation_enabled?: boolean;
+    direct_mcp_tool_calling_enabled?: boolean;
     role_resolution?: Record<string, string | null>;
     providers?: LlmProviderStatus[];
     configured: boolean;
@@ -165,6 +209,7 @@ export interface SettingsStatus {
     workflow_plan_logging_enabled: boolean;
     deterministic_threshold: number;
     llm_planner_enabled: boolean;
+    llm_tool_recommendation_enabled?: boolean;
     shadow_router_enabled: boolean;
     compare_node_enabled: boolean;
     adjudicator_policy: string;
@@ -197,6 +242,7 @@ export interface SettingsStatus {
     recent_trace: string | null;
     planner_deterministic_mismatch_count: number;
     fallback_count: number;
+    direct_llm_to_mcp_tool_calling?: boolean;
   };
 }
 
@@ -215,6 +261,13 @@ export interface McpServerStatus {
   execution_enabled: boolean;
   discovered_tools_count: number;
   discovered_tools_safe_names: string[];
+  discovered_tools?: {
+    name: string;
+    description: string;
+    capability: string;
+    blocked: boolean;
+    blocked_reason?: string | null;
+  }[];
   blocked_tools_count: number;
   blocked_tools_safe_names: string[];
   last_error?: string | null;

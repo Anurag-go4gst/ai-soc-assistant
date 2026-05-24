@@ -10,6 +10,8 @@ def test_default_mock_mode_still_available(monkeypatch) -> None:
     assert status.global_execution_enabled is False
     assert status.servers[0].available is True
     assert status.servers[0].execution_enabled is False
+    assert "run_splunk_query" in status.servers[0].discovered_tools_safe_names
+    assert "saia_generate_spl" in status.servers[0].blocked_tools_safe_names
 
 
 def test_registry_mode_parses_multiple_servers(monkeypatch) -> None:
@@ -43,11 +45,30 @@ def test_registry_mode_parses_multiple_servers(monkeypatch) -> None:
     assert splunk.saia_spl_generation_allowed is False
     assert splunk.knowledge_object_discovery_allowed is True
     assert splunk.list_tools_allowed is True
-    assert "splunk_search" in splunk.blocked_tools_safe_names
+    assert "splunk_search" in splunk.discovered_tools_safe_names
     assert "saia_generate_spl" in splunk.blocked_tools_safe_names
 
     text = json.dumps(status, default=lambda obj: getattr(obj, "__dict__", str(obj))).lower()
     assert "super-secret-token" not in text
+
+
+def test_registry_classifies_risky_tools_as_blocked(monkeypatch) -> None:
+    monkeypatch.setenv("MCP_MODE", "registry")
+    monkeypatch.setenv("MCP_SERVERS", "splunk_soc")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_TYPE", "splunk")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_URL", "https://splunk-mcp.example.invalid/mcp")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_AUTH_MODE", "none")
+    monkeypatch.setenv(
+        "MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST",
+        "run_splunk_query,generate_spl,saia_assistant,outputlookup,collect,delete,sendemail,write_admin,rest_script",
+    )
+
+    server = load_mcp_registry_status().servers[0]
+
+    assert "run_splunk_query" in server.discovered_tools_safe_names
+    for blocked in ("generate_spl", "saia_assistant", "outputlookup", "collect", "delete", "sendemail", "write_admin", "rest_script"):
+        assert blocked in server.blocked_tools_safe_names
 
 
 def test_missing_credentials_mark_only_one_server_unavailable(monkeypatch) -> None:
@@ -82,4 +103,3 @@ def test_unknown_server_type_fails_safely(monkeypatch) -> None:
     assert server.implemented is False
     assert server.available is False
     assert server.last_error == "unsupported_mcp_server_type"
-

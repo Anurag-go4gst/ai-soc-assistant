@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     llm_global_concurrency: int = 4
     llm_timeout_seconds: int = 30
     llm_health_canary_enabled: bool = False
+    llm_tool_recommendation_enabled: bool = False
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"
     spl_validation_enabled: bool = True

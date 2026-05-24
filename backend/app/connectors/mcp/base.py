@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from app.connectors.mcp.discovery import McpToolDescriptor
+
 
 @dataclass(frozen=True)
 class ConnectorStatus:
@@ -40,7 +42,21 @@ class McpConnector(Protocol):
     def health(self) -> ConnectorStatus:
         ...
 
-    def execute_validated_spl(self, request: ValidatedSplRequest) -> dict[str, Any]:
+    def list_tools(self, server_name: str | None = None) -> list[McpToolDescriptor]:
+        ...
+
+    def call_tool(self, tool_name: str, arguments: dict[str, Any], server_name: str | None = None) -> dict[str, Any]:
+        ...
+
+    def execute_validated_spl(
+        self,
+        *,
+        server_name: str,
+        tool_name: str,
+        normalized_spl: str,
+        trace_id: str,
+        policy_context: dict[str, Any],
+    ) -> dict[str, Any]:
         ...
 
     def discover_knowledge_objects(self, request: KnowledgeObjectRequest) -> dict[str, Any]:

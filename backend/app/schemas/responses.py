@@ -41,6 +41,29 @@ class SplValidationEnvelope(BaseModel):
     policy_version: str
 
 
+class ExecutionEnvelope(BaseModel):
+    status: str
+    execution_intent: str
+    selected_mcp_server: str | None = None
+    selected_mcp_tool: str | None = None
+    tool_selection_status: str
+    tool_selection_reason: str
+    executed_spl: str | None = None
+    result_count: int
+    results_preview: list[dict[str, object]]
+    block_reason: str | None = None
+    duration_ms: int
+
+
+class HumanReviewEnvelope(BaseModel):
+    required: bool
+    review_type: str
+    reason: str
+    reviewer_role: str
+    allowed_actions: list[str]
+    safe_message_for_user: str
+
+
 class PlaceholderResponse(BaseModel):
     trace_id: str
     message: str
@@ -55,3 +78,5 @@ class PlaceholderResponse(BaseModel):
     workflow_plan: WorkflowPlan | None = None
     candidate_spl: CandidateSplEnvelope | None = None
     spl_validation: SplValidationEnvelope | None = None
+    execution: ExecutionEnvelope | None = None
+    human_review: HumanReviewEnvelope | None = None

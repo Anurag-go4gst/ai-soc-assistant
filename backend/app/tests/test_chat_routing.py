@@ -23,6 +23,7 @@ def test_chat_query_endpoint_calls_route_skill(monkeypatch) -> None:
     monkeypatch.setattr("app.api.routes_chat.route_skill", fake_route_skill)
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
     monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: telemetry)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
 
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
@@ -42,6 +43,11 @@ def test_chat_query_endpoint_calls_route_skill(monkeypatch) -> None:
     assert response.spl_validation.approved is True
     assert telemetry.steps[0]["step_name"] == "candidate_spl_generated"
     assert telemetry.spl_validations[0]["approved"] is True
+    assert response.execution is not None
+    assert response.execution.executed_spl is None
+    assert response.execution.status == "requires_human_review"
+    assert response.human_review is not None
+    assert response.human_review.reason == "mcp_global_execution_disabled"
 
 
 def test_chat_response_reports_routing_disagreement(monkeypatch) -> None:
@@ -59,6 +65,7 @@ def test_chat_response_reports_routing_disagreement(monkeypatch) -> None:
     monkeypatch.setattr("app.routing.skill_router.route_skill_llm_shadow", fake_llm_shadow)
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
     monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: telemetry)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
 
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
@@ -83,6 +90,7 @@ def test_chat_generates_and_validates_spl_without_mcp_or_splunk_write(monkeypatc
     monkeypatch.setattr("app.api.routes_chat.route_skill", fake_route_skill)
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
     monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: telemetry)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
     response = chat(ChatRequest(message="Create SPL for failed logins."))
 
     assert response.selected_skill == "spl_generation"
@@ -90,7 +98,12 @@ def test_chat_generates_and_validates_spl_without_mcp_or_splunk_write(monkeypatc
     assert response.spl_validation is not None
     assert response.spl_validation.approved is True
     assert "No MCP execution, RAG retrieval, or synthesis was run" in response.note
-    assert not telemetry.mcp_executions
+    assert response.execution is not None
+    assert response.execution.executed_spl is None
+    assert response.execution.block_reason == "mcp_global_execution_disabled"
+    assert response.human_review is not None
+    assert response.human_review.required is True
+    assert any(event["event_type"] == "mcp_execution_requires_human_review" for event in telemetry.mcp_executions)
     assert not hasattr(telemetry, "splunk_write")
     assert "Splunk" not in response.model_dump_json()
 
@@ -107,6 +120,7 @@ def test_chat_response_does_not_expose_secrets(monkeypatch) -> None:
     monkeypatch.setattr("app.api.routes_chat.route_skill", fake_route_skill)
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
     monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: FakeTelemetry())
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: FakeTelemetry())
     text = json.dumps(chat(ChatRequest(message="test")).model_dump()).lower()
 
     for forbidden in ("password", "secret", "token", "credential", "raw_prompt"):

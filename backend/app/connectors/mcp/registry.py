@@ -3,22 +3,29 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
+from typing import Any
+
+from app.connectors.mcp.discovery import McpToolDescriptor, classify_mcp_tool, mock_discovered_tools, safe_tool_name
 
 
 SUPPORTED_MCP_TYPES = {"splunk", "generic", "asset_inventory", "ticketing", "knowledge"}
 SUPPORTED_TRANSPORTS = {"streamable_http", "sse", "stdio"}
 SUPPORTED_AUTH_MODES = {"none", "bearer", "basic"}
 EXECUTION_TOOL_PATTERNS = (
-    "search",
-    "spl",
-    "query",
-    "run",
-    "execute",
-    "dispatch",
-    "job",
     "saia",
     "assistant",
     "generate",
+    "explain",
+    "optimize",
+    "outputlookup",
+    "collect",
+    "delete",
+    "sendemail",
+    "write",
+    "modify",
+    "admin",
+    "rest",
+    "script",
 )
 
 
@@ -58,6 +65,7 @@ class McpServerStatus:
     execution_enabled: bool
     discovered_tools_count: int
     discovered_tools_safe_names: list[str]
+    discovered_tools: list[dict[str, Any]]
     blocked_tools_count: int
     blocked_tools_safe_names: list[str]
     last_error: str | None = None
@@ -95,14 +103,16 @@ def load_mcp_registry_status() -> McpRegistryStatus:
     global_execution_enabled = _bool_env("MCP_GLOBAL_EXECUTION_ENABLED", False)
 
     if mode == "mock":
+        mock_tools = mock_discovered_tools("splunk")
+        mock_execution_enabled = bool(global_execution_enabled and _bool_env("MCP_SERVER_MOCK_EXECUTION_ENABLED", False))
         return McpRegistryStatus(
             mode="mock",
             default_server=default_server,
-            global_execution_enabled=False,
+            global_execution_enabled=global_execution_enabled,
             servers=[
                 McpServerStatus(
                     name="mock",
-                    type="generic",
+                    type="splunk",
                     enabled=True,
                     implemented=True,
                     configured=True,
@@ -112,12 +122,19 @@ def load_mcp_registry_status() -> McpRegistryStatus:
                     command_configured=False,
                     auth_mode="none",
                     auth_configured=True,
-                    execution_enabled=False,
-                    discovered_tools_count=0,
-                    discovered_tools_safe_names=[],
-                    blocked_tools_count=0,
-                    blocked_tools_safe_names=[],
+                    execution_enabled=mock_execution_enabled,
+                    discovered_tools_count=len(mock_tools),
+                    discovered_tools_safe_names=[tool.name for tool in mock_tools if not tool.blocked],
+                    discovered_tools=[tool.safe_payload() for tool in mock_tools],
+                    blocked_tools_count=len([tool for tool in mock_tools if tool.blocked]),
+                    blocked_tools_safe_names=[tool.name for tool in mock_tools if tool.blocked],
                     last_error=None,
+                    splunk_app_id="7931",
+                    splunk_platform="mock",
+                    search_execution_allowed=mock_execution_enabled,
+                    saia_spl_generation_allowed=False,
+                    knowledge_object_discovery_allowed=True,
+                    list_tools_allowed=True,
                 )
             ],
         )
@@ -180,8 +197,9 @@ def _status_for_server(config: McpServerConfig, global_execution_enabled: bool) 
     if config.enabled and endpoint_configured and not auth_configured and last_error is None:
         last_error = "missing_auth_configuration"
 
-    safe_tools = [_safe_tool_name(tool) for tool in config.tool_allowlist if _safe_tool_name(tool)]
-    blocked_tools = [tool for tool in safe_tools if _is_blocked_tool(tool, config.server_type)]
+    discovered_tools = _discovered_tools_for_config(config)
+    safe_tools = [tool.name for tool in discovered_tools if not tool.blocked]
+    blocked_tools = [tool.name for tool in discovered_tools if tool.blocked]
     execution_enabled = bool(config.execution_enabled and global_execution_enabled)
 
     kwargs = {}
@@ -189,7 +207,7 @@ def _status_for_server(config: McpServerConfig, global_execution_enabled: bool) 
         kwargs = {
             "splunk_app_id": config.splunk_app_id or "7931",
             "splunk_platform": config.splunk_platform if config.splunk_platform in {"enterprise", "cloud", "unknown"} else "unknown",
-            "search_execution_allowed": False,
+            "search_execution_allowed": execution_enabled and any(tool.capability == "spl_search" and not tool.blocked for tool in discovered_tools),
             "saia_spl_generation_allowed": False,
             "knowledge_object_discovery_allowed": True,
             "list_tools_allowed": True,
@@ -208,8 +226,9 @@ def _status_for_server(config: McpServerConfig, global_execution_enabled: bool) 
         auth_mode=config.auth_mode if auth_valid else "unsupported",
         auth_configured=auth_configured,
         execution_enabled=execution_enabled,
-        discovered_tools_count=len(safe_tools),
+        discovered_tools_count=len(discovered_tools),
         discovered_tools_safe_names=safe_tools,
+        discovered_tools=[tool.safe_payload() for tool in discovered_tools],
         blocked_tools_count=len(blocked_tools),
         blocked_tools_safe_names=blocked_tools,
         last_error=last_error,
@@ -219,9 +238,15 @@ def _status_for_server(config: McpServerConfig, global_execution_enabled: bool) 
 
 def _is_blocked_tool(tool_name: str, server_type: str) -> bool:
     lowered = tool_name.lower()
-    if server_type == "splunk" and any(token in lowered for token in ("search", "spl", "saia", "query", "generate")):
-        return True
     return any(token in lowered for token in EXECUTION_TOOL_PATTERNS)
+
+
+def _discovered_tools_for_config(config: McpServerConfig) -> list[McpToolDescriptor]:
+    return [
+        classify_mcp_tool(safe_tool_name(tool), server_type=config.server_type)
+        for tool in config.tool_allowlist
+        if safe_tool_name(tool)
+    ]
 
 
 def _auth_configured(config: McpServerConfig) -> bool:
@@ -235,7 +260,7 @@ def _auth_configured(config: McpServerConfig) -> bool:
 
 
 def _safe_tool_name(value: str) -> str:
-    return re.sub(r"[^A-Za-z0-9_.:-]", "_", value.strip())[:120]
+    return safe_tool_name(value)
 
 
 def _env(name: str, default: str = "") -> str:
@@ -262,4 +287,3 @@ def _int_env(name: str, default: int) -> int:
 
 def _env_key(name: str) -> str:
     return re.sub(r"[^A-Z0-9]+", "_", name.upper()).strip("_")
-

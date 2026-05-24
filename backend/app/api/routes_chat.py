@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends
 from app.auth.session import require_auth
 from app.config import settings
 from app.connectors.telemetry import get_telemetry_connector
+from app.orchestration.human_review import no_human_review
+from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
 from app.routing.skill_router import route_skill
 from app.safeguards.spl_validator import validate_spl
@@ -32,6 +34,14 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         skill=str(routed["skill"]),
         user_query=request.message,
     )
+    execution, human_review = _execution_stage(
+        trace_id=trace_id,
+        selected_skill=str(routed["skill"]),
+        workflow_plan=workflow_plan,
+        spl_validation=spl_validation,
+        requested_mcp_server=request.requested_mcp_server,
+        requested_mcp_tool=request.requested_mcp_tool,
+    )
 
     return PlaceholderResponse(
         trace_id=trace_id,
@@ -42,11 +52,13 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         routing_mode=settings.routing_mode,
         disagreement=disagreement,
         disagreement_reason=_disagreement_reason(comparison) if disagreement else None,
-        message=_chat_message(spl_validation),
-        note=_chat_note(spl_validation),
+        message=_chat_message(spl_validation, execution),
+        note=_chat_note(spl_validation, execution),
         workflow_plan=workflow_plan,
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
+        execution=execution,
+        human_review=human_review,
     )
 
 
@@ -95,14 +107,54 @@ def _candidate_spl_stage(trace_id: str, skill: str, user_query: str) -> tuple[di
     return candidate_payload, validation_payload
 
 
-def _chat_message(spl_validation: dict | None) -> str:
+def _chat_message(spl_validation: dict | None, execution: dict | None = None) -> str:
     if spl_validation is None:
         return "Routing complete. SPL is not required at this stage."
+    if execution and execution.get("status") == "executed":
+        return "Mock MCP execution complete. Final synthesis is disabled."
     return "SPL validation complete. MCP execution is disabled."
 
 
-def _chat_note(spl_validation: dict | None) -> str:
+def _chat_note(spl_validation: dict | None, execution: dict | None = None) -> str:
     if spl_validation is None:
         return "Routing and workflow planning only; SPL is not required at this stage. No MCP execution, RAG retrieval, or synthesis was run."
     status = "approved" if spl_validation.get("approved") else "rejected"
+    if execution and execution.get("status") == "executed":
+        return f"Candidate SPL generated and {status}; mock MCP execution used normalized SPL only. No RAG retrieval, final synthesis, or Splunk telemetry write was run."
     return f"Candidate SPL generated and {status} by deterministic validation. No MCP execution, RAG retrieval, or synthesis was run."
+
+
+def _execution_stage(
+    *,
+    trace_id: str,
+    selected_skill: str,
+    workflow_plan: dict,
+    spl_validation: dict | None,
+    requested_mcp_server: str | None,
+    requested_mcp_tool: str | None,
+) -> tuple[dict, dict]:
+    if spl_validation is None:
+        return (
+            {
+                "status": "skipped",
+                "execution_intent": "none",
+                "selected_mcp_server": None,
+                "selected_mcp_tool": None,
+                "tool_selection_status": "unavailable",
+                "tool_selection_reason": "spl_not_required_for_skill",
+                "executed_spl": None,
+                "result_count": 0,
+                "results_preview": [],
+                "block_reason": None,
+                "duration_ms": 0,
+            },
+            no_human_review(),
+        )
+    return evaluate_mcp_execution(
+        trace_id=trace_id,
+        selected_skill=selected_skill,
+        workflow_plan=workflow_plan,
+        spl_validation=spl_validation,
+        requested_mcp_server=requested_mcp_server,
+        requested_mcp_tool=requested_mcp_tool,
+    )
