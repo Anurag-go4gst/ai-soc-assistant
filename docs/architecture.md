@@ -12,6 +12,10 @@ Splunk MCP will be reached through a backend MCP client after deterministic SPL 
 
 Stage 3H separates core Splunk MCP read/search tools from optional Splunk AI Assistant (`saia_*`) advisory tools. SAIA outputs can help produce candidate SPL, explanations, or optimization hints, but they are not execution evidence and cannot bypass deterministic validation or MCP execution gates.
 
+## Provider Framework
+
+Stage 3I introduces a lightweight provider capability profile and policy check for future context/tool sources. Splunk MCP can be represented as a provider profile, and a mock asset inventory provider demonstrates read-only `asset_lookup` returning `SourceEvidence`. Write and admin operation categories are blocked by default; real firewall, router, EDR, ticketing, remediation, and OT integrations are deferred.
+
 ## RAG and GraphRAG Layer
 
 The knowledge vault stores SOPs, runbooks, SPL templates, MITRE notes, assets, detections, and scenario packs. Later phases can add vector retrieval, keyword retrieval, and graph context retrieval.

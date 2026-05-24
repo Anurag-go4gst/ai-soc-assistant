@@ -90,6 +90,42 @@ def build_source_evidence(
     return evidence
 
 
+def build_provider_source_evidence(
+    *,
+    trace_id: str,
+    source_type: str,
+    source_name: str,
+    collection_status: str,
+    query_or_request_summary: str | None,
+    result_count: int,
+    tool_name: str | None = None,
+    preview_rows: list[dict[str, Any]] | None = None,
+    warnings: list[str] | None = None,
+    tool_category: str | None = None,
+    provider_used: str | None = None,
+    provenance: str | None = None,
+) -> dict[str, Any]:
+    rows = _safe_rows(preview_rows or [])
+    return _evidence(
+        trace_id=trace_id,
+        source_type=source_type,
+        source_name=source_name,
+        tool_name=tool_name,
+        collection_status=collection_status,
+        query_or_request_summary=_safe_text(query_or_request_summary or "", 300) if query_or_request_summary else None,
+        result_count=result_count,
+        fields_returned=_fields_returned(rows),
+        preview_rows=rows,
+        raw_result_hash=_raw_hash(rows) if rows else None,
+        raw_result_stored=False,
+        warnings=warnings or [],
+        sensitivity_flags=_sensitivity_flags(rows, _fields_returned(rows)),
+        tool_category=tool_category,
+        provider_used=provider_used,
+        provenance=provenance,
+    )
+
+
 def _evidence(
     *,
     trace_id: str,
