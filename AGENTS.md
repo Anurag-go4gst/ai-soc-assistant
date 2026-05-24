@@ -1,0 +1,97 @@
+# AGENTS.md
+
+Guidance for coding agents working in this repository.
+
+## Operating Rules
+
+- Read the local code before changing behavior. Preserve the existing FastAPI + React/Vite structure.
+- Keep changes stage-scoped. Do not mix workflow planning, connector readiness, execution, UI polish, and deployment edits in one commit unless explicitly requested.
+- Do not commit secrets or `.env`.
+- Do not expose Docker service ports publicly. Production-style access is via Nginx at `https://cisco-vai.vnudge.com`.
+- Treat `.claude/` as local tool state unless the user explicitly asks to version it.
+
+## Safety Boundaries
+
+Current implementation is governed candidate generation and gated execution control:
+
+- `/chat` returns routing results and a `workflow_plan`.
+- Workflow steps stay `not_started`.
+- Workflow `execution_enabled` stays `false`.
+- Candidate SPL generation is allowed only through the Stage 3C stub generator.
+- SPL validation is deterministic; rejected SPL must have `normalized_spl=null`.
+- `candidate_spl` must never be executed.
+- Only `spl_validation.approved=true` and non-null `normalized_spl` may reach the MCP execution gate.
+- MCP tool discovery, deterministic tool selection, human review, and mock gated execution are Stage 3D control-layer behavior.
+- MCP execution defaults disabled globally and per server.
+- Mock MCP execution is allowed only when explicitly enabled through `MCP_GLOBAL_EXECUTION_ENABLED=true` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=true`.
+- Real MCP execution adapter shape exists, but real execution remains blocked/not implemented until COE MCP URL, transport, auth, tool names, argument schema, and approval workflow are supplied.
+- RAG retrieval and final LLM synthesis are disabled.
+- Splunk telemetry writes are disabled.
+- LLMs must never call MCP directly.
+
+Any change that violates these boundaries needs explicit user approval and a later-stage requirement.
+
+## MCP / LLM Architecture
+
+- MCP is a generic multi-server registry.
+- Splunk MCP is one server type and the first target, not the entire MCP framework.
+- Each MCP server has independent configured/available/implemented/error status.
+- Global and per-server MCP execution flags must default false.
+- MCP tool discovery must expose only redacted/safe tool metadata.
+- Tool selection is deterministic. User-requested MCP server/tool values are preferences only, not authority.
+- Search tools may be selectable only for `spl_search` after policy checks.
+- SAIA/generative/assistant/write/admin tools must be discoverable in status but blocked.
+
+- LLM is a provider/model registry.
+- Cisco/Foundation-Sec is one model family, not the only option.
+- Foundation-Sec instruct and reasoning roles should be separate configurable providers/models.
+- Open-weight/local models should remain configurable through provider types such as `openai_compatible`, `ollama`, `vllm`, `sglang`, `tgi`, `llamacpp`, and `custom_http`.
+- Provider fallback must be explicit, not silent.
+- `supports_tool_calling` must remain false in this stage.
+- `LLM_TOOL_RECOMMENDATION_ENABLED` defaults false. If enabled later, recommendations are advisory only and cannot override deterministic policy, validation, or execution flags.
+
+## Verification
+
+For backend work:
+
+```bash
+cd backend
+python3 -m pytest
+```
+
+For frontend or shared type changes:
+
+```bash
+cd frontend
+npm run build
+```
+
+For harness independence:
+
+```bash
+python3 -m test_harness.harness.runner --json
+TELEMETRY_MODE=none python3 -m test_harness.harness.runner --json
+```
+
+Expected baseline:
+
+- Backend tests pass.
+- Frontend build passes.
+- Harness default is 6/6.
+- Harness with `TELEMETRY_MODE=none` is 6/6.
+
+## Commit Hygiene
+
+Preferred grouping:
+
+1. Workflow planning changes.
+2. MCP/LLM readiness changes.
+3. Documentation-only changes.
+
+Recent stage commits:
+
+- `459cb75 Add workflow planning after skill routing`
+- `b6b8329 Add multi-MCP and multi-LLM readiness registry`
+- `8afd560 Add candidate SPL generation and deterministic validation`
+- `7a35038 Add MCP discovery, HIL, and gated SPL execution`
+- `a47785d Add Stage 3D trace pipeline UI`

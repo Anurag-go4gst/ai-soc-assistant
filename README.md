@@ -148,6 +148,20 @@ search index=* sourcetype=pgcil:auth earliest=-15m latest=now | outputlookup fin
 
 Reject reasons include `blocked_command:outputlookup`, `disallowed_index`, and `wildcard_index_not_allowed`.
 
+## Stage 3D MCP Discovery, Selection, HIL, And Execution Gate
+
+Stage 3D adds the first execution-control layer while keeping real execution disabled by default:
+
+- MCP registry status classifies discovered/configured tools into safe capability categories such as `spl_search`, `metadata_lookup`, `knowledge_object_discovery`, `ticket_lookup`, `asset_lookup`, `unknown`, and `blocked`.
+- Risky tools are blocked by deterministic policy, including SPL generation/assistant tools and write/admin patterns.
+- `/chat` runs deterministic MCP tool selection after SPL validation. User-requested server/tool values are preferences only.
+- Human review is returned whenever validation, connector configuration, tool selection, or execution policy prevents safe execution.
+- `candidate_spl` is never sent to MCP. Only `spl_validation.normalized_spl` from an approved validation result may enter the execution gate.
+- Mock mode can execute bounded deterministic rows only when `MCP_GLOBAL_EXECUTION_ENABLED=true` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=true`.
+- Real MCP execution remains a `list_tools` / `call_tool(tool_name, {"query": normalized_spl})` adapter shape and returns `admin_action_required` until the real COE MCP server URL, transport, auth, tool names, and argument schema are supplied.
+
+Stage 3D still does not add RAG retrieval, final LLM synthesis, Splunk telemetry writes, SAIA/Splunk AI Assistant generation, or LLM-to-MCP tool calling. `LLM_TOOL_RECOMMENDATION_ENABLED=false` by default; if later enabled, it is advisory only and cannot override deterministic policy.
+
 ### Mock Mode Example
 
 ```env
