@@ -417,6 +417,16 @@ A safe configuration/status/UI layer ahead of evidence-based synthesis. No real 
 - The Settings → LLM Registry tab shows the governance status and a draft editor (validate only).
 - `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert flags (default false). No synthesis or answer-guard code exists yet.
 
+## Stage 3J-C Analyst Chat UX and Intent Hygiene
+
+Analyst-first chat presentation plus three intent fixes. No final synthesis, answer guard, MCP execution change, or new providers.
+
+- Each assistant response leads with an analyst summary card (status, execution state, evidence state, synthesis readiness, next recommended action) using human-readable labels. The Stage 3D technical trace is collapsed behind "Show technical trace"; raw codes stay inside it.
+- SOP / playbook / runbook prompts route to `knowledge_recall` (governed guidance), not `attack_discovery`; no SPL is generated unless the user asks to investigate live data or generate SPL.
+- "successful login after failures" generates a failure+success correlation SPL, not a failed-login-spike-only query.
+- "Map this alert to MITRE" without alert context returns an `intent_clarification` human-review asking for the alert title / rule / notable / SPL; it does not generate SPL.
+- Starter prompts are grouped: Investigate, Knowledge/SOP, Generate SPL, MITRE Mapping. Copy buttons exist for the trace ID and candidate SPL. The background was lightened from near-black.
+
 ## Warning
 
 This is an internal Experience Center scaffold. Do not expose Docker service ports publicly and do not commit auth credentials or session secrets.

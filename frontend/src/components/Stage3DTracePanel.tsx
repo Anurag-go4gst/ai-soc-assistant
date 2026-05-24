@@ -1,6 +1,7 @@
 import { AlertTriangle, Boxes, CheckCircle2, FileSearch, Library, ListChecks, Route, SearchCode, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import type React from 'react';
 import { Badge } from '@/components/ui/badge';
+import { CopyButton } from '@/components/CopyButton';
 import { cn } from '@/lib/utils';
 import type { ExecutionEnvelope, HumanReviewEnvelope, PlaceholderResponse, SourceEvidenceEnvelope, SplValidationEnvelope, StructuredContextPackage, WorkflowPlan } from '@/types/api';
 
@@ -89,7 +90,6 @@ function GovernedKnowledgeSection({ evidence, review }: { evidence: SourceEviden
             {safeText(item.collection_status)}
           </Badge>
         ))}
-        <Badge variant="warning">final synthesis disabled</Badge>
       </div>
       {warnings.length ? <ChipLine label="warnings" values={warnings} variant="warning" /> : null}
       {rows.length ? (
@@ -170,6 +170,7 @@ function SplSection({ candidate, validation }: { candidate?: string; validation:
         {validation?.policy_version ? <Badge variant="secondary">{validation.policy_version}</Badge> : null}
         {validation?.selected_candidate_spl_provider ? <Badge variant="outline">{safeText(validation.selected_candidate_spl_provider)}</Badge> : null}
         {validation?.fallback_required ? <Badge variant="warning">Fallback active</Badge> : null}
+        {candidate ? <CopyButton value={candidate} label="copy SPL" className="ml-auto" /> : null}
       </div>
       {candidate ? (
         <CodeBlock label="candidate SPL" value={candidate} tone="cyan" />
@@ -230,7 +231,6 @@ function ExecutionSection({ execution }: { execution: ExecutionEnvelope }) {
       {execution.block_reason ? <Badge className="mt-2" variant="warning">{safeText(execution.block_reason)}</Badge> : null}
       {executed && execution.executed_spl ? <CodeBlock label="executed normalized SPL" value={execution.executed_spl} tone="emerald" /> : null}
       {executed ? <PreviewRows rows={execution.results_preview} /> : null}
-      <p className="mt-2 text-slate-400">Final LLM synthesis is not enabled yet.</p>
     </TraceSection>
   );
 }
@@ -299,7 +299,6 @@ function StructuredContextSection({ context, sufficiency }: { context: Structure
       {context.splunk_context_refs?.length ? <ChipLine label="Splunk context" values={context.splunk_context_refs} /> : null}
       {context.tool_policy_refs?.length ? <ChipLine label="tool policy" values={context.tool_policy_refs} /> : null}
       {sufficiency?.reasons.length ? <ChipLine label="sufficiency reasons" values={sufficiency.reasons} variant="warning" /> : null}
-      <p className="mt-2 text-slate-400">Final LLM synthesis is not enabled yet.</p>
     </TraceSection>
   );
 }

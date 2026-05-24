@@ -65,11 +65,21 @@ def _candidate_for_query(query: str) -> tuple[str, float, list[str]]:
             0.82,
             ["Uses pgcil_soc auth sourcetype and last-hour bounds."],
         )
-    if "successful login" in query and ("multiple failed" in query or "followed" in query):
+    success_after_failures = ("successful login" in query or "success after" in query or "success following" in query) and (
+        "multiple failed" in query
+        or "followed" in query
+        or "after failure" in query
+        or "after failures" in query
+        or "after failed" in query
+        or "following failure" in query
+        or "following failed" in query
+        or "failures" in query
+    )
+    if success_after_failures:
         return (
             f"{base} | stats count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count by user, src | where fail_count >= 5 AND success_count > 0 | sort -fail_count | head 100",
             0.76,
-            ["Uses aggregate evidence by user and source because stateful stream commands are not allowlisted."],
+            ["Correlates failed then successful auth per user and source; aggregate form because stateful stream commands are not allowlisted."],
         )
     if "new" in query or "unusual" in query:
         return (

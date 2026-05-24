@@ -1,4 +1,5 @@
-import { Bot, User } from 'lucide-react';
+import { Bot, ChevronRight, User } from 'lucide-react';
+import { AnalystSummaryCard } from '@/components/AnalystSummaryCard';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -60,13 +61,24 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         >
           {message.content}
         </div>
-        {!isUser && (message.traceId || message.note) ? (
+        {!isUser && message.trace ? <AnalystSummaryCard trace={message.trace} /> : null}
+        {!isUser && !message.trace && message.note ? (
           <div className="flex flex-wrap gap-2">
             {message.traceId ? <Badge variant="secondary">trace {message.traceId.slice(0, 8)}</Badge> : null}
-            {message.note ? <Badge>{message.note}</Badge> : null}
+            <Badge>{message.note}</Badge>
           </div>
         ) : null}
-        {!isUser && message.trace ? <Stage3DTracePanel trace={message.trace} /> : null}
+        {!isUser && message.trace ? (
+          <details className="group rounded-lg border border-slate-800/70 bg-slate-950/40">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-400 transition hover:text-cyan-200">
+              <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+              Show technical trace
+            </summary>
+            <div className="border-t border-slate-800/70 p-3">
+              <Stage3DTracePanel trace={message.trace} />
+            </div>
+          </details>
+        ) : null}
         {!isUser && !message.trace && message.routing?.selectedSkill ? (
           <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">
             <div className="flex flex-wrap items-center gap-2">

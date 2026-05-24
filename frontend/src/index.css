@@ -6,9 +6,9 @@
 
 @layer base {
   :root {
-    --background: 222 47% 5%;
+    --background: 218 38% 11%;
     --foreground: 210 32% 94%;
-    --card: 222 32% 9%;
+    --card: 220 30% 13%;
     --card-foreground: 210 32% 94%;
     --popover: 222 36% 9%;
     --popover-foreground: 210 32% 94%;
@@ -59,9 +59,9 @@
 @layer utilities {
   .soc-canvas {
     background:
-      radial-gradient(circle at 8% 12%, rgba(34, 211, 238, 0.05), transparent 36%),
-      radial-gradient(circle at 88% 4%, rgba(59, 130, 246, 0.06), transparent 32%),
-      linear-gradient(160deg, #03070f 0%, #06101c 55%, #0a1424 100%);
+      radial-gradient(circle at 8% 12%, rgba(34, 211, 238, 0.07), transparent 38%),
+      radial-gradient(circle at 88% 4%, rgba(59, 130, 246, 0.08), transparent 34%),
+      linear-gradient(160deg, #0b1220 0%, #111c30 55%, #16233b 100%);
     background-attachment: fixed;
   }
 
@@ -81,7 +81,7 @@
   }
 
   .soc-topbar {
-    background: rgba(3, 7, 15, 0.86);
+    background: rgba(13, 20, 34, 0.82);
     backdrop-filter: saturate(150%) blur(12px);
   }
 

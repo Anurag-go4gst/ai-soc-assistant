@@ -29,6 +29,7 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - The Context Sufficiency Gate (Stage 3J) classifies the evidence package into one of seven answer modes (`full_answer`, `partial_answer`, `analyst_review_required`, `spl_review_only`, `knowledge_only_answer`, `blocked_by_policy`, `insufficient_evidence`) and computes `synthesis_readiness`. `synthesis_allowed` stays `false`.
 - The governed LLM layer (Stage 3J-B) is `AI_SOC_LLM_*` config + a `llm.governance` status block + the LLM Registry settings UI. It never calls a real LLM. `AI_SOC_LLM_MODE` is canonical (`disabled` forces off); air-gap enforcement overrides cloud allowance. `/settings/llm/check` validates drafts without persisting and never echoes secrets.
 - `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert flags (default false); no synthesis or answer-guard code exists yet.
+- Intent hygiene (Stage 3J-C): SOP/playbook/runbook and MITRE prompts route to `knowledge_recall` (no SPL); a MITRE ask without alert context returns an `intent_clarification` human-review asking for the alert; success-after-failures prompts generate a failure+success correlation SPL, not a failed-spike-only query. The chat UI is analyst-first: an analyst summary card on top with the Stage 3D technical trace collapsed behind "Show technical trace".
 - Do not add final LLM synthesis, the answer guard, real LLM calls, Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless a later stage explicitly asks for it.
 - Do not execute raw `candidate_spl`; never pass prompts, reasoning, credentials, RAG chunks, or raw workflow internals to MCP.
 
@@ -151,6 +152,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-24_1045_stage-3g1-governed-rag-completion.md` | Done |
 | `plans/2026-05-24_1232_stage-3j-context-sufficiency-gate.md` | Done |
 | `plans/2026-05-24_1811_stage-3j-b-llm-registry-settings.md` | Done |
+| `plans/2026-05-24_1900_stage-3j-c-analyst-chat-ux-intent-hygiene.md` | Done |
 
 ## Git Notes
 

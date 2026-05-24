@@ -29,6 +29,7 @@ Current implementation is governed candidate generation and gated execution cont
 - The Context Sufficiency Gate (Stage 3J) classifies the evidence package into one answer mode and computes `synthesis_readiness`. `synthesis_allowed` stays `false`.
 - Final LLM synthesis and the answer guard do not exist. `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert config flags (Stage 3J-B), default false.
 - The governed LLM layer (Stage 3J-B) is configuration/status/UI only and never calls a real LLM. `/settings/llm/check` validates drafts without persisting; secrets are never echoed.
+- Intent hygiene (Stage 3J-C): SOP/playbook and MITRE prompts route to `knowledge_recall` (no SPL). A MITRE ask without alert context returns an `intent_clarification` human-review rather than generating SPL. The chat UI is analyst-first with the technical trace collapsed by default.
 - Splunk telemetry writes are disabled.
 - LLMs must never call MCP directly.
 
@@ -98,3 +99,4 @@ Recent stage commits:
 - `80d8e35 Wire governed RAG into chat context and trace UI`
 - `a0ba56f Stage 3J: Add context sufficiency gate`
 - `c3d13cc Stage 3J-B: Add LLM registry settings and status UI`
+- `Stage 3J-C Improve analyst chat UX and starter intent handling`

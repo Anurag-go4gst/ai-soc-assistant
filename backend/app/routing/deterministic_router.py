@@ -18,6 +18,20 @@ class RouteRule:
 
 AUTH_ROUTE_RULES: tuple[RouteRule, ...] = (
     RouteRule(
+        skill="knowledge_recall",
+        tool_plan=("retrieve_approved_context", "summarize_bounded_reference"),
+        confidence=0.88,
+        reason="SOP/playbook/runbook knowledge request",
+        any_keywords=("sop", "playbook", "runbook", "standard operating procedure", "standard-operating-procedure"),
+    ),
+    RouteRule(
+        skill="knowledge_recall",
+        tool_plan=("retrieve_approved_context", "summarize_bounded_reference"),
+        confidence=0.85,
+        reason="MITRE ATT&CK mapping request (needs alert context before analysis)",
+        any_keywords=("mitre", "att&ck", "attack technique", "map this alert", "map the alert"),
+    ),
+    RouteRule(
         skill="alert_summary",
         tool_plan=("retrieve_alert_context", "prepare_time_bounded_summary"),
         confidence=0.90,

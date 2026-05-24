@@ -9,7 +9,7 @@ from app.evidence.context_structurer import structure_context
 from app.evidence.context_sufficiency import check_context_sufficiency
 from app.evidence.source_evidence import build_source_evidence
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
-from app.orchestration.human_review import no_human_review
+from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
 from app.routing.skill_router import route_skill
@@ -57,6 +57,16 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
     )
     human_review = _attach_hil_soc_kb_guidance(human_review, source_evidence)
 
+    message = _chat_message(spl_validation, execution)
+    note = _chat_note(spl_validation, execution)
+    if _needs_mitre_clarification(request.message, candidate_spl):
+        human_review = _mitre_clarification_review()
+        message = (
+            "I need alert context before mapping to MITRE ATT&CK. Share the alert title, "
+            "detection rule, notable/event ID, or the SPL and a few sample fields."
+        )
+        note = "MITRE mapping requires grounded alert context; no SPL was generated."
+
     return PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,
@@ -66,8 +76,8 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         routing_mode=settings.routing_mode,
         disagreement=disagreement,
         disagreement_reason=_disagreement_reason(comparison) if disagreement else None,
-        message=_chat_message(spl_validation, execution),
-        note=_chat_note(spl_validation, execution),
+        message=message,
+        note=note,
         workflow_plan=workflow_plan,
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
@@ -76,6 +86,40 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         source_evidence=source_evidence,
         structured_context=structured_context,
         context_sufficiency=context_sufficiency,
+    )
+
+
+_MITRE_INTENT_KEYWORDS = ("mitre", "att&ck", "attack technique", "map this alert", "map the alert")
+# Markers that an alert/event was actually supplied, so mapping can proceed normally.
+_ALERT_CONTEXT_MARKERS = ("index=", "sourcetype=", "rule:", "rule ", "alert:", "notable", "signature=", "event id", "eventid")
+
+
+def _needs_mitre_clarification(query: str, candidate_spl: dict | None) -> bool:
+    """Conservative heuristic: a MITRE mapping ask with no alert context yet.
+
+    False positives (asking for detail when context was present) are worse than
+    false negatives, so any context marker, a generated SPL, or a long message
+    routes through normal handling instead.
+    """
+    normalized = " ".join(query.lower().split())
+    if not any(keyword in normalized for keyword in _MITRE_INTENT_KEYWORDS):
+        return False
+    if candidate_spl and candidate_spl.get("candidate_spl"):
+        return False
+    if len(normalized) > 160:
+        return False
+    return not any(marker in normalized for marker in _ALERT_CONTEXT_MARKERS)
+
+
+def _mitre_clarification_review() -> dict:
+    return human_review(
+        "intent_clarification",
+        "mitre_mapping_requires_alert_context",
+        "soc_analyst",
+        ["provide_alert_details", "cancel"],
+        "To map to MITRE ATT&CK I need the alert context first: the alert title, detection rule, "
+        "notable/event ID, or the SPL with a few sample fields. I will not generate SPL or guess "
+        "techniques without grounding.",
     )
 
 
