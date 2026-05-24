@@ -1,9 +1,16 @@
-import { Brain } from 'lucide-react';
+import { useState } from 'react';
+import { Brain, Pencil } from 'lucide-react';
+import { toast } from 'sonner';
+import { checkLlmSettingsDraft } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { LlmGovernanceStatus, SettingsStatus } from '@/types/api';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import type { LlmGovernanceStatus, LlmSettingsDraftCheckResult, SettingsStatus } from '@/types/api';
 import { BoolPill, ModeBadge, PanelMockBanner, PlaceholderConnectorBanner, SettingRow } from './SettingRow';
+
+const LLM_MODES = ['mock', 'local', 'openai_compatible', 'cisco_foundation_sec', 'disabled'];
 
 export function LlmSettingsPanel({ status }: { status: SettingsStatus['llm'] }) {
   const providers = status.providers ?? [];
@@ -81,12 +88,19 @@ export function LlmSettingsPanel({ status }: { status: SettingsStatus['llm'] }) 
 }
 
 function LlmGovernanceSection({ governance }: { governance: LlmGovernanceStatus }) {
+  const [editing, setEditing] = useState(false);
   return (
     <div data-testid="llm-governance" className="space-y-3 rounded-md border border-cyan-500/25 bg-cyan-500/5 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="soc-eyebrow text-cyan-300">Governed LLM readiness</p>
-        <ModeBadge mode={governance.llm_mode} />
+        <div className="flex items-center gap-2">
+          <ModeBadge mode={governance.llm_mode} />
+          <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEditing((v) => !v)}>
+            <Pencil className="h-3 w-3" /> {editing ? 'Close editor' : 'Edit / validate'}
+          </Button>
+        </div>
       </div>
+      {editing ? <LlmGovernanceEditor governance={governance} /> : null}
       <div className="flex flex-wrap gap-1.5">
         <Badge variant={governance.final_synthesis_enabled ? 'success' : 'secondary'}>
           final synthesis {governance.final_synthesis_enabled ? 'enabled' : 'disabled'}
@@ -158,6 +172,163 @@ function LlmGovernanceSection({ governance }: { governance: LlmGovernanceStatus 
         ))}
       </div>
       <p className="text-[0.65rem] text-slate-500">Endpoint URLs and API keys are never exposed by this surface.</p>
+    </div>
+  );
+}
+
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center justify-between gap-3 border-b border-slate-800/60 py-1.5 text-xs last:border-b-0">
+      <span className="text-slate-400">{label}</span>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-cyan-500" />
+    </label>
+  );
+}
+
+interface ProviderDraftRow {
+  provider_id: string;
+  provider_type: string;
+  base_url: string;
+  api_key: string;
+  model: string;
+}
+
+function LlmGovernanceEditor({ governance }: { governance: LlmGovernanceStatus }) {
+  // Seed from non-secret status only. base_url/api_key/model are write-only and
+  // start blank — existing secret values are never sent to the client.
+  const [form, setForm] = useState({
+    mode: governance.llm_mode,
+    enabled: governance.llm_enabled,
+    allow_cloud: governance.cloud_requested,
+    airgap_enforced: governance.airgap_enforced,
+    default_provider: governance.default_provider ?? '',
+    default_model: governance.default_model ?? '',
+    timeout_seconds: governance.limits.timeout_seconds,
+    max_input_tokens: governance.limits.max_input_tokens,
+    max_output_tokens: governance.limits.max_output_tokens,
+    temperature: governance.limits.temperature,
+    streaming: governance.limits.streaming,
+    log_prompts: governance.safety.log_prompts,
+    log_responses: governance.safety.log_responses,
+    redact_secrets: governance.safety.redact_secrets,
+    require_context_sufficiency: governance.context_sufficiency_required,
+    require_source_refs: governance.safety.require_source_refs,
+    allow_insufficient_evidence_response: governance.safety.allow_insufficient_evidence_response,
+    final_synthesis_enabled: governance.final_synthesis_enabled,
+    answer_guard_enabled: governance.answer_guard_enabled,
+  });
+  const [providers, setProviders] = useState<ProviderDraftRow[]>(
+    governance.providers.map((p) => ({ provider_id: p.provider_id, provider_type: p.provider_type, base_url: '', api_key: '', model: '' })),
+  );
+  const [result, setResult] = useState<LlmSettingsDraftCheckResult | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const setProvider = (i: number, key: keyof ProviderDraftRow, value: string) =>
+    setProviders((rows) => rows.map((row, idx) => (idx === i ? { ...row, [key]: value } : row)));
+
+  const validate = async () => {
+    setBusy(true);
+    try {
+      const res = await checkLlmSettingsDraft({ ...form, providers });
+      setResult(res);
+      toast[res.validation_status === 'pass' ? 'success' : 'error'](
+        res.validation_status === 'pass' ? 'Draft valid (not saved)' : 'Draft has validation errors',
+      );
+    } catch (err) {
+      toast.error(`Validation failed: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border border-slate-700 bg-slate-950/60 p-3">
+      <p className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[0.7rem] text-amber-100">
+        Draft editor — validates only. Nothing is saved; apply real changes via environment variables. Existing secrets are never shown.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <Label className="text-xs">Mode</Label>
+          <select
+            value={form.mode}
+            onChange={(e) => set('mode', e.target.value)}
+            className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100"
+          >
+            {LLM_MODES.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs">Default provider</Label>
+          <Input className="mt-1 h-8 text-xs" value={form.default_provider} onChange={(e) => set('default_provider', e.target.value)} placeholder="e.g. local" />
+        </div>
+        <div>
+          <Label className="text-xs">Default model</Label>
+          <Input className="mt-1 h-8 text-xs" value={form.default_model} onChange={(e) => set('default_model', e.target.value)} placeholder="model name" />
+        </div>
+        <div>
+          <Label className="text-xs">Temperature</Label>
+          <Input className="mt-1 h-8 text-xs" type="number" step="0.1" value={form.temperature} onChange={(e) => set('temperature', Number(e.target.value))} />
+        </div>
+        <div>
+          <Label className="text-xs">Max input tokens</Label>
+          <Input className="mt-1 h-8 text-xs" type="number" value={form.max_input_tokens} onChange={(e) => set('max_input_tokens', Number(e.target.value))} />
+        </div>
+        <div>
+          <Label className="text-xs">Max output tokens</Label>
+          <Input className="mt-1 h-8 text-xs" type="number" value={form.max_output_tokens} onChange={(e) => set('max_output_tokens', Number(e.target.value))} />
+        </div>
+        <div>
+          <Label className="text-xs">Timeout (s)</Label>
+          <Input className="mt-1 h-8 text-xs" type="number" value={form.timeout_seconds} onChange={(e) => set('timeout_seconds', Number(e.target.value))} />
+        </div>
+      </div>
+      <div className="rounded border border-slate-800 p-2">
+        <p className="soc-eyebrow mb-1">Flags</p>
+        <Toggle label="Governed LLM enabled" checked={form.enabled} onChange={(v) => set('enabled', v)} />
+        <Toggle label="Allow cloud" checked={form.allow_cloud} onChange={(v) => set('allow_cloud', v)} />
+        <Toggle label="Air-gap enforced" checked={form.airgap_enforced} onChange={(v) => set('airgap_enforced', v)} />
+        <Toggle label="Streaming" checked={form.streaming} onChange={(v) => set('streaming', v)} />
+        <Toggle label="Final synthesis (inert)" checked={form.final_synthesis_enabled} onChange={(v) => set('final_synthesis_enabled', v)} />
+        <Toggle label="Answer guard (inert)" checked={form.answer_guard_enabled} onChange={(v) => set('answer_guard_enabled', v)} />
+        <Toggle label="Require context sufficiency" checked={form.require_context_sufficiency} onChange={(v) => set('require_context_sufficiency', v)} />
+        <Toggle label="Require source refs" checked={form.require_source_refs} onChange={(v) => set('require_source_refs', v)} />
+        <Toggle label="Allow insufficient-evidence answer" checked={form.allow_insufficient_evidence_response} onChange={(v) => set('allow_insufficient_evidence_response', v)} />
+        <Toggle label="Log prompts" checked={form.log_prompts} onChange={(v) => set('log_prompts', v)} />
+        <Toggle label="Log responses" checked={form.log_responses} onChange={(v) => set('log_responses', v)} />
+        <Toggle label="Redact secrets" checked={form.redact_secrets} onChange={(v) => set('redact_secrets', v)} />
+      </div>
+      <div className="rounded border border-slate-800 p-2">
+        <p className="soc-eyebrow mb-1">Provider endpoints (write-only)</p>
+        <div className="space-y-2">
+          {providers.map((provider, i) => (
+            <div key={provider.provider_id} className="rounded border border-slate-800 p-2">
+              <p className="text-xs font-semibold text-slate-100">{provider.provider_id} <span className="font-mono text-[0.65rem] text-slate-500">{provider.provider_type}</span></p>
+              <div className="mt-1 grid gap-1.5 sm:grid-cols-3">
+                <Input className="h-8 text-xs" value={provider.base_url} onChange={(e) => setProvider(i, 'base_url', e.target.value)} placeholder="base URL" />
+                <Input className="h-8 text-xs" type="password" value={provider.api_key} onChange={(e) => setProvider(i, 'api_key', e.target.value)} placeholder="API key (not stored)" />
+                <Input className="h-8 text-xs" value={provider.model} onChange={(e) => setProvider(i, 'model', e.target.value)} placeholder="model" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <Button type="button" size="sm" className="w-full" disabled={busy} onClick={validate}>
+        {busy ? 'Validating…' : 'Validate draft (not saved)'}
+      </Button>
+      {result ? (
+        <div data-testid="llm-draft-result" className="space-y-2 rounded border border-slate-800 bg-slate-900/60 p-2 text-xs">
+          <div className="flex items-center gap-2">
+            <Badge variant={result.validation_status === 'pass' ? 'success' : 'destructive'}>{result.validation_status}</Badge>
+            <Badge variant="secondary">not persisted</Badge>
+          </div>
+          {result.validation_errors.length ? <p className="text-rose-300">errors: {result.validation_errors.join(', ')}</p> : null}
+          {result.warnings.length ? <p className="text-amber-200">warnings: {result.warnings.join(', ')}</p> : null}
+          <p className="text-slate-400">{result.safe_message}</p>
+        </div>
+      ) : null}
     </div>
   );
 }

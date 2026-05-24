@@ -25,7 +25,10 @@ Current implementation is governed candidate generation and gated execution cont
 - MCP execution defaults disabled globally and per server.
 - Mock MCP execution is allowed only when explicitly enabled through `MCP_GLOBAL_EXECUTION_ENABLED=true` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=true`.
 - Real MCP execution adapter shape exists, but real execution remains blocked/not implemented until COE MCP URL, transport, auth, tool names, argument schema, and approval workflow are supplied.
-- RAG retrieval and final LLM synthesis are disabled.
+- Governed RAG retrieval is wired: SOC KB results flow only through `SourceEvidence` and `StructuredContext`. There is no direct RAG-to-LLM path.
+- The Context Sufficiency Gate (Stage 3J) classifies the evidence package into one answer mode and computes `synthesis_readiness`. `synthesis_allowed` stays `false`.
+- Final LLM synthesis and the answer guard do not exist. `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert config flags (Stage 3J-B), default false.
+- The governed LLM layer (Stage 3J-B) is configuration/status/UI only and never calls a real LLM. `/settings/llm/check` validates drafts without persisting; secrets are never echoed.
 - Splunk telemetry writes are disabled.
 - LLMs must never call MCP directly.
 
@@ -90,8 +93,8 @@ Preferred grouping:
 
 Recent stage commits:
 
-- `459cb75 Add workflow planning after skill routing`
-- `b6b8329 Add multi-MCP and multi-LLM readiness registry`
-- `8afd560 Add candidate SPL generation and deterministic validation`
 - `7a35038 Add MCP discovery, HIL, and gated SPL execution`
 - `a47785d Add Stage 3D trace pipeline UI`
+- `80d8e35 Wire governed RAG into chat context and trace UI`
+- `a0ba56f Stage 3J: Add context sufficiency gate`
+- `c3d13cc Stage 3J-B: Add LLM registry settings and status UI`

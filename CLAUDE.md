@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC dashboard. FastAPI backend + React/TypeScript frontend + Postgres. The app currently supports skill routing, workflow planning, candidate SPL generation, deterministic SPL validation, MCP discovery/tool selection, human-in-the-loop gates, optional explicitly-enabled mock MCP execution, a generic multi-MCP readiness registry, a multi-LLM provider/model readiness registry, telemetry/status surfaces, and deterministic safeguards. Production access goes through Nginx at `https://cisco-vai.vnudge.com`; Docker service ports are bound to `127.0.0.1` and must never be exposed publicly.
+AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC dashboard. FastAPI backend + React/TypeScript frontend + Postgres. The app currently supports skill routing, workflow planning, candidate SPL generation, deterministic SPL validation, MCP discovery/tool selection, human-in-the-loop gates, optional explicitly-enabled mock MCP execution, a generic multi-MCP readiness registry, a multi-LLM provider/model readiness registry, governed SOC-KB RAG retrieval into `SourceEvidence`/`StructuredContext`, a Context Sufficiency Gate (Stage 3J), a governed LLM configuration/status layer (Stage 3J-B), telemetry/status surfaces, and deterministic safeguards. Production access goes through Nginx at `https://cisco-vai.vnudge.com`; Docker service ports are bound to `127.0.0.1` and must never be exposed publicly.
 
 ## Stack
 
@@ -25,7 +25,11 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - LLM is a provider/model registry. Cisco/Foundation-Sec is one family, not the only supported LLM option.
 - Open-weight/local models are configured through provider types such as `openai_compatible`, `ollama`, `vllm`, `sglang`, `tgi`, `llamacpp`, and `custom_http`.
 - The AI-SOC backend controls MCP access. The LLM must never call MCP directly.
-- Do not add RAG retrieval, final LLM synthesis, Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless a later stage explicitly asks for it.
+- Governed SOC-KB RAG retrieval is wired (Stage 3G.1) and flows only through `SourceEvidence`/`StructuredContext`; there is no direct RAG-to-LLM path.
+- The Context Sufficiency Gate (Stage 3J) classifies the evidence package into one of seven answer modes (`full_answer`, `partial_answer`, `analyst_review_required`, `spl_review_only`, `knowledge_only_answer`, `blocked_by_policy`, `insufficient_evidence`) and computes `synthesis_readiness`. `synthesis_allowed` stays `false`.
+- The governed LLM layer (Stage 3J-B) is `AI_SOC_LLM_*` config + a `llm.governance` status block + the LLM Registry settings UI. It never calls a real LLM. `AI_SOC_LLM_MODE` is canonical (`disabled` forces off); air-gap enforcement overrides cloud allowance. `/settings/llm/check` validates drafts without persisting and never echoes secrets.
+- `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert flags (default false); no synthesis or answer-guard code exists yet.
+- Do not add final LLM synthesis, the answer guard, real LLM calls, Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless a later stage explicitly asks for it.
 - Do not execute raw `candidate_spl`; never pass prompts, reasoning, credentials, RAG chunks, or raw workflow internals to MCP.
 
 ## Run / Build
@@ -140,14 +144,22 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 - Frontend visual system was adapted from a separate Support Buddy app as a read-only UI reference. No Support Buddy secrets, auth logic, or runtime config are reused — don't import them.
 - Production traffic goes through Nginx at `cisco-vai.vnudge.com` serving `frontend/dist` and proxying `/api/` + `/health` to the backend. Don't expose Docker ports.
 
+## Plans
+
+| Plan | Status |
+|------|--------|
+| `plans/2026-05-24_1045_stage-3g1-governed-rag-completion.md` | Done |
+| `plans/2026-05-24_1232_stage-3j-context-sufficiency-gate.md` | Done |
+| `plans/2026-05-24_1811_stage-3j-b-llm-registry-settings.md` | Done |
+
 ## Git Notes
 
 Recent stage split:
-- `459cb75 Add workflow planning after skill routing`
-- `b6b8329 Add multi-MCP and multi-LLM readiness registry`
 - `8afd560 Add candidate SPL generation and deterministic validation`
 - `7a35038 Add MCP discovery, HIL, and gated SPL execution`
 - `a47785d Add Stage 3D trace pipeline UI`
-- `fdb4501 Add Splunk context document template`
+- `80d8e35 Wire governed RAG into chat context and trace UI`
+- `a0ba56f Stage 3J: Add context sufficiency gate`
+- `c3d13cc Stage 3J-B: Add LLM registry settings and status UI`
 
 Keep future changes similarly scoped. Do not combine workflow execution changes with connection-readiness or UI-only changes unless explicitly requested.

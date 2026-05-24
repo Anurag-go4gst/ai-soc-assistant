@@ -230,6 +230,193 @@ SOC_KB_LLM_SELECTION_ENABLED=false
 
 Actual PDF parsing, embedding generation, vector indexing, external vector DB integration, graph database expansion, and real reranker model serving are deferred. RAG output continues to flow only through `SourceEvidence` and `StructuredContext`; there is no direct RAG-to-LLM path and no final synthesis.
 
+## Stage 3H Splunk MCP, Splunk AI Assistant Availability, and AI-SOC Fallback
+
+Splunk MCP is the first-class Splunk integration path. AI-SOC now distinguishes core `splunk_*` MCP tools from optional `saia_*` Splunk AI Assistant tools, because on-prem, OT-SOC, government, and air-gapped deployments cannot assume Splunk AI Assistant is available.
+
+- Core Splunk MCP tools are used for Splunk data access, metadata, index context, user/context discovery, knowledge object discovery, and validated execution.
+- `saia_*` tools are optional accelerators for candidate SPL generation, explanation, optimization, and Splunk-specific guidance.
+- If `saia_*` tools are unavailable, disabled, undiscovered, or effectively disabled by `AI_SOC_ENVIRONMENT_MODE=air_gapped`, AI-SOC uses fallback SPL services: template/internal generation, rule-based explanation, rule-based optimization, and governed SCD/RAG guidance.
+- SAIA outputs are never execution evidence. `saia_generate_spl` output is stored as `candidate_spl` only.
+- Internal LLM/template fallback output is also `candidate_spl` only.
+- All SPL must pass deterministic SPL validation before it can reach `splunk_run_query` / `run_splunk_query`.
+- Optimized SPL is treated as a new candidate and must be revalidated.
+- `splunk_run_saved_search` is detected as a beta execution capability but defaults disabled. If enabled later, it must be allowlisted or HIL-approved.
+- Execution still requires validation, policy selection, global/server execution flags, selected allowlisted tool, and HIL where required.
+- Splunk MCP results become `SourceEvidence` with `source_type="splunk_mcp"`. SAIA advisory outputs become `source_type="splunk_mcp_saia"` and are not treated as execution evidence.
+- `StructuredContext` records capability profile reference, generation/explanation/optimization/guidance providers, fallback mode, execution provider, and source refs.
+
+The Splunk capability profile reports:
+
+- MCP availability and discovery mode
+- discovered core `splunk_*` tools and discovered `saia_*` tools
+- Splunk AI Assistant configured mode and usability
+- fallback requirement
+- saved search and run-query policy flags
+- missing expected core/SAIA tools
+
+Key Stage 3H environment flags:
+
+```env
+AI_SOC_ENVIRONMENT_MODE=coe
+SPLUNK_MCP_ENABLED=true
+SPLUNK_MCP_SERVER_ID=splunk_soc
+SPLUNK_MCP_DISCOVERY_MODE=dynamic
+SPLUNK_AI_ASSISTANT_MODE=auto
+SPLUNK_SAIA_TOOLS_ENABLED=true
+SPLUNK_USE_SAIA_GENERATE_SPL=true
+SPLUNK_USE_SAIA_EXPLAIN_SPL=true
+SPLUNK_USE_SAIA_OPTIMIZE_SPL=true
+SPLUNK_USE_SAIA_ASK_QUESTION=true
+SPLUNK_SAIA_REQUIRE_DISCOVERY=true
+SPLUNK_ALLOW_RUN_SAVED_SEARCH=false
+SPLUNK_RUN_SAVED_SEARCH_REQUIRE_HIL=true
+SPLUNK_RUN_QUERY_REQUIRE_VALIDATION=true
+SPLUNK_METADATA_DISCOVERY_ALLOWED=true
+SPLUNK_KNOWLEDGE_OBJECT_DISCOVERY_ALLOWED=true
+SPLUNK_ALLOWED_CORE_TOOLS=splunk_run_query,splunk_get_info,splunk_get_indexes,splunk_get_index_info,splunk_get_metadata,splunk_get_user_info,splunk_get_knowledge_objects
+SPLUNK_ALLOWED_SAIA_TOOLS=saia_generate_spl,saia_explain_spl,saia_optimize_spl,saia_ask_splunk_question
+```
+
+Status and trace UI now show Splunk MCP capability, SAIA availability/usability, fallback active state, provider used for SPL generation/explanation/optimization/guidance, validation result, selected execution tool, HIL status, and SourceEvidence status. No tokens, credentialed URLs, passwords, API keys, headers, or secrets are exposed.
+
+## Stage 3I Multi-Provider Context and Tool Framework Skeleton
+
+Stage 3I adds a small provider abstraction for future non-Splunk integrations without enabling real firewall, router, EDR, remediation, write, or admin actions.
+
+- `ProviderType` covers `splunk_mcp`, `generic_mcp`, `security_api`, `network_api`, `asset_inventory`, `ticketing`, `rag_knowledge`, and `manual_input`.
+- `ProviderOperationCategory` covers discovery, lookup, candidate generation, explanation, optimization, execution, write, and admin operation classes.
+- `ProviderCapabilityProfile` normalizes provider readiness, allowed/blocked operations, HIL requirements, evidence support, fallback state, and warnings.
+- Existing Splunk capability profiles can be represented as provider profiles while preserving Stage 3H Splunk MCP behavior.
+- A mock-only `mock_asset_inventory` provider supports read-only `asset_lookup` and returns `SourceEvidence`; it does not call an external API.
+- Generic provider policy rejects unavailable providers, non-allowed operations, blocked operations, default write/admin operations, HIL-required operations without approval, and providers that cannot emit evidence.
+
+All provider results must become `SourceEvidence` before entering structured context. Final synthesis, answer guards, real API integrations, OT use cases, and write/remediation actions remain deferred.
+
+### Mock Mode Example
+
+```env
+MCP_MODE=mock
+MCP_DEFAULT_SERVER=splunk_soc
+MCP_GLOBAL_EXECUTION_ENABLED=false
+LLM_MODE=mock
+LLM_HEALTH_CANARY_ENABLED=false
+TELEMETRY_MODE=db
+AI_SOC_TELEMETRY_SINK=db
+```
+
+### COE Readiness Example
+
+Use placeholder values only until COE provides real endpoints and credentials:
+
+```env
+MCP_MODE=registry
+MCP_SERVERS=splunk_soc,asset_inventory,ticketing
+MCP_DEFAULT_SERVER=splunk_soc
+MCP_GLOBAL_EXECUTION_ENABLED=false
+
+MCP_SERVER_SPLUNK_SOC_ENABLED=true
+MCP_SERVER_SPLUNK_SOC_TYPE=splunk
+MCP_SERVER_SPLUNK_SOC_TRANSPORT=streamable_http
+MCP_SERVER_SPLUNK_SOC_URL=https://splunk-mcp.example.invalid/mcp
+MCP_SERVER_SPLUNK_SOC_AUTH_MODE=bearer
+MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN=replace-with-token
+MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST=list_tools,splunk_get_indexes,splunk_search,saia_generate_spl
+MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED=false
+MCP_SERVER_SPLUNK_SOC_SPLUNK_APP_ID=7931
+MCP_SERVER_SPLUNK_SOC_SPLUNK_PLATFORM=unknown
+
+LLM_PROVIDERS=foundation_sec_instruct,foundation_sec_reasoning,llama_local,kimi_local,enterprise_gateway
+LLM_DEFAULT_PROVIDER=foundation_sec_instruct
+LLM_ROUTER_PROVIDER=foundation_sec_instruct
+LLM_SYNTHESIS_PROVIDER=foundation_sec_instruct
+LLM_REASONING_PROVIDER=foundation_sec_reasoning
+LLM_TEACHER_PROVIDER=enterprise_gateway
+LLM_GLOBAL_CONCURRENCY=4
+LLM_TIMEOUT_SECONDS=30
+LLM_HEALTH_CANARY_ENABLED=false
+
+LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_ENABLED=true
+LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_TYPE=cisco_compatible
+LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_BASE_URL=https://foundation-sec-instruct.example.invalid/v1
+LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_API_KEY=replace-with-api-key
+LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_AUTH_MODE=api_key
+LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_MODEL=replace-with-instruct-model
+LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_MODEL_ROLE=instruct
+LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_FAMILY=foundation_sec
+LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_SUPPORTS_TOOL_CALLING=false
+
+LLM_PROVIDER_FOUNDATION_SEC_REASONING_ENABLED=true
+LLM_PROVIDER_FOUNDATION_SEC_REASONING_TYPE=cisco_compatible
+LLM_PROVIDER_FOUNDATION_SEC_REASONING_BASE_URL=https://foundation-sec-reasoning.example.invalid/v1
+LLM_PROVIDER_FOUNDATION_SEC_REASONING_API_KEY=replace-with-api-key
+LLM_PROVIDER_FOUNDATION_SEC_REASONING_AUTH_MODE=api_key
+LLM_PROVIDER_FOUNDATION_SEC_REASONING_MODEL=replace-with-reasoning-model
+LLM_PROVIDER_FOUNDATION_SEC_REASONING_MODEL_ROLE=reasoning
+LLM_PROVIDER_FOUNDATION_SEC_REASONING_FAMILY=foundation_sec
+LLM_PROVIDER_FOUNDATION_SEC_REASONING_SUPPORTS_TOOL_CALLING=false
+```
+
+### Status Shape Example
+
+`GET /api/settings/status` redacts secrets and reports only booleans:
+
+```json
+{
+  "mcp": {
+    "mode": "registry",
+    "default_server": "splunk_soc",
+    "global_execution_enabled": false,
+    "servers": [
+      {
+        "name": "splunk_soc",
+        "type": "splunk",
+        "url_configured": true,
+        "auth_configured": true,
+        "execution_enabled": false,
+        "discovered_tools_safe_names": ["list_tools", "splunk_search"],
+        "blocked_tools_safe_names": ["splunk_search"],
+        "search_execution_allowed": false,
+        "saia_spl_generation_allowed": false
+      }
+    ]
+  },
+  "llm": {
+    "default_provider": "foundation_sec_instruct",
+    "role_resolution": {
+      "router": "foundation_sec_instruct",
+      "reasoning": "foundation_sec_reasoning"
+    },
+    "providers": [
+      {
+        "name": "foundation_sec_instruct",
+        "base_url_configured": true,
+        "api_key_configured": true,
+        "supports_tool_calling": false
+      }
+    ]
+  }
+}
+```
+
+## Stage 3J Context Sufficiency Gate
+
+After governed RAG collection, the Context Sufficiency Gate classifies the `SourceEvidence` + `StructuredContext` package into one answer mode and computes a `synthesis_readiness` signal. Synthesis itself stays disabled (`synthesis_allowed=false`).
+
+Modes: `full_answer`, `partial_answer`, `analyst_review_required`, `spl_review_only`, `knowledge_only_answer`, `blocked_by_policy`, `insufficient_evidence`.
+
+Key rules: SAIA/candidate SPL alone is advisory (`spl_review_only`); RAG-only evidence supports SOP/knowledge guidance; structured facts without `source_refs` are insufficient; MITRE conclusions require MITRE grounding and asset-criticality claims require asset evidence (`analyst_review_required`); a sensitive leak blocks readiness (`blocked_by_policy`).
+
+## Stage 3J-B Governed LLM Layer
+
+A safe configuration/status/UI layer ahead of evidence-based synthesis. No real LLM is called.
+
+- `AI_SOC_LLM_*` settings: `AI_SOC_LLM_MODE` is canonical (`mock|local|openai_compatible|cisco_foundation_sec|disabled`; `disabled` forces off). Air-gap enforcement overrides cloud allowance.
+- `GET /api/settings/status` adds a `llm.governance` block: enabled/mode/cloud/airgap, default provider/model, the `final_synthesis_enabled` / `answer_guard_enabled` / `context_sufficiency_required` flags, limits, safety controls, provider readiness, and role mappings — all as `*_configured` booleans, never secrets.
+- `POST /api/settings/llm/check` validates a settings draft without persisting and never echoes secrets.
+- The Settings → LLM Registry tab shows the governance status and a draft editor (validate only).
+- `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert flags (default false). No synthesis or answer-guard code exists yet.
+
 ## Warning
 
 This is an internal Experience Center scaffold. Do not expose Docker service ports publicly and do not commit auth credentials or session secrets.

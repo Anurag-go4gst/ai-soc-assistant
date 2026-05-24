@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from '@/lib/runtimeMode';
-import type { AuthResponse, HealthResponse, KnowledgeCollection, KnowledgeDocument, KnowledgeEntry, PlaceholderResponse, ProviderDraftCheckRequest, ProviderDraftCheckResult, ProviderSettingsStatus, SettingsStatus } from '../types/api';
+import type { AuthResponse, HealthResponse, KnowledgeCollection, KnowledgeDocument, KnowledgeEntry, LlmSettingsDraftCheckRequest, LlmSettingsDraftCheckResult, PlaceholderResponse, ProviderDraftCheckRequest, ProviderDraftCheckResult, ProviderSettingsStatus, SettingsStatus } from '../types/api';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -103,6 +103,19 @@ export async function checkProviderDraft(payload: ProviderDraftCheckRequest): Pr
   });
   if (!response.ok) {
     throw new Error(`Provider check failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function checkLlmSettingsDraft(payload: LlmSettingsDraftCheckRequest): Promise<LlmSettingsDraftCheckResult> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/check`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`LLM settings check failed: ${response.status}`);
   }
   return response.json();
 }

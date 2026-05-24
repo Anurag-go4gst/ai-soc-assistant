@@ -264,10 +264,24 @@ def _resolve_path(path_value: str) -> Path:
     path = Path(path_value)
     if path.is_absolute():
         return path
-    candidate = Path.cwd() / path
-    if candidate.exists():
-        return candidate
-    return Path(__file__).resolve().parents[3] / path_value
+    # Configured paths are repo-root-relative (e.g. ``backend/app/...``). They
+    # must resolve both on the host (repo root contains ``backend/``) and in the
+    # container, where ``./backend`` is mounted at ``/app`` and the ``backend/``
+    # segment is flattened away. Try the most specific layouts first.
+    repo_root = Path(__file__).resolve().parents[3]
+    backend_root = Path(__file__).resolve().parents[2]
+    stripped = path_value[len("backend/"):] if path_value.startswith("backend/") else path_value
+    candidates = [
+        Path.cwd() / path,
+        repo_root / path_value,
+        backend_root / stripped,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    # Nothing matched; return the repo-root candidate so the error names a
+    # stable, debuggable path rather than an accidental ``/``-rooted one.
+    return repo_root / path_value
 
 
 def _load_json(path: Path) -> list[dict[str, Any]]:

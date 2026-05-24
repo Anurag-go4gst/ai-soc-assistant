@@ -4,6 +4,11 @@ import json
 
 import pytest
 
+from app.api.routes_settings import (
+    LlmProviderDraft,
+    LlmSettingsDraftCheckRequest,
+    check_llm_settings_draft,
+)
 from app.config import ConfigError, Settings, _validate, settings
 from app.llm.registry_settings import build_llm_governance_status
 
@@ -93,3 +98,43 @@ def test_governance_status_does_not_leak_secret_values(monkeypatch) -> None:
     text = json.dumps(build_llm_governance_status())
     for forbidden in ("secret-instruct-token-3jb", "secret-local-token-3jb", "secret-pass-3jb"):
         assert forbidden not in text
+
+
+def test_llm_draft_check_passes_and_never_persists() -> None:
+    result = check_llm_settings_draft(
+        LlmSettingsDraftCheckRequest(
+            mode="openai_compatible",
+            providers=[LlmProviderDraft(provider_id="openai_compatible", base_url="https://llm.example.invalid/v1", api_key="sk-draft-secret", model="m")],
+        )
+    )
+    assert result["validation_status"] == "pass"
+    assert result["not_persisted"] is True
+    assert result["saved"] is False
+    assert result["providers"][0]["api_key_configured"] is True
+    assert "sk-draft-secret" not in json.dumps(result)
+
+
+def test_llm_draft_check_rejects_invalid_mode_and_limits() -> None:
+    result = check_llm_settings_draft(
+        LlmSettingsDraftCheckRequest(mode="gpt_supreme", timeout_seconds=0, temperature=9.0)
+    )
+    assert result["validation_status"] == "fail"
+    assert "invalid_mode" in result["validation_errors"]
+    assert "timeout_seconds_must_be_positive" in result["validation_errors"]
+    assert "temperature_out_of_range" in result["validation_errors"]
+
+
+def test_llm_draft_check_airgap_overrides_cloud() -> None:
+    result = check_llm_settings_draft(
+        LlmSettingsDraftCheckRequest(mode="mock", allow_cloud=True, airgap_enforced=True)
+    )
+    assert result["cloud_allowed"] is False
+    assert "cloud_allowance_overridden_by_airgap_enforcement" in result["warnings"]
+
+
+def test_llm_draft_check_flags_inert_synthesis_and_guard() -> None:
+    result = check_llm_settings_draft(
+        LlmSettingsDraftCheckRequest(mode="mock", final_synthesis_enabled=True, answer_guard_enabled=True)
+    )
+    assert "final_synthesis_flag_inert_not_implemented" in result["warnings"]
+    assert "answer_guard_flag_inert_not_implemented" in result["warnings"]

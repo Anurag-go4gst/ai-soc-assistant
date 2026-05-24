@@ -262,6 +262,54 @@ export interface LlmGovernanceStatus {
   notes: string[];
 }
 
+export interface LlmSettingsDraftProvider {
+  provider_id: string;
+  provider_type?: string;
+  base_url?: string;
+  api_key?: string;
+  model?: string;
+}
+
+export interface LlmSettingsDraftCheckRequest {
+  mode: string;
+  enabled: boolean;
+  allow_cloud: boolean;
+  airgap_enforced: boolean;
+  default_provider: string;
+  default_model: string;
+  timeout_seconds: number;
+  max_input_tokens: number;
+  max_output_tokens: number;
+  temperature: number;
+  streaming: boolean;
+  log_prompts: boolean;
+  log_responses: boolean;
+  redact_secrets: boolean;
+  require_context_sufficiency: boolean;
+  require_source_refs: boolean;
+  allow_insufficient_evidence_response: boolean;
+  final_synthesis_enabled: boolean;
+  answer_guard_enabled: boolean;
+  providers: LlmSettingsDraftProvider[];
+}
+
+export interface LlmSettingsDraftCheckResult {
+  mode: string;
+  enabled: boolean;
+  cloud_allowed: boolean;
+  airgap_enforced: boolean;
+  final_synthesis_enabled: boolean;
+  answer_guard_enabled: boolean;
+  context_sufficiency_required: boolean;
+  providers: { provider_id: string; provider_type: string; base_url_configured: boolean; api_key_configured: boolean; default_model_configured: boolean }[];
+  validation_status: 'pass' | 'fail';
+  validation_errors: string[];
+  warnings: string[];
+  saved: boolean;
+  not_persisted: boolean;
+  safe_message: string;
+}
+
 export interface SettingsStatus {
   mcp: {
     enabled: boolean;

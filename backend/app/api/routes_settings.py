@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.config import settings
+from app.config import SUPPORTED_AI_SOC_LLM_MODES, settings
 from app.connectors.embeddings import get_embeddings_connector
 from app.connectors.llm import get_llm_connector
 from app.connectors.llm.registry import load_llm_registry_status
@@ -48,6 +48,37 @@ _ALLOWED_TOOLS = [
     "splunk_get_indexes",
     "splunk_get_metadata",
 ]
+
+
+class LlmProviderDraft(BaseModel):
+    provider_id: str
+    provider_type: str = ""
+    base_url: str = ""
+    api_key: str = ""
+    model: str = ""
+
+
+class LlmSettingsDraftCheckRequest(BaseModel):
+    mode: str = "mock"
+    enabled: bool = False
+    allow_cloud: bool = False
+    airgap_enforced: bool = False
+    default_provider: str = ""
+    default_model: str = ""
+    timeout_seconds: int = 30
+    max_input_tokens: int = 8000
+    max_output_tokens: int = 1024
+    temperature: float = 0.2
+    streaming: bool = False
+    log_prompts: bool = False
+    log_responses: bool = False
+    redact_secrets: bool = True
+    require_context_sufficiency: bool = True
+    require_source_refs: bool = True
+    allow_insufficient_evidence_response: bool = False
+    final_synthesis_enabled: bool = False
+    answer_guard_enabled: bool = False
+    providers: list[LlmProviderDraft] = []
 
 
 def _bool_configured(value: str) -> bool:
@@ -360,6 +391,87 @@ def check_provider_draft(payload: ProviderDraftCheckRequest) -> dict:
         "saved": False,
         "not_persisted": True,
         "safe_message": "Draft checked without storing secrets. Persisted provider settings are not enabled in this stage.",
+    }
+
+
+@router.post("/settings/llm/check")
+def check_llm_settings_draft(payload: LlmSettingsDraftCheckRequest) -> dict:
+    """Validate a governed-LLM settings draft without persisting anything.
+
+    Mirrors ``/settings/providers/check``: secrets are accepted transiently for
+    validation only, never stored and never echoed back. The response exposes
+    only ``*_configured`` booleans.
+    """
+    mode = payload.mode.strip().lower()
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    if mode not in SUPPORTED_AI_SOC_LLM_MODES:
+        errors.append("invalid_mode")
+    if payload.timeout_seconds <= 0:
+        errors.append("timeout_seconds_must_be_positive")
+    if payload.max_input_tokens <= 0:
+        errors.append("max_input_tokens_must_be_positive")
+    if payload.max_output_tokens <= 0:
+        errors.append("max_output_tokens_must_be_positive")
+    if not 0.0 <= payload.temperature <= 2.0:
+        errors.append("temperature_out_of_range")
+
+    cloud_allowed = payload.allow_cloud and not payload.airgap_enforced
+    if payload.allow_cloud and payload.airgap_enforced:
+        warnings.append("cloud_allowance_overridden_by_airgap_enforcement")
+    if payload.final_synthesis_enabled:
+        warnings.append("final_synthesis_flag_inert_not_implemented")
+    if payload.answer_guard_enabled:
+        warnings.append("answer_guard_flag_inert_not_implemented")
+    if payload.allow_insufficient_evidence_response and payload.require_source_refs:
+        warnings.append("insufficient_evidence_answer_conflicts_with_required_source_refs")
+
+    configured_providers = [
+        {
+            "provider_id": provider.provider_id.strip()[:120] or "unknown",
+            "provider_type": provider.provider_type.strip()[:60],
+            "base_url_configured": bool(provider.base_url.strip()),
+            "api_key_configured": bool(provider.api_key.strip()),
+            "default_model_configured": bool(provider.model.strip()),
+        }
+        for provider in payload.providers
+    ]
+    if mode not in {"mock", "disabled"} and not any(p["base_url_configured"] for p in configured_providers):
+        warnings.append("no_provider_endpoint_configured_for_non_mock_mode")
+
+    return {
+        "mode": mode,
+        "enabled": payload.enabled and mode != "disabled",
+        "cloud_allowed": cloud_allowed,
+        "cloud_requested": payload.allow_cloud,
+        "airgap_enforced": payload.airgap_enforced,
+        "default_provider": payload.default_provider.strip() or None,
+        "default_model": payload.default_model.strip() or None,
+        "final_synthesis_enabled": payload.final_synthesis_enabled,
+        "answer_guard_enabled": payload.answer_guard_enabled,
+        "context_sufficiency_required": payload.require_context_sufficiency,
+        "limits": {
+            "timeout_seconds": payload.timeout_seconds,
+            "max_input_tokens": payload.max_input_tokens,
+            "max_output_tokens": payload.max_output_tokens,
+            "temperature": payload.temperature,
+            "streaming": payload.streaming,
+        },
+        "safety": {
+            "log_prompts": payload.log_prompts,
+            "log_responses": payload.log_responses,
+            "redact_secrets": payload.redact_secrets,
+            "require_source_refs": payload.require_source_refs,
+            "allow_insufficient_evidence_response": payload.allow_insufficient_evidence_response,
+        },
+        "providers": configured_providers,
+        "validation_status": "pass" if not errors else "fail",
+        "validation_errors": errors,
+        "warnings": warnings,
+        "saved": False,
+        "not_persisted": True,
+        "safe_message": "Draft validated without storing values. Persisted LLM settings are not enabled in this stage; apply changes via environment variables.",
     }
 
 
