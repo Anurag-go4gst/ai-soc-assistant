@@ -20,6 +20,7 @@ from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.rag import get_rag_connector
 from app.connectors.telemetry import get_telemetry_connector, metrics
 from app.knowledge.soc_kb_retriever import soc_kb_status_summary
+from app.llm.registry_settings import build_llm_governance_status
 from app.providers import ProviderType, mock_asset_inventory_profile, splunk_provider_profile
 from app.splunk.capabilities import build_splunk_capability_profile
 
@@ -198,6 +199,7 @@ def settings_status() -> dict:
             "temperature": 0.2,
             "timeout_seconds": llm_registry.timeout_seconds,
             "max_context_tokens": 8000,
+            "governance": build_llm_governance_status(),
         },
         "embeddings": {
             **_safe_status(embeddings_status),

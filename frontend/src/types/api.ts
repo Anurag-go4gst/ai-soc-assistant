@@ -215,6 +215,53 @@ export interface ContextSufficiencyEnvelope {
   human_review?: HumanReviewEnvelope | null;
 }
 
+export interface LlmGovernanceProvider {
+  provider_id: string;
+  provider_type: string;
+  base_url_configured: boolean;
+  api_key_configured: boolean;
+  default_model_configured: boolean;
+  enabled: boolean;
+}
+
+export interface LlmGovernanceRoleMapping {
+  role: string;
+  provider: string | null;
+  model: string | null;
+  enabled: boolean;
+}
+
+export interface LlmGovernanceStatus {
+  llm_enabled: boolean;
+  llm_mode: string;
+  cloud_allowed: boolean;
+  cloud_requested: boolean;
+  airgap_enforced: boolean;
+  default_provider: string | null;
+  default_model: string | null;
+  final_synthesis_enabled: boolean;
+  answer_guard_enabled: boolean;
+  context_sufficiency_required: boolean;
+  limits: {
+    timeout_seconds: number;
+    max_input_tokens: number;
+    max_output_tokens: number;
+    temperature: number;
+    streaming: boolean;
+  };
+  safety: {
+    log_prompts: boolean;
+    log_responses: boolean;
+    redact_secrets: boolean;
+    require_source_refs: boolean;
+    allow_insufficient_evidence_response: boolean;
+  };
+  providers: LlmGovernanceProvider[];
+  role_mappings: LlmGovernanceRoleMapping[];
+  warnings: string[];
+  notes: string[];
+}
+
 export interface SettingsStatus {
   mcp: {
     enabled: boolean;
@@ -362,6 +409,7 @@ export interface SettingsStatus {
     temperature: number;
     timeout_seconds: number;
     max_context_tokens: number;
+    governance?: LlmGovernanceStatus;
   };
   embeddings: {
     enabled: boolean;

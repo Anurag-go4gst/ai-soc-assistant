@@ -7,6 +7,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 SUPPORTED_TELEMETRY_SINKS: tuple[str, ...] = ("db", "none")
 PLANNED_TELEMETRY_SINKS: tuple[str, ...] = ("splunk", "both")
 
+# Governed LLM layer modes (Stage 3J-B). No mode triggers a real LLM call yet.
+SUPPORTED_AI_SOC_LLM_MODES: tuple[str, ...] = (
+    "mock",
+    "local",
+    "openai_compatible",
+    "cisco_foundation_sec",
+    "disabled",
+)
+
 
 class ConfigError(RuntimeError):
     """Raised on unsupported or unsafe configuration values."""
@@ -106,6 +115,54 @@ class Settings(BaseSettings):
     llm_timeout_seconds: int = 30
     llm_health_canary_enabled: bool = False
     llm_tool_recommendation_enabled: bool = False
+
+    # Stage 3J-B governed LLM layer. This is the configuration/readiness surface
+    # for the upcoming evidence-based synthesis stage. NOTHING here calls a real
+    # LLM yet; these are flags and placeholders only. `ai_soc_llm_mode` is the
+    # canonical on/off: mode "disabled" forces the governed layer off regardless
+    # of `ai_soc_llm_enabled`.
+    ai_soc_llm_enabled: bool = False
+    ai_soc_llm_mode: str = "mock"
+    ai_soc_llm_allow_cloud: bool = False
+    ai_soc_llm_airgap_enforced: bool = False
+    ai_soc_llm_default_provider: str = ""
+    ai_soc_llm_default_model: str = ""
+    ai_soc_llm_timeout_seconds: int = 30
+    ai_soc_llm_max_input_tokens: int = 8000
+    ai_soc_llm_max_output_tokens: int = 1024
+    ai_soc_llm_temperature: float = 0.2
+    ai_soc_llm_streaming: bool = False
+    ai_soc_llm_log_prompts: bool = False
+    ai_soc_llm_log_responses: bool = False
+    ai_soc_llm_redact_secrets: bool = True
+    # Role -> provider/model mappings for the governed layer.
+    ai_soc_llm_role_synthesis_provider: str = ""
+    ai_soc_llm_role_synthesis_model: str = ""
+    ai_soc_llm_role_reasoning_provider: str = ""
+    ai_soc_llm_role_reasoning_model: str = ""
+    ai_soc_llm_role_router_provider: str = ""
+    ai_soc_llm_role_router_model: str = ""
+    # Provider endpoint placeholders. Secrets are never surfaced in status.
+    ai_soc_llm_openai_base_url: str = ""
+    ai_soc_llm_openai_api_key: str = ""
+    ai_soc_llm_openai_model: str = ""
+    ai_soc_llm_foundation_sec_instruct_base_url: str = ""
+    ai_soc_llm_foundation_sec_instruct_api_key: str = ""
+    ai_soc_llm_foundation_sec_instruct_model: str = ""
+    ai_soc_llm_foundation_sec_reasoning_base_url: str = ""
+    ai_soc_llm_foundation_sec_reasoning_api_key: str = ""
+    ai_soc_llm_foundation_sec_reasoning_model: str = ""
+    ai_soc_llm_local_base_url: str = ""
+    ai_soc_llm_local_api_key: str = ""
+    ai_soc_llm_local_model: str = ""
+    # Evidence-gating governance for the upcoming synthesis stage.
+    ai_soc_llm_require_context_sufficiency: bool = True
+    ai_soc_llm_require_source_refs: bool = True
+    ai_soc_llm_allow_insufficient_evidence_response: bool = False
+    # Hard kill-switches. Default false; no synthesis or answer guard exists yet.
+    ai_soc_llm_final_synthesis_enabled: bool = False
+    ai_soc_llm_answer_guard_enabled: bool = False
+
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"
     spl_validation_enabled: bool = True
@@ -151,6 +208,11 @@ def _validate(s: Settings) -> Settings:
         raise ConfigError("SPLUNK_MCP_DISCOVERY_MODE must be one of: dynamic, restricted, static_only.")
     if s.splunk_ai_assistant_mode not in {"auto", "enabled", "disabled"}:
         raise ConfigError("SPLUNK_AI_ASSISTANT_MODE must be one of: auto, enabled, disabled.")
+    if s.ai_soc_llm_mode.strip().lower() not in SUPPORTED_AI_SOC_LLM_MODES:
+        raise ConfigError(
+            f"AI_SOC_LLM_MODE={s.ai_soc_llm_mode!r} is not valid. "
+            f"Use one of: {SUPPORTED_AI_SOC_LLM_MODES}."
+        )
     return s
 
 
