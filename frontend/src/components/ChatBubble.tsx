@@ -1,5 +1,6 @@
 import { Bot, ChevronRight, User } from 'lucide-react';
 import { AnalystSummaryCard } from '@/components/AnalystSummaryCard';
+import { HumanReviewCard } from '@/components/HumanReviewCard';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -50,7 +51,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
       >
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
       </div>
-      <div className={cn('max-w-[86%] space-y-2', isUser && 'items-end')}>
+      <div className={cn('min-w-0 space-y-2', isUser ? 'max-w-[78%] items-end' : 'max-w-[94%] flex-1')}>
         <div
           className={cn(
             'rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm',
@@ -62,6 +63,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
           {message.content}
         </div>
         {!isUser && message.trace ? <AnalystSummaryCard trace={message.trace} /> : null}
+        {!isUser && message.trace?.human_review?.required ? <HumanReviewCard review={message.trace.human_review} /> : null}
         {!isUser && !message.trace && message.note ? (
           <div className="flex flex-wrap gap-2">
             {message.traceId ? <Badge variant="secondary">trace {message.traceId.slice(0, 8)}</Badge> : null}

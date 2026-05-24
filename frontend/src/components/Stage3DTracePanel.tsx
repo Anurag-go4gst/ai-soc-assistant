@@ -1,4 +1,4 @@
-import { AlertTriangle, Boxes, CheckCircle2, FileSearch, Library, ListChecks, Route, SearchCode, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { AlertTriangle, Boxes, CheckCircle2, FileSearch, Library, ListChecks, Route, SearchCode, TerminalSquare, Wrench } from 'lucide-react';
 import type React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/CopyButton';
@@ -41,7 +41,6 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
       {trace.candidate_spl?.capability_profile || trace.spl_validation?.capability_profile ? <SplunkCapabilitySection profile={(trace.spl_validation?.capability_profile ?? trace.candidate_spl?.capability_profile) as Record<string, unknown>} validation={trace.spl_validation ?? null} /> : null}
       {trace.candidate_spl || trace.spl_validation ? <SplSection candidate={trace.candidate_spl?.candidate_spl} validation={trace.spl_validation ?? null} /> : null}
       {trace.execution ? <McpSection execution={trace.execution} /> : null}
-      {trace.human_review?.required ? <HumanReviewSection review={trace.human_review} /> : null}
       {trace.execution ? <ExecutionSection execution={trace.execution} /> : null}
       {trace.source_evidence?.some((item) => item.source_type === 'rag') ? <GovernedKnowledgeSection evidence={trace.source_evidence.filter((item) => item.source_type === 'rag')} review={trace.human_review ?? null} /> : null}
       {trace.source_evidence?.length ? <SourceEvidenceSection evidence={trace.source_evidence} /> : null}
@@ -196,25 +195,6 @@ function McpSection({ execution }: { execution: ExecutionEnvelope }) {
       </div>
       <p className="mt-2 text-slate-400">{safeText(execution.tool_selection_reason)}</p>
       {execution.block_reason ? <Badge className="mt-2" variant="warning">{safeText(execution.block_reason)}</Badge> : null}
-    </TraceSection>
-  );
-}
-
-function HumanReviewSection({ review }: { review: HumanReviewEnvelope }) {
-  return (
-    <TraceSection icon={<ShieldAlert className="h-3.5 w-3.5 text-amber-300" />} title="Human Review">
-      <div className="rounded-md border border-amber-400/30 bg-amber-500/10 p-3 text-amber-50">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="warning">{review.review_type}</Badge>
-          <Badge variant="secondary">{review.reviewer_role}</Badge>
-        </div>
-        <p className="mt-2">{safeText(review.safe_message_for_user)}</p>
-        <p className="mt-1 font-mono text-[0.7rem] text-amber-100">{safeText(review.reason)}</p>
-        <ChipLine label="allowed actions" values={review.allowed_actions} variant="outline" />
-        {review.sop_reference ? <KeyValue label="SOP reference" value={review.sop_reference} /> : null}
-        {review.sop_excerpt ? <p className="mt-2 text-amber-100">{safeText(review.sop_excerpt)}</p> : null}
-        {review.sop_action_hint ? <Badge className="mt-2" variant="warning">{safeText(review.sop_action_hint)}</Badge> : null}
-      </div>
     </TraceSection>
   );
 }

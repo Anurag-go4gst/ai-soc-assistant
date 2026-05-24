@@ -1,9 +1,23 @@
-import { Activity, ShieldCheck, Database, Gauge, ArrowRight } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Activity, ShieldCheck, Database, Gauge, ArrowRight, Cpu } from 'lucide-react';
 import { CopyButton } from '@/components/CopyButton';
+import { cn } from '@/lib/utils';
 import type { PlaceholderResponse } from '@/types/api';
 
 type Variant = 'success' | 'warning' | 'destructive' | 'secondary';
+
+const DOT: Record<Variant, string> = {
+  success: 'bg-emerald-400',
+  warning: 'bg-amber-400',
+  destructive: 'bg-red-400',
+  secondary: 'bg-slate-500',
+};
+
+const VALUE_TEXT: Record<Variant, string> = {
+  success: 'text-emerald-100',
+  warning: 'text-amber-100',
+  destructive: 'text-red-100',
+  secondary: 'text-slate-200',
+};
 
 // Human-readable labels for raw sufficiency / execution codes. Raw codes stay
 // visible inside the technical trace; this surface is analyst-first.
@@ -79,14 +93,27 @@ function nextAction(trace: PlaceholderResponse): string {
   }
 }
 
-function Cell({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+function Stat({
+  icon,
+  label,
+  value,
+  variant,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  variant: Variant;
+}) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="min-w-0 rounded-lg border border-slate-700/50 bg-slate-950/40 px-3 py-2.5">
       <span className="flex items-center gap-1 text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
         {icon}
         {label}
       </span>
-      {children}
+      <div className="mt-1.5 flex items-start gap-1.5">
+        <span className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', DOT[variant])} />
+        <span className={cn('break-words text-sm font-medium leading-tight', VALUE_TEXT[variant])}>{value}</span>
+      </div>
     </div>
   );
 }
@@ -96,39 +123,39 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
   const exec = executionState(trace);
   const evidence = evidenceState(trace);
   const ready = trace.context_sufficiency?.synthesis_readiness ?? false;
+  const reviewPending = trace.human_review?.required === true;
 
   return (
-    <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.04] p-3.5 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.04] p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-xs font-semibold text-cyan-200">
           <ShieldCheck className="h-3.5 w-3.5" />
           Analyst summary
         </span>
         {trace.trace_id ? <CopyButton value={trace.trace_id} label={`trace ${trace.trace_id.slice(0, 8)}`} /> : null}
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Cell icon={<Activity className="h-3 w-3" />} label="Status">
-          <Badge variant={status.variant} className="w-fit">{status.label}</Badge>
-        </Cell>
-        <Cell icon={<Activity className="h-3 w-3" />} label="Execution">
-          <Badge variant={exec.variant} className="w-fit">{exec.label}</Badge>
-        </Cell>
-        <Cell icon={<Database className="h-3 w-3" />} label="Evidence">
-          <Badge variant={evidence.variant} className="w-fit">{evidence.label}</Badge>
-        </Cell>
-        <Cell icon={<Gauge className="h-3 w-3" />} label="Readiness">
-          <Badge variant={ready ? 'success' : 'secondary'} className="w-fit">
-            {ready ? 'Synthesis-ready' : 'Not ready'}
-          </Badge>
-        </Cell>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat icon={<Activity className="h-3 w-3" />} label="Status" value={status.label} variant={status.variant} />
+        <Stat icon={<Cpu className="h-3 w-3" />} label="Execution" value={exec.label} variant={exec.variant} />
+        <Stat icon={<Database className="h-3 w-3" />} label="Evidence" value={evidence.label} variant={evidence.variant} />
+        <Stat
+          icon={<Gauge className="h-3 w-3" />}
+          label="Readiness"
+          value={ready ? 'Synthesis-ready' : 'Not ready'}
+          variant={ready ? 'success' : 'secondary'}
+        />
       </div>
-      <div className="mt-3 flex items-start gap-1.5 rounded-lg border border-slate-700/60 bg-slate-950/40 px-2.5 py-2 text-xs text-slate-200">
-        <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400" />
-        <span>
-          <span className="font-semibold text-slate-100">Next: </span>
-          {nextAction(trace)}
-        </span>
-      </div>
+      {reviewPending ? (
+        <p className="mt-3 text-xs text-slate-400">Action needed — see the review notice below.</p>
+      ) : (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-slate-700/60 bg-slate-950/40 px-3 py-2 text-xs text-slate-200">
+          <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400" />
+          <span>
+            <span className="font-semibold text-slate-100">Next: </span>
+            {nextAction(trace)}
+          </span>
+        </div>
+      )}
       <p className="mt-2 text-[0.65rem] text-slate-500">Final LLM synthesis and answer guard are not enabled yet.</p>
     </div>
   );
