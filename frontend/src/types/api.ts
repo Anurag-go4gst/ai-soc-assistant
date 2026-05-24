@@ -13,6 +13,17 @@ export interface PlaceholderResponse {
   trace_id: string;
   message: string;
   note: string;
+  demo_mode?: boolean;
+  evidence_origin?: string | null;
+  no_live_customer_data?: boolean;
+  demo_badge?: string | null;
+  environment_mode?: string | null;
+  mcp_execution_mode?: string | null;
+  saia_available?: boolean | null;
+  rag_available?: boolean | null;
+  fallback_active?: boolean | null;
+  analyst_summary?: string | null;
+  trace_explanation?: string[];
   user_query?: string | null;
   selected_skill?: string | null;
   tool_plan?: string[] | null;
@@ -29,6 +40,31 @@ export interface PlaceholderResponse {
   source_evidence?: SourceEvidenceEnvelope[];
   structured_context?: StructuredContextPackage | null;
   context_sufficiency?: ContextSufficiencyEnvelope | null;
+}
+
+export interface DemoScenarioSummary {
+  scenario_id: string;
+  label: string;
+  category: 'Investigate' | 'Knowledge / SOP' | 'Generate SPL' | 'MITRE Mapping' | 'Air-gapped Mode' | string;
+  query: string;
+  environment_mode: string;
+  demo_badge: string;
+  expected_skill: string;
+  expected_sources: string[];
+  expected_sufficiency_mode: string;
+  mcp_execution_mode: 'disabled' | 'mock_success' | 'not_required' | string;
+  saia_available: boolean;
+  rag_available: boolean;
+  evidence_origin: string;
+  no_live_customer_data: boolean;
+}
+
+export interface DemoScenariosResponse {
+  demo_mode: boolean;
+  evidence_origin: string;
+  no_live_customer_data: boolean;
+  scenarios: DemoScenarioSummary[];
+  count: number;
 }
 
 export interface RoutingTraceEnvelope {

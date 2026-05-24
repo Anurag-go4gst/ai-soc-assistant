@@ -172,6 +172,17 @@ class PlaceholderResponse(BaseModel):
     trace_id: str
     message: str
     note: str
+    demo_mode: bool = False
+    evidence_origin: str | None = None
+    no_live_customer_data: bool = False
+    demo_badge: str | None = None
+    environment_mode: str | None = None
+    mcp_execution_mode: str | None = None
+    saia_available: bool | None = None
+    rag_available: bool | None = None
+    fallback_active: bool | None = None
+    analyst_summary: str | None = None
+    trace_explanation: list[str] = []
     user_query: str | None = None
     selected_skill: str | None = None
     tool_plan: list[str] | None = None

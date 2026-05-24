@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from '@/lib/runtimeMode';
-import type { AuthResponse, HealthResponse, KnowledgeCollection, KnowledgeDocument, KnowledgeEntry, LlmSettingsDraftCheckRequest, LlmSettingsDraftCheckResult, PlaceholderResponse, ProviderDraftCheckRequest, ProviderDraftCheckResult, ProviderSettingsStatus, SettingsStatus } from '../types/api';
+import type { AuthResponse, DemoScenariosResponse, HealthResponse, KnowledgeCollection, KnowledgeDocument, KnowledgeEntry, LlmSettingsDraftCheckRequest, LlmSettingsDraftCheckResult, PlaceholderResponse, ProviderDraftCheckRequest, ProviderDraftCheckResult, ProviderSettingsStatus, SettingsStatus } from '../types/api';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -59,6 +59,25 @@ export async function sendChatMessage(message: string): Promise<PlaceholderRespo
   });
   if (!response.ok) {
     throw new Error(`Chat request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getDemoScenarios(): Promise<DemoScenariosResponse> {
+  const response = await fetch(`${API_BASE_URL}/demo/scenarios`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`Demo scenarios request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function runDemoScenario(scenarioId: string): Promise<PlaceholderResponse> {
+  const response = await fetch(`${API_BASE_URL}/demo/scenarios/${encodeURIComponent(scenarioId)}/run`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error(`Demo scenario run failed: ${response.status}`);
   }
   return response.json();
 }

@@ -5,7 +5,7 @@ from app.api.routes_chat import router as chat_router
 from app.api.routes_health import router as health_router
 from app.api.routes_investigations import router as investigations_router
 from app.api.routes_knowledge import router as knowledge_router
-from app.api.routes_scenarios import router as scenarios_router
+from app.api.routes_scenarios import demo_router, router as scenarios_router
 from app.api.routes_settings import router as settings_router
 from app.auth.routes_auth import router as auth_router
 
@@ -35,5 +35,7 @@ app.include_router(knowledge_router)
 app.include_router(knowledge_router, prefix="/api")
 app.include_router(scenarios_router)
 app.include_router(scenarios_router, prefix="/api")
+app.include_router(demo_router)
+app.include_router(demo_router, prefix="/api")
 app.include_router(settings_router)
 app.include_router(settings_router, prefix="/api")

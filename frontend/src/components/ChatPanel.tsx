@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { sendChatMessage } from '@/api/client';
+import { runDemoScenario, sendChatMessage } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatBubble, type SocChatMessage } from './ChatBubble';
 import { ChatInput } from './ChatInput';
+import { DemoScenarioPicker } from './DemoScenarioPicker';
 import { StarterPrompts } from './StarterPrompts';
-import type { PlaceholderResponse } from '@/types/api';
+import type { DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
 
 interface ChatPanelProps {
   onTrace?: (response: PlaceholderResponse) => void;
@@ -33,6 +34,33 @@ export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactH
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, loading]);
 
+  const appendAssistantResponse = (response: PlaceholderResponse) => {
+    onTrace?.(response);
+    setMessages((current) => [
+      ...current,
+      {
+        id: response.trace_id,
+        role: 'assistant',
+        content: response.message,
+        traceId: response.trace_id,
+        note: response.note,
+        trace: response,
+        routing: {
+          selectedSkill: response.selected_skill,
+          confidence: response.confidence,
+          toolPlan: response.tool_plan,
+          disagreement: response.disagreement,
+          disagreementReason: response.disagreement_reason,
+        },
+        workflowPlan: response.workflow_plan,
+        candidateSpl: response.candidate_spl,
+        splValidation: response.spl_validation,
+        execution: response.execution,
+        humanReview: response.human_review,
+      },
+    ]);
+  };
+
   const handleSend = async (message: string) => {
     const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: message };
     setMessages((current) => [...current, userMessage]);
@@ -40,32 +68,28 @@ export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactH
 
     try {
       const response = await sendChatMessage(message);
-      onTrace?.(response);
-      setMessages((current) => [
-        ...current,
-        {
-          id: response.trace_id,
-          role: 'assistant',
-          content: response.message,
-          traceId: response.trace_id,
-          note: response.note,
-          trace: response,
-          routing: {
-            selectedSkill: response.selected_skill,
-            confidence: response.confidence,
-            toolPlan: response.tool_plan,
-            disagreement: response.disagreement,
-            disagreementReason: response.disagreement_reason,
-          },
-          workflowPlan: response.workflow_plan,
-          candidateSpl: response.candidate_spl,
-          splValidation: response.spl_validation,
-          execution: response.execution,
-          humanReview: response.human_review,
-        },
-      ]);
+      appendAssistantResponse(response);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Chat request failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRunDemo = async (scenario: DemoScenarioSummary) => {
+    const userMessage: SocChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: scenario.query,
+    };
+    setMessages((current) => [...current, userMessage]);
+    setLoading(true);
+
+    try {
+      const response = await runDemoScenario(scenario.scenario_id);
+      appendAssistantResponse(response);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Demo scenario failed');
     } finally {
       setLoading(false);
     }
@@ -76,6 +100,7 @@ export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactH
       <CardHeader className={compactHeader ? 'border-b border-slate-800/70 py-3' : 'border-b border-slate-800/70'}>
         <CardTitle className="text-sm font-semibold">{title}</CardTitle>
         <StarterPrompts disabled={loading} onPick={handleSend} />
+        <DemoScenarioPicker disabled={loading} onRun={handleRunDemo} />
       </CardHeader>
       <CardContent className="min-h-0 flex-1 p-0">
         <ScrollArea className="h-full">

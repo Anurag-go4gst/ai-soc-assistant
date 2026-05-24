@@ -1,4 +1,5 @@
 import { Activity, ShieldCheck, Database, Gauge, ArrowRight, Cpu } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/CopyButton';
 import { cn } from '@/lib/utils';
 import type { PlaceholderResponse } from '@/types/api';
@@ -128,12 +129,17 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
   return (
     <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.04] p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-cyan-200">
-          <ShieldCheck className="h-3.5 w-3.5" />
-          Analyst summary
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-cyan-200">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Analyst summary
+          </span>
+          {trace.demo_mode ? <Badge variant="outline">{trace.demo_badge ?? 'COE synthetic demo'}</Badge> : null}
+          {trace.no_live_customer_data ? <Badge variant="secondary">no live customer data</Badge> : null}
+        </div>
         {trace.trace_id ? <CopyButton value={trace.trace_id} label={`trace ${trace.trace_id.slice(0, 8)}`} /> : null}
       </div>
+      {trace.analyst_summary ? <p className="mb-3 text-sm leading-6 text-slate-100">{trace.analyst_summary}</p> : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat icon={<Activity className="h-3 w-3" />} label="Status" value={status.label} variant={status.variant} />
         <Stat icon={<Cpu className="h-3 w-3" />} label="Execution" value={exec.label} variant={exec.variant} />
@@ -156,6 +162,20 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
           </span>
         </div>
       )}
+      {trace.demo_mode && trace.source_evidence?.length ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {trace.source_evidence.slice(0, 4).map((item) => (
+            <div key={item.evidence_id} className="rounded-lg border border-slate-700/60 bg-slate-950/40 px-3 py-2 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge variant={item.collection_status === 'collected' ? 'success' : 'warning'}>{item.collection_status}</Badge>
+                <Badge variant="secondary">{item.source_type}</Badge>
+              </div>
+              <p className="mt-1 font-medium text-slate-100">{item.source_name}</p>
+              <p className="mt-1 text-slate-500">{item.result_count} synthetic preview row{item.result_count === 1 ? '' : 's'}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <p className="mt-2 text-[0.65rem] text-slate-500">Final LLM synthesis and answer guard are not enabled yet.</p>
     </div>
   );
