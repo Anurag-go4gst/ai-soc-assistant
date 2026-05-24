@@ -1,0 +1,19 @@
+[
+  {
+    "import_batch_id": "fixture-seed-stage-3f",
+    "source_file_name": "soc_kb_stage_3f_seed.json",
+    "source_type": "json",
+    "target_collection_id": "soc_sop",
+    "environment": "coe",
+    "imported_by": "coe.sample",
+    "imported_at": "2026-04-03T00:00:00Z",
+    "status": "published",
+    "validation_errors": [],
+    "validation_warnings": ["COE sample content only; not PGCIL policy."],
+    "document_count": 9,
+    "entry_count": 13,
+    "checksum_sha256": "fixture-seed-stage-3f",
+    "generated_by": "fixture",
+    "source_document_ref": "backend/app/knowledge/fixtures"
+  }
+]

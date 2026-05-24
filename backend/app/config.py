@@ -40,6 +40,43 @@ class Settings(BaseSettings):
     mcp_default_server: str = "splunk_soc"
     mcp_global_execution_enabled: bool = False
     rag_mode: str = "mock"
+    soc_kb_retrieval_enabled: bool = False
+    soc_kb_collections_path: str = "backend/app/knowledge/fixtures/soc_kb_collections.json"
+    soc_kb_documents_path: str = "backend/app/knowledge/fixtures/soc_kb_documents.json"
+    soc_kb_entries_path: str = "backend/app/knowledge/fixtures/soc_kb_entries.json"
+    soc_kb_import_batches_path: str = "backend/app/knowledge/fixtures/soc_kb_import_batches.json"
+    soc_kb_allowed_statuses: str = "active,published"
+    soc_kb_approved_statuses: str = "coe_reviewed,pgcil_approved"
+    soc_kb_include_drafts: bool = False
+    soc_kb_include_superseded: bool = False
+    soc_kb_environment: str = "coe"
+    soc_kb_max_results: int = 5
+    soc_kb_min_confidence: float = 0.35
+    soc_kb_retrieval_mode: str = "deterministic"
+    soc_kb_repository_backend: str = "json"
+    soc_kb_vector_backend: str = "none"
+    soc_kb_reranker_enabled: bool = False
+    soc_kb_graph_expansion_enabled: bool = False
+    soc_kb_hybrid_alpha: float = 0.5
+    soc_kb_vector_model: str = "BAAI/bge-m3"
+    soc_kb_reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    soc_kb_embedding_indexing_enabled: bool = False
+    soc_kb_direct_to_llm: bool = False
+    soc_kb_llm_selection_enabled: bool = False
+    soc_kb_llm_ambiguity_assist_enabled: bool = False
+    soc_kb_hybrid_placeholder_enabled: bool = True
+    soc_kb_graph_placeholder_enabled: bool = True
+    # Stage 3G.1 reranker connector. Disabled by default; mock/no-op unless a real
+    # provider is configured. Secrets are never surfaced in status output.
+    soc_kb_reranker_provider: str = "mock"
+    soc_kb_reranker_base_url: str = ""
+    soc_kb_reranker_api_key: str = ""
+    soc_kb_reranker_timeout_seconds: int = 10
+    soc_kb_reranker_top_n: int = 5
+    # Stage 3G.1 candidate-constrained LLM ambiguity assist. Disabled by default;
+    # provider resolves through the LLM registry and only sees eligible candidates.
+    soc_kb_llm_ambiguity_provider: str = ""
+    soc_kb_llm_ambiguity_max_candidates: int = 5
     llm_mode: str = "mock"
     llm_providers: str = ""
     llm_default_provider: str = "mock"

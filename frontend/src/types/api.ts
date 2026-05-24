@@ -209,6 +209,22 @@ export interface SettingsStatus {
     chunk_overlap: number;
     embedding_model: string;
     last_ingestion_status: string;
+    direct_to_llm?: boolean;
+    final_synthesis_enabled?: boolean;
+    reranker?: {
+      enabled: boolean;
+      provider: string;
+      model: string;
+      configured: boolean;
+      available: boolean;
+    };
+    ambiguity_assist?: {
+      enabled: boolean;
+      provider: string | null;
+      configured: boolean;
+      available: boolean;
+      max_candidates: number;
+    };
   };
   llm: {
     enabled: boolean;
@@ -362,4 +378,51 @@ export interface LlmProviderStatus {
   supports_tool_calling: boolean;
   concurrency_limit: number;
   last_error?: string | null;
+}
+
+export interface KnowledgeCollection {
+  collection_id: string;
+  name: string;
+  purpose: string;
+  environment: string;
+  enabled: boolean;
+  allowed_document_types: string[];
+  allowed_use: string[];
+  priority: number;
+  owner?: string;
+  description?: string;
+}
+
+export interface KnowledgeDocument {
+  doc_id: string;
+  collection_id: string;
+  title: string;
+  document_type: string;
+  environment: string;
+  version: string;
+  revision?: string;
+  status: string;
+  approval_status: string;
+  lifecycle_stage?: string;
+  allowed_use: string[];
+  risk_level?: string;
+  sensitivity?: string;
+  checksum_sha256?: string;
+  canonical_doc_id?: string;
+  is_current_version?: boolean;
+  superseded_by_doc_id?: string | null;
+}
+
+export interface KnowledgeEntry {
+  entry_id: string;
+  doc_id: string;
+  title: string;
+  entry_type: string;
+  source_excerpt?: string;
+  source_refs?: string[];
+  citation?: string;
+  allowed_use?: string[];
+  status?: string;
+  approval_status?: string;
+  risk_level?: string;
 }
