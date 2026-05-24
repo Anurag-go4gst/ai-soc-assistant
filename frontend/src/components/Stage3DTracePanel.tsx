@@ -234,6 +234,12 @@ function SourceEvidenceSection({ evidence }: { evidence: SourceEvidenceEnvelope[
   );
 }
 
+function sufficiencyVariant(status: string): 'success' | 'warning' | 'destructive' {
+  if (status === 'full_answer' || status === 'partial_answer' || status === 'knowledge_only_answer') return 'success';
+  if (status === 'blocked_by_policy' || status === 'insufficient_evidence') return 'destructive';
+  return 'warning';
+}
+
 function StructuredContextSection({ context, sufficiency }: { context: StructuredContextPackage; sufficiency: PlaceholderResponse['context_sufficiency'] }) {
   return (
     <TraceSection icon={<Boxes className="h-3.5 w-3.5 text-cyan-300" />} title="Structured Context">
@@ -242,7 +248,8 @@ function StructuredContextSection({ context, sufficiency }: { context: Structure
           quality {safeText(context.context_quality)}
         </Badge>
         <Badge variant={context.synthesis_allowed ? 'success' : 'warning'}>synthesis {context.synthesis_allowed ? 'allowed' : 'disabled'}</Badge>
-        {sufficiency ? <Badge variant={sufficiency.status === 'pass' ? 'success' : sufficiency.status === 'fail' ? 'destructive' : 'warning'}>{safeText(sufficiency.status)}</Badge> : null}
+        {sufficiency ? <Badge variant={sufficiencyVariant(sufficiency.status)}>{safeText(sufficiency.status)}</Badge> : null}
+        {sufficiency ? <Badge variant={sufficiency.synthesis_readiness ? 'success' : 'secondary'}>readiness {sufficiency.synthesis_readiness ? 'ready' : 'not ready'}</Badge> : null}
       </div>
       {context.structured_facts.length ? (
         <div className="mt-2 space-y-1">

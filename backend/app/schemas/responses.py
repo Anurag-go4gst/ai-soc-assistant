@@ -162,6 +162,7 @@ class StructuredContextPackage(BaseModel):
 class ContextSufficiencyEnvelope(BaseModel):
     status: str
     synthesis_allowed: bool
+    synthesis_readiness: bool = False
     reasons: list[str]
     missing_evidence: list[str]
     human_review: HumanReviewEnvelope | None = None

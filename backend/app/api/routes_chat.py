@@ -260,6 +260,7 @@ def _context_stage(
         "completed",
         sufficiency_status=context_sufficiency["status"],
         synthesis_allowed=False,
+        synthesis_readiness=context_sufficiency["synthesis_readiness"],
         reasons=context_sufficiency["reasons"],
     )
     return source_evidence, structured_context, context_sufficiency

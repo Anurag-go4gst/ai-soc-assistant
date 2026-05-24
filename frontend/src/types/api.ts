@@ -197,9 +197,19 @@ export interface StructuredContextPackage {
   synthesis_allowed: boolean;
 }
 
+export type ContextSufficiencyMode =
+  | 'full_answer'
+  | 'partial_answer'
+  | 'analyst_review_required'
+  | 'spl_review_only'
+  | 'knowledge_only_answer'
+  | 'blocked_by_policy'
+  | 'insufficient_evidence';
+
 export interface ContextSufficiencyEnvelope {
-  status: 'pass' | 'partial' | 'fail' | 'requires_human_review' | string;
+  status: ContextSufficiencyMode | string;
   synthesis_allowed: boolean;
+  synthesis_readiness: boolean;
   reasons: string[];
   missing_evidence: string[];
   human_review?: HumanReviewEnvelope | null;

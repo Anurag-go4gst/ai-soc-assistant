@@ -141,8 +141,9 @@ def test_facts_without_source_refs_fail_sufficiency() -> None:
 
     result = check_context_sufficiency(context, [{"collection_status": "collected", "sensitivity_flags": []}])
 
-    assert result["status"] == "fail"
+    assert result["status"] == "insufficient_evidence"
     assert result["synthesis_allowed"] is False
+    assert result["synthesis_readiness"] is False
     assert "structured_fact_missing_source_refs" in result["reasons"]
 
 
@@ -167,8 +168,10 @@ def test_context_quality_blocked_when_execution_blocked() -> None:
 
     assert context["context_quality"] == "blocked"
     assert context["synthesis_allowed"] is False
-    assert sufficiency["status"] == "requires_human_review"
+    assert sufficiency["status"] == "blocked_by_policy"
     assert sufficiency["synthesis_allowed"] is False
+    assert sufficiency["synthesis_readiness"] is False
+    assert sufficiency["human_review"]["required"] is True
 
 
 def test_context_stage_records_telemetry_without_llm_rag_or_splunk_write(monkeypatch) -> None:
