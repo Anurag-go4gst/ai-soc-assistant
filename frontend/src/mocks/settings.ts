@@ -144,7 +144,11 @@ export const MOCK_SETTINGS_STATUS: SettingsStatus = {
   },
   safeguards: {
     spl_validator_enabled: true,
-    blocked_spl_commands: ['delete', 'outputlookup', 'sendemail', 'script'],
+    blocked_spl_commands: ['delete', 'collect', 'outputlookup', 'sendemail', 'script', 'map', 'rest', 'loadjob', 'inputlookup'],
+    allowed_spl_commands: ['search', 'stats', 'where', 'table', 'fields', 'sort', 'dedup', 'rename', 'eval', 'timechart', 'bin', 'head'],
+    allowed_indexes: ['pgcil_soc'],
+    allowed_sourcetypes: ['pgcil:auth'],
+    max_result_limit: 100,
     time_range_required: true,
     aggregation_required: true,
     raw_event_dump_blocked: true,

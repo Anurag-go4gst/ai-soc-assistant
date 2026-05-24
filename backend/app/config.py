@@ -53,6 +53,14 @@ class Settings(BaseSettings):
     llm_health_canary_enabled: bool = False
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"
+    spl_validation_enabled: bool = True
+    spl_allowed_indexes: str = "pgcil_soc"
+    spl_allowed_sourcetypes: str = "pgcil:auth"
+    spl_default_earliest: str = "-24h"
+    spl_default_latest: str = "now"
+    spl_max_result_limit: int = 100
+    spl_allowed_commands: str = "search,stats,where,table,fields,sort,dedup,rename,eval,timechart,bin,head"
+    spl_blocked_commands: str = "delete,collect,outputlookup,sendemail,script,map,rest,loadjob,inputlookup"
 
     # ``ai_soc_telemetry_sink`` is the AI-SOC product's own telemetry sink
     # selector (not a Splunk product setting). Supported today: ``db`` (writes

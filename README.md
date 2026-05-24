@@ -109,7 +109,44 @@ LLM readiness is provider/model based:
 - `supports_tool_calling` is forced false in status because the AI-SOC backend controls MCP access. The LLM must never call MCP directly.
 - LLM health canary completion is disabled by default with `LLM_HEALTH_CANARY_ENABLED=false`.
 
-Current disabled work remains disabled: no SPL generation, no SPL execution, no MCP tool execution, no RAG retrieval, no final LLM synthesis, and no Splunk telemetry write.
+Current disabled work remains disabled: no SPL execution, no MCP tool execution, no RAG retrieval, no final LLM synthesis, and no Splunk telemetry write. Stage 3C adds candidate SPL generation plus deterministic validation only.
+
+## Stage 3C SPL Generation And Validation
+
+Stage 3C introduces a safe SPL gate before any future execution:
+
+- `attack_discovery` and `spl_generation` chat routes produce candidate SPL with the stub generator.
+- Candidate SPL is validated deterministically before it can be considered for future MCP execution.
+- Validator rejects by default unless the SPL is positively classified safe.
+- Validator enforces allowed commands, blocked commands, time bounds, index and sourcetype allowlists, wildcard index blocking, macro/subsearch blocking, external-call blocking, credential/secret pattern blocking, and out-of-band result caps.
+- Chat returns candidate SPL and validation status, then stops. It does not call Splunk or MCP.
+
+Default SPL policy:
+
+```env
+SPL_VALIDATION_ENABLED=true
+SPL_ALLOWED_INDEXES=pgcil_soc
+SPL_ALLOWED_SOURCETYPES=pgcil:auth
+SPL_DEFAULT_EARLIEST=-24h
+SPL_DEFAULT_LATEST=now
+SPL_MAX_RESULT_LIMIT=100
+SPL_ALLOWED_COMMANDS=search,stats,where,table,fields,sort,dedup,rename,eval,timechart,bin,head
+SPL_BLOCKED_COMMANDS=delete,collect,outputlookup,sendemail,script,map,rest,loadjob,inputlookup
+```
+
+Example approved candidate:
+
+```spl
+search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure | stats count as fail_count by user | where fail_count > 50 | sort -fail_count | head 100
+```
+
+Example rejected candidate:
+
+```spl
+search index=* sourcetype=pgcil:auth earliest=-15m latest=now | outputlookup findings.csv
+```
+
+Reject reasons include `blocked_command:outputlookup`, `disallowed_index`, and `wildcard_index_not_allowed`.
 
 ### Mock Mode Example
 

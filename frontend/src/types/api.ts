@@ -21,6 +21,8 @@ export interface PlaceholderResponse {
   disagreement?: boolean | null;
   disagreement_reason?: string | null;
   workflow_plan?: WorkflowPlan | null;
+  candidate_spl?: CandidateSplEnvelope | null;
+  spl_validation?: SplValidationEnvelope | null;
 }
 
 export interface WorkflowStep {
@@ -41,6 +43,26 @@ export interface WorkflowPlan {
   required_connectors: string[];
   safety_gates: string[];
   message: string;
+}
+
+export interface CandidateSplEnvelope {
+  trace_id: string;
+  skill: string;
+  user_query: string;
+  candidate_spl: string;
+  generation_mode: string;
+  confidence: number;
+  assumptions: string[];
+  warnings: string[];
+}
+
+export interface SplValidationEnvelope {
+  approved: boolean;
+  normalized_spl?: string | null;
+  reject_reasons: string[];
+  warnings: string[];
+  enforced_limits: Record<string, unknown>;
+  policy_version: string;
 }
 
 export interface SettingsStatus {
@@ -152,6 +174,10 @@ export interface SettingsStatus {
   safeguards: {
     spl_validator_enabled: boolean;
     blocked_spl_commands: string[];
+    allowed_spl_commands?: string[];
+    allowed_indexes?: string[];
+    allowed_sourcetypes?: string[];
+    max_result_limit?: number;
     time_range_required: boolean;
     aggregation_required: boolean;
     raw_event_dump_blocked: boolean;

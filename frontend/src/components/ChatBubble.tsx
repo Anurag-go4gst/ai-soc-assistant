@@ -1,7 +1,7 @@
 import { Bot, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { WorkflowPlan } from '@/types/api';
+import type { CandidateSplEnvelope, SplValidationEnvelope, WorkflowPlan } from '@/types/api';
 
 export interface SocChatMessage {
   id: string;
@@ -17,6 +17,8 @@ export interface SocChatMessage {
     disagreementReason?: string | null;
   };
   workflowPlan?: WorkflowPlan | null;
+  candidateSpl?: CandidateSplEnvelope | null;
+  splValidation?: SplValidationEnvelope | null;
 }
 
 interface ChatBubbleProps {
@@ -93,6 +95,31 @@ export function ChatBubble({ message }: ChatBubbleProps) {
               </p>
             ) : null}
             <p className="mt-2 text-slate-400">Workflow planning only. No tool execution has happened.</p>
+          </div>
+        ) : null}
+        {!isUser && message.candidateSpl ? (
+          <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">candidate SPL</Badge>
+              <Badge>{message.candidateSpl.generation_mode}</Badge>
+              <Badge variant={message.splValidation?.approved ? 'success' : 'destructive'}>
+                {message.splValidation?.approved ? 'approved' : 'rejected'}
+              </Badge>
+            </div>
+            <code className="mt-2 block overflow-x-auto rounded border border-slate-800 bg-slate-950 p-2 font-mono text-[0.7rem] text-cyan-100">
+              {message.candidateSpl.candidate_spl}
+            </code>
+            {message.splValidation?.reject_reasons.length ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {message.splValidation.reject_reasons.map((reason) => (
+                  <Badge key={reason} variant="destructive">{reason}</Badge>
+                ))}
+              </div>
+            ) : null}
+            {message.splValidation?.warnings.length ? (
+              <p className="mt-2 text-amber-100">{message.splValidation.warnings.join(', ')}</p>
+            ) : null}
+            <p className="mt-2 text-slate-400">SPL validation complete. MCP execution is disabled.</p>
           </div>
         ) : null}
       </div>

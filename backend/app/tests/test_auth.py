@@ -69,7 +69,7 @@ def test_chat_allows_authenticated_request(monkeypatch) -> None:
 
     response = chat(ChatRequest(message="test"))
 
-    assert response.note == "Routing and workflow planning only; no SPL generation, MCP execution, RAG retrieval, or synthesis was run."
+    assert response.note == "Routing and workflow planning only; SPL is not required at this stage. No MCP execution, RAG retrieval, or synthesis was run."
     assert response.selected_skill == "knowledge_recall"
 
 
