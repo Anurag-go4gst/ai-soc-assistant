@@ -1,8 +1,8 @@
-import { AlertTriangle, CheckCircle2, ListChecks, Route, SearchCode, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { AlertTriangle, Boxes, CheckCircle2, FileSearch, ListChecks, Route, SearchCode, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import type React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { ExecutionEnvelope, HumanReviewEnvelope, PlaceholderResponse, SplValidationEnvelope, WorkflowPlan } from '@/types/api';
+import type { ExecutionEnvelope, HumanReviewEnvelope, PlaceholderResponse, SourceEvidenceEnvelope, SplValidationEnvelope, StructuredContextPackage, WorkflowPlan } from '@/types/api';
 
 interface Stage3DTracePanelProps {
   trace: PlaceholderResponse;
@@ -41,6 +41,8 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
       {trace.execution ? <McpSection execution={trace.execution} /> : null}
       {trace.human_review?.required ? <HumanReviewSection review={trace.human_review} /> : null}
       {trace.execution ? <ExecutionSection execution={trace.execution} /> : null}
+      {trace.source_evidence?.length ? <SourceEvidenceSection evidence={trace.source_evidence} /> : null}
+      {trace.structured_context ? <StructuredContextSection context={trace.structured_context} sufficiency={trace.context_sufficiency ?? null} /> : null}
     </div>
   );
 }
@@ -68,6 +70,8 @@ function WorkflowSection({ workflow }: { workflow: WorkflowPlan }) {
         ))}
       </ol>
       {workflow.safety_gates.length ? <ChipLine label="plan gates" values={workflow.safety_gates} /> : null}
+      {workflow.required_sources?.length ? <ChipLine label="required sources" values={workflow.required_sources} /> : null}
+      {workflow.missing_sources?.length ? <ChipLine label="missing sources" values={workflow.missing_sources} variant="warning" /> : null}
     </TraceSection>
   );
 }
@@ -138,6 +142,61 @@ function ExecutionSection({ execution }: { execution: ExecutionEnvelope }) {
       {execution.block_reason ? <Badge className="mt-2" variant="warning">{safeText(execution.block_reason)}</Badge> : null}
       {executed && execution.executed_spl ? <CodeBlock label="executed normalized SPL" value={execution.executed_spl} tone="emerald" /> : null}
       {executed ? <PreviewRows rows={execution.results_preview} /> : null}
+      <p className="mt-2 text-slate-400">Final LLM synthesis is not enabled yet.</p>
+    </TraceSection>
+  );
+}
+
+function SourceEvidenceSection({ evidence }: { evidence: SourceEvidenceEnvelope[] }) {
+  return (
+    <TraceSection icon={<FileSearch className="h-3.5 w-3.5 text-cyan-300" />} title="Source Evidence">
+      <div className="space-y-2">
+        {evidence.slice(0, 6).map((item) => (
+          <div key={item.evidence_id} className="rounded border border-slate-800 bg-slate-950 p-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={item.collection_status === 'collected' ? 'success' : item.collection_status === 'failed' ? 'destructive' : 'warning'}>
+                {safeText(item.collection_status)}
+              </Badge>
+              <Badge variant="secondary">{safeText(item.source_type)}</Badge>
+              <Badge variant="secondary">{safeText(item.source_name)}</Badge>
+              {item.tool_name ? <Badge variant="outline">{safeText(item.tool_name)}</Badge> : null}
+              <Badge variant="secondary">{item.result_count} rows</Badge>
+            </div>
+            {item.executed_spl ? <CodeBlock label="executed normalized SPL" value={item.executed_spl} tone="emerald" /> : null}
+            {item.fields_returned.length ? <ChipLine label="fields" values={item.fields_returned} /> : null}
+            {item.warnings.length ? <ChipLine label="warnings" values={item.warnings} variant="warning" /> : null}
+            {item.sensitivity_flags.length ? <ChipLine label="sensitivity" values={item.sensitivity_flags} variant="destructive" /> : null}
+            {item.preview_rows.length ? <PreviewRows rows={item.preview_rows} /> : null}
+          </div>
+        ))}
+      </div>
+    </TraceSection>
+  );
+}
+
+function StructuredContextSection({ context, sufficiency }: { context: StructuredContextPackage; sufficiency: PlaceholderResponse['context_sufficiency'] }) {
+  return (
+    <TraceSection icon={<Boxes className="h-3.5 w-3.5 text-cyan-300" />} title="Structured Context">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={context.context_quality === 'blocked' || context.context_quality === 'insufficient' ? 'warning' : 'secondary'}>
+          quality {safeText(context.context_quality)}
+        </Badge>
+        <Badge variant={context.synthesis_allowed ? 'success' : 'warning'}>synthesis {context.synthesis_allowed ? 'allowed' : 'disabled'}</Badge>
+        {sufficiency ? <Badge variant={sufficiency.status === 'pass' ? 'success' : sufficiency.status === 'fail' ? 'destructive' : 'warning'}>{safeText(sufficiency.status)}</Badge> : null}
+      </div>
+      {context.structured_facts.length ? (
+        <div className="mt-2 space-y-1">
+          {context.structured_facts.slice(0, 8).map((fact) => (
+            <div key={fact.fact_id} className="rounded border border-slate-800 bg-slate-950 px-2 py-1.5">
+              <p className="text-slate-100">{safeText(fact.statement)}</p>
+              <ChipLine label="source refs" values={fact.source_refs} variant="outline" />
+              <Badge className="mt-1" variant="secondary">{safeText(fact.derivation)}</Badge>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {context.missing_evidence.length ? <ChipLine label="missing evidence" values={context.missing_evidence} variant="warning" /> : null}
+      {sufficiency?.reasons.length ? <ChipLine label="sufficiency reasons" values={sufficiency.reasons} variant="warning" /> : null}
       <p className="mt-2 text-slate-400">Final LLM synthesis is not enabled yet.</p>
     </TraceSection>
   );

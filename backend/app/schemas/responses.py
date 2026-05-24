@@ -18,6 +18,9 @@ class WorkflowPlan(BaseModel):
     steps: list[WorkflowStep]
     required_connectors: list[str]
     safety_gates: list[str]
+    required_sources: list[str] = []
+    available_sources: list[str] = []
+    missing_sources: list[str] = []
     message: str
 
 
@@ -62,6 +65,66 @@ class HumanReviewEnvelope(BaseModel):
     reviewer_role: str
     allowed_actions: list[str]
     safe_message_for_user: str
+    sop_reference: str | None = None
+    sop_excerpt: str | None = None
+    sop_action_hint: str | None = None
+
+
+class SourceEvidenceEnvelope(BaseModel):
+    evidence_id: str
+    trace_id: str
+    source_type: str
+    source_name: str
+    tool_name: str | None = None
+    collection_status: str
+    query_or_request_summary: str | None = None
+    executed_spl: str | None = None
+    result_count: int
+    fields_returned: list[str]
+    preview_rows: list[dict[str, object]]
+    raw_result_hash: str | None = None
+    raw_result_stored: bool
+    time_range: str | None = None
+    warnings: list[str]
+    sensitivity_flags: list[str]
+    created_at: str
+
+
+class StructuredFact(BaseModel):
+    fact_id: str
+    statement: str
+    source_refs: list[str]
+    derivation: str
+    confidence: float | None = None
+
+
+class StructuredContextPackage(BaseModel):
+    trace_id: str
+    query: str
+    selected_skill: str
+    source_evidence_refs: list[str]
+    structured_facts: list[StructuredFact]
+    entity_summary: dict[str, object]
+    metrics: dict[str, object]
+    timeline_candidates: list[dict[str, object]]
+    mitre_candidates: list[dict[str, object]]
+    tool_outputs_summary: list[dict[str, object]]
+    policy_context_refs: list[str]
+    assumptions: list[str]
+    warnings: list[str]
+    missing_evidence: list[str]
+    allowed_conclusions: list[str]
+    prohibited_conclusions: list[str]
+    context_quality: str
+    synthesis_allowed: bool = False
+
+
+class ContextSufficiencyEnvelope(BaseModel):
+    status: str
+    synthesis_allowed: bool
+    reasons: list[str]
+    missing_evidence: list[str]
+    human_review: HumanReviewEnvelope | None = None
 
 
 class PlaceholderResponse(BaseModel):
@@ -80,3 +143,6 @@ class PlaceholderResponse(BaseModel):
     spl_validation: SplValidationEnvelope | None = None
     execution: ExecutionEnvelope | None = None
     human_review: HumanReviewEnvelope | None = None
+    source_evidence: list[SourceEvidenceEnvelope] = []
+    structured_context: StructuredContextPackage | None = None
+    context_sufficiency: ContextSufficiencyEnvelope | None = None

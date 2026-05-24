@@ -66,6 +66,7 @@ def test_chat_allows_authenticated_request(monkeypatch) -> None:
     user = require_auth({"username": "analyst", "role": "demo_analyst"})
     monkeypatch.setattr("app.api.routes_chat.route_skill", _fake_route_skill)
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", _fake_plan_workflow)
+    monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: _FakeTelemetry())
 
     response = chat(ChatRequest(message="test"))
 
@@ -102,3 +103,8 @@ def _fake_plan_workflow(selected_skill: str, tool_plan: list[str], query: str, t
         "safety_gates": ["no_execution"],
         "message": "Workflow plan created. No SPL/MCP/RAG execution has started.",
     }
+
+
+class _FakeTelemetry:
+    def record_step(self, trace_id: str, step_name: str, status: str, **fields: object) -> None:
+        return None

@@ -5,6 +5,9 @@ from fastapi import APIRouter, Depends
 from app.auth.session import require_auth
 from app.config import settings
 from app.connectors.telemetry import get_telemetry_connector
+from app.evidence.context_structurer import structure_context
+from app.evidence.context_sufficiency import check_context_sufficiency
+from app.evidence.source_evidence import build_source_evidence
 from app.orchestration.human_review import no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
@@ -42,6 +45,14 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         requested_mcp_server=request.requested_mcp_server,
         requested_mcp_tool=request.requested_mcp_tool,
     )
+    source_evidence, structured_context, context_sufficiency = _context_stage(
+        trace_id=trace_id,
+        query=request.message,
+        selected_skill=str(routed["skill"]),
+        workflow_plan=workflow_plan,
+        spl_validation=spl_validation,
+        execution=execution,
+    )
 
     return PlaceholderResponse(
         trace_id=trace_id,
@@ -59,6 +70,9 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         spl_validation=spl_validation,
         execution=execution,
         human_review=human_review,
+        source_evidence=source_evidence,
+        structured_context=structured_context,
+        context_sufficiency=context_sufficiency,
     )
 
 
@@ -158,3 +172,56 @@ def _execution_stage(
         requested_mcp_server=requested_mcp_server,
         requested_mcp_tool=requested_mcp_tool,
     )
+
+
+def _context_stage(
+    *,
+    trace_id: str,
+    query: str,
+    selected_skill: str,
+    workflow_plan: dict,
+    spl_validation: dict | None,
+    execution: dict,
+) -> tuple[list[dict], dict, dict]:
+    telemetry = get_telemetry_connector()
+    source_evidence = build_source_evidence(
+        trace_id=trace_id,
+        query=query,
+        selected_skill=selected_skill,
+        spl_validation=spl_validation,
+        execution=execution,
+    )
+    telemetry.record_step(
+        trace_id,
+        "source_evidence_created",
+        "completed",
+        evidence_count=len(source_evidence),
+        collected_count=sum(1 for item in source_evidence if item["collection_status"] == "collected"),
+    )
+    structured_context = structure_context(
+        query=query,
+        trace_id=trace_id,
+        selected_skill=selected_skill,
+        workflow_plan=workflow_plan,
+        spl_validation=spl_validation,
+        execution=execution,
+        source_evidence=source_evidence,
+    )
+    telemetry.record_step(
+        trace_id,
+        "context_structured",
+        "completed",
+        context_quality=structured_context["context_quality"],
+        fact_count=len(structured_context["structured_facts"]),
+        synthesis_allowed=False,
+    )
+    context_sufficiency = check_context_sufficiency(structured_context, source_evidence)
+    telemetry.record_step(
+        trace_id,
+        "context_sufficiency_checked",
+        "completed",
+        sufficiency_status=context_sufficiency["status"],
+        synthesis_allowed=False,
+        reasons=context_sufficiency["reasons"],
+    )
+    return source_evidence, structured_context, context_sufficiency

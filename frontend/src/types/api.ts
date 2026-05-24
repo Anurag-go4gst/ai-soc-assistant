@@ -26,6 +26,9 @@ export interface PlaceholderResponse {
   spl_validation?: SplValidationEnvelope | null;
   execution?: ExecutionEnvelope | null;
   human_review?: HumanReviewEnvelope | null;
+  source_evidence?: SourceEvidenceEnvelope[];
+  structured_context?: StructuredContextPackage | null;
+  context_sufficiency?: ContextSufficiencyEnvelope | null;
 }
 
 export interface RoutingTraceEnvelope {
@@ -56,6 +59,9 @@ export interface WorkflowPlan {
   steps: WorkflowStep[];
   required_connectors: string[];
   safety_gates: string[];
+  required_sources?: string[];
+  available_sources?: string[];
+  missing_sources?: string[];
   message: string;
 }
 
@@ -103,6 +109,63 @@ export interface HumanReviewEnvelope {
   sop_reference?: string | null;
   sop_excerpt?: string | null;
   sop_action_hint?: string | null;
+}
+
+export interface SourceEvidenceEnvelope {
+  evidence_id: string;
+  trace_id: string;
+  source_type: string;
+  source_name: string;
+  tool_name?: string | null;
+  collection_status: 'collected' | 'blocked' | 'failed' | 'skipped' | 'requires_human_review' | string;
+  query_or_request_summary?: string | null;
+  executed_spl?: string | null;
+  result_count: number;
+  fields_returned: string[];
+  preview_rows: Record<string, unknown>[];
+  raw_result_hash?: string | null;
+  raw_result_stored: boolean;
+  time_range?: string | null;
+  warnings: string[];
+  sensitivity_flags: string[];
+  created_at: string;
+}
+
+export interface StructuredFact {
+  fact_id: string;
+  statement: string;
+  source_refs: string[];
+  derivation: string;
+  confidence?: number | null;
+}
+
+export interface StructuredContextPackage {
+  trace_id: string;
+  query: string;
+  selected_skill: string;
+  source_evidence_refs: string[];
+  structured_facts: StructuredFact[];
+  entity_summary: Record<string, unknown>;
+  metrics: Record<string, unknown>;
+  timeline_candidates: Record<string, unknown>[];
+  mitre_candidates: Record<string, unknown>[];
+  tool_outputs_summary: Record<string, unknown>[];
+  policy_context_refs: string[];
+  assumptions: string[];
+  warnings: string[];
+  missing_evidence: string[];
+  allowed_conclusions: string[];
+  prohibited_conclusions: string[];
+  context_quality: 'sufficient' | 'partial' | 'insufficient' | 'blocked' | string;
+  synthesis_allowed: boolean;
+}
+
+export interface ContextSufficiencyEnvelope {
+  status: 'pass' | 'partial' | 'fail' | 'requires_human_review' | string;
+  synthesis_allowed: boolean;
+  reasons: string[];
+  missing_evidence: string[];
+  human_review?: HumanReviewEnvelope | null;
 }
 
 export interface SettingsStatus {

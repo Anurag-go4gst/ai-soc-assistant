@@ -48,6 +48,13 @@ _WORKFLOW_BLUEPRINTS: dict[str, list[dict[str, Any]]] = {
     ],
 }
 
+_SOURCE_REQUIREMENTS: dict[str, list[str]] = {
+    "attack_discovery": ["mcp:splunk"],
+    "spl_generation": [],
+    "alert_summary": ["mcp:splunk", "rag:sop"],
+    "knowledge_recall": ["rag:sop"],
+}
+
 
 def plan_workflow(
     selected_skill: str,
@@ -70,6 +77,9 @@ def plan_workflow(
         "steps": steps,
         "required_connectors": required_connectors,
         "safety_gates": safety_gates,
+        "required_sources": _SOURCE_REQUIREMENTS.get(skill, []),
+        "available_sources": [],
+        "missing_sources": _SOURCE_REQUIREMENTS.get(skill, []),
         "message": "Workflow plan created. No SPL/MCP/RAG execution has started.",
     }
 
