@@ -6,6 +6,8 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
+from app.knowledge.soc_kb_retriever import soc_kb_source_evidence
+
 SOURCE_PREVIEW_CAP = 5
 FIELD_CAP = 40
 VALUE_CAP = 240
@@ -19,8 +21,11 @@ def build_source_evidence(
     selected_skill: str,
     spl_validation: dict[str, Any] | None,
     execution: dict[str, Any],
+    soc_kb_retrieval: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     evidence: list[dict[str, Any]] = []
+    if soc_kb_retrieval is not None and soc_kb_retrieval.get("retrieval_status") != "disabled":
+        evidence.append(soc_kb_source_evidence(trace_id, query, soc_kb_retrieval))
     if spl_validation and str(spl_validation.get("selected_candidate_spl_provider") or "").startswith("saia_"):
         evidence.append(
             _evidence(

@@ -71,7 +71,7 @@ Trace summary cards in Cockpit link to **Debug**; the full developer surface liv
 `Settings` exposes read-only status for:
 
 - MCP (multi-server registry status, transport/auth configured booleans, discovered safe tool names, blocked execution tool names)
-- RAG (knowledge vault path, doc counts, vector / BM25 / KG status)
+- RAG / governed SOC KB (knowledge vault path, lifecycle counts, deterministic retrieval flags, vector / hybrid / graph placeholders)
 - LLM (multi-provider registry status, model family/role, router/synthesis/reasoning/teacher role mapping)
 - Routing (mode, planner/shadow/compare flags, confidence thresholds)
 - Safeguards (SPL validator, blocked commands, approval requirements)
@@ -109,7 +109,7 @@ LLM readiness is provider/model based:
 - `supports_tool_calling` is forced false in status because the AI-SOC backend controls MCP access. The LLM must never call MCP directly.
 - LLM health canary completion is disabled by default with `LLM_HEALTH_CANARY_ENABLED=false`.
 
-Current disabled work remains disabled: no SPL execution, no MCP tool execution, no RAG retrieval, no final LLM synthesis, and no Splunk telemetry write. Stage 3C adds candidate SPL generation plus deterministic validation only.
+Current disabled work remains disabled unless a later stage flag explicitly enables its governed path: no real SPL execution, no real MCP tool execution, no final LLM synthesis, and no Splunk telemetry write. Stage 3C adds candidate SPL generation plus deterministic validation only.
 
 ## Stage 3C SPL Generation And Validation
 
@@ -162,111 +162,73 @@ Stage 3D adds the first execution-control layer while keeping real execution dis
 
 Stage 3D still does not add RAG retrieval, final LLM synthesis, Splunk telemetry writes, SAIA/Splunk AI Assistant generation, or LLM-to-MCP tool calling. `LLM_TOOL_RECOMMENDATION_ENABLED=false` by default; if later enabled, it is advisory only and cannot override deterministic policy.
 
-### Mock Mode Example
+## Stage 3F Governed SOC Knowledge Retrieval
+
+Stage 3F adds governed multi-document SOC KB retrieval. In AI-SOC, RAG means approved SOC knowledge grounding, not open-ended vector search.
+
+- Retrieval is deterministic over JSON-backed governed KB fixtures in `backend/app/knowledge/fixtures/`.
+- Multiple collections are supported, including SOC SOPs, Splunk context, MITRE Enterprise grounding, escalation guidance, and MCP tool policy.
+- Documents are version controlled with `doc_id`, `canonical_doc_id`, `version`, `revision`, lifecycle, approval, effective dates, supersession metadata, checksums, owners, and review notes.
+- Runtime retrieval uses only current-version documents whose status is `active` or `published` and whose approval status is configured approved (`coe_reviewed` or `pgcil_approved` by default).
+- Draft, rejected, retired, expired, superseded, wrong-environment, and wrong-allowed-use documents do not affect runtime retrieval.
+- Entries inherit document eligibility and can also be individually draft/rejected/retired.
+- Retrieval supports environment, collection, namespace, domain, document type, allowed use, skill, simple typo/synonym expansion, positive/negative examples, retrieval hints, fields, sourcetypes, indexes, MITRE IDs, MCP tools, confidence scoring, ambiguity status, and exclusion counts.
+- Results become `SourceEvidence` with `source_type="rag"` and `tool_name="governed_soc_kb_retrieval"`, then contribute to `structured_context` fields such as `policy_context_refs`, `sop_action_hints`, `answer_constraints`, `prohibited_conclusions`, `mitre_grounding_refs`, `splunk_context_refs`, `tool_policy_refs`, and `environment_grounding_refs`.
+- Human review can receive approved SOP reference, excerpt, reviewer role, and action hints. If no approved SOP is available, the safe message is: `Approved SOP guidance is unavailable for this scenario.`
+- Future vector, hybrid, and graph retrieval are placeholders only (`embedding_ref`, `sparse_ref`, `graph_node_id`, `graph_edges`, and `retrieval_backend` metadata). No pgvector, Qdrant, Milvus, vector DB, reranker, or graph expansion is implemented in this stage.
+- The Support-Buddy pattern is reused conceptually: governed schema, publish lifecycle, validation, deterministic retrieval, and no LLM source invention.
+
+Default safety flags:
 
 ```env
-MCP_MODE=mock
-MCP_DEFAULT_SERVER=splunk_soc
-MCP_GLOBAL_EXECUTION_ENABLED=false
-LLM_MODE=mock
-LLM_HEALTH_CANARY_ENABLED=false
-TELEMETRY_MODE=db
-AI_SOC_TELEMETRY_SINK=db
+SOC_KB_RETRIEVAL_ENABLED=false
+SOC_KB_ENVIRONMENT=coe
+SOC_KB_ALLOWED_STATUSES=active,published
+SOC_KB_APPROVED_STATUSES=coe_reviewed,pgcil_approved
+SOC_KB_INCLUDE_DRAFTS=false
+SOC_KB_INCLUDE_SUPERSEDED=false
+SOC_KB_MAX_RESULTS=5
+SOC_KB_MIN_CONFIDENCE=0.35
+SOC_KB_DIRECT_TO_LLM=false
+SOC_KB_LLM_SELECTION_ENABLED=false
+SOC_KB_HYBRID_PLACEHOLDER_ENABLED=true
+SOC_KB_GRAPH_PLACEHOLDER_ENABLED=true
 ```
 
-### COE Readiness Example
+LLMs do not retrieve, select, or invent sources. If LLM candidate selection is added later, it may choose only among already retrieved deterministic candidates and cannot bypass lifecycle, status, approval, environment, allowed-use, or execution gates. Final synthesis remains disabled.
 
-Use placeholder values only until COE provides real endpoints and credentials:
+## Stage 3G Governed RAG Operations
+
+Stage 3G completes the governed RAG layer short of real PDF/document-to-vector indexing. SOC KB remains deterministic-first and governed; runtime still uses only current approved `active` / `published` documents.
+
+- A `KnowledgeRepository` abstraction now backs retrieval and admin operations. The current implementation is JSON-backed and DB-ready at the interface boundary.
+- Admin APIs expose collections, documents, entries, import validation, publish, retire, and deterministic retrieval testing under `/api/knowledge/...`.
+- Import batches support manual JSON and Support-Buddy-style LLM extraction proposals. LLM conversion is offline/admin only: proposed documents and entries are draft or ready-for-review until human validation and publish.
+- Validation enforces required document and entry fields, supported document types and allowed uses, source excerpts for runtime entries, source refs for medium/high/critical risk, positive examples and test cases for high/critical risk, checksums for source-backed imports, no duplicate current published versions, and no runtime eligibility for draft/rejected content.
+- Publishing a new current document version supersedes the older current version. Draft, ready-for-review, superseded, expired, retired, rejected, and unapproved documents do not affect runtime retrieval.
+- Retrieval now begins with deterministic collection selection by skill, workflow stage, allowed use, environment, query signals, HIL state, and required sources. It does not blindly search every collection.
+- Hybrid-ready stages are represented as `collection_selection`, `metadata_filter`, `deterministic_schema_search`, `keyword_search`, `dense_vector_search`, `sparse_vector_search`, `graph_expansion`, `rerank`, `policy_filter`, `ambiguity_check`, and `final_candidate_selection`.
+- Deterministic schema/keyword retrieval is implemented. Vector backends are interface-only (`none` or bounded `mock`); graph expansion and reranking are safety-bounded placeholders. Rerankers may only reorder eligible candidates and cannot add sources.
+- Graph metadata supports relationships such as `document_has_entry`, `entry_mentions_mitre`, `entry_mentions_sourcetype`, `entry_mentions_field`, `sop_requires_reviewer_role`, `scd_allows_index`, `detection_note_supports_spl_pattern`, `mcp_policy_allows_tool`, and `asset_policy_defines_criticality`.
+- Ambiguity detection considers confidence margin, cross-domain/document-type conflicts, negative-example penalties, wrong allowed-use/skill penalties, and wrong-environment exclusion. If ambiguity reaches HIL, the safe message is: `Knowledge retrieval is ambiguous and requires analyst review.`
+- The Knowledge page now shows collection/document lifecycle state, version/revision, checksums, statuses, validation output, and a retrieval test panel. It is intentionally not a PDF parser or rich KB editor yet.
+
+Default Stage 3G model/readiness flags:
 
 ```env
-MCP_MODE=registry
-MCP_SERVERS=splunk_soc,asset_inventory,ticketing
-MCP_DEFAULT_SERVER=splunk_soc
-MCP_GLOBAL_EXECUTION_ENABLED=false
-
-MCP_SERVER_SPLUNK_SOC_ENABLED=true
-MCP_SERVER_SPLUNK_SOC_TYPE=splunk
-MCP_SERVER_SPLUNK_SOC_TRANSPORT=streamable_http
-MCP_SERVER_SPLUNK_SOC_URL=https://splunk-mcp.example.invalid/mcp
-MCP_SERVER_SPLUNK_SOC_AUTH_MODE=bearer
-MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN=replace-with-token
-MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST=list_tools,splunk_get_indexes,splunk_search,saia_generate_spl
-MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED=false
-MCP_SERVER_SPLUNK_SOC_SPLUNK_APP_ID=7931
-MCP_SERVER_SPLUNK_SOC_SPLUNK_PLATFORM=unknown
-
-LLM_PROVIDERS=foundation_sec_instruct,foundation_sec_reasoning,llama_local,kimi_local,enterprise_gateway
-LLM_DEFAULT_PROVIDER=foundation_sec_instruct
-LLM_ROUTER_PROVIDER=foundation_sec_instruct
-LLM_SYNTHESIS_PROVIDER=foundation_sec_instruct
-LLM_REASONING_PROVIDER=foundation_sec_reasoning
-LLM_TEACHER_PROVIDER=enterprise_gateway
-LLM_GLOBAL_CONCURRENCY=4
-LLM_TIMEOUT_SECONDS=30
-LLM_HEALTH_CANARY_ENABLED=false
-
-LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_ENABLED=true
-LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_TYPE=cisco_compatible
-LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_BASE_URL=https://foundation-sec-instruct.example.invalid/v1
-LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_API_KEY=replace-with-api-key
-LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_AUTH_MODE=api_key
-LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_MODEL=replace-with-instruct-model
-LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_MODEL_ROLE=instruct
-LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_FAMILY=foundation_sec
-LLM_PROVIDER_FOUNDATION_SEC_INSTRUCT_SUPPORTS_TOOL_CALLING=false
-
-LLM_PROVIDER_FOUNDATION_SEC_REASONING_ENABLED=true
-LLM_PROVIDER_FOUNDATION_SEC_REASONING_TYPE=cisco_compatible
-LLM_PROVIDER_FOUNDATION_SEC_REASONING_BASE_URL=https://foundation-sec-reasoning.example.invalid/v1
-LLM_PROVIDER_FOUNDATION_SEC_REASONING_API_KEY=replace-with-api-key
-LLM_PROVIDER_FOUNDATION_SEC_REASONING_AUTH_MODE=api_key
-LLM_PROVIDER_FOUNDATION_SEC_REASONING_MODEL=replace-with-reasoning-model
-LLM_PROVIDER_FOUNDATION_SEC_REASONING_MODEL_ROLE=reasoning
-LLM_PROVIDER_FOUNDATION_SEC_REASONING_FAMILY=foundation_sec
-LLM_PROVIDER_FOUNDATION_SEC_REASONING_SUPPORTS_TOOL_CALLING=false
+SOC_KB_RETRIEVAL_MODE=deterministic
+SOC_KB_VECTOR_BACKEND=none
+SOC_KB_VECTOR_MODEL=BAAI/bge-m3
+SOC_KB_RERANKER_MODEL=BAAI/bge-reranker-v2-m3
+SOC_KB_EMBEDDING_INDEXING_ENABLED=false
+SOC_KB_RERANKER_ENABLED=false
+SOC_KB_GRAPH_EXPANSION_ENABLED=false
+SOC_KB_LLM_AMBIGUITY_ASSIST_ENABLED=false
+SOC_KB_DIRECT_TO_LLM=false
+SOC_KB_LLM_SELECTION_ENABLED=false
 ```
 
-### Status Shape Example
-
-`GET /api/settings/status` redacts secrets and reports only booleans:
-
-```json
-{
-  "mcp": {
-    "mode": "registry",
-    "default_server": "splunk_soc",
-    "global_execution_enabled": false,
-    "servers": [
-      {
-        "name": "splunk_soc",
-        "type": "splunk",
-        "url_configured": true,
-        "auth_configured": true,
-        "execution_enabled": false,
-        "discovered_tools_safe_names": ["list_tools", "splunk_search"],
-        "blocked_tools_safe_names": ["splunk_search"],
-        "search_execution_allowed": false,
-        "saia_spl_generation_allowed": false
-      }
-    ]
-  },
-  "llm": {
-    "default_provider": "foundation_sec_instruct",
-    "role_resolution": {
-      "router": "foundation_sec_instruct",
-      "reasoning": "foundation_sec_reasoning"
-    },
-    "providers": [
-      {
-        "name": "foundation_sec_instruct",
-        "base_url_configured": true,
-        "api_key_configured": true,
-        "supports_tool_calling": false
-      }
-    ]
-  }
-}
-```
+Actual PDF parsing, embedding generation, vector indexing, external vector DB integration, graph database expansion, and real reranker model serving are deferred. RAG output continues to flow only through `SourceEvidence` and `StructuredContext`; there is no direct RAG-to-LLM path and no final synthesis.
 
 ## Warning
 

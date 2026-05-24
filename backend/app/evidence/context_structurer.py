@@ -34,19 +34,36 @@ def structure_context(
         "entity_summary": _entity_summary(collected),
         "metrics": _metrics(collected),
         "timeline_candidates": _timeline_candidates(collected),
-        "mitre_candidates": [],
+        "mitre_candidates": _mitre_candidates(collected),
         "tool_outputs_summary": _tool_outputs_summary(source_evidence),
-        "policy_context_refs": _policy_context_refs(spl_validation),
-        "assumptions": ["structured_context_is_pre_synthesis"],
-        "warnings": warnings,
-        "missing_evidence": missing_evidence,
-        "allowed_conclusions": ["source_coverage_and_collection_status_only"],
+        "capability_profile_ref": _capability_profile_ref(spl_validation),
+        "spl_generation_provider": _provider(spl_validation, "selected_candidate_spl_provider"),
+        "spl_explanation_provider": _provider(spl_validation, "spl_explanation_provider"),
+        "spl_optimization_provider": _provider(spl_validation, "spl_optimization_provider"),
+        "spl_guidance_provider": _provider(spl_validation, "spl_guidance_provider"),
+        "fallback_mode": bool(spl_validation and spl_validation.get("fallback_required")),
+        "execution_provider": execution.get("selected_mcp_tool"),
+        "source_refs": [str(item["evidence_id"]) for item in source_evidence],
+        "policy_context_refs": _policy_context_refs(spl_validation) + _rag_refs(collected, {"procedure", "rule", "escalation", "answer_constraint"}),
+        "sop_action_hints": _sop_action_hints(collected),
+        "answer_constraints": _rag_list(collected, "answer_constraints"),
         "prohibited_conclusions": [
             "final_soc_answer",
             "final_mitre_mapping",
             "root_cause",
             "incident_severity",
+            *_rag_list(collected, "prohibited_conclusions"),
         ],
+        "mitre_grounding_refs": _rag_refs(collected, {"mitre_mapping"}),
+        "splunk_context_refs": _rag_refs(collected, {"environment_fact", "spl_guidance"}),
+        "tool_policy_refs": _rag_refs(collected, {"tool_policy"}),
+        "environment_grounding_refs": _rag_refs(collected, {"environment_fact", "asset_policy"}),
+        "knowledge_ambiguity": _knowledge_ambiguity(source_evidence),
+        "validation_warnings": _validation_warnings(source_evidence),
+        "assumptions": ["structured_context_is_pre_synthesis"],
+        "warnings": warnings,
+        "missing_evidence": missing_evidence,
+        "allowed_conclusions": ["source_coverage_and_collection_status_only"],
         "context_quality": context_quality,
         "synthesis_allowed": False,
     }
@@ -59,7 +76,7 @@ def _structured_facts(collected: list[dict[str, Any]]) -> list[dict[str, Any]]:
         facts.append(
             {
                 "fact_id": f"fact_{index:03d}",
-                "statement": f"{evidence.get('source_name')} returned {evidence.get('result_count', 0)} previewable rows through {evidence.get('tool_name') or 'unknown tool'}.",
+                "statement": _fact_statement(evidence),
                 "source_refs": [evidence_id],
                 "derivation": "computed_by_ai_soc",
                 "confidence": 1.0,
@@ -76,6 +93,12 @@ def _structured_facts(collected: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 }
             )
     return facts
+
+
+def _fact_statement(evidence: dict[str, Any]) -> str:
+    if evidence.get("source_type") == "rag":
+        return f"{evidence.get('source_name')} returned {evidence.get('result_count', 0)} governed SOC KB entries through governed retrieval."
+    return f"{evidence.get('source_name')} returned {evidence.get('result_count', 0)} previewable rows through {evidence.get('tool_name') or 'unknown tool'}."
 
 
 def _entity_summary(collected: list[dict[str, Any]]) -> dict[str, Any]:
@@ -116,6 +139,7 @@ def _tool_outputs_summary(source_evidence: list[dict[str, Any]]) -> list[dict[st
             "collection_status": item["collection_status"],
             "result_count": item.get("result_count", 0),
             "fields_returned": item.get("fields_returned", []),
+            "warnings": item.get("warnings", []),
         }
         for item in source_evidence
     ]
@@ -133,21 +157,136 @@ def _warnings(source_evidence: list[dict[str, Any]], spl_validation: dict[str, A
     for evidence in source_evidence:
         warnings.extend(str(item) for item in evidence.get("warnings", []))
         warnings.extend(str(item) for item in evidence.get("sensitivity_flags", []))
+        if evidence.get("source_type") == "rag" and evidence.get("collection_status") == "ambiguous":
+            warnings.append("knowledge_ambiguity_requires_review")
     if spl_validation and spl_validation.get("reject_reasons"):
         warnings.extend(str(item) for item in spl_validation["reject_reasons"])
     if execution.get("block_reason"):
         warnings.append(str(execution["block_reason"]))
+    if spl_validation and spl_validation.get("fallback_required"):
+        warnings.append("Splunk AI Assistant tools unavailable; AI-SOC fallback provider used.")
     return sorted(set(warnings))
 
 
 def _source_ref(evidence: dict[str, Any]) -> str:
-    if evidence.get("source_type") == "mcp":
+    if evidence.get("source_type") in {"mcp", "splunk_mcp"}:
         return "mcp:splunk"
+    if evidence.get("source_type") == "rag":
+        return "rag:sop"
     return str(evidence.get("source_type"))
+
+
+def _provider(spl_validation: dict[str, Any] | None, key: str) -> str | None:
+    if not spl_validation:
+        return None
+    value = spl_validation.get(key)
+    return str(value) if value else None
+
+
+def _capability_profile_ref(spl_validation: dict[str, Any] | None) -> str | None:
+    profile = (spl_validation or {}).get("capability_profile") or {}
+    if isinstance(profile, dict) and profile.get("server_id"):
+        return f"splunk_capability:{profile['server_id']}"
+    return None
 
 
 def _missing_evidence(required_sources: list[str], available_sources: list[str], evidence: list[dict[str, Any]]) -> list[str]:
     missing = [source for source in required_sources if source not in available_sources]
+    if "rag:sop" in required_sources and not _has_approved_sop(evidence):
+        missing.append("approved_sop_guidance")
     if not any(item.get("collection_status") == "collected" for item in evidence):
         missing.append("collected_source_evidence")
     return sorted(set(missing))
+
+
+def _has_approved_sop(evidence: list[dict[str, Any]]) -> bool:
+    for item in evidence:
+        if item.get("source_type") != "rag" or item.get("collection_status") != "collected":
+            continue
+        for row in item.get("preview_rows", []):
+            if isinstance(row, dict) and row.get("document_type") in {"sop", "runbook"}:
+                return True
+    return False
+
+
+def _rag_rows(collected: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for evidence in collected:
+        if evidence.get("source_type") != "rag":
+            continue
+        rows.extend(row for row in evidence.get("preview_rows", []) if isinstance(row, dict))
+    return rows
+
+
+def _rag_refs(collected: list[dict[str, Any]], entry_types: set[str]) -> list[str]:
+    refs: list[str] = []
+    for row in _rag_rows(collected):
+        if row.get("entry_type") in entry_types or _doc_type_maps(row, entry_types):
+            ref = str(row.get("citation") or row.get("entry_id") or "")
+            if ref and ref not in refs:
+                refs.append(ref)
+    return refs
+
+
+def _doc_type_maps(row: dict[str, Any], entry_types: set[str]) -> bool:
+    doc_type = row.get("document_type")
+    return (
+        ("mitre_mapping" in entry_types and doc_type in {"mitre_enterprise_reference", "mitre_ics_reference"})
+        or ("environment_fact" in entry_types and doc_type == "splunk_context_document")
+        or ("tool_policy" in entry_types and doc_type == "mcp_tool_policy")
+        or ("procedure" in entry_types and doc_type in {"sop", "runbook", "escalation_matrix"})
+    )
+
+
+def _rag_list(collected: list[dict[str, Any]], key: str) -> list[str]:
+    values: list[str] = []
+    for row in _rag_rows(collected):
+        for item in row.get(key) or []:
+            text = str(item)
+            if text not in values:
+                values.append(text)
+    return values
+
+
+def _sop_action_hints(collected: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    hints: list[dict[str, Any]] = []
+    for row in _rag_rows(collected):
+        if row.get("document_type") not in {"sop", "runbook", "escalation_matrix"}:
+            continue
+        hints.append(
+            {
+                "sop_reference": row.get("citation"),
+                "sop_excerpt": row.get("source_excerpt"),
+                "reviewer_role": row.get("reviewer_role"),
+                "recommended_actions": row.get("recommended_actions") or [],
+            }
+        )
+    return hints
+
+
+def _knowledge_ambiguity(source_evidence: list[dict[str, Any]]) -> list[str]:
+    values: list[str] = []
+    for item in source_evidence:
+        if item.get("source_type") == "rag" and item.get("collection_status") == "ambiguous":
+            values.append("Knowledge retrieval is ambiguous and requires analyst review.")
+    return values
+
+
+def _validation_warnings(source_evidence: list[dict[str, Any]]) -> list[str]:
+    values: list[str] = []
+    for row in _rag_rows([item for item in source_evidence if item.get("collection_status") == "collected"]):
+        if row.get("validation_status") and row.get("validation_status") != "runtime_eligible":
+            values.append(str(row["validation_status"]))
+    for item in source_evidence:
+        for warning in item.get("warnings") or []:
+            if "validation" in str(warning):
+                values.append(str(warning))
+    return sorted(set(values))
+
+
+def _mitre_candidates(collected: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for row in _rag_rows(collected):
+        for mitre_ref in row.get("mitre_refs") or []:
+            candidates.append({"technique_id": mitre_ref, "source_refs": [row.get("citation")], "derivation": "governed_soc_kb"})
+    return candidates[:10]

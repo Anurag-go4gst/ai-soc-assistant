@@ -8,6 +8,7 @@ from app.connectors.telemetry import get_telemetry_connector
 from app.evidence.context_structurer import structure_context
 from app.evidence.context_sufficiency import check_context_sufficiency
 from app.evidence.source_evidence import build_source_evidence
+from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.orchestration.human_review import no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
@@ -54,6 +55,7 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         spl_validation=spl_validation,
         execution=execution,
     )
+    human_review = _attach_hil_soc_kb_guidance(human_review, source_evidence)
 
     return PlaceholderResponse(
         trace_id=trace_id,
@@ -148,12 +150,21 @@ def _chat_message(spl_validation: dict | None, execution: dict | None = None) ->
 
 
 def _chat_note(spl_validation: dict | None, execution: dict | None = None) -> str:
+    rag_note = "Governed SOC KB retrieval may contribute source evidence when enabled."
+    if not settings.soc_kb_retrieval_enabled:
+        rag_note = "No RAG retrieval"
     if spl_validation is None:
-        return "Routing and workflow planning only; SPL is not required at this stage. No MCP execution, RAG retrieval, or synthesis was run."
+        if not settings.soc_kb_retrieval_enabled:
+            return "Routing and workflow planning only; SPL is not required at this stage. No MCP execution, RAG retrieval, or synthesis was run."
+        return "Routing and workflow planning only; SPL is not required at this stage. Governed SOC KB retrieval may contribute source evidence when enabled. No MCP execution, final synthesis, or Splunk telemetry write was run."
     status = "approved" if spl_validation.get("approved") else "rejected"
     if execution and execution.get("status") == "executed":
-        return f"Candidate SPL generated and {status}; mock MCP execution used normalized SPL only. No RAG retrieval, final synthesis, or Splunk telemetry write was run."
-    return f"Candidate SPL generated and {status} by deterministic validation. No MCP execution, RAG retrieval, or synthesis was run."
+        if not settings.soc_kb_retrieval_enabled:
+            return f"Candidate SPL generated and {status}; mock MCP execution used normalized SPL only. No RAG retrieval, final synthesis, or Splunk telemetry write was run."
+        return f"Candidate SPL generated and {status}; mock MCP execution used normalized SPL only. {rag_note} No final synthesis or Splunk telemetry write was run."
+    if not settings.soc_kb_retrieval_enabled:
+        return f"Candidate SPL generated and {status} by deterministic validation. No MCP execution, RAG retrieval, or synthesis was run."
+    return f"Candidate SPL generated and {status} by deterministic validation. {rag_note} No MCP execution, final synthesis, or Splunk telemetry write was run."
 
 
 def _execution_stage(
@@ -202,12 +213,21 @@ def _context_stage(
     execution: dict,
 ) -> tuple[list[dict], dict, dict]:
     telemetry = get_telemetry_connector()
+    soc_kb_retrieval = retrieve_soc_kb(
+        query=query,
+        selected_skill=selected_skill,
+        workflow_stage="context",
+        workflow_plan=workflow_plan,
+        required_sources=list(workflow_plan.get("required_sources") or []),
+        execution_block_reason=execution.get("block_reason"),
+    )
     source_evidence = build_source_evidence(
         trace_id=trace_id,
         query=query,
         selected_skill=selected_skill,
         spl_validation=spl_validation,
         execution=execution,
+        soc_kb_retrieval=soc_kb_retrieval,
     )
     telemetry.record_step(
         trace_id,
@@ -243,3 +263,35 @@ def _context_stage(
         reasons=context_sufficiency["reasons"],
     )
     return source_evidence, structured_context, context_sufficiency
+
+
+def _attach_hil_soc_kb_guidance(human_review: dict, source_evidence: list[dict]) -> dict:
+    if not human_review.get("required"):
+        return human_review
+    if any(evidence.get("source_type") == "rag" and evidence.get("collection_status") == "ambiguous" for evidence in source_evidence):
+        return {
+            **human_review,
+            "safe_message_for_user": "Knowledge retrieval is ambiguous and requires analyst review.",
+        }
+    sop_rows = []
+    for evidence in source_evidence:
+        if evidence.get("source_type") != "rag" or evidence.get("collection_status") != "collected":
+            continue
+        for row in evidence.get("preview_rows", []):
+            if isinstance(row, dict) and row.get("document_type") in {"sop", "runbook", "escalation_matrix"}:
+                sop_rows.append(row)
+    if not sop_rows:
+        return {
+            **human_review,
+            "safe_message_for_user": "Approved SOP guidance is unavailable for this scenario.",
+        }
+    row = sop_rows[0]
+    actions = [str(item) for item in row.get("recommended_actions") or []]
+    return {
+        **human_review,
+        "reviewer_role": str(row.get("reviewer_role") or human_review.get("reviewer_role")),
+        "allowed_actions": actions or human_review.get("allowed_actions", []),
+        "sop_reference": row.get("citation"),
+        "sop_excerpt": row.get("source_excerpt"),
+        "sop_action_hint": actions[0] if actions else None,
+    }

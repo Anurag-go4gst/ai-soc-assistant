@@ -1,4 +1,4 @@
-import { AlertTriangle, Boxes, CheckCircle2, FileSearch, ListChecks, Route, SearchCode, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { AlertTriangle, Boxes, CheckCircle2, FileSearch, Library, ListChecks, Route, SearchCode, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import type React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -41,9 +41,64 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
       {trace.execution ? <McpSection execution={trace.execution} /> : null}
       {trace.human_review?.required ? <HumanReviewSection review={trace.human_review} /> : null}
       {trace.execution ? <ExecutionSection execution={trace.execution} /> : null}
+      {trace.source_evidence?.some((item) => item.source_type === 'rag') ? <GovernedKnowledgeSection evidence={trace.source_evidence.filter((item) => item.source_type === 'rag')} review={trace.human_review ?? null} /> : null}
       {trace.source_evidence?.length ? <SourceEvidenceSection evidence={trace.source_evidence} /> : null}
       {trace.structured_context ? <StructuredContextSection context={trace.structured_context} sufficiency={trace.context_sufficiency ?? null} /> : null}
     </div>
+  );
+}
+
+function GovernedKnowledgeSection({ evidence, review }: { evidence: SourceEvidenceEnvelope[]; review: HumanReviewEnvelope | null }) {
+  const rows = evidence.flatMap((item) => item.preview_rows.map((row) => ({ evidence: item, row })));
+  const warnings = evidence.flatMap((item) => item.warnings);
+  return (
+    <TraceSection icon={<Library className="h-3.5 w-3.5 text-cyan-300" />} title="Governed Knowledge / RAG">
+      <div className="flex flex-wrap items-center gap-2">
+        {evidence.map((item) => (
+          <Badge key={item.evidence_id} variant={item.collection_status === 'collected' ? 'success' : item.collection_status === 'ambiguous' ? 'warning' : 'secondary'}>
+            {safeText(item.collection_status)}
+          </Badge>
+        ))}
+        <Badge variant="warning">final synthesis disabled</Badge>
+      </div>
+      {warnings.length ? <ChipLine label="warnings" values={warnings} variant="warning" /> : null}
+      {rows.length ? (
+        <div className="mt-2 space-y-2">
+          {rows.slice(0, 8).map(({ row }, index) => (
+            <div key={`${String(row.entry_id)}-${index}`} className="rounded border border-slate-800 bg-slate-950 p-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">{safeText(String(row.collection_id ?? 'collection'))}</Badge>
+                <Badge variant="outline">{safeText(String(row.document_type ?? 'document'))}</Badge>
+                <Badge variant="secondary">v{safeText(String(row.doc_version ?? 'n/a'))}</Badge>
+                <Badge variant="secondary">{safeText(String(row.status ?? 'status'))}</Badge>
+                <Badge variant="success">{safeText(String(row.approval_status ?? 'approval'))}</Badge>
+                <Badge variant="secondary">{safeText(String(row.environment ?? 'env'))}</Badge>
+                <Badge variant="outline">{safeText(String(row.retrieval_mode ?? 'deterministic'))}</Badge>
+                {row.graph_expanded ? <Badge variant="warning">graph expanded</Badge> : null}
+                {row.reranked ? <Badge variant="warning">reranked</Badge> : null}
+                <Badge>{typeof row.confidence === 'number' ? row.confidence.toFixed(2) : safeText(String(row.confidence ?? ''))}</Badge>
+              </div>
+              <p className="mt-2 font-medium text-slate-100">{safeText(String(row.doc_title ?? 'Untitled document'))}</p>
+              <p className="mt-1 text-cyan-100">{safeText(String(row.entry_title ?? 'Untitled entry'))}</p>
+              <p className="mt-2 text-slate-300">{safeText(String(row.source_excerpt ?? ''), 420)}</p>
+              {Array.isArray(row.allowed_use) ? <ChipLine label="allowed use" values={row.allowed_use.map(String)} variant="outline" /> : null}
+              {Array.isArray(row.source_refs) ? <ChipLine label="source refs" values={row.source_refs.map(String)} variant="secondary" /> : null}
+              {row.retrieval_stage_scores && typeof row.retrieval_stage_scores === 'object' ? <ChipLine label="stage scores" values={Object.entries(row.retrieval_stage_scores as Record<string, unknown>).map(([key, value]) => `${key}:${String(value)}`)} variant="outline" /> : null}
+              {row.citation ? <KeyValue label="citation" value={String(row.citation)} /> : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-slate-400">No approved governed knowledge entries were collected for this query.</p>
+      )}
+      {review?.sop_reference ? (
+        <div className="mt-2 rounded border border-amber-400/30 bg-amber-500/10 p-2">
+          <Badge variant="warning">HIL SOP guidance</Badge>
+          <p className="mt-2 text-amber-100">{safeText(review.sop_reference)}</p>
+          {review.sop_action_hint ? <p className="mt-1 text-amber-50">{safeText(review.sop_action_hint)}</p> : null}
+        </div>
+      ) : null}
+    </TraceSection>
   );
 }
 
@@ -83,6 +138,8 @@ function SplSection({ candidate, validation }: { candidate?: string; validation:
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={approved ? 'success' : 'destructive'}>{approved ? 'approved' : 'rejected'}</Badge>
         {validation?.policy_version ? <Badge variant="secondary">{validation.policy_version}</Badge> : null}
+        {validation?.selected_candidate_spl_provider ? <Badge variant="outline">{safeText(validation.selected_candidate_spl_provider)}</Badge> : null}
+        {validation?.fallback_required ? <Badge variant="warning">Fallback active</Badge> : null}
       </div>
       {candidate ? (
         <CodeBlock label="candidate SPL" value={candidate} tone="cyan" />
@@ -92,6 +149,7 @@ function SplSection({ candidate, validation }: { candidate?: string; validation:
       ) : null}
       {validation?.reject_reasons.length ? <ChipLine label="reject reasons" values={validation.reject_reasons} variant="destructive" /> : null}
       {validation?.warnings.length ? <ChipLine label="warnings" values={validation.warnings} variant="warning" /> : null}
+      {validation?.candidate_provider_reason ? <p className="mt-2 text-slate-400">{safeText(validation.candidate_provider_reason)}</p> : null}
     </TraceSection>
   );
 }
@@ -160,6 +218,8 @@ function SourceEvidenceSection({ evidence }: { evidence: SourceEvidenceEnvelope[
               <Badge variant="secondary">{safeText(item.source_type)}</Badge>
               <Badge variant="secondary">{safeText(item.source_name)}</Badge>
               {item.tool_name ? <Badge variant="outline">{safeText(item.tool_name)}</Badge> : null}
+              {item.provider_used ? <Badge variant="outline">{safeText(item.provider_used)}</Badge> : null}
+              {item.tool_category ? <Badge variant="secondary">{safeText(item.tool_category)}</Badge> : null}
               <Badge variant="secondary">{item.result_count} rows</Badge>
             </div>
             {item.executed_spl ? <CodeBlock label="executed normalized SPL" value={item.executed_spl} tone="emerald" /> : null}
@@ -196,6 +256,11 @@ function StructuredContextSection({ context, sufficiency }: { context: Structure
         </div>
       ) : null}
       {context.missing_evidence.length ? <ChipLine label="missing evidence" values={context.missing_evidence} variant="warning" /> : null}
+      {context.policy_context_refs.length ? <ChipLine label="policy refs" values={context.policy_context_refs} variant="outline" /> : null}
+      {context.answer_constraints?.length ? <ChipLine label="answer constraints" values={context.answer_constraints} variant="warning" /> : null}
+      {context.mitre_grounding_refs?.length ? <ChipLine label="MITRE grounding" values={context.mitre_grounding_refs} /> : null}
+      {context.splunk_context_refs?.length ? <ChipLine label="Splunk context" values={context.splunk_context_refs} /> : null}
+      {context.tool_policy_refs?.length ? <ChipLine label="tool policy" values={context.tool_policy_refs} /> : null}
       {sufficiency?.reasons.length ? <ChipLine label="sufficiency reasons" values={sufficiency.reasons} variant="warning" /> : null}
       <p className="mt-2 text-slate-400">Final LLM synthesis is not enabled yet.</p>
     </TraceSection>

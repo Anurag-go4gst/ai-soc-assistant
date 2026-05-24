@@ -133,7 +133,23 @@ class StructuredContextPackage(BaseModel):
     timeline_candidates: list[dict[str, object]]
     mitre_candidates: list[dict[str, object]]
     tool_outputs_summary: list[dict[str, object]]
+    capability_profile_ref: str | None = None
+    spl_generation_provider: str | None = None
+    spl_explanation_provider: str | None = None
+    spl_optimization_provider: str | None = None
+    spl_guidance_provider: str | None = None
+    fallback_mode: bool = False
+    execution_provider: str | None = None
+    source_refs: list[str] = []
     policy_context_refs: list[str]
+    sop_action_hints: list[dict[str, object]] = []
+    answer_constraints: list[str] = []
+    mitre_grounding_refs: list[str] = []
+    splunk_context_refs: list[str] = []
+    tool_policy_refs: list[str] = []
+    environment_grounding_refs: list[str] = []
+    knowledge_ambiguity: list[str] = []
+    validation_warnings: list[str] = []
     assumptions: list[str]
     warnings: list[str]
     missing_evidence: list[str]
