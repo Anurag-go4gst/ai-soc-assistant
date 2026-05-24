@@ -37,6 +37,7 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
       </TraceSection>
 
       {trace.workflow_plan ? <WorkflowSection workflow={trace.workflow_plan} /> : null}
+      {trace.candidate_spl?.capability_profile || trace.spl_validation?.capability_profile ? <SplunkCapabilitySection profile={(trace.spl_validation?.capability_profile ?? trace.candidate_spl?.capability_profile) as Record<string, unknown>} validation={trace.spl_validation ?? null} /> : null}
       {trace.candidate_spl || trace.spl_validation ? <SplSection candidate={trace.candidate_spl?.candidate_spl} validation={trace.spl_validation ?? null} /> : null}
       {trace.execution ? <McpSection execution={trace.execution} /> : null}
       {trace.human_review?.required ? <HumanReviewSection review={trace.human_review} /> : null}
@@ -45,6 +46,35 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
       {trace.source_evidence?.length ? <SourceEvidenceSection evidence={trace.source_evidence} /> : null}
       {trace.structured_context ? <StructuredContextSection context={trace.structured_context} sufficiency={trace.context_sufficiency ?? null} /> : null}
     </div>
+  );
+}
+
+function SplunkCapabilitySection({ profile, validation }: { profile: Record<string, unknown>; validation: SplValidationEnvelope | null }) {
+  return (
+    <TraceSection icon={<Wrench className="h-3.5 w-3.5 text-cyan-300" />} title="Splunk MCP Capability">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={profile.mcp_available ? 'success' : 'warning'}>Core MCP</Badge>
+        <Badge variant={profile.saia_available ? 'success' : 'secondary'}>{profile.saia_available ? 'SAIA available' : 'SAIA unavailable'}</Badge>
+        <Badge variant={profile.saia_usable ? 'success' : 'warning'}>{profile.saia_usable ? 'SAIA usable' : 'Fallback active'}</Badge>
+        <Badge variant={validation?.approved ? 'success' : 'destructive'}>{validation?.approved ? 'Validation passed' : 'Validation failed'}</Badge>
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <KeyValue label="environment" value={String(profile.environment_mode ?? 'unknown')} />
+        <KeyValue label="discovery mode" value={String(profile.discovery_mode ?? 'unknown')} />
+        <KeyValue label="SAIA mode" value={String(profile.saia_configured_mode ?? 'unknown')} />
+        <KeyValue label="fallback required" value={String(profile.fallback_required ?? false)} badgeVariant={profile.fallback_required ? 'warning' : 'success'} />
+      </div>
+      {Array.isArray(profile.available_core_tools) ? <ChipLine label="core tools" values={profile.available_core_tools.map(String)} variant="outline" /> : null}
+      {Array.isArray(profile.available_saia_tools) ? <ChipLine label="SAIA tools" values={profile.available_saia_tools.map(String)} variant={profile.available_saia_tools.length ? 'success' : 'secondary'} /> : null}
+      {validation ? (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <KeyValue label="SPL generation" value={validation.selected_candidate_spl_provider ?? 'unknown'} />
+          <KeyValue label="SPL explanation" value={validation.spl_explanation_provider ?? 'unknown'} />
+          <KeyValue label="SPL optimization" value={validation.spl_optimization_provider ?? 'unknown'} />
+          <KeyValue label="Splunk guidance" value={validation.spl_guidance_provider ?? 'unknown'} />
+        </div>
+      ) : null}
+    </TraceSection>
   );
 }
 
