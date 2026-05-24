@@ -52,6 +52,8 @@ def select_mcp_tool(
         requested = next((tool for tool in tools if tool.get("name") == requested_tool), None)
         if requested is None:
             return _review_result(trace_id, execution_intent, "tool_selection_review", "requested_tool_not_found")
+        if requested_tool == "splunk_run_saved_search" and not settings.splunk_allow_run_saved_search:
+            return _review_result(trace_id, execution_intent, "tool_selection_review", "saved_search_execution_disabled")
         if _tool_blocked(requested):
             return _review_result(trace_id, execution_intent, "policy_exception_request", requested.get("blocked_reason") or "requested_tool_blocked")
         if not _tool_matches_intent(requested, execution_intent):
@@ -115,6 +117,8 @@ def _select_server(registry: McpRegistryStatus, requested_name: str | None) -> M
 def _tool_blocked(tool: dict[str, Any]) -> bool:
     name = str(tool.get("name", "")).lower()
     description = str(tool.get("description", "")).lower()
+    if "saia" in (tool.get("categories") or []):
+        return False
     return bool(tool.get("blocked")) or any(token in f"{name} {description}" for token in BLOCKED_TOOL_TOKENS)
 
 

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.connectors.mcp.registry import McpRegistryStatus, McpServerStatus
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
+from app.orchestration.mcp_execution_gate import _gate_review
 from app.orchestration.mcp_tool_selector import select_mcp_tool
 
 
@@ -152,7 +154,8 @@ def test_requested_unsafe_tool_creates_human_review(monkeypatch) -> None:
     )
 
     assert selection["tool_selection_status"] == "requires_human_review"
-    assert selection["human_review"]["review_type"] == "policy_exception_request"
+    assert selection["human_review"]["review_type"] == "tool_selection_review"
+    assert selection["blocked_reason"] == "requested_tool_intent_mismatch"
 
 
 def test_no_discovered_tools_creates_human_review(monkeypatch) -> None:
@@ -191,7 +194,7 @@ def test_llm_recommendation_cannot_override_policy(monkeypatch) -> None:
     )
 
     assert selection["tool_selection_status"] == "requires_human_review"
-    assert selection["blocked_reason"].startswith("blocked_tool_pattern")
+    assert selection["blocked_reason"] == "requested_tool_intent_mismatch"
 
 
 def test_real_adapter_unavailable_returns_human_review(monkeypatch) -> None:
@@ -217,6 +220,56 @@ def test_real_adapter_unavailable_returns_human_review(monkeypatch) -> None:
     assert execution["executed_spl"] is None
     assert execution["block_reason"] == "real_mcp_adapter_not_implemented"
     assert review["review_type"] == "admin_action_required"
+
+
+def test_saved_search_is_blocked_at_execution_gate() -> None:
+    registry = McpRegistryStatus(
+        mode="mock",
+        default_server="splunk_soc",
+        global_execution_enabled=True,
+        servers=[
+            McpServerStatus(
+                name="splunk_soc",
+                type="splunk",
+                enabled=True,
+                implemented=True,
+                configured=True,
+                available=True,
+                transport="mock",
+                url_configured=False,
+                command_configured=False,
+                auth_mode="none",
+                auth_configured=True,
+                execution_enabled=True,
+                discovered_tools_count=1,
+                discovered_tools_safe_names=["splunk_run_saved_search"],
+                discovered_tools=[
+                    {
+                        "name": "splunk_run_saved_search",
+                        "description": "",
+                        "capability": "spl_search",
+                        "categories": ["saved_search_execution", "execution"],
+                        "blocked": False,
+                        "blocked_reason": None,
+                    }
+                ],
+                blocked_tools_count=0,
+                blocked_tools_safe_names=[],
+                search_execution_allowed=False,
+            )
+        ],
+    )
+
+    review = _gate_review(
+        selected_skill="attack_discovery",
+        spl_validation=APPROVED_VALIDATION,
+        selected_mcp_server="splunk_soc",
+        selected_mcp_tool="splunk_run_saved_search",
+        registry=registry,
+    )
+
+    assert review["required"] is True
+    assert review["reason"] == "saved_search_execution_disabled"
 
 
 class FakeTelemetry:

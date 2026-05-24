@@ -33,6 +33,15 @@ class CandidateSplEnvelope(BaseModel):
     confidence: float
     assumptions: list[str]
     warnings: list[str]
+    selected_candidate_spl_provider: str | None = None
+    reason: str | None = None
+    saia_available: bool | None = None
+    saia_usable: bool | None = None
+    fallback_required: bool | None = None
+    candidate_spl_generated: bool | None = None
+    validation_required: bool | None = None
+    execution_eligible: bool | None = None
+    capability_profile: dict[str, object] | None = None
 
 
 class SplValidationEnvelope(BaseModel):
@@ -42,6 +51,16 @@ class SplValidationEnvelope(BaseModel):
     warnings: list[str]
     enforced_limits: dict[str, object]
     policy_version: str
+    selected_candidate_spl_provider: str | None = None
+    candidate_provider_reason: str | None = None
+    saia_available: bool | None = None
+    fallback_required: bool | None = None
+    spl_explanation_provider: str | None = None
+    spl_optimization_provider: str | None = None
+    spl_guidance_provider: str | None = None
+    optimization_applied: bool | None = None
+    optimization_revalidation_status: dict[str, object] | None = None
+    capability_profile: dict[str, object] | None = None
 
 
 class ExecutionEnvelope(BaseModel):
@@ -87,6 +106,11 @@ class SourceEvidenceEnvelope(BaseModel):
     time_range: str | None = None
     warnings: list[str]
     sensitivity_flags: list[str]
+    tool_category: str | None = None
+    provider_used: str | None = None
+    saved_search_name: str | None = None
+    output_type: str | None = None
+    provenance: str | None = None
     created_at: str
 
 

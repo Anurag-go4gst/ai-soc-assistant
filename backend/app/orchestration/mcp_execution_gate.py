@@ -145,6 +145,8 @@ def _gate_review(
         return _review("tool_selection_review", "selected_tool_not_found")
     if tool.get("blocked"):
         return _review("policy_exception_request", tool.get("blocked_reason") or "selected_tool_blocked", "security_admin", ["request_policy_exception", "reject_execution"])
+    if selected_mcp_tool == "splunk_run_saved_search" and not getattr(server, "search_execution_allowed", False):
+        return _review("execution_approval", "saved_search_execution_disabled", "soc_lead", ["approve_execution_after_policy_check", "reject_execution"])
     if tool.get("capability") != "spl_search":
         return _review("tool_selection_review", "selected_tool_not_spl_search")
     if registry.mode != "mock":

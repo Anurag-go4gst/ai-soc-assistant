@@ -15,7 +15,8 @@ from app.routing.skill_router import route_skill
 from app.safeguards.spl_validator import validate_spl
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
-from app.spl.generator import generate_candidate_spl
+from app.splunk.capabilities import build_splunk_capability_profile
+from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
 
 router = APIRouter()
 
@@ -89,8 +90,10 @@ def _candidate_spl_stage(trace_id: str, skill: str, user_query: str) -> tuple[di
         return None, None
 
     telemetry = get_telemetry_connector()
-    candidate = generate_candidate_spl(trace_id=trace_id, skill=skill, user_query=user_query)
+    profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
+    candidate, provider_metadata = generate_candidate_spl_with_provider(trace_id=trace_id, skill=skill, user_query=user_query, profile=profile)
     candidate_payload = candidate.model_dump()
+    candidate_payload.update(provider_metadata)
     telemetry.record_step(
         trace_id,
         "candidate_spl_generated",
@@ -99,9 +102,14 @@ def _candidate_spl_stage(trace_id: str, skill: str, user_query: str) -> tuple[di
         generation_mode=candidate.generation_mode,
         confidence=candidate.confidence,
         warnings=candidate.warnings,
+        selected_candidate_spl_provider=provider_metadata["selected_candidate_spl_provider"],
+        fallback_required=provider_metadata["fallback_required"],
     )
 
     validation = validate_spl(candidate.candidate_spl)
+    explanation = explain_spl(candidate.candidate_spl, profile=profile)
+    optimization = optimize_spl(candidate.candidate_spl, profile=profile)
+    guidance = splunk_guidance(user_query, profile=profile)
     validation_payload = {
         "approved": validation["approved"],
         "normalized_spl": validation["normalized_spl"],
@@ -109,6 +117,16 @@ def _candidate_spl_stage(trace_id: str, skill: str, user_query: str) -> tuple[di
         "warnings": validation["warnings"],
         "enforced_limits": validation["enforced_limits"],
         "policy_version": validation["policy_version"],
+        "selected_candidate_spl_provider": provider_metadata["selected_candidate_spl_provider"],
+        "candidate_provider_reason": provider_metadata["reason"],
+        "saia_available": provider_metadata["saia_available"],
+        "fallback_required": provider_metadata["fallback_required"],
+        "spl_explanation_provider": explanation["provider"],
+        "spl_optimization_provider": optimization["provider"],
+        "spl_guidance_provider": guidance["provider"],
+        "optimization_applied": optimization["optimization_applied"],
+        "optimization_revalidation_status": optimization["revalidation_status"],
+        "capability_profile": profile.model_dump(),
     }
     telemetry.record_spl_validation(
         trace_id,

@@ -81,7 +81,7 @@ def test_mcp_executed_response_creates_source_evidence() -> None:
     )
 
     item = evidence[0]
-    assert item["source_type"] == "mcp"
+    assert item["source_type"] == "splunk_mcp"
     assert item["source_name"] == "splunk_soc"
     assert item["tool_name"] == "run_splunk_query"
     assert item["collection_status"] == "collected"

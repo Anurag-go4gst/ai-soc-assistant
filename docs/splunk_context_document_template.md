@@ -262,13 +262,15 @@ Excluded objects (record any discovered, so they are knowingly denied):
 > usable only if `capability == "spl_search"` and not blocked.
 
 Capability classes (`SAFE_TOOL_PATTERNS`, `discovery.py`): `spl_search`, `metadata_lookup`,
-`knowledge_object_discovery`, `ticket_lookup`, `asset_lookup`, `blocked`, `unknown`.
+`knowledge_object_discovery`, `candidate_generation`, `explanation`, `optimization`,
+`splunk_guidance`, `saved_search_execution`, `ticket_lookup`, `asset_lookup`, `blocked`, `unknown`.
 
 | Tool name | Server | Capability | Allowed for execution | Blocked reason (if any) |
 |---|---|---|---|---|
 | `run_splunk_query` | `splunk_soc` | `spl_search` | yes (after SPL validation) | — |
 | `get_splunk_metadata` | `splunk_soc` | `metadata_lookup` | discovery only, no SPL exec | — |
-| `saia_generate_spl` | `splunk_soc` | `blocked` | no | `blocked_tool_pattern:saia` |
+| `saia_generate_spl` | `splunk_soc` | `candidate_generation` | no; candidate SPL only | — |
+| `splunk_run_saved_search` | `splunk_soc` | `saved_search_execution` | no by default | `saved_search_execution_disabled` |
 | `<PLACEHOLDER>` | `<PLACEHOLDER>` | `<PLACEHOLDER>` | `<yes/no>` | `<PLACEHOLDER>` |
 
 - Per-server allowlist is configured separately via `MCP_SERVER_<NAME>_TOOL_ALLOWLIST`

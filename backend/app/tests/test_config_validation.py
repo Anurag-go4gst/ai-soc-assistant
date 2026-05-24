@@ -33,3 +33,25 @@ def test_both_sink_is_rejected() -> None:
 def test_unknown_sink_is_rejected() -> None:
     with pytest.raises(ConfigError):
         _validate(_make("kafka"))
+
+
+def test_stage3h_enum_values_are_accepted() -> None:
+    for environment in ("coe", "customer_test", "production", "air_gapped"):
+        for assistant_mode in ("auto", "enabled", "disabled"):
+            for discovery_mode in ("dynamic", "restricted", "static_only"):
+                settings = Settings(
+                    ai_soc_telemetry_sink="db",
+                    ai_soc_environment_mode=environment,
+                    splunk_ai_assistant_mode=assistant_mode,
+                    splunk_mcp_discovery_mode=discovery_mode,
+                )
+                assert _validate(settings) is settings
+
+
+def test_invalid_stage3h_enum_values_are_rejected() -> None:
+    with pytest.raises(ConfigError):
+        _validate(Settings(ai_soc_telemetry_sink="db", ai_soc_environment_mode="lab"))
+    with pytest.raises(ConfigError):
+        _validate(Settings(ai_soc_telemetry_sink="db", splunk_ai_assistant_mode="maybe"))
+    with pytest.raises(ConfigError):
+        _validate(Settings(ai_soc_telemetry_sink="db", splunk_mcp_discovery_mode="open"))

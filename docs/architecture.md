@@ -10,6 +10,8 @@ LangGraph will own investigation state transitions, node execution, recovery pat
 
 Splunk MCP will be reached through a backend MCP client after deterministic SPL validation and approval checks. The current MCP client is a placeholder and performs no real execution.
 
+Stage 3H separates core Splunk MCP read/search tools from optional Splunk AI Assistant (`saia_*`) advisory tools. SAIA outputs can help produce candidate SPL, explanations, or optimization hints, but they are not execution evidence and cannot bypass deterministic validation or MCP execution gates.
+
 ## RAG and GraphRAG Layer
 
 The knowledge vault stores SOPs, runbooks, SPL templates, MITRE notes, assets, detections, and scenario packs. Later phases can add vector retrieval, keyword retrieval, and graph context retrieval.

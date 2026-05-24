@@ -23,7 +23,24 @@ class Settings(BaseSettings):
     # This default is intentionally a dev placeholder, never a real secret.
     database_url: str = "postgresql://ai_soc:change-me@postgres:5432/ai_soc_assistant"
 
-    splunk_mcp_enabled: bool = False
+    splunk_mcp_enabled: bool = True
+    ai_soc_environment_mode: str = "coe"
+    splunk_mcp_server_id: str = "splunk_soc"
+    splunk_mcp_discovery_mode: str = "dynamic"
+    splunk_ai_assistant_mode: str = "auto"
+    splunk_saia_tools_enabled: bool = True
+    splunk_use_saia_generate_spl: bool = True
+    splunk_use_saia_explain_spl: bool = True
+    splunk_use_saia_optimize_spl: bool = True
+    splunk_use_saia_ask_question: bool = True
+    splunk_saia_require_discovery: bool = True
+    splunk_allow_run_saved_search: bool = False
+    splunk_run_saved_search_require_hil: bool = True
+    splunk_run_query_require_validation: bool = True
+    splunk_metadata_discovery_allowed: bool = True
+    splunk_knowledge_object_discovery_allowed: bool = True
+    splunk_allowed_core_tools: str = "splunk_run_query,splunk_get_info,splunk_get_indexes,splunk_get_index_info,splunk_get_metadata,splunk_get_user_info,splunk_get_knowledge_objects"
+    splunk_allowed_saia_tools: str = "saia_generate_spl,saia_explain_spl,saia_optimize_spl,saia_ask_splunk_question"
     splunk_mcp_base_url: str = ""
     splunk_mcp_token: str = ""
     llm_enabled: bool = False
@@ -128,6 +145,12 @@ def _validate(s: Settings) -> Settings:
             f"AI_SOC_TELEMETRY_SINK={sink!r} is not a valid value. "
             f"Use one of: {SUPPORTED_TELEMETRY_SINKS}."
         )
+    if s.ai_soc_environment_mode not in {"coe", "customer_test", "production", "air_gapped"}:
+        raise ConfigError("AI_SOC_ENVIRONMENT_MODE must be one of: coe, customer_test, production, air_gapped.")
+    if s.splunk_mcp_discovery_mode not in {"dynamic", "restricted", "static_only"}:
+        raise ConfigError("SPLUNK_MCP_DISCOVERY_MODE must be one of: dynamic, restricted, static_only.")
+    if s.splunk_ai_assistant_mode not in {"auto", "enabled", "disabled"}:
+        raise ConfigError("SPLUNK_AI_ASSISTANT_MODE must be one of: auto, enabled, disabled.")
     return s
 
 

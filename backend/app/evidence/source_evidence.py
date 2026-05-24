@@ -20,8 +20,26 @@ def build_source_evidence(
     spl_validation: dict[str, Any] | None,
     execution: dict[str, Any],
 ) -> list[dict[str, Any]]:
+    evidence: list[dict[str, Any]] = []
+    if spl_validation and str(spl_validation.get("selected_candidate_spl_provider") or "").startswith("saia_"):
+        evidence.append(
+            _evidence(
+                trace_id=trace_id,
+                source_type="splunk_mcp_saia",
+                source_name="splunk_ai_assistant",
+                tool_name=str(spl_validation.get("selected_candidate_spl_provider")),
+                collection_status="collected",
+                query_or_request_summary=_summarize(query),
+                result_count=1,
+                warnings=["saia_output_candidate_only_validation_required"],
+                output_type="candidate_spl",
+                provider_used=spl_validation.get("selected_candidate_spl_provider"),
+                provenance="splunk_ai_assistant_candidate_provider",
+            )
+        )
+
     if spl_validation is None:
-        return [
+        evidence.append(
             _evidence(
                 trace_id=trace_id,
                 source_type="manual",
@@ -31,7 +49,8 @@ def build_source_evidence(
                 result_count=0,
                 warnings=["spl_not_required_for_skill"],
             )
-        ]
+        )
+        return evidence
 
     status = str(execution.get("status") or "skipped")
     rows = _safe_rows(execution.get("results_preview", []))
@@ -45,10 +64,10 @@ def build_source_evidence(
     if spl_validation.get("warnings"):
         warnings.extend(str(item)[:VALUE_CAP] for item in spl_validation.get("warnings", []))
 
-    return [
+    evidence.append(
         _evidence(
             trace_id=trace_id,
-            source_type="mcp",
+            source_type="splunk_mcp",
             source_name=str(execution.get("selected_mcp_server") or "mcp_splunk"),
             tool_name=execution.get("selected_mcp_tool"),
             collection_status=collection_status,
@@ -62,8 +81,13 @@ def build_source_evidence(
             time_range=_time_range(spl_validation.get("normalized_spl")),
             warnings=warnings,
             sensitivity_flags=sensitivity_flags,
+            tool_category=_tool_category(execution.get("selected_mcp_tool")),
+            provider_used="splunk_run_query" if execution.get("executed_spl") else None,
+            saved_search_name=execution.get("saved_search_name"),
+            provenance="ai_soc_validated_execution_gate",
         )
-    ]
+    )
+    return evidence
 
 
 def _evidence(
@@ -83,6 +107,11 @@ def _evidence(
     time_range: str | None = None,
     warnings: list[str] | None = None,
     sensitivity_flags: list[str] | None = None,
+    tool_category: str | None = None,
+    provider_used: str | None = None,
+    saved_search_name: str | None = None,
+    output_type: str | None = None,
+    provenance: str | None = None,
 ) -> dict[str, Any]:
     stable = f"{trace_id}:{source_type}:{source_name}:{tool_name or 'none'}:{collection_status}"
     return {
@@ -102,6 +131,11 @@ def _evidence(
         "time_range": time_range,
         "warnings": warnings or [],
         "sensitivity_flags": sensitivity_flags or [],
+        "tool_category": tool_category,
+        "provider_used": provider_used,
+        "saved_search_name": saved_search_name,
+        "output_type": output_type,
+        "provenance": provenance,
         "created_at": datetime.now(UTC).isoformat(),
     }
 
@@ -114,6 +148,15 @@ def _collection_status(execution_status: str) -> str:
     if execution_status == "failed":
         return "failed"
     return "skipped"
+
+
+def _tool_category(tool_name: Any) -> str | None:
+    tool = str(tool_name or "")
+    if tool in {"splunk_run_query", "run_splunk_query"}:
+        return "execution"
+    if tool == "splunk_run_saved_search":
+        return "saved_search_execution"
+    return None
 
 
 def _request_summary(selected_skill: str, query: str, execution: dict[str, Any]) -> str:
