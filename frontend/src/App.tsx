@@ -92,6 +92,7 @@ export default function App() {
             <Route path="/scenarios" element={<ScenariosPage />} />
             <Route path="/knowledge" element={<KnowledgePage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/providers" element={<SettingsPage />} />
             <Route path="/debug" element={<DebugPage />} />
             <Route path="*" element={<Navigate to="/cockpit" replace />} />
           </Routes>

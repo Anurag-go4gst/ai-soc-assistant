@@ -74,6 +74,12 @@ export interface CandidateSplEnvelope {
   confidence: number;
   assumptions: string[];
   warnings: string[];
+  selected_candidate_spl_provider?: string | null;
+  reason?: string | null;
+  saia_available?: boolean | null;
+  saia_usable?: boolean | null;
+  fallback_required?: boolean | null;
+  capability_profile?: Record<string, unknown> | null;
 }
 
 export interface SplValidationEnvelope {
@@ -83,6 +89,15 @@ export interface SplValidationEnvelope {
   warnings: string[];
   enforced_limits: Record<string, unknown>;
   policy_version: string;
+  selected_candidate_spl_provider?: string | null;
+  candidate_provider_reason?: string | null;
+  saia_available?: boolean | null;
+  fallback_required?: boolean | null;
+  spl_explanation_provider?: string | null;
+  spl_optimization_provider?: string | null;
+  spl_guidance_provider?: string | null;
+  optimization_applied?: boolean | null;
+  capability_profile?: Record<string, unknown> | null;
 }
 
 export interface ExecutionEnvelope {
@@ -97,6 +112,7 @@ export interface ExecutionEnvelope {
   results_preview: Record<string, unknown>[];
   block_reason?: string | null;
   duration_ms: number;
+  saved_search_name?: string | null;
 }
 
 export interface HumanReviewEnvelope {
@@ -117,7 +133,7 @@ export interface SourceEvidenceEnvelope {
   source_type: string;
   source_name: string;
   tool_name?: string | null;
-  collection_status: 'collected' | 'blocked' | 'failed' | 'skipped' | 'requires_human_review' | string;
+  collection_status: 'collected' | 'blocked' | 'failed' | 'skipped' | 'requires_human_review' | 'no_match' | 'ambiguous' | string;
   query_or_request_summary?: string | null;
   executed_spl?: string | null;
   result_count: number;
@@ -128,6 +144,11 @@ export interface SourceEvidenceEnvelope {
   time_range?: string | null;
   warnings: string[];
   sensitivity_flags: string[];
+  tool_category?: string | null;
+  provider_used?: string | null;
+  saved_search_name?: string | null;
+  output_type?: string | null;
+  provenance?: string | null;
   created_at: string;
 }
 
@@ -150,7 +171,23 @@ export interface StructuredContextPackage {
   timeline_candidates: Record<string, unknown>[];
   mitre_candidates: Record<string, unknown>[];
   tool_outputs_summary: Record<string, unknown>[];
+  capability_profile_ref?: string | null;
+  spl_generation_provider?: string | null;
+  spl_explanation_provider?: string | null;
+  spl_optimization_provider?: string | null;
+  spl_guidance_provider?: string | null;
+  fallback_mode?: boolean;
+  execution_provider?: string | null;
+  source_refs?: string[];
   policy_context_refs: string[];
+  sop_action_hints?: Record<string, unknown>[];
+  answer_constraints?: string[];
+  mitre_grounding_refs?: string[];
+  splunk_context_refs?: string[];
+  tool_policy_refs?: string[];
+  environment_grounding_refs?: string[];
+  knowledge_ambiguity?: string[];
+  validation_warnings?: string[];
   assumptions: string[];
   warnings: string[];
   missing_evidence: string[];
@@ -190,6 +227,18 @@ export interface SettingsStatus {
     timeout_seconds: number;
     max_rows: number;
     last_check_status: string;
+    environment_mode?: string;
+    splunk_mcp_enabled?: boolean;
+    splunk_mcp_discovery_mode?: string;
+    splunk_ai_assistant_mode?: string;
+    splunk_saia_tools_enabled?: boolean;
+    splunk_saia_require_discovery?: boolean;
+    splunk_run_query_require_validation?: boolean;
+    splunk_allow_run_saved_search?: boolean;
+    fallback_required?: boolean;
+    discovered_core_tool_count?: number;
+    discovered_saia_tool_count?: number;
+    splunk_capability?: Record<string, unknown>;
   };
   rag: {
     enabled: boolean;
@@ -208,9 +257,17 @@ export interface SettingsStatus {
     chunk_size: number;
     chunk_overlap: number;
     embedding_model: string;
-    last_ingestion_status: string;
-    direct_to_llm?: boolean;
+    repository_backend_type?: string;
+    retrieval_mode?: string;
+    vector_backend?: string;
+    reranker_model?: string;
+    embedding_indexing_enabled?: boolean;
+    reranker_enabled?: boolean;
+    graph_expansion_enabled?: boolean;
     final_synthesis_enabled?: boolean;
+    import_prompt_available?: boolean;
+    import_validation_enabled?: boolean;
+    manual_edit_publish_available?: boolean;
     reranker?: {
       enabled: boolean;
       provider: string;
@@ -225,6 +282,47 @@ export interface SettingsStatus {
       available: boolean;
       max_candidates: number;
     };
+    last_ingestion_status: string;
+    soc_kb?: {
+      retrieval_enabled: boolean;
+      repository_backend_type?: string;
+      retrieval_mode?: string;
+      vector_backend?: string;
+      embedding_model?: string;
+      reranker_model?: string;
+      embedding_indexing_enabled?: boolean;
+      reranker_enabled?: boolean;
+      graph_expansion_enabled?: boolean;
+      collections_configured_count: number;
+      documents_total_count: number;
+      eligible_current_approved_document_count: number;
+      draft_count: number;
+      retired_rejected_count: number;
+      superseded_count: number;
+      validation_warning_count?: number;
+      import_batch_count?: number;
+      environment: string;
+      direct_to_llm: boolean;
+      llm_selection_enabled: boolean;
+      llm_ambiguity_assist_enabled?: boolean;
+      hybrid_placeholder_enabled: boolean;
+      graph_placeholder_enabled: boolean;
+    };
+    soc_kb_retrieval_enabled?: boolean;
+    collections_configured_count?: number;
+    documents_total_count?: number;
+    eligible_current_approved_document_count?: number;
+    draft_count?: number;
+    retired_rejected_count?: number;
+    superseded_count?: number;
+    validation_warning_count?: number;
+    import_batch_count?: number;
+    environment?: string;
+    direct_to_llm?: boolean;
+    llm_selection_enabled?: boolean;
+    llm_ambiguity_assist_enabled?: boolean;
+    hybrid_placeholder_enabled?: boolean;
+    graph_placeholder_enabled?: boolean;
   };
   llm: {
     enabled: boolean;
@@ -325,59 +423,132 @@ export interface SettingsStatus {
   };
 }
 
-export interface McpServerStatus {
-  name: string;
-  type: string;
+export type ProviderTypeValue =
+  | 'splunk_mcp'
+  | 'generic_mcp'
+  | 'security_api'
+  | 'network_api'
+  | 'asset_inventory'
+  | 'ticketing'
+  | 'rag_knowledge'
+  | 'manual_input'
+  | string;
+
+export interface ProviderRegistryItem {
+  provider_id: string;
+  display_name: string;
+  provider_type: ProviderTypeValue;
   enabled: boolean;
-  implemented: boolean;
-  configured: boolean;
+  status: string;
+  environment_mode: string;
   available: boolean;
-  transport: string;
-  url_configured: boolean;
-  command_configured: boolean;
-  auth_mode: string;
   auth_configured: boolean;
-  execution_enabled: boolean;
+  discovered_operations: string[];
+  allowed_operations: string[];
+  blocked_operations: string[];
+  discovered_operations_count: number;
   discovered_tools_count: number;
-  discovered_tools_safe_names: string[];
-  discovered_tools?: {
-    name: string;
-    description: string;
-    capability: string;
-    blocked: boolean;
-    blocked_reason?: string | null;
-  }[];
-  blocked_tools_count: number;
-  blocked_tools_safe_names: string[];
-  last_error?: string | null;
-  splunk_app_id?: string | null;
-  splunk_platform?: string | null;
-  search_execution_allowed?: boolean | null;
-  saia_spl_generation_allowed?: boolean | null;
-  knowledge_object_discovery_allowed?: boolean | null;
-  list_tools_allowed?: boolean | null;
+  hil_required_operations_count: number;
+  hil_required_operations: string[];
+  read_only_supported: boolean;
+  write_supported: boolean;
+  evidence_output_supported: boolean;
+  fallback_required: boolean;
+  warnings: string[];
+  last_discovered?: string | null;
+  planned: boolean;
+  actions: {
+    view: boolean;
+    discover: boolean;
+    edit: boolean;
+  };
 }
 
-export interface LlmProviderStatus {
-  name: string;
-  type: string;
-  family: string;
-  model_role: string;
+export interface ProviderToolStatus {
+  provider_id: string;
+  server_name: string;
+  tool_name: string;
+  category: string;
+  allowed: boolean;
+  blocked: boolean;
+  blocked_reason?: string | null;
+  requires_hil: boolean;
+  execution_eligible: boolean;
+  source_evidence_supported: boolean;
+  description: string;
+}
+
+export interface ProviderSettingsStatus {
+  providers: ProviderRegistryItem[];
+  provider_types: ProviderTypeValue[];
+  splunk_capability: {
+    server_id?: string;
+    environment_mode?: string;
+    mcp_available?: boolean;
+    discovery_mode?: string;
+    core_splunk_tools_available?: boolean;
+    saia_available?: boolean;
+    saia_usable?: boolean;
+    fallback_required?: boolean;
+    run_query_requires_validation?: boolean;
+    run_saved_search_allowed?: boolean;
+    discovered_at?: string;
+    [key: string]: unknown;
+  };
+  saia: {
+    splunk_ai_assistant_mode: string;
+    saia_discovered: boolean;
+    saia_usable: boolean;
+    fallback_active: boolean;
+    features: {
+      generate_spl: boolean;
+      explain_spl: boolean;
+      optimize_spl: boolean;
+      ask_splunk_question: boolean;
+    };
+  };
+  tool_groups: Record<string, ProviderToolStatus[]>;
+  notes: string[];
+}
+
+export interface ProviderDraftCheckRequest {
+  provider_id: string;
+  display_name?: string;
+  provider_type: string;
+  environment_mode: string;
   enabled: boolean;
-  implemented: boolean;
-  configured: boolean;
-  available: boolean;
-  model: string;
-  base_url_configured: boolean;
-  api_key_configured: boolean;
+  discovery_mode: string;
+  transport: string;
   auth_mode: string;
-  context_tokens?: number | null;
-  max_output_tokens?: number | null;
-  supports_streaming: boolean;
-  supports_json_mode: boolean;
-  supports_tool_calling: boolean;
-  concurrency_limit: number;
-  last_error?: string | null;
+  base_url: string;
+  auth_token?: string;
+  username?: string;
+  password?: string;
+  notes?: string;
+}
+
+export interface ProviderDraftCheckResult {
+  provider_id: string;
+  provider_type: string;
+  enabled: boolean;
+  environment_mode: string;
+  discovery_mode: string;
+  transport: string;
+  auth_mode: string;
+  base_url_configured: boolean;
+  auth_token_configured: boolean;
+  username_configured?: boolean;
+  password_configured?: boolean;
+  validation_status: string;
+  validation_errors: string[];
+  connection_check: {
+    status: string;
+    reason: string;
+    real_connection_attempted: boolean;
+  };
+  saved: boolean;
+  not_persisted: boolean;
+  safe_message: string;
 }
 
 export interface KnowledgeCollection {
@@ -425,4 +596,60 @@ export interface KnowledgeEntry {
   status?: string;
   approval_status?: string;
   risk_level?: string;
+}
+
+export interface McpServerStatus {
+  name: string;
+  type: string;
+  enabled: boolean;
+  implemented: boolean;
+  configured: boolean;
+  available: boolean;
+  transport: string;
+  url_configured: boolean;
+  command_configured: boolean;
+  auth_mode: string;
+  auth_configured: boolean;
+  execution_enabled: boolean;
+  discovered_tools_count: number;
+  discovered_tools_safe_names: string[];
+  discovered_tools?: {
+    name: string;
+    description: string;
+    capability: string;
+    categories?: string[];
+    blocked: boolean;
+    blocked_reason?: string | null;
+  }[];
+  blocked_tools_count: number;
+  blocked_tools_safe_names: string[];
+  last_error?: string | null;
+  splunk_app_id?: string | null;
+  splunk_platform?: string | null;
+  search_execution_allowed?: boolean | null;
+  saia_spl_generation_allowed?: boolean | null;
+  knowledge_object_discovery_allowed?: boolean | null;
+  list_tools_allowed?: boolean | null;
+}
+
+export interface LlmProviderStatus {
+  name: string;
+  type: string;
+  family: string;
+  model_role: string;
+  enabled: boolean;
+  implemented: boolean;
+  configured: boolean;
+  available: boolean;
+  model: string;
+  base_url_configured: boolean;
+  api_key_configured: boolean;
+  auth_mode: string;
+  context_tokens?: number | null;
+  max_output_tokens?: number | null;
+  supports_streaming: boolean;
+  supports_json_mode: boolean;
+  supports_tool_calling: boolean;
+  concurrency_limit: number;
+  last_error?: string | null;
 }

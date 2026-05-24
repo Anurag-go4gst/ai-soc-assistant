@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from '@/lib/runtimeMode';
-import type { AuthResponse, HealthResponse, KnowledgeCollection, KnowledgeDocument, KnowledgeEntry, PlaceholderResponse, SettingsStatus } from '../types/api';
+import type { AuthResponse, HealthResponse, KnowledgeCollection, KnowledgeDocument, KnowledgeEntry, PlaceholderResponse, ProviderDraftCheckRequest, ProviderDraftCheckResult, ProviderSettingsStatus, SettingsStatus } from '../types/api';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -82,6 +82,27 @@ export async function getSettingsStatus(): Promise<SettingsStatus> {
   const response = await fetch(`${API_BASE_URL}/settings/status`, { credentials: 'include' });
   if (!response.ok) {
     throw new Error(`Settings status failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getProviderSettingsStatus(): Promise<ProviderSettingsStatus> {
+  const response = await fetch(`${API_BASE_URL}/settings/providers/status`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`Provider settings status failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function checkProviderDraft(payload: ProviderDraftCheckRequest): Promise<ProviderDraftCheckResult> {
+  const response = await fetch(`${API_BASE_URL}/settings/providers/check`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`Provider check failed: ${response.status}`);
   }
   return response.json();
 }

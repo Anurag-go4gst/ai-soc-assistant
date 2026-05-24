@@ -26,6 +26,17 @@ export function McpSettingsPanel({ status }: { status: SettingsStatus['mcp'] }) 
         <div>
           <SettingRow label="Mode" value={status.mode} mono />
           <SettingRow label="Default server" value={status.default_server ?? 'mock'} mono />
+          <SettingRow label="Environment mode" value={status.environment_mode ?? 'coe'} mono />
+          <SettingRow label="Splunk MCP enabled" value={<BoolPill value={status.splunk_mcp_enabled ?? false} />} />
+          <SettingRow label="Discovery mode" value={status.splunk_mcp_discovery_mode ?? 'dynamic'} mono />
+          <SettingRow label="Splunk AI Assistant mode" value={status.splunk_ai_assistant_mode ?? 'auto'} mono />
+          <SettingRow label="SAIA tools enabled" value={<BoolPill value={status.splunk_saia_tools_enabled ?? false} />} />
+          <SettingRow label="SAIA require discovery" value={<BoolPill value={status.splunk_saia_require_discovery ?? true} />} />
+          <SettingRow label="Fallback required" value={<BoolPill value={status.fallback_required ?? true} trueLabel="yes" falseLabel="no" />} />
+          <SettingRow label="Core tools discovered" value={status.discovered_core_tool_count ?? 0} mono />
+          <SettingRow label="SAIA tools discovered" value={status.discovered_saia_tool_count ?? 0} mono />
+          <SettingRow label="Run query requires validation" value={<BoolPill value={status.splunk_run_query_require_validation ?? true} />} />
+          <SettingRow label="Saved search allowed" value={<BoolPill value={status.splunk_allow_run_saved_search ?? false} />} />
           <SettingRow label="Execution disabled globally" value={<BoolPill value={!(status.global_execution_enabled ?? false)} />} />
           <SettingRow label="Configured" value={<BoolPill value={status.configured} />} />
           <SettingRow label="Available" value={<BoolPill value={status.available} />} />
