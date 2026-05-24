@@ -49,6 +49,7 @@ export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactH
           content: response.message,
           traceId: response.trace_id,
           note: response.note,
+          trace: response,
           routing: {
             selectedSkill: response.selected_skill,
             confidence: response.confidence,
@@ -59,6 +60,8 @@ export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactH
           workflowPlan: response.workflow_plan,
           candidateSpl: response.candidate_spl,
           splValidation: response.spl_validation,
+          execution: response.execution,
+          humanReview: response.human_review,
         },
       ]);
     } catch (error) {

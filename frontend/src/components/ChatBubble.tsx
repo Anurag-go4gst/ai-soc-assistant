@@ -1,7 +1,15 @@
 import { Bot, User } from 'lucide-react';
+import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { CandidateSplEnvelope, SplValidationEnvelope, WorkflowPlan } from '@/types/api';
+import type {
+  CandidateSplEnvelope,
+  ExecutionEnvelope,
+  HumanReviewEnvelope,
+  PlaceholderResponse,
+  SplValidationEnvelope,
+  WorkflowPlan,
+} from '@/types/api';
 
 export interface SocChatMessage {
   id: string;
@@ -16,9 +24,12 @@ export interface SocChatMessage {
     disagreement?: boolean | null;
     disagreementReason?: string | null;
   };
+  trace?: PlaceholderResponse | null;
   workflowPlan?: WorkflowPlan | null;
   candidateSpl?: CandidateSplEnvelope | null;
   splValidation?: SplValidationEnvelope | null;
+  execution?: ExecutionEnvelope | null;
+  humanReview?: HumanReviewEnvelope | null;
 }
 
 interface ChatBubbleProps {
@@ -55,7 +66,8 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             {message.note ? <Badge>{message.note}</Badge> : null}
           </div>
         ) : null}
-        {!isUser && message.routing?.selectedSkill ? (
+        {!isUser && message.trace ? <Stage3DTracePanel trace={message.trace} /> : null}
+        {!isUser && !message.trace && message.routing?.selectedSkill ? (
           <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{message.routing.selectedSkill}</Badge>
@@ -72,7 +84,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             <p className="mt-2 text-slate-400">Routing complete. SPL/MCP execution is not enabled yet.</p>
           </div>
         ) : null}
-        {!isUser && message.workflowPlan ? (
+        {!isUser && !message.trace && message.workflowPlan ? (
           <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">workflow plan</Badge>
@@ -97,7 +109,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             <p className="mt-2 text-slate-400">Workflow planning only. No tool execution has happened.</p>
           </div>
         ) : null}
-        {!isUser && message.candidateSpl ? (
+        {!isUser && !message.trace && message.candidateSpl ? (
           <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">candidate SPL</Badge>
@@ -120,6 +132,51 @@ export function ChatBubble({ message }: ChatBubbleProps) {
               <p className="mt-2 text-amber-100">{message.splValidation.warnings.join(', ')}</p>
             ) : null}
             <p className="mt-2 text-slate-400">SPL validation complete. MCP execution is disabled.</p>
+          </div>
+        ) : null}
+        {!isUser && !message.trace && message.execution ? (
+          <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">execution</Badge>
+              <Badge variant={message.execution.status === 'executed' ? 'success' : message.execution.status === 'failed' ? 'destructive' : 'warning'}>
+                {message.execution.status}
+              </Badge>
+              <Badge>{message.execution.execution_intent}</Badge>
+            </div>
+            {message.execution.selected_mcp_server || message.execution.selected_mcp_tool ? (
+              <p className="mt-2 font-mono text-[0.7rem] text-slate-400">
+                {message.execution.selected_mcp_server ?? 'no-server'} / {message.execution.selected_mcp_tool ?? 'no-tool'}
+              </p>
+            ) : null}
+            <p className="mt-2 text-slate-400">{message.execution.tool_selection_reason}</p>
+            {message.execution.block_reason ? (
+              <Badge className="mt-2" variant="warning">{message.execution.block_reason}</Badge>
+            ) : null}
+            {message.execution.status === 'executed' ? (
+              <div className="mt-2">
+                <Badge variant="success">{message.execution.result_count} result preview rows</Badge>
+                <code className="mt-2 block max-h-40 overflow-auto rounded border border-slate-800 bg-slate-950 p-2 font-mono text-[0.7rem] text-cyan-100">
+                  {JSON.stringify(message.execution.results_preview, null, 2)}
+                </code>
+              </div>
+            ) : null}
+            <p className="mt-2 text-slate-400">Final LLM synthesis is not enabled yet.</p>
+          </div>
+        ) : null}
+        {!isUser && !message.trace && message.humanReview?.required ? (
+          <div className="rounded-md border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-50">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="warning">human review</Badge>
+              <Badge variant="secondary">{message.humanReview.review_type}</Badge>
+              <Badge>{message.humanReview.reviewer_role}</Badge>
+            </div>
+            <p className="mt-2">{message.humanReview.safe_message_for_user}</p>
+            <p className="mt-1 font-mono text-[0.7rem] text-amber-100">{message.humanReview.reason}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {message.humanReview.allowed_actions.map((action) => (
+                <Badge key={action} variant="outline">{action}</Badge>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>
