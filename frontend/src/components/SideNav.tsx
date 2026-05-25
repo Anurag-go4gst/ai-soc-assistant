@@ -58,8 +58,8 @@ export function SideNav() {
           );
         })}
       </nav>
-      <p className="mt-auto px-2 pt-4 text-[0.65rem] text-slate-600">
-        Splunk-ready scaffold · mock mode
+      <p className="mt-auto px-2 pt-4 text-xs font-medium text-slate-400">
+        Connected · index=pgcil_soc
       </p>
     </aside>
   );

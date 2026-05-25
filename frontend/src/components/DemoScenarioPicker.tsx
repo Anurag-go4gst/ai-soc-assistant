@@ -53,7 +53,7 @@ export function DemoScenarioPicker({ disabled, onRun }: DemoScenarioPickerProps)
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
           <PlayCircle className="h-3.5 w-3.5 text-cyan-400" />
-          COE scenario
+          Quick start
         </span>
         <Badge variant="outline">Experience Center</Badge>
       </div>
@@ -85,18 +85,27 @@ export function DemoScenarioPicker({ disabled, onRun }: DemoScenarioPickerProps)
           Run
         </button>
       </div>
-      {selectedScenario ? (
-        <div className="mt-2 flex flex-wrap gap-1.5 text-[0.65rem] text-slate-400">
-          <Badge variant="secondary">{selectedScenario.expected_skill}</Badge>
-          <Badge variant={selectedScenario.saia_available ? 'success' : 'warning'}>
-            SAIA {selectedScenario.saia_available ? 'available' : 'unavailable'}
-          </Badge>
-          <Badge variant={selectedScenario.mcp_execution_mode === 'mock_success' ? 'success' : 'secondary'}>
-            {selectedScenario.mcp_execution_mode}
-          </Badge>
-        </div>
-      ) : null}
+      {selectedScenario ? <ScenarioCapabilityChips category={selectedScenario.category} /> : null}
       {loadError ? <p className="mt-2 text-xs text-amber-100">{loadError}</p> : null}
+    </div>
+  );
+}
+
+function ScenarioCapabilityChips({ category }: { category: DemoScenarioSummary['category'] }) {
+  const labels =
+    category === 'Knowledge / SOP'
+      ? ['Knowledge']
+      : category === 'Generate SPL' || category === 'Air-gapped Mode'
+        ? ['SPL', 'Knowledge']
+        : category === 'MITRE Mapping'
+          ? ['MITRE', 'Investigation']
+          : ['Investigation', 'Knowledge', 'MITRE'];
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5 text-[0.65rem] text-slate-400">
+      {labels.map((label) => (
+        <Badge key={label} variant="secondary">{label}</Badge>
+      ))}
     </div>
   );
 }

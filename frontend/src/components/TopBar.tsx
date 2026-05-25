@@ -21,9 +21,6 @@ export function TopBar({ username, health, healthError, onLogout }: TopBarProps)
       <div className="flex items-center gap-3">
         <h1 className="text-base font-semibold tracking-tight">AI SOC Assistant</h1>
         <Badge>Experience Center</Badge>
-        <Badge variant="secondary" className="hidden sm:inline-flex">
-          Mock Routing Mode
-        </Badge>
       </div>
       <div className="flex items-center gap-2">
         <Badge variant={backendOk ? 'success' : 'warning'} className="hidden md:inline-flex">

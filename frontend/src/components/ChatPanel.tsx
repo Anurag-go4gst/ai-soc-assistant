@@ -22,7 +22,6 @@ export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactH
       role: 'assistant',
       content:
         'Hi Anurag. I am V.AI SOC. Choose a starter prompt or ask for triage, SPL, MITRE mapping, or investigation notes.',
-      note: 'LangGraph placeholder',
     }),
     [],
   );
@@ -104,13 +103,13 @@ export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactH
       </CardHeader>
       <CardContent className="min-h-0 flex-1 p-0">
         <ScrollArea className="h-full">
-          <div className="space-y-4 px-5 py-4">
+          <div className="space-y-4 px-5 pb-36 pt-4">
             {messages.map((message) => (
               <ChatBubble key={message.id} message={message} />
             ))}
             {loading ? (
               <ChatBubble
-                message={{ id: 'typing', role: 'assistant', content: 'Preparing governed placeholder response…' }}
+                message={{ id: 'typing', role: 'assistant', content: 'Preparing analyst response…' }}
               />
             ) : null}
             <div ref={bottomRef} />

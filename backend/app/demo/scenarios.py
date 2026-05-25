@@ -331,7 +331,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     sop_guidance = _sop_guidance_payload()
     base = {
         "scenario_label": scenario.label,
-        "status_badge": "COE scenario",
+        "status_badge": None,
         "retrieved_playbook": playbook,
         "sop_guidance": sop_guidance,
         "foundation_sec_analysis": None,
@@ -347,111 +347,181 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
         return {
             **base,
             "severity_label": "P2 High",
-            "finding_title": "P2 High - Brute-force authentication spike detected on APP-01",
+            "finding_title": "Brute-force authentication spike detected on APP-01",
             "one_sentence_finding": "APP-01 shows a concentrated failed-login spike from multiple internal sources against overlapping user sets.",
-            "splunk_status_line": "Querying Splunk [index=pgcil_soc] - last 60 minutes...",
+            "splunk_status_line": "Querying Splunk [index=pgcil_soc] · last 60 minutes...",
             "splunk_results_table": [
                 {"Host": "APP-01", "Source IP": "10.10.4.21", "Failed logins": 42, "Distinct users": 7, "First seen": "13:42:10", "Last seen": "14:37:22", "Action": "failure"},
                 {"Host": "APP-01", "Source IP": "10.10.4.22", "Failed logins": 31, "Distinct users": 4, "First seen": "13:48:31", "Last seen": "14:36:58", "Action": "failure"},
                 {"Host": "APP-01", "Source IP": "10.10.4.19", "Failed logins": 28, "Distinct users": 3, "First seen": "13:51:02", "Last seen": "14:35:41", "Action": "failure"},
             ],
             "mitre_mappings": [
-                {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Evidence": "Repeated authentication failures from the same source range", "Confidence": "High"},
+                {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Evidence": "Repeated authentication failures from the same source range against APP-01", "Confidence": "High"},
             ],
-            "foundation_sec_analysis": "The pattern indicates coordinated internal credential stuffing across three source IPs with overlapping user pools. The activity is not consistent with a single misconfigured client.",
+            "foundation_sec_analysis": "\n\n".join([
+                "Foundation-sec-8B-Instruct classifies this as a T1110.001 Password Guessing pattern with high confidence.",
+                "Three source IPs in the 10.10.4.0/24 range generated 101 combined failures against APP-01 within a 55-minute window, targeting overlapping user sets. This distribution - coordinated sources, overlapping targets, sustained rate - is inconsistent with a single misconfigured client or an expired-credential scenario, both of which typically produce failures from one source against one account.",
+                "The pattern more closely matches an internal credential stuffing operation: a controlled toolset cycling a credential list across accounts from multiple sources to avoid per-IP lockout thresholds. Both externally sourced lists and internally harvested credential files are plausible vectors.",
+                "The absence of a confirmed success-after-failure event is the only moderating factor at this stage. If correlation returns a positive result, escalate to P1 immediately - this finding reclassifies from attempted to active credential compromise.",
+            ]),
             "recommended_actions": [
-                "P1 - Run success-after-failure correlation immediately.",
-                "P2 - Check whether any targeted accounts have privileged access.",
-                "P2 - Review 10.10.4.19-10.10.4.22 for related authentication anomalies.",
-                "P3 - Consider temporary containment of source IPs pending analyst confirmation.",
+                "P1 - Run success-after-failure correlation for APP-01 right now, before any other step. A single confirmed success after the 101 failures changes this from a detection event to an active incident. Use the prepared SPL, SOC-SPL-LIB-003, scoped to the same 60-minute window and the three source IPs. If correlation returns any row, escalate to P1 Critical and open an incident ticket immediately - do not wait for the full investigation to complete.",
+                "P1 - Identify whether any of the targeted users hold privileged, service, domain-admin, or VPN gateway accounts. Pull AD group membership for all users appearing in the failure log. A single privileged account in the affected set changes the risk from credential exposure to potential domain or infrastructure compromise. This check takes under two minutes with identity log access and determines whether executive notification is required.",
+                "P2 - Assess whether 10.10.4.19-10.10.4.22 are registered and authorised for authentication to APP-01. These IPs are internal but may not be approved authentication sources for this host. Query CMDB and firewall policy for the source range. If any IP is not a registered authorised client for APP-01, identifying how the credential list reached an internal system becomes the investigation priority.",
+                "P2 - Confirm APP-01 asset classification and blast radius before deciding escalation scope. If APP-01 is a critical application server, identity provider, or OT gateway, this event requires out-of-hours escalation regardless of the success-after-failure result. Confirm with the asset owner within the hour.",
+                "P3 - Apply rate-limiting or source IP containment only after analyst validation. Containment before confirmation risks blocking legitimate operational traffic if the sources are jump hosts, scanners, or automated systems. Validate source identity first. If confirmed malicious, action containment through the firewall change process and link the action to the open ServiceNow incident ticket.",
             ],
         }
     if scenario.scenario_id == "new_source_ip_logins":
         return {
             **base,
             "severity_label": "P2 High",
-            "finding_title": "P2 High - New source IP login pattern observed for APP-01",
+            "finding_title": "New source IP login pattern observed for APP-01",
             "one_sentence_finding": "APP-01 accepted authentications from source IPs not previously associated with the affected users.",
-            "splunk_status_line": "Querying Splunk [index=pgcil_soc] - last 24 hours...",
+            "splunk_status_line": "Querying Splunk [index=pgcil_soc] · last 24 hours · new source IPs only...",
             "splunk_results_table": [
-                {"Host": "APP-01", "User": "svc_app", "Source IP": "10.10.9.44", "First seen": "14:12:03", "Prior sightings": 0, "Action": "success"},
-                {"Host": "APP-01", "User": "j.das", "Source IP": "10.10.9.45", "First seen": "14:18:49", "Prior sightings": 0, "Action": "success"},
+                {"Host": "APP-01", "User": "svc_grid_ops", "Source IP": "10.10.7.44", "First seen": "14:21:05", "Prior sightings": "None in 30 days", "Action": "success"},
+                {"Host": "APP-01", "User": "operator.rajesh", "Source IP": "10.10.7.45", "First seen": "14:24:19", "Prior sightings": "None in 30 days", "Action": "success"},
             ],
             "mitre_mappings": [
-                {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Evidence": "Successful authentication from a newly observed source for the user", "Confidence": "Requires validation"},
+                {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Evidence": "Successful login from a source IP outside the established baseline for both accounts", "Confidence": "Moderate - analyst validation required"},
             ],
-            "foundation_sec_analysis": "The source novelty and service-account involvement make this a priority validation item. Confirm whether the IPs map to an approved jump host, VPN pool, or recent network change.",
+            "retrieved_playbook": {
+                "title": "Source Baseline Deviation",
+                "id": "SOC-SOP-AUTH-002",
+                "version": "v2026.04",
+            },
+            "sop_guidance": {
+                "triage_steps": [
+                    "Validate whether the source IP belongs to an approved jump host, VPN subnet, or operational workstation.",
+                    "Confirm MFA was successfully challenged at login for both accounts.",
+                    "Check whether the accounts are service accounts or have privileged access.",
+                ],
+                "validation_notes": [
+                    "Validate whether the source IP belongs to an approved jump host, VPN subnet, or operational workstation.",
+                    "Confirm MFA was successfully challenged at login for both accounts.",
+                    "Check whether the accounts are service accounts or have privileged access.",
+                ],
+            },
+            "foundation_sec_analysis": "\n\n".join([
+                "Foundation-sec-8B-Instruct classifies this event cluster as a T1078 Valid Accounts pattern with moderate-high confidence.",
+                "The behavioural signature - successful authentications from 10.10.7.0/24, distinct from the established 10.10.4.0/24 baseline for both affected accounts - is consistent with one of three scenarios: credential handoff after an initial access event, lateral movement from a compromised internal host, or an undocumented operational change such as a jump-host reassignment or VPN reconfiguration.",
+                "The service account involvement, svc_grid_ops, increases risk materially. Service accounts with operational system access are high-value persistence targets; they are frequently used to establish scheduled tasks, register services, or maintain long-term footholds after initial compromise.",
+                "This pattern does not match scheduled-task, automated-sync, or batch-job behaviour based on authentication timing and source novelty. The risk profile remains elevated until source ownership is confirmed against CMDB and network inventory.",
+            ]),
             "recommended_actions": [
-                "P1 - Validate ownership of 10.10.9.44 and 10.10.9.45.",
-                "P2 - Review prior authentication history for svc_app and j.das.",
-                "P2 - Correlate with VPN, DHCP, and endpoint telemetry for the same time window.",
+                "P1 - Validate the svc_grid_ops session from 10.10.7.44 immediately. Pull the full session record: MFA result, session duration, post-login commands executed, and any downstream system access. svc_grid_ops has operational system access; if this session is unauthorised, containment cannot wait for batch review. Expected resolution time: 10 minutes with EDR and identity log access.",
+                "P1 - Confirm whether 10.10.7.44 and 10.10.7.45 are approved infrastructure. Query CMDB and network inventory for IP ownership and registration. If these IPs are not registered as approved jump hosts, VPN endpoints, or operational workstations, treat the sessions as compromised and flag for isolation. Do not wait for full asset confirmation before notifying the incident commander.",
+                "P2 - Determine whether operator.rajesh has active MFA enforcement on this account. If MFA was not challenged at login, authentication relied solely on a password. Combined with a new source IP, this is a credential compromise indicator. Engage the identity team to force re-authentication and confirm MFA policy coverage for all operational accounts.",
+                "P2 - Review APP-01 business criticality in CMDB before scoping the incident. If APP-01 supports grid operations, SCADA interfaces, or production control systems, the risk profile of this event escalates from informational to operational. A potentially compromised service account with OT system access requires immediate involvement from the asset owner and the OT security team.",
+                "P3 - Update the source-IP baseline for svc_grid_ops and operator.rajesh only after analyst sign-off. Do not auto-approve the new source range. Any baseline update must be linked to a documented change ticket, jump-host migration, VPN reconfiguration, or approved workstation reassignment before it is applied.",
             ],
         }
     if scenario.scenario_id == "mitre_mapping_auth_alert":
         return {
             **base,
             "severity_label": "P2 High",
-            "finding_title": "P2 High - Authentication alert maps to brute-force and valid-account techniques",
-            "one_sentence_finding": "This activity matches password guessing and may indicate valid-account use if the success-after-failure sequence is confirmed.",
+            "finding_title": "Authentication attack pattern mapped to MITRE ATT&CK",
+            "one_sentence_finding": None,
             "splunk_results_table": [
-                {"Signature": "brute_force_success_after_failures", "Host": "APP-01", "Index": "pgcil_soc", "Sourcetype": "pgcil:auth", "Failed then success": True},
+                {"Alert": "Auth failure burst + post-failure success", "User": "svc_grid_ops", "Host": "APP-01", "Source IPs": "10.10.4.21, 10.10.4.22", "Failed logins": 58, "Success observed": "Yes", "Window": "60 min"},
             ],
             "mitre_mappings": [
-                {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Evidence": "Repeated authentication failures from same source range", "Confidence": "High"},
-                {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Evidence": "Successful login after repeated failures", "Confidence": "Requires validation"},
+                {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Evidence": "Repeated failures against the same user and host from related sources", "Confidence": "High"},
+                {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Evidence": "Successful login after repeated failures for svc_grid_ops", "Confidence": "Analyst validation required"},
             ],
-            "foundation_sec_analysis": "The alert context strongly supports password guessing. Valid-account activity should be validated by confirming whether a successful login followed the failure sequence for the same user and host.",
+            "foundation_sec_analysis": "\n\n".join([
+                "Foundation-sec-8B-Instruct identifies two active technique candidates based on the alert evidence.",
+                "T1110.001 Password Guessing is confirmed at high confidence: the failure volume, source distribution, and user overlap match documented brute-force tooling behaviour across enterprise authentication logs.",
+                "T1078 Valid Accounts is flagged as analyst-validation-required: the post-failure success event for svc_grid_ops is the triggering signal, but technique confirmation requires post-login behaviour review. Persistence-phase T1078 abuse typically manifests within the first 15-30 minutes of session establishment as new scheduled tasks, service registrations, or lateral authentication to adjacent hosts.",
+                "Priority for the analyst: validate whether the svc_grid_ops session generated any process execution, registry writes, or network connections after login. That single check resolves the T1078 classification and determines whether this is an attempted or successful intrusion.",
+            ]),
             "recommended_actions": [
-                "P1 - Validate success-after-failure timing by user and host.",
-                "P2 - Determine whether the successful account is privileged or service-owned.",
-                "P2 - Review post-login process, endpoint, and network activity.",
+                "P1 - Validate the svc_grid_ops session immediately: MFA result, source IP, session duration, and the first five process executions or network connections post-login. This single data point resolves whether T1078 is confirmed or remains candidate-only. If post-login activity is found, escalate to P1 Critical and treat as active intrusion.",
+                "P2 - Pivot across firewall, VPN, EDR, and identity telemetry for 10.10.4.21 and 10.10.4.22 during the same 60-minute window. Determine whether these IPs attempted access to other hosts. A second target confirms lateral movement intent and elevates the incident scope beyond APP-01.",
+                "P2 - Confirm whether svc_grid_ops is a service account, shared credential, or has administrative or operational access. Service accounts with broad permissions are high-value persistence targets. If svc_grid_ops has admin or OT access, escalate scope and notify the account owner and system owner immediately.",
+                "P3 - Mark T1110.001 as confirmed in the incident record and hold T1078 as analyst-validation-pending until post-login behaviour is reviewed. Do not close T1078 without evidence. The technique is active until the session is validated clean or post-login activity is found.",
             ],
         }
     if scenario.scenario_id in {"brute_force_sop_guidance", "failed_login_playbook"}:
+        is_failed_login_playbook = scenario.scenario_id == "failed_login_playbook"
         return {
             **base,
-            "finding_title": "Brute-force Authentication Investigation - SOC-SOP-AUTH-001 v2026.04",
-            "one_sentence_finding": "Use this playbook to triage, confirm, escalate, and close brute-force authentication activity.",
+            "retrieved_playbook": {
+                "title": "Failed Authentication Investigation Playbook" if is_failed_login_playbook else "Brute-force Authentication Investigation",
+                "id": "IRP-AUTH-002" if is_failed_login_playbook else "SOC-SOP-AUTH-001",
+                "version": "v2026.03" if is_failed_login_playbook else "v2026.04",
+                "purpose": "Guide the analyst through validation, correlation, escalation, and closure for failed-authentication alerts." if is_failed_login_playbook else playbook["purpose"],
+            },
+            "finding_title": "Failed Authentication Investigation Playbook - IRP-AUTH-002 v2026.03" if is_failed_login_playbook else "Brute-force Authentication Investigation - SOC-SOP-AUTH-001 v2026.04",
+            "one_sentence_finding": "Guide the analyst through validation, correlation, escalation, and closure for failed-authentication alerts." if is_failed_login_playbook else "Guide the SOC analyst through triage, confirmation, escalation, and closure of brute-force authentication activity.",
+            "sop_guidance": {
+                "triage_steps": [
+                    "Verify the alert is not a known batch job, service account sync, or scheduled task.",
+                    "Run success-after-failure SPL, SOC-SPL-LIB-003.",
+                    "Check source IP reputation against threat intelligence feed.",
+                    "Identify targeted users and confirm whether any are privileged.",
+                    "Pull asset criticality for the target host from CMDB.",
+                ] if is_failed_login_playbook else sop_guidance["triage_steps"],
+                "validation_notes": sop_guidance["validation_notes"],
+            },
             "escalation_criteria": [
-                "Success after repeated failures.",
+                "Successful login after repeated failures.",
                 "Privileged or service account targeted.",
-                "Critical asset targeted.",
+                "Critical asset targeted, check CMDB." if not is_failed_login_playbook else "Critical asset targeted.",
                 "Same source appears across multiple assets.",
                 "External or unknown network source.",
+                "Evidence of post-authentication activity on the target host.",
             ],
             "closure_conditions": [
                 "Source confirmed benign or misconfigured and corrected.",
                 "No successful login followed the failures.",
-                "No privileged account impact.",
-                "No related endpoint or network activity found.",
+                "No privileged account impact confirmed.",
+                "No related endpoint, VPN, firewall, or identity activity found.",
+                "SOC lead accepts closure with linked evidence.",
             ],
-            "recommended_actions": sop_guidance["triage_steps"],
         }
     if scenario.scenario_id in {"successful_login_after_failures", "airgapped_no_saia_success_after_failures"}:
         return {
             **base,
-            "finding_title": "SPL - Successful login after repeated failures",
-            "one_sentence_finding": "Detect users that have repeated failed authentication events followed by at least one successful login on APP-01.",
+            "finding_title": "Success-after-failure correlation SPL",
+            "one_sentence_finding": "This SPL identifies accounts that experience repeated failed logins followed by at least one successful login on APP-01 within a 60-minute window.",
             "spl_code": SUCCESS_AFTER_FAILURES_VISIBLE_SPL,
-            "key_fields": ["user", "fail_count", "success_count", "source_ips", "first_failure", "last_event", "risk"],
+            "key_fields": [
+                "user - account with failures followed by success",
+                "fail_count - number of failed attempts before success",
+                "success_count - number of successful logins after failures",
+                "source_ips - all IPs involved in the sequence",
+                "first_failure / last_event - time window of the full chain",
+                "risk - always P1 when this query returns rows",
+            ],
             "recommended_actions": [
-                "Look for users with high fail_count and at least one success_count.",
-                "Prioritize privileged and service accounts.",
-                "Validate whether source_ips are expected for the user and host.",
+                "Privileged or service accounts in the result",
+                "Multiple source IPs for the same user, a credential handoff signal",
+                "Success from a new or anomalous source IP",
+                "Post-login activity on APP-01 within the session window",
             ],
             "review_notice": "Review required before using this SPL in an operational search.",
         }
     if scenario.scenario_id == "account_lockouts_over_time_spl":
         return {
             **base,
-            "finding_title": "SPL - Account lockouts over time",
-            "one_sentence_finding": "Trend account lockout volume by hour to identify spikes in authentication lockout activity.",
-            "spl_code": LOCKOUT_SPL,
-            "key_fields": ["_time", "lockout_count"],
+            "finding_title": "Account lockout trend SPL",
+            "one_sentence_finding": "This SPL summarises account lockout events over 15-minute intervals and surfaces users with the highest lockout volume across the last 24 hours.",
+            "spl_code": LOCKOUT_VISIBLE_SPL,
+            "key_fields": [
+                "_time - 15-minute lockout time bucket",
+                "user - locked account",
+                "src - source system or IP triggering the lockout",
+                "dest - authentication target host",
+                "lockout_count - lockout events in the bucket",
+                "user_total - total lockouts for that user across the 24h window",
+            ],
             "recommended_actions": [
-                "Look for lockout spikes that align with authentication failure bursts.",
-                "Compare lockout timing with service changes and identity provider events.",
-                "Prioritize lockouts affecting privileged or service accounts.",
+                "P2 - Run the lockout trend SPL across the last 24 hours and filter for any user with more than 10 lockout events across multiple source IPs. High lockout counts from multiple sources against the same user are a brute-force indicator even without a threshold breach on any single IP.",
+                "P2 - Identify whether any locked accounts are service, privileged, or shared-credential accounts. Service account lockouts can affect automated processes, scheduled jobs, and system integrations. If a lockout is disrupting operations, the business impact extends beyond security - notify the account owner and operations team.",
+                "P3 - Cross-reference lockout source IPs against approved authentication systems. If the source of repeated lockouts is not a registered client for the target host, treat it as unauthorised and investigate the source before unlocking the account.",
+                "P4 - Review account lockout policy thresholds against the observed pattern. If the current threshold, for example five failures before lockout, is being systematically avoided by distributing attempts across multiple IPs, consider tightening the policy or adding velocity-based detection at the host level.",
             ],
             "review_notice": "Review required before using this SPL in an operational search.",
         }
@@ -594,6 +664,15 @@ class _NoopTelemetry:
 FAILED_SPIKE_SPL = "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure host=APP-01 | stats count as fail_count dc(user) as distinct_users by host, src | where fail_count >= 25 | sort -fail_count | head 100"
 SUCCESS_AFTER_FAILURES_SPL = "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now | stats count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count by user, src, host | where fail_count >= 5 AND success_count > 0 | sort -fail_count | head 100"
 LOCKOUT_SPL = "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now action=lockout | timechart span=1h count as lockout_count | head 100"
+LOCKOUT_VISIBLE_SPL = """index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now action=lockout
+| bin _time span=15m
+| stats
+    count as lockout_count
+  by _time, user, src, dest
+| eventstats sum(lockout_count) as user_total by user
+| sort -user_total, _time
+| table _time user src dest lockout_count user_total
+| head 100"""
 
 SCENARIOS: dict[str, DemoScenario] = {
     "failed_login_spike_app01": DemoScenario(
