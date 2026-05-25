@@ -168,6 +168,26 @@ class ContextSufficiencyEnvelope(BaseModel):
     human_review: HumanReviewEnvelope | None = None
 
 
+class AnalystResponseEnvelope(BaseModel):
+    scenario_label: str | None = None
+    severity_label: str | None = None
+    finding_title: str | None = None
+    one_sentence_finding: str | None = None
+    status_badge: str | None = None
+    splunk_status_line: str | None = None
+    splunk_results_table: list[dict[str, object]] = []
+    mitre_mappings: list[dict[str, object]] = []
+    retrieved_playbook: dict[str, object] | None = None
+    sop_guidance: dict[str, object] | None = None
+    foundation_sec_analysis: str | None = None
+    recommended_actions: list[str] = []
+    spl_code: str | None = None
+    key_fields: list[str] = []
+    escalation_criteria: list[str] = []
+    closure_conditions: list[str] = []
+    review_notice: str | None = None
+
+
 class PlaceholderResponse(BaseModel):
     trace_id: str
     message: str
@@ -198,3 +218,4 @@ class PlaceholderResponse(BaseModel):
     source_evidence: list[SourceEvidenceEnvelope] = []
     structured_context: StructuredContextPackage | None = None
     context_sufficiency: ContextSufficiencyEnvelope | None = None
+    analyst_response: AnalystResponseEnvelope | None = None

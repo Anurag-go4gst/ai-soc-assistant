@@ -13,7 +13,7 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
   return (
     <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-300">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">Stage 3D trace</Badge>
+        <Badge variant="secondary">Technical evidence path</Badge>
         <Badge>{trace.trace_id.slice(0, 8)}</Badge>
         {trace.demo_mode ? <Badge variant="outline">{trace.demo_badge ?? 'COE synthetic demo'}</Badge> : null}
         {trace.evidence_origin ? <Badge variant="secondary">{safeText(trace.evidence_origin)}</Badge> : null}

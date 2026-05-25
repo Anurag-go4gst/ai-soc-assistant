@@ -53,9 +53,9 @@ export function DemoScenarioPicker({ disabled, onRun }: DemoScenarioPickerProps)
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
           <PlayCircle className="h-3.5 w-3.5 text-cyan-400" />
-          Demo scenario
+          COE scenario
         </span>
-        <Badge variant="outline">COE synthetic demo</Badge>
+        <Badge variant="outline">Experience Center</Badge>
       </div>
       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
         <select
@@ -64,7 +64,7 @@ export function DemoScenarioPicker({ disabled, onRun }: DemoScenarioPickerProps)
           onChange={(event) => setSelected(event.target.value)}
           className="min-h-9 flex-1 rounded-md border border-slate-700 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 outline-none transition focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <option value="">{loadError ? 'Demo scenarios unavailable' : 'Select a synthetic scenario'}</option>
+          <option value="">{loadError ? 'Scenarios unavailable' : 'Select a scenario'}</option>
           {grouped.map((group) => (
             <optgroup key={group.category} label={group.category}>
               {group.scenarios.map((scenario) => (
@@ -94,7 +94,6 @@ export function DemoScenarioPicker({ disabled, onRun }: DemoScenarioPickerProps)
           <Badge variant={selectedScenario.mcp_execution_mode === 'mock_success' ? 'success' : 'secondary'}>
             {selectedScenario.mcp_execution_mode}
           </Badge>
-          <span className="basis-full">Synthetic fixture only; no live production data.</span>
         </div>
       ) : null}
       {loadError ? <p className="mt-2 text-xs text-amber-100">{loadError}</p> : null}

@@ -11,7 +11,7 @@ from app.safeguards.spl_validator import validate_spl
 
 CREATED_AT = "2026-05-24T00:00:00Z"
 EVIDENCE_ORIGIN = "coe_synthetic_fixture"
-DEMO_BADGE = "COE synthetic demo"
+DEMO_BADGE = "COE scenario"
 
 
 @dataclass(frozen=True)
@@ -59,6 +59,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     structured_context = _with_context_trace(deepcopy(scenario.structured_context or {}), scenario, trace_id, source_evidence)
     context_sufficiency = _context_sufficiency(scenario)
     review = _human_review(scenario, execution)
+    analyst_response = _analyst_response(scenario)
 
     return {
         "trace_id": trace_id,
@@ -71,9 +72,9 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "saia_available": scenario.saia_available,
         "rag_available": scenario.rag_available,
         "fallback_active": not scenario.saia_available,
-        "analyst_summary": scenario.analyst_summary,
+        "analyst_summary": analyst_response.get("one_sentence_finding") or scenario.analyst_summary,
         "trace_explanation": list(scenario.trace_explanation),
-        "message": scenario.analyst_summary,
+        "message": analyst_response.get("finding_title") or scenario.analyst_summary,
         "note": (
             "COE synthetic fixture only. No live customer data, final LLM synthesis, answer guard, "
             "real Splunk execution, or external remediation integration was used."
@@ -93,6 +94,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "source_evidence": source_evidence,
         "structured_context": structured_context,
         "context_sufficiency": context_sufficiency,
+        "analyst_response": analyst_response,
     }
 
 
@@ -281,6 +283,185 @@ def _context_sufficiency(scenario: DemoScenario) -> dict[str, Any]:
     }
 
 
+SUCCESS_AFTER_FAILURES_VISIBLE_SPL = """index=pgcil_soc sourcetype=pgcil:auth host=APP-01 earliest=-60m latest=now
+| transaction user maxpause=5m
+| where match(_raw, "action=failure") AND match(_raw, "action=success")
+| eval is_success_after_failure=if(searchmatch("action=success"), 1, 0)
+| stats
+    count(eval(action="failure")) as fail_count,
+    count(eval(action="success")) as success_count,
+    values(src) as source_ips,
+    min(_time) as first_failure,
+    max(_time) as last_event
+  by user, host
+| where fail_count >= 5 AND success_count >= 1
+| eval risk="P1 - Success after failure"
+| sort -fail_count"""
+
+
+def _playbook_payload() -> dict[str, object]:
+    return {
+        "title": "Brute-force Authentication Investigation",
+        "id": "SOC-SOP-AUTH-001",
+        "version": "v2026.04",
+        "purpose": "Guide the SOC analyst through triage, confirmation, escalation, and closure of brute-force authentication activity.",
+    }
+
+
+def _sop_guidance_payload() -> dict[str, object]:
+    return {
+        "triage_steps": [
+            "Confirm affected asset, source IPs, users, and time window.",
+            "Count failures by source IP, user, and destination host.",
+            "Check for successful login after repeated failures.",
+            "Verify whether targeted users are privileged or service accounts.",
+            "Correlate with VPN, firewall, EDR, and identity logs.",
+            "Escalate if a privileged account or critical asset is involved.",
+        ],
+        "validation_notes": [
+            "Confirm no successful login followed the failure sequence.",
+            "Check whether targeted accounts are privileged or service accounts.",
+            "Review related activity from the same source IP range.",
+        ],
+    }
+
+
+def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
+    playbook = _playbook_payload()
+    sop_guidance = _sop_guidance_payload()
+    base = {
+        "scenario_label": scenario.label,
+        "status_badge": "COE scenario",
+        "retrieved_playbook": playbook,
+        "sop_guidance": sop_guidance,
+        "foundation_sec_analysis": None,
+        "splunk_results_table": [],
+        "mitre_mappings": [],
+        "recommended_actions": [],
+        "key_fields": [],
+        "escalation_criteria": [],
+        "closure_conditions": [],
+    }
+
+    if scenario.scenario_id == "failed_login_spike_app01":
+        return {
+            **base,
+            "severity_label": "P2 High",
+            "finding_title": "P2 High - Brute-force authentication spike detected on APP-01",
+            "one_sentence_finding": "APP-01 shows a concentrated failed-login spike from multiple internal sources against overlapping user sets.",
+            "splunk_status_line": "Querying Splunk [index=pgcil_soc] - last 60 minutes...",
+            "splunk_results_table": [
+                {"Host": "APP-01", "Source IP": "10.10.4.21", "Failed logins": 42, "Distinct users": 7, "First seen": "13:42:10", "Last seen": "14:37:22", "Action": "failure"},
+                {"Host": "APP-01", "Source IP": "10.10.4.22", "Failed logins": 31, "Distinct users": 4, "First seen": "13:48:31", "Last seen": "14:36:58", "Action": "failure"},
+                {"Host": "APP-01", "Source IP": "10.10.4.19", "Failed logins": 28, "Distinct users": 3, "First seen": "13:51:02", "Last seen": "14:35:41", "Action": "failure"},
+            ],
+            "mitre_mappings": [
+                {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Evidence": "Repeated authentication failures from the same source range", "Confidence": "High"},
+            ],
+            "foundation_sec_analysis": "The pattern indicates coordinated internal credential stuffing across three source IPs with overlapping user pools. The activity is not consistent with a single misconfigured client.",
+            "recommended_actions": [
+                "P1 - Run success-after-failure correlation immediately.",
+                "P2 - Check whether any targeted accounts have privileged access.",
+                "P2 - Review 10.10.4.19-10.10.4.22 for related authentication anomalies.",
+                "P3 - Consider temporary containment of source IPs pending analyst confirmation.",
+            ],
+        }
+    if scenario.scenario_id == "new_source_ip_logins":
+        return {
+            **base,
+            "severity_label": "P2 High",
+            "finding_title": "P2 High - New source IP login pattern observed for APP-01",
+            "one_sentence_finding": "APP-01 accepted authentications from source IPs not previously associated with the affected users.",
+            "splunk_status_line": "Querying Splunk [index=pgcil_soc] - last 24 hours...",
+            "splunk_results_table": [
+                {"Host": "APP-01", "User": "svc_app", "Source IP": "10.10.9.44", "First seen": "14:12:03", "Prior sightings": 0, "Action": "success"},
+                {"Host": "APP-01", "User": "j.das", "Source IP": "10.10.9.45", "First seen": "14:18:49", "Prior sightings": 0, "Action": "success"},
+            ],
+            "mitre_mappings": [
+                {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Evidence": "Successful authentication from a newly observed source for the user", "Confidence": "Requires validation"},
+            ],
+            "foundation_sec_analysis": "The source novelty and service-account involvement make this a priority validation item. Confirm whether the IPs map to an approved jump host, VPN pool, or recent network change.",
+            "recommended_actions": [
+                "P1 - Validate ownership of 10.10.9.44 and 10.10.9.45.",
+                "P2 - Review prior authentication history for svc_app and j.das.",
+                "P2 - Correlate with VPN, DHCP, and endpoint telemetry for the same time window.",
+            ],
+        }
+    if scenario.scenario_id == "mitre_mapping_auth_alert":
+        return {
+            **base,
+            "severity_label": "P2 High",
+            "finding_title": "P2 High - Authentication alert maps to brute-force and valid-account techniques",
+            "one_sentence_finding": "This activity matches password guessing and may indicate valid-account use if the success-after-failure sequence is confirmed.",
+            "splunk_results_table": [
+                {"Signature": "brute_force_success_after_failures", "Host": "APP-01", "Index": "pgcil_soc", "Sourcetype": "pgcil:auth", "Failed then success": True},
+            ],
+            "mitre_mappings": [
+                {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Evidence": "Repeated authentication failures from same source range", "Confidence": "High"},
+                {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Evidence": "Successful login after repeated failures", "Confidence": "Requires validation"},
+            ],
+            "foundation_sec_analysis": "The alert context strongly supports password guessing. Valid-account activity should be validated by confirming whether a successful login followed the failure sequence for the same user and host.",
+            "recommended_actions": [
+                "P1 - Validate success-after-failure timing by user and host.",
+                "P2 - Determine whether the successful account is privileged or service-owned.",
+                "P2 - Review post-login process, endpoint, and network activity.",
+            ],
+        }
+    if scenario.scenario_id in {"brute_force_sop_guidance", "failed_login_playbook"}:
+        return {
+            **base,
+            "finding_title": "Brute-force Authentication Investigation - SOC-SOP-AUTH-001 v2026.04",
+            "one_sentence_finding": "Use this playbook to triage, confirm, escalate, and close brute-force authentication activity.",
+            "escalation_criteria": [
+                "Success after repeated failures.",
+                "Privileged or service account targeted.",
+                "Critical asset targeted.",
+                "Same source appears across multiple assets.",
+                "External or unknown network source.",
+            ],
+            "closure_conditions": [
+                "Source confirmed benign or misconfigured and corrected.",
+                "No successful login followed the failures.",
+                "No privileged account impact.",
+                "No related endpoint or network activity found.",
+            ],
+            "recommended_actions": sop_guidance["triage_steps"],
+        }
+    if scenario.scenario_id in {"successful_login_after_failures", "airgapped_no_saia_success_after_failures"}:
+        return {
+            **base,
+            "finding_title": "SPL - Successful login after repeated failures",
+            "one_sentence_finding": "Detect users that have repeated failed authentication events followed by at least one successful login on APP-01.",
+            "spl_code": SUCCESS_AFTER_FAILURES_VISIBLE_SPL,
+            "key_fields": ["user", "fail_count", "success_count", "source_ips", "first_failure", "last_event", "risk"],
+            "recommended_actions": [
+                "Look for users with high fail_count and at least one success_count.",
+                "Prioritize privileged and service accounts.",
+                "Validate whether source_ips are expected for the user and host.",
+            ],
+            "review_notice": "Review required before using this SPL in an operational search.",
+        }
+    if scenario.scenario_id == "account_lockouts_over_time_spl":
+        return {
+            **base,
+            "finding_title": "SPL - Account lockouts over time",
+            "one_sentence_finding": "Trend account lockout volume by hour to identify spikes in authentication lockout activity.",
+            "spl_code": LOCKOUT_SPL,
+            "key_fields": ["_time", "lockout_count"],
+            "recommended_actions": [
+                "Look for lockout spikes that align with authentication failure bursts.",
+                "Compare lockout timing with service changes and identity provider events.",
+                "Prioritize lockouts affecting privileged or service accounts.",
+            ],
+            "review_notice": "Review required before using this SPL in an operational search.",
+        }
+    return {
+        **base,
+        "finding_title": scenario.label,
+        "one_sentence_finding": scenario.analyst_summary,
+    }
+
+
 def _evidence(
     evidence_id: str,
     source_type: str,
@@ -442,8 +623,9 @@ SCENARIOS: dict[str, DemoScenario] = {
                 3,
                 ["index", "sourcetype", "host", "src", "action", "fail_count"],
                 [
-                    {"index": "pgcil_soc", "sourcetype": "pgcil:auth", "host": "APP-01", "src": "10.10.4.21", "action": "failure", "fail_count": 42},
-                    {"index": "pgcil_soc", "sourcetype": "pgcil:auth", "host": "APP-01", "src": "10.10.4.22", "action": "failure", "fail_count": 31},
+                    {"index": "pgcil_soc", "sourcetype": "pgcil:auth", "host": "APP-01", "src": "10.10.4.21", "action": "failure", "fail_count": 42, "distinct_users": 7},
+                    {"index": "pgcil_soc", "sourcetype": "pgcil:auth", "host": "APP-01", "src": "10.10.4.22", "action": "failure", "fail_count": 31, "distinct_users": 4},
+                    {"index": "pgcil_soc", "sourcetype": "pgcil:auth", "host": "APP-01", "src": "10.10.4.19", "action": "failure", "fail_count": 28, "distinct_users": 3},
                 ],
                 tool_name="search",
                 query_or_request_summary="Synthetic failed authentication aggregation for APP-01 in pgcil_soc/pgcil:auth.",
@@ -472,6 +654,64 @@ SCENARIOS: dict[str, DemoScenario] = {
             metrics={"fail_count_max": 42, "distinct_sources": 2},
             mitre=[{"technique_id": "T1110", "name": "Brute Force", "support": "supported", "source_refs": ["ev-splunk-failed-app01"]}],
             refs=["ev-splunk-failed-app01", "ev-rag-bruteforce-sop"],
+            quality="partial",
+        ),
+    ),
+    "new_source_ip_logins": DemoScenario(
+        scenario_id="new_source_ip_logins",
+        label="New source IP logins",
+        category="Investigate",
+        query="Investigate new source IP logins on APP-01",
+        environment_mode="connected_coe_demo",
+        expected_skill="attack_discovery",
+        expected_sources=["mcp:splunk", "rag:sop"],
+        expected_sufficiency_mode="partial_answer",
+        mcp_execution_mode="disabled",
+        saia_available=True,
+        rag_available=True,
+        analyst_summary="APP-01 has new source IP login evidence with SOC KB guidance attached for analyst validation.",
+        trace_explanation=[
+            "Routed to attack_discovery because the query asks to investigate novel authentication source behavior.",
+            "Splunk MCP evidence is represented as SourceEvidence; operational execution remains gated.",
+            "SOC KB guidance is included for validation and escalation criteria.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-splunk-new-source-app01",
+                "splunk_mcp",
+                "Splunk auth fixture",
+                2,
+                ["index", "sourcetype", "host", "user", "src", "action", "prior_sightings"],
+                [
+                    {"index": "pgcil_soc", "sourcetype": "pgcil:auth", "host": "APP-01", "user": "svc_app", "src": "10.10.9.44", "action": "success", "prior_sightings": 0},
+                    {"index": "pgcil_soc", "sourcetype": "pgcil:auth", "host": "APP-01", "user": "j.das", "src": "10.10.9.45", "action": "success", "prior_sightings": 0},
+                ],
+                tool_name="search",
+                query_or_request_summary="New source IP authentication aggregation for APP-01 in pgcil_soc/pgcil:auth.",
+                provider_used="splunk_mcp_fixture",
+            ),
+            _evidence(
+                "ev-rag-new-source-sop",
+                "rag",
+                "SOC KB fixture",
+                1,
+                ["entry_id", "document_type", "source_excerpt", "source_refs"],
+                [_rag_row("sop-auth-003", "New source validation", "Validate source ownership, account criticality, and post-login activity before containment.", ["SOC-SOP-AUTH-001#validation"])],
+                tool_name="retrieve_soc_kb",
+                query_or_request_summary="Approved authentication-source validation guidance.",
+                provider_used="governed_rag_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "new_source_ip_logins",
+            "attack_discovery",
+            [
+                _fact("fact-new-source", "APP-01 has successful authentications from sources with no prior sightings for the affected users.", ["ev-splunk-new-source-app01"]),
+                _fact("fact-valid-accounts", "MITRE T1078 is a validation candidate for successful authentication from unusual sources.", ["ev-splunk-new-source-app01", "ev-rag-new-source-sop"]),
+            ],
+            metrics={"new_source_count": 2, "service_account_seen": True},
+            mitre=[{"technique_id": "T1078", "name": "Valid Accounts", "support": "analyst_review", "source_refs": ["ev-splunk-new-source-app01"]}],
+            refs=["ev-splunk-new-source-app01", "ev-rag-new-source-sop"],
             quality="partial",
         ),
     ),
@@ -533,6 +773,34 @@ SCENARIOS: dict[str, DemoScenario] = {
             "knowledge_recall",
             [_fact("fact-sop-guidance", "Approved brute-force SOP guidance is available from the governed SOC KB fixture.", ["ev-rag-sop-only"])],
             refs=["ev-rag-sop-only"],
+        ),
+    ),
+    "failed_login_playbook": DemoScenario(
+        scenario_id="failed_login_playbook",
+        label="Failed login playbook",
+        category="Knowledge / SOP",
+        query="Show the failed login playbook",
+        environment_mode="knowledge_only_coe_demo",
+        expected_skill="knowledge_recall",
+        expected_sources=["rag:sop"],
+        expected_sufficiency_mode="knowledge_only_answer",
+        mcp_execution_mode="not_required",
+        saia_available=True,
+        rag_available=True,
+        analyst_summary="Approved failed-login playbook guidance is returned without SPL generation.",
+        trace_explanation=[
+            "Routes to knowledge_recall for playbook guidance.",
+            "No candidate SPL is generated unless the analyst asks for SPL or investigation.",
+            "Governed SOC KB evidence remains available in the technical evidence path.",
+        ],
+        source_evidence=[
+            _evidence("ev-rag-failed-login-playbook", "rag", "SOC KB fixture", 1, ["entry_id", "document_type", "source_excerpt", "source_refs"], [_rag_row("sop-auth-004", "Failed login playbook", "Confirm scope, identify source distribution, validate success-after-failure, and escalate critical accounts.", ["SOC-SOP-AUTH-001#failed-login"])], tool_name="retrieve_soc_kb", provider_used="governed_rag_fixture"),
+        ],
+        structured_context=_context(
+            "failed_login_playbook",
+            "knowledge_recall",
+            [_fact("fact-failed-login-playbook", "Approved failed-login playbook guidance is available from the governed SOC KB fixture.", ["ev-rag-failed-login-playbook"])],
+            refs=["ev-rag-failed-login-playbook"],
         ),
     ),
     "account_lockouts_over_time_spl": DemoScenario(

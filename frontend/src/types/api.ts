@@ -40,6 +40,27 @@ export interface PlaceholderResponse {
   source_evidence?: SourceEvidenceEnvelope[];
   structured_context?: StructuredContextPackage | null;
   context_sufficiency?: ContextSufficiencyEnvelope | null;
+  analyst_response?: AnalystResponseEnvelope | null;
+}
+
+export interface AnalystResponseEnvelope {
+  scenario_label?: string | null;
+  severity_label?: string | null;
+  finding_title?: string | null;
+  one_sentence_finding?: string | null;
+  status_badge?: string | null;
+  splunk_status_line?: string | null;
+  splunk_results_table?: Record<string, unknown>[];
+  mitre_mappings?: Record<string, unknown>[];
+  retrieved_playbook?: Record<string, unknown> | null;
+  sop_guidance?: Record<string, unknown> | null;
+  foundation_sec_analysis?: string | null;
+  recommended_actions?: string[];
+  spl_code?: string | null;
+  key_fields?: string[];
+  escalation_criteria?: string[];
+  closure_conditions?: string[];
+  review_notice?: string | null;
 }
 
 export interface DemoScenarioSummary {
