@@ -1,0 +1,41 @@
+{
+  "metadata": {
+    "domain": "enterprise",
+    "version": "curated-subset-v1",
+    "release_date": "2026-05-25",
+    "checksum": "local-curated-subset",
+    "curated_use_case_mappings": ["auth_failed_login_spike", "auth_success_after_failure", "auth_new_source_ip_login"]
+  },
+  "techniques": [
+    {
+      "technique_id": "T1110.001",
+      "name": "Password Guessing",
+      "tactic": "Credential Access",
+      "description": "Adversaries may use password guessing to attempt authentication with known or guessed usernames.",
+      "detection_patterns": ["repeated_failed_authentication", "multiple_users_or_sources"],
+      "evidence_requirements": ["failed_authentication_count", "time_window", "source_or_user_distribution"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["failed_authentication_present"],
+        "supported": ["threshold_exceeded", "repeated_pattern"],
+        "confirmed": ["benign_sources_cleared", "misconfiguration_cleared", "automation_cleared"]
+      },
+      "related_use_cases": ["auth_failed_login_spike", "auth_success_after_failure"],
+      "recommended_pivots": ["check_success_after_failure", "review_source_reputation", "check_privileged_users"]
+    },
+    {
+      "technique_id": "T1078",
+      "name": "Valid Accounts",
+      "tactic": "Initial Access / Persistence / Privilege Escalation / Defense Evasion",
+      "description": "Adversaries may obtain and abuse credentials of existing accounts.",
+      "detection_patterns": ["success_after_failures", "new_source_success", "privileged_account_anomaly"],
+      "evidence_requirements": ["successful_authentication", "account_context", "source_context"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["new_source_success_or_success_after_failure"],
+        "supported": ["successful_authentication_after_failures"],
+        "confirmed": ["account_legitimacy_reviewed", "benign_use_cleared"]
+      },
+      "related_use_cases": ["auth_success_after_failure", "auth_new_source_ip_login"],
+      "recommended_pivots": ["identity_context", "mfa_status", "session_activity"]
+    }
+  ]
+}

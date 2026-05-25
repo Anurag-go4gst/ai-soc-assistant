@@ -50,7 +50,7 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
       { title: 'LangGraph orchestration', detail: 'attack discovery -> evidence collection -> MITRE mapping -> context sufficiency', meta: '4 nodes completed · 138ms' },
       { title: 'Splunk MCP', detail: 'splunk.search · index=pgcil_soc · sourcetype=pgcil:auth · 24h window', meta: '2 rows returned · new source filter applied · 312ms' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-002#source-baseline · v2026.04', meta: 'confidence 0.88 · 1 document retrieved' },
-      { title: 'Foundation-sec-8B-Instruct', detail: 'behavioural classification · T1078 Valid Accounts', meta: 'source novelty analysis · service account flag · moderate-high confidence' },
+      { title: 'Deterministic analysis', detail: 'behavioural classification · T1078 Valid Accounts candidate', meta: 'source novelty analysis · service account flag · validation required' },
       { title: 'MITRE ATT&CK', detail: 'technique lookup · T1078 Valid Accounts · tactic: Initial Access / Persistence', meta: 'analyst validation required for technique confirmation' },
       { title: 'CMDB context', detail: 'APP-01 asset lookup · criticality: high · owner: grid-ops-team@velocis.in', meta: 'asset context attached' },
     ];
@@ -60,7 +60,7 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
       { title: 'LangGraph orchestration', detail: 'SPL generation -> policy validation -> Splunk readiness check', meta: '3 nodes completed · 89ms' },
       { title: 'SPL policy validation', detail: 'spl-policy-v1 · read-only · time-range required · aggregation required', meta: 'candidate SPL approved for analyst review' },
       { title: 'Splunk MCP readiness', detail: 'splunk.search available · index=pgcil_soc reachable', meta: 'SPL ready for analyst-initiated execution' },
-      { title: 'Foundation-sec-8B-Instruct', detail: 'SPL logic review · transaction chain logic validated', meta: 'success-after-failure pattern confirmed · risk field verified' },
+      { title: 'Deterministic analysis', detail: 'SPL logic review · transaction chain logic validated', meta: 'success-after-failure pattern supported · risk field verified' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SPL-LIB-003', meta: 'SPL guidance cross-referenced' },
     ];
   }
@@ -69,7 +69,7 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
       { title: 'LangGraph orchestration', detail: 'SPL generation -> policy validation -> Splunk readiness check', meta: '3 nodes completed · 92ms' },
       { title: 'SPL policy validation', detail: 'spl-policy-v1 · read-only · time-range required · aggregation required', meta: 'candidate SPL approved for analyst review' },
       { title: 'Splunk MCP readiness', detail: 'splunk.search available · index=pgcil_soc reachable', meta: 'SPL ready for analyst-initiated execution' },
-      { title: 'Foundation-sec-8B-Instruct', detail: 'SPL logic review · lockout trend logic validated', meta: '15-minute bucketing confirmed · user_total rollup verified' },
+      { title: 'Deterministic analysis', detail: 'SPL logic review · lockout trend logic validated', meta: '15-minute bucketing supported · user_total rollup verified' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SPL-LIB-007', meta: 'lockout SPL guidance cross-referenced' },
     ];
   }
@@ -77,16 +77,16 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
     return [
       { title: 'LangGraph orchestration', detail: 'knowledge retrieval -> RAG fetch -> context sufficiency', meta: '3 nodes completed · 74ms' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-001 · v2026.04 · full document', meta: 'confidence 0.93 · approved · published' },
-      { title: 'Foundation-sec-8B-Instruct', detail: 'document classification · brute-force authentication SOP', meta: 'triage, escalation, and closure sections identified' },
+      { title: 'Deterministic analysis', detail: 'document classification · brute-force authentication SOP', meta: 'triage, escalation, and closure sections identified' },
       { title: 'Context sufficiency', detail: 'knowledge answer · evidence sufficient · no Splunk query required', meta: 'ready for analyst guidance' },
     ];
   }
   if (scenarioId === 'mitre_mapping_auth_alert') {
     return [
-      { title: 'LangGraph orchestration', detail: 'attack discovery -> MITRE mapping -> foundation-sec classification -> context sufficiency', meta: '4 nodes completed · 141ms' },
+      { title: 'LangGraph orchestration', detail: 'attack discovery -> MITRE mapping -> deterministic classification -> context sufficiency', meta: '4 nodes completed · 141ms' },
       { title: 'Splunk MCP', detail: 'splunk.search · alert evidence · index=pgcil_soc · 60 min window', meta: 'evidence rows retrieved · 267ms' },
-      { title: 'MITRE ATT&CK', detail: 'technique lookup · T1110.001 Password Guessing · Credential Access - confirmed', meta: 'technique lookup · T1078 Valid Accounts · Initial Access / Persistence - validation required' },
-      { title: 'Foundation-sec-8B-Instruct', detail: 'dual-technique classification · T1110.001 high confidence · T1078 analyst-pending', meta: 'post-login behaviour review required for T1078 confirmation' },
+      { title: 'MITRE ATT&CK', detail: 'technique lookup · T1110.001 Password Guessing · Credential Access - supported', meta: 'technique lookup · T1078 Valid Accounts · Initial Access / Persistence - validation required' },
+      { title: 'Deterministic analysis', detail: 'dual-technique classification · T1110.001 supported · T1078 analyst-pending', meta: 'post-login behaviour review required for T1078 confirmation' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-001#triage', meta: 'playbook cross-referenced' },
     ];
   }
@@ -94,8 +94,8 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
     { title: 'LangGraph orchestration', detail: 'attack discovery -> evidence collection -> MITRE mapping -> context sufficiency', meta: '4 nodes completed · 126ms' },
     { title: 'Splunk MCP', detail: 'splunk.search · index=pgcil_soc · sourcetype=pgcil:auth · 60 min window', meta: '3 rows returned · fail_count >= 25 filter applied · 284ms' },
     { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-001#triage · v2026.04', meta: 'confidence 0.91 · 1 document retrieved' },
-    { title: 'Foundation-sec-8B-Instruct', detail: 'pattern classification · credential stuffing / T1110.001', meta: 'coordinated source analysis · high confidence' },
-    { title: 'MITRE ATT&CK', detail: 'technique lookup · T1110.001 Password Guessing · tactic: Credential Access', meta: 'confirmed by volume and source distribution pattern' },
+    { title: 'Deterministic analysis', detail: 'pattern classification · password guessing / T1110.001', meta: 'coordinated source analysis · supported, validation pending' },
+    { title: 'MITRE ATT&CK', detail: 'technique lookup · T1110.001 Password Guessing · tactic: Credential Access', meta: 'supported by volume and source distribution pattern' },
   ];
 }
 

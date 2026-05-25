@@ -1,5 +1,15 @@
 from pydantic import BaseModel
 
+from app.actions.capability_policy import ActionCapability
+from app.answer_guard.models import AnswerGuardStatus
+from app.lineage.models import InvestigationLineage
+from app.query_understanding.models import QueryUnderstandingResult
+from app.risk.severity_policy import SeverityDecision
+from app.skills.models import SkillChain, SkillSelectionResult
+from app.synthesis.models import SynthesisStatus
+from app.threat.mitre_kb import MitreMappingDecision
+from app.use_cases.models import UseCaseSelection
+
 
 class WorkflowStep(BaseModel):
     order: int
@@ -210,6 +220,10 @@ class PlaceholderResponse(BaseModel):
     routing_mode: str | None = None
     disagreement: bool | None = None
     disagreement_reason: str | None = None
+    query_understanding: QueryUnderstandingResult | None = None
+    selected_use_case: UseCaseSelection | None = None
+    selected_skill_chain: SkillChain | None = None
+    skill_selection: SkillSelectionResult | None = None
     workflow_plan: WorkflowPlan | None = None
     candidate_spl: CandidateSplEnvelope | None = None
     spl_validation: SplValidationEnvelope | None = None
@@ -219,3 +233,10 @@ class PlaceholderResponse(BaseModel):
     structured_context: StructuredContextPackage | None = None
     context_sufficiency: ContextSufficiencyEnvelope | None = None
     analyst_response: AnalystResponseEnvelope | None = None
+    spl_template: dict[str, object] | None = None
+    mitre_mappings: list[MitreMappingDecision] | None = None
+    severity_decision: SeverityDecision | None = None
+    investigation_lineage: InvestigationLineage | None = None
+    synthesis_status: SynthesisStatus | None = None
+    answer_guard: AnswerGuardStatus | None = None
+    action_capability: ActionCapability | None = None

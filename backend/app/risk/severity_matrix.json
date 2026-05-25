@@ -1,0 +1,23 @@
+{
+  "policies": [
+    {
+      "use_case_id": "auth_failed_login_spike",
+      "default_severity": "P3 Medium",
+      "rules": [
+        {"severity": "P2 High", "conditions": {"failed_logins_gte": 50, "distinct_users_gte": 3}, "why": "High failed-login volume affects multiple users."},
+        {"severity": "P3 Medium", "conditions": {"failed_logins_gte": 10}, "why": "Repeated failed authentication exceeds triage threshold."},
+        {"severity": "P4 Low", "conditions": {"known_benign_source": true}, "why": "Known benign source lowers priority."}
+      ],
+      "p1_requires": ["success_after_failure", "privileged_account_impacted", "critical_asset", "confirmed_success"]
+    },
+    {
+      "use_case_id": "auth_success_after_failure",
+      "default_severity": "P2 High",
+      "rules": [
+        {"severity": "P1 Critical", "conditions": {"privileged_account_impacted": true, "critical_asset": true}, "why": "Successful access after failures affects privileged access to a critical asset."},
+        {"severity": "P2 High", "conditions": {"successful_logins_gte": 1, "failed_logins_gte": 5}, "why": "Successful login after repeated failures requires urgent review."}
+      ],
+      "p1_requires": ["privileged_account_impacted", "critical_asset", "confirmed_success"]
+    }
+  ]
+}

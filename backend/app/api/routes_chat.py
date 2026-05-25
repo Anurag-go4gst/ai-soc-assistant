@@ -5,19 +5,30 @@ from fastapi import APIRouter, Depends
 from app.auth.session import require_auth
 from app.config import settings
 from app.connectors.telemetry import get_telemetry_connector
+from app.actions.capability_policy import action_capability_for
+from app.answer_guard.models import AnswerGuardStatus
 from app.evidence.context_structurer import structure_context
 from app.evidence.context_sufficiency import check_context_sufficiency
 from app.evidence.source_evidence import build_source_evidence
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
+from app.lineage.builder import build_investigation_lineage
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
+from app.query_understanding.parser import understand_query
+from app.risk.severity_policy import decide_severity
 from app.routing.skill_router import route_skill
 from app.safeguards.spl_validator import validate_spl
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
+from app.skills.selector import select_skill_chain
+from app.spl.template_registry import template_summary
 from app.splunk.capabilities import build_splunk_capability_profile
 from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
+from app.synthesis.models import SynthesisStatus
+from app.threat.mitre_kb import map_mitre_for_use_case
+from app.use_cases.models import UseCaseSelection
+from app.use_cases.registry import match_use_cases
 
 router = APIRouter()
 
@@ -25,7 +36,11 @@ router = APIRouter()
 @router.post("/chat", response_model=PlaceholderResponse, dependencies=[Depends(require_auth)])
 def chat(request: ChatRequest) -> PlaceholderResponse:
     trace_id = str(uuid4())
+    query_understanding = understand_query(request.message)
+    selected_use_case = _selected_use_case(request.message)
     routed = route_skill(request.message, trace_id=trace_id)
+    skill_selection = select_skill_chain(routed=routed, selected_use_case=selected_use_case)
+    selected_skill_chain = skill_selection.selected_chain
     comparison = routed.get("comparison", {})
     disagreement = not bool(comparison.get("match", False))
     workflow_plan = plan_workflow(
@@ -56,6 +71,32 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         execution=execution,
     )
     human_review = _attach_hil_soc_kb_guidance(human_review, source_evidence)
+    source_refs = [str(item.get("evidence_id")) for item in source_evidence]
+    spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
+    mitre_mappings = map_mitre_for_use_case(selected_use_case.use_case_id if selected_use_case else None, source_refs)
+    severity_decision = decide_severity(selected_use_case.use_case_id if selected_use_case else None, structured_context, source_refs)
+    synthesis_status = SynthesisStatus(enabled=False, status="disabled", reason="Stage 3K synthesis is disabled; production chat returns governed evidence/status only.")
+    answer_guard = AnswerGuardStatus(enabled=False, guard_status="disabled", reason="Stage 3L Answer Guard is disabled; no generated answer is being guarded.")
+    action_capability = action_capability_for(selected_use_case.use_case_id if selected_use_case else None, severity_decision.severity_label)
+    investigation_lineage = build_investigation_lineage(
+        trace_id=trace_id,
+        mode_source="live",
+        query_understanding=query_understanding,
+        selected_use_case=selected_use_case,
+        selected_skill_chain=selected_skill_chain,
+        workflow_plan=workflow_plan,
+        spl_validation=spl_validation,
+        execution=execution,
+        source_evidence=source_evidence,
+        structured_context=structured_context,
+        context_sufficiency=context_sufficiency,
+        spl_template=spl_template,
+        mitre_mappings=mitre_mappings,
+        severity_decision=severity_decision,
+        synthesis_status=synthesis_status,
+        answer_guard_status=answer_guard,
+        action_capability=action_capability,
+    )
 
     message = _chat_message(spl_validation, execution)
     note = _chat_note(spl_validation, execution)
@@ -76,6 +117,10 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         routing_mode=settings.routing_mode,
         disagreement=disagreement,
         disagreement_reason=_disagreement_reason(comparison) if disagreement else None,
+        query_understanding=query_understanding,
+        selected_use_case=selected_use_case,
+        selected_skill_chain=selected_skill_chain,
+        skill_selection=skill_selection,
         message=message,
         note=note,
         workflow_plan=workflow_plan,
@@ -86,7 +131,21 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         source_evidence=source_evidence,
         structured_context=structured_context,
         context_sufficiency=context_sufficiency,
+        spl_template=spl_template,
+        mitre_mappings=mitre_mappings,
+        severity_decision=severity_decision,
+        investigation_lineage=investigation_lineage,
+        synthesis_status=synthesis_status,
+        answer_guard=answer_guard,
+        action_capability=action_capability,
     )
+
+
+def _selected_use_case(query: str) -> UseCaseSelection | None:
+    matches = match_use_cases(query, limit=1)
+    if matches:
+        return matches[0]
+    return None
 
 
 _MITRE_INTENT_KEYWORDS = ("mitre", "att&ck", "attack technique", "map this alert", "map the alert")

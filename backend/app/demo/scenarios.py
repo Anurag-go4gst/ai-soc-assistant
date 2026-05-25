@@ -5,9 +5,19 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
+from app.actions.capability_policy import action_capability_for
+from app.answer_guard.models import AnswerGuardStatus
+from app.lineage.builder import build_investigation_lineage
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.workflow_planner import plan_workflow
+from app.query_understanding.parser import understand_query
+from app.risk.severity_policy import decide_severity
 from app.safeguards.spl_validator import validate_spl
+from app.skills.selector import select_skill_chain
+from app.spl.template_registry import template_summary
+from app.synthesis.models import SynthesisStatus
+from app.threat.mitre_kb import map_mitre_for_use_case
+from app.use_cases.registry import match_use_cases
 
 CREATED_AT = "2026-05-24T00:00:00Z"
 EVIDENCE_ORIGIN = "coe_synthetic_fixture"
@@ -60,6 +70,43 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     context_sufficiency = _context_sufficiency(scenario)
     review = _human_review(scenario, execution)
     analyst_response = _analyst_response(scenario)
+    query_understanding = understand_query(scenario.query)
+    selected_use_case = _selected_use_case(scenario.query)
+    skill_selection = select_skill_chain(
+        routed={
+            "skill": scenario.expected_skill,
+            "tool_plan": _tool_plan(scenario),
+            "llm_shadow": None,
+        },
+        selected_use_case=selected_use_case,
+    )
+    selected_skill_chain = skill_selection.selected_chain
+    source_refs = [str(item.get("evidence_id")) for item in source_evidence]
+    spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
+    mitre_mappings = map_mitre_for_use_case(selected_use_case.use_case_id if selected_use_case else None, source_refs)
+    severity_decision = decide_severity(selected_use_case.use_case_id if selected_use_case else None, structured_context, source_refs)
+    synthesis_status = SynthesisStatus(enabled=False, status="planned", reason="Experience Center uses deterministic scenario responses; Stage 3K synthesis is not run.")
+    answer_guard = AnswerGuardStatus(enabled=False, guard_status="planned", reason="Experience Center scenario output is deterministic; Stage 3L Answer Guard is not run.")
+    action_capability = action_capability_for(selected_use_case.use_case_id if selected_use_case else None, severity_decision.severity_label)
+    investigation_lineage = build_investigation_lineage(
+        trace_id=trace_id,
+        mode_source="scenario",
+        query_understanding=query_understanding,
+        selected_use_case=selected_use_case,
+        selected_skill_chain=selected_skill_chain,
+        workflow_plan=workflow,
+        spl_validation=spl_validation,
+        execution=execution,
+        source_evidence=source_evidence,
+        structured_context=structured_context,
+        context_sufficiency=context_sufficiency,
+        spl_template=spl_template,
+        mitre_mappings=mitre_mappings,
+        severity_decision=severity_decision,
+        synthesis_status=synthesis_status,
+        answer_guard_status=answer_guard,
+        action_capability=action_capability,
+    )
 
     return {
         "trace_id": trace_id,
@@ -86,6 +133,10 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "routing_mode": "deterministic_demo_fixture",
         "disagreement": False,
         "disagreement_reason": None,
+        "query_understanding": query_understanding.model_dump(),
+        "selected_use_case": selected_use_case.model_dump() if selected_use_case else None,
+        "selected_skill_chain": selected_skill_chain.model_dump(),
+        "skill_selection": skill_selection.model_dump(),
         "workflow_plan": workflow,
         "candidate_spl": candidate_spl,
         "spl_validation": spl_validation,
@@ -95,7 +146,19 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "structured_context": structured_context,
         "context_sufficiency": context_sufficiency,
         "analyst_response": analyst_response,
+        "spl_template": spl_template,
+        "mitre_mappings": [item.model_dump() for item in mitre_mappings],
+        "severity_decision": severity_decision.model_dump(),
+        "investigation_lineage": investigation_lineage.model_dump(),
+        "synthesis_status": synthesis_status.model_dump(),
+        "answer_guard": answer_guard.model_dump(),
+        "action_capability": action_capability.model_dump(),
     }
+
+
+def _selected_use_case(query: str) -> Any | None:
+    matches = match_use_cases(query, limit=1)
+    return matches[0] if matches else None
 
 
 def _scenario_summary(scenario: DemoScenario) -> dict[str, Any]:
@@ -295,7 +358,7 @@ SUCCESS_AFTER_FAILURES_VISIBLE_SPL = """index=pgcil_soc sourcetype=pgcil:auth ho
     max(_time) as last_event
   by user, host
 | where fail_count >= 5 AND success_count >= 1
-| eval risk="P1 - Success after failure"
+| eval risk="Escalation review - success after failure"
 | sort -fail_count"""
 
 
@@ -359,17 +422,17 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Evidence": "Repeated authentication failures from the same source range against APP-01", "Confidence": "High"},
             ],
             "foundation_sec_analysis": "\n\n".join([
-                "Foundation-sec-8B-Instruct classifies this as a T1110.001 Password Guessing pattern with high confidence.",
-                "Three source IPs in the 10.10.4.0/24 range generated 101 combined failures against APP-01 within a 55-minute window, targeting overlapping user sets. This distribution - coordinated sources, overlapping targets, sustained rate - is inconsistent with a single misconfigured client or an expired-credential scenario, both of which typically produce failures from one source against one account.",
-                "The pattern more closely matches an internal credential stuffing operation: a controlled toolset cycling a credential list across accounts from multiple sources to avoid per-IP lockout thresholds. Both externally sourced lists and internally harvested credential files are plausible vectors.",
-                "The absence of a confirmed success-after-failure event is the only moderating factor at this stage. If correlation returns a positive result, escalate to P1 immediately - this finding reclassifies from attempted to active credential compromise.",
+                "The deterministic analysis marks this as a supported T1110.001 Password Guessing pattern with high confidence.",
+                "Three source IPs in the 10.10.4.0/24 range generated 101 combined failures against APP-01 within a 55-minute window, targeting overlapping user sets. This distribution - coordinated sources, overlapping targets, sustained rate - requires validation against misconfiguration, approved automation, scanner activity, and expired-credential scenarios.",
+                "The pattern is consistent with credential guessing against internal authentication surfaces, but the scenario evidence does not prove credential compromise.",
+                "The absence of success-after-failure, privilege, asset-criticality, and post-login evidence keeps this at P2 High. Escalation requires those validation signals before any P1 claim.",
             ]),
             "recommended_actions": [
-                "P1 - Run success-after-failure correlation for APP-01 right now, before any other step. A single confirmed success after the 101 failures changes this from a detection event to an active incident. Use the prepared SPL, SOC-SPL-LIB-003, scoped to the same 60-minute window and the three source IPs. If correlation returns any row, escalate to P1 Critical and open an incident ticket immediately - do not wait for the full investigation to complete.",
-                "P1 - Identify whether any of the targeted users hold privileged, service, domain-admin, or VPN gateway accounts. Pull AD group membership for all users appearing in the failure log. A single privileged account in the affected set changes the risk from credential exposure to potential domain or infrastructure compromise. This check takes under two minutes with identity log access and determines whether executive notification is required.",
+                "P2 - Run success-after-failure correlation for APP-01 using the prepared SPL, SOC-SPL-LIB-003, scoped to the same 60-minute window and the three source IPs. If correlation returns rows, route the case for analyst review with the severity decision recalculated from the new evidence.",
+                "P2 - Identify whether any of the targeted users hold privileged, service, domain-admin, or VPN gateway accounts. Pull AD group membership for all users appearing in the failure log and record privilege evidence before changing severity.",
                 "P2 - Assess whether 10.10.4.19-10.10.4.22 are registered and authorised for authentication to APP-01. These IPs are internal but may not be approved authentication sources for this host. Query CMDB and firewall policy for the source range. If any IP is not a registered authorised client for APP-01, identifying how the credential list reached an internal system becomes the investigation priority.",
-                "P2 - Confirm APP-01 asset classification and blast radius before deciding escalation scope. If APP-01 is a critical application server, identity provider, or OT gateway, this event requires out-of-hours escalation regardless of the success-after-failure result. Confirm with the asset owner within the hour.",
-                "P3 - Apply rate-limiting or source IP containment only after analyst validation. Containment before confirmation risks blocking legitimate operational traffic if the sources are jump hosts, scanners, or automated systems. Validate source identity first. If confirmed malicious, action containment through the firewall change process and link the action to the open ServiceNow incident ticket.",
+                "P2 - Confirm APP-01 asset classification and blast radius before deciding escalation scope. If APP-01 is a critical application server, identity provider, or OT gateway, capture that as enrichment evidence and rerun severity policy.",
+                "P3 - Prepare a containment recommendation only after analyst validation. Containment before confirmation risks blocking legitimate operational traffic if the sources are jump hosts, scanners, or automated systems. Execution remains outside the current Tier 1 capability.",
             ],
         }
     if scenario.scenario_id == "new_source_ip_logins":
@@ -404,16 +467,16 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 ],
             },
             "foundation_sec_analysis": "\n\n".join([
-                "Foundation-sec-8B-Instruct classifies this event cluster as a T1078 Valid Accounts pattern with moderate-high confidence.",
+                "The deterministic analysis classifies this event cluster as a T1078 Valid Accounts candidate with moderate confidence.",
                 "The behavioural signature - successful authentications from 10.10.7.0/24, distinct from the established 10.10.4.0/24 baseline for both affected accounts - is consistent with one of three scenarios: credential handoff after an initial access event, lateral movement from a compromised internal host, or an undocumented operational change such as a jump-host reassignment or VPN reconfiguration.",
                 "The service account involvement, svc_grid_ops, increases risk materially. Service accounts with operational system access are high-value persistence targets; they are frequently used to establish scheduled tasks, register services, or maintain long-term footholds after initial compromise.",
-                "This pattern does not match scheduled-task, automated-sync, or batch-job behaviour based on authentication timing and source novelty. The risk profile remains elevated until source ownership is confirmed against CMDB and network inventory.",
+                "The risk profile remains elevated until source ownership, MFA result, and post-login behaviour are confirmed against CMDB, identity, and endpoint telemetry.",
             ]),
             "recommended_actions": [
-                "P1 - Validate the svc_grid_ops session from 10.10.7.44 immediately. Pull the full session record: MFA result, session duration, post-login commands executed, and any downstream system access. svc_grid_ops has operational system access; if this session is unauthorised, containment cannot wait for batch review. Expected resolution time: 10 minutes with EDR and identity log access.",
-                "P1 - Confirm whether 10.10.7.44 and 10.10.7.45 are approved infrastructure. Query CMDB and network inventory for IP ownership and registration. If these IPs are not registered as approved jump hosts, VPN endpoints, or operational workstations, treat the sessions as compromised and flag for isolation. Do not wait for full asset confirmation before notifying the incident commander.",
+                "P2 - Validate the svc_grid_ops session from 10.10.7.44. Pull the full session record: MFA result, session duration, post-login commands executed, and any downstream system access. Use those results to determine whether escalation is supported.",
+                "P2 - Confirm whether 10.10.7.44 and 10.10.7.45 are approved infrastructure. Query CMDB and network inventory for IP ownership and registration. If these IPs are not registered as approved jump hosts, VPN endpoints, or operational workstations, prepare a containment recommendation for analyst approval.",
                 "P2 - Determine whether operator.rajesh has active MFA enforcement on this account. If MFA was not challenged at login, authentication relied solely on a password. Combined with a new source IP, this is a credential compromise indicator. Engage the identity team to force re-authentication and confirm MFA policy coverage for all operational accounts.",
-                "P2 - Review APP-01 business criticality in CMDB before scoping the incident. If APP-01 supports grid operations, SCADA interfaces, or production control systems, the risk profile of this event escalates from informational to operational. A potentially compromised service account with OT system access requires immediate involvement from the asset owner and the OT security team.",
+                "P2 - Review APP-01 business criticality in CMDB before scoping the incident. If APP-01 supports grid operations, SCADA interfaces, or production control systems, record that asset evidence and rerun severity policy.",
                 "P3 - Update the source-IP baseline for svc_grid_ops and operator.rajesh only after analyst sign-off. Do not auto-approve the new source range. Any baseline update must be linked to a documented change ticket, jump-host migration, VPN reconfiguration, or approved workstation reassignment before it is applied.",
             ],
         }
@@ -431,16 +494,16 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Evidence": "Successful login after repeated failures for svc_grid_ops", "Confidence": "Analyst validation required"},
             ],
             "foundation_sec_analysis": "\n\n".join([
-                "Foundation-sec-8B-Instruct identifies two active technique candidates based on the alert evidence.",
-                "T1110.001 Password Guessing is confirmed at high confidence: the failure volume, source distribution, and user overlap match documented brute-force tooling behaviour across enterprise authentication logs.",
+                "The deterministic analysis identifies two technique mappings based on the alert evidence.",
+                "T1110.001 Password Guessing is supported at high confidence: the failure volume, source distribution, and user overlap match brute-force detection patterns, but confirmation still requires validation that benign sources and misconfiguration are cleared.",
                 "T1078 Valid Accounts is flagged as analyst-validation-required: the post-failure success event for svc_grid_ops is the triggering signal, but technique confirmation requires post-login behaviour review. Persistence-phase T1078 abuse typically manifests within the first 15-30 minutes of session establishment as new scheduled tasks, service registrations, or lateral authentication to adjacent hosts.",
                 "Priority for the analyst: validate whether the svc_grid_ops session generated any process execution, registry writes, or network connections after login. That single check resolves the T1078 classification and determines whether this is an attempted or successful intrusion.",
             ]),
             "recommended_actions": [
-                "P1 - Validate the svc_grid_ops session immediately: MFA result, source IP, session duration, and the first five process executions or network connections post-login. This single data point resolves whether T1078 is confirmed or remains candidate-only. If post-login activity is found, escalate to P1 Critical and treat as active intrusion.",
+                "P2 - Validate the svc_grid_ops session: MFA result, source IP, session duration, and the first five process executions or network connections post-login. This evidence determines whether T1078 remains candidate-only, becomes supported, or requires escalation.",
                 "P2 - Pivot across firewall, VPN, EDR, and identity telemetry for 10.10.4.21 and 10.10.4.22 during the same 60-minute window. Determine whether these IPs attempted access to other hosts. A second target confirms lateral movement intent and elevates the incident scope beyond APP-01.",
                 "P2 - Confirm whether svc_grid_ops is a service account, shared credential, or has administrative or operational access. Service accounts with broad permissions are high-value persistence targets. If svc_grid_ops has admin or OT access, escalate scope and notify the account owner and system owner immediately.",
-                "P3 - Mark T1110.001 as confirmed in the incident record and hold T1078 as analyst-validation-pending until post-login behaviour is reviewed. Do not close T1078 without evidence. The technique is active until the session is validated clean or post-login activity is found.",
+                "P3 - Record T1110.001 as supported in the investigation note and hold T1078 as analyst-validation-pending until post-login behaviour is reviewed. Do not close T1078 without evidence.",
             ],
         }
     if scenario.scenario_id in {"brute_force_sop_guidance", "failed_login_playbook"}:

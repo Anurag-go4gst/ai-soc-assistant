@@ -32,6 +32,10 @@ export interface PlaceholderResponse {
   disagreement?: boolean | null;
   disagreement_reason?: string | null;
   routing_trace?: RoutingTraceEnvelope | null;
+  query_understanding?: QueryUnderstandingResult | null;
+  selected_use_case?: UseCaseSelection | null;
+  selected_skill_chain?: SkillChain | null;
+  skill_selection?: SkillSelectionResult | null;
   workflow_plan?: WorkflowPlan | null;
   candidate_spl?: CandidateSplEnvelope | null;
   spl_validation?: SplValidationEnvelope | null;
@@ -41,6 +45,164 @@ export interface PlaceholderResponse {
   structured_context?: StructuredContextPackage | null;
   context_sufficiency?: ContextSufficiencyEnvelope | null;
   analyst_response?: AnalystResponseEnvelope | null;
+  spl_template?: Record<string, unknown> | null;
+  mitre_mappings?: MitreMappingDecision[] | null;
+  severity_decision?: SeverityDecision | null;
+  investigation_lineage?: InvestigationLineage | null;
+  synthesis_status?: SynthesisStatus | null;
+  answer_guard?: AnswerGuardStatus | null;
+  action_capability?: ActionCapability | null;
+}
+
+export type RequestedOutputType =
+  | 'investigation'
+  | 'spl'
+  | 'sop'
+  | 'mitre_mapping'
+  | 'summary'
+  | 'note'
+  | 'action_plan'
+  | 'clarification';
+
+export type OutputTemplate =
+  | 'investigation_answer'
+  | 'spl_response'
+  | 'sop_response'
+  | 'mitre_mapping_response'
+  | 'clarification_response'
+  | 'note_response';
+
+export interface QueryEntities {
+  asset: string[];
+  host: string[];
+  user: string[];
+  source_ip: string[];
+  destination_ip: string[];
+  time_window?: string | null;
+  index: string[];
+  sourcetype: string[];
+  alert_id: string[];
+  event_type: string[];
+}
+
+export interface QueryUnderstandingResult {
+  raw_query: string;
+  normalized_query: string;
+  primary_intent: string;
+  secondary_intents: string[];
+  requested_output_type: RequestedOutputType;
+  output_template: OutputTemplate;
+  entities: QueryEntities;
+  ambiguity_flags: string[];
+  confidence: number;
+  clarification_needed: boolean;
+  clarification_question?: string | null;
+  mapped_use_case_ids: string[];
+}
+
+export interface UseCaseSelection {
+  use_case_id: string;
+  display_name: string;
+  category: string;
+  primary_skill: string;
+  confidence: number;
+  matched_patterns: string[];
+  default_spl_template?: string | null;
+  output_template: string;
+  required_sources: string[];
+  optional_sources: string[];
+  action_capability_tier: number;
+}
+
+export interface SkillChain {
+  chain_id: string;
+  selected_skill: string;
+  stages: string[];
+  routable_skill: string;
+  pipeline_stages: string[];
+  alternatives: string[];
+  selection_reason: string;
+}
+
+export interface SkillSelectionResult {
+  selected_skill: string;
+  selected_use_case_id?: string | null;
+  selected_chain: SkillChain;
+  decision_source: string;
+  selection_status: string;
+  rule_based_skill: string;
+  registry_primary_skill?: string | null;
+  llm_assisted_skill?: string | null;
+  alternatives: string[];
+  policy_notes: string[];
+}
+
+export interface MitreMappingDecision {
+  technique_id: string;
+  name: string;
+  tactic: string;
+  status: 'confirmed' | 'supported' | 'candidate' | 'requires_validation' | string;
+  why: string;
+  evidence_requirements: string[];
+  source_refs: string[];
+  recommended_pivots: string[];
+}
+
+export interface SeverityDecision {
+  use_case_id?: string | null;
+  severity_label: string;
+  matched_rules: string[];
+  why_not_higher: string[];
+  missing_evidence: string[];
+  source_refs: string[];
+  recommended_priority: string;
+  allowed_action_tier: number;
+}
+
+export interface LineageStage {
+  stage_id: string;
+  status: string;
+  visible_label: string;
+  explanation: string;
+  technical_output: Record<string, unknown>;
+  produced_answer_sections: string[];
+  current_mode_source: 'live' | 'scenario' | 'config' | 'derived' | 'planned' | string;
+  production_equivalent: string;
+}
+
+export interface InvestigationLineage {
+  lineage_id: string;
+  stages: LineageStage[];
+  summary: string;
+}
+
+export interface SynthesisStatus {
+  enabled: boolean;
+  status: string;
+  provider?: string | null;
+  model?: string | null;
+  reason: string;
+  allowed_inputs: string[];
+}
+
+export interface AnswerGuardStatus {
+  enabled: boolean;
+  guard_status: string;
+  passed_checks: string[];
+  failed_checks: string[];
+  blocked_reason?: string | null;
+  analyst_review_required: boolean;
+  reason: string;
+}
+
+export interface ActionCapability {
+  current_tier: number;
+  tier_label: string;
+  allowed_actions: string[];
+  unavailable_actions: string[];
+  hil_required: boolean;
+  audit_required: boolean;
+  reason: string;
 }
 
 export interface AnalystResponseEnvelope {

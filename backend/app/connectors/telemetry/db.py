@@ -31,10 +31,13 @@ _LOGGER = logging.getLogger("ai_soc.telemetry")
 
 class DbTelemetryConnector:
     mode = "db"
+    _global_disabled_after_failure = False
 
     def __init__(self, database_url: str | None = None) -> None:
         self.database_url = database_url or settings.database_url
         self._schema_ready = False
+        self._disabled_after_failure = False
+        self._write_disabled_for_placeholder = "change-me@postgres" in self.database_url
 
     def health(self) -> ConnectorStatus:
         configured = bool(self.database_url.strip())
@@ -153,6 +156,9 @@ class DbTelemetryConnector:
         structured warning log (without payload contents), and return — i.e.
         we fall through to no-op behavior for this call.
         """
+        if self._write_disabled_for_placeholder or self._disabled_after_failure or DbTelemetryConnector._global_disabled_after_failure:
+            return
+
         async def _inner() -> None:
             await self._ensure_schema()
             conn = await asyncpg.connect(self.database_url, timeout=1.0)
@@ -164,6 +170,8 @@ class DbTelemetryConnector:
         try:
             asyncio.run(_inner())
         except Exception as exc:  # noqa: BLE001 — telemetry must be best-effort
+            self._disabled_after_failure = True
+            DbTelemetryConnector._global_disabled_after_failure = True
             metrics.increment("telemetry_write_failures")
             _LOGGER.warning(
                 "telemetry_write_failed",
