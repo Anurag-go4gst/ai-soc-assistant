@@ -648,6 +648,258 @@ Before Stage 3K:
 
 Do not implement Stage 3K until Phases 1-6 are stable.
 
+### Foundation-sec Dual-Model Role Strategy
+
+Stage 3K should use the two tested Foundation-sec models as separate, role-specific assistants behind deterministic controls. This is a planning/configuration decision only until Stage 3K is explicitly implemented.
+
+Foundation-sec-8B-Instruct is preferred for:
+
+- query-understanding shadow classification.
+- unusual phrasing fallback.
+- structured JSON `analyst_response` drafting.
+- concise analyst summary drafting.
+- investigation note drafting.
+- SOP/playbook response drafting.
+- final wording from already-approved evidence.
+
+Foundation-sec-8B-Instruct must not be used for:
+
+- direct SPL execution.
+- final severity decisions.
+- final MITRE status decisions.
+- SOP citation authority.
+- remediation/action authority.
+- final answers without Answer Guard.
+
+Foundation-sec-8B-Reasoning is preferred for:
+
+- security pattern reasoning.
+- attack hypothesis generation.
+- MITRE reasoning support.
+- missing evidence analysis.
+- `why_not_higher` severity reasoning.
+- investigation pivot suggestions.
+- risk rationale and attack-path style analysis.
+
+Foundation-sec-8B-Reasoning must not be used for:
+
+- raw routing authority.
+- final severity decisions.
+- final remediation decisions.
+- direct SPL execution.
+- final answer display without guard.
+- changing deterministic policy outputs.
+
+Deterministic V.AI SOC systems remain source of truth for:
+
+- `use_case_id` after registry validation.
+- `selected_skill` after router/registry comparison.
+- SPL template selection.
+- SPL validation.
+- MCP execution eligibility.
+- severity label.
+- MITRE mapping status.
+- SOP citation/source refs.
+- allowed and blocked actions.
+- context sufficiency.
+- answer guard result.
+
+Foundation-sec confidence is not a gate. It may be stored as advisory metadata, but it must not approve routing, skip clarification, approve execution, or authorize final answer display.
+
+Stage 3J-I.1 added the dormant guarded adapter layer:
+
+- JSON extraction for pure JSON, fenced JSON, and prose-wrapped JSON.
+- Pydantic schema validation by role.
+- role registry validation.
+- deterministic clarification override.
+- deterministic severity override.
+- deterministic MITRE status override.
+- deterministic SOP citation/source-ref override.
+- deterministic allowed/blocked action override.
+- LLM SPL `execution_eligible` forced `false`.
+- warning/disagreement metadata.
+
+Stage 3J-I.2 added dormant semantic guard rules:
+
+- clarification
+- JSON/schema validation
+- registry validation
+- evidence presence
+- aggregate overclaim detection
+- SOP fidelity
+- MITRE status authority
+- severity authority
+- action tier
+- SPL execution eligibility
+- priority enum
+- internal leakage
+- Splunk table fidelity
+
+These guards return findings only. They are not wired into `/chat`, Experience Center rendering, final response rendering, or Answer Guard execution until a later stage explicitly enables them.
+
+Known aggregate risk: model-generated totals can be invalid when they add per-row distinct counts. For example, adding `distinct_users` by source IP can overclaim a global account count because users may overlap across sources. Global aggregate claims may use only precomputed aggregate fields supplied by `StructuredContext`, such as `total_failed_logins`, `distinct_source_ips`, `global_distinct_users`, or `affected_accounts_count`.
+
+SPL advisory is not recommended for execution. The production path remains template-first; LLM-generated `candidate_spl` is candidate-only, adapter-forced execution ineligible, and never sent to MCP. Only deterministic validation/normalization can produce a `normalized_spl` for the MCP gate.
+
+### LLM Role Mapping Configuration
+
+Settings should expose separate role mappings. If both Foundation-sec models are configured, role-specific model selection is used. If only one model is configured, role fallback is allowed but Settings must show degraded role separation.
+
+Default conceptual roles:
+
+| Role | Preferred model | Mode | Output | Authority | Validation |
+| --- | --- | --- | --- | --- | --- |
+| `intent_shadow_classifier` | Foundation-sec-8B-Instruct | `advisory` | `QueryUnderstandingCandidate` JSON | low | required |
+| `analyst_response_drafter` | Foundation-sec-8B-Instruct | `constrained_generation` | `analyst_response` JSON | draft only | required |
+| `investigation_note_drafter` | Foundation-sec-8B-Instruct | `constrained_generation` | investigation note JSON/text | draft only | required |
+| `pattern_reasoner` | Foundation-sec-8B-Reasoning | `advisory_reasoning` | `reasoning_summary` | advisory | required |
+| `mitre_reasoner` | Foundation-sec-8B-Reasoning | `advisory_reasoning` | `mitre_reasoning_summary` | advisory | required |
+| `missing_evidence_reasoner` | Foundation-sec-8B-Reasoning | `advisory_reasoning` | `missing_evidence_analysis` | advisory | required |
+| `risk_rationale_reasoner` | Foundation-sec-8B-Reasoning | `advisory_reasoning` | `why_not_higher` / `risk_rationale` | advisory | required |
+| `spl_advisory_generator` | Foundation-sec-8B-Instruct or Reasoning | `candidate_only` | `candidate_spl` | candidate only | required, execution ineligible |
+| `answer_guard_assistant` | Foundation-sec-8B-Reasoning | `planned` | `guard_assist` | advisory only | deterministic guard first |
+
+Environment role mapping keys:
+
+- `AI_SOC_LLM_INTENT_PROVIDER`, `AI_SOC_LLM_INTENT_MODEL`
+- `AI_SOC_LLM_REASONING_PROVIDER`, `AI_SOC_LLM_REASONING_MODEL`
+- `AI_SOC_LLM_SYNTHESIS_PROVIDER`, `AI_SOC_LLM_SYNTHESIS_MODEL`
+- `AI_SOC_LLM_SPL_ADVISORY_PROVIDER`, `AI_SOC_LLM_SPL_ADVISORY_MODEL`
+- `AI_SOC_LLM_GUARD_PROVIDER`, `AI_SOC_LLM_GUARD_MODEL`
+
+Provider definitions should expose non-secret readiness only:
+
+- `provider_id`
+- `provider_type`
+- `base_url_configured`
+- `api_key_configured`
+- `model_name`
+- `max_context_tokens`
+- `max_output_tokens`
+- `timeout_seconds`
+- `temperature`
+- `top_p`
+- `supports_json_mode`
+- `supports_model_listing`
+- `deployment_mode`: `local`, `private_gateway`, or `cloud`
+- `policy_allowed`
+
+Settings UI should show:
+
+- Instruct model connection status.
+- Reasoning model connection status.
+- role mapping table.
+- role suitability status.
+- JSON mode support if available.
+- airgap/cloud policy status.
+- final synthesis enabled/disabled.
+- answer guard enabled/disabled.
+
+### Token and Prompt-Size Strategy
+
+Intent shadow classifier:
+
+- Model: Foundation-sec-8B-Instruct.
+- Recommended max input: 1,000 to 2,000 tokens.
+- Include raw query, allowed enum values, small relevant use-case list, allowed routable skills, allowed pipeline stages, allowed source types, event normalization values, and strict JSON schema.
+- Exclude Splunk rows, RAG chunks, MITRE long descriptions, developer trace, and the full use-case catalogue when too large.
+- Output JSON only, no prose and no markdown.
+
+Pattern reasoning:
+
+- Model: Foundation-sec-8B-Reasoning.
+- Recommended max input: 4,000 to 8,000 tokens initially.
+- Include `StructuredContext`, summarized `SourceEvidence`, relevant SPL result summary, MITRE candidates, severity decision, missing evidence, SOP guidance bullets, allowed actions, and blocked actions.
+- Exclude raw unrestricted log dumps, secrets, credentials, draft/unapproved RAG docs, full developer trace, and irrelevant use cases.
+- Output `reasoning_summary`, `missing_evidence_analysis`, and `investigation_pivots`; no final answer and no remediation commands.
+
+Analyst response drafting:
+
+- Model: Foundation-sec-8B-Instruct.
+- Recommended max input: 3,000 to 6,000 tokens.
+- Include fixed severity, fixed finding type, fixed MITRE mapping/status, fixed SOP citations/source refs, approved result table, allowed actions, blocked actions, missing evidence, and the target `analyst_response` JSON schema.
+- Exclude raw tool trace, hidden internal labels, secrets, and actions beyond allowed tier.
+- Output valid `analyst_response` JSON only.
+
+SPL advisory:
+
+- Model: Foundation-sec-8B-Instruct or Foundation-sec-8B-Reasoning.
+- Recommended max input: 2,000 to 4,000 tokens.
+- Include `use_case_id`, SCD field mapping, required fields, SPL template pattern when available, allowed indexes/sourcetypes, allowed commands, and validator constraints.
+- Output `candidate_spl`, assumptions, required fields, and validation notes.
+- LLM-generated SPL is never execution eligible; only deterministic validation and normalization can produce `normalized_spl` for the MCP gate.
+
+### Prompt Contracts
+
+Prompt contracts live in `backend/app/llm/prompts.py` as documented contracts only. They define JSON-only system instructions, allowed inputs, prohibited inputs, output schemas, and consumption rules for:
+
+- `intent_shadow_classifier`
+- `pattern_reasoner`
+- `analyst_response_drafter`
+- `spl_advisory_generator`
+
+Consumption requirements:
+
+- Extract JSON only.
+- Reject extra prose if JSON cannot be safely parsed.
+- Validate required fields and enum values.
+- Validate `use_case_id` against the registry.
+- Validate `technique_id` against the MITRE KB.
+- Validate SOP citations against RAG source refs.
+- Validate action IDs against action capability policy.
+- Record LLM/deterministic disagreement in lineage.
+- Prefer deterministic output on disagreement.
+- Ask clarification when user intent is ambiguous.
+- Never execute tools from an LLM-only decision.
+
+Before displaying any LLM-generated `analyst_response`:
+
+- Answer Guard must validate it.
+- If Answer Guard is disabled, use deterministic/scenario response or mark draft/review-required.
+- Raw LLM output must never be exposed as a final production answer.
+
+### Role Suitability Evaluation
+
+Role suitability checks are planned/configuration-visible and should test:
+
+- connectivity.
+- JSON compliance.
+- intent classification.
+- reasoning output format.
+- `analyst_response` schema generation.
+- SPL advisory validator compatibility.
+
+Status values:
+
+- `suitable`
+- `suitable_with_guard`
+- `not_recommended`
+- `untested`
+- `blocked_by_policy`
+- `candidate_only`
+- `optional_not_primary`
+- `not_allowed`
+
+Expected defaults:
+
+- Instruct: intent classification and analyst synthesis are `suitable_with_guard`; SPL advisory is `candidate_only` or `not_recommended`.
+- Reasoning: pattern/MITRE/missing-evidence reasoning are `suitable_with_guard`; analyst synthesis is optional; SPL advisory is `candidate_only` or `not_recommended`.
+- Both: `final_answer_without_guard` is `not_allowed`.
+
+Foundation-sec outputs are advisory until validated by deterministic policy and Answer Guard.
+
+### Stage 3K Prerequisites
+
+Before Stage 3K can enable evidence-based synthesis:
+
+- The adapter must be active only after Context Sufficiency.
+- Adapter schema validation must pass for every role output.
+- Dormant semantic guard rules must be ready for enforcement design.
+- Answer Guard execution design must be supplied and tested.
+- Deterministic fallback must remain available for every rejection path.
+- Confidence must remain advisory metadata, not a safety gate.
+- Final answer display must never use raw LLM output.
+
 LLM input may include only:
 
 - `StructuredContext`
