@@ -2,6 +2,7 @@ import { Bot, ChevronRight, User } from 'lucide-react';
 import { AnalystResponseCard } from '@/components/AnalystResponseCard';
 import { AnalystSummaryCard } from '@/components/AnalystSummaryCard';
 import { HumanReviewCard } from '@/components/HumanReviewCard';
+import { InvestigationLineagePanel } from '@/components/InvestigationLineagePanel';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -71,6 +72,18 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             {message.traceId ? <Badge variant="secondary">trace {message.traceId.slice(0, 8)}</Badge> : null}
             <Badge>{message.note}</Badge>
           </div>
+        ) : null}
+        {!isUser && message.trace?.investigation_lineage ? (
+          <details className="group rounded-lg border border-slate-800/70 bg-slate-950/40">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 transition hover:text-cyan-200">
+              <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+              How this answer was produced
+              {message.trace.demo_mode ? <Badge variant="warning">scenario-backed</Badge> : <Badge variant="success">live-backed</Badge>}
+            </summary>
+            <div className="border-t border-slate-800/70 p-3">
+              <InvestigationLineagePanel lineage={message.trace.investigation_lineage} />
+            </div>
+          </details>
         ) : null}
         {!isUser && message.trace ? (
           <details className="group rounded-lg border border-slate-800/70 bg-slate-950/40">
