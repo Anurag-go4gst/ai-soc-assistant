@@ -21,6 +21,19 @@ BANNED_VISIBLE_TERMS = (
     "final synthesis",
 )
 
+BLOCKED_REMEDIATION_TERMS = (
+    "block IP",
+    "disable user",
+    "isolate endpoint",
+    "containment",
+)
+
+INVALID_MODEL_SPL_FRAGMENTS = (
+    "tstats count FROM pgcil_soc",
+    "now() - 60m",
+    "eval first_failure = min(_time) as first_failure WHERE",
+)
+
 
 def _run(scenario_id: str):
     return run_demo_scenario_fixture(scenario_id)
@@ -71,7 +84,7 @@ def test_failed_login_spike_includes_t1110_and_source_refs() -> None:
     assert response.structured_context is not None
     assert response.source_evidence
     assert any(row.get("index") == "pgcil_soc" and row.get("sourcetype") == "pgcil:auth" for ev in response.source_evidence for row in ev.preview_rows)
-    assert any(candidate.get("technique_id") == "T1110" and candidate.get("support") == "supported" for candidate in response.structured_context.mitre_candidates)
+    assert any(candidate.get("technique_id") in {"T1110", "T1110.001"} and candidate.get("support") == "supported" for candidate in response.structured_context.mitre_candidates)
     assert all(fact.source_refs for fact in response.structured_context.structured_facts)
 
 
@@ -91,6 +104,13 @@ def test_visible_failed_login_response_is_analyst_facing() -> None:
     assert "SOC-SOP-AUTH-001" in visible
     assert "Foundation-sec analysis" not in visible
     assert response.analyst_response.foundation_sec_analysis is not None
+    assert "14 targeted accounts" not in visible
+    assert "no privileged accounts targeted" not in visible.lower()
+    assert "confirmed account compromise" not in visible.lower()
+    assert "Distinct users by source" in visible
+    assert "Supported" in visible
+    assert "Confirmed" not in visible
+    assert all(action.startswith(("P1 - ", "P2 - ", "P3 - ", "P4 - ")) for action in response.analyst_response.recommended_actions)
 
 
 def test_technical_trace_keeps_provenance_fields() -> None:
@@ -118,8 +138,15 @@ def test_success_after_failures_spl_correlates_success_and_failure() -> None:
     assert response.execution.executed_spl is None
     assert response.analyst_response is not None
     assert response.analyst_response.spl_code is not None
-    assert "match(_raw, \"action=failure\")" in response.analyst_response.spl_code
-    assert "match(_raw, \"action=success\")" in response.analyst_response.spl_code
+    assert "action=failure OR action=success" in response.analyst_response.spl_code
+    assert "source_ips" in response.analyst_response.spl_code
+    assert "risk" in response.analyst_response.spl_code
+    assert response.candidate_spl.execution_eligible is False
+    visible = _visible_text(response)
+    for fragment in INVALID_MODEL_SPL_FRAGMENTS:
+        assert fragment not in visible
+    assert "execution_eligible=true" not in visible
+    assert "Requires validation" in visible
 
 
 def test_sop_demo_does_not_generate_spl() -> None:
@@ -134,6 +161,15 @@ def test_sop_demo_does_not_generate_spl() -> None:
     visible = _visible_text(response)
     assert "Triage steps" not in visible
     assert response.analyst_response.sop_guidance is not None
+    assert response.analyst_response.retrieved_playbook == {
+        "title": "Brute-force Authentication Investigation",
+        "id": "SOC-SOP-AUTH-001",
+        "version": "v2026.04",
+        "purpose": "Guide the SOC analyst through triage, confirmation, escalation, and closure of brute-force authentication activity.",
+    }
+    guidance = json.dumps(response.analyst_response.sop_guidance)
+    assert "SOC-SPL-LIB" not in guidance
+    assert "IRP-AUTH" not in visible
     assert response.analyst_response.escalation_criteria
     assert response.analyst_response.closure_conditions
     assert response.analyst_response.spl_code is None
@@ -147,6 +183,9 @@ def test_mitre_visible_response_has_mapping_table_without_internal_labels() -> N
     assert response.analyst_response.mitre_mappings
     assert "T1110.001" in visible
     assert "T1078" in visible
+    assert "Supported" in visible
+    assert "Requires validation" in visible
+    assert "T1078 Valid Accounts is confirmed" not in visible
     for term in ("workflow", "routing", "SourceEvidence", "StructuredContext", "not_started"):
         assert term.lower() not in visible.lower()
 
@@ -176,3 +215,64 @@ def test_mitre_mapping_uses_alert_fixture_not_empty_guess() -> None:
     assert any(item.get("technique_id") == "T1110" and item.get("support") == "supported" for item in mitre)
     assert any(item.get("technique_id") == "T1078" and item.get("support") == "analyst_review" for item in mitre)
     assert response.structured_context.structured_facts
+
+
+def test_stage3jj_visible_answers_apply_guard_lessons() -> None:
+    for item in list_demo_scenario_fixtures()["scenarios"]:
+        response = _run(item["scenario_id"])
+        visible = _visible_text(response)
+
+        for term in BLOCKED_REMEDIATION_TERMS:
+            assert term.lower() not in visible.lower()
+        for term in BANNED_VISIBLE_TERMS:
+            assert term.lower() not in visible.lower()
+        assert "execution_eligible=true" not in visible
+        assert "High priority" not in visible
+        assert "Medium priority" not in visible
+        assert "Low priority" not in visible
+
+
+def test_stage3jj_failed_login_answer_uses_governed_foundation_sec_posture() -> None:
+    response = _run("failed_login_spike_app01")
+
+    assert response.analyst_response is not None
+    answer = response.analyst_response
+    visible = _visible_text(response)
+    assert answer.severity_label == "P2 High"
+    assert answer.finding_title == "Brute-force authentication spike detected on APP-01"
+    assert "101 failed logins across three source IPs" in visible
+    assert "global distinct user count is not confirmed" in visible
+    assert "T1110.001" in visible
+    assert "Supported" in visible
+    assert "Confirmed" not in visible
+    assert "14 targeted accounts" not in visible
+    assert "no privileged accounts targeted" not in visible.lower()
+    assert "APP-01 is critical" not in visible
+    assert any(row.get("Distinct users by source") == 7 for row in answer.splunk_results_table)
+    assert all(action.startswith(("P1 - ", "P2 - ", "P3 - ", "P4 - ")) for action in answer.recommended_actions)
+
+
+def test_stage3jj_spl_answers_are_template_generated_and_not_execution_eligible() -> None:
+    for scenario_id in ("successful_login_after_failures", "airgapped_no_saia_success_after_failures", "account_lockouts_over_time_spl"):
+        response = _run(scenario_id)
+        visible = _visible_text(response)
+
+        assert response.candidate_spl is not None
+        assert response.candidate_spl.execution_eligible is False
+        assert "Template-generated SPL - validator-ready" in visible
+        for fragment in INVALID_MODEL_SPL_FRAGMENTS:
+            assert fragment not in visible
+        assert "execution_eligible=true" not in visible
+
+
+def test_stage3jj_success_after_failure_keeps_t1078_validation_required() -> None:
+    response = _run("successful_login_after_failures")
+    visible = _visible_text(response)
+
+    assert "T1110.001" in visible
+    assert "Supported" in visible
+    assert "T1078" in visible
+    assert "Requires validation" in visible
+    assert "t1078 confirmed" not in visible.lower()
+    assert "post-login malicious activity" not in visible.lower()
+    assert "svc_grid_ops is privileged" not in visible.lower()

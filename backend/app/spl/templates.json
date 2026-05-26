@@ -25,17 +25,17 @@
       "use_case_id": "auth_success_after_failure",
       "required_entities": [],
       "default_time_window": "earliest=-60m latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now | stats count(eval(action=\"failure\")) as failed_logins count(eval(action=\"success\")) as successful_logins min(_time) as first_seen max(_time) as last_seen values(action) as action by user, src, host | where failed_logins >= 5 AND successful_logins > 0 | sort -failed_logins | head 100",
-      "returned_fields": ["user", "src", "host", "failed_logins", "successful_logins", "first_seen", "last_seen", "action"],
+      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth host=APP-01 earliest=-60m latest=now (action=failure OR action=success) | stats count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips min(eval(if(action=\"failure\", _time, null()))) as first_failure max(_time) as last_event by user, src, host | where fail_count >= 5 AND success_count >= 1 | eval risk=\"P1 validation - successful login after repeated failures\" | table user host source_ips fail_count success_count first_failure last_event risk | sort -fail_count | head 100",
+      "returned_fields": ["user", "host", "source_ips", "fail_count", "success_count", "first_failure", "last_event", "risk"],
       "validation_rules": {
         "allowed_indexes": ["pgcil_soc"],
         "allowed_sourcetypes": ["pgcil:auth"],
-        "allowed_commands": ["search", "stats", "where", "sort", "head"],
+        "allowed_commands": ["search", "stats", "where", "eval", "table", "sort", "head"],
         "required_time_bounds": true,
         "result_limit_required": true
       },
       "result_limits": {"max_rows": 100},
-      "severity_inputs": ["failed_logins", "successful_logins", "user", "src", "host"],
+      "severity_inputs": ["fail_count", "success_count", "user", "src", "host"],
       "answer_sections_supported": ["splunk_results_table", "mitre_mappings", "recommended_actions"]
     },
     {
