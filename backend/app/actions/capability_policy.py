@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+ALLOWED_ACTION_TIERS = (1,)
+
 
 class ActionCapability(BaseModel):
     current_tier: int

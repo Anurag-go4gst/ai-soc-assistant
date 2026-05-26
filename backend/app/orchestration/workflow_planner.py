@@ -7,6 +7,7 @@ from app.connectors.telemetry import get_telemetry_connector
 from app.routing.skills import validate_skill
 
 EXECUTION_STATUS = "not_started"
+SOURCE_IDS = ("mcp:splunk", "rag:sop")
 
 
 def _step(name: str, required_connectors: list[str], safety_gates: list[str]) -> dict[str, Any]:

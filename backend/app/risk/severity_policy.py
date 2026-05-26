@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 MATRIX_PATH = Path(__file__).with_name("severity_matrix.json")
+ACTION_PRIORITIES = ("urgent", "high", "standard_triage", "low")
 
 
 class SeverityDecision(BaseModel):

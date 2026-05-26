@@ -153,6 +153,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-24_1232_stage-3j-context-sufficiency-gate.md` | Done |
 | `plans/2026-05-24_1811_stage-3j-b-llm-registry-settings.md` | Done |
 | `plans/2026-05-24_1900_stage-3j-c-analyst-chat-ux-intent-hygiene.md` | Done |
+| `plans/2026-05-26_1835_stage-3j-i-1-llm-adapter.md` | Done |
 
 ## Git Notes
 

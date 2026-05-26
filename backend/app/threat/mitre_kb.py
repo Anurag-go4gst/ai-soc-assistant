@@ -7,6 +7,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 MITRE_PATH = Path(__file__).with_name("mitre_attack_subset.json")
+MITRE_MAPPING_STATUSES = ("supported", "candidate", "requires_validation", "analyst_review")
 
 
 class MitreTechnique(BaseModel):
