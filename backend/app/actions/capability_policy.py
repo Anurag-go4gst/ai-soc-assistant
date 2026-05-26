@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 ALLOWED_ACTION_TIERS = (1,)
+BLOCKED_EXECUTION_ACTIONS = ("block_ip", "disable_user", "isolate_endpoint", "containment", "close_incident", "create_ticket")
 
 
 class ActionCapability(BaseModel):
