@@ -6,6 +6,7 @@ import pytest
 
 from app.api.routes_settings import (
     LlmProviderDraft,
+    LlmRoleMappingDraft,
     LlmSettingsDraftCheckRequest,
     check_llm_settings_draft,
 )
@@ -32,6 +33,8 @@ def test_governance_block_present_in_status() -> None:
         "context_sufficiency_required",
         "providers",
         "role_mappings",
+        "role_suitability",
+        "deterministic_authorities",
         "safety",
     ):
         assert key in block
@@ -65,6 +68,17 @@ def test_final_synthesis_defaults_false() -> None:
 def test_answer_guard_defaults_false() -> None:
     assert _fresh_settings().ai_soc_llm_answer_guard_enabled is False
     assert build_llm_governance_status()["answer_guard_enabled"] is False
+
+
+def test_foundation_sec_role_strategy_is_read_only_and_guarded() -> None:
+    block = build_llm_governance_status()
+    roles = {role["role"]: role for role in block["role_mappings"]}
+    assert roles["intent_shadow_classifier"]["preferred_provider"] == "foundation_sec_instruct"
+    assert roles["pattern_reasoner"]["preferred_provider"] == "foundation_sec_reasoning"
+    assert roles["spl_advisory_generator"]["execution_eligible"] is False
+    assert roles["answer_guard_assistant"]["mode"] == "planned"
+    assert "severity_label" in block["deterministic_authorities"]
+    assert "mcp_execution_eligibility" in block["deterministic_authorities"]
 
 
 def test_context_sufficiency_required_defaults_true() -> None:
@@ -112,6 +126,26 @@ def test_llm_draft_check_passes_and_never_persists() -> None:
     assert result["saved"] is False
     assert result["providers"][0]["api_key_configured"] is True
     assert "sk-draft-secret" not in json.dumps(result)
+
+
+def test_llm_draft_check_accepts_role_mapping_without_execution() -> None:
+    result = check_llm_settings_draft(
+        LlmSettingsDraftCheckRequest(
+            mode="cisco_foundation_sec",
+            providers=[
+                LlmProviderDraft(provider_id="foundation_sec_instruct", base_url="https://foundation.example.invalid/instruct", model="Foundation-sec-8B-Instruct"),
+                LlmProviderDraft(provider_id="foundation_sec_reasoning", base_url="https://foundation.example.invalid/reasoning", model="Foundation-sec-8B-Reasoning"),
+            ],
+            role_mappings=[
+                LlmRoleMappingDraft(role="intent_shadow_classifier", provider="foundation_sec_instruct", model="Foundation-sec-8B-Instruct"),
+                LlmRoleMappingDraft(role="pattern_reasoner", provider="foundation_sec_reasoning", model="Foundation-sec-8B-Reasoning"),
+            ],
+        )
+    )
+    assert result["validation_status"] == "pass"
+    assert result["role_mappings"][0]["execution_eligible"] is False
+    assert result["role_mappings"][1]["validator_required"] is True
+    assert result["saved"] is False
 
 
 def test_llm_draft_check_rejects_invalid_mode_and_limits() -> None:

@@ -121,11 +121,11 @@ function SplunkCapabilityCard({ status }: { status: ProviderSettingsStatus }) {
                 <SettingRow label="Authentication configured" value={<BoolPill value={verification.authentication_configured} trueLabel="yes" falseLabel="no" />} />
                 <SettingRow label="Reachable" value={verification.reachable === null ? 'not tested' : <BoolPill value={verification.reachable} trueLabel="yes" falseLabel="no" />} />
                 <SettingRow label="Authenticated" value={verification.authenticated === null ? 'not tested' : <BoolPill value={verification.authenticated} trueLabel="yes" falseLabel="no" />} />
-                <SettingRow label="MCP handshake" value={verification.mcp_handshake} mono />
+                <SettingRow label="Server handshake" value={verification.mcp_handshake} mono />
                 <SettingRow label="Tools discovered" value={verification.tools_discovered_count} mono />
                 <SettingRow label="Splunk core tools" value={verification.splunk_core_tools_discovered_count} mono />
-                <SettingRow label="SAIA tools" value={verification.saia_tools_discovered_count} mono />
-                <SettingRow label="Execution policy" value={verification.execution_policy} mono />
+                <SettingRow label="Splunk AI tools" value={verification.saia_tools_discovered_count} mono />
+                <SettingRow label="Execution policy" value={verification.execution_policy === 'gated' ? 'Gated; discovery only' : verification.execution_policy} mono />
               </div>
               <details className="rounded border border-slate-800 bg-slate-950/60 px-2 py-1.5">
                 <summary className="cursor-pointer text-slate-400">Technical details</summary>

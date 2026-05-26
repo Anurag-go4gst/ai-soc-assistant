@@ -72,8 +72,8 @@ export function McpSettingsPanel({ status }: { status: SettingsStatus['mcp'] }) 
           <SettingRow label="Splunk MCP enabled" value={<BoolPill value={status.splunk_mcp_enabled ?? false} />} />
           <SettingRow label="Discovery mode" value={status.splunk_mcp_discovery_mode ?? 'dynamic'} mono />
           <SettingRow label="Splunk AI Assistant mode" value={status.splunk_ai_assistant_mode ?? 'auto'} mono />
-          <SettingRow label="SAIA tools enabled" value={<BoolPill value={status.splunk_saia_tools_enabled ?? false} />} />
-          <SettingRow label="SAIA require discovery" value={<BoolPill value={status.splunk_saia_require_discovery ?? true} />} />
+          <SettingRow label="Splunk AI tools enabled" value={<BoolPill value={status.splunk_saia_tools_enabled ?? false} />} />
+          <SettingRow label="Splunk AI tools must be discovered" value={<BoolPill value={status.splunk_saia_require_discovery ?? true} />} />
           <SettingRow label="Fallback required" value={<BoolPill value={status.fallback_required ?? true} trueLabel="yes" falseLabel="no" />} />
           <SettingRow label="Core tools discovered" value={status.discovered_core_tool_count ?? 0} mono />
           <SettingRow label="SAIA tools discovered" value={status.discovered_saia_tool_count ?? 0} mono />
@@ -108,7 +108,7 @@ export function McpSettingsPanel({ status }: { status: SettingsStatus['mcp'] }) 
                 {server.type === 'splunk' ? (
                   <>
                     <SettingRow label="Splunk app" value={server.splunk_app_id ?? '7931'} mono />
-                    <SettingRow label="SAIA/SPL generation" value={<BoolPill value={server.saia_spl_generation_allowed === true} trueLabel="allowed" falseLabel="blocked" />} />
+                    <SettingRow label="Splunk AI SPL generation" value={<BoolPill value={server.saia_spl_generation_allowed === true} trueLabel="allowed" falseLabel="blocked" />} />
                   </>
                 ) : null}
               </div>
@@ -131,11 +131,11 @@ function McpVerificationResult({ result }: { result: McpConnectionVerificationRe
         <SettingRow label="Authentication configured" value={<BoolPill value={result.authentication_configured} trueLabel="yes" falseLabel="no" />} />
         <SettingRow label="Reachable" value={result.reachable === null ? 'not tested' : <BoolPill value={result.reachable} trueLabel="yes" falseLabel="no" />} />
         <SettingRow label="Authenticated" value={result.authenticated === null ? 'not tested' : <BoolPill value={result.authenticated} trueLabel="yes" falseLabel="no" />} />
-        <SettingRow label="MCP handshake" value={result.mcp_handshake} mono />
+        <SettingRow label="Server handshake" value={result.mcp_handshake} mono />
         <SettingRow label="Tools discovered" value={result.tools_discovered_count} mono />
         <SettingRow label="Splunk core tools" value={result.splunk_core_tools_discovered_count} mono />
-        <SettingRow label="SAIA tools" value={result.saia_tools_discovered_count} mono />
-        <SettingRow label="Execution policy" value={result.execution_policy} mono />
+        <SettingRow label="Splunk AI tools" value={result.saia_tools_discovered_count} mono />
+        <SettingRow label="Execution policy" value={result.execution_policy === 'gated' ? 'Gated; discovery only' : result.execution_policy} mono />
       </div>
       {result.tools.length ? (
         <div className="overflow-x-auto rounded border border-slate-800">
@@ -155,7 +155,7 @@ function McpVerificationResult({ result }: { result: McpConnectionVerificationRe
                   <td className="px-2 py-1.5 font-mono text-slate-400">{tool.capability ?? 'unknown'}</td>
                   <td className="px-2 py-1.5 text-slate-400">{(tool.categories ?? []).join(', ') || 'unknown'}</td>
                   <td className="px-2 py-1.5">
-                    <Badge variant={tool.blocked ? 'destructive' : 'secondary'}>{tool.blocked ? 'blocked' : 'discovery only'}</Badge>
+                    <Badge variant={tool.blocked ? 'destructive' : 'secondary'}>{tool.blocked ? 'blocked by policy' : 'discovery only'}</Badge>
                   </td>
                 </tr>
               ))}

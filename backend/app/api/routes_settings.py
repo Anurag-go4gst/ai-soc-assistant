@@ -80,6 +80,12 @@ class LlmProviderDraft(BaseModel):
     auth_mode: str = "api_key"
 
 
+class LlmRoleMappingDraft(BaseModel):
+    role: str
+    provider: str = ""
+    model: str = ""
+
+
 class LlmSettingsDraftCheckRequest(BaseModel):
     mode: str = "mock"
     enabled: bool = False
@@ -101,6 +107,7 @@ class LlmSettingsDraftCheckRequest(BaseModel):
     final_synthesis_enabled: bool = False
     answer_guard_enabled: bool = False
     providers: list[LlmProviderDraft] = []
+    role_mappings: list[LlmRoleMappingDraft] = []
 
 
 class LlmVerificationRequest(BaseModel):
@@ -501,6 +508,27 @@ def check_llm_settings_draft(payload: LlmSettingsDraftCheckRequest) -> dict:
         }
         for provider in payload.providers
     ]
+    configured_provider_ids = {provider["provider_id"] for provider in configured_providers}
+    role_mappings = [
+        {
+            "role": role.role.strip()[:120],
+            "provider": role.provider.strip()[:120] or None,
+            "model": role.model.strip()[:160] or None,
+            "enabled": bool(role.provider.strip()),
+            "execution_eligible": False,
+            "validator_required": True,
+        }
+        for role in payload.role_mappings
+    ]
+    for role in role_mappings:
+        if role["provider"] and role["provider"] not in configured_provider_ids:
+            warnings.append(f"role_provider_not_in_draft_provider_list:{role['role']}")
+    role_provider_ids = {role["provider"] for role in role_mappings if role["provider"]}
+    if {"foundation_sec_instruct", "foundation_sec_reasoning"} & role_provider_ids and not {
+        "foundation_sec_instruct",
+        "foundation_sec_reasoning",
+    }.issubset(role_provider_ids | configured_provider_ids):
+        warnings.append("foundation_sec_role_separation_degraded_single_model_configured")
     if mode not in {"mock", "disabled"} and not any(p["base_url_configured"] for p in configured_providers):
         warnings.append("no_provider_endpoint_configured_for_non_mock_mode")
 
@@ -530,6 +558,7 @@ def check_llm_settings_draft(payload: LlmSettingsDraftCheckRequest) -> dict:
             "allow_insufficient_evidence_response": payload.allow_insufficient_evidence_response,
         },
         "providers": configured_providers,
+        "role_mappings": role_mappings,
         "validation_status": "pass" if not errors else "fail",
         "validation_errors": errors,
         "warnings": warnings,

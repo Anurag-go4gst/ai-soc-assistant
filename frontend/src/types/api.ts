@@ -440,6 +440,16 @@ export interface LlmGovernanceProvider {
   base_url_configured: boolean;
   api_key_configured: boolean;
   default_model_configured: boolean;
+  model_name?: string | null;
+  max_context_tokens?: number;
+  max_output_tokens?: number;
+  timeout_seconds?: number;
+  temperature?: number;
+  top_p?: number;
+  supports_json_mode?: boolean;
+  supports_model_listing?: boolean;
+  deployment_mode?: string;
+  policy_allowed?: boolean;
   enabled: boolean;
 }
 
@@ -448,6 +458,25 @@ export interface LlmGovernanceRoleMapping {
   provider: string | null;
   model: string | null;
   enabled: boolean;
+  preferred_provider?: string;
+  preferred_model?: string;
+  mode?: string;
+  output?: string;
+  authority?: string;
+  validator_required?: boolean | string;
+  strict_json?: boolean;
+  temperature?: number;
+  max_input_tokens?: number;
+  max_output_tokens?: number;
+  execution_eligible?: boolean;
+  fallback_used?: boolean;
+  degraded_role_separation?: boolean;
+}
+
+export interface LlmRoleSuitability {
+  provider_id: string;
+  model_family: string;
+  checks: Record<string, string>;
 }
 
 export interface LlmGovernanceStatus {
@@ -477,6 +506,8 @@ export interface LlmGovernanceStatus {
   };
   providers: LlmGovernanceProvider[];
   role_mappings: LlmGovernanceRoleMapping[];
+  role_suitability?: LlmRoleSuitability[];
+  deterministic_authorities?: string[];
   warnings: string[];
   notes: string[];
 }
@@ -486,6 +517,12 @@ export interface LlmSettingsDraftProvider {
   provider_type?: string;
   base_url?: string;
   api_key?: string;
+  model?: string;
+}
+
+export interface LlmSettingsDraftRoleMapping {
+  role: string;
+  provider?: string;
   model?: string;
 }
 
@@ -510,6 +547,7 @@ export interface LlmSettingsDraftCheckRequest {
   final_synthesis_enabled: boolean;
   answer_guard_enabled: boolean;
   providers: LlmSettingsDraftProvider[];
+  role_mappings?: LlmSettingsDraftRoleMapping[];
 }
 
 export interface LlmSettingsDraftCheckResult {
@@ -521,6 +559,14 @@ export interface LlmSettingsDraftCheckResult {
   answer_guard_enabled: boolean;
   context_sufficiency_required: boolean;
   providers: { provider_id: string; provider_type: string; base_url_configured: boolean; api_key_configured: boolean; default_model_configured: boolean }[];
+  role_mappings?: {
+    role: string;
+    provider: string | null;
+    model: string | null;
+    enabled: boolean;
+    execution_eligible: boolean;
+    validator_required: boolean;
+  }[];
   validation_status: 'pass' | 'fail';
   validation_errors: string[];
   warnings: string[];

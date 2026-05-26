@@ -130,11 +130,11 @@ function LlmVerificationResult({ result }: { result: LlmConnectionVerificationRe
       <div className="grid gap-1 sm:grid-cols-2">
         <SettingRow label="Base URL configured" value={<BoolPill value={result.base_url_configured} trueLabel="yes" falseLabel="no" />} />
         <SettingRow label="API key configured" value={<BoolPill value={result.api_key_configured} trueLabel="yes" falseLabel="no" />} />
-        <SettingRow label="Default model configured" value={<BoolPill value={result.default_model_configured} trueLabel="yes" falseLabel="no" />} />
+        <SettingRow label="Model configured" value={<BoolPill value={result.default_model_configured} trueLabel="yes" falseLabel="no" />} />
         <SettingRow label="Reachable" value={result.reachable === null ? 'not tested' : <BoolPill value={result.reachable} trueLabel="yes" falseLabel="no" />} />
         <SettingRow label="Authenticated" value={result.authenticated === null ? 'not tested' : <BoolPill value={result.authenticated} trueLabel="yes" falseLabel="no" />} />
-        <SettingRow label="Model available" value={typeof result.model_available === 'boolean' ? <BoolPill value={result.model_available} trueLabel="yes" falseLabel="no" /> : result.model_available} />
-        <SettingRow label="Policy allowed" value={<BoolPill value={result.policy_allowed} trueLabel="yes" falseLabel="no" />} />
+        <SettingRow label="Model found" value={typeof result.model_available === 'boolean' ? <BoolPill value={result.model_available} trueLabel="yes" falseLabel="no" /> : result.model_available} />
+        <SettingRow label="Allowed by deployment policy" value={<BoolPill value={result.policy_allowed} trueLabel="yes" falseLabel="no" />} />
         <SettingRow label="Final synthesis" value={result.final_synthesis} mono />
         <SettingRow label="Answer Guard" value={result.answer_guard} mono />
         <SettingRow label="Provider" value={result.provider_type || 'unset'} mono />
@@ -221,12 +221,42 @@ function LlmGovernanceSection({ governance }: { governance: LlmGovernanceStatus 
                 <BoolPill value={provider.base_url_configured} trueLabel="base URL set" falseLabel="no base URL" />
                 <BoolPill value={provider.api_key_configured} trueLabel="API key set" falseLabel="no API key" />
                 <BoolPill value={provider.default_model_configured} trueLabel="model set" falseLabel="no model" />
+                <BoolPill value={provider.policy_allowed !== false} trueLabel="policy allowed" falseLabel="policy blocked" />
+                <BoolPill value={provider.supports_json_mode === true} trueLabel="JSON mode" falseLabel="no JSON mode" />
                 <BoolPill value={provider.enabled} trueLabel="enabled" falseLabel="disabled" />
+              </div>
+              <div className="mt-1 grid gap-1 text-[0.65rem] text-slate-500 sm:grid-cols-2">
+                <span>deployment: <span className="font-mono">{provider.deployment_mode ?? 'unset'}</span></span>
+                <span>model: <span className="font-mono">{provider.model_name ?? 'unset'}</span></span>
+                {provider.max_context_tokens ? <span>context: <span className="font-mono">{provider.max_context_tokens.toLocaleString()} tok</span></span> : null}
+                {provider.max_output_tokens ? <span>output: <span className="font-mono">{provider.max_output_tokens.toLocaleString()} tok</span></span> : null}
               </div>
             </div>
           ))}
         </div>
       </div>
+      {governance.role_suitability?.length ? (
+        <div className="rounded-md border border-slate-800 bg-slate-950/50 p-3">
+          <p className="soc-eyebrow mb-2">Role suitability</p>
+          <div className="space-y-2">
+            {governance.role_suitability.map((item) => (
+              <div key={item.provider_id} className="rounded border border-slate-800 px-2 py-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-slate-100">{item.provider_id}</p>
+                  <Badge variant="outline" className="font-mono text-[0.65rem]">{item.model_family}</Badge>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {Object.entries(item.checks).map(([check, value]) => (
+                    <Badge key={check} variant={value === 'not_recommended' || value === 'blocked_by_policy' ? 'warning' : 'secondary'} className="text-[0.65rem]">
+                      {check}: {value}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="rounded-md border border-slate-800 bg-slate-950/50 p-3">
         <p className="soc-eyebrow mb-2">Governed role mapping</p>
         {governance.role_mappings.map((role) => (
@@ -234,14 +264,27 @@ function LlmGovernanceSection({ governance }: { governance: LlmGovernanceStatus 
             key={role.role}
             label={role.role}
             value={
-              <span className="flex items-center gap-2">
+              <span className="flex flex-wrap items-center gap-2">
                 <span className="font-mono">{role.provider ?? 'unset'}{role.model ? ` · ${role.model}` : ''}</span>
                 <BoolPill value={role.enabled} trueLabel="set" falseLabel="unset" />
+                <Badge variant="outline" className="text-[0.65rem]">{role.authority ?? 'advisory'}</Badge>
+                {role.mode ? <Badge variant="secondary" className="text-[0.65rem]">{role.mode}</Badge> : null}
+                {role.degraded_role_separation ? <Badge variant="warning" className="text-[0.65rem]">degraded separation</Badge> : null}
               </span>
             }
           />
         ))}
       </div>
+      {governance.deterministic_authorities?.length ? (
+        <div className="rounded-md border border-slate-800 bg-slate-950/50 p-3">
+          <p className="soc-eyebrow mb-2">Deterministic authority</p>
+          <div className="flex flex-wrap gap-1.5">
+            {governance.deterministic_authorities.map((authority) => (
+              <Badge key={authority} variant="outline" className="font-mono text-[0.65rem]">{authority}</Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <p className="text-[0.65rem] text-slate-500">Endpoint URLs and API keys are never exposed by this surface.</p>
     </div>
   );
@@ -291,17 +334,22 @@ function LlmGovernanceEditor({ governance }: { governance: LlmGovernanceStatus }
   const [providers, setProviders] = useState<ProviderDraftRow[]>(
     governance.providers.map((p) => ({ provider_id: p.provider_id, provider_type: p.provider_type, base_url: '', api_key: '', model: '' })),
   );
+  const [roleMappings, setRoleMappings] = useState(
+    governance.role_mappings.map((role) => ({ role: role.role, provider: role.provider ?? role.preferred_provider ?? '', model: role.model ?? role.preferred_model ?? '' })),
+  );
   const [result, setResult] = useState<LlmSettingsDraftCheckResult | null>(null);
   const [busy, setBusy] = useState(false);
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((f) => ({ ...f, [key]: value }));
   const setProvider = (i: number, key: keyof ProviderDraftRow, value: string) =>
     setProviders((rows) => rows.map((row, idx) => (idx === i ? { ...row, [key]: value } : row)));
+  const setRoleMapping = (i: number, key: 'provider' | 'model', value: string) =>
+    setRoleMappings((rows) => rows.map((row, idx) => (idx === i ? { ...row, [key]: value } : row)));
 
   const validate = async () => {
     setBusy(true);
     try {
-      const res = await checkLlmSettingsDraft({ ...form, providers });
+      const res = await checkLlmSettingsDraft({ ...form, providers, role_mappings: roleMappings });
       setResult(res);
       toast[res.validation_status === 'pass' ? 'success' : 'error'](
         res.validation_status === 'pass' ? 'Draft valid (not saved)' : 'Draft has validation errors',
@@ -381,6 +429,20 @@ function LlmGovernanceEditor({ governance }: { governance: LlmGovernanceStatus }
                 <Input className="h-8 text-xs" value={provider.base_url} onChange={(e) => setProvider(i, 'base_url', e.target.value)} placeholder="base URL" />
                 <Input className="h-8 text-xs" type="password" value={provider.api_key} onChange={(e) => setProvider(i, 'api_key', e.target.value)} placeholder="API key (not stored)" />
                 <Input className="h-8 text-xs" value={provider.model} onChange={(e) => setProvider(i, 'model', e.target.value)} placeholder="model" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded border border-slate-800 p-2">
+        <p className="soc-eyebrow mb-1">Role mappings</p>
+        <div className="space-y-2">
+          {roleMappings.map((role, i) => (
+            <div key={role.role} className="rounded border border-slate-800 p-2">
+              <p className="text-xs font-semibold text-slate-100">{role.role}</p>
+              <div className="mt-1 grid gap-1.5 sm:grid-cols-2">
+                <Input className="h-8 text-xs" value={role.provider} onChange={(e) => setRoleMapping(i, 'provider', e.target.value)} placeholder="provider id" />
+                <Input className="h-8 text-xs" value={role.model} onChange={(e) => setRoleMapping(i, 'model', e.target.value)} placeholder="model" />
               </div>
             </div>
           ))}
