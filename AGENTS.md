@@ -27,9 +27,12 @@ Current implementation is governed candidate generation and gated execution cont
 - Real MCP execution adapter shape exists, but real execution remains blocked/not implemented until COE MCP URL, transport, auth, tool names, argument schema, and approval workflow are supplied.
 - Governed RAG retrieval is wired: SOC KB results flow only through `SourceEvidence` and `StructuredContext`. There is no direct RAG-to-LLM path.
 - The Context Sufficiency Gate (Stage 3J) classifies the evidence package into one answer mode and computes `synthesis_readiness`. `synthesis_allowed` stays `false`.
-- Final LLM synthesis and the answer guard do not exist. `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert config flags (Stage 3J-B), default false.
+- No final LLM synthesis runs. `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert config flags (Stage 3J-B), default false. Answer Guard execution stays disabled.
 - The governed LLM layer (Stage 3J-B) is configuration/status/UI only and never calls a real LLM. `/settings/llm/check` validates drafts without persisting; secrets are never echoed.
 - Intent hygiene (Stage 3J-C): SOP/playbook and MITRE prompts route to `knowledge_recall` (no SPL). A MITRE ask without alert context returns an `intent_clarification` human-review rather than generating SPL. The chat UI is analyst-first with the technical trace collapsed by default.
+- Guarded LLM adapter (Stage 3J-I): `app/llm/adapter/` extracts the first balanced JSON object, validates role schemas, and applies active authority overrides — it always forces SPL `execution_eligible=false` and forces deterministic clarification, severity, MITRE status, SOP citation, and allowed actions on conflict, recording `warnings`/`disagreements`. Dormant semantic guards in `app/answer_guard/rules.py` (13 `guard.*` ids) are unit-tested only. Neither the adapter nor the guard rules are imported by `/chat` or the demo path; they never run on a live answer.
+- Experience Center calibration (Stage 3J-J): demo golden answers in `app/demo/scenarios.py` mirror governed Foundation-sec behavior (valid template SPL, per-source distinct-user labels, explicit MITRE `Status`, P1–P4 priorities, no execution eligibility) and carry a collapsed investigation-lineage reveal. Answers stay deterministic `coe_synthetic_fixture`, not live-model output.
+- LLM-assisted routing governance (Stage 3J-K0): routing modes `deterministic_only`, `llm_shadow_only`, `llm_assisted_semantic`, `llm_primary_lab`. LLM route suggestions are advisory, normalized through deterministic registries and clarification policy; final route selection stays deterministic. Evidence-need→MCP-tool mapping is a deterministic record only. The SPL optimizer field `execution_eligible` is renamed `revalidation_approved`; candidate SPL stays non-executable.
 - Splunk telemetry writes are disabled.
 - LLMs must never call MCP directly.
 
@@ -100,3 +103,7 @@ Recent stage commits:
 - `a0ba56f Stage 3J: Add context sufficiency gate`
 - `c3d13cc Stage 3J-B: Add LLM registry settings and status UI`
 - `Stage 3J-C Improve analyst chat UX and starter intent handling`
+- `db37003 / 5cf271e / 9ba7ab7 Stage 3J-I.1/.2/.3: Guarded LLM adapter, dormant semantic guards, prompt contracts`
+- `2fefd10 Calibrate Experience Center responses to governed LLM behavior`
+- `05c95bc Stage 3J-K0: Govern LLM-assisted routing and tool selection`
+- `91f7b0e Stage 3J-J.2: Surface investigation lineage reveal in chat UI`

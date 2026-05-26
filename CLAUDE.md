@@ -28,8 +28,11 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - Governed SOC-KB RAG retrieval is wired (Stage 3G.1) and flows only through `SourceEvidence`/`StructuredContext`; there is no direct RAG-to-LLM path.
 - The Context Sufficiency Gate (Stage 3J) classifies the evidence package into one of seven answer modes (`full_answer`, `partial_answer`, `analyst_review_required`, `spl_review_only`, `knowledge_only_answer`, `blocked_by_policy`, `insufficient_evidence`) and computes `synthesis_readiness`. `synthesis_allowed` stays `false`.
 - The governed LLM layer (Stage 3J-B) is `AI_SOC_LLM_*` config + a `llm.governance` status block + the LLM Registry settings UI. It never calls a real LLM. `AI_SOC_LLM_MODE` is canonical (`disabled` forces off); air-gap enforcement overrides cloud allowance. `/settings/llm/check` validates drafts without persisting and never echoes secrets.
-- `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert flags (default false); no synthesis or answer-guard code exists yet.
+- `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert flags (default false); no final synthesis runs and Answer Guard execution stays disabled.
 - Intent hygiene (Stage 3J-C): SOP/playbook/runbook and MITRE prompts route to `knowledge_recall` (no SPL); a MITRE ask without alert context returns an `intent_clarification` human-review asking for the alert; success-after-failures prompts generate a failure+success correlation SPL, not a failed-spike-only query. The chat UI is analyst-first: an analyst summary card on top with the Stage 3D technical trace collapsed behind "Show technical trace".
+- Guarded LLM adapter (Stage 3J-I): `app/llm/adapter/` extracts the first balanced JSON object, validates role-specific schemas, and applies active authority overrides (forces SPL `execution_eligible=false`, forces deterministic clarification/severity/MITRE-status/SOP-citation/allowed-actions on conflict, records `warnings`/`disagreements`). Dormant semantic guards live in `app/answer_guard/rules.py` (13 stable `guard.*` ids, unit-tested only). Adapter and guard rules are NOT imported by any `/chat` or demo response path; they never run on a live answer yet.
+- Experience Center calibration (Stage 3J-J): demo golden answers in `app/demo/scenarios.py` are calibrated to governed Foundation-sec behavior — valid template SPL, per-source "Distinct users by source" (no summed global count), explicit MITRE `Status`, P1–P4 action priorities, `execution_eligible=false`. Each answer carries an investigation-lineage reveal ("How this answer was produced") collapsed by default in the chat UI. Answers are deterministic/`coe_synthetic_fixture`, not produced by a live model.
+- LLM-assisted routing governance (Stage 3J-K0): routing modes `deterministic_only`, `llm_shadow_only`, `llm_assisted_semantic`, `llm_primary_lab`. LLM route suggestions are advisory only, normalized through deterministic registries and clarification policy; final route selection stays deterministic. Evidence-need→MCP-tool mapping is a deterministic record only (no execution). The SPL optimizer field `execution_eligible` is renamed `revalidation_approved`; candidate SPL remains non-executable.
 - Do not add final LLM synthesis, the answer guard, real LLM calls, Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless a later stage explicitly asks for it.
 - Do not execute raw `candidate_spl`; never pass prompts, reasoning, credentials, RAG chunks, or raw workflow internals to MCP.
 
@@ -156,8 +159,8 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-26_1835_stage-3j-i-1-llm-adapter.md` | Done |
 | `plans/2026-05-26_1842_stage-3j-i-2-dormant-semantic-guards.md` | Done |
 | `plans/2026-05-26_1849_stage-3j-i-3-prompt-contracts-role-suitability.md` | Done |
-| `plans/2026-05-26_1924_stage-3j-j-experience-center-llm-calibration.md` | Proposed |
-| `plans/2026-05-26_1955_stage-3j-k0-llm-assisted-routing-governance.md` | Proposed |
+| `plans/2026-05-26_1924_stage-3j-j-experience-center-llm-calibration.md` | Superseded — lighter calibration shipped in `2fefd10`; lineage reveal in `91f7b0e` |
+| `plans/2026-05-26_1955_stage-3j-k0-llm-assisted-routing-governance.md` | In Progress — routing backend landed (`05c95bc`); governance settings UI uncommitted |
 
 ## Git Notes
 
@@ -168,5 +171,11 @@ Recent stage split:
 - `80d8e35 Wire governed RAG into chat context and trace UI`
 - `a0ba56f Stage 3J: Add context sufficiency gate`
 - `c3d13cc Stage 3J-B: Add LLM registry settings and status UI`
+- `db37003 Stage 3J-I.1: Add guarded LLM adapter and active overrides`
+- `5cf271e Stage 3J-I.2: Add dormant semantic LLM guard rules`
+- `9ba7ab7 Stage 3J-I.3: Update LLM prompt contracts and role suitability`
+- `2fefd10 Calibrate Experience Center responses to governed LLM behavior`
+- `05c95bc Stage 3J-K0: Govern LLM-assisted routing and tool selection`
+- `91f7b0e Stage 3J-J.2: Surface investigation lineage reveal in chat UI`
 
 Keep future changes similarly scoped. Do not combine workflow execution changes with connection-readiness or UI-only changes unless explicitly requested.
