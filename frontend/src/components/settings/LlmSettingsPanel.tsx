@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Brain, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { checkLlmSettingsDraft } from '@/api/client';
+import { checkLlmSettingsDraft, verifyLlmConnection } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { LlmGovernanceStatus, LlmSettingsDraftCheckResult, SettingsStatus } from '@/types/api';
+import type { LlmConnectionVerificationResult, LlmGovernanceStatus, LlmSettingsDraftCheckResult, SettingsStatus } from '@/types/api';
 import { BoolPill, ModeBadge, PanelMockBanner, PlaceholderConnectorBanner, SettingRow } from './SettingRow';
 
 const LLM_MODES = ['mock', 'local', 'openai_compatible', 'cisco_foundation_sec', 'disabled'];
@@ -16,6 +16,20 @@ export function LlmSettingsPanel({ status }: { status: SettingsStatus['llm'] }) 
   const providers = status.providers ?? [];
   const roles = status.role_resolution ?? {};
   const governance = status.governance;
+  const [verification, setVerification] = useState<LlmConnectionVerificationResult | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const runVerification = async (action: 'validate' | 'test' | 'models') => {
+    setBusyAction(action);
+    try {
+      const result = await verifyLlmConnection(action);
+      setVerification(result);
+      toast[result.status === 'Connected' || result.status === 'Config valid, not tested' ? 'success' : 'warning'](result.failure_reason);
+    } catch (err) {
+      toast.error(`LLM ${action} failed: ${(err as Error).message}`);
+    } finally {
+      setBusyAction(null);
+    }
+  };
   return (
     <Card className="soc-panel">
       <CardHeader className="py-3">
@@ -33,6 +47,31 @@ export function LlmSettingsPanel({ status }: { status: SettingsStatus['llm'] }) 
         {governance ? <LlmGovernanceSection governance={governance} /> : null}
         {status.implemented === false ? <PlaceholderConnectorBanner fallback={status.fallback} /> : null}
         {!status.enabled ? <PanelMockBanner /> : null}
+        <div className="rounded-md border border-slate-800 bg-slate-950/50 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-1">
+              <p className="soc-eyebrow">Connection verification</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={verification?.status === 'Connected' ? 'success' : verification ? 'warning' : 'secondary'}>
+                  {verification?.status ?? 'Not checked'}
+                </Badge>
+                {verification?.last_checked_time ? <span className="text-[0.65rem] text-slate-500">{new Date(verification.last_checked_time).toLocaleString()}</span> : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" disabled={!!busyAction} onClick={() => runVerification('validate')}>
+                {busyAction === 'validate' ? 'Validating...' : 'Validate settings'}
+              </Button>
+              <Button type="button" variant="outline" size="sm" disabled={!!busyAction} onClick={() => runVerification('test')}>
+                {busyAction === 'test' ? 'Testing...' : 'Test connection'}
+              </Button>
+              <Button type="button" variant="outline" size="sm" disabled={!!busyAction} onClick={() => runVerification('models')}>
+                {busyAction === 'models' ? 'Listing...' : 'List models'}
+              </Button>
+            </div>
+          </div>
+          {verification ? <LlmVerificationResult result={verification} /> : null}
+        </div>
         <div>
           <SettingRow label="Configured providers" value={(status.providers_configured ?? []).join(', ') || 'mock'} mono />
           <SettingRow label="Default provider" value={status.default_provider ?? 'mock'} mono />
@@ -79,11 +118,43 @@ export function LlmSettingsPanel({ status }: { status: SettingsStatus['llm'] }) 
           ))}
         </div>
         <p className="text-[0.65rem] text-slate-500">Endpoint URLs and API keys are never exposed by this surface.</p>
-        <Button type="button" variant="outline" size="sm" disabled className="w-full">
-          Test model (disabled in readiness stage)
-        </Button>
       </CardContent>
     </Card>
+  );
+}
+
+function LlmVerificationResult({ result }: { result: LlmConnectionVerificationResult }) {
+  return (
+    <div data-testid="llm-connection-result" className="mt-3 space-y-3 text-xs">
+      <p className={result.status === 'Connected' ? 'text-emerald-200' : 'text-amber-100'}>{result.failure_reason}</p>
+      <div className="grid gap-1 sm:grid-cols-2">
+        <SettingRow label="Base URL configured" value={<BoolPill value={result.base_url_configured} trueLabel="yes" falseLabel="no" />} />
+        <SettingRow label="API key configured" value={<BoolPill value={result.api_key_configured} trueLabel="yes" falseLabel="no" />} />
+        <SettingRow label="Default model configured" value={<BoolPill value={result.default_model_configured} trueLabel="yes" falseLabel="no" />} />
+        <SettingRow label="Reachable" value={result.reachable === null ? 'not tested' : <BoolPill value={result.reachable} trueLabel="yes" falseLabel="no" />} />
+        <SettingRow label="Authenticated" value={result.authenticated === null ? 'not tested' : <BoolPill value={result.authenticated} trueLabel="yes" falseLabel="no" />} />
+        <SettingRow label="Model available" value={typeof result.model_available === 'boolean' ? <BoolPill value={result.model_available} trueLabel="yes" falseLabel="no" /> : result.model_available} />
+        <SettingRow label="Policy allowed" value={<BoolPill value={result.policy_allowed} trueLabel="yes" falseLabel="no" />} />
+        <SettingRow label="Final synthesis" value={result.final_synthesis} mono />
+        <SettingRow label="Answer Guard" value={result.answer_guard} mono />
+        <SettingRow label="Provider" value={result.provider_type || 'unset'} mono />
+        <SettingRow label="Model" value={result.model ?? 'unset'} mono />
+      </div>
+      {result.models.length ? (
+        <div className="rounded border border-slate-800 bg-slate-950/60 p-2">
+          <p className="soc-eyebrow mb-2">Models</p>
+          <div className="flex flex-wrap gap-1.5">
+            {result.models.map((model) => (
+              <Badge key={model} variant="outline" className="font-mono text-[0.65rem]">{model}</Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <details className="rounded border border-slate-800 bg-slate-950/60 px-2 py-1.5">
+        <summary className="cursor-pointer text-slate-400">Technical details</summary>
+        <p className="mt-2 break-words font-mono text-[0.65rem] text-slate-500">{result.technical_error_detail || 'none'}</p>
+      </details>
+    </div>
   );
 }
 

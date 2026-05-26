@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from '@/lib/runtimeMode';
-import type { AuthResponse, DemoScenariosResponse, HealthResponse, KnowledgeCollection, KnowledgeDocument, KnowledgeEntry, LlmSettingsDraftCheckRequest, LlmSettingsDraftCheckResult, PlaceholderResponse, ProviderDraftCheckRequest, ProviderDraftCheckResult, ProviderSettingsStatus, SettingsStatus } from '../types/api';
+import type { AuthResponse, DemoScenariosResponse, HealthResponse, KnowledgeCollection, KnowledgeDocument, KnowledgeEntry, LlmConnectionVerificationResult, LlmSettingsDraftCheckRequest, LlmSettingsDraftCheckResult, McpConnectionVerificationResult, PlaceholderResponse, ProviderDraftCheckRequest, ProviderDraftCheckResult, ProviderSettingsStatus, SettingsStatus } from '../types/api';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -126,6 +126,19 @@ export async function checkProviderDraft(payload: ProviderDraftCheckRequest): Pr
   return response.json();
 }
 
+export async function verifyMcpConnection(action: 'validate' | 'test' | 'discover'): Promise<McpConnectionVerificationResult> {
+  const response = await fetch(`${API_BASE_URL}/settings/mcp/${action}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    throw new Error(`MCP ${action} failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function checkLlmSettingsDraft(payload: LlmSettingsDraftCheckRequest): Promise<LlmSettingsDraftCheckResult> {
   const response = await fetch(`${API_BASE_URL}/settings/llm/check`, {
     method: 'POST',
@@ -135,6 +148,19 @@ export async function checkLlmSettingsDraft(payload: LlmSettingsDraftCheckReques
   });
   if (!response.ok) {
     throw new Error(`LLM settings check failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function verifyLlmConnection(action: 'validate' | 'test' | 'models'): Promise<LlmConnectionVerificationResult> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/${action}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    throw new Error(`LLM ${action} failed: ${response.status}`);
   }
   return response.json();
 }

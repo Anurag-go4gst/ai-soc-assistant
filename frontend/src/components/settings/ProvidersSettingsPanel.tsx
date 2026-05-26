@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Boxes, Eye, HelpCircle, PlugZap, Plus, Radar, SlidersHorizontal, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
-import { checkProviderDraft } from '@/api/client';
+import { checkProviderDraft, verifyMcpConnection } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import type { ProviderDraftCheckResult, ProviderRegistryItem, ProviderSettingsStatus, ProviderToolStatus, ProviderTypeValue } from '@/types/api';
+import type { McpConnectionVerificationResult, ProviderDraftCheckResult, ProviderRegistryItem, ProviderSettingsStatus, ProviderToolStatus, ProviderTypeValue } from '@/types/api';
 import { BoolPill, SettingRow } from './SettingRow';
 
 const PROVIDER_TYPE_OPTIONS: ProviderTypeValue[] = ['splunk_mcp', 'asset_inventory'];
@@ -68,6 +68,21 @@ function SplunkCapabilityCard({ status }: { status: ProviderSettingsStatus }) {
   const splunk = status.splunk_capability ?? {};
   const coreCount = arrayLength(splunk.available_core_tools) ?? numberValue(splunk.discovered_core_tool_count) ?? 0;
   const saiaCount = arrayLength(splunk.available_saia_tools) ?? numberValue(splunk.discovered_saia_tool_count) ?? 0;
+  const [verification, setVerification] = useState<McpConnectionVerificationResult | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  const runVerification = async (action: 'validate' | 'test' | 'discover') => {
+    setBusyAction(action);
+    try {
+      const result = await verifyMcpConnection(action);
+      setVerification(result);
+      toast[result.status === 'Connected' ? 'success' : 'warning'](result.failure_reason);
+    } catch (err) {
+      toast.error(`MCP ${action} failed: ${(err as Error).message}`);
+    } finally {
+      setBusyAction(null);
+    }
+  };
 
   return (
     <Card className="soc-panel">
@@ -77,6 +92,48 @@ function SplunkCapabilityCard({ status }: { status: ProviderSettingsStatus }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-x-5 md:grid-cols-2">
+        <div className="mb-3 rounded-md border border-slate-800 bg-slate-950/50 p-3 md:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="soc-eyebrow">Connection status</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <Badge variant={verification?.status === 'Connected' ? 'success' : verification ? 'warning' : 'secondary'}>{verification?.status ?? 'Not checked'}</Badge>
+                {verification?.last_checked_time ? <span className="text-[0.65rem] text-slate-500">{new Date(verification.last_checked_time).toLocaleString()}</span> : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" disabled={!!busyAction} onClick={() => runVerification('validate')}>
+                {busyAction === 'validate' ? 'Validating...' : 'Validate settings'}
+              </Button>
+              <Button type="button" variant="outline" size="sm" disabled={!!busyAction} onClick={() => runVerification('test')}>
+                {busyAction === 'test' ? 'Testing...' : 'Test connection'}
+              </Button>
+              <Button type="button" variant="outline" size="sm" disabled={!!busyAction} onClick={() => runVerification('discover')}>
+                {busyAction === 'discover' ? 'Discovering...' : 'Discover tools'}
+              </Button>
+            </div>
+          </div>
+          {verification ? (
+            <div className="mt-3 space-y-2 text-xs">
+              <p className={verification.status === 'Connected' ? 'text-emerald-200' : 'text-amber-100'}>{verification.failure_reason}</p>
+              <div className="grid gap-1 sm:grid-cols-2">
+                <SettingRow label="URL configured" value={<BoolPill value={verification.url_configured} trueLabel="yes" falseLabel="no" />} />
+                <SettingRow label="Authentication configured" value={<BoolPill value={verification.authentication_configured} trueLabel="yes" falseLabel="no" />} />
+                <SettingRow label="Reachable" value={verification.reachable === null ? 'not tested' : <BoolPill value={verification.reachable} trueLabel="yes" falseLabel="no" />} />
+                <SettingRow label="Authenticated" value={verification.authenticated === null ? 'not tested' : <BoolPill value={verification.authenticated} trueLabel="yes" falseLabel="no" />} />
+                <SettingRow label="MCP handshake" value={verification.mcp_handshake} mono />
+                <SettingRow label="Tools discovered" value={verification.tools_discovered_count} mono />
+                <SettingRow label="Splunk core tools" value={verification.splunk_core_tools_discovered_count} mono />
+                <SettingRow label="SAIA tools" value={verification.saia_tools_discovered_count} mono />
+                <SettingRow label="Execution policy" value={verification.execution_policy} mono />
+              </div>
+              <details className="rounded border border-slate-800 bg-slate-950/60 px-2 py-1.5">
+                <summary className="cursor-pointer text-slate-400">Technical details</summary>
+                <p className="mt-2 break-words font-mono text-[0.65rem] text-slate-500">{verification.technical_error_detail || 'none'}</p>
+              </details>
+            </div>
+          ) : null}
+        </div>
         <SettingRow label="MCP available" value={<BoolPill value={Boolean(splunk.mcp_available)} trueLabel="available" falseLabel="unavailable" />} />
         <SettingRow label="Core splunk_* tools" value={<BoolPill value={Boolean(splunk.core_splunk_tools_available)} trueLabel="available" falseLabel="missing" />} />
         <SettingRow label="SAIA available" value={<BoolPill value={Boolean(splunk.saia_available)} trueLabel="available" falseLabel="not found" />} />

@@ -529,6 +529,50 @@ export interface LlmSettingsDraftCheckResult {
   safe_message: string;
 }
 
+export interface McpConnectionVerificationResult {
+  action: string;
+  status: string;
+  url_configured: boolean;
+  authentication_configured: boolean;
+  reachable: boolean | null;
+  authenticated: boolean | null;
+  mcp_handshake: string;
+  tools_discovered_count: number;
+  splunk_core_tools_discovered_count: number;
+  saia_tools_discovered_count: number;
+  execution_policy: string;
+  last_checked_time: string;
+  failure_reason: string;
+  technical_error_detail: string;
+  tools: { name: string; description?: string; capability?: string; categories?: string[]; blocked?: boolean; blocked_reason?: string | null }[];
+  safe_message: string;
+  secrets_returned: boolean;
+}
+
+export interface LlmConnectionVerificationResult {
+  action: string;
+  status: string;
+  base_url_configured: boolean;
+  api_key_configured: boolean;
+  default_model_configured: boolean;
+  reachable: boolean | null;
+  authenticated: boolean | null;
+  model_available: boolean | 'unknown' | string;
+  policy_allowed: boolean;
+  final_synthesis: 'disabled' | 'enabled' | string;
+  answer_guard: 'disabled' | 'enabled' | string;
+  last_checked_time: string;
+  failure_reason: string;
+  technical_error_detail: string;
+  provider_id?: string | null;
+  provider_type: string;
+  model?: string | null;
+  models: string[];
+  models_count: number;
+  safe_message: string;
+  secrets_returned: boolean;
+}
+
 export interface SettingsStatus {
   mcp: {
     enabled: boolean;

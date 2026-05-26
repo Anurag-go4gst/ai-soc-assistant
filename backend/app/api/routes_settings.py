@@ -5,7 +5,11 @@ module. Never returns tokens, passwords, or session secrets — only booleans
 indicating whether they are configured.
 """
 
+import base64
+import json
+from datetime import UTC, datetime
 from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from fastapi import APIRouter
@@ -14,9 +18,13 @@ from pydantic import BaseModel
 from app.config import SUPPORTED_AI_SOC_LLM_MODES, settings
 from app.connectors.embeddings import get_embeddings_connector
 from app.connectors.llm import get_llm_connector
+from app.connectors.llm.registry import SUPPORTED_PROVIDER_TYPES as SUPPORTED_LLM_PROVIDER_TYPES
 from app.connectors.llm.registry import load_llm_registry_status
 from app.connectors.mcp import get_mcp_connector
+from app.connectors.mcp.discovery import classify_mcp_tool
 from app.connectors.mcp.registry import load_mcp_registry_status
+from app.connectors.mcp.registry import SUPPORTED_AUTH_MODES as SUPPORTED_MCP_AUTH_MODES
+from app.connectors.mcp.registry import SUPPORTED_MCP_TYPES, SUPPORTED_TRANSPORTS
 from app.connectors.rag import get_rag_connector
 from app.connectors.telemetry import get_telemetry_connector, metrics
 from app.knowledge.soc_kb_retriever import soc_kb_status_summary
@@ -43,6 +51,19 @@ class ProviderDraftCheckRequest(BaseModel):
     notes: str = ""
 
 
+class McpVerificationRequest(BaseModel):
+    provider_kind: str = "splunk"
+    deployment_mode: str = "coe"
+    discovery_policy: str = "dynamic"
+    transport: str = "streamable_http"
+    auth_method: str = "none"
+    url: str = ""
+    bearer_token: str = ""
+    username: str = ""
+    password: str = ""
+    timeout_seconds: int = 5
+
+
 _ALLOWED_TOOLS = [
     "splunk_run_query",
     "splunk_get_indexes",
@@ -56,6 +77,7 @@ class LlmProviderDraft(BaseModel):
     base_url: str = ""
     api_key: str = ""
     model: str = ""
+    auth_mode: str = "api_key"
 
 
 class LlmSettingsDraftCheckRequest(BaseModel):
@@ -79,6 +101,19 @@ class LlmSettingsDraftCheckRequest(BaseModel):
     final_synthesis_enabled: bool = False
     answer_guard_enabled: bool = False
     providers: list[LlmProviderDraft] = []
+
+
+class LlmVerificationRequest(BaseModel):
+    provider_id: str = ""
+    provider_type: str = ""
+    base_url: str = ""
+    api_key: str = ""
+    model: str = ""
+    auth_mode: str = "api_key"
+    timeout_seconds: int = 5
+    allow_cloud: bool | None = None
+    airgap_enforced: bool | None = None
+    enable_test_prompt: bool = False
 
 
 def _bool_configured(value: str) -> bool:
@@ -394,6 +429,24 @@ def check_provider_draft(payload: ProviderDraftCheckRequest) -> dict:
     }
 
 
+@router.post("/settings/mcp/validate")
+def validate_mcp_settings(payload: McpVerificationRequest | None = None) -> dict:
+    draft = _mcp_verification_payload(payload)
+    return _mcp_verification_result(draft, action="validate")
+
+
+@router.post("/settings/mcp/test")
+def test_mcp_connection(payload: McpVerificationRequest | None = None) -> dict:
+    draft = _mcp_verification_payload(payload)
+    return _mcp_verification_result(draft, action="test")
+
+
+@router.post("/settings/mcp/discover")
+def discover_mcp_tools(payload: McpVerificationRequest | None = None) -> dict:
+    draft = _mcp_verification_payload(payload)
+    return _mcp_verification_result(draft, action="discover")
+
+
 @router.post("/settings/llm/check")
 def check_llm_settings_draft(payload: LlmSettingsDraftCheckRequest) -> dict:
     """Validate a governed-LLM settings draft without persisting anything.
@@ -473,6 +526,647 @@ def check_llm_settings_draft(payload: LlmSettingsDraftCheckRequest) -> dict:
         "not_persisted": True,
         "safe_message": "Draft validated without storing values. Persisted LLM settings are not enabled in this stage; apply changes via environment variables.",
     }
+
+
+@router.post("/settings/llm/validate")
+def validate_llm_settings(payload: LlmVerificationRequest | None = None) -> dict:
+    draft = _llm_verification_payload(payload)
+    return _llm_verification_result(draft, action="validate")
+
+
+@router.post("/settings/llm/test")
+def test_llm_connection(payload: LlmVerificationRequest | None = None) -> dict:
+    draft = _llm_verification_payload(payload)
+    return _llm_verification_result(draft, action="test")
+
+
+@router.post("/settings/llm/models")
+def list_llm_models(payload: LlmVerificationRequest | None = None) -> dict:
+    draft = _llm_verification_payload(payload)
+    return _llm_verification_result(draft, action="models")
+
+
+def _mcp_verification_payload(payload: McpVerificationRequest | None) -> McpVerificationRequest:
+    if payload is not None:
+        return payload
+    return McpVerificationRequest(
+        provider_kind="splunk",
+        deployment_mode=settings.ai_soc_environment_mode,
+        discovery_policy=settings.splunk_mcp_discovery_mode,
+        transport="streamable_http",
+        auth_method="bearer" if _bool_configured(settings.splunk_mcp_token) else "none",
+        url=settings.splunk_mcp_base_url,
+        bearer_token=settings.splunk_mcp_token,
+    )
+
+
+def _mcp_verification_result(payload: McpVerificationRequest, *, action: str) -> dict[str, object]:
+    checks = _validate_mcp_draft(payload)
+    if checks:
+        return _mcp_connection_payload(
+            status="Not connected",
+            url_configured=bool(payload.url.strip()),
+            authentication_configured=_mcp_auth_configured(payload),
+            reachable=False,
+            authenticated=False,
+            handshake="failed",
+            tools=[],
+            failure_reason=_plain_mcp_reason(checks[0]),
+            technical_detail=", ".join(checks),
+            action=action,
+        )
+
+    if action == "validate":
+        return _mcp_connection_payload(
+            status="Not connected",
+            url_configured=bool(payload.url.strip()),
+            authentication_configured=_mcp_auth_configured(payload),
+            reachable=None,
+            authenticated=None,
+            handshake="not supported",
+            tools=[],
+            failure_reason="Settings are valid. Connection has not been tested.",
+            technical_detail="validation_only_no_network_call",
+            action=action,
+        )
+
+    transport = payload.transport.strip().lower()
+    discovery_policy = payload.discovery_policy.strip().lower()
+    if transport == "stdio" or discovery_policy == "static_only":
+        return _mcp_connection_payload(
+            status="Blocked by policy",
+            url_configured=bool(payload.url.strip()),
+            authentication_configured=_mcp_auth_configured(payload),
+            reachable=False,
+            authenticated=False,
+            handshake="not supported",
+            tools=[],
+            failure_reason="Connection verification is blocked by MCP discovery policy.",
+            technical_detail=f"transport={transport};discovery_policy={discovery_policy}",
+            action=action,
+        )
+
+    response = _fetch_mcp_tools(payload)
+    return _mcp_connection_payload(
+        status=response["status"],
+        url_configured=bool(payload.url.strip()),
+        authentication_configured=_mcp_auth_configured(payload),
+        reachable=response["reachable"],
+        authenticated=response["authenticated"],
+        handshake=response["handshake"],
+        tools=response["tools"],
+        failure_reason=response["failure_reason"],
+        technical_detail=response["technical_detail"],
+        action=action,
+    )
+
+
+def _validate_mcp_draft(payload: McpVerificationRequest) -> list[str]:
+    errors: list[str] = []
+    provider_kind = payload.provider_kind.strip().lower()
+    deployment_mode = payload.deployment_mode.strip().lower()
+    discovery_policy = payload.discovery_policy.strip().lower()
+    transport = payload.transport.strip().lower()
+    auth_method = payload.auth_method.strip().lower()
+    if provider_kind not in SUPPORTED_MCP_TYPES:
+        errors.append("provider_kind_is_not_supported")
+    if deployment_mode not in {"coe", "customer_test", "production", "air_gapped"}:
+        errors.append("deployment_mode_is_not_supported")
+    if discovery_policy not in {"dynamic", "restricted", "static_only"}:
+        errors.append("discovery_policy_is_not_supported")
+    if transport not in SUPPORTED_TRANSPORTS and transport != "mock":
+        errors.append("transport_is_not_supported")
+    if auth_method not in SUPPORTED_MCP_AUTH_MODES:
+        errors.append("authentication_method_is_not_supported")
+    if transport in {"streamable_http", "sse"}:
+        if not payload.url.strip():
+            errors.append("mcp_url_is_required")
+        elif not _valid_http_url(payload.url):
+            errors.append("mcp_url_is_not_valid")
+    if auth_method == "bearer" and not payload.bearer_token.strip():
+        errors.append("bearer_token_is_required")
+    if auth_method == "basic" and not (payload.username.strip() and payload.password.strip()):
+        errors.append("username_and_password_are_required")
+    if payload.timeout_seconds <= 0:
+        errors.append("timeout_seconds_must_be_positive")
+    return errors
+
+
+def _fetch_mcp_tools(payload: McpVerificationRequest) -> dict[str, object]:
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    _apply_auth(headers, auth_mode=payload.auth_method, api_key=payload.bearer_token, username=payload.username, password=payload.password)
+    endpoint = payload.url.strip()
+    technical: list[str] = []
+    initialized = False
+    tools: list[dict[str, object]] = []
+    try:
+        init_body = {
+            "jsonrpc": "2.0",
+            "id": "ai-soc-verify-init",
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "ai-soc-assistant", "version": "stage-3j-h"},
+            },
+        }
+        init_payload = _json_request(endpoint, headers=headers, body=init_body, timeout=payload.timeout_seconds)
+        initialized = "result" in init_payload or "serverInfo" in json.dumps(init_payload)
+        tools_payload = _json_request(endpoint, headers=headers, body={"jsonrpc": "2.0", "id": "ai-soc-verify-tools", "method": "tools/list", "params": {}}, timeout=payload.timeout_seconds)
+        tools = _extract_mcp_tools(tools_payload, payload.provider_kind)
+    except HTTPError as exc:
+        if exc.code in {401, 403}:
+            return {
+                "status": "Reachable but authentication failed",
+                "reachable": True,
+                "authenticated": False,
+                "handshake": "failed",
+                "tools": [],
+                "failure_reason": "Authentication failed. Check bearer token or username/password.",
+                "technical_detail": f"http_{exc.code}",
+            }
+        return {
+            "status": "Error",
+            "reachable": True,
+            "authenticated": exc.code not in {401, 403},
+            "handshake": "failed",
+            "tools": [],
+            "failure_reason": "MCP endpoint returned an error during connection verification.",
+            "technical_detail": f"http_{exc.code}",
+        }
+    except URLError as exc:
+        return {
+            "status": "Not connected",
+            "reachable": False,
+            "authenticated": False,
+            "handshake": "failed",
+            "tools": [],
+            "failure_reason": "Cannot reach MCP endpoint. Check URL, network, firewall, or DNS.",
+            "technical_detail": _sanitize_detail(f"url_error:{type(getattr(exc, 'reason', exc)).__name__}"),
+        }
+    except Exception as exc:  # noqa: BLE001
+        technical.append(type(exc).__name__)
+        return {
+            "status": "Error",
+            "reachable": False,
+            "authenticated": False,
+            "handshake": "failed",
+            "tools": [],
+            "failure_reason": "MCP connection verification failed before tool discovery completed.",
+            "technical_detail": _sanitize_detail(",".join(technical)),
+        }
+
+    if not tools:
+        return {
+            "status": "Reachable but no tools discovered",
+            "reachable": True,
+            "authenticated": True,
+            "handshake": "passed" if initialized else "not supported",
+            "tools": [],
+            "failure_reason": "MCP server responded, but no tools were discovered.",
+            "technical_detail": "tools_list_empty",
+        }
+    if payload.provider_kind.strip().lower() == "splunk" and not any("splunk_core" in tool.get("categories", []) for tool in tools):
+        return {
+            "status": "Reachable but unsupported MCP server",
+            "reachable": True,
+            "authenticated": True,
+            "handshake": "passed" if initialized else "not supported",
+            "tools": tools,
+            "failure_reason": "Splunk MCP tools were not found on this server.",
+            "technical_detail": "splunk_core_tools_not_discovered",
+        }
+    return {
+        "status": "Connected",
+        "reachable": True,
+        "authenticated": True,
+        "handshake": "passed" if initialized else "not supported",
+        "tools": tools,
+        "failure_reason": "Connection is valid, but execution tools remain gated by policy.",
+        "technical_detail": "safe_discovery_only",
+    }
+
+
+def _mcp_connection_payload(
+    *,
+    status: str,
+    url_configured: bool,
+    authentication_configured: bool,
+    reachable: bool | None,
+    authenticated: bool | None,
+    handshake: str,
+    tools: list[dict[str, object]],
+    failure_reason: str,
+    technical_detail: str,
+    action: str,
+) -> dict[str, object]:
+    splunk_core_count = sum(1 for tool in tools if "splunk_core" in tool.get("categories", []))
+    saia_count = sum(1 for tool in tools if "saia" in tool.get("categories", []))
+    return {
+        "action": action,
+        "status": status,
+        "url_configured": url_configured,
+        "authentication_configured": authentication_configured,
+        "reachable": reachable,
+        "authenticated": authenticated,
+        "mcp_handshake": handshake,
+        "tools_discovered_count": len(tools),
+        "splunk_core_tools_discovered_count": splunk_core_count,
+        "saia_tools_discovered_count": saia_count,
+        "execution_policy": "gated",
+        "last_checked_time": _now_iso(),
+        "failure_reason": failure_reason,
+        "technical_error_detail": _sanitize_detail(technical_detail),
+        "tools": tools,
+        "safe_message": failure_reason,
+        "secrets_returned": False,
+    }
+
+
+def _extract_mcp_tools(payload: object, provider_kind: str) -> list[dict[str, object]]:
+    if not isinstance(payload, dict):
+        return []
+    raw_tools = payload.get("tools")
+    if raw_tools is None and isinstance(payload.get("result"), dict):
+        raw_tools = payload["result"].get("tools")
+    tools: list[dict[str, object]] = []
+    for raw in raw_tools or []:
+        if not isinstance(raw, dict):
+            continue
+        descriptor = classify_mcp_tool(str(raw.get("name") or ""), str(raw.get("description") or ""), server_type=provider_kind.strip().lower())
+        tools.append(descriptor.safe_payload())
+    return tools
+
+
+def _mcp_auth_configured(payload: McpVerificationRequest) -> bool:
+    auth_method = payload.auth_method.strip().lower()
+    if auth_method == "none":
+        return True
+    if auth_method == "bearer":
+        return bool(payload.bearer_token.strip())
+    if auth_method == "basic":
+        return bool(payload.username.strip() and payload.password.strip())
+    return False
+
+
+def _plain_mcp_reason(reason: str) -> str:
+    if reason in {"mcp_url_is_required", "mcp_url_is_not_valid"}:
+        return "MCP URL is missing or invalid."
+    if reason in {"bearer_token_is_required", "username_and_password_are_required"}:
+        return "Authentication is required but credentials are not configured."
+    if reason == "transport_is_not_supported":
+        return "MCP transport is not supported."
+    if reason == "authentication_method_is_not_supported":
+        return "Authentication method is not supported."
+    if reason == "provider_kind_is_not_supported":
+        return "Provider kind is not supported."
+    return "MCP settings are not valid."
+
+
+def _llm_verification_payload(payload: LlmVerificationRequest | None) -> LlmVerificationRequest:
+    if payload is not None:
+        return payload
+    provider_id = settings.ai_soc_llm_default_provider.strip() or "openai_compatible"
+    candidates = {
+        "openai_compatible": (
+            "openai_compatible",
+            settings.ai_soc_llm_openai_base_url,
+            settings.ai_soc_llm_openai_api_key,
+            settings.ai_soc_llm_openai_model or settings.ai_soc_llm_default_model,
+        ),
+        "foundation_sec_instruct": (
+            "cisco_compatible",
+            settings.ai_soc_llm_foundation_sec_instruct_base_url,
+            settings.ai_soc_llm_foundation_sec_instruct_api_key,
+            settings.ai_soc_llm_foundation_sec_instruct_model or settings.ai_soc_llm_default_model,
+        ),
+        "foundation_sec_reasoning": (
+            "cisco_compatible",
+            settings.ai_soc_llm_foundation_sec_reasoning_base_url,
+            settings.ai_soc_llm_foundation_sec_reasoning_api_key,
+            settings.ai_soc_llm_foundation_sec_reasoning_model or settings.ai_soc_llm_default_model,
+        ),
+        "local": (
+            "ollama",
+            settings.ai_soc_llm_local_base_url,
+            settings.ai_soc_llm_local_api_key,
+            settings.ai_soc_llm_local_model or settings.ai_soc_llm_default_model,
+        ),
+    }
+    provider_type, base_url, api_key, model = candidates.get(provider_id, candidates["openai_compatible"])
+    return LlmVerificationRequest(
+        provider_id=provider_id,
+        provider_type=provider_type,
+        base_url=base_url,
+        api_key=api_key,
+        model=model,
+        auth_mode="api_key" if api_key else "none",
+        timeout_seconds=settings.ai_soc_llm_timeout_seconds,
+    )
+
+
+def _llm_verification_result(payload: LlmVerificationRequest, *, action: str) -> dict[str, object]:
+    errors = _validate_llm_draft(payload)
+    policy_allowed, policy_reason = _llm_policy_allowed(payload)
+    if errors:
+        return _llm_connection_payload(
+            status="Not connected",
+            payload=payload,
+            reachable=False,
+            authenticated=False,
+            model_available="unknown",
+            policy_allowed=policy_allowed,
+            models=[],
+            failure_reason=_plain_llm_reason(errors[0]),
+            technical_detail=", ".join(errors),
+            action=action,
+        )
+    if not policy_allowed:
+        status = "Blocked by airgap policy" if policy_reason == "airgap" else "Blocked by cloud policy"
+        return _llm_connection_payload(
+            status=status,
+            payload=payload,
+            reachable=False,
+            authenticated=False,
+            model_available="unknown",
+            policy_allowed=False,
+            models=[],
+            failure_reason="Provider is blocked by airgap policy." if policy_reason == "airgap" else "Cloud LLM is not allowed in this deployment mode.",
+            technical_detail=f"blocked_by_{policy_reason}_policy",
+            action=action,
+        )
+    if action == "validate":
+        return _llm_connection_payload(
+            status="Config valid, not tested",
+            payload=payload,
+            reachable=None,
+            authenticated=None,
+            model_available="unknown",
+            policy_allowed=True,
+            models=[],
+            failure_reason="Settings are valid. Connection has not been tested.",
+            technical_detail="validation_only_no_network_call",
+            action=action,
+        )
+    if action == "models" and not _llm_supports_model_listing(payload.provider_type):
+        return _llm_connection_payload(
+            status="Config valid, not tested",
+            payload=payload,
+            reachable=None,
+            authenticated=None,
+            model_available="unknown",
+            policy_allowed=True,
+            models=[],
+            failure_reason="Model listing not supported by this provider.",
+            technical_detail="model_listing_not_supported",
+            action=action,
+        )
+    response = _fetch_llm_models(payload)
+    return _llm_connection_payload(action=action, payload=payload, **response)
+
+
+def _validate_llm_draft(payload: LlmVerificationRequest) -> list[str]:
+    errors: list[str] = []
+    provider_type = payload.provider_type.strip().lower()
+    if provider_type not in SUPPORTED_LLM_PROVIDER_TYPES and provider_type != "local":
+        errors.append("provider_type_is_not_supported")
+    if not payload.base_url.strip():
+        errors.append("base_url_is_required")
+    elif not _valid_http_url(payload.base_url):
+        errors.append("base_url_is_not_valid")
+    if not payload.model.strip():
+        errors.append("model_name_is_required")
+    if payload.auth_mode.strip().lower() in {"api_key", "bearer"} and not payload.api_key.strip():
+        errors.append("api_key_is_required")
+    if payload.timeout_seconds <= 0:
+        errors.append("timeout_seconds_must_be_positive")
+    return errors
+
+
+def _llm_policy_allowed(payload: LlmVerificationRequest) -> tuple[bool, str | None]:
+    airgap = settings.ai_soc_llm_airgap_enforced if payload.airgap_enforced is None else payload.airgap_enforced
+    allow_cloud = settings.ai_soc_llm_allow_cloud if payload.allow_cloud is None else payload.allow_cloud
+    is_cloud = _llm_provider_is_cloud(payload.provider_type, payload.base_url)
+    if airgap and is_cloud:
+        return False, "airgap"
+    if not allow_cloud and is_cloud:
+        return False, "cloud"
+    return True, None
+
+
+def _fetch_llm_models(payload: LlmVerificationRequest) -> dict[str, object]:
+    url = _llm_models_url(payload.base_url)
+    headers = {"Accept": "application/json"}
+    _apply_auth(headers, auth_mode=payload.auth_mode, api_key=payload.api_key)
+    try:
+        data = _json_request(url, headers=headers, timeout=payload.timeout_seconds)
+    except HTTPError as exc:
+        if exc.code in {401, 403}:
+            return {
+                "status": "Reachable but authentication failed",
+                "reachable": True,
+                "authenticated": False,
+                "model_available": "unknown",
+                "policy_allowed": True,
+                "models": [],
+                "failure_reason": "Authentication failed. Check API key.",
+                "technical_detail": f"http_{exc.code}",
+            }
+        if exc.code == 404:
+            return {
+                "status": "Model not found",
+                "reachable": True,
+                "authenticated": True,
+                "model_available": False,
+                "policy_allowed": True,
+                "models": [],
+                "failure_reason": "Model was not found. Check model name or provider configuration.",
+                "technical_detail": "http_404",
+            }
+        return {
+            "status": "Error",
+            "reachable": True,
+            "authenticated": exc.code not in {401, 403},
+            "model_available": "unknown",
+            "policy_allowed": True,
+            "models": [],
+            "failure_reason": "LLM endpoint returned an error during connection verification.",
+            "technical_detail": f"http_{exc.code}",
+        }
+    except URLError as exc:
+        return {
+            "status": "Not connected",
+            "reachable": False,
+            "authenticated": False,
+            "model_available": "unknown",
+            "policy_allowed": True,
+            "models": [],
+            "failure_reason": "Cannot reach LLM endpoint. Check URL, network, firewall, or DNS.",
+            "technical_detail": _sanitize_detail(f"url_error:{type(getattr(exc, 'reason', exc)).__name__}"),
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "status": "Error",
+            "reachable": False,
+            "authenticated": False,
+            "model_available": "unknown",
+            "policy_allowed": True,
+            "models": [],
+            "failure_reason": "LLM connection verification failed before model checks completed.",
+            "technical_detail": _sanitize_detail(type(exc).__name__),
+        }
+    models = _extract_llm_models(data)
+    model_available = payload.model.strip() in models if models else "unknown"
+    if model_available is False:
+        return {
+            "status": "Model not found",
+            "reachable": True,
+            "authenticated": True,
+            "model_available": False,
+            "policy_allowed": True,
+            "models": models,
+            "failure_reason": "Model was not found. Check model name or provider configuration.",
+            "technical_detail": "model_missing_from_models_list",
+        }
+    return {
+        "status": "Connected",
+        "reachable": True,
+        "authenticated": True,
+        "model_available": model_available,
+        "policy_allowed": True,
+        "models": models,
+        "failure_reason": "Connection works, but final synthesis is still disabled by configuration.",
+        "technical_detail": "models_list_verified" if models else "endpoint_reachable_model_unknown",
+    }
+
+
+def _llm_connection_payload(
+    *,
+    action: str,
+    payload: LlmVerificationRequest,
+    status: str,
+    reachable: bool | None,
+    authenticated: bool | None,
+    model_available: bool | str,
+    policy_allowed: bool,
+    models: list[str],
+    failure_reason: str,
+    technical_detail: str,
+) -> dict[str, object]:
+    return {
+        "action": action,
+        "status": status,
+        "base_url_configured": bool(payload.base_url.strip()),
+        "api_key_configured": bool(payload.api_key.strip()),
+        "default_model_configured": bool(payload.model.strip()),
+        "reachable": reachable,
+        "authenticated": authenticated,
+        "model_available": model_available,
+        "policy_allowed": policy_allowed,
+        "final_synthesis": "enabled" if settings.ai_soc_llm_final_synthesis_enabled else "disabled",
+        "answer_guard": "enabled" if settings.ai_soc_llm_answer_guard_enabled else "disabled",
+        "last_checked_time": _now_iso(),
+        "failure_reason": failure_reason,
+        "technical_error_detail": _sanitize_detail(technical_detail),
+        "provider_id": payload.provider_id.strip()[:120] or None,
+        "provider_type": payload.provider_type.strip().lower(),
+        "model": payload.model.strip()[:160] or None,
+        "models": models,
+        "models_count": len(models),
+        "safe_message": failure_reason,
+        "secrets_returned": False,
+    }
+
+
+def _extract_llm_models(payload: object) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+    raw = payload.get("data", payload.get("models", []))
+    names: list[str] = []
+    for item in raw or []:
+        if isinstance(item, str):
+            names.append(item)
+        elif isinstance(item, dict):
+            model = item.get("id") or item.get("name") or item.get("model")
+            if model:
+                names.append(str(model)[:160])
+    return sorted({name for name in names if name})
+
+
+def _plain_llm_reason(reason: str) -> str:
+    if reason in {"base_url_is_required", "base_url_is_not_valid"}:
+        return "LLM base URL is missing or invalid."
+    if reason == "model_name_is_required":
+        return "Model name is required."
+    if reason == "api_key_is_required":
+        return "API key is required for this provider."
+    if reason == "provider_type_is_not_supported":
+        return "LLM provider type is not supported."
+    return "LLM settings are not valid."
+
+
+def _llm_provider_is_cloud(provider_type: str, base_url: str) -> bool:
+    provider_type = provider_type.strip().lower()
+    if provider_type in {"ollama", "llamacpp", "vllm", "sglang", "tgi", "local"}:
+        return False
+    host = urlparse(base_url.strip()).hostname or ""
+    if host in {"localhost", "127.0.0.1", "::1"} or host.endswith(".local"):
+        return False
+    return provider_type in {"openai_compatible", "cisco_compatible", "custom_http"}
+
+
+def _llm_supports_model_listing(provider_type: str) -> bool:
+    return provider_type.strip().lower() in {"openai_compatible", "vllm", "sglang", "ollama", "llamacpp", "custom_http", "cisco_compatible"}
+
+
+def _llm_models_url(base_url: str) -> str:
+    stripped = base_url.rstrip("/") + "/"
+    if stripped.endswith("/v1/"):
+        return urljoin(stripped, "models")
+    return urljoin(stripped, "models")
+
+
+def _json_request(url: str, *, headers: dict[str, str], timeout: int, body: dict[str, object] | None = None) -> object:
+    data = None if body is None else json.dumps(body).encode("utf-8")
+    request = Request(url, data=data, method="POST" if data is not None else "GET", headers=headers)
+    with urlopen(request, timeout=min(max(timeout, 1), 30)) as response:  # noqa: S310 - admin-configured verification endpoint.
+        raw = response.read(1024 * 256)
+    if not raw:
+        return {}
+    return json.loads(raw.decode("utf-8"))
+
+
+def _apply_auth(headers: dict[str, str], *, auth_mode: str, api_key: str = "", username: str = "", password: str = "") -> None:
+    auth_mode = auth_mode.strip().lower()
+    if auth_mode in {"bearer", "api_key"} and api_key.strip():
+        headers["Authorization"] = "Bearer " + api_key.strip()
+    if auth_mode == "basic" and username.strip() and password.strip():
+        token = base64.b64encode(f"{username.strip()}:{password.strip()}".encode("utf-8")).decode("ascii")
+        headers["Authorization"] = "Basic " + token
+
+
+def _valid_http_url(value: str) -> bool:
+    parsed = urlparse(value.strip())
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def _sanitize_detail(value: str) -> str:
+    text = str(value)
+    text = text.replace(settings.splunk_mcp_token, "[redacted]") if settings.splunk_mcp_token else text
+    for secret in (
+        settings.ai_soc_llm_openai_api_key,
+        settings.ai_soc_llm_foundation_sec_instruct_api_key,
+        settings.ai_soc_llm_foundation_sec_reasoning_api_key,
+        settings.ai_soc_llm_local_api_key,
+    ):
+        if secret:
+            text = text.replace(secret, "[redacted]")
+    text = text.replace("Authorization", "Auth[redacted]")
+    return text[:500]
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
 
 
 def _mcp_server_payload(server: object) -> dict[str, object]:
