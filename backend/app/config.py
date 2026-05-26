@@ -16,6 +16,13 @@ SUPPORTED_AI_SOC_LLM_MODES: tuple[str, ...] = (
     "disabled",
 )
 
+SUPPORTED_ROUTING_MODES: tuple[str, ...] = (
+    "deterministic_only",
+    "llm_shadow_only",
+    "llm_assisted_semantic",
+    "llm_primary_lab",
+)
+
 
 class ConfigError(RuntimeError):
     """Raised on unsupported or unsafe configuration values."""
@@ -56,7 +63,8 @@ class Settings(BaseSettings):
     foundation_sec_instruct_url: str = ""
     foundation_sec_reasoning_url: str = ""
     reasoning_enabled: bool = False
-    routing_mode: str = "llm_primary"
+    routing_mode: str = "llm_assisted_semantic"
+    routing_lab_llm_primary_enabled: bool = False
     debug_trace_enabled: bool = True
     routing_deterministic_threshold: float = 0.70
     routing_llm_shadow_enabled: bool = True
@@ -200,6 +208,10 @@ class Settings(BaseSettings):
 
 
 def _validate(s: Settings) -> Settings:
+    routing_mode = s.routing_mode.strip().lower()
+    if routing_mode == "llm_primary":
+        routing_mode = "llm_assisted_semantic"
+        s.routing_mode = routing_mode
     sink = s.ai_soc_telemetry_sink.strip().lower()
     if sink in PLANNED_TELEMETRY_SINKS:
         raise ConfigError(
@@ -223,6 +235,14 @@ def _validate(s: Settings) -> Settings:
             f"AI_SOC_LLM_MODE={s.ai_soc_llm_mode!r} is not valid. "
             f"Use one of: {SUPPORTED_AI_SOC_LLM_MODES}."
         )
+    if routing_mode not in SUPPORTED_ROUTING_MODES:
+        raise ConfigError(
+            f"ROUTING_MODE={s.routing_mode!r} is not valid. "
+            f"Use one of: {SUPPORTED_ROUTING_MODES}."
+        )
+    if routing_mode == "llm_primary_lab":
+        if s.ai_soc_environment_mode == "production" or not s.routing_lab_llm_primary_enabled:
+            raise ConfigError("ROUTING_MODE=llm_primary_lab requires non-production mode and ROUTING_LAB_LLM_PRIMARY_ENABLED=true.")
     return s
 
 

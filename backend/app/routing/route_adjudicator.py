@@ -26,7 +26,12 @@ def select_route(
         return deterministic, "deterministic router confidence reached threshold"
 
     if valid_skill(llm_shadow.get("skill")) and llm_confidence > deterministic_confidence and llm_confidence >= threshold:
-        return llm_shadow, "deterministic confidence low; llm shadow had higher valid confidence"
+        return {
+            "skill": "knowledge_recall",
+            "tool_plan": ["needs_clarification"],
+            "confidence": max(deterministic_confidence, llm_confidence),
+            "reasons": ["deterministic confidence low; llm advisory confidence is metadata only"],
+        }, "llm advisory cannot select final route"
 
     return {
         "skill": "knowledge_recall",

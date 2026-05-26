@@ -49,7 +49,7 @@ def test_deterministic_output_shape_is_stable() -> None:
 
 def test_llm_shadow_output_shape_is_stable() -> None:
     routed = route_skill_llm_shadow("Show account lockouts over time in the last hour.")
-    assert set(routed.keys()) == {"skill", "tool_plan", "confidence", "reasons"}
+    assert set(routed.keys()) == {"skill", "tool_plan", "confidence", "reasons", "metadata"}
     assert routed["skill"] == "alert_summary"
     assert isinstance(routed["tool_plan"], list)
     assert isinstance(routed["confidence"], float)

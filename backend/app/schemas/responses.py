@@ -70,6 +70,7 @@ class SplValidationEnvelope(BaseModel):
     spl_guidance_provider: str | None = None
     optimization_applied: bool | None = None
     optimization_revalidation_status: dict[str, object] | None = None
+    optimization_revalidation_approved: bool | None = None
     capability_profile: dict[str, object] | None = None
 
 

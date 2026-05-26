@@ -231,6 +231,7 @@ def _candidate_spl_stage(trace_id: str, skill: str, user_query: str) -> tuple[di
         "spl_guidance_provider": guidance["provider"],
         "optimization_applied": optimization["optimization_applied"],
         "optimization_revalidation_status": optimization["revalidation_status"],
+        "optimization_revalidation_approved": optimization["revalidation_approved"],
         "capability_profile": profile.model_dump(),
     }
     telemetry.record_spl_validation(

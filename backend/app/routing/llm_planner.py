@@ -30,4 +30,5 @@ def route_skill_llm_shadow(query: str, llm_connector: Any | None = None) -> dict
         "tool_plan": list(_TOOL_PLANS[skill]),
         "confidence": float(completion.confidence),
         "reasons": reasons,
+        "metadata": dict(completion.metadata),
     }

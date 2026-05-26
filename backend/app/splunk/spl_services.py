@@ -67,7 +67,7 @@ def optimize_spl(spl: str, profile: SplunkCapabilityProfile | None = None) -> di
         "optimized_candidate_spl": optimized,
         "requires_revalidation": optimized != spl,
         "revalidation_status": revalidation,
-        "execution_eligible": bool(revalidation and revalidation.get("approved")),
+        "revalidation_approved": bool(revalidation and revalidation.get("approved")),
     }
 
 

@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.config import SUPPORTED_AI_SOC_LLM_MODES, settings
+from app.config import SUPPORTED_AI_SOC_LLM_MODES, SUPPORTED_ROUTING_MODES, settings
 from app.connectors.embeddings import get_embeddings_connector
 from app.connectors.llm import get_llm_connector
 from app.connectors.llm.registry import SUPPORTED_PROVIDER_TYPES as SUPPORTED_LLM_PROVIDER_TYPES
@@ -283,8 +283,16 @@ def settings_status() -> dict:
         },
         "routing": {
             "mode": settings.routing_mode,
+            "routing_mode": settings.routing_mode,
+            "supported_modes": list(SUPPORTED_ROUTING_MODES),
             "deterministic_router_enabled": True,
+            "llm_shadow_enabled": settings.routing_llm_shadow_enabled,
             "llm_shadow_router_enabled": settings.routing_llm_shadow_enabled,
+            "llm_assisted_enabled": settings.routing_mode == "llm_assisted_semantic",
+            "route_selection_policy": "deterministic_registry_normalization_controls_final_route",
+            "production_safe_default": settings.routing_mode in {"deterministic_only", "llm_shadow_only", "llm_assisted_semantic"},
+            "llm_can_influence_final_selected_route": settings.routing_mode in {"llm_assisted_semantic", "llm_primary_lab"},
+            "llm_influence_boundary": "LLM may suggest intent, evidence needs, and candidate route metadata; deterministic policy controls final skill, use case, tool mapping, and execution.",
             "compare_logging_enabled": settings.routing_compare_logging_enabled,
             "disagreement_logging_sink": "db",
             "db_disagreement_logging_enabled": db_telemetry_enabled and settings.routing_compare_logging_enabled,
@@ -293,11 +301,14 @@ def settings_status() -> dict:
             "workflow_planner_execution_enabled": False,
             "workflow_plan_logging_enabled": db_telemetry_enabled,
             "deterministic_threshold": settings.routing_deterministic_threshold,
-            "llm_planner_enabled": True,
+            "llm_planner_enabled": settings.routing_mode in {"llm_shadow_only", "llm_assisted_semantic", "llm_primary_lab"},
             "llm_tool_recommendation_enabled": settings.llm_tool_recommendation_enabled,
-            "shadow_router_enabled": True,
+            "shadow_router_enabled": settings.routing_llm_shadow_enabled and settings.routing_mode == "llm_shadow_only",
             "compare_node_enabled": True,
-            "adjudicator_policy": "prefer_planner_unless_low_confidence",
+            "adjudicator_policy": "LLM advisory only; confidence is metadata only; execution gated by normalized_spl",
+            "deterministic_tool_mapping": True,
+            "llm_output_can_execute_tools_directly": False,
+            "execution_authority": "spl_validation.normalized_spl plus MCP execution gate",
             "confidence_thresholds": {"high": 0.75, "medium": 0.55, "low": 0.55},
             "fallback_policy": "deterministic_on_planner_failure",
         },
