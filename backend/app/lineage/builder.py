@@ -32,7 +32,7 @@ def build_investigation_lineage(
     use_case_id = selected_use_case.use_case_id if selected_use_case else None
     return InvestigationLineage(
         lineage_id=f"lineage:{trace_id}",
-        summary="Query understanding, skill-chain selection, evidence packaging, and governance status were recorded without enabling final synthesis or remediation.",
+        summary="Query understanding, skill-chain selection, captured Foundation-sec packaging, and governance status were recorded without enabling final synthesis or remediation.",
         stages=[
             _stage("query_understanding", "complete", "Query understanding", f"Mapped query to {use_case_id or 'no specific use case'}.", {"mapped_use_case_ids": getattr(query_understanding, "mapped_use_case_ids", [])}, [], mode_source, "production query parser"),
             _stage("skill_chain", "complete", "Skill chain", f"Selected {selected_skill_chain.selected_skill}.", selected_skill_chain.model_dump(), [], mode_source, "production skill registry"),

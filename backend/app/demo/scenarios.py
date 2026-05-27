@@ -11,6 +11,7 @@ from app.demo.foundation_sec_fixtures import foundation_sec_governance_for
 from app.lineage.builder import build_investigation_lineage
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.workflow_planner import plan_workflow
+from app.query_understanding.models import OutputTemplate, RequestedOutputType
 from app.query_understanding.parser import understand_query
 from app.risk.severity_policy import decide_severity
 from app.safeguards.spl_validator import validate_spl
@@ -18,7 +19,8 @@ from app.skills.selector import select_skill_chain
 from app.spl.template_registry import template_summary
 from app.synthesis.models import SynthesisStatus
 from app.threat.mitre_kb import map_mitre_for_use_case
-from app.use_cases.registry import match_use_cases
+from app.use_cases.models import UseCaseSelection
+from app.use_cases.registry import get_use_case, match_use_cases
 
 CREATED_AT = "2026-05-24T00:00:00Z"
 EVIDENCE_ORIGIN = "coe_synthetic_fixture"
@@ -43,6 +45,7 @@ class DemoScenario:
     candidate_spl: str | None = None
     source_evidence: list[dict[str, Any]] | None = None
     structured_context: dict[str, Any] | None = None
+    selected_use_case_id: str | None = None
     confidence: float = 0.91
 
 
@@ -62,7 +65,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     )
     workflow["available_sources"] = list(scenario.expected_sources)
     workflow["missing_sources"] = []
-    workflow["message"] = "Demo workflow plan created from COE synthetic fixture. No live execution has started."
+    workflow["message"] = "Captured Foundation-sec guidance was packaged as a governed Experience Center workflow. No live execution has started."
 
     candidate_spl, spl_validation = _spl_payloads(scenario, trace_id)
     execution = _execution_payload(scenario, trace_id, spl_validation)
@@ -72,8 +75,8 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     review = _human_review(scenario, execution)
     analyst_response = _analyst_response(scenario)
     foundation_sec_governance = foundation_sec_governance_for(scenario.scenario_id)
-    query_understanding = understand_query(scenario.query)
-    selected_use_case = _selected_use_case(scenario.query)
+    query_understanding = _query_understanding_for_scenario(scenario)
+    selected_use_case = _selected_use_case(scenario)
     skill_selection = select_skill_chain(
         routed={
             "skill": scenario.expected_skill,
@@ -87,8 +90,8 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
     mitre_mappings = map_mitre_for_use_case(selected_use_case.use_case_id if selected_use_case else None, source_refs)
     severity_decision = decide_severity(selected_use_case.use_case_id if selected_use_case else None, structured_context, source_refs)
-    synthesis_status = SynthesisStatus(enabled=False, status="planned", reason="Experience Center uses deterministic scenario responses; Stage 3K synthesis is not run.")
-    answer_guard = AnswerGuardStatus(enabled=False, guard_status="planned", reason="Experience Center scenario output is deterministic; Stage 3L Answer Guard is not run.")
+    synthesis_status = SynthesisStatus(enabled=False, status="planned", reason="Experience Center uses captured Foundation-sec outputs governed by deterministic policy; Stage 3K live synthesis is not run.")
+    answer_guard = AnswerGuardStatus(enabled=False, guard_status="planned", reason="Experience Center output is governed from captured Foundation-sec fixtures; Stage 3L Answer Guard execution is not run.")
     action_capability = action_capability_for(selected_use_case.use_case_id if selected_use_case else None, severity_decision.severity_label)
     investigation_lineage = build_investigation_lineage(
         trace_id=trace_id,
@@ -159,9 +162,50 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     }
 
 
-def _selected_use_case(query: str) -> Any | None:
-    matches = match_use_cases(query, limit=1)
+def _selected_use_case(scenario: DemoScenario) -> Any | None:
+    if scenario.selected_use_case_id:
+        return _use_case_selection(scenario.selected_use_case_id, scenario.confidence)
+    matches = match_use_cases(scenario.query, limit=1)
     return matches[0] if matches else None
+
+
+def _use_case_selection(use_case_id: str, confidence: float) -> UseCaseSelection | None:
+    use_case = get_use_case(use_case_id)
+    if not use_case:
+        return None
+    return UseCaseSelection(
+        use_case_id=use_case.use_case_id,
+        display_name=use_case.display_name,
+        category=use_case.category,
+        primary_skill=use_case.primary_skill,
+        confidence=confidence,
+        matched_patterns=["experience_center_override"],
+        default_spl_template=use_case.default_spl_template,
+        output_template=use_case.output_template,
+        required_sources=use_case.required_sources,
+        optional_sources=use_case.optional_sources,
+        action_capability_tier=use_case.action_capability_tier,
+    )
+
+
+def _query_understanding_for_scenario(scenario: DemoScenario) -> Any:
+    result = understand_query(scenario.query)
+    if scenario.scenario_id == "mcp_metadata_discovery_app01":
+        return result.model_copy(update={
+            "primary_intent": "splunk_metadata_discovery",
+            "secondary_intents": ["spl_generation"],
+            "requested_output_type": RequestedOutputType.SPL,
+            "output_template": OutputTemplate.SPL_RESPONSE,
+            "confidence": 0.88,
+            "clarification_needed": False,
+            "clarification_question": None,
+            "mapped_use_case_ids": ["soc_generate_spl"],
+        })
+    if scenario.selected_use_case_id:
+        return result.model_copy(update={
+            "mapped_use_case_ids": [scenario.selected_use_case_id],
+        })
+    return result
 
 
 def _scenario_summary(scenario: DemoScenario) -> dict[str, Any]:
@@ -603,6 +647,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     if scenario.scenario_id == "mitre_mapping_requires_context":
         return {
             **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
             "finding_title": "MITRE mapping requires alert context",
             "one_sentence_finding": "Please provide the alert title, rule name, SPL, notable event details, or key fields such as host, user, source IP, event type, and time window. V.AI SOC cannot map this alert to MITRE without event evidence.",
             "foundation_sec_analysis": "Foundation-sec recognised a MITRE mapping request, but V.AI SOC requires supporting alert evidence before selecting a technique.",
@@ -615,6 +661,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     if scenario.scenario_id == "mcp_metadata_discovery_app01":
         return {
             **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
             "finding_title": "Safe Splunk metadata discovery selected",
             "one_sentence_finding": "Foundation-sec recognised that index and sourcetype discovery is needed before SPL generation; V.AI SOC rejects invented data locations and selects safe metadata discovery tools.",
             "foundation_sec_analysis": "Foundation-sec can identify the discovery need, but V.AI SOC does not accept invented index or sourcetype names. The governed path is splunk_get_indexes followed by splunk_get_metadata, with no SPL execution.",
@@ -830,7 +878,7 @@ SCENARIOS: dict[str, DemoScenario] = {
                 _fact("fact-fail-spike", "APP-01 has a synthetic failed-login spike in index pgcil_soc sourcetype pgcil:auth.", ["ev-splunk-failed-app01"]),
                 _fact("fact-t1110", "MITRE T1110 is a supported candidate for repeated authentication failures.", ["ev-splunk-failed-app01", "ev-rag-bruteforce-sop"]),
             ],
-            metrics={"fail_count_max": 42, "distinct_sources": 2},
+            metrics={"failed_logins": 101, "distinct_users": 3, "fail_count_max": 42, "distinct_sources": 3},
             mitre=[{"technique_id": "T1110", "name": "Brute Force", "support": "supported", "source_refs": ["ev-splunk-failed-app01"]}],
             refs=["ev-splunk-failed-app01", "ev-rag-bruteforce-sop"],
             quality="partial",
@@ -907,6 +955,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         saia_available=True,
         rag_available=True,
         candidate_spl=SUCCESS_AFTER_FAILURES_SPL,
+        selected_use_case_id="auth_success_after_failure",
         analyst_summary="Candidate SPL correlates failure and success counts by user, source, and host. Execution remains disabled, so this is SPL review only.",
         trace_explanation=[
             "Uses a correlation SPL with both action=\"failure\" and action=\"success\".",
@@ -920,7 +969,7 @@ SCENARIOS: dict[str, DemoScenario] = {
             "successful_login_after_failures",
             "spl_generation",
             [_fact("fact-success-correlation", "The candidate SPL explicitly correlates failed and successful logins.", ["ev-splunk-success-after-fail"])],
-            metrics={"correlation_keys": ["user", "src", "host"]},
+            metrics={"successful_logins": 1, "failed_logins": 58, "correlation_keys": ["user", "src", "host"]},
             mitre=[{"technique_id": "T1078", "name": "Valid Accounts", "support": "analyst_review", "source_refs": ["ev-splunk-success-after-fail"]}],
             refs=["ev-splunk-success-after-fail"],
             quality="partial",
@@ -1084,6 +1133,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         query="Before generating SPL, check which indexes and sourcetypes are available for APP-01 authentication logs",
         environment_mode="connected_coe_demo",
         expected_skill="spl_generation",
+        selected_use_case_id="soc_generate_spl",
         expected_sources=["mcp:splunk"],
         expected_sufficiency_mode="analyst_review_required",
         mcp_execution_mode="not_required",
@@ -1118,6 +1168,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         saia_available=False,
         rag_available=True,
         candidate_spl=SUCCESS_AFTER_FAILURES_SPL,
+        selected_use_case_id="auth_success_after_failure",
         analyst_summary="SAIA is unavailable in this air-gapped fixture, so deterministic fallback SPL generation is active while core Splunk MCP metadata remains available.",
         trace_explanation=[
             "SAIA/generative assistant tools are unavailable.",
@@ -1131,7 +1182,7 @@ SCENARIOS: dict[str, DemoScenario] = {
             "airgapped_no_saia_success_after_failures",
             "spl_generation",
             [_fact("fact-airgap-fallback", "SAIA is unavailable and deterministic fallback is active; core Splunk MCP search metadata is available.", ["ev-splunk-airgap-metadata"])],
-            metrics={"saia_available": False, "fallback_active": True},
+            metrics={"successful_logins": 1, "failed_logins": 58, "saia_available": False, "fallback_active": True},
             refs=["ev-splunk-airgap-metadata"],
             fallback=True,
             quality="partial",

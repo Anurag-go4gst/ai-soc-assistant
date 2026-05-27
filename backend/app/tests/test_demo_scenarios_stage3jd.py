@@ -69,6 +69,11 @@ def _main_answer_text(response) -> str:
     return json.dumps(payload)
 
 
+def _lineage_stage(response, stage_id: str):
+    assert response.investigation_lineage is not None
+    return next(stage for stage in response.investigation_lineage.stages if stage.stage_id == stage_id)
+
+
 def test_get_demo_scenarios_returns_all_stage3jd_scenarios() -> None:
     payload = list_demo_scenario_fixtures()
 
@@ -387,3 +392,63 @@ def test_stage3jj3_spl_governance_forces_model_spl_candidate_only() -> None:
     assert "execution_eligible=true" not in text
     for fragment in INVALID_MODEL_SPL_FRAGMENTS:
         assert fragment not in text
+
+
+def test_stage3jj3_trace_matches_governed_failed_login_answer() -> None:
+    response = _run("failed_login_spike_app01")
+
+    assert response.analyst_response is not None
+    assert response.analyst_response.severity_label == "P2 High"
+    assert response.severity_decision is not None
+    assert response.severity_decision.severity_label == "P2 High"
+    severity_stage = _lineage_stage(response, "severity")
+    assert severity_stage.explanation == "P2 High"
+    assert severity_stage.technical_output["severity_label"] == "P2 High"
+
+
+def test_stage3jj3_success_after_failure_trace_uses_success_template() -> None:
+    response = _run("successful_login_after_failures")
+
+    assert response.selected_use_case is not None
+    assert response.selected_use_case.use_case_id == "auth_success_after_failure"
+    assert response.spl_template is not None
+    assert response.spl_template["template_id"] == "auth_success_after_failure"
+    assert response.severity_decision is not None
+    assert response.severity_decision.severity_label == "P2 High"
+    template_stage = _lineage_stage(response, "spl_template")
+    assert template_stage.status == "complete"
+    assert template_stage.technical_output["template_id"] == "auth_success_after_failure"
+
+
+def test_stage3jj3_clarification_and_discovery_do_not_show_unrelated_sop() -> None:
+    for scenario_id in ("mitre_mapping_requires_context", "mcp_metadata_discovery_app01"):
+        response = _run(scenario_id)
+
+        assert response.analyst_response is not None
+        assert response.analyst_response.retrieved_playbook is None
+        assert response.analyst_response.sop_guidance is None
+
+
+def test_stage3jj3_mcp_discovery_trace_is_not_unknown_or_clarification() -> None:
+    response = _run("mcp_metadata_discovery_app01")
+
+    assert response.query_understanding is not None
+    assert response.query_understanding.primary_intent == "splunk_metadata_discovery"
+    assert response.query_understanding.requested_output_type == "spl"
+    assert response.query_understanding.output_template == "spl_response"
+    assert response.query_understanding.mapped_use_case_ids == ["soc_generate_spl"]
+    assert response.selected_use_case is not None
+    assert response.selected_use_case.use_case_id == "soc_generate_spl"
+
+
+def test_stage3jj3_trace_wording_mentions_captured_foundation_sec_without_enabling_synthesis() -> None:
+    response = _run("failed_login_spike_app01")
+
+    assert response.synthesis_status is not None
+    assert response.answer_guard is not None
+    assert response.synthesis_status.enabled is False
+    assert response.answer_guard.enabled is False
+    assert "captured Foundation-sec outputs governed by deterministic policy" in response.synthesis_status.reason
+    assert "Stage 3K live synthesis is not run" in response.synthesis_status.reason
+    assert "captured Foundation-sec" in response.answer_guard.reason
+    assert "Stage 3L Answer Guard execution is not run" in response.answer_guard.reason
