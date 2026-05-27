@@ -576,3 +576,9 @@ C. Add the compact skill catalog only after the schema is stable.
 D. Do not modify the SPL validator, CIM support, or tstats/template behavior in this stage.
 
 E. Stage 3K-Q1 remains the SPL validator/template-schema safety work for CIM/tstats.
+
+## Stage 3K-Q1A Implementation Note
+
+Stage 3K-Q1A adds validation-only support for strict CIM/tstats/datamodel query shapes in the SPL validator. It recognizes `raw_search`, `tstats_datamodel`, and `from_datamodel` shapes, applies an approved datamodel and CIM field allowlist, and requires bounded time windows plus result limits for datamodel queries.
+
+This does not create production SOC templates, execute SPL, bypass MCP gates, enable live LLM routing, or change Answer Guard/final synthesis behavior. Template schema extension remains a later Stage 3K-Q1B task.
