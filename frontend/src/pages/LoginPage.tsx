@@ -34,7 +34,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
   };
 
   return (
-    <main className="soc-canvas soc-grid min-h-screen text-slate-100">
+    <main className="soc-canvas min-h-screen text-slate-100">
       <header className="border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">

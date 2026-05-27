@@ -13,7 +13,7 @@ interface AppShellProps {
 
 export function AppShell({ children, health, healthError, username, onLogout }: AppShellProps) {
   return (
-    <div className="soc-canvas soc-grid flex h-screen overflow-hidden text-slate-100">
+    <div className="soc-canvas flex h-screen overflow-hidden text-slate-100">
       <SideNav />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar username={username} health={health} healthError={healthError} onLogout={onLogout} />

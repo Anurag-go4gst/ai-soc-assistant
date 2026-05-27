@@ -58,7 +58,7 @@ export default function App() {
   if (checkingAuth) {
     return (
       <TooltipProvider>
-        <main className="soc-canvas soc-grid flex h-screen items-center justify-center p-6">
+        <main className="soc-canvas flex h-screen items-center justify-center p-6">
           <section className="soc-panel-strong rounded-xl p-8 text-center">
             <p className="soc-eyebrow text-cyan-300">Protected demo environment</p>
             <h1 className="mt-3 text-2xl font-semibold">Velocis AI SOC Assistant</h1>
