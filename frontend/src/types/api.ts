@@ -45,6 +45,7 @@ export interface PlaceholderResponse {
   structured_context?: StructuredContextPackage | null;
   context_sufficiency?: ContextSufficiencyEnvelope | null;
   analyst_response?: AnalystResponseEnvelope | null;
+  foundation_sec_governance?: FoundationSecGovernance | null;
   spl_template?: Record<string, unknown> | null;
   mitre_mappings?: MitreMappingDecision[] | null;
   severity_decision?: SeverityDecision | null;
@@ -223,6 +224,43 @@ export interface AnalystResponseEnvelope {
   escalation_criteria?: string[];
   closure_conditions?: string[];
   review_notice?: string | null;
+}
+
+export interface FoundationSecCapturedOutput {
+  model_role?: string | null;
+  model_family?: string | null;
+  model_name?: string | null;
+  captured_prompt_type?: string | null;
+  captured_summary?: string | null;
+  useful_contribution?: string[];
+  observed_limitations?: string[];
+}
+
+export interface FoundationSecGovernanceOverride {
+  model_suggested?: string | null;
+  vai_soc_governed?: string | null;
+  reason?: string | null;
+  rule?: string | null;
+}
+
+export interface FoundationSecGovernedAnalysis {
+  model_signal?: string | null;
+  vai_soc_decision?: string | null;
+  evidence_used?: string[];
+  evidence_refs?: string[];
+  missing_evidence?: string[];
+  governance_overrides?: FoundationSecGovernanceOverride[];
+  guardrail_notes?: string[];
+}
+
+export interface FoundationSecGovernance {
+  fixture_type?: string | null;
+  live_llm_called?: boolean;
+  final_answer_source?: string | null;
+  display_mode?: string | null;
+  model_family?: string | null;
+  captured_outputs?: FoundationSecCapturedOutput[];
+  governed_analysis?: FoundationSecGovernedAnalysis | null;
 }
 
 export interface DemoScenarioSummary {

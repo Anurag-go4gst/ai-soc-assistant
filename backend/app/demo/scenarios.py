@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from app.actions.capability_policy import action_capability_for
 from app.answer_guard.models import AnswerGuardStatus
+from app.demo.foundation_sec_fixtures import foundation_sec_governance_for
 from app.lineage.builder import build_investigation_lineage
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.workflow_planner import plan_workflow
@@ -70,6 +71,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     context_sufficiency = _context_sufficiency(scenario)
     review = _human_review(scenario, execution)
     analyst_response = _analyst_response(scenario)
+    foundation_sec_governance = foundation_sec_governance_for(scenario.scenario_id)
     query_understanding = understand_query(scenario.query)
     selected_use_case = _selected_use_case(scenario.query)
     skill_selection = select_skill_chain(
@@ -146,6 +148,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "structured_context": structured_context,
         "context_sufficiency": context_sufficiency,
         "analyst_response": analyst_response,
+        "foundation_sec_governance": foundation_sec_governance,
         "spl_template": spl_template,
         "mitre_mappings": [item.model_dump() for item in mitre_mappings],
         "severity_decision": severity_decision.model_dump(),
@@ -410,7 +413,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             **base,
             "severity_label": "P2 High",
             "finding_title": "Brute-force authentication spike detected on APP-01",
-            "one_sentence_finding": "APP-01 shows a sustained failed-login spike over the last 60 minutes from three internal source IPs. The evidence shows 101 failed logins across three source IPs, but global distinct user count is not confirmed because per-source distinct-user counts may overlap. No successful login after the failures has been confirmed yet. Privileged-account status, source IP ownership, and APP-01 CMDB criticality are still unavailable, so this remains a P2 credential-access investigation rather than a compromise finding.",
+            "one_sentence_finding": "Foundation-sec identified 101 failed logins across three source IPs as a password-guessing pattern against APP-01; V.AI SOC governs it as P2 High because the evidence supports T1110.001, the global distinct user count is not confirmed, and compromise, privileged-account impact, source ownership, and APP-01 criticality are not confirmed.",
             "splunk_status_line": "Querying Splunk [index=pgcil_soc] · last 60 minutes...",
             "splunk_results_table": [
                 {"Host": "APP-01", "Source IP": "10.10.4.21", "Failed logins": 42, "Distinct users by source": 7, "First seen": "13:42:10", "Last seen": "14:37:22", "Action": "failure"},
@@ -421,8 +424,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Status": "Supported", "Evidence": "High failed-login volume from multiple source IPs against APP-01", "Confidence": "High"},
             ],
             "foundation_sec_analysis": "\n\n".join([
-                "The activity strongly matches a password-guessing pattern. The distribution across multiple source IPs and the sustained failure volume make this more concerning than a single expired-password or one-host misconfiguration case.",
-                "However, the absence of confirmed success-after-failure evidence prevents classification as a compromise finding. Privileged-account status, APP-01 criticality, and source IP ownership remain the key missing evidence items.",
+                "Foundation-sec identified the activity as a high-confidence password-guessing pattern based on sustained failed logins across three source IPs.",
+                "V.AI SOC accepts the T1110.001 mapping as supported, but keeps the response evidence-grounded: no successful login after the failures has been confirmed, and privileged-account status, APP-01 criticality, and source ownership remain unresolved.",
             ]),
             "recommended_actions": [
                 "P1 - Run success-after-failure correlation for APP-01 using the same source IPs and time window. Escalate immediately if any successful login follows five or more failures.",
@@ -438,7 +441,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             **base,
             "severity_label": "P2 High",
             "finding_title": "New source IP login pattern observed for APP-01",
-            "one_sentence_finding": "APP-01 accepted authentications from source IPs not previously associated with the affected users.",
+            "one_sentence_finding": "Foundation-sec recognised new-source successful logins as a Valid Accounts signal; V.AI SOC keeps T1078 validation-required until source ownership, MFA/session, account status, and post-login activity are confirmed.",
             "splunk_status_line": "Querying Splunk [index=pgcil_soc] · last 24 hours · new source IPs only...",
             "splunk_results_table": [
                 {"Host": "APP-01", "User": "svc_grid_ops", "Source IP": "10.10.7.44", "First seen": "14:21:05", "Prior sightings": "None in 30 days", "Action": "success"},
@@ -465,8 +468,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 ],
             },
             "foundation_sec_analysis": "\n\n".join([
-                "Successful logins from source IPs outside the established account baseline are a T1078 Valid Accounts candidate, but the evidence does not prove misuse by itself.",
-                "The risk profile remains elevated until source ownership, MFA result, account status, and post-login behaviour are confirmed against CMDB, identity, and endpoint telemetry.",
+                "Foundation-sec treated successful logins from new source IPs as a Valid Accounts candidate because they deviate from the established account baseline.",
+                "V.AI SOC constrains the answer to investigation status: the evidence does not prove misuse by itself, and source ownership, MFA result, account type, and endpoint activity are still required.",
             ]),
             "recommended_actions": [
                 "P2 - Validate source IP ownership for 10.10.7.44 and 10.10.7.45 against CMDB, DHCP, VPN, jump-host, and firewall inventory.",
@@ -548,7 +551,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
         return {
             **base,
             "finding_title": "Success-after-failure correlation SPL",
-            "one_sentence_finding": "Template-generated SPL - validator-ready. This SPL identifies accounts that experience repeated failed logins followed by at least one successful login on APP-01 within a 60-minute window.",
+            "status_badge": "Template-generated SPL - validator-ready",
+            "one_sentence_finding": "Foundation-sec flagged a successful login after repeated failures as a higher-risk credential-access signal; V.AI SOC uses deterministic template SPL and keeps T1078 Valid Accounts at requires_validation.",
             "spl_code": SUCCESS_AFTER_FAILURES_VISIBLE_SPL,
             "key_fields": [
                 "user - account with failures followed by success",
@@ -563,7 +567,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Status": "Supported", "Evidence": "Repeated failures before a success event", "Validation needed": "Validate benign causes and account ownership."},
                 {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Status": "Requires validation", "Evidence": "Successful login after repeated failures", "Validation needed": "Confirm MFA, session legitimacy, and post-login activity."},
             ],
-            "foundation_sec_analysis": "The successful login after repeated failures changes the investigation priority because it may indicate valid credential use after password guessing. However, T1078 remains validation-required until post-login activity, session behavior, or unauthorized access is observed.",
+            "foundation_sec_analysis": "Foundation-sec identified the successful login after 58 failures as materially higher risk. V.AI SOC accepts T1110.001 as supported, but T1078 remains requires_validation until post-login activity, MFA/session context, EDR evidence, account privilege, APP-01 criticality, and firewall pivots are available.",
             "recommended_actions": [
                 "P1 - Validate the successful session: source IP, MFA result, session duration, and first post-login activity.",
                 "P1 - Review EDR/process telemetry for APP-01 immediately after login.",
@@ -577,7 +581,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
         return {
             **base,
             "finding_title": "Account lockout trend SPL",
-            "one_sentence_finding": "Template-generated SPL - validator-ready. This SPL summarises account lockout events over 15-minute intervals and surfaces users with the highest lockout volume across the last 24 hours.",
+            "status_badge": "Template-generated SPL - validator-ready",
+            "one_sentence_finding": "Foundation-sec can assist with lockout-trend intent, but V.AI SOC uses deterministic template SPL for this known use case and keeps operational use gated by validation policy.",
             "spl_code": LOCKOUT_VISIBLE_SPL,
             "key_fields": [
                 "_time - 15-minute lockout time bucket",
@@ -594,6 +599,31 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "P4 - Review account lockout policy thresholds against the observed pattern. If the current threshold, for example five failures before lockout, is being systematically avoided by distributing attempts across multiple IPs, consider tightening the policy or adding velocity-based detection at the host level.",
             ],
             "review_notice": "Review required before using this SPL in an operational search.",
+        }
+    if scenario.scenario_id == "mitre_mapping_requires_context":
+        return {
+            **base,
+            "finding_title": "MITRE mapping requires alert context",
+            "one_sentence_finding": "Please provide the alert title, rule name, SPL, notable event details, or key fields such as host, user, source IP, event type, and time window. V.AI SOC cannot map this alert to MITRE without event evidence.",
+            "foundation_sec_analysis": "Foundation-sec recognised a MITRE mapping request, but V.AI SOC requires supporting alert evidence before selecting a technique.",
+            "recommended_actions": [
+                "P2 - Provide alert title, detection rule, notable/event ID, or SPL before MITRE mapping.",
+                "P2 - Include key fields such as host, user, source IP, event type, and time window.",
+            ],
+            "review_notice": "Clarification required before MITRE mapping.",
+        }
+    if scenario.scenario_id == "mcp_metadata_discovery_app01":
+        return {
+            **base,
+            "finding_title": "Safe Splunk metadata discovery selected",
+            "one_sentence_finding": "Foundation-sec recognised that index and sourcetype discovery is needed before SPL generation; V.AI SOC rejects invented data locations and selects safe metadata discovery tools.",
+            "foundation_sec_analysis": "Foundation-sec can identify the discovery need, but V.AI SOC does not accept invented index or sourcetype names. The governed path is splunk_get_indexes followed by splunk_get_metadata, with no SPL execution.",
+            "recommended_actions": [
+                "P2 - Use splunk_get_indexes to enumerate available indexes before drafting SPL.",
+                "P2 - Use splunk_get_metadata to identify sourcetypes related to APP-01 authentication events.",
+                "P3 - Generate SPL only after actual index and sourcetype evidence is available.",
+            ],
+            "review_notice": "Discovery result required before SPL generation.",
         }
     return {
         **base,
@@ -884,7 +914,7 @@ SCENARIOS: dict[str, DemoScenario] = {
             "MCP execution gate leaves the query unexecuted for analyst review.",
         ],
         source_evidence=[
-            _evidence("ev-splunk-success-after-fail", "splunk_mcp", "Splunk auth fixture", 2, ["user", "src", "host", "fail_count", "success_count"], [{"user": "svc_app", "src": "10.10.4.21", "host": "APP-01", "fail_count": 8, "success_count": 1}], tool_name="search", provider_used="splunk_mcp_fixture"),
+            _evidence("ev-splunk-success-after-fail", "splunk_mcp", "Splunk auth fixture", 2, ["user", "src", "host", "fail_count", "success_count"], [{"user": "svc_grid_ops", "src": "10.10.4.21", "host": "APP-01", "fail_count": 58, "success_count": 1, "minutes_to_success": 17}], tool_name="search", provider_used="splunk_mcp_fixture"),
         ],
         structured_context=_context(
             "successful_login_after_failures",
@@ -1017,6 +1047,61 @@ SCENARIOS: dict[str, DemoScenario] = {
                 {"technique_id": "T1078", "name": "Valid Accounts", "support": "analyst_review", "source_refs": ["ev-splunk-mitre-alert"]},
             ],
             refs=["ev-splunk-mitre-alert"],
+            quality="partial",
+        ),
+    ),
+    "mitre_mapping_requires_context": DemoScenario(
+        scenario_id="mitre_mapping_requires_context",
+        label="MITRE clarification required",
+        category="MITRE Mapping",
+        query="Map this alert to MITRE",
+        environment_mode="connected_coe_demo",
+        expected_skill="knowledge_recall",
+        expected_sources=[],
+        expected_sufficiency_mode="insufficient_evidence",
+        mcp_execution_mode="not_required",
+        saia_available=True,
+        rag_available=True,
+        analyst_summary="MITRE mapping requires alert context before selecting a technique.",
+        trace_explanation=[
+            "The phrase 'this alert' does not include enough event context.",
+            "Deterministic clarification policy overrides advisory model confidence.",
+            "No MITRE technique is selected until alert evidence is supplied.",
+        ],
+        source_evidence=[],
+        structured_context=_context(
+            "mitre_mapping_requires_context",
+            "knowledge_recall",
+            [],
+            refs=[],
+            quality="insufficient",
+        ),
+    ),
+    "mcp_metadata_discovery_app01": DemoScenario(
+        scenario_id="mcp_metadata_discovery_app01",
+        label="APP-01 metadata discovery",
+        category="Generate SPL",
+        query="Before generating SPL, check which indexes and sourcetypes are available for APP-01 authentication logs",
+        environment_mode="connected_coe_demo",
+        expected_skill="spl_generation",
+        expected_sources=["mcp:splunk"],
+        expected_sufficiency_mode="analyst_review_required",
+        mcp_execution_mode="not_required",
+        saia_available=True,
+        rag_available=False,
+        analyst_summary="Index and sourcetype discovery must run before SPL generation for APP-01 authentication logs.",
+        trace_explanation=[
+            "Routes to SPL preparation but stops at metadata discovery.",
+            "LLM-invented index and sourcetype names are ignored.",
+            "Deterministic tool mapping selects splunk_get_indexes and splunk_get_metadata.",
+        ],
+        source_evidence=[],
+        structured_context=_context(
+            "mcp_metadata_discovery_app01",
+            "spl_generation",
+            [_fact("fact-metadata-discovery", "APP-01 authentication SPL requires metadata discovery before SPL generation.", [])],
+            metrics={"deterministic_tools": ["splunk_get_indexes", "splunk_get_metadata"]},
+            refs=[],
             quality="partial",
         ),
     ),

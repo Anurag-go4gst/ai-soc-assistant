@@ -48,6 +48,27 @@ def _visible_text(response) -> str:
     return json.dumps(payload)
 
 
+def _main_answer_text(response) -> str:
+    governed = None
+    if response.foundation_sec_governance and response.foundation_sec_governance.governed_analysis:
+        analysis = response.foundation_sec_governance.governed_analysis
+        governed = {
+            "model_signal": analysis.model_signal,
+            "vai_soc_decision": analysis.vai_soc_decision,
+            "evidence_used": analysis.evidence_used,
+            "missing_evidence": analysis.missing_evidence,
+            "governance_overrides": [item.model_dump() for item in analysis.governance_overrides],
+            "guardrail_notes": analysis.guardrail_notes,
+        }
+    payload = {
+        "message": response.message,
+        "analyst_summary": response.analyst_summary,
+        "analyst_response": response.analyst_response.model_dump() if response.analyst_response else None,
+        "foundation_sec_governed_analysis": governed,
+    }
+    return json.dumps(payload)
+
+
 def test_get_demo_scenarios_returns_all_stage3jd_scenarios() -> None:
     payload = list_demo_scenario_fixtures()
 
@@ -63,6 +84,8 @@ def test_get_demo_scenarios_returns_all_stage3jd_scenarios() -> None:
         "failed_login_playbook",
         "account_lockouts_over_time_spl",
         "mitre_mapping_auth_alert",
+        "mitre_mapping_requires_context",
+        "mcp_metadata_discovery_app01",
         "airgapped_no_saia_success_after_failures",
     }
 
@@ -276,3 +299,91 @@ def test_stage3jj_success_after_failure_keeps_t1078_validation_required() -> Non
     assert "t1078 confirmed" not in visible.lower()
     assert "post-login malicious activity" not in visible.lower()
     assert "svc_grid_ops is privileged" not in visible.lower()
+
+
+def test_stage3jj3_foundation_sec_governance_serializes_for_experience_center() -> None:
+    scenario_ids = (
+        "failed_login_spike_app01",
+        "new_source_ip_logins",
+        "successful_login_after_failures",
+        "mitre_mapping_auth_alert",
+        "mitre_mapping_requires_context",
+        "mcp_metadata_discovery_app01",
+        "account_lockouts_over_time_spl",
+        "airgapped_no_saia_success_after_failures",
+    )
+
+    for scenario_id in scenario_ids:
+        response = _run(scenario_id)
+        governance = response.foundation_sec_governance
+
+        assert governance is not None
+        assert governance.live_llm_called is False
+        assert governance.final_answer_source == "governed_fixture"
+        assert governance.display_mode == "main_answer_governed_model"
+        assert governance.captured_outputs
+        assert governance.governed_analysis is not None
+
+
+def test_stage3jj3_failed_login_governance_records_guarded_corrections() -> None:
+    response = _run("failed_login_spike_app01")
+    text = _main_answer_text(response)
+
+    assert "Foundation-sec identified" in text
+    assert "password-guessing" in text
+    assert "T1110.001" in text
+    assert "Global distinct-user count is not claimed" in text
+    assert "Privileged-account status is not yet available" in text
+    assert "14 targeted accounts" not in text
+    assert "no privileged accounts targeted" not in text.lower()
+    assert "confirmed compromise" not in text.lower()
+
+
+def test_stage3jj3_success_after_failure_governance_keeps_t1078_validation_required() -> None:
+    response = _run("successful_login_after_failures")
+    text = _main_answer_text(response)
+
+    assert "58 failures" in text
+    assert "T1078 Valid Accounts at requires_validation" in text
+    assert "EDR telemetry" in text
+    assert "MFA/session context" in text
+    assert "APP-01 CMDB criticality" in text
+    assert "Firewall and VPN pivots" in text
+    assert "T1078 confirmed" not in text
+    assert "svc_grid_ops is privileged" not in text
+    assert "APP-01 is critical" not in text
+    assert "post-login malicious activity occurred" not in text
+
+
+def test_stage3jj3_mitre_clarification_overrides_model_attempt() -> None:
+    response = _run("mitre_mapping_requires_context")
+    text = _main_answer_text(response)
+
+    assert response.candidate_spl is None
+    assert response.spl_validation is None
+    assert "Please provide the alert title" in text
+    assert "clarification_needed=false" in text
+    assert "clarification_required" in text
+    assert "No MITRE technique is selected without event evidence" in text
+
+
+def test_stage3jj3_mcp_discovery_rejects_invented_locations() -> None:
+    response = _run("mcp_metadata_discovery_app01")
+    text = _main_answer_text(response)
+
+    assert response.candidate_spl is None
+    assert "splunk_get_indexes" in text
+    assert "splunk_get_metadata" in text
+    assert "invented index and sourcetype names" in text
+    assert "index=authentication" not in text
+    assert "sourcetype=app01_auth" not in text
+
+
+def test_stage3jj3_spl_governance_forces_model_spl_candidate_only() -> None:
+    response = _run("airgapped_no_saia_success_after_failures")
+    text = _main_answer_text(response)
+
+    assert "execution_eligible=false" in text
+    assert "execution_eligible=true" not in text
+    for fragment in INVALID_MODEL_SPL_FRAGMENTS:
+        assert fragment not in text

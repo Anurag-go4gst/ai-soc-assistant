@@ -199,6 +199,43 @@ class AnalystResponseEnvelope(BaseModel):
     review_notice: str | None = None
 
 
+class FoundationSecCapturedOutput(BaseModel):
+    model_role: str | None = None
+    model_family: str | None = None
+    model_name: str | None = None
+    captured_prompt_type: str | None = None
+    captured_summary: str | None = None
+    useful_contribution: list[str] = []
+    observed_limitations: list[str] = []
+
+
+class FoundationSecGovernanceOverride(BaseModel):
+    model_suggested: str | None = None
+    vai_soc_governed: str | None = None
+    reason: str | None = None
+    rule: str | None = None
+
+
+class FoundationSecGovernedAnalysis(BaseModel):
+    model_signal: str | None = None
+    vai_soc_decision: str | None = None
+    evidence_used: list[str] = []
+    evidence_refs: list[str] = []
+    missing_evidence: list[str] = []
+    governance_overrides: list[FoundationSecGovernanceOverride] = []
+    guardrail_notes: list[str] = []
+
+
+class FoundationSecGovernance(BaseModel):
+    fixture_type: str | None = None
+    live_llm_called: bool = False
+    final_answer_source: str | None = None
+    display_mode: str | None = None
+    model_family: str | None = None
+    captured_outputs: list[FoundationSecCapturedOutput] = []
+    governed_analysis: FoundationSecGovernedAnalysis | None = None
+
+
 class PlaceholderResponse(BaseModel):
     trace_id: str
     message: str
@@ -234,6 +271,7 @@ class PlaceholderResponse(BaseModel):
     structured_context: StructuredContextPackage | None = None
     context_sufficiency: ContextSufficiencyEnvelope | None = None
     analyst_response: AnalystResponseEnvelope | None = None
+    foundation_sec_governance: FoundationSecGovernance | None = None
     spl_template: dict[str, object] | None = None
     mitre_mappings: list[MitreMappingDecision] | None = None
     severity_decision: SeverityDecision | None = None

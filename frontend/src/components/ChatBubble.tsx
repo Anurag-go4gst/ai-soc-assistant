@@ -59,12 +59,12 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             'rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm',
             isUser
               ? 'rounded-tr-md bg-cyan-400 text-slate-950'
-              : 'rounded-tl-md border border-slate-800 bg-slate-900/90 text-slate-100',
+              : 'max-w-[68ch] rounded-tl-md border border-slate-800 bg-slate-900/90 text-slate-100',
           )}
         >
           {message.content}
         </div>
-        {!isUser && message.trace?.analyst_response ? <AnalystResponseCard response={message.trace.analyst_response} /> : null}
+        {!isUser && message.trace?.analyst_response ? <AnalystResponseCard response={message.trace.analyst_response} foundationSecGovernance={message.trace.foundation_sec_governance} /> : null}
         {!isUser && message.trace && !message.trace.analyst_response ? <AnalystSummaryCard trace={message.trace} /> : null}
         {!isUser && message.trace?.human_review?.required && !message.trace.analyst_response ? <HumanReviewCard review={message.trace.human_review} /> : null}
         {!isUser && !message.trace && message.note ? (

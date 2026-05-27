@@ -1,9 +1,10 @@
 import { Badge } from '@/components/ui/badge';
 import type React from 'react';
-import type { AnalystResponseEnvelope } from '@/types/api';
+import { ChevronRight } from 'lucide-react';
+import type { AnalystResponseEnvelope, FoundationSecGovernance } from '@/types/api';
 import { cn } from '@/lib/utils';
 
-export function AnalystResponseCard({ response }: { response: AnalystResponseEnvelope }) {
+export function AnalystResponseCard({ response, foundationSecGovernance }: { response: AnalystResponseEnvelope; foundationSecGovernance?: FoundationSecGovernance | null }) {
   const playbookTitle = formatPlaybook(response.retrieved_playbook);
   const triageSteps = stringList(response.sop_guidance?.triage_steps);
   const validationNotes = stringList(response.sop_guidance?.validation_notes);
@@ -20,6 +21,8 @@ export function AnalystResponseCard({ response }: { response: AnalystResponseEnv
 
       {title ? <h3 className="mt-3 text-xl font-semibold text-slate-50">{title}</h3> : null}
       {response.one_sentence_finding ? <p className="mt-2 leading-6 text-slate-200">{response.one_sentence_finding}</p> : null}
+
+      {foundationSecGovernance?.governed_analysis ? <FoundationSecGovernanceBlock governance={foundationSecGovernance} /> : null}
 
       {response.splunk_status_line ? <p className="mt-4 font-mono text-xs text-cyan-100">{response.splunk_status_line}</p> : null}
       {hasInvestigationTable ? <DataTable rows={response.splunk_results_table ?? []} /> : null}
@@ -75,9 +78,9 @@ export function AnalystResponseCard({ response }: { response: AnalystResponseEnv
         </section>
       ) : null}
 
-      {response.foundation_sec_analysis ? (
+      {response.foundation_sec_analysis && !foundationSecGovernance?.governed_analysis ? (
         <section className="mt-4">
-          <SectionTitle>Foundation-sec analysis</SectionTitle>
+          <SectionTitle>Foundation-sec governed analysis</SectionTitle>
           <div className="mt-1 space-y-3 leading-6 text-slate-200">
             {splitParagraphs(response.foundation_sec_analysis).map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
@@ -109,6 +112,105 @@ export function AnalystResponseCard({ response }: { response: AnalystResponseEnv
 
       {response.review_notice ? <p className="mt-4 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">{response.review_notice}</p> : null}
     </div>
+  );
+}
+
+function FoundationSecGovernanceBlock({ governance }: { governance: FoundationSecGovernance }) {
+  const analysis = governance.governed_analysis;
+  if (!analysis) return null;
+  const captured = governance.captured_outputs ?? [];
+  const overrides = analysis.governance_overrides ?? [];
+  const evidenceUsed = analysis.evidence_used ?? [];
+  const missingEvidence = analysis.missing_evidence ?? [];
+  const notes = analysis.guardrail_notes ?? [];
+
+  return (
+    <section className="mt-4 rounded-lg border border-cyan-400/25 bg-cyan-400/[0.04] p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <SectionTitle>Foundation-sec governed analysis</SectionTitle>
+        <Badge variant="secondary">Captured model signal</Badge>
+        <Badge variant="outline">V.AI SOC governed</Badge>
+      </div>
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        {analysis.model_signal ? (
+          <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
+            <p className="text-[0.68rem] font-medium uppercase tracking-[0.05em] text-slate-400">Advisory model signal</p>
+            <p className="mt-1 leading-6 text-slate-100">{analysis.model_signal}</p>
+          </div>
+        ) : null}
+        {analysis.vai_soc_decision ? (
+          <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
+            <p className="text-[0.68rem] font-medium uppercase tracking-[0.05em] text-slate-400">V.AI SOC decision</p>
+            <p className="mt-1 leading-6 text-slate-100">{analysis.vai_soc_decision}</p>
+          </div>
+        ) : null}
+      </div>
+
+      {evidenceUsed.length ? (
+        <div className="mt-3">
+          <SectionTitle>Evidence used</SectionTitle>
+          <BulletList items={evidenceUsed} />
+        </div>
+      ) : null}
+
+      {missingEvidence.length ? (
+        <div className="mt-3">
+          <SectionTitle>Evidence still required</SectionTitle>
+          <BulletList items={missingEvidence} />
+        </div>
+      ) : null}
+
+      {notes.length ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {notes.map((note) => <Badge key={note} variant="outline">{note}</Badge>)}
+        </div>
+      ) : null}
+
+      {overrides.length || captured.length ? (
+        <details className="group mt-4 rounded-md border border-slate-800 bg-slate-950/60">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 transition hover:text-cyan-200">
+            <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+            Model output governance
+            <Badge variant="outline">collapsed</Badge>
+          </summary>
+          <div className="space-y-3 border-t border-slate-800 p-3">
+            {captured.length ? (
+              <div>
+                <SectionTitle>Captured contribution</SectionTitle>
+                <div className="mt-2 space-y-2">
+                  {captured.map((item) => (
+                    <div key={`${item.model_role}-${item.captured_prompt_type}`} className="rounded border border-slate-800 bg-slate-950/50 p-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.model_role ? <Badge variant="secondary">{item.model_role}</Badge> : null}
+                        {item.model_name ? <Badge variant="outline">{item.model_name}</Badge> : null}
+                      </div>
+                      {item.captured_summary ? <p className="mt-2 leading-6 text-slate-200">{item.captured_summary}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {overrides.length ? (
+              <div>
+                <SectionTitle>Governance applied</SectionTitle>
+                <div className="mt-2 space-y-2">
+                  {overrides.map((override) => (
+                    <div key={`${override.rule}-${override.model_suggested}`} className="rounded border border-slate-800 bg-slate-950/50 p-2">
+                      {override.model_suggested ? <p className="text-slate-400">Model suggested: <span className="text-slate-100">{override.model_suggested}</span></p> : null}
+                      {override.vai_soc_governed ? <p className="mt-1 text-slate-400">V.AI SOC governed: <span className="text-cyan-100">{override.vai_soc_governed}</span></p> : null}
+                      {override.reason ? <p className="mt-1 text-slate-300">{override.reason}</p> : null}
+                      {override.rule ? <Badge className="mt-2" variant="outline">{override.rule}</Badge> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </details>
+      ) : null}
+    </section>
   );
 }
 
