@@ -7,15 +7,19 @@ import { ChatBubble, type SocChatMessage } from './ChatBubble';
 import { ChatInput } from './ChatInput';
 import { DemoScenarioPicker } from './DemoScenarioPicker';
 import { StarterPrompts } from './StarterPrompts';
+import { cn } from '@/lib/utils';
 import type { DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
 
 interface ChatPanelProps {
   onTrace?: (response: PlaceholderResponse) => void;
   title?: string;
   compactHeader?: boolean;
+  // Full-bleed: drop the floating panel chrome so the chat fills its container
+  // edge-to-edge. Used on the dedicated Chat page; Cockpit keeps the panel frame.
+  flush?: boolean;
 }
 
-export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactHeader = false }: ChatPanelProps) {
+export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactHeader = false, flush = false }: ChatPanelProps) {
   const welcome = useMemo<SocChatMessage>(
     () => ({
       id: 'welcome',
@@ -28,6 +32,10 @@ export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactH
   const [messages, setMessages] = useState<SocChatMessage[]>([welcome]);
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // Onboarding chrome (starter prompts + demo picker) is only useful before a
+  // conversation begins; collapse it once the analyst sends the first message.
+  const conversationStarted = messages.some((message) => message.role === 'user');
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -95,15 +103,24 @@ export function ChatPanel({ onTrace, title = 'Investigation Workspace', compactH
   };
 
   return (
-    <Card className="soc-panel flex h-full min-h-0 flex-col overflow-hidden">
+    <Card
+      className={cn(
+        'flex h-full min-h-0 flex-col overflow-hidden',
+        flush ? 'rounded-none border-0 bg-transparent shadow-none' : 'soc-panel',
+      )}
+    >
       <CardHeader className={compactHeader ? 'border-b border-slate-800/70 py-3' : 'border-b border-slate-800/70'}>
         <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-        <StarterPrompts disabled={loading} onPick={handleSend} />
-        <DemoScenarioPicker disabled={loading} onRun={handleRunDemo} />
+        {!conversationStarted ? (
+          <>
+            <StarterPrompts disabled={loading} onPick={handleSend} />
+            <DemoScenarioPicker disabled={loading} onRun={handleRunDemo} />
+          </>
+        ) : null}
       </CardHeader>
       <CardContent className="min-h-0 flex-1 p-0">
         <ScrollArea className="h-full">
-          <div className="space-y-4 px-5 pb-36 pt-4">
+          <div className="space-y-4 px-5 pb-8 pt-4">
             {messages.map((message) => (
               <ChatBubble key={message.id} message={message} />
             ))}

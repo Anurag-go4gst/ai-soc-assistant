@@ -28,7 +28,7 @@ export function ChatInput({ disabled, onSend }: ChatInputProps) {
   return (
     <div className="flex items-end gap-2 border-t border-slate-800 bg-slate-950/80 p-4">
       <Textarea
-        className="max-h-32 min-h-[46px] resize-none"
+        className="max-h-32 min-h-[46px] flex-1 resize-none"
         disabled={disabled}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={handleKeyDown}

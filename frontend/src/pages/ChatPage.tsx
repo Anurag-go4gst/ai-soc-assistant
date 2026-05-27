@@ -2,10 +2,8 @@ import { ChatPanel } from '@/components/ChatPanel';
 
 export function ChatPage() {
   return (
-    <div className="flex h-full min-h-0 justify-center p-4 lg:px-8 lg:py-6">
-      <div className="flex h-full min-h-0 w-full max-w-[1440px] flex-col">
-        <ChatPanel title="Chat" />
-      </div>
+    <div className="h-full min-h-0">
+      <ChatPanel title="Chat" flush />
     </div>
   );
 }
