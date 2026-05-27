@@ -1,0 +1,97 @@
+{
+  "status": "design_sample_only",
+  "stage": "3K-Q0.5",
+  "warning": "Do not wire this file into runtime. Do not place it in backend runtime catalog paths.",
+  "skills": [
+    {
+      "skill_id": "aggregate_and_rank",
+      "purpose": "Rank entities by deterministic aggregates over a bounded time window.",
+      "required_slots": ["source_class", "domain", "time_window", "group_by", "metric", "sort", "limit"],
+      "examples": ["Which source IPs generated the most outbound connections?", "Which hosts generated the most DNS queries?"],
+      "non_examples": ["Which users have excessive failed logins?", "Which hosts contacted known malicious IPs today?"],
+      "allowed_post_enrichments": ["entity_context_lookup"],
+      "hard_preconditions": ["configured_source_binding", "bounded_time_window", "allowed_metric", "bounded_limit"]
+    },
+    {
+      "skill_id": "threshold_anomaly",
+      "purpose": "Find entities above explicit thresholds, baselines, or SOC-approved defaults.",
+      "required_slots": ["source_class", "domain", "time_window", "entity_field", "metric", "threshold_or_baseline", "comparison"],
+      "examples": ["Which users have excessive failed logins?", "Which hosts show a spike in failed logins?"],
+      "non_examples": ["Which source IPs generated the most outbound connections?", "Which DNS queries look like DGA activity?"],
+      "allowed_post_enrichments": ["entity_context_lookup", "lookup_correlation"],
+      "hard_preconditions": ["configured_source_binding", "explicit_or_configured_threshold", "bounded_time_window"]
+    },
+    {
+      "skill_id": "sequence_detection",
+      "purpose": "Detect ordered event sequences inside a bounded window.",
+      "required_slots": ["source_class", "domain", "entity_field", "sequence_steps", "time_window", "max_step_gap"],
+      "examples": ["Which accounts had a successful login after repeated failures?", "Which internal hosts generated outbound traffic after DNS lookups?"],
+      "non_examples": ["Which users have excessive failed logins?", "Which users were involved in both failed logins and privilege changes?"],
+      "allowed_post_enrichments": ["entity_context_lookup", "lookup_correlation"],
+      "hard_preconditions": ["configured_step_sources", "known_step_order", "bounded_time_window"]
+    },
+    {
+      "skill_id": "lookup_correlation",
+      "purpose": "Correlate observed events with a local configured lookup.",
+      "required_slots": ["source_class", "domain", "time_window", "lookup_ref", "lookup_key", "event_field", "entity_field"],
+      "examples": ["Which hosts contacted known malicious IPs today?", "Did any endpoint run this suspicious hash?"],
+      "non_examples": ["Which hosts contacted suspicious external domains when no local lookup exists?", "External threat intelligence lookup"],
+      "allowed_post_enrichments": ["entity_context_lookup"],
+      "hard_preconditions": ["configured_local_lookup", "lookup_schema_matches_event_field", "configured_source_binding"]
+    },
+    {
+      "skill_id": "behavioral_detection_binding",
+      "purpose": "Bind behavior questions to vetted detection content or fixture-backed detection results.",
+      "required_slots": ["detection_ref", "domain", "time_window", "entity_field", "source_class"],
+      "examples": ["Which DNS queries look like DGA activity?", "Which hosts executed encoded PowerShell commands?"],
+      "non_examples": ["LLM-authored DGA SPL", "Ad hoc beaconing detection logic"],
+      "allowed_post_enrichments": ["entity_context_lookup", "notable_risk_lookup"],
+      "hard_preconditions": ["configured_vetted_detection", "safe_detection_metadata", "bounded_time_window"]
+    },
+    {
+      "skill_id": "metadata_discovery",
+      "purpose": "Run safe metadata and source-health checks.",
+      "required_slots": ["operation_type", "source_inventory_ref_or_source_class", "time_window"],
+      "examples": ["Which logs are missing from key security sources?", "Which sources stopped sending events recently?"],
+      "non_examples": ["Event-content SPL", "Run DGA detection after metadata discovery"],
+      "allowed_post_enrichments": [],
+      "hard_preconditions": ["allowlisted_metadata_operation", "bounded_source_scope"]
+    },
+    {
+      "skill_id": "entity_context_lookup",
+      "purpose": "Read asset, identity, CMDB, IAM, owner, privilege, or criticality context for a known entity.",
+      "required_slots": ["entity", "entity_type", "lookup_ref", "requested_attributes"],
+      "examples": ["For host WIN-123, what is its criticality and owner?", "For user alice, what is the privilege status?"],
+      "non_examples": ["Primary SPL execution", "Infer criticality from hostname"],
+      "allowed_post_enrichments": [],
+      "hard_preconditions": ["known_entity", "configured_read_only_lookup"]
+    },
+    {
+      "skill_id": "notable_risk_lookup",
+      "purpose": "Read alert, notable, risk, and case-state records.",
+      "required_slots": ["source_class", "domain", "time_window_or_notable_id", "filters"],
+      "examples": ["What incident or alert network events are high or critical right now?", "What happened for this specific notable event?"],
+      "non_examples": ["Update case state", "Infer severity from model judgment"],
+      "allowed_post_enrichments": ["entity_context_lookup", "entity_timeline"],
+      "hard_preconditions": ["configured_notable_or_risk_source", "authoritative_status_fields"]
+    },
+    {
+      "skill_id": "multi_signal_correlation",
+      "purpose": "Coordinate a flat bounded set of approved sub-invocations for explicit multi-signal questions.",
+      "required_slots": ["correlation_entity", "time_window", "sub_invocations", "join_policy"],
+      "examples": ["Which hosts showed both process execution and suspicious DNS within 24 hours?", "Which users were involved in both failed logins and privilege changes?"],
+      "non_examples": ["Nested multi-signal route plans", "One primary route plus simple enrichment"],
+      "allowed_post_enrichments": ["entity_context_lookup"],
+      "hard_preconditions": ["explicit_multi_signal_language", "valid_child_routes", "max_depth_two"]
+    },
+    {
+      "skill_id": "entity_timeline",
+      "purpose": "Build a bounded activity timeline for a known entity or notable anchor.",
+      "required_slots": ["entity_or_notable_id", "entity_type", "time_window_or_anchor_event", "source_classes"],
+      "examples": ["What is the full activity timeline for host WIN-123 before and after notable N-456?", "Has domain example.com been seen before?"],
+      "non_examples": ["This host without prior context", "Broad timeline with no entity or time bounds"],
+      "allowed_post_enrichments": ["entity_context_lookup"],
+      "hard_preconditions": ["known_entity_or_anchor", "bounded_time_range", "configured_sources"]
+    }
+  ]
+}
