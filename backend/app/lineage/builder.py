@@ -28,15 +28,29 @@ def build_investigation_lineage(
     synthesis_status: SynthesisStatus,
     answer_guard_status: AnswerGuardStatus,
     action_capability: ActionCapability,
+    route_plan_shadow: dict[str, Any] | None = None,
 ) -> InvestigationLineage:
     use_case_id = selected_use_case.use_case_id if selected_use_case else None
-    return InvestigationLineage(
-        lineage_id=f"lineage:{trace_id}",
-        summary="Query understanding, skill-chain selection, captured Foundation-sec packaging, and governance status were recorded without enabling final synthesis or remediation.",
-        stages=[
-            _stage("query_understanding", "complete", "Query understanding", f"Mapped query to {use_case_id or 'no specific use case'}.", {"mapped_use_case_ids": getattr(query_understanding, "mapped_use_case_ids", [])}, [], mode_source, "production query parser"),
-            _stage("skill_chain", "complete", "Skill chain", f"Selected {selected_skill_chain.selected_skill}.", selected_skill_chain.model_dump(), [], mode_source, "production skill registry"),
-            _stage("workflow", "complete", "Workflow planning", workflow_plan.get("message", "Workflow plan created."), {"status": workflow_plan.get("status"), "execution_enabled": workflow_plan.get("execution_enabled")}, [], mode_source, "production workflow planner"),
+    stages = [
+        _stage("query_understanding", "complete", "Query understanding", f"Mapped query to {use_case_id or 'no specific use case'}.", {"mapped_use_case_ids": getattr(query_understanding, "mapped_use_case_ids", [])}, [], mode_source, "production query parser"),
+        _stage("skill_chain", "complete", "Skill chain", f"Selected {selected_skill_chain.selected_skill}.", selected_skill_chain.model_dump(), [], mode_source, "production skill registry"),
+        _stage("workflow", "complete", "Workflow planning", workflow_plan.get("message", "Workflow plan created."), {"status": workflow_plan.get("status"), "execution_enabled": workflow_plan.get("execution_enabled")}, [], mode_source, "production workflow planner"),
+    ]
+    if route_plan_shadow is not None:
+        stages.append(
+            _stage(
+                "route_plan_shadow",
+                str(route_plan_shadow.get("route_status") or route_plan_shadow.get("preflight_status") or "observed"),
+                "Route-plan shadow",
+                "Dormant route-plan preflight and validation metadata only; execution remains unauthorized.",
+                route_plan_shadow,
+                [],
+                "shadow",
+                "Stage 3K-R2 dormant route-plan validator",
+            )
+        )
+    stages.extend(
+        [
             _stage("spl_template", "complete" if spl_template else "skipped", "SPL template", "Template metadata attached when a use-case template exists.", spl_template or {}, ["spl_code"] if spl_template else [], "config" if spl_template else mode_source, "SCD/template registry"),
             _stage("spl_validation", "complete" if spl_validation else "skipped", "SPL validation", "Candidate SPL is validated before any MCP gate.", spl_validation or {}, [], mode_source, "production SPL validator"),
             _stage("mcp_tool_decision", execution.get("status", "skipped"), "MCP execution gate", execution.get("tool_selection_reason", "No MCP execution required."), execution, [], mode_source, "production MCP gate"),
@@ -47,7 +61,12 @@ def build_investigation_lineage(
             _stage("synthesis", synthesis_status.status, "LLM synthesis", synthesis_status.reason, synthesis_status.model_dump(), [], "planned", "Stage 3K"),
             _stage("answer_guard", answer_guard_status.guard_status, "Answer Guard", answer_guard_status.reason, answer_guard_status.model_dump(), [], "planned", "Stage 3L"),
             _stage("action_capability", "complete", "Action capability", action_capability.reason, action_capability.model_dump(), ["recommended_actions"], "derived", "action tier policy"),
-        ],
+        ]
+    )
+    return InvestigationLineage(
+        lineage_id=f"lineage:{trace_id}",
+        summary="Query understanding, skill-chain selection, captured Foundation-sec packaging, and governance status were recorded without enabling final synthesis or remediation.",
+        stages=stages,
     )
 
 

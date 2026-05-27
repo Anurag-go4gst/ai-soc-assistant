@@ -179,6 +179,30 @@ class ContextSufficiencyEnvelope(BaseModel):
     human_review: HumanReviewEnvelope | None = None
 
 
+class RoutePlanShadowEnvelope(BaseModel):
+    enabled: bool
+    mode: str
+    preflight_status: str | None = None
+    route_status: str | None = None
+    primary_skill: str | None = None
+    pattern_id: str | None = None
+    candidate_available: bool = False
+    candidate_reason: str | None = None
+    validation_result: dict[str, object] | None = None
+    validation_findings: list[str] = []
+    blocking_findings: list[str] = []
+    warnings: list[str] = []
+    missing_slots: list[str] = []
+    normalized_plan_available: bool = False
+    execution_authorized: bool = False
+    llm_called: bool = False
+    mcp_called: bool = False
+    spl_generated: bool = False
+    spl_executed: bool = False
+    model_role: str
+    reasoning_model_used: bool = False
+
+
 class AnalystResponseEnvelope(BaseModel):
     scenario_label: str | None = None
     severity_label: str | None = None
@@ -270,6 +294,7 @@ class PlaceholderResponse(BaseModel):
     source_evidence: list[SourceEvidenceEnvelope] = []
     structured_context: StructuredContextPackage | None = None
     context_sufficiency: ContextSufficiencyEnvelope | None = None
+    route_plan_shadow: RoutePlanShadowEnvelope | None = None
     analyst_response: AnalystResponseEnvelope | None = None
     foundation_sec_governance: FoundationSecGovernance | None = None
     spl_template: dict[str, object] | None = None
