@@ -201,6 +201,25 @@ class RoutePlanShadowEnvelope(BaseModel):
     spl_executed: bool = False
     model_role: str
     reasoning_model_used: bool = False
+    template_match_attempted: bool = False
+    template_match_skip_reason: str | None = None
+    template_match_shadow_status: str | None = None
+    matched_template_id: str | None = None
+    template_match_score: float | None = None
+    template_match_reasons: list[str] = []
+    template_mismatch_reasons: list[str] = []
+    candidate_template_ids: list[str] = []
+    template_production_executable: bool = False
+    template_sample_only: bool = False
+    template_validator_profile: str | None = None
+    rendered_spl_available: bool = False
+    rendered_spl_validator_approved: bool = False
+    rendered_spl_execution_eligible: bool = False
+    rendered_spl_sha256: str | None = None
+    evidence_output_contract: dict[str, object] | None = None
+    coe_synthetic_fixture: bool = True
+    captured_live_run: bool = False
+    production_execution: bool = False
 
 
 class AnalystResponseEnvelope(BaseModel):

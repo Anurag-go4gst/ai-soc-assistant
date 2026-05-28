@@ -19,6 +19,7 @@ from app.query_understanding.parser import understand_query
 from app.routing.route_plan_models import ROUTE_PLAN_GENERATOR_MODEL_FAMILY, ROUTE_PLAN_REASONING_MODEL_ALLOWED
 from app.routing.route_plan_preflight import preflight_route_plan
 from app.routing.route_plan_validator import validate_route_plan_candidate
+from app.routing.template_match_shadow import apply_template_match_to_shadow
 from app.risk.severity_policy import decide_severity
 from app.routing.skill_router import route_skill
 from app.safeguards.spl_validator import validate_spl
@@ -208,6 +209,7 @@ def _route_plan_shadow_stage(query: str) -> dict:
         shadow["route_status"] = preflight.route_status.value if preflight.route_status else None
         shadow["candidate_available"] = False
         shadow["candidate_reason"] = "deterministic_preflight_blocked"
+        apply_template_match_to_shadow(shadow, normalized_route_plan=None)
         return shadow
 
     candidate = _route_plan_shadow_candidate(query)
@@ -215,6 +217,7 @@ def _route_plan_shadow_stage(query: str) -> dict:
         shadow["candidate_available"] = False
         shadow["candidate_reason"] = "live_llm_routing_disabled"
         shadow["model_role"] = "none" if ROUTE_PLAN_GENERATOR_MODEL_FAMILY != "instruct" else "instruct_candidate_only"
+        apply_template_match_to_shadow(shadow, normalized_route_plan=None)
         return shadow
 
     validation = validate_route_plan_candidate(candidate)
@@ -233,6 +236,8 @@ def _route_plan_shadow_stage(query: str) -> dict:
             "normalized_plan_available": bool(validation.normalized_route_plan and validation.is_valid),
         }
     )
+    validated_plan = validation.normalized_route_plan if validation.is_valid else None
+    apply_template_match_to_shadow(shadow, normalized_route_plan=validated_plan)
     return shadow
 
 

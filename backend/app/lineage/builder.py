@@ -49,6 +49,8 @@ def build_investigation_lineage(
                 "Stage 3K-R2 dormant route-plan validator",
             )
         )
+        if route_plan_shadow.get("template_match_attempted"):
+            stages.append(_template_match_shadow_stage(route_plan_shadow))
     stages.extend(
         [
             _stage("spl_template", "complete" if spl_template else "skipped", "SPL template", "Template metadata attached when a use-case template exists.", spl_template or {}, ["spl_code"] if spl_template else [], "config" if spl_template else mode_source, "SCD/template registry"),
@@ -96,3 +98,31 @@ def _dump(item: Any) -> dict[str, object]:
     if hasattr(item, "model_dump"):
         return item.model_dump()
     return dict(item)
+
+
+def _template_match_shadow_stage(route_plan_shadow: dict[str, Any]) -> LineageStage:
+    status = str(route_plan_shadow.get("template_match_shadow_status") or "no_match")
+    return _stage(
+        "template_match_shadow",
+        status,
+        "Template match (shadow)",
+        "Dormant template candidate only. Not executed. Execution authorized: false.",
+        {
+            "matched_template_id": route_plan_shadow.get("matched_template_id"),
+            "template_validator_profile": route_plan_shadow.get("template_validator_profile"),
+            "template_sample_only": route_plan_shadow.get("template_sample_only"),
+            "template_production_executable": route_plan_shadow.get("template_production_executable"),
+            "rendered_spl_available": route_plan_shadow.get("rendered_spl_available"),
+            "rendered_spl_validator_approved": route_plan_shadow.get("rendered_spl_validator_approved"),
+            "rendered_spl_execution_eligible": route_plan_shadow.get("rendered_spl_execution_eligible"),
+            "rendered_spl_sha256": route_plan_shadow.get("rendered_spl_sha256"),
+            "evidence_output_contract": route_plan_shadow.get("evidence_output_contract"),
+            "template_mismatch_reasons": route_plan_shadow.get("template_mismatch_reasons"),
+            "coe_synthetic_fixture": route_plan_shadow.get("coe_synthetic_fixture"),
+            "captured_live_run": route_plan_shadow.get("captured_live_run"),
+            "production_execution": route_plan_shadow.get("production_execution"),
+        },
+        [],
+        "shadow",
+        "Stage 3K-Q1E deterministic template matcher and renderer",
+    )
