@@ -1,5 +1,9 @@
 # Stage 3K-Q1F: LLM Route-Plan Candidate Generation In Shadow Mode (Instruct Only)
 
+**Status:** Done (844d4f2 + FIX-A)
+**Tests:** `backend/app/tests/test_llm_route_plan_shadow_stage3k_q1f.py`, `backend/app/tests/test_llm_route_plan_json_stage3k_q1f.py`
+**Production note:** `/chat` does **not** perform a live LLM call unless an explicit provider connector is wired later. Current Q1F production path remains shadow/no-op without `llm_raw_output_provider`.
+
 ## Objective
 
 First stage that introduces LLM into the routing path. Foundation-sec-Instruct produces a route-plan candidate in shadow mode only. Every deterministic checkpoint (preflight → normalizer → validator → composition matrix → template selector → SPL validator → MCP execution gate) still owns authority. No execution, no analyst answer change.
@@ -8,6 +12,7 @@ First stage that introduces LLM into the routing path. Foundation-sec-Instruct p
 
 - New module `app/routing/llm_route_plan_candidate.py` that calls Foundation-sec-Instruct (governed through the existing LLM registry) to produce a candidate route plan JSON.
 - Hard schema contract for the candidate JSON, parsed through the guarded LLM adapter (`app/llm/adapter/`). Schema violations → drop the candidate.
+- **Wrapper-tolerant JSON extraction (required):** LLM output may include markdown fences, labels, or trailing commentary. Q1F must extract the **first exact valid JSON object** from wrappers via `app/routing/llm_route_plan_json.extract_route_plan_candidate_json` (backed by `app/llm/adapter/json_extractor.extract_first_json_object`). Use `json.loads` on the extracted substring only — no repair, no field injection, no silent edits. Record warnings such as `json_extracted_from_markdown_fence`, `prose_before_json_ignored`, `prose_after_json_ignored`, `multiple_json_objects_first_used`.
 - Pipeline:
   ```
   user_query
@@ -81,7 +86,7 @@ Anything not matching this schema or referencing values outside the approved enu
 ## Implementation Plan
 
 1. Wire a new LLM role `route_plan_candidate_generator` in the LLM Registry, accepting only `model_family=instruct`. Reject any provider/model where `supports_tool_calling=true` is required (still must remain `false`).
-2. Implement `generate_candidate_route_plan(user_query, preflight) -> CandidateResult` calling the guarded LLM adapter with a fixed prompt and schema.
+2. Implement `generate_candidate_route_plan(user_query, preflight) -> CandidateResult` calling the guarded LLM adapter with a fixed prompt and schema. Raw LLM text must pass through `extract_route_plan_candidate_json` before adapter schema validation so fenced/prose-wrapped JSON is accepted when the inner object is exact and valid.
 3. After candidate returns, run: normalizer → route-plan validator → composition matrix → template selector (Q1C). Capture per-stage pass/fail in shadow envelope.
 4. `routes_chat.py` shadow path: when `ROUTING_LLM_SHADOW_ENABLED=true` AND the role is configured, call the candidate generator after preflight and before deterministic route. The deterministic route remains authoritative; LLM output is observed only.
 5. Add disagreement comparison: if deterministic and LLM-normalized plans diverge on `primary_skill`, `datamodel`, or `group_by`, record `disagreements` entries. No automatic merge.
@@ -94,6 +99,8 @@ Anything not matching this schema or referencing values outside the approved enu
 - LLM disabled / mode `disabled` → no candidate produced; envelope shows `llm_called=false`.
 - Candidate produced, passes every deterministic checkpoint → envelope shows `llm_candidate_route_plan_available=true`, deterministic plan wins authority anyway.
 - Candidate JSON schema invalid → dropped at adapter, reason `schema_invalid`.
+- Candidate wrapped in markdown fence with valid inner JSON → extracted; warnings include `json_extracted_from_markdown_fence`; payload matches inner object exactly.
+- Candidate wrapped in prose + fence → extracted; prose ignored with warnings; no SPL or extra keys promoted into the object.
 - Candidate references unknown datamodel → dropped at validator, reason `unknown_datamodel`.
 - Candidate references `detection_ref` directly → adapter strips the field; only `detection_family` survives.
 - Candidate emits SPL text → adapter strips; reason `spl_in_candidate_forbidden`.
@@ -122,3 +129,8 @@ Q1F tests use a deterministic stub LLM adapter that returns scripted JSON payloa
 - Reasoning model rejected for routing role.
 - No SPL execution, no MCP call, no analyst answer change.
 - Backend tests pass. Harness 6/6.
+- `backend/app/routing/llm_route_plan_json.py` tracked (FIX-A) so clean checkout of Q1F does not import-error on `llm_route_plan_candidate`.
+
+## FIX-A (repo completeness)
+
+Commit **Stage 3K-Q1F-FIX-A** adds the missing thin wrapper `llm_route_plan_json.py` (delegates to `json_extractor.extract_first_json_object`) and dedicated JSON extraction tests. No semantic repair, no route authority change.

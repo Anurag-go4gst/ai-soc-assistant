@@ -83,7 +83,7 @@ Read the chain top-to-bottom. **Every arrow that crosses from `[ shadow ]` back 
 | Q1C | Deterministic dry-run route-plan ↔ template matching (+ LLM-assist semantic hints sidecar) | `plans/2026-05-28_0523_stage-3k-q1c-route-plan-template-match.md` | Done |
 | Q1D | Deterministic non-executable SPL rendering for sample templates (+ LLM-assist parameter extraction sidecar) | `plans/2026-05-28_0523_stage-3k-q1d-sample-template-spl-render.md` | Done |
 | Q1E | Evidence output contract + `route_plan_shadow` lineage | `plans/2026-05-28_0523_stage-3k-q1e-evidence-contract-lineage.md` | Done |
-| Q1F | LLM route-plan candidate generation in shadow mode (Instruct only) | `plans/2026-05-28_0523_stage-3k-q1f-llm-route-plan-shadow.md` | Proposed |
+| Q1F | LLM route-plan candidate generation in shadow mode (Instruct only) | `plans/2026-05-28_0523_stage-3k-q1f-llm-route-plan-shadow.md` | Done |
 | Q1G | LLM-narrated analyst summary in shadow mode | `plans/2026-05-28_0523_stage-3k-q1g-llm-narrated-analyst-summary-shadow.md` | Proposed |
 | Q2 | Local IOC / threat-intel lookup framework (deterministic core only) | `plans/2026-05-28_0523_stage-3k-q2-local-ioc-lookup.md` | Proposed |
 | Q3 | Vetted detection binding framework (deterministic core only) | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Proposed |
@@ -232,7 +232,7 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q1C | Done | — | Library-only matcher + Instruct sidecar; not wired to `/chat` |
 | Q1D | Done | — | Library-only renderer + param sidecar; not wired `/chat` |
 | Q1E | Done | — | Deterministic matcher/renderer in `/chat` shadow; no LLM sidecars |
-| Q1F | Proposed | — | |
+| Q1F | Done | 844d4f2, b9d8ec9 | JSON wrapper module tracked; shadow only; no live `/chat` LLM without provider |
 | Q1G | Proposed | — | |
 | Q2 | Proposed | — | |
 | Q3 | Proposed | — | |
@@ -245,7 +245,7 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q1C | 396 pass | 6/6 | 6/6 | n/a | pass |
 | Q1D | 419 pass | 6/6 | 6/6 | n/a | pass |
 | Q1E | 453 pass | 6/6 | 6/6 | n/a | pass |
-| Q1F | — | — | — | — | — |
+| Q1F | 476 pass | 6/6 | 6/6 | n/a | pass |
 | Q1G | — | — | — | — | — |
 | Q2 | — | — | — | — | — |
 | Q3 | — | — | — | — | — |
