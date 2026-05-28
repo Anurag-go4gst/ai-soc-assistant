@@ -161,6 +161,16 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-26_1849_stage-3j-i-3-prompt-contracts-role-suitability.md` | Done |
 | `plans/2026-05-26_1924_stage-3j-j-experience-center-llm-calibration.md` | Superseded — lighter calibration shipped in `2fefd10`; lineage reveal in `91f7b0e` |
 | `plans/2026-05-26_1955_stage-3j-k0-llm-assisted-routing-governance.md` | In Progress — routing backend landed (`05c95bc`); governance settings UI uncommitted |
+| `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Canonical — agents read this first; logic hierarchy, rules, status tables |
+| `plans/2026-05-28_0523_stage-3k-q1c-q4-roadmap.md` | Proposed — Q1C→Q4 roadmap index |
+| `plans/2026-05-28_0523_stage-3k-q1c-route-plan-template-match.md` | Proposed |
+| `plans/2026-05-28_0523_stage-3k-q1d-sample-template-spl-render.md` | Proposed |
+| `plans/2026-05-28_0523_stage-3k-q1e-evidence-contract-lineage.md` | Proposed |
+| `plans/2026-05-28_0523_stage-3k-q1f-llm-route-plan-shadow.md` | Proposed — LLM route-plan candidate (Instruct only, shadow) |
+| `plans/2026-05-28_0523_stage-3k-q1g-llm-narrated-analyst-summary-shadow.md` | Proposed — LLM analyst summary narration (shadow only) |
+| `plans/2026-05-28_0523_stage-3k-q2-local-ioc-lookup.md` | Proposed |
+| `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Proposed |
+| `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Proposed |
 
 ## Git Notes
 
