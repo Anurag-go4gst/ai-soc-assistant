@@ -11,13 +11,35 @@ from app.spl.template_matcher import (
     MISMATCH_CANNOT_RESOLVE_DATAMODEL,
     MISMATCH_DATAMODEL_MISMATCH,
     MISMATCH_NO_TEMPLATE_FOR_SKILL,
+    MISMATCH_RESULT_LIMIT,
+    MISMATCH_TIME_WINDOW,
     MISMATCH_UNKNOWN_DATAMODEL,
     MISMATCH_UNSUPPORTED_GROUP_BY,
+    MISMATCH_VALIDATOR_PROFILE,
     _extract_match_context,
     _score_template,
+    dry_run_matches,
     match_route_plan_to_template,
 )
 from app.spl.template_registry import SplTemplateDefinition, get_spl_template, load_spl_templates
+
+
+def _auth_sample_template() -> SplTemplateDefinition:
+    template = get_spl_template("sample_auth_failed_login_top_users_tstats")
+    assert template is not None
+    return template
+
+
+def _aggregate_plan_without_time_and_limit(
+    *,
+    datamodel: str = "Authentication",
+    group_by: str = "user",
+) -> dict:
+    plan = _aggregate_plan(datamodel=datamodel, group_by=group_by)
+    plan.pop("time_window", None)
+    plan["parameters"].pop("time_window", None)
+    plan["parameters"].pop("limit", None)
+    return plan
 
 
 def _aggregate_plan(
@@ -245,7 +267,7 @@ def test_no_match_always_includes_mismatch_reason(plan: dict) -> None:
 
 
 def test_ambiguous_match_returns_explicit_reason() -> None:
-    base = next(t for t in load_spl_templates() if t.template_id == "sample_auth_failed_login_top_users_tstats")
+    base = _auth_sample_template()
     duplicate = SplTemplateDefinition(
         **{
             **base.model_dump(),
@@ -258,5 +280,160 @@ def test_ambiguous_match_returns_explicit_reason() -> None:
     result = match_route_plan_to_template(plan, templates=catalog)
 
     assert result.matched is False
+    assert result.matched_template_id is None
     assert MISMATCH_AMBIGUOUS in result.mismatch_reasons
     assert len(result.candidate_template_ids) >= 2
+
+
+def test_time_window_not_satisfiable_emitted() -> None:
+    plan = _aggregate_plan_without_time_and_limit()
+    ctx = _extract_match_context(plan)
+    template = _auth_sample_template()
+    _, _, mismatches = _score_template(template, ctx)
+    assert MISMATCH_TIME_WINDOW in mismatches
+
+    result = match_route_plan_to_template(plan, templates=[template])
+    assert result.matched is False
+    assert MISMATCH_TIME_WINDOW in result.mismatch_reasons
+
+
+def test_result_limit_not_satisfiable_emitted() -> None:
+    plan = _aggregate_plan(datamodel="Authentication", group_by="user")
+    plan["parameters"].pop("limit", None)
+    ctx = _extract_match_context(plan)
+    template = _auth_sample_template()
+    _, _, mismatches = _score_template(template, ctx)
+    assert MISMATCH_RESULT_LIMIT in mismatches
+
+    result = match_route_plan_to_template(plan, templates=[template])
+    assert result.matched is False
+    assert MISMATCH_RESULT_LIMIT in result.mismatch_reasons
+
+
+def test_validator_profile_mismatch_emitted() -> None:
+    plan = _aggregate_plan(datamodel="Authentication", group_by="user")
+    plan["evidence_needs"]["validator_profile"] = "wrong_validator_profile_q1c"
+    ctx = _extract_match_context(plan)
+    template = _auth_sample_template()
+    _, _, mismatches = _score_template(template, ctx)
+    assert MISMATCH_VALIDATOR_PROFILE in mismatches
+
+    result = match_route_plan_to_template(plan, templates=[template])
+    assert result.matched is False
+    assert MISMATCH_VALIDATOR_PROFILE in result.mismatch_reasons
+
+
+def test_tie_break_prefers_matching_aggregation_shape() -> None:
+    base = _auth_sample_template()
+    ranked_twin = SplTemplateDefinition(
+        **{
+            **base.model_dump(),
+            "template_id": "sample_auth_ranked_twin_q1c_fixb",
+            "use_case_id": "sample_auth_ranked_twin",
+            "aggregation_shape": "ranked_entities",
+        }
+    )
+    non_aggregate_twin = SplTemplateDefinition(
+        **{
+            **base.model_dump(),
+            "template_id": "sample_auth_non_aggregate_twin_q1c_fixb",
+            "use_case_id": "sample_auth_non_aggregate_twin",
+            "aggregation_shape": "non_aggregate",
+        }
+    )
+    catalog = [ranked_twin, non_aggregate_twin]
+    plan = _aggregate_plan(
+        datamodel="Authentication",
+        group_by="user",
+        primary_skill="threshold_anomaly",
+    )
+    plan["operation_type"] = "field_discovery"
+    result = match_route_plan_to_template(plan, templates=catalog)
+
+    assert result.matched is True
+    assert result.matched_template_id == "sample_auth_non_aggregate_twin_q1c_fixb"
+    assert "exact_aggregation_shape_match" in result.match_reasons
+
+
+def test_tie_break_prefers_production_executable_over_sample_only() -> None:
+    base = _auth_sample_template()
+    sample_twin = SplTemplateDefinition(
+        **{
+            **base.model_dump(),
+            "template_id": "sample_auth_sample_twin_q1c_fixb",
+            "use_case_id": "sample_auth_sample_twin",
+        }
+    )
+    production_twin = SplTemplateDefinition(
+        **{
+            **base.model_dump(),
+            "template_id": "sample_auth_production_twin_q1c_fixb",
+            "use_case_id": "sample_auth_production_twin",
+            "status": "active",
+            "enabled": True,
+            "production_ready": True,
+            "sample_only": False,
+        }
+    )
+    catalog = [sample_twin, production_twin]
+    plan = _aggregate_plan(datamodel="Authentication", group_by="user")
+    result = match_route_plan_to_template(plan, templates=catalog)
+
+    assert result.matched is True
+    assert result.matched_template_id == "sample_auth_production_twin_q1c_fixb"
+    assert result.production_executable is True
+
+
+def test_equal_score_twins_return_ambiguous_not_arbitrary_winner() -> None:
+    base = _auth_sample_template()
+    twin_a = SplTemplateDefinition(
+        **{
+            **base.model_dump(),
+            "template_id": "sample_auth_equal_a_q1c_fixb",
+            "use_case_id": "sample_auth_equal_a",
+        }
+    )
+    twin_b = SplTemplateDefinition(
+        **{
+            **base.model_dump(),
+            "template_id": "sample_auth_equal_b_q1c_fixb",
+            "use_case_id": "sample_auth_equal_b",
+        }
+    )
+    catalog = [twin_a, twin_b]
+    plan = _aggregate_plan(datamodel="Authentication", group_by="user")
+    candidates = dry_run_matches(plan, templates=catalog)
+    viable = [item for item in candidates if not item.mismatch_reasons and item.match_score > 0]
+    assert len(viable) >= 2
+    assert viable[0].match_score == viable[1].match_score
+
+    result = match_route_plan_to_template(plan, templates=catalog)
+    assert result.matched is False
+    assert result.matched_template_id is None
+    assert MISMATCH_AMBIGUOUS in result.mismatch_reasons
+    assert set(result.candidate_template_ids) >= {
+        "sample_auth_equal_a_q1c_fixb",
+        "sample_auth_equal_b_q1c_fixb",
+    }
+
+
+def test_include_disabled_false_when_only_sample_cim_templates() -> None:
+    plan = _aggregate_plan(datamodel="Authentication", group_by="user")
+    sample_cim_only = [
+        t
+        for t in load_spl_templates()
+        if t.datamodel == "Authentication" and t.query_shape in {"tstats_datamodel", "from_datamodel"}
+    ]
+    assert sample_cim_only
+    assert all(not t.is_production_executable() for t in sample_cim_only)
+
+    result = match_route_plan_to_template(
+        plan,
+        include_disabled=False,
+        templates=sample_cim_only,
+    )
+
+    assert result.matched is False
+    assert result.matched_template_id is None
+    assert result.mismatch_reasons
+    assert MISMATCH_NO_TEMPLATE_FOR_SKILL in result.mismatch_reasons
