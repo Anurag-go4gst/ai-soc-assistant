@@ -88,7 +88,7 @@ Read the chain top-to-bottom. **Every arrow that crosses from `[ shadow ]` back 
 | Q2 | Local IOC / threat-intel lookup framework (deterministic core only) | `plans/2026-05-28_0523_stage-3k-q2-local-ioc-lookup.md` | Done |
 | Q3 | Vetted detection binding framework (deterministic core only) | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Done |
 | Q4 | First governed SOC pattern coverage pack (deterministic manifest only) | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Done |
-| Q4A | Author-time coverage drafter CLI (optional) | `plans/2026-05-28_0523_stage-3k-q4a-coverage-drafter-cli.md` | Proposed |
+| Q4A | Author-time coverage drafter CLI (optional) | `plans/2026-05-28_0523_stage-3k-q4a-coverage-drafter-cli.md` | Done |
 
 ---
 
@@ -141,7 +141,7 @@ Hard rules:
 | Q2 | `ioc_registry.py` + `ioc_lookup.py` | None this stage | n/a (re-evaluated after Q2 lands) |
 | Q3 | `detection_binder.py` | None this stage; family suggestion arrives via Q1F | n/a (binder is registry-only) |
 | Q4 | `coverage_loader.py` + Pydantic manifest validator | None this stage | n/a |
-| Q4A | `tools/coverage_authoring/` (proposed) | Author-time CLI only; **never runs in `/chat`** | `coverage_drafter` (Instruct, author-time only) |
+| Q4A | `tools/coverage_authoring/coverage_drafter.py` | Author-time CLI only; **never runs in `/chat`** | Optional Instruct via `--llm-raw-file` only |
 
 ---
 
@@ -239,7 +239,7 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q2 | Done | `1dac76d` | `IOC_REGISTRY_ENABLED` default false; deterministic lookup only |
 | Q3 | Done | `1dde303` | `DETECTION_REGISTRY_ENABLED` default false; deterministic binding only |
 | Q4 | Done | `aa0be14` | 10-entry coverage manifest; execution still disabled |
-| Q4A | Proposed | — | Author-time CLI only; not in Q4 runtime |
+| Q4A | Done | — | `tools/coverage_authoring/`; drafts only; no `/chat` |
 
 ### 9.2 Verification
 
@@ -253,7 +253,7 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q2 | 497 pass | 6/6 | 6/6 | n/a | pass |
 | Q3 | 508 pass | 6/6 | 6/6 | n/a | pass |
 | Q4 | 524 pass | 6/6 | 6/6 | n/a | pass |
-| Q4A | — | — | — | — | n/a |
+| Q4A | 14 pass (tool) | n/a | n/a | n/a | pass |
 
 ### 9.3 Disagreements Log (Q1F / Q1G / Q1C-sidecar / Q1D-sidecar)
 

@@ -1,0 +1,9 @@
+{
+  "coverage_id": "cov.q007.llm_draft",
+  "primary_skill": "behavioral_detection_binding",
+  "detection_family": "dga",
+  "detection_ref": "soc.dga.v1",
+  "evidence_contract_ref": "ranked_entities_dga_v1",
+  "readiness": "detection_dependent",
+  "coverage_group": "detection_dependent"
+}
