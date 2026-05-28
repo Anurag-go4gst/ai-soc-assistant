@@ -87,7 +87,8 @@ Read the chain top-to-bottom. **Every arrow that crosses from `[ shadow ]` back 
 | Q1G | LLM-narrated analyst summary in shadow mode | `plans/2026-05-28_0523_stage-3k-q1g-llm-narrated-analyst-summary-shadow.md` | Done |
 | Q2 | Local IOC / threat-intel lookup framework (deterministic core only) | `plans/2026-05-28_0523_stage-3k-q2-local-ioc-lookup.md` | Done |
 | Q3 | Vetted detection binding framework (deterministic core only) | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Done |
-| Q4 | First governed SOC pattern coverage pack (deterministic runtime + author-time LLM CLI) | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Proposed |
+| Q4 | First governed SOC pattern coverage pack (deterministic manifest only) | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Done |
+| Q4A | Author-time coverage drafter CLI (optional) | `plans/2026-05-28_0523_stage-3k-q4a-coverage-drafter-cli.md` | Proposed |
 
 ---
 
@@ -101,7 +102,7 @@ Read the chain top-to-bottom. **Every arrow that crosses from `[ shadow ]` back 
 6. **Q1G** — Instruct analyst-summary narration, shadow. Pause.
 7. **Q2** — deterministic IOC registry (no LLM-assist). Pause.
 8. **Q3** — deterministic detection binder (no LLM-assist; family suggestion already enters via Q1F). Pause.
-9. **Q4** — deterministic manifest + author-time LLM CLI. Pause.
+9. **Q4** — deterministic coverage manifest. Pause. (Q4A author CLI optional later.)
 
 Never skip a pause. Never combine two stages in one commit unless the spec for that stage explicitly says so.
 
@@ -139,7 +140,8 @@ Hard rules:
 | Q1G | `analyst_summary_skeleton.py` (deterministic 1-sentence fallback) | `analyst_summary_llm_assist.py` (2-sentence + 3 bullets narration, shadow only) | `analyst_summary_narration` (Instruct only) |
 | Q2 | `ioc_registry.py` + `ioc_lookup.py` | None this stage | n/a (re-evaluated after Q2 lands) |
 | Q3 | `detection_binder.py` | None this stage; family suggestion arrives via Q1F | n/a (binder is registry-only) |
-| Q4 | `coverage_loader.py` + Pydantic manifest validator | Author-time CLI in `tools/coverage_authoring/` only; **never runs in `/chat`** | `coverage_drafter` (Instruct, author-time only) |
+| Q4 | `coverage_loader.py` + Pydantic manifest validator | None this stage | n/a |
+| Q4A | `tools/coverage_authoring/` (proposed) | Author-time CLI only; **never runs in `/chat`** | `coverage_drafter` (Instruct, author-time only) |
 
 ---
 
@@ -236,7 +238,8 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q1G | Done | — | Shadow narration in lineage reveal only; `AI_SOC_LLM_SHADOW_NARRATION_ENABLED` default false |
 | Q2 | Done | `1dac76d` | `IOC_REGISTRY_ENABLED` default false; deterministic lookup only |
 | Q3 | Done | `1dde303` | `DETECTION_REGISTRY_ENABLED` default false; deterministic binding only |
-| Q4 | Proposed | — | |
+| Q4 | Done | — | 10-entry coverage manifest; execution still disabled |
+| Q4A | Proposed | — | Author-time CLI only; not in Q4 runtime |
 
 ### 9.2 Verification
 
@@ -249,7 +252,8 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q1G | 485 pass | 6/6 | 6/6 | pass | pass |
 | Q2 | 497 pass | 6/6 | 6/6 | n/a | pass |
 | Q3 | 508 pass | 6/6 | 6/6 | n/a | pass |
-| Q4 | — | — | — | — | — |
+| Q4 | 524 pass | 6/6 | 6/6 | n/a | pass |
+| Q4A | — | — | — | — | n/a |
 
 ### 9.3 Disagreements Log (Q1F / Q1G / Q1C-sidecar / Q1D-sidecar)
 

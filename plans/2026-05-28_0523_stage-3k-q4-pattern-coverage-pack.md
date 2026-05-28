@@ -1,5 +1,11 @@
 # Stage 3K-Q4: First Governed SOC Pattern Coverage Pack
 
+**Status:** Done
+**Tests:** `backend/app/tests/test_pattern_coverage_pack_stage3k_q4.py`
+**Manifest:** `backend/app/coverage/pattern_coverage_v1.json`
+**SOC doc:** `docs/soc_pattern_coverage_pack_stage3k_q4.md`
+**Q4A (optional author CLI):** `plans/2026-05-28_0523_stage-3k-q4a-coverage-drafter-cli.md` — not implemented in Q4
+
 ## Objective
 
 Take 8–10 representative SOC questions from the Stage 3K-Q0 taxonomy (105 set) and demonstrate them end-to-end through the governed bridge: route plan → template match (Q1C) → render+validate (Q1D) → evidence contract + lineage (Q1E), with IOC (Q2) or detection (Q3) bindings where required. No claim that all 105 are live-ready.
@@ -99,31 +105,9 @@ The negative case is part of the governance story. It proves the system refuses 
 - If Q1F is enabled at runtime, coverage entries may show LLM candidate metadata in `route_plan_shadow`, but the analyst-facing coverage label still comes from the deterministic chain.
 - LLM must never: rewrite coverage manifest entries at runtime, promote `sample_only=true` templates, flip `readiness` labels, or author negative-case explanations.
 
-## Author-Time LLM Assistant (CLI, not runtime)
+## Author-Time LLM Assistant (deferred to Q4A)
 
-Module `tools/coverage_authoring/coverage_drafter.py` (under repo `tools/`, not packaged in the backend service). Run by a human, never in `/chat`.
-
-Inputs:
-
-- Selected question text(s) from `docs/soc_question_taxonomy_stage3k_q0.md`.
-- Closed enums: runtime skills, datamodels, query shapes, validator profiles, readiness labels.
-
-Outputs (strict JSON, validated by the same Pydantic model as runtime):
-
-- Coverage entry draft: `coverage_id`, `question_ref`, `skill`, `template_ref`, `lookup_ref`, `detection_ref`, `evidence_contract_ref`, `readiness`, `clarification_required`, `governance`.
-- Human reviewer required before commit. Draft files land under `tools/coverage_authoring/drafts/` until reviewed and moved into the manifest.
-
-Rules:
-
-- The CLI may use Instruct (no Reasoning).
-- Drafter cannot reach the running backend; it only reads static enums and templates.
-- Every draft entry is marked `draft_only=true` in the file header. Removing the marker requires human edit + manifest validation.
-- Drafter never invents template_ids, detection_refs, or lookup_names that are not in the live registries. If unknown, drafter outputs `dependency_missing` readiness.
-
-Tests:
-
-- Tool-level unit tests for the drafter live under `tools/coverage_authoring/tests/`. They are excluded from backend pytest by default; CI may run them separately.
-- Runtime tests in Q4 ignore the drafter entirely; only the committed manifest is validated.
+Moved to **`plans/2026-05-28_0523_stage-3k-q4a-coverage-drafter-cli.md`**. Q4 ships the deterministic manifest and loader only.
 
 ## Fixture Honesty
 
