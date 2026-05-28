@@ -1,0 +1,79 @@
+{
+  "coe_synthetic_fixture": true,
+  "captured_live_run": false,
+  "production_execution": false,
+  "detections": [
+    {
+      "detection_ref": "soc.dga.v1",
+      "family": "dga",
+      "description": "DGA-like domain entropy detection.",
+      "source": "soc_approved_logic",
+      "vetting_status": "approved",
+      "last_reviewed": "2026-05-20",
+      "risk_class": "behavioral",
+      "required_inputs": ["query"],
+      "evidence_output_contract_ref": "ranked_entities_dga_v1",
+      "requires_human_validation": true
+    },
+    {
+      "detection_ref": "soc.beaconing.v1",
+      "family": "beaconing",
+      "description": "Periodic beaconing to rare external destinations.",
+      "source": "correlation_search",
+      "vetting_status": "approved",
+      "last_reviewed": "2026-05-18",
+      "risk_class": "behavioral",
+      "required_inputs": ["host"],
+      "evidence_output_contract_ref": "ranked_entities_beaconing_v1",
+      "requires_human_validation": true
+    },
+    {
+      "detection_ref": "soc.lateral_movement.v1",
+      "family": "lateral_movement",
+      "description": "Lateral movement correlation across identity and endpoint signals.",
+      "source": "escu",
+      "vetting_status": "approved",
+      "last_reviewed": "2026-05-15",
+      "risk_class": "behavioral",
+      "required_inputs": ["host", "user"],
+      "evidence_output_contract_ref": "ranked_entities_lateral_v1",
+      "requires_human_validation": true
+    },
+    {
+      "detection_ref": "soc.impossible_travel.v1",
+      "family": "impossible_travel",
+      "description": "Impossible-travel style identity anomaly detection.",
+      "source": "soc_approved_logic",
+      "vetting_status": "approved",
+      "last_reviewed": "2026-05-10",
+      "risk_class": "behavioral",
+      "required_inputs": ["user"],
+      "evidence_output_contract_ref": "ranked_entities_impossible_travel_v1",
+      "requires_human_validation": true
+    },
+    {
+      "detection_ref": "soc.webshell.provisional",
+      "family": "webshell",
+      "description": "Webshell upload and execution heuristics (provisional).",
+      "source": "soc_approved_logic",
+      "vetting_status": "provisional",
+      "last_reviewed": "2026-04-01",
+      "risk_class": "behavioral",
+      "required_inputs": ["host"],
+      "evidence_output_contract_ref": "ranked_entities_webshell_v1",
+      "requires_human_validation": true
+    },
+    {
+      "detection_ref": "soc.c2.unvetted",
+      "family": "c2",
+      "description": "C2 callback pattern (unvetted seed).",
+      "source": "soc_approved_logic",
+      "vetting_status": "unvetted",
+      "last_reviewed": "2026-03-01",
+      "risk_class": "behavioral",
+      "required_inputs": ["host"],
+      "evidence_output_contract_ref": "ranked_entities_c2_v1",
+      "requires_human_validation": true
+    }
+  ]
+}

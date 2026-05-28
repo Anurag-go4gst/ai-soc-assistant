@@ -102,7 +102,7 @@ def test_multi_signal_valid_composition_passes() -> None:
         parameters={},
         sub_invocations=[
             {"primary_skill": "threshold_anomaly", "parameters": {"metric": {"type": "count", "field": "failed_login_count"}}},
-            {"primary_skill": "behavioral_detection_binding", "parameters": {"detection_ref": "approved_impossible_travel"}},
+            {"primary_skill": "behavioral_detection_binding", "parameters": {"detection_ref": "soc.impossible_travel.v1"}},
         ],
         post_enrichment=[{"skill": "entity_context_lookup", "input": "sub_results"}],
     )

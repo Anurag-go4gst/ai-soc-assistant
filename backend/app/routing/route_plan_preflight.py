@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 
 from app.config import settings
+from app.detections.detection_binder import preflight_detection_requirements
+from app.detections.detection_models import DetectionBindingResult
 from app.intel.ioc_lookup import BLOCK_CANNOT_ROUTE_LOOKUP_STALE, BLOCK_LOOKUP_STALE, preflight_ioc_requirements
 from app.intel.ioc_models import IocLookupResult
 from app.routing.route_plan_models import PreflightContext, RoutePlanPreflightResult, RouteStatus
@@ -84,13 +86,27 @@ def preflight_route_plan(query: str, context: PreflightContext | None = None) ->
     if route_plan_block is not None:
         return route_plan_block
 
+    detection_block = _preflight_route_plan_detection_dependency(ctx.route_plan)
+    if detection_block is not None:
+        return detection_block
+
     detection_name = _required_detection(normalized)
-    if detection_name and detection_name not in ctx.configured_detections:
-        return RoutePlanPreflightResult(
-            route_status=RouteStatus.CANNOT_ROUTE_MISSING_DETECTION,
-            missing_slots=["detection_ref"],
-            blocking_findings=[f"missing_vetted_detection:{detection_name}"],
-        )
+    if detection_name:
+        if detection_name in ctx.configured_detections:
+            pass
+        elif settings.detection_registry_enabled:
+            detection_preflight = preflight_detection_requirements(
+                detection_required=True,
+                family=detection_name,
+            )
+            if detection_preflight is not None:
+                return _preflight_from_detection_block(detection_preflight, detection_name)
+        else:
+            return RoutePlanPreflightResult(
+                route_status=RouteStatus.CANNOT_ROUTE_MISSING_DETECTION,
+                missing_slots=["detection_ref"],
+                blocking_findings=[f"missing_vetted_detection:{detection_name}"],
+            )
 
     unavailable_source = _unavailable_required_source(normalized, ctx)
     if unavailable_source:
@@ -201,6 +217,66 @@ def _preflight_from_ioc_block(block: IocLookupResult, lookup_name: str | None) -
         missing_slots=["lookup_ref"],
         blocking_findings=sorted(set(findings)),
     )
+
+
+def _preflight_from_detection_block(
+    block: DetectionBindingResult,
+    detection_name: str | None,
+) -> RoutePlanPreflightResult:
+    reason = block.unbound_reason or "missing_vetted_detection"
+    findings = list(block.reasons) if block.reasons else [reason]
+    if reason == "missing_configured_detection":
+        findings.append(f"missing_vetted_detection:{detection_name or 'detection'}")
+    else:
+        findings.append(f"missing_vetted_detection:{detection_name or block.family or 'detection'}")
+    return RoutePlanPreflightResult(
+        route_status=RouteStatus.CANNOT_ROUTE_MISSING_DETECTION,
+        missing_slots=["detection_ref"],
+        blocking_findings=sorted(set(findings)),
+    )
+
+
+def _preflight_route_plan_detection_dependency(route_plan: dict | None) -> RoutePlanPreflightResult | None:
+    if not isinstance(route_plan, dict):
+        return None
+    evidence = route_plan.get("evidence_needs")
+    detection_required = isinstance(evidence, dict) and evidence.get("detection_required")
+    parameters = route_plan.get("parameters")
+    detection_family = None
+    if isinstance(evidence, dict):
+        detection_family = evidence.get("detection_family")
+    if not detection_family and isinstance(parameters, dict):
+        detection_family = parameters.get("detection_family")
+    if not detection_required and not detection_family:
+        if not (isinstance(parameters, dict) and parameters.get("detection_ref")):
+            return None
+    if not settings.detection_registry_enabled:
+        if detection_required or detection_family or (isinstance(parameters, dict) and parameters.get("detection_ref")):
+            return RoutePlanPreflightResult(
+                route_status=RouteStatus.CANNOT_ROUTE_MISSING_DETECTION,
+                missing_slots=["detection_ref"],
+                blocking_findings=["missing_configured_detection"],
+            )
+        return None
+    block = preflight_detection_requirements(
+        detection_required=bool(detection_required or (isinstance(parameters, dict) and parameters.get("detection_ref"))),
+        family=str(detection_family) if detection_family else _infer_detection_family_from_plan(route_plan),
+    )
+    if block is not None:
+        return _preflight_from_detection_block(block, str(detection_family) if detection_family else None)
+    return None
+
+
+def _infer_detection_family_from_plan(route_plan: dict) -> str | None:
+    parameters = route_plan.get("parameters")
+    if isinstance(parameters, dict):
+        family = parameters.get("detection_family")
+        if isinstance(family, str) and family.strip():
+            return family.strip().lower()
+    primary_skill = route_plan.get("primary_skill")
+    if primary_skill == "behavioral_detection_binding":
+        return "impossible_travel"
+    return None
 
 
 def _preflight_route_plan_lookup_dependency(route_plan: dict | None) -> RoutePlanPreflightResult | None:

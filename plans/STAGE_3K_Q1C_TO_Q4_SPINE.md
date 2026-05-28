@@ -86,7 +86,7 @@ Read the chain top-to-bottom. **Every arrow that crosses from `[ shadow ]` back 
 | Q1F | LLM route-plan candidate generation in shadow mode (Instruct only) | `plans/2026-05-28_0523_stage-3k-q1f-llm-route-plan-shadow.md` | Done |
 | Q1G | LLM-narrated analyst summary in shadow mode | `plans/2026-05-28_0523_stage-3k-q1g-llm-narrated-analyst-summary-shadow.md` | Done |
 | Q2 | Local IOC / threat-intel lookup framework (deterministic core only) | `plans/2026-05-28_0523_stage-3k-q2-local-ioc-lookup.md` | Done |
-| Q3 | Vetted detection binding framework (deterministic core only) | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Proposed |
+| Q3 | Vetted detection binding framework (deterministic core only) | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Done |
 | Q4 | First governed SOC pattern coverage pack (deterministic runtime + author-time LLM CLI) | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Proposed |
 
 ---
@@ -234,8 +234,8 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q1E | Done | — | Deterministic matcher/renderer in `/chat` shadow; no LLM sidecars |
 | Q1F | Done | 844d4f2, 3af6423 | JSON wrapper module tracked (FIX-A); shadow only; no live `/chat` LLM without provider |
 | Q1G | Done | — | Shadow narration in lineage reveal only; `AI_SOC_LLM_SHADOW_NARRATION_ENABLED` default false |
-| Q2 | Done | — | `IOC_REGISTRY_ENABLED` default false; deterministic lookup only |
-| Q3 | Proposed | — | |
+| Q2 | Done | `1dac76d` | `IOC_REGISTRY_ENABLED` default false; deterministic lookup only |
+| Q3 | Done | — | `DETECTION_REGISTRY_ENABLED` default false; deterministic binding only |
 | Q4 | Proposed | — | |
 
 ### 9.2 Verification
@@ -248,7 +248,7 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q1F | 476 pass | 6/6 | 6/6 | n/a | pass |
 | Q1G | 485 pass | 6/6 | 6/6 | pass | pass |
 | Q2 | 497 pass | 6/6 | 6/6 | n/a | pass |
-| Q3 | — | — | — | — | — |
+| Q3 | 508 pass | 6/6 | 6/6 | n/a | pass |
 | Q4 | — | — | — | — | — |
 
 ### 9.3 Disagreements Log (Q1F / Q1G / Q1C-sidecar / Q1D-sidecar)

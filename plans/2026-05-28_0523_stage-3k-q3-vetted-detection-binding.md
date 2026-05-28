@@ -1,5 +1,9 @@
 # Stage 3K-Q3: Vetted Detection Binding Framework
 
+**Status:** Done
+**Tests:** `backend/app/tests/test_detection_binding_stage3k_q3.py`
+**Production note:** `DETECTION_REGISTRY_ENABLED` defaults false. When enabled, route preflight binds approved `detection_ref` values from the local JSON registry only.
+
 ## Objective
 
 Build the governed registry and binding contract for behavioral detections (DGA, beaconing, C2, lateral movement, encoded PowerShell, scheduled task persistence, webshell, etc.). The LLM never authors behavioral detection SPL. Binding is a deterministic registry lookup, dry-run only this stage.

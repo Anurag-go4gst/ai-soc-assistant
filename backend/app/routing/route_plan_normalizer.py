@@ -3,6 +3,12 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from app.detections.detection_binder import _resolve_registry_path
+from app.detections.detection_registry import (
+    is_bindable_detection_ref,
+    is_registered_detection_ref,
+    load_detection_registry,
+)
 from app.routing.route_plan_models import LookupStatus, RuntimeSkill
 
 
@@ -32,6 +38,7 @@ def normalize_route_plan_candidate(candidate: dict[str, Any]) -> tuple[dict[str,
     blocking_findings: list[str] = []
 
     _normalize_confidence(plan, warnings)
+    _reject_unregistered_detection_refs(plan, warnings)
     _normalize_time_windows(plan)
     _normalize_parameter_exclusions(plan, warnings, blocking_findings)
     _normalize_post_enrichment(plan, warnings, blocking_findings)
@@ -39,6 +46,47 @@ def normalize_route_plan_candidate(candidate: dict[str, Any]) -> tuple[dict[str,
     _remove_arbitrary_workflow_steps(plan, blocking_findings)
 
     return plan, warnings, blocking_findings
+
+
+def _reject_unregistered_detection_refs(plan: dict[str, Any], warnings: list[str]) -> None:
+    try:
+        registry = load_detection_registry(_resolve_registry_path(None))
+    except (OSError, ValueError):
+        return
+
+    metadata = plan.setdefault("model_advisory_metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+        plan["model_advisory_metadata"] = metadata
+    rejections = metadata.setdefault("detection_ref_rejections", [])
+    if not isinstance(rejections, list):
+        rejections = []
+        metadata["detection_ref_rejections"] = rejections
+
+    def _strip(container: dict[str, Any]) -> None:
+        ref = container.pop("detection_ref", None)
+        if ref is None:
+            return
+        ref_text = str(ref).strip()
+        if not is_registered_detection_ref(registry, ref_text):
+            rejections.append(f"unregistered_detection_ref_rejected:{ref_text}")
+            warnings.append(f"unregistered_detection_ref_rejected:{ref_text}")
+            return
+        if not is_bindable_detection_ref(registry, ref_text):
+            rejections.append(f"unvetted_detection_ref_rejected:{ref_text}")
+            warnings.append(f"unvetted_detection_ref_rejected:{ref_text}")
+
+    def _walk(value: Any) -> None:
+        if isinstance(value, dict):
+            if "detection_ref" in value:
+                _strip(value)
+            for child in value.values():
+                _walk(child)
+        elif isinstance(value, list):
+            for item in value:
+                _walk(item)
+
+    _walk(plan)
 
 
 def _normalize_confidence(plan: dict[str, Any], warnings: list[str]) -> None:
