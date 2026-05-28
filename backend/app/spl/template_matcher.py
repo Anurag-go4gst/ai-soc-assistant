@@ -20,6 +20,8 @@ from app.spl.template_registry import (
 )
 
 MISMATCH_UNKNOWN_DATAMODEL = "unknown_datamodel"
+MISMATCH_CANNOT_RESOLVE_DATAMODEL = "cannot_resolve_datamodel"
+MISMATCH_DATAMODEL_MISMATCH = "datamodel_mismatch"
 MISMATCH_UNSUPPORTED_GROUP_BY = "unsupported_group_by"
 MISMATCH_UNSUPPORTED_METRIC = "unsupported_metric"
 MISMATCH_NO_TEMPLATE_FOR_SKILL = "no_template_for_skill"
@@ -31,6 +33,8 @@ MISMATCH_AMBIGUOUS = "ambiguous_match"
 VALID_MISMATCH_REASONS = frozenset(
     {
         MISMATCH_UNKNOWN_DATAMODEL,
+        MISMATCH_CANNOT_RESOLVE_DATAMODEL,
+        MISMATCH_DATAMODEL_MISMATCH,
         MISMATCH_UNSUPPORTED_GROUP_BY,
         MISMATCH_UNSUPPORTED_METRIC,
         MISMATCH_NO_TEMPLATE_FOR_SKILL,
@@ -139,16 +143,7 @@ def match_route_plan_to_template(
     candidates = dry_run_matches(normalized_route_plan, include_disabled=include_disabled, templates=catalog)
     viable = [item for item in candidates if not item.mismatch_reasons and item.match_score > 0]
     if not viable:
-        mismatch = _collect_global_mismatches(ctx, catalog)
-        if not mismatch:
-            mismatch = sorted(
-                {
-                    reason
-                    for item in candidates
-                    for reason in item.mismatch_reasons
-                    if reason in VALID_MISMATCH_REASONS
-                }
-            )
+        mismatch = _collect_no_match_reasons(ctx, catalog, candidates)
         return TemplateMatchResult(
             matched_template_id=None,
             matched=False,
@@ -320,6 +315,10 @@ def _resolve_limit(parameters: dict[str, Any]) -> int | None:
     return None
 
 
+def _needs_resolved_datamodel(ctx: _RoutePlanMatchContext) -> bool:
+    return ctx.runtime_skill in SKILL_AGGREGATION_SHAPES and ctx.runtime_skill != "entity_timeline"
+
+
 def _collect_global_mismatches(ctx: _RoutePlanMatchContext, catalog: Sequence[SplTemplateDefinition]) -> list[str]:
     mismatches: list[str] = []
     if not ctx.runtime_skill:
@@ -334,17 +333,39 @@ def _collect_global_mismatches(ctx: _RoutePlanMatchContext, catalog: Sequence[Sp
     if not ctx.expected_aggregation_shapes:
         mismatches.append(MISMATCH_NO_TEMPLATE_FOR_SKILL)
         return mismatches
+    if not ctx.datamodel and _needs_resolved_datamodel(ctx):
+        mismatches.append(MISMATCH_CANNOT_RESOLVE_DATAMODEL)
     if ctx.datamodel and ctx.datamodel not in APPROVED_DATAMODELS:
         mismatches.append(MISMATCH_UNKNOWN_DATAMODEL)
         return mismatches
     if ctx.runtime_skill in {"aggregate_and_rank", "threshold_anomaly"} and not ctx.group_by_fields:
         mismatches.append(MISMATCH_UNSUPPORTED_GROUP_BY)
     if ctx.datamodel and not _cim_templates_for_context(ctx, catalog):
-        if ctx.datamodel not in APPROVED_DATAMODELS:
-            mismatches.append(MISMATCH_UNKNOWN_DATAMODEL)
-        else:
-            mismatches.append(MISMATCH_NO_TEMPLATE_FOR_SKILL)
+        mismatches.append(MISMATCH_NO_TEMPLATE_FOR_SKILL)
     return mismatches
+
+
+def _collect_no_match_reasons(
+    ctx: _RoutePlanMatchContext,
+    catalog: Sequence[SplTemplateDefinition],
+    candidates: list[TemplateCandidateScore],
+) -> list[str]:
+    mismatch = _collect_global_mismatches(ctx, catalog)
+    if not mismatch:
+        mismatch = sorted(
+            {
+                reason
+                for item in candidates
+                for reason in item.mismatch_reasons
+                if reason in VALID_MISMATCH_REASONS
+            }
+        )
+    if not mismatch:
+        if _needs_resolved_datamodel(ctx) and not ctx.datamodel:
+            mismatch = [MISMATCH_CANNOT_RESOLVE_DATAMODEL]
+        else:
+            mismatch = [MISMATCH_NO_TEMPLATE_FOR_SKILL]
+    return mismatch
 
 
 def _cim_templates_for_context(
@@ -380,8 +401,8 @@ def _score_template(
         mismatches.append(MISMATCH_NO_TEMPLATE_FOR_SKILL)
         return 0.0, reasons, mismatches
 
-    if ctx.datamodel and template.datamodel != ctx.datamodel:
-        mismatches.append(MISMATCH_UNKNOWN_DATAMODEL)
+    if ctx.datamodel and template.datamodel and template.datamodel != ctx.datamodel:
+        mismatches.append(MISMATCH_DATAMODEL_MISMATCH)
         return 0.0, reasons, mismatches
 
     if ctx.dataset and template.dataset and template.dataset != ctx.dataset:
