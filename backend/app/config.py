@@ -158,6 +158,8 @@ class Settings(BaseSettings):
     ai_soc_llm_synthesis_model: str = ""
     ai_soc_llm_spl_advisory_provider: str = ""
     ai_soc_llm_spl_advisory_model: str = ""
+    ai_soc_llm_template_match_provider: str = ""
+    ai_soc_llm_template_match_model: str = ""
     ai_soc_llm_guard_provider: str = ""
     ai_soc_llm_guard_model: str = ""
     # Provider endpoint placeholders. Secrets are never surfaced in status.

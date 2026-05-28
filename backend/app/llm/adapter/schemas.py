@@ -112,6 +112,16 @@ class SplAdvisoryCandidate(AdapterPayload):
     execution_eligible: bool = False
 
 
+class TemplateMatchSemanticHints(AdapterPayload):
+    source_class_hint: str | None = None
+    datamodel_hint: str | None = None
+    field_aliases: dict[str, str] = Field(default_factory=dict)
+
+
+class TemplateMatchSemanticAssistPayload(AdapterPayload):
+    llm_semantic_hints: TemplateMatchSemanticHints | None = None
+
+
 class SeverityRationaleAdvisory(AdapterPayload):
     selected_severity: str
     why_selected: list[str] = Field(default_factory=list)

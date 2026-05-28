@@ -1,5 +1,7 @@
 # Stage 3K-Q1C: Dry-Run Route-Plan to Template Matching
 
+**Status:** Done (library-only; `/chat` wiring deferred to Q1E)
+
 ## Objective
 
 Given a validated route plan, deterministically identify the best-matching SPL template (including the disabled Q1B sample templates) without rendering SPL, calling MCP, or executing anything. Answer: "Can this route plan be served by an available template?"

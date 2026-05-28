@@ -225,6 +225,30 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
             "Only normalized_spl can enter MCP gate.",
         ],
     },
+    "template_match_semantic_assist": {
+        "model_family": "Foundation-sec-8B-Instruct only",
+        "purpose": "Emit semantic hints for template matching; deterministic matcher is authoritative.",
+        "max_input_tokens": "2000",
+        "system_instruction": (
+            "Return JSON only. Advisory semantic hints for template matching. "
+            "Never pick template_id, never emit SPL, never authorize execution, "
+            "and never use confidence as authority."
+        ),
+        "include": ["user_query", "normalized_route_plan", "approved_datamodels", "cim_field_allowlists"],
+        "output_schema": {
+            "llm_semantic_hints": {
+                "source_class_hint": "okta_authentication_logs",
+                "datamodel_hint": "Authentication",
+                "field_aliases": {"failed login user": "user"},
+            }
+        },
+        "consumption_rules": [
+            "Hints are recorded in route_plan_shadow only when shadow mode is enabled.",
+            "Deterministic template_matcher wins on every disagreement.",
+            "Reasoning models are rejected for this role.",
+            "Adapter strips template_id and SPL fragments.",
+        ],
+    },
 }
 
 for _reasoning_role in ("mitre_reasoner", "missing_evidence_reasoner", "risk_rationale_reasoner"):

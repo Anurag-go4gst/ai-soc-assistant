@@ -132,6 +132,20 @@ ROLE_DEFAULTS: tuple[dict[str, Any], ...] = (
         "execution_eligible": False,
     },
     {
+        "role": "template_match_semantic_assist",
+        "preferred_provider": INSTRUCT_PROVIDER_ID,
+        "preferred_model": INSTRUCT_DEFAULT_MODEL,
+        "mode": "advisory",
+        "output": "template_match_semantic_hints JSON",
+        "authority": "advisory",
+        "validator_required": True,
+        "strict_json": True,
+        "temperature": 0.0,
+        "max_input_tokens": 2000,
+        "max_output_tokens": 400,
+        "execution_eligible": False,
+    },
+    {
         "role": "answer_guard_assistant",
         "preferred_provider": REASONING_PROVIDER_ID,
         "preferred_model": REASONING_DEFAULT_MODEL,
@@ -156,6 +170,10 @@ ROLE_ENV_MAP: dict[str, tuple[str, str]] = {
     "missing_evidence_reasoner": ("ai_soc_llm_reasoning_provider", "ai_soc_llm_reasoning_model"),
     "risk_rationale_reasoner": ("ai_soc_llm_reasoning_provider", "ai_soc_llm_reasoning_model"),
     "spl_advisory_generator": ("ai_soc_llm_spl_advisory_provider", "ai_soc_llm_spl_advisory_model"),
+    "template_match_semantic_assist": (
+        "ai_soc_llm_template_match_provider",
+        "ai_soc_llm_template_match_model",
+    ),
     "answer_guard_assistant": ("ai_soc_llm_guard_provider", "ai_soc_llm_guard_model"),
 }
 
@@ -248,6 +266,7 @@ def _role_suitability(providers: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "reasoning_output_format": "not_recommended",
                 "spl_advisory_generator": "candidate_only",
                 "spl_advisory_recommendation": "not_recommended",
+                "template_match_semantic_assist": "suitable_with_guard",
                 "final_answer_without_guard": "not_allowed",
             },
         },

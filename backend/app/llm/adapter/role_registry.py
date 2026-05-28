@@ -8,6 +8,7 @@ from app.llm.adapter.schemas import (
     ReasoningAdvisoryResult,
     SeverityRationaleAdvisory,
     SplAdvisoryCandidate,
+    TemplateMatchSemanticAssistPayload,
 )
 from app.llm.registry_settings import ROLE_DEFAULTS, ROLE_ENV_MAP
 
@@ -21,6 +22,7 @@ ROLE_SCHEMA_REGISTRY: dict[str, AdapterSchema] = {
     "risk_rationale_reasoner": SeverityRationaleAdvisory,
     "analyst_response_drafter": AnalystResponseDraft,
     "spl_advisory_generator": SplAdvisoryCandidate,
+    "template_match_semantic_assist": TemplateMatchSemanticAssistPayload,
 }
 
 
