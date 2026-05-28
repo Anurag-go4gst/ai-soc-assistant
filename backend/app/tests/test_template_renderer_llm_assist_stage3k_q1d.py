@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+from typing import Any
 
 import pytest
 
@@ -13,6 +14,7 @@ from app.spl.template_registry import get_spl_template
 from app.spl.template_renderer import render_template
 from app.spl.template_renderer_llm_assist import (
     TEMPLATE_RENDER_PARAMETER_ASSIST_ROLE,
+    _merge_parameters,
     render_template_with_parameter_assist,
     sanitize_template_render_llm_payload,
 )
@@ -205,6 +207,115 @@ def test_shadow_no_provider_returns_skip_reason(monkeypatch: pytest.MonkeyPatch)
     assert result.llm_assist_enabled is False
     assert result.parameter_extraction_llm is not None
     assert result.parameter_extraction_llm.get("llm_assist_skipped_reason") == SKIP_NO_PROVIDER_CONFIGURED
+
+
+def test_assist_invoke_calls_render_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "routing_llm_shadow_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_mode", "mock")
+
+    render_calls: list[tuple[dict[str, Any], Any]] = []
+    original_render = render_template
+
+    def counting_render(
+        template: Any,
+        bound_params: dict[str, Any] | None = None,
+        *,
+        route_window: Any = None,
+    ) -> Any:
+        render_calls.append((dict(bound_params or {}), route_window))
+        return original_render(template, bound_params, route_window=route_window)
+
+    monkeypatch.setattr(
+        "app.spl.template_renderer_llm_assist.render_template",
+        counting_render,
+    )
+
+    payload = json.dumps({"extracted_parameters": {"result_limit": 25}})
+    template = get_spl_template("sample_auth_failed_login_top_users_tstats")
+    assert template is not None
+    route_params = {"result_limit": 10}
+    result = render_template_with_parameter_assist(
+        template,
+        route_params,
+        route_window=_route_window(),
+        llm_raw_output_provider=lambda: payload,
+    )
+
+    assert len(render_calls) == 1
+    assert result.render_ok is True
+    assert result.bound_parameters["result_limit"] == 10
+
+
+def test_assist_output_matches_single_merge_render(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "routing_llm_shadow_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_mode", "mock")
+
+    payload = json.dumps(
+        {
+            "extracted_parameters": {
+                "result_limit": 25,
+                "time_window": {"earliest": "earliest=-1h", "latest": "latest=now"},
+            }
+        }
+    )
+    template = get_spl_template("sample_auth_failed_login_top_users_tstats")
+    assert template is not None
+    route_params = {"result_limit": 10}
+    route_window = _route_window()
+
+    assist_result = render_template_with_parameter_assist(
+        template,
+        route_params,
+        route_window=route_window,
+        llm_raw_output_provider=lambda: payload,
+    )
+    extracted = json.loads(payload)["extracted_parameters"]
+    merged, _ = _merge_parameters(route_params, extracted, template)
+    expected = render_template(template, merged, route_window=route_window)
+
+    def _render_core(dump: dict) -> dict:
+        return {
+            k: v
+            for k, v in dump.items()
+            if k
+            not in {
+                "parameter_extraction_llm",
+                "llm_assist_enabled",
+                "llm_assist_timed_out",
+                "disagreements",
+            }
+        }
+
+    assert _render_core(assist_result.model_dump()) == _render_core(expected.model_dump())
+
+
+def test_route_window_precedence_over_sidecar_time_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "routing_llm_shadow_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_mode", "mock")
+
+    payload = json.dumps(
+        {
+            "extracted_parameters": {
+                "time_window": {"earliest": "earliest=-1h", "latest": "latest=now"},
+            }
+        }
+    )
+    template = get_spl_template("sample_auth_failed_login_top_users_tstats")
+    assert template is not None
+    result = render_template_with_parameter_assist(
+        template,
+        {"result_limit": 10},
+        route_window=_route_window(),
+        llm_raw_output_provider=lambda: payload,
+    )
+
+    assert result.render_ok is True
+    assert result.bound_parameters["earliest"] == "earliest=-24h"
+    assert result.bound_parameters["latest"] == "latest=now"
+    assert "earliest=-1h" not in (result.rendered_spl or "")
 
 
 def test_adapter_role_registered() -> None:

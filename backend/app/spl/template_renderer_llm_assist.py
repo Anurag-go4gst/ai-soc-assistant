@@ -49,13 +49,17 @@ def render_template_with_parameter_assist(
     shadow_enabled: bool | None = None,
     llm_raw_output_provider: Callable[[], str] | None = None,
 ) -> RenderResult:
-    """Deterministic render first; optional Instruct parameter extraction when shadow on."""
-    route_params = dict(bound_params or {})
-    deterministic = render_template(template, route_params, route_window=route_window)
+    """Render SPL with optional Instruct parameter extraction when shadow invokes assist.
 
+    Non-assist paths render once. The assist-invoked path merges route parameters with
+    sanitized LLM extraction, then renders once (no redundant pre-merge render).
+    ``route_window`` always wins over sidecar ``time_window`` extraction in ``render_template``.
+    """
+    route_params = dict(bound_params or {})
     shadow_on = settings.routing_llm_shadow_enabled if shadow_enabled is None else shadow_enabled
+
     if not shadow_on:
-        return deterministic
+        return render_template(template, route_params, route_window=route_window)
 
     assist_invoked = llm_raw_output_provider is not None
     role_status = resolve_sidecar_role_status(
@@ -65,8 +69,9 @@ def render_template_with_parameter_assist(
     )
 
     if role_status.rejected_reason:
+        result = render_template(template, route_params, route_window=route_window)
         return replace(
-            deterministic,
+            result,
             llm_assist_enabled=True,
             parameter_extraction_llm=build_sidecar_metadata_payload(
                 rejected_reason=role_status.rejected_reason,
@@ -74,15 +79,16 @@ def render_template_with_parameter_assist(
         )
 
     if not assist_invoked:
+        result = render_template(template, route_params, route_window=route_window)
         if role_status.llm_assist_skipped_reason:
             return replace(
-                deterministic,
+                result,
                 llm_assist_enabled=False,
                 parameter_extraction_llm=build_sidecar_metadata_payload(
                     skipped_reason=role_status.llm_assist_skipped_reason,
                 ),
             )
-        return replace(deterministic, llm_assist_enabled=False, parameter_extraction_llm=None)
+        return replace(result, llm_assist_enabled=False, parameter_extraction_llm=None)
 
     extracted, timed_out, notes, advisory_confidence = _fetch_extracted_parameters(
         user_query=user_query,
@@ -92,7 +98,7 @@ def render_template_with_parameter_assist(
     disagreements = _parameter_disagreements(route_params, extracted)
     notes.extend(merge_notes)
 
-    merged_result = render_template(template, merged, route_window=route_window)
+    result = render_template(template, merged, route_window=route_window)
     payload = None
     if extracted is not None or notes or timed_out or advisory_confidence is not None:
         payload = build_sidecar_metadata_payload(
@@ -105,7 +111,7 @@ def render_template_with_parameter_assist(
         )
 
     return replace(
-        merged_result,
+        result,
         disagreements=disagreements,
         parameter_extraction_llm=payload,
         llm_assist_timed_out=timed_out,
