@@ -79,6 +79,8 @@ class SplTemplateDefinition(BaseModel):
     result_limits: dict[str, object] = Field(default_factory=dict)
     severity_inputs: list[str] = Field(default_factory=list)
     answer_sections_supported: list[str] = Field(default_factory=list)
+    render_pattern: str | None = None
+    parameter_value_patterns: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check_query_shape_contract(self) -> "SplTemplateDefinition":

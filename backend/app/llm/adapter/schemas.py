@@ -122,6 +122,19 @@ class TemplateMatchSemanticAssistPayload(AdapterPayload):
     llm_semantic_hints: TemplateMatchSemanticHints | None = None
 
 
+class ExtractedRenderParameters(AdapterPayload):
+    host: str | None = None
+    user: str | None = None
+    src_ip: str | None = None
+    dest_ip: str | None = None
+    result_limit: int | None = None
+    time_window: dict[str, str] | None = None
+
+
+class TemplateRenderParameterAssistPayload(AdapterPayload):
+    extracted_parameters: ExtractedRenderParameters | None = None
+
+
 class SeverityRationaleAdvisory(AdapterPayload):
     selected_severity: str
     why_selected: list[str] = Field(default_factory=list)

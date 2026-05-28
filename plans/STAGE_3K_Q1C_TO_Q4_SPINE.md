@@ -81,7 +81,7 @@ Read the chain top-to-bottom. **Every arrow that crosses from `[ shadow ]` back 
 |------|-------|------|--------|
 | — | Roadmap index | `plans/2026-05-28_0523_stage-3k-q1c-q4-roadmap.md` | Proposed |
 | Q1C | Deterministic dry-run route-plan ↔ template matching (+ LLM-assist semantic hints sidecar) | `plans/2026-05-28_0523_stage-3k-q1c-route-plan-template-match.md` | Done |
-| Q1D | Deterministic non-executable SPL rendering for sample templates (+ LLM-assist parameter extraction sidecar) | `plans/2026-05-28_0523_stage-3k-q1d-sample-template-spl-render.md` | Proposed |
+| Q1D | Deterministic non-executable SPL rendering for sample templates (+ LLM-assist parameter extraction sidecar) | `plans/2026-05-28_0523_stage-3k-q1d-sample-template-spl-render.md` | Done |
 | Q1E | Evidence output contract + `route_plan_shadow` lineage | `plans/2026-05-28_0523_stage-3k-q1e-evidence-contract-lineage.md` | Proposed |
 | Q1F | LLM route-plan candidate generation in shadow mode (Instruct only) | `plans/2026-05-28_0523_stage-3k-q1f-llm-route-plan-shadow.md` | Proposed |
 | Q1G | LLM-narrated analyst summary in shadow mode | `plans/2026-05-28_0523_stage-3k-q1g-llm-narrated-analyst-summary-shadow.md` | Proposed |
@@ -230,7 +230,7 @@ Agents executing a stage must update both rows for that stage at end of session:
 |-------|--------|-------------|-------|
 | Roadmap | Proposed | — | Plans only commit pending |
 | Q1C | Done | — | Library-only matcher + Instruct sidecar; not wired to `/chat` |
-| Q1D | Proposed | — | |
+| Q1D | Done | — | Library-only renderer + param sidecar; not wired `/chat` |
 | Q1E | Proposed | — | |
 | Q1F | Proposed | — | |
 | Q1G | Proposed | — | |
@@ -243,7 +243,7 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Stage | Backend pytest | Harness default | Harness `TELEMETRY_MODE=none` | Frontend build | `git diff --check` |
 |-------|---------------|-----------------|-------------------------------|----------------|--------------------|
 | Q1C | 396 pass | 6/6 | 6/6 | n/a | pass |
-| Q1D | — | — | — | — | — |
+| Q1D | 419 pass | 6/6 | 6/6 | n/a | pass |
 | Q1E | — | — | — | — | — |
 | Q1F | — | — | — | — | — |
 | Q1G | — | — | — | — | — |

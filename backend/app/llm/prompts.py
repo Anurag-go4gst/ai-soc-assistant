@@ -225,6 +225,29 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
             "Only normalized_spl can enter MCP gate.",
         ],
     },
+    "template_render_parameter_assist": {
+        "model_family": "Foundation-sec-8B-Instruct only",
+        "purpose": "Extract render parameters for matched CIM templates; renderer is authoritative.",
+        "max_input_tokens": "2000",
+        "system_instruction": (
+            "Return JSON only. Extract host/user/src_ip/dest_ip/result_limit/time_window values. "
+            "Never emit SPL, template_id, datamodel, detection_ref, or lookup_name."
+        ),
+        "include": ["user_query", "matched_template_id", "route_plan_time_window"],
+        "output_schema": {
+            "extracted_parameters": {
+                "host": "app-01",
+                "src_ip": "10.0.0.5",
+                "result_limit": 25,
+                "time_window": {"earliest": "earliest=-24h", "latest": "latest=now"},
+            }
+        },
+        "consumption_rules": [
+            "Route-plan parameters win on conflict.",
+            "Rendered SPL must pass Q1A validator; no relaxed retries.",
+            "Reasoning models rejected for this role.",
+        ],
+    },
     "template_match_semantic_assist": {
         "model_family": "Foundation-sec-8B-Instruct only",
         "purpose": "Emit semantic hints for template matching; deterministic matcher is authoritative.",

@@ -114,6 +114,12 @@
       "safety_notes": "Disabled sample for Q1B schema tests only. Q1A validator remains the safety boundary; MCP execution gates unchanged.",
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
+      "render_pattern": "tstats summariesonly=true count as failed_login_count from datamodel=Authentication.Authentication where {earliest} {latest} Authentication.action=failure by Authentication.user | head {result_limit}",
+      "parameter_value_patterns": {
+        "earliest": "^earliest=-\\d+[mhd]$",
+        "latest": "^latest=now$",
+        "result_limit": "^[0-9]+$"
+      },
       "spl_text": null,
       "returned_fields": ["user", "failed_login_count"],
       "validation_rules": {"sample_only": true},
@@ -153,6 +159,13 @@
       "safety_notes": "Disabled sample for Q1B schema tests only. Q1A validator remains the safety boundary; MCP execution gates unchanged.",
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
+      "render_pattern": "tstats summariesonly=true count as connection_count from datamodel=Network_Traffic.All_Traffic where {earliest} {latest} by Network_Traffic.src_ip | head {result_limit}",
+      "parameter_value_patterns": {
+        "earliest": "^earliest=-\\d+[mhd]$",
+        "latest": "^latest=now$",
+        "result_limit": "^[0-9]+$"
+      },
+      "optional_parameters": ["src_ip"],
       "spl_text": null,
       "returned_fields": ["src_ip", "connection_count"],
       "validation_rules": {"sample_only": true},
@@ -192,6 +205,12 @@
       "safety_notes": "Disabled sample for Q1B schema tests only. Q1A validator remains the safety boundary; MCP execution gates unchanged.",
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
+      "render_pattern": "from datamodel=Network_Resolution.DNS | where {earliest} {latest} | stats count as query_count by host | head {result_limit}",
+      "parameter_value_patterns": {
+        "earliest": "^earliest=-\\d+[mhd]$",
+        "latest": "^latest=now$",
+        "result_limit": "^[0-9]+$"
+      },
       "spl_text": null,
       "returned_fields": ["host", "query_count"],
       "validation_rules": {"sample_only": true},

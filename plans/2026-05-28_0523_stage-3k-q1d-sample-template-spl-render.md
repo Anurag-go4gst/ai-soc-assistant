@@ -1,5 +1,7 @@
 # Stage 3K-Q1D: Non-Executable SPL Rendering For Sample Templates
 
+**Status:** Done (library-only; `/chat` wiring deferred to Q1E)
+
 ## Objective
 
 Render SPL from disabled / sample-only CIM templates using bound parameters, then prove the rendered SPL passes the Q1A validator. Answer: "Can a matched template produce validator-safe SPL?"
