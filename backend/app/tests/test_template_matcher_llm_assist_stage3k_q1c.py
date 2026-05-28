@@ -171,7 +171,9 @@ def test_sidecar_timeout_proceeds_without_hints(monkeypatch: pytest.MonkeyPatch)
     assert result.llm_assist_enabled is True
     assert result.llm_assist_timed_out is True
     assert result.matched is True
-    assert result.template_match_llm_hints is None or result.template_match_llm_hints.get("llm_semantic_hints") is None
+    assert result.template_match_llm_hints is not None
+    assert result.template_match_llm_hints.get("timed_out") is True
+    assert result.template_match_llm_hints.get("llm_semantic_hints") is None
 
 
 def test_adapter_role_registered() -> None:

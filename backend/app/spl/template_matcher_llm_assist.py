@@ -7,13 +7,20 @@ disagreements are recorded on ``TemplateMatchResult``.
 from __future__ import annotations
 
 import re
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import replace
 from typing import Any, Callable
 
 from app.config import settings
 from app.llm.adapter import adapt_llm_output
-from app.llm.registry_settings import REASONING_PROVIDER_ID, build_llm_governance_status
+from app.llm.sidecar_governance import (
+    REASONING_REJECTION_MATCHING,
+    adapter_dropped_field_notes,
+    build_advisory_disagreement,
+    build_sidecar_metadata_payload,
+    extract_advisory_confidence,
+    resolve_sidecar_role_status,
+    run_sidecar_llm_with_timeout,
+)
 from app.safeguards.spl_validator import APPROVED_DATAMODELS, DATAMODEL_FIELD_ALLOWLIST
 from app.spl.template_matcher import TemplateMatchResult, match_route_plan_to_template
 
@@ -38,6 +45,8 @@ APPROVED_SOURCE_CLASS_HINTS = frozenset(
     }
 )
 
+FORBIDDEN_HINT_KEYS = frozenset({"template_id", "candidate_spl", "spl"})
+
 
 def match_route_plan_with_semantic_assist(
     normalized_route_plan: dict[str, Any],
@@ -58,21 +67,29 @@ def match_route_plan_with_semantic_assist(
         return deterministic
 
     assist_invoked = llm_raw_output_provider is not None
-    role_status = _role_assist_status(assist_invoked=assist_invoked)
+    role_status = resolve_sidecar_role_status(
+        TEMPLATE_MATCH_SEMANTIC_ASSIST_ROLE,
+        reasoning_rejection_reason=REASONING_REJECTION_MATCHING,
+        assist_invoked=assist_invoked,
+    )
 
-    if role_status.get("rejected_reason") == "reasoning_model_not_allowed_for_matching":
+    if role_status.rejected_reason:
         return replace(
             deterministic,
             llm_assist_enabled=True,
-            template_match_llm_hints={"rejected_reason": role_status["rejected_reason"]},
+            template_match_llm_hints=build_sidecar_metadata_payload(
+                rejected_reason=role_status.rejected_reason,
+            ),
         )
 
     if not assist_invoked:
-        if not role_status["enabled"]:
+        if role_status.llm_assist_skipped_reason:
             return replace(
                 deterministic,
                 llm_assist_enabled=False,
-                template_match_llm_hints=None,
+                template_match_llm_hints=build_sidecar_metadata_payload(
+                    skipped_reason=role_status.llm_assist_skipped_reason,
+                ),
             )
         return replace(
             deterministic,
@@ -80,7 +97,7 @@ def match_route_plan_with_semantic_assist(
             template_match_llm_hints=None,
         )
 
-    hints, timed_out, adapter_notes = _fetch_semantic_hints(
+    hints, timed_out, adapter_notes, advisory_confidence = _fetch_semantic_hints(
         user_query=user_query,
         normalized_route_plan=normalized_route_plan,
         llm_raw_output_provider=llm_raw_output_provider,
@@ -88,14 +105,15 @@ def match_route_plan_with_semantic_assist(
     disagreements = _compare_hints_to_match(deterministic, hints, normalized_route_plan)
     merged_disagreements = list(deterministic.disagreements) + disagreements
     hint_payload = None
-    if hints is not None or adapter_notes or timed_out:
-        hint_payload = {
-            "llm_semantic_hints": hints,
-            "adapter_notes": adapter_notes,
-            "coe_synthetic_fixture": True,
-            "captured_live_run": False,
-            "production_execution": False,
-        }
+    if hints is not None or adapter_notes or timed_out or advisory_confidence is not None:
+        hint_payload = build_sidecar_metadata_payload(
+            timed_out=timed_out,
+            advisory_confidence=advisory_confidence,
+            extra={
+                "llm_semantic_hints": hints,
+                "adapter_notes": adapter_notes,
+            },
+        )
 
     return replace(
         deterministic,
@@ -118,11 +136,14 @@ def sanitize_template_match_llm_payload(raw_output: str) -> tuple[dict[str, Any]
         return None, notes
 
     payload = result.normalized_payload
-    dropped = list(result.dropped_fields)
-    if dropped:
-        if "template_id" in dropped or any("template" in field for field in dropped):
-            notes.append("template_id_stripped")
-        notes.extend(f"dropped_field:{field}" for field in dropped)
+    notes.extend(
+        adapter_dropped_field_notes(
+            result.dropped_fields,
+            forbidden_keys=FORBIDDEN_HINT_KEYS,
+        )
+    )
+    if "confidence" in result.dropped_fields:
+        notes.append("confidence_advisory_only")
 
     hints = payload.get("llm_semantic_hints")
     if not isinstance(hints, dict):
@@ -141,23 +162,30 @@ def _fetch_semantic_hints(
     user_query: str,
     normalized_route_plan: dict[str, Any],
     llm_raw_output_provider: Callable[[], str] | None,
-) -> tuple[dict[str, Any] | None, bool, list[str]]:
+) -> tuple[dict[str, Any] | None, bool, list[str], float | None]:
     if llm_raw_output_provider is None:
-        return None, False, ["live_llm_template_match_assist_disabled"]
+        return None, False, ["live_llm_template_match_assist_disabled"], None
 
-    timed_out = False
-    raw_output = ""
-    try:
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(llm_raw_output_provider)
-            raw_output = future.result(timeout=TEMPLATE_MATCH_ASSIST_TIMEOUT_SECONDS)
-    except (FuturesTimeoutError, TimeoutError):
-        return None, True, ["llm_assist_timed_out"]
+    call = run_sidecar_llm_with_timeout(
+        llm_raw_output_provider,
+        timeout_seconds=TEMPLATE_MATCH_ASSIST_TIMEOUT_SECONDS,
+    )
+    advisory_confidence, confidence_notes = (
+        extract_advisory_confidence(
+            call.raw_output or "",
+            nested_paths=(("llm_semantic_hints",),),
+        )
+        if call.raw_output
+        else (None, [])
+    )
+    if call.timed_out:
+        return None, True, call.notes + confidence_notes, advisory_confidence
 
-    payload, notes = sanitize_template_match_llm_payload(raw_output)
+    payload, notes = sanitize_template_match_llm_payload(call.raw_output or "")
+    notes.extend(confidence_notes)
     if payload is None:
-        return None, timed_out, notes
-    return payload.get("llm_semantic_hints"), timed_out, notes
+        return None, False, notes, advisory_confidence
+    return payload.get("llm_semantic_hints"), False, notes, advisory_confidence
 
 
 def _sanitize_hints_dict(hints: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
@@ -166,6 +194,9 @@ def _sanitize_hints_dict(hints: dict[str, Any]) -> tuple[dict[str, Any], list[st
 
     if "template_id" in hints:
         notes.append("template_id_stripped")
+
+    if "confidence" in hints:
+        notes.append("confidence_advisory_only")
 
     source_hint = hints.get("source_class_hint")
     if isinstance(source_hint, str) and source_hint.strip():
@@ -220,12 +251,12 @@ def _compare_hints_to_match(
     hint_datamodel = hints.get("datamodel_hint")
     if hint_datamodel and hint_datamodel != deterministic_datamodel:
         disagreements.append(
-            {
-                "field": "datamodel",
-                "llm_value": hint_datamodel,
-                "deterministic_value": deterministic_datamodel,
-                "reason_for_deterministic_win": "datamodel_hint_advisory_only",
-            }
+            build_advisory_disagreement(
+                field="datamodel",
+                llm_value=hint_datamodel,
+                deterministic_value=deterministic_datamodel,
+                reason_for_deterministic_win="datamodel_hint_advisory_only",
+            )
         )
 
     parameters = plan.get("parameters") if isinstance(plan.get("parameters"), dict) else {}
@@ -234,38 +265,11 @@ def _compare_hints_to_match(
     for _phrase, alias_field in (hints.get("field_aliases") or {}).items():
         if alias_field != deterministic_group_by:
             disagreements.append(
-                {
-                    "field": "group_by",
-                    "llm_value": alias_field,
-                    "deterministic_value": deterministic_group_by,
-                    "reason_for_deterministic_win": "field_alias_advisory_only",
-                }
+                build_advisory_disagreement(
+                    field="group_by",
+                    llm_value=alias_field,
+                    deterministic_value=deterministic_group_by,
+                    reason_for_deterministic_win="field_alias_advisory_only",
+                )
             )
     return disagreements
-
-
-def _role_assist_status(*, assist_invoked: bool = False) -> dict[str, Any]:
-    if settings.ai_soc_llm_mode.strip().lower() == "disabled" or not settings.ai_soc_llm_enabled:
-        return {"enabled": False, "rejected_reason": None}
-
-    configured_provider = settings.ai_soc_llm_template_match_provider.strip()
-    configured_model = settings.ai_soc_llm_template_match_model.strip()
-    if configured_provider == REASONING_PROVIDER_ID or "reasoning" in configured_model.lower():
-        return {
-            "enabled": False,
-            "rejected_reason": "reasoning_model_not_allowed_for_matching",
-        }
-
-    governance = build_llm_governance_status()
-    role_entry = next(
-        (item for item in governance.get("roles", []) if item.get("role") == TEMPLATE_MATCH_SEMANTIC_ASSIST_ROLE),
-        None,
-    )
-    if not role_entry:
-        if assist_invoked:
-            return {"enabled": True, "rejected_reason": None}
-        return {"enabled": False, "rejected_reason": "role_not_configured"}
-
-    if not role_entry.get("enabled"):
-        return {"enabled": False, "rejected_reason": "role_not_enabled"}
-    return {"enabled": True, "rejected_reason": None}

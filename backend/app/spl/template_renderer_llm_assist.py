@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 import re
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import replace
 from typing import Any, Callable
 
 from app.config import settings
 from app.llm.adapter import adapt_llm_output
-from app.llm.registry_settings import REASONING_PROVIDER_ID, build_llm_governance_status
+from app.llm.sidecar_governance import (
+    REASONING_REJECTION_RENDERING,
+    adapter_dropped_field_notes,
+    build_advisory_disagreement,
+    build_sidecar_metadata_payload,
+    extract_advisory_confidence,
+    resolve_sidecar_role_status,
+    run_sidecar_llm_with_timeout,
+)
 from app.spl.template_registry import SplTemplateDefinition
 from app.spl.template_renderer import (
     RenderResult,
@@ -51,19 +58,33 @@ def render_template_with_parameter_assist(
         return deterministic
 
     assist_invoked = llm_raw_output_provider is not None
-    role_status = _role_assist_status(assist_invoked=assist_invoked)
+    role_status = resolve_sidecar_role_status(
+        TEMPLATE_RENDER_PARAMETER_ASSIST_ROLE,
+        reasoning_rejection_reason=REASONING_REJECTION_RENDERING,
+        assist_invoked=assist_invoked,
+    )
 
-    if role_status.get("rejected_reason") == "reasoning_model_not_allowed_for_rendering":
+    if role_status.rejected_reason:
         return replace(
             deterministic,
             llm_assist_enabled=True,
-            parameter_extraction_llm={"rejected_reason": role_status["rejected_reason"]},
+            parameter_extraction_llm=build_sidecar_metadata_payload(
+                rejected_reason=role_status.rejected_reason,
+            ),
         )
 
     if not assist_invoked:
+        if role_status.llm_assist_skipped_reason:
+            return replace(
+                deterministic,
+                llm_assist_enabled=False,
+                parameter_extraction_llm=build_sidecar_metadata_payload(
+                    skipped_reason=role_status.llm_assist_skipped_reason,
+                ),
+            )
         return replace(deterministic, llm_assist_enabled=False, parameter_extraction_llm=None)
 
-    extracted, timed_out, notes = _fetch_extracted_parameters(
+    extracted, timed_out, notes, advisory_confidence = _fetch_extracted_parameters(
         user_query=user_query,
         llm_raw_output_provider=llm_raw_output_provider,
     )
@@ -73,14 +94,15 @@ def render_template_with_parameter_assist(
 
     merged_result = render_template(template, merged, route_window=route_window)
     payload = None
-    if extracted is not None or notes or timed_out:
-        payload = {
-            "extracted_parameters": extracted,
-            "adapter_notes": notes,
-            "coe_synthetic_fixture": True,
-            "captured_live_run": False,
-            "production_execution": False,
-        }
+    if extracted is not None or notes or timed_out or advisory_confidence is not None:
+        payload = build_sidecar_metadata_payload(
+            timed_out=timed_out,
+            advisory_confidence=advisory_confidence,
+            extra={
+                "extracted_parameters": extracted,
+                "adapter_notes": notes,
+            },
+        )
 
     return replace(
         merged_result,
@@ -104,10 +126,12 @@ def sanitize_template_render_llm_payload(
         notes.extend(result.errors)
         return None, notes
 
-    if result.dropped_fields:
-        if any("template" in field or field in FORBIDDEN_EXTRACTION_KEYS for field in result.dropped_fields):
-            notes.append("forbidden_field_stripped")
-        notes.extend(f"dropped_field:{field}" for field in result.dropped_fields)
+    notes.extend(
+        adapter_dropped_field_notes(
+            result.dropped_fields,
+            forbidden_keys=FORBIDDEN_EXTRACTION_KEYS,
+        )
+    )
 
     extracted = result.normalized_payload.get("extracted_parameters")
     if not isinstance(extracted, dict):
@@ -123,18 +147,27 @@ def _fetch_extracted_parameters(
     *,
     user_query: str,
     llm_raw_output_provider: Callable[[], str],
-) -> tuple[dict[str, Any] | None, bool, list[str]]:
-    try:
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(llm_raw_output_provider)
-            raw_output = future.result(timeout=TEMPLATE_RENDER_ASSIST_TIMEOUT_SECONDS)
-    except (FuturesTimeoutError, TimeoutError):
-        return None, True, ["llm_assist_timed_out"]
+) -> tuple[dict[str, Any] | None, bool, list[str], float | None]:
+    call = run_sidecar_llm_with_timeout(
+        llm_raw_output_provider,
+        timeout_seconds=TEMPLATE_RENDER_ASSIST_TIMEOUT_SECONDS,
+    )
+    advisory_confidence, confidence_notes = (
+        extract_advisory_confidence(
+            call.raw_output or "",
+            nested_paths=(("extracted_parameters",),),
+        )
+        if call.raw_output
+        else (None, [])
+    )
+    if call.timed_out:
+        return None, True, call.notes + confidence_notes, advisory_confidence
 
-    payload, notes = sanitize_template_render_llm_payload(raw_output)
+    payload, notes = sanitize_template_render_llm_payload(call.raw_output or "")
+    notes.extend(confidence_notes)
     if payload is None:
-        return None, False, notes
-    return payload.get("extracted_parameters"), False, notes
+        return None, False, notes, advisory_confidence
+    return payload.get("extracted_parameters"), False, notes, advisory_confidence
 
 
 def _sanitize_extracted_parameters(
@@ -153,6 +186,9 @@ def _sanitize_extracted_parameters(
     for key, value in extracted.items():
         if key in FORBIDDEN_EXTRACTION_KEYS:
             notes.append(f"forbidden_field_stripped:{key}")
+            continue
+        if key == "confidence":
+            notes.append("confidence_advisory_only")
             continue
         if key not in allowed:
             notes.append(f"unknown_extraction_field:{key}")
@@ -184,7 +220,7 @@ def _sanitize_extracted_parameters(
         if key in {"src_ip", "dest_ip"}:
             text = str(value)
             if SPL_IN_VALUE_PATTERN.search(text) or not _valid_ip(text):
-                notes.append(f"spl_in_extraction_forbidden" if SPL_IN_VALUE_PATTERN.search(text) else "invalid_ip")
+                notes.append("spl_in_extraction_forbidden" if SPL_IN_VALUE_PATTERN.search(text) else "invalid_ip")
                 continue
             cleaned[key] = text
             continue
@@ -250,37 +286,11 @@ def _parameter_disagreements(
             continue
         if extracted[key] != route_params[key]:
             disagreements.append(
-                {
-                    "field": key,
-                    "llm_value": extracted[key],
-                    "deterministic_value": route_params[key],
-                    "reason_for_deterministic_win": "route_plan_parameter_authoritative",
-                }
+                build_advisory_disagreement(
+                    field=key,
+                    llm_value=extracted[key],
+                    deterministic_value=route_params[key],
+                    reason_for_deterministic_win="route_plan_parameter_authoritative",
+                )
             )
     return disagreements
-
-
-def _role_assist_status(*, assist_invoked: bool = False) -> dict[str, Any]:
-    if settings.ai_soc_llm_mode.strip().lower() == "disabled" or not settings.ai_soc_llm_enabled:
-        return {"enabled": False, "rejected_reason": None}
-
-    configured_provider = settings.ai_soc_llm_template_render_provider.strip()
-    configured_model = settings.ai_soc_llm_template_render_model.strip()
-    if configured_provider == REASONING_PROVIDER_ID or "reasoning" in configured_model.lower():
-        return {
-            "enabled": False,
-            "rejected_reason": "reasoning_model_not_allowed_for_rendering",
-        }
-
-    governance = build_llm_governance_status()
-    role_entry = next(
-        (item for item in governance.get("roles", []) if item.get("role") == TEMPLATE_RENDER_PARAMETER_ASSIST_ROLE),
-        None,
-    )
-    if not role_entry:
-        if assist_invoked:
-            return {"enabled": True, "rejected_reason": None}
-        return {"enabled": False, "rejected_reason": "role_not_configured"}
-    if not role_entry.get("enabled") and not assist_invoked:
-        return {"enabled": False, "rejected_reason": "role_not_enabled"}
-    return {"enabled": True, "rejected_reason": None}

@@ -150,6 +150,8 @@ def test_sidecar_timeout_proceeds(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert result.llm_assist_timed_out is True
     assert result.render_ok is True
+    assert result.parameter_extraction_llm is not None
+    assert result.parameter_extraction_llm.get("timed_out") is True
 
 
 def test_render_still_passes_validator_with_sidecar(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -176,6 +178,33 @@ def test_render_still_passes_validator_with_sidecar(monkeypatch: pytest.MonkeyPa
 
     assert result.validator_approved is True
     assert result.execution_eligible is False
+
+
+def test_shadow_no_provider_returns_skip_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.llm.sidecar_governance import SKIP_NO_PROVIDER_CONFIGURED
+
+    monkeypatch.setattr(settings, "routing_llm_shadow_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_mode", "mock")
+    monkeypatch.setattr(settings, "ai_soc_llm_template_render_provider", "")
+    monkeypatch.setattr(settings, "ai_soc_llm_template_render_model", "")
+    monkeypatch.setattr(settings, "ai_soc_llm_foundation_sec_instruct_base_url", "")
+    monkeypatch.setattr(settings, "ai_soc_llm_openai_base_url", "")
+    monkeypatch.setattr(settings, "ai_soc_llm_local_base_url", "")
+    monkeypatch.setattr(settings, "ai_soc_llm_default_provider", "")
+
+    template = get_spl_template("sample_auth_failed_login_top_users_tstats")
+    assert template is not None
+    result = render_template_with_parameter_assist(
+        template,
+        {"result_limit": 10},
+        route_window=_route_window(),
+        shadow_enabled=True,
+    )
+
+    assert result.llm_assist_enabled is False
+    assert result.parameter_extraction_llm is not None
+    assert result.parameter_extraction_llm.get("llm_assist_skipped_reason") == SKIP_NO_PROVIDER_CONFIGURED
 
 
 def test_adapter_role_registered() -> None:
