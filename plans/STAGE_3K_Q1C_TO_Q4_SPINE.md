@@ -235,7 +235,7 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q1F | Done | 844d4f2, 3af6423 | JSON wrapper module tracked (FIX-A); shadow only; no live `/chat` LLM without provider |
 | Q1G | Done | — | Shadow narration in lineage reveal only; `AI_SOC_LLM_SHADOW_NARRATION_ENABLED` default false |
 | Q2 | Done | `1dac76d` | `IOC_REGISTRY_ENABLED` default false; deterministic lookup only |
-| Q3 | Done | — | `DETECTION_REGISTRY_ENABLED` default false; deterministic binding only |
+| Q3 | Done | `1dde303` | `DETECTION_REGISTRY_ENABLED` default false; deterministic binding only |
 | Q4 | Proposed | — | |
 
 ### 9.2 Verification
