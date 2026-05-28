@@ -196,6 +196,12 @@ class RoutePlanShadowEnvelope(BaseModel):
     normalized_plan_available: bool = False
     execution_authorized: bool = False
     llm_called: bool = False
+    llm_role: str | None = None
+    llm_model_family: str | None = None
+    llm_candidate_route_plan_available: bool = False
+    llm_candidate_dropped_reasons: list[str] = []
+    deterministic_route_plan_wins: bool = True
+    disagreements: list[dict[str, object]] = []
     mcp_called: bool = False
     spl_generated: bool = False
     spl_executed: bool = False

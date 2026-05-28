@@ -160,6 +160,20 @@ ROLE_DEFAULTS: tuple[dict[str, Any], ...] = (
         "execution_eligible": False,
     },
     {
+        "role": "route_plan_candidate_generator",
+        "preferred_provider": INSTRUCT_PROVIDER_ID,
+        "preferred_model": INSTRUCT_DEFAULT_MODEL,
+        "mode": "candidate_only",
+        "output": "route_plan_candidate JSON",
+        "authority": "candidate_only",
+        "validator_required": True,
+        "strict_json": True,
+        "temperature": 0.0,
+        "max_input_tokens": 4000,
+        "max_output_tokens": 1200,
+        "execution_eligible": False,
+    },
+    {
         "role": "answer_guard_assistant",
         "preferred_provider": REASONING_PROVIDER_ID,
         "preferred_model": REASONING_DEFAULT_MODEL,
@@ -191,6 +205,10 @@ ROLE_ENV_MAP: dict[str, tuple[str, str]] = {
     "template_render_parameter_assist": (
         "ai_soc_llm_template_render_provider",
         "ai_soc_llm_template_render_model",
+    ),
+    "route_plan_candidate_generator": (
+        "ai_soc_llm_route_plan_provider",
+        "ai_soc_llm_route_plan_model",
     ),
     "answer_guard_assistant": ("ai_soc_llm_guard_provider", "ai_soc_llm_guard_model"),
 }
@@ -286,6 +304,7 @@ def _role_suitability(providers: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "spl_advisory_recommendation": "not_recommended",
                 "template_match_semantic_assist": "suitable_with_guard",
                 "template_render_parameter_assist": "suitable_with_guard",
+                "route_plan_candidate_generator": "candidate_only",
                 "final_answer_without_guard": "not_allowed",
             },
         },

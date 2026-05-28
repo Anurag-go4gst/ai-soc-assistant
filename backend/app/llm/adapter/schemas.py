@@ -135,6 +135,34 @@ class TemplateRenderParameterAssistPayload(AdapterPayload):
     extracted_parameters: ExtractedRenderParameters | None = None
 
 
+class RoutePlanCandidateMetric(AdapterPayload):
+    type: str
+    field: str
+
+
+class RoutePlanCandidateEvidenceNeeds(AdapterPayload):
+    datamodel: str
+    dataset: str | None = None
+    group_by: list[str] = Field(default_factory=list)
+    metric: RoutePlanCandidateMetric
+    cim_fields: list[str] = Field(default_factory=list)
+    summariesonly: bool | None = None
+    lookup_required: bool = False
+    detection_required: bool = False
+    detection_family: str | None = None
+
+
+class RoutePlanCandidateLlmPayload(AdapterPayload):
+    primary_skill: str
+    operation_type: str
+    source_class: str
+    evidence_needs: RoutePlanCandidateEvidenceNeeds
+    time_window: dict[str, str] | str | None = None
+    limit: int | None = None
+    clarification_questions: list[str] = Field(default_factory=list)
+    rationale: str = ""
+
+
 class SeverityRationaleAdvisory(AdapterPayload):
     selected_severity: str
     why_selected: list[str] = Field(default_factory=list)

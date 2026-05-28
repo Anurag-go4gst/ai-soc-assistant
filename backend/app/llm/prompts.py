@@ -272,6 +272,37 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
             "Adapter strips template_id and SPL fragments.",
         ],
     },
+    "route_plan_candidate_generator": {
+        "model_family": "Foundation-sec-8B-Instruct only",
+        "purpose": "Emit a route-plan candidate JSON for shadow observation; deterministic routing wins.",
+        "max_input_tokens": "4000",
+        "system_instruction": (
+            "Return JSON only. Propose primary_skill, operation_type, source_class, and evidence_needs. "
+            "Never emit SPL, MCP tools, lookup_name, or detection_ref. Use detection_family only when needed. "
+            "Never authorize execution or use confidence as authority."
+        ),
+        "include": ["user_query", "preflight_status", "missing_slots", "runtime_skill_catalog"],
+        "output_schema": {
+            "primary_skill": "aggregate_and_rank",
+            "operation_type": "top_n",
+            "source_class": "okta_authentication_logs",
+            "evidence_needs": {
+                "datamodel": "Authentication",
+                "group_by": ["user"],
+                "metric": {"type": "count", "field": "failed_login_count"},
+            },
+            "time_window": None,
+            "limit": 10,
+            "clarification_questions": [],
+            "rationale": "Shadow candidate only.",
+        },
+        "consumption_rules": [
+            "Shadow-only: deterministic preflight, validator, and template match own authority.",
+            "Reasoning models are rejected for this role.",
+            "Wrapper-tolerant JSON extraction; no repair or silent field injection.",
+            "Adapter strips detection_ref and SPL fragments.",
+        ],
+    },
 }
 
 for _reasoning_role in ("mitre_reasoner", "missing_evidence_reasoner", "risk_rationale_reasoner"):

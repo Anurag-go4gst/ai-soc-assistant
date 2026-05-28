@@ -162,6 +162,8 @@ class Settings(BaseSettings):
     ai_soc_llm_template_match_model: str = ""
     ai_soc_llm_template_render_provider: str = ""
     ai_soc_llm_template_render_model: str = ""
+    ai_soc_llm_route_plan_provider: str = ""
+    ai_soc_llm_route_plan_model: str = ""
     ai_soc_llm_guard_provider: str = ""
     ai_soc_llm_guard_model: str = ""
     # Provider endpoint placeholders. Secrets are never surfaced in status.

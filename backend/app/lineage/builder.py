@@ -49,6 +49,8 @@ def build_investigation_lineage(
                 "Stage 3K-R2 dormant route-plan validator",
             )
         )
+        if route_plan_shadow.get("llm_called"):
+            stages.append(_llm_route_plan_candidate_stage(route_plan_shadow))
         if route_plan_shadow.get("template_match_attempted"):
             stages.append(_template_match_shadow_stage(route_plan_shadow))
     stages.extend(
@@ -98,6 +100,36 @@ def _dump(item: Any) -> dict[str, object]:
     if hasattr(item, "model_dump"):
         return item.model_dump()
     return dict(item)
+
+
+def _llm_route_plan_candidate_stage(route_plan_shadow: dict[str, Any]) -> LineageStage:
+    dropped = route_plan_shadow.get("llm_candidate_dropped_reasons") or []
+    if route_plan_shadow.get("llm_candidate_route_plan_available"):
+        status = "accepted_shadow"
+    elif dropped:
+        status = "dropped"
+    else:
+        status = "observed"
+    return _stage(
+        "llm_route_plan_candidate",
+        status,
+        "LLM route-plan candidate (shadow)",
+        "Instruct-only shadow candidate; deterministic routing and validation retain authority.",
+        {
+            "llm_role": route_plan_shadow.get("llm_role"),
+            "llm_model_family": route_plan_shadow.get("llm_model_family"),
+            "llm_candidate_route_plan_available": route_plan_shadow.get("llm_candidate_route_plan_available"),
+            "llm_candidate_dropped_reasons": dropped,
+            "deterministic_route_plan_wins": route_plan_shadow.get("deterministic_route_plan_wins"),
+            "disagreements": route_plan_shadow.get("disagreements"),
+            "coe_synthetic_fixture": route_plan_shadow.get("coe_synthetic_fixture"),
+            "captured_live_run": route_plan_shadow.get("captured_live_run"),
+            "production_execution": route_plan_shadow.get("production_execution"),
+        },
+        [],
+        "shadow",
+        "Stage 3K-Q1F LLM route-plan candidate generator",
+    )
 
 
 def _template_match_shadow_stage(route_plan_shadow: dict[str, Any]) -> LineageStage:

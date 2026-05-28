@@ -16,6 +16,10 @@ from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
 from app.query_understanding.parser import understand_query
+from app.routing.llm_route_plan_candidate import (
+    generate_llm_route_plan_candidate,
+    skipped_reason_to_candidate_reason,
+)
 from app.routing.route_plan_models import ROUTE_PLAN_GENERATOR_MODEL_FAMILY, ROUTE_PLAN_REASONING_MODEL_ALLOWED
 from app.routing.route_plan_preflight import preflight_route_plan
 from app.routing.route_plan_validator import validate_route_plan_candidate
@@ -43,7 +47,10 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
     query_understanding = understand_query(request.message)
     selected_use_case = _selected_use_case(request.message)
     routed = route_skill(request.message, trace_id=trace_id)
-    route_plan_shadow = _route_plan_shadow_stage(request.message)
+    route_plan_shadow = _route_plan_shadow_stage(
+        request.message,
+        deterministic_primary_skill=str(routed["skill"]),
+    )
     skill_selection = select_skill_chain(routed=routed, selected_use_case=selected_use_case)
     selected_skill_chain = skill_selection.selected_chain
     comparison = routed.get("comparison", {})
@@ -197,7 +204,7 @@ def _disagreement_reason(comparison: dict) -> str:
     return "unknown_mismatch"
 
 
-def _route_plan_shadow_stage(query: str) -> dict:
+def _route_plan_shadow_stage(query: str, *, deterministic_primary_skill: str | None = None) -> dict:
     shadow = _route_plan_shadow_base(model_role="instruct_candidate_only")
     preflight = preflight_route_plan(query)
     shadow["preflight_status"] = preflight.route_status.value if preflight.route_status else "passed"
@@ -212,15 +219,44 @@ def _route_plan_shadow_stage(query: str) -> dict:
         apply_template_match_to_shadow(shadow, normalized_route_plan=None)
         return shadow
 
-    candidate = _route_plan_shadow_candidate(query)
+    llm_result = generate_llm_route_plan_candidate(
+        query,
+        preflight=preflight,
+        deterministic_primary_skill=deterministic_primary_skill,
+    )
+    llm_result.apply_to_shadow(shadow)
+
+    candidate: dict | None = None
+    candidate_reason: str | None = None
+    validation = llm_result.validation
+
+    if llm_result.llm_candidate_route_plan_available and llm_result.candidate is not None:
+        candidate = llm_result.candidate
+        candidate_reason = llm_result.candidate_reason or "llm_shadow_candidate"
+        shadow["model_role"] = "instruct_candidate_only"
+    else:
+        hook_candidate = _route_plan_shadow_candidate(query)
+        if hook_candidate is not None:
+            candidate = hook_candidate
+            candidate_reason = "test_or_mock_candidate"
+            validation = validate_route_plan_candidate(candidate)
+        elif llm_result.llm_called:
+            shadow["model_role"] = "instruct_candidate_only"
+            candidate_reason = "llm_candidate_dropped"
+        else:
+            candidate_reason = skipped_reason_to_candidate_reason(llm_result.skipped_reason)
+            shadow["model_role"] = (
+                "none" if ROUTE_PLAN_GENERATOR_MODEL_FAMILY != "instruct" else "instruct_candidate_only"
+            )
+
     if candidate is None:
         shadow["candidate_available"] = False
-        shadow["candidate_reason"] = "live_llm_routing_disabled"
-        shadow["model_role"] = "none" if ROUTE_PLAN_GENERATOR_MODEL_FAMILY != "instruct" else "instruct_candidate_only"
+        shadow["candidate_reason"] = candidate_reason or "live_llm_routing_disabled"
         apply_template_match_to_shadow(shadow, normalized_route_plan=None)
         return shadow
 
-    validation = validate_route_plan_candidate(candidate)
+    if validation is None:
+        validation = validate_route_plan_candidate(candidate)
     normalized = validation.normalized_route_plan or {}
     shadow.update(
         {
@@ -228,11 +264,11 @@ def _route_plan_shadow_stage(query: str) -> dict:
             "primary_skill": normalized.get("primary_skill") or candidate.get("primary_skill"),
             "pattern_id": normalized.get("pattern_id") or candidate.get("pattern_id"),
             "candidate_available": True,
-            "candidate_reason": "test_or_mock_candidate",
+            "candidate_reason": candidate_reason,
             "validation_result": {"is_valid": validation.is_valid},
             "validation_findings": list(validation.validation_findings),
             "blocking_findings": list(validation.blocking_findings),
-            "warnings": list(validation.warnings),
+            "warnings": sorted(set(shadow["warnings"]) | set(validation.warnings)),
             "normalized_plan_available": bool(validation.normalized_route_plan and validation.is_valid),
         }
     )
@@ -259,6 +295,12 @@ def _route_plan_shadow_base(*, model_role: str) -> dict:
         "normalized_plan_available": False,
         "execution_authorized": False,
         "llm_called": False,
+        "llm_role": None,
+        "llm_model_family": None,
+        "llm_candidate_route_plan_available": False,
+        "llm_candidate_dropped_reasons": [],
+        "deterministic_route_plan_wins": True,
+        "disagreements": [],
         "mcp_called": False,
         "spl_generated": False,
         "spl_executed": False,
