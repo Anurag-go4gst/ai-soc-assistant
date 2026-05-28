@@ -1,6 +1,6 @@
 # Stage 3K-Q1F: LLM Route-Plan Candidate Generation In Shadow Mode (Instruct Only)
 
-**Status:** Done (844d4f2 + FIX-A)
+**Status:** Done (844d4f2 + 3af6423 FIX-A)
 **Tests:** `backend/app/tests/test_llm_route_plan_shadow_stage3k_q1f.py`, `backend/app/tests/test_llm_route_plan_json_stage3k_q1f.py`
 **Production note:** `/chat` does **not** perform a live LLM call unless an explicit provider connector is wired later. Current Q1F production path remains shadow/no-op without `llm_raw_output_provider`.
 

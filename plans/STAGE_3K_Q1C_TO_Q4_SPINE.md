@@ -232,7 +232,7 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q1C | Done | — | Library-only matcher + Instruct sidecar; not wired to `/chat` |
 | Q1D | Done | — | Library-only renderer + param sidecar; not wired `/chat` |
 | Q1E | Done | — | Deterministic matcher/renderer in `/chat` shadow; no LLM sidecars |
-| Q1F | Done | 844d4f2, b9d8ec9 | JSON wrapper module tracked; shadow only; no live `/chat` LLM without provider |
+| Q1F | Done | 844d4f2, 3af6423 | JSON wrapper module tracked (FIX-A); shadow only; no live `/chat` LLM without provider |
 | Q1G | Proposed | — | |
 | Q2 | Proposed | — | |
 | Q3 | Proposed | — | |
