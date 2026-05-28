@@ -1,5 +1,9 @@
 # Stage 3K-Q2: Local IOC / Threat-Intel Lookup Framework
 
+**Status:** Done
+**Tests:** `backend/app/tests/test_ioc_lookup_stage3k_q2.py`
+**Production note:** `IOC_REGISTRY_ENABLED` defaults false. When enabled, route preflight uses the local JSON registry only (no external HTTP).
+
 ## Objective
 
 Build the governed local IOC lookup framework so route plans that need "known malicious IP / domain / URL / hash" have a deterministic, air-gappable authority — without external API calls. Lookups are dry-run only this stage.

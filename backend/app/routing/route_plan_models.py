@@ -74,6 +74,7 @@ class PreflightContext:
     unavailable_sources: set[str] = field(default_factory=set)
     threshold_policy_configured: bool = False
     baseline_policy_configured: bool = False
+    route_plan: dict[str, Any] | None = None
 
 
 @dataclass

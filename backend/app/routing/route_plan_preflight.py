@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import re
 
+from app.config import settings
+from app.intel.ioc_lookup import BLOCK_CANNOT_ROUTE_LOOKUP_STALE, BLOCK_LOOKUP_STALE, preflight_ioc_requirements
+from app.intel.ioc_models import IocLookupResult
 from app.routing.route_plan_models import PreflightContext, RoutePlanPreflightResult, RouteStatus
 
 
@@ -59,12 +62,27 @@ def preflight_route_plan(query: str, context: PreflightContext | None = None) ->
         )
 
     lookup_name = _required_lookup(normalized)
-    if lookup_name and lookup_name not in ctx.configured_lookups:
-        return RoutePlanPreflightResult(
-            route_status=RouteStatus.CANNOT_ROUTE_MISSING_LOOKUP,
-            missing_slots=["lookup_ref"],
-            blocking_findings=[f"missing_configured_lookup:{lookup_name}"],
-        )
+    if lookup_name:
+        if lookup_name in ctx.configured_lookups:
+            pass
+        elif settings.ioc_registry_enabled:
+            ioc_block = preflight_ioc_requirements(
+                lookup_required=True,
+                ioc_values=_extract_ioc_values(normalized),
+                legacy_lookup_name=lookup_name,
+            )
+            if ioc_block is not None and not ioc_block.match:
+                return _preflight_from_ioc_block(ioc_block, lookup_name)
+        else:
+            return RoutePlanPreflightResult(
+                route_status=RouteStatus.CANNOT_ROUTE_MISSING_LOOKUP,
+                missing_slots=["lookup_ref"],
+                blocking_findings=[f"missing_configured_lookup:{lookup_name}"],
+            )
+
+    route_plan_block = _preflight_route_plan_lookup_dependency(ctx.route_plan)
+    if route_plan_block is not None:
+        return route_plan_block
 
     detection_name = _required_detection(normalized)
     if detection_name and detection_name not in ctx.configured_detections:
@@ -155,3 +173,45 @@ def _underspecified_suspicious_query(normalized: str) -> bool:
     return " suspicious " in normalized and not any(
         marker in normalized for marker in (" last ", " today ", " detection", " by ", " count", " metric", " threshold")
     )
+
+
+_IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+_DOMAIN_RE = re.compile(r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b")
+_HASH_RE = re.compile(r"\b[a-f0-9]{32,64}\b")
+
+
+def _extract_ioc_values(normalized: str) -> list[str]:
+    values: list[str] = []
+    values.extend(_IPV4_RE.findall(normalized))
+    values.extend(_DOMAIN_RE.findall(normalized))
+    values.extend(_HASH_RE.findall(normalized))
+    return sorted(set(values))
+
+
+def _preflight_from_ioc_block(block: IocLookupResult, lookup_name: str | None) -> RoutePlanPreflightResult:
+    reason = block.blocking_reason or BLOCK_CANNOT_ROUTE_LOOKUP_STALE
+    findings = [reason]
+    if reason == BLOCK_CANNOT_ROUTE_LOOKUP_STALE:
+        findings.append(BLOCK_LOOKUP_STALE)
+        findings.append("lookup_stale")
+    elif reason.startswith("missing_configured_lookup"):
+        findings.append(f"missing_configured_lookup:{lookup_name or 'ioc'}")
+    return RoutePlanPreflightResult(
+        route_status=RouteStatus.CANNOT_ROUTE_MISSING_LOOKUP,
+        missing_slots=["lookup_ref"],
+        blocking_findings=sorted(set(findings)),
+    )
+
+
+def _preflight_route_plan_lookup_dependency(route_plan: dict | None) -> RoutePlanPreflightResult | None:
+    if not isinstance(route_plan, dict):
+        return None
+    evidence = route_plan.get("evidence_needs")
+    if not isinstance(evidence, dict) or not evidence.get("lookup_required"):
+        parameters = route_plan.get("parameters")
+        if not isinstance(parameters, dict) or not parameters.get("lookup_ref"):
+            return None
+    ioc_block = preflight_ioc_requirements(lookup_required=True)
+    if ioc_block is not None and not ioc_block.match:
+        return _preflight_from_ioc_block(ioc_block, "ioc")
+    return None

@@ -1,0 +1,62 @@
+{
+  "coe_synthetic_fixture": true,
+  "captured_live_run": false,
+  "production_execution": false,
+  "sources": [
+    {
+      "source_id": "internal_curated_v1",
+      "source_kind": "internal_curated",
+      "air_gapped": true,
+      "max_staleness_hours": 168,
+      "update_process_notes": "Updated by SOC weekly from offline feed bundle.",
+      "last_refreshed": "2026-05-25T12:00:00Z",
+      "lookup_name": "internal_curated_v1",
+      "source_owner": "soc-coe",
+      "provenance": "coe_synthetic_fixture",
+      "update_mode": "air_gapped_bundle",
+      "airgap_approved": true
+    }
+  ],
+  "iocs": [
+    {
+      "value": "203.0.113.42",
+      "ioc_type": "ip",
+      "source_id": "internal_curated_v1",
+      "confidence": "medium",
+      "tlp": "AMBER",
+      "first_seen": "2026-05-01T00:00:00Z",
+      "last_seen": "2026-05-25T10:00:00Z",
+      "expiry": "2027-05-01T00:00:00Z",
+      "lookup_name": "known_bad_ip",
+      "provenance": "coe_synthetic_fixture",
+      "update_mode": "air_gapped_bundle",
+      "airgap_approved": true
+    },
+    {
+      "value": "evil.example.com",
+      "ioc_type": "domain",
+      "source_id": "internal_curated_v1",
+      "confidence": "high",
+      "tlp": "AMBER",
+      "first_seen": "2026-05-02T00:00:00Z",
+      "last_seen": "2026-05-24T08:00:00Z",
+      "lookup_name": "known_bad_domain",
+      "provenance": "coe_synthetic_fixture",
+      "update_mode": "air_gapped_bundle",
+      "airgap_approved": true
+    },
+    {
+      "value": "d41d8cd98f00b204e9800998ecf8427e",
+      "ioc_type": "hash_md5",
+      "source_id": "internal_curated_v1",
+      "confidence": "low",
+      "tlp": "GREEN",
+      "first_seen": "2026-05-03T00:00:00Z",
+      "last_seen": "2026-05-20T12:00:00Z",
+      "lookup_name": "suspicious_hash",
+      "provenance": "coe_synthetic_fixture",
+      "update_mode": "air_gapped_bundle",
+      "airgap_approved": true
+    }
+  ]
+}

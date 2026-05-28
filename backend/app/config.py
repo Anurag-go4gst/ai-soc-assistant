@@ -69,6 +69,8 @@ class Settings(BaseSettings):
     routing_deterministic_threshold: float = 0.70
     routing_llm_shadow_enabled: bool = True
     ai_soc_llm_shadow_narration_enabled: bool = False
+    ioc_registry_enabled: bool = False
+    ioc_registry_path: str = ""
     routing_compare_logging_enabled: bool = True
     mcp_mode: str = "mock"
     mcp_servers: str = ""
