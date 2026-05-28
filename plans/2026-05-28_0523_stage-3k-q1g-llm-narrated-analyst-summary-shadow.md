@@ -1,5 +1,9 @@
 # Stage 3K-Q1G: LLM-Narrated Analyst Summary In Shadow Mode
 
+**Status:** Done
+**Tests:** `backend/app/tests/test_analyst_summary_shadow_narration_stage3k_q1g.py`
+**Production note:** Narration requires `ROUTING_LLM_SHADOW_ENABLED=true` AND `AI_SOC_LLM_SHADOW_NARRATION_ENABLED=true` AND configured `analyst_summary_narration` role. `/chat` does not call a live LLM without `llm_raw_output_provider`. When narration is disabled or dropped, deterministic skeleton may still populate shadow fields for lineage only — analyst answer envelope unchanged.
+
 ## Objective
 
 Use Foundation-sec-Instruct to narrate a short analyst summary from the structured `route_plan_shadow` + Q1E lineage + (when available) Q4 evidence package. Shadow only. The analyst-facing answer envelope does not change. This is the honest runway toward later lighting `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED`, with Answer Guard wiring still deferred.

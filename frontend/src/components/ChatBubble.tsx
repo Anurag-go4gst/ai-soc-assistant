@@ -11,6 +11,7 @@ import type {
   ExecutionEnvelope,
   HumanReviewEnvelope,
   PlaceholderResponse,
+  RoutePlanShadowEnvelope,
   SplValidationEnvelope,
   WorkflowPlan,
 } from '@/types/api';
@@ -81,6 +82,9 @@ export function ChatBubble({ message }: ChatBubbleProps) {
               {message.trace.demo_mode ? <Badge variant="warning">scenario-backed</Badge> : <Badge variant="success">live-backed</Badge>}
             </summary>
             <div className="border-t border-slate-800/70 p-3">
+              {message.trace.route_plan_shadow ? (
+                <ShadowNarrationReveal shadow={message.trace.route_plan_shadow} />
+              ) : null}
               <InvestigationLineagePanel lineage={message.trace.investigation_lineage} />
             </div>
           </details>
@@ -209,6 +213,31 @@ export function ChatBubble({ message }: ChatBubbleProps) {
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function ShadowNarrationReveal({ shadow }: { shadow: RoutePlanShadowEnvelope }) {
+  if (!shadow.analyst_summary_shadow_available || !shadow.analyst_summary_shadow_text) {
+    return null;
+  }
+  const bullets = shadow.analyst_summary_trace_bullets ?? [];
+  return (
+    <div className="mb-3 rounded-md border border-amber-500/20 bg-amber-950/20 px-3 py-3 text-xs text-slate-300">
+      <p className="font-semibold text-amber-200/90">Dormant: shadow narration (no execution)</p>
+      <p className="mt-2 leading-5 text-slate-200">{shadow.analyst_summary_shadow_text}</p>
+      {bullets.length ? (
+        <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-400">
+          {bullets.map((bullet) => (
+            <li key={bullet}>{bullet}</li>
+          ))}
+        </ul>
+      ) : null}
+      {shadow.analyst_summary_dropped_reasons?.length ? (
+        <p className="mt-2 font-mono text-[0.65rem] text-amber-300/80">
+          dropped: {shadow.analyst_summary_dropped_reasons.join(', ')}
+        </p>
+      ) : null}
     </div>
   );
 }

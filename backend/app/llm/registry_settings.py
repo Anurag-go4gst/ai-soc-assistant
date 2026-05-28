@@ -174,6 +174,20 @@ ROLE_DEFAULTS: tuple[dict[str, Any], ...] = (
         "execution_eligible": False,
     },
     {
+        "role": "analyst_summary_narration",
+        "preferred_provider": INSTRUCT_PROVIDER_ID,
+        "preferred_model": INSTRUCT_DEFAULT_MODEL,
+        "mode": "advisory",
+        "output": "analyst_summary_narration JSON",
+        "authority": "advisory",
+        "validator_required": True,
+        "strict_json": True,
+        "temperature": 0.0,
+        "max_input_tokens": 3000,
+        "max_output_tokens": 600,
+        "execution_eligible": False,
+    },
+    {
         "role": "answer_guard_assistant",
         "preferred_provider": REASONING_PROVIDER_ID,
         "preferred_model": REASONING_DEFAULT_MODEL,
@@ -209,6 +223,10 @@ ROLE_ENV_MAP: dict[str, tuple[str, str]] = {
     "route_plan_candidate_generator": (
         "ai_soc_llm_route_plan_provider",
         "ai_soc_llm_route_plan_model",
+    ),
+    "analyst_summary_narration": (
+        "ai_soc_llm_analyst_summary_narration_provider",
+        "ai_soc_llm_analyst_summary_narration_model",
     ),
     "answer_guard_assistant": ("ai_soc_llm_guard_provider", "ai_soc_llm_guard_model"),
 }
@@ -305,6 +323,7 @@ def _role_suitability(providers: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "template_match_semantic_assist": "suitable_with_guard",
                 "template_render_parameter_assist": "suitable_with_guard",
                 "route_plan_candidate_generator": "candidate_only",
+                "analyst_summary_narration": "suitable_with_guard",
                 "final_answer_without_guard": "not_allowed",
             },
         },

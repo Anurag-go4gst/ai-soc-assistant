@@ -24,6 +24,7 @@ from app.routing.route_plan_models import ROUTE_PLAN_GENERATOR_MODEL_FAMILY, ROU
 from app.routing.route_plan_preflight import preflight_route_plan
 from app.routing.route_plan_validator import validate_route_plan_candidate
 from app.routing.template_match_shadow import apply_template_match_to_shadow
+from app.synthesis.analyst_summary_llm_assist import apply_analyst_summary_shadow
 from app.risk.severity_policy import decide_severity
 from app.routing.skill_router import route_skill
 from app.safeguards.spl_validator import validate_spl
@@ -51,6 +52,7 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         request.message,
         deterministic_primary_skill=str(routed["skill"]),
     )
+    apply_analyst_summary_shadow(route_plan_shadow)
     skill_selection = select_skill_chain(routed=routed, selected_use_case=selected_use_case)
     selected_skill_chain = skill_selection.selected_chain
     comparison = routed.get("comparison", {})
@@ -301,6 +303,12 @@ def _route_plan_shadow_base(*, model_role: str) -> dict:
         "llm_candidate_dropped_reasons": [],
         "deterministic_route_plan_wins": True,
         "disagreements": [],
+        "analyst_summary_shadow_available": False,
+        "analyst_summary_shadow_text": None,
+        "analyst_summary_trace_bullets": [],
+        "analyst_summary_dropped_reasons": [],
+        "analyst_summary_shadow_source": None,
+        "analyst_summary_narration_llm_called": False,
         "mcp_called": False,
         "spl_generated": False,
         "spl_executed": False,

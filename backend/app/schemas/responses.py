@@ -226,6 +226,12 @@ class RoutePlanShadowEnvelope(BaseModel):
     coe_synthetic_fixture: bool = True
     captured_live_run: bool = False
     production_execution: bool = False
+    analyst_summary_shadow_available: bool = False
+    analyst_summary_shadow_text: str | None = None
+    analyst_summary_trace_bullets: list[str] = []
+    analyst_summary_dropped_reasons: list[str] = []
+    analyst_summary_shadow_source: str | None = None
+    analyst_summary_narration_llm_called: bool = False
 
 
 class AnalystResponseEnvelope(BaseModel):

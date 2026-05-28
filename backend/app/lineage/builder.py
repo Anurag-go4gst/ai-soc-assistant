@@ -53,6 +53,8 @@ def build_investigation_lineage(
             stages.append(_llm_route_plan_candidate_stage(route_plan_shadow))
         if route_plan_shadow.get("template_match_attempted"):
             stages.append(_template_match_shadow_stage(route_plan_shadow))
+        if route_plan_shadow.get("analyst_summary_shadow_available"):
+            stages.append(_analyst_summary_shadow_stage(route_plan_shadow))
     stages.extend(
         [
             _stage("spl_template", "complete" if spl_template else "skipped", "SPL template", "Template metadata attached when a use-case template exists.", spl_template or {}, ["spl_code"] if spl_template else [], "config" if spl_template else mode_source, "SCD/template registry"),
@@ -129,6 +131,33 @@ def _llm_route_plan_candidate_stage(route_plan_shadow: dict[str, Any]) -> Lineag
         [],
         "shadow",
         "Stage 3K-Q1F LLM route-plan candidate generator",
+    )
+
+
+def _analyst_summary_shadow_stage(route_plan_shadow: dict[str, Any]) -> LineageStage:
+    source = str(route_plan_shadow.get("analyst_summary_shadow_source") or "unknown")
+    dropped = route_plan_shadow.get("analyst_summary_dropped_reasons") or []
+    status = "dropped" if dropped and source == "deterministic_skeleton" else "observed"
+    if source == "llm_shadow" and not dropped:
+        status = "accepted_shadow"
+    return _stage(
+        "analyst_summary_shadow",
+        status,
+        "Analyst summary (shadow narration)",
+        "Dormant shadow narration for lineage reveal only; not used as the analyst-facing answer.",
+        {
+            "analyst_summary_shadow_text": route_plan_shadow.get("analyst_summary_shadow_text"),
+            "analyst_summary_trace_bullets": route_plan_shadow.get("analyst_summary_trace_bullets"),
+            "analyst_summary_shadow_source": source,
+            "analyst_summary_dropped_reasons": dropped,
+            "analyst_summary_narration_llm_called": route_plan_shadow.get("analyst_summary_narration_llm_called"),
+            "coe_synthetic_fixture": route_plan_shadow.get("coe_synthetic_fixture"),
+            "captured_live_run": route_plan_shadow.get("captured_live_run"),
+            "production_execution": route_plan_shadow.get("production_execution"),
+        },
+        [],
+        "shadow",
+        "Stage 3K-Q1G Instruct shadow narration",
     )
 
 

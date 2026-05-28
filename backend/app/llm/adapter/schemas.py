@@ -163,6 +163,12 @@ class RoutePlanCandidateLlmPayload(AdapterPayload):
     rationale: str = ""
 
 
+class AnalystSummaryNarrationPayload(AdapterPayload):
+    summary_sentence_1: str
+    summary_sentence_2: str | None = None
+    technical_trace_bullets: list[str] = Field(min_length=3, max_length=3)
+
+
 class SeverityRationaleAdvisory(AdapterPayload):
     selected_severity: str
     why_selected: list[str] = Field(default_factory=list)

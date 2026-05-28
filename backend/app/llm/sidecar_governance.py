@@ -25,6 +25,7 @@ SKIP_ROLE_NOT_ENABLED = "role_not_enabled"
 REASONING_REJECTION_MATCHING = "reasoning_model_not_allowed_for_matching"
 REASONING_REJECTION_RENDERING = "reasoning_model_not_allowed_for_rendering"
 REASONING_REJECTION_ROUTING = "reasoning_model_not_allowed_for_routing"
+REASONING_REJECTION_NARRATION = "reasoning_model_not_allowed_for_narration"
 
 NOTE_LLM_ASSIST_TIMED_OUT = "llm_assist_timed_out"
 NOTE_CONFIDENCE_ADVISORY_ONLY = "confidence_advisory_only"

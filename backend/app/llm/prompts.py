@@ -272,6 +272,31 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
             "Adapter strips template_id and SPL fragments.",
         ],
     },
+    "analyst_summary_narration": {
+        "model_family": "Foundation-sec-8B-Instruct only",
+        "purpose": "Narrate a short shadow summary from structured route-plan lineage input only.",
+        "max_input_tokens": "3000",
+        "system_instruction": (
+            "Return JSON only. At most two summary sentences and exactly three technical_trace_bullets. "
+            "Use only facts present in structured_input. Never claim execution, production runs, or readiness to run. "
+            "Never recommend actions."
+        ),
+        "include": ["structured_input"],
+        "output_schema": {
+            "summary_sentence_1": "Shadow route-plan metadata was recorded without execution.",
+            "summary_sentence_2": None,
+            "technical_trace_bullets": [
+                "Preflight and route-plan shadow statuses are advisory only.",
+                "Template match shadow uses deterministic matcher output.",
+                "Rendered SPL hash may be present; SPL text is never returned here.",
+            ],
+        },
+        "consumption_rules": [
+            "Shadow-only inside investigation lineage reveal; analyst answer envelope unchanged.",
+            "Reasoning models rejected for this role.",
+            "Forbidden phrases and unsupported claims drop narration; deterministic skeleton wins.",
+        ],
+    },
     "route_plan_candidate_generator": {
         "model_family": "Foundation-sec-8B-Instruct only",
         "purpose": "Emit a route-plan candidate JSON for shadow observation; deterministic routing wins.",

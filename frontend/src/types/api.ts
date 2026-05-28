@@ -44,6 +44,7 @@ export interface PlaceholderResponse {
   source_evidence?: SourceEvidenceEnvelope[];
   structured_context?: StructuredContextPackage | null;
   context_sufficiency?: ContextSufficiencyEnvelope | null;
+  route_plan_shadow?: RoutePlanShadowEnvelope | null;
   analyst_response?: AnalystResponseEnvelope | null;
   foundation_sec_governance?: FoundationSecGovernance | null;
   spl_template?: Record<string, unknown> | null;
@@ -175,6 +176,21 @@ export interface InvestigationLineage {
   lineage_id: string;
   stages: LineageStage[];
   summary: string;
+}
+
+export interface RoutePlanShadowEnvelope {
+  enabled: boolean;
+  mode: string;
+  analyst_summary_shadow_available?: boolean;
+  analyst_summary_shadow_text?: string | null;
+  analyst_summary_trace_bullets?: string[];
+  analyst_summary_dropped_reasons?: string[];
+  analyst_summary_shadow_source?: string | null;
+  analyst_summary_narration_llm_called?: boolean;
+  execution_authorized?: boolean;
+  spl_executed?: boolean;
+  mcp_called?: boolean;
+  [key: string]: unknown;
 }
 
 export interface SynthesisStatus {
