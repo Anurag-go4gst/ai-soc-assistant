@@ -239,7 +239,7 @@ Agents executing a stage must update both rows for that stage at end of session:
 | Q2 | Done | `1dac76d` | `IOC_REGISTRY_ENABLED` default false; deterministic lookup only |
 | Q3 | Done | `1dde303` | `DETECTION_REGISTRY_ENABLED` default false; deterministic binding only |
 | Q4 | Done | `aa0be14` | 10-entry coverage manifest; execution still disabled |
-| Q4A | Done | — | `tools/coverage_authoring/`; drafts only; no `/chat` |
+| Q4A | Done | `0e2cd30` | `tools/coverage_authoring/`; drafts only; no `/chat` |
 
 ### 9.2 Verification
 
