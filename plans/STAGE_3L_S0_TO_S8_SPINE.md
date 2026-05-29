@@ -11,7 +11,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 |-------|---------|
 | **3L-S0** | Done / signed off |
 | **3L-S1** | Done — runtime operation validator v2; safety preserved; execution disabled; router authority unchanged |
-| **Next** | Review shadow traces; S2B sign-off; S3 Step 3+ (coverage-gated) |
+| **Next** | Step 3 gate design doc; COE sign-off; S2B — **no Step 3 code** |
 
 ## Stage index
 
@@ -23,6 +23,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S2A.1 | Bridge on `route_plan_shadow` | same | Done | `b9ded3f` |
 | S2B | Output artifacts design | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Design — pending review (not signed) | — |
 | S3 | Route authority migration | [docs/stage3l_s3_route_authority_migration.md](../docs/stage3l_s3_route_authority_migration.md) | Steps 1–2 done; Step 3+ gated | `b9ded3f` |
+| S3 trace | Steps 1–2 trace review | [docs/stage3l_s3_trace_review_checkpoint.md](../docs/stage3l_s3_trace_review_checkpoint.md) | Done — pending commit hash | — |
 | S4 | Layered skill registry | — | Proposed | — |
 | S5 | Q4A promotion workflow | [tools/coverage_authoring/README.md](../tools/coverage_authoring/README.md) | Q4A done (`0e2cd30`) | — |
 | S6 | 105-Q mapping + manifest promotion | [docs/soc_question_taxonomy_stage3k_q0.md](../docs/soc_question_taxonomy_stage3k_q0.md) | Proposed | — |
