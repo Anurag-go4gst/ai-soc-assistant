@@ -23,6 +23,8 @@ from app.routing.llm_route_plan_candidate import (
 from app.routing.route_plan_models import ROUTE_PLAN_GENERATOR_MODEL_FAMILY, ROUTE_PLAN_REASONING_MODEL_ALLOWED
 from app.routing.route_plan_preflight import preflight_route_plan
 from app.routing.route_plan_validator import validate_route_plan_candidate
+from app.routing.intent_operation_bridge_shadow import apply_intent_operation_bridge_to_shadow
+from app.routing.route_authority_compare import apply_route_authority_compare_to_shadow
 from app.routing.template_match_shadow import apply_template_match_to_shadow
 from app.synthesis.analyst_summary_llm_assist import apply_analyst_summary_shadow
 from app.risk.severity_policy import decide_severity
@@ -51,6 +53,12 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
     route_plan_shadow = _route_plan_shadow_stage(
         request.message,
         deterministic_primary_skill=str(routed["skill"]),
+    )
+    apply_intent_operation_bridge_to_shadow(route_plan_shadow, legacy_intent=str(routed["skill"]))
+    apply_route_authority_compare_to_shadow(
+        route_plan_shadow,
+        selected_skill=str(routed["skill"]),
+        routing_comparison=routed.get("comparison"),
     )
     apply_analyst_summary_shadow(route_plan_shadow)
     skill_selection = select_skill_chain(routed=routed, selected_use_case=selected_use_case)
@@ -314,6 +322,8 @@ def _route_plan_shadow_base(*, model_role: str) -> dict:
         "spl_executed": False,
         "model_role": model_role,
         "reasoning_model_used": ROUTE_PLAN_REASONING_MODEL_ALLOWED,
+        "intent_operation_bridge": None,
+        "route_authority_compare": None,
     }
 
 

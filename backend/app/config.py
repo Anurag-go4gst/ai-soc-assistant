@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     detection_registry_enabled: bool = False
     detection_registry_path: str = ""
     routing_compare_logging_enabled: bool = True
+    # Stage 3L-S3 Steps 1–2: shadow compare envelope only (no route authority change).
+    route_authority_compare_enabled: bool = True
+    route_authority_operation_authoritative_enabled: bool = False
     mcp_mode: str = "mock"
     mcp_servers: str = ""
     mcp_default_server: str = "splunk_soc"

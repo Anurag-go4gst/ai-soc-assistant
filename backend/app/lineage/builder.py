@@ -55,6 +55,10 @@ def build_investigation_lineage(
             stages.append(_template_match_shadow_stage(route_plan_shadow))
         if route_plan_shadow.get("analyst_summary_shadow_available"):
             stages.append(_analyst_summary_shadow_stage(route_plan_shadow))
+        if route_plan_shadow.get("intent_operation_bridge"):
+            stages.append(_intent_operation_bridge_stage(route_plan_shadow))
+        if route_plan_shadow.get("route_authority_compare"):
+            stages.append(_route_authority_compare_stage(route_plan_shadow))
     stages.extend(
         [
             _stage("spl_template", "complete" if spl_template else "skipped", "SPL template", "Template metadata attached when a use-case template exists.", spl_template or {}, ["spl_code"] if spl_template else [], "config" if spl_template else mode_source, "SCD/template registry"),
@@ -158,6 +162,36 @@ def _analyst_summary_shadow_stage(route_plan_shadow: dict[str, Any]) -> LineageS
         [],
         "shadow",
         "Stage 3K-Q1G Instruct shadow narration",
+    )
+
+
+def _route_authority_compare_stage(route_plan_shadow: dict[str, Any]) -> LineageStage:
+    compare = route_plan_shadow.get("route_authority_compare") or {}
+    status = str(compare.get("intent_operation_bridge_status") or "observed")
+    return _stage(
+        "route_authority_compare",
+        status,
+        "Route authority compare (shadow)",
+        "Dual-run compare of legacy selected_skill vs route_plan primary_skill; no authority migration.",
+        dict(compare),
+        [],
+        "shadow",
+        "Stage 3L-S3 Steps 1–2 route authority compare",
+    )
+
+
+def _intent_operation_bridge_stage(route_plan_shadow: dict[str, Any]) -> LineageStage:
+    bridge = route_plan_shadow.get("intent_operation_bridge") or {}
+    status = str(bridge.get("bridge_status") or "observed")
+    return _stage(
+        "intent_operation_bridge",
+        status,
+        "Intent ↔ operation bridge (shadow)",
+        "Legacy SKILL_ENUM intent compared to route_plan.primary_skill for lineage only; selected_skill unchanged.",
+        dict(bridge),
+        [],
+        "shadow",
+        "Stage 3L-S2A-FOLLOWUP intent-to-operation bridge",
     )
 
 

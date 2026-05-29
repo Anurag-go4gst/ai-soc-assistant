@@ -1,8 +1,8 @@
 # Stage 3L-S2: Intent-to-Operation Bridge — Design Note
 
-**Status:** **S2A implementation complete** (2026-05-29) — library + tests landed; shadow/lineage wiring deferred. **S2B** remains unsigned (separate review).
+**Status:** **S2A + S2A-FOLLOWUP complete** (2026-05-29) — library, shadow `intent_operation_bridge` metadata, and lineage stage. **S2B** remains unsigned (separate review).
 
-**S2A commit:** `7370595` ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))
+**S2A commit:** `7370595` · **S2A-FOLLOWUP commit:** *(pending — bundled with S3 Steps 1–2 commit)* ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))
 
 **Prerequisite:** [S1 complete](stage3l_s1_validator_spec.md) (`db7072f`) — runtime operation validator v2; `operation_type` authority in `runtime_skill_catalog.py`.
 
@@ -171,3 +171,37 @@ python3 -m test_harness.harness.runner --json
 | `/chat` / Experience Center / MCP | Unchanged (library-only) |
 
 Harness and demo skill expectations unchanged in S2A.
+
+---
+
+## S2A-FOLLOWUP — shadow / lineage only (2026-05-29)
+
+**Goal:** Make the bridge observable in `route_plan_shadow` and investigation lineage without changing analyst authority.
+
+**In scope:**
+
+- [`backend/app/routing/intent_operation_bridge_shadow.py`](../backend/app/routing/intent_operation_bridge_shadow.py) — `apply_intent_operation_bridge_to_shadow`
+- `/chat` calls bridge after `_route_plan_shadow_stage` with `legacy_intent=selected_skill`
+- Nested `intent_operation_bridge` on shadow (not merged into top-level `disagreements`)
+- `bridge_status`: `compatible` | `incompatible` | `modifier_only` | `not_evaluated` | `unknown_legacy_intent` | `unknown_primary_skill`
+- Lineage sub-stage `intent_operation_bridge` when block present
+- [`backend/app/tests/test_intent_operation_bridge_shadow_stage3l_s2a1.py`](../backend/app/tests/test_intent_operation_bridge_shadow_stage3l_s2a1.py)
+
+**Out of scope:** `selected_skill`, answer text, Experience Center, renderer, `output_artifacts`, MCP/SPL execution, S3 authority.
+
+### S2A-FOLLOWUP tests must prove
+
+- [x] `selected_skill` / chat message baseline unchanged
+- [x] `not_evaluated` when shadow has no `primary_skill`
+- [x] `compatible` / `incompatible` / `modifier_only` paths
+- [x] Bridge disagreements stay nested; LLM shadow `disagreements` untouched
+- [x] Lineage stage `intent_operation_bridge` present
+- [x] Experience Center `route_plan_shadow` still `null`
+
+### S2A-FOLLOWUP verification
+
+| Check | Result (2026-05-29) |
+|-------|---------------------|
+| S2A.1 pytest | 8 passed |
+| Backend pytest | 548 passed |
+| Harness | 6/6 |
