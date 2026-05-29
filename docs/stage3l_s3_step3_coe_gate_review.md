@@ -29,9 +29,9 @@
   | 5 | Is `route_authority_compare` clean for this case? | **Pass (mock path)** | `test_route_authority_compare_with_mock_candidate`: `compatible`, `operation_authoritative_enabled=false`, disagreements empty on bridge path; top-level shadow `disagreements` separate from `intent_bridge_disagreements`. |
   | 6 | Is fallback-to-`selected_skill` explicitly tested? | **Pass (S3.3A harness)** | [`test_route_authority_gate_stage3l_s3_3a.py`](../backend/app/tests/test_route_authority_gate_stage3l_s3_3a.py) — five COE cases + blocked rows; `operation_authoritative_applied=false` when gates fail. Authority still **not** enabled in production defaults. |
   | 7 | Is `operation_authoritative_enabled` still false by default? | **Pass** | `Settings.route_authority_operation_authoritative_enabled: bool = False` ([`config.py`](../backend/app/config.py)); `.env.example` `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false`; compare tests assert false on every `/chat` response. |
-  | 8 | Is there a kill switch? | **Pass** | Global: `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false` (design: must stay false until COE). Compare-only mode: `ROUTE_AUTHORITY_COMPARE_ENABLED` (default true). No per-id allowlist env wired yet (correct — Step 3 not built). |
+  | 8 | Is there a kill switch? | **Pass** | Global: `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false` (design: must stay false until COE). Compare-only mode: `ROUTE_AUTHORITY_COMPARE_ENABLED` (default true). Per-id allowlist config exists from S3.3A and defaults empty. The allowlist does not enable authority unless `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=true`. Only `cov.q046.excessive_failed_logins_sample` is permitted when non-empty. Step 3 authority behavior is still not implemented/approved. |
   | 9 | Are Experience Center and harness expectations unchanged? | **Pass** | `test_experience_center_unchanged` (S2A.1 + S3 compare tests): `route_plan_shadow=null` on demo. Harness 6/6 unchanged (no `cov.q046` in harness YAML). No `expected_skill` drift from Steps 1–2. |
-  | 10 | Is there a rollback path? | **Pass (design)** | Rollback = set `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false` and clear allowlist (when added). No code path today sets authority true. Redeploy prior image / env without allowlist. Document in runbook when Step 3 ships. |
+  | 10 | Is there a rollback path? | **Pass** | Rollback = set `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false` and clear `ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST`. S3.3A harness + [rollback runbook](#rollback-runbook-operation-authority) below. Step 3 must not enable authority in production defaults. |
 
   ---
 
@@ -89,12 +89,10 @@ Production default after S3.3A: steps 1–2 are already satisfied without redepl
 ## Conditions to start Step 3 **implementation**
 
   1. **COE** checks “Pilot `cov.q046` approved for **implementation**” on gate design sign-off (separate from approving this review doc).
-  2. **Engineering** delivers Step 3 PR with:
-    - Allowlist env + gate chain from design doc
-    - Explicit fallback tests (incompatible bridge, validator block, not on allowlist, global kill switch false)
-    - Harness/EC unchanged for non-pilot paths (regression proof)
-    - Rollback note in commit / ops snippet
-  3. **No** authority for blocked skills/rows listed above.
+  2. **Engineering** Step 3 PR must reuse the S3.3A allowlist and fallback harness, and must add only the minimal `cov.q046` authority application path. It must keep fallback tests green and add Step 3-specific tests proving authority applies only when every gate passes.
+    - No authority for blocked skills/rows listed above.
+    - Harness/EC unchanged for non-pilot paths (regression proof).
+    - Rollback note in commit / ops snippet (see [Rollback runbook](#rollback-runbook-operation-authority)).
 
   ---
 
@@ -111,10 +109,22 @@ Production default after S3.3A: steps 1–2 are already satisfied without redepl
   ## Verification run (2026-05-29)
 
   ```bash
+  cd backend && python3 -m pytest app/tests/test_route_authority_gate_stage3l_s3_3a.py -q
+  cd backend && python3 -m pytest
+  python3 -m test_harness.harness.runner --json
+  ```
+
+  | Check | Result |
+  |-------|--------|
+  | Backend pytest | 569 passed |
+  | Harness | 6/6 |
+
+  Targeted Step 3 gate-review slice (optional):
+
+  ```bash
   cd backend && python3 -m pytest \
     app/tests/test_pattern_coverage_pack_stage3k_q4.py::test_sample_template_matches_route_plan_shape \
     app/tests/test_route_plan_stage3k_r2.py::test_mock_candidate_validation_path_is_observational \
     app/tests/test_intent_operation_bridge_shadow_stage3l_s2a1.py \
     app/tests/test_route_authority_compare_stage3l_s3.py -q
-  python3 -m test_harness.harness.runner --json  # 6/6
   ```
