@@ -1,6 +1,7 @@
 # Stage 3L-S3 Step 3: COE Gate Review — `cov.q046.excessive_failed_logins_sample`
 
 **Date:** 2026-05-29  
+**Gate review commit:** `157a83d` ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))  
 **Type:** Gate review (no implementation).  
 **Pilot under review:** `cov.q046.excessive_failed_logins_sample` — **candidate only, not approved.**  
 **References:** [Step 3 gate design](stage3l_s3_step3_coverage_gate_design.md) (`e412c7c`), [trace checkpoint](stage3l_s3_trace_review_checkpoint.md) (`df11095`).
