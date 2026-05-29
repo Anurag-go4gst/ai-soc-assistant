@@ -12,6 +12,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | **3L-S0** | Done / signed off |
 | **3L-S1** | Done — runtime operation validator v2; safety preserved; execution disabled; router authority unchanged |
 | **Next** | COE sign-off on Step 3 pilot; S2B renderer consumers — **no Step 3 authority code** until approved |
+| **S5/S6** | Done — promotion gates + 105-Q runtime map (`question_runtime_map_v1.json`) |
 
 ## Stage index
 
@@ -28,8 +29,8 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S3.3A | Authority fallback harness | same + `route_authority_gate.py` | Done | `214c1e7` |
 | S3 trace | Steps 1–2 trace review | [docs/stage3l_s3_trace_review_checkpoint.md](../docs/stage3l_s3_trace_review_checkpoint.md) | Done | `df11095` |
 | S4 | Layered skill registry | — | Proposed | — |
-| S5 | Q4A promotion workflow | [tools/coverage_authoring/README.md](../tools/coverage_authoring/README.md) | Q4A done (`0e2cd30`) | — |
-| S6 | 105-Q mapping + manifest promotion | [docs/soc_question_taxonomy_stage3k_q0.md](../docs/soc_question_taxonomy_stage3k_q0.md) | Proposed | — |
+| S5 | Q4A promotion gates | [docs/stage3l_s5_q4a_promotion_gates.md](../docs/stage3l_s5_q4a_promotion_gates.md) | Done | — |
+| S6 | 105-Q runtime map | [docs/stage3l_s6_question_runtime_map.md](../docs/stage3l_s6_question_runtime_map.md) | Done | — |
 | S7 | `hard_preconditions` runtime enforcement | — | Proposed | — |
 | S8 | Governance readiness freeze | — | Proposed | — |
 
@@ -61,7 +62,7 @@ S3 Steps 1–2 (shadow/compare) may run after S2A without a manifest row.
 
 | Check | Result |
 |-------|--------|
-| Backend pytest | 576 pass (post S2B shadow) |
+| Backend pytest | 580 pass (post S5/S6) |
 | Harness default | 6/6 |
 | `/chat` `selected_skill` | Unchanged |
 | MCP / SPL execution | Disabled |

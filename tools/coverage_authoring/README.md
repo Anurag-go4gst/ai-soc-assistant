@@ -76,15 +76,29 @@ python tools/coverage_authoring/coverage_drafter.py \
   --output tools/coverage_authoring/drafts/my_reviewed_draft.json
 ```
 
-## Promotion to the runtime manifest
+## Promotion to the runtime manifest (Stage 3L-S5)
 
-1. Review the draft JSON and fix `validation_errors` / warnings.
-2. Confirm readiness, blockers, and governance flags.
-3. **Manually** copy the `entry` object into `backend/app/coverage/pattern_coverage_v1.json`.
-4. Run backend tests: `cd backend && python3 -m pytest app/tests/test_pattern_coverage_pack_stage3k_q4.py`
-5. Update `docs/soc_pattern_coverage_pack_stage3k_q4.md` if the SOC-facing table changes.
+1. Run promotion gates (deterministic checklist):
 
-Q4A never writes the committed manifest.
+```bash
+python tools/coverage_authoring/coverage_drafter.py \
+  --entry-json tools/coverage_authoring/drafts/my_reviewed_draft.json \
+  --check-promotion
+```
+
+2. Review the draft JSON and fix `validation_errors` / warnings until `manifest_copy_ready` is true.
+3. Confirm readiness, blockers, and governance flags.
+4. **Manually** copy the `entry` object into `backend/app/coverage/pattern_coverage_v1.json`.
+5. Regenerate the 105-question runtime map (Stage 3L-S6):
+
+```bash
+python tools/coverage_authoring/coverage_drafter.py --emit-runtime-map
+```
+
+6. Run backend tests: `cd backend && python3 -m pytest app/tests/test_pattern_coverage_pack_stage3k_q4.py app/tests/test_question_runtime_map_stage3l_s6.py`
+7. Update `docs/soc_pattern_coverage_pack_stage3k_q4.md` if the SOC-facing table changes.
+
+Q4A never writes the committed manifest. See [`docs/stage3l_s5_q4a_promotion_gates.md`](../docs/stage3l_s5_q4a_promotion_gates.md) and [`docs/stage3l_s6_question_runtime_map.md`](../docs/stage3l_s6_question_runtime_map.md).
 
 ## Tests
 

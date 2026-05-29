@@ -35,6 +35,8 @@ from io_utils import (  # noqa: E402
 from llm_assist import assert_instruct_only, draft_entry_with_llm  # noqa: E402
 from registries import load_registry_snapshot  # noqa: E402
 from taxonomy_lookup import resolve_question_input  # noqa: E402
+from promotion_gates import evaluate_promotion_gates  # noqa: E402
+from question_runtime_map_builder import write_question_runtime_map  # noqa: E402
 from validator import validate_draft_entry  # noqa: E402
 
 
@@ -78,6 +80,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-validation-errors",
         action="store_true",
         help="Write draft even when validation errors exist (still records errors)",
+    )
+    parser.add_argument(
+        "--check-promotion",
+        action="store_true",
+        help="Evaluate S5 promotion gates for --entry-json or draft from question; prints JSON and exits",
+    )
+    parser.add_argument(
+        "--emit-runtime-map",
+        action="store_true",
+        help="Regenerate backend/app/coverage/question_runtime_map_v1.json (S6) and exit",
     )
     return parser
 
@@ -132,9 +144,24 @@ def cmd_write_draft(
     return 0
 
 
+def cmd_check_promotion(entry: PatternCoverageEntry) -> int:
+    result = evaluate_promotion_gates(entry)
+    print(json.dumps(result.model_dump(), indent=2))
+    return 0 if result.manifest_copy_ready else 1
+
+
+def cmd_emit_runtime_map() -> int:
+    written = write_question_runtime_map()
+    print(f"Wrote question runtime map: {written}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.emit_runtime_map:
+        return cmd_emit_runtime_map()
 
     if args.validate_draft:
         return cmd_validate_draft(args.validate_draft)
@@ -143,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.entry_json:
         entry = load_entry_json(Path(args.entry_json))
+        if args.check_promotion:
+            return cmd_check_promotion(entry)
         return cmd_write_draft(entry, output=args.output, allow_validation_errors=args.allow_validation_errors)
 
     if not args.question and not args.question_ref:
@@ -181,6 +210,9 @@ def main(argv: list[str] | None = None) -> int:
         extra_warnings.extend(disagreements)
     else:
         entry = draft_entry_deterministic(question, question_ref, pattern_type, snapshot)
+
+    if args.check_promotion:
+        return cmd_check_promotion(entry)
 
     return cmd_write_draft(
         entry,
