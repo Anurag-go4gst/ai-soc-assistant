@@ -2,7 +2,7 @@
 
 **Status:** **S2A + S2A-FOLLOWUP complete** (2026-05-29) — library, shadow `intent_operation_bridge` metadata, and lineage stage. **S2B** remains unsigned (separate review).
 
-**S2A commit:** `7370595` · **S2A-FOLLOWUP commit:** *(pending — bundled with S3 Steps 1–2 commit)* ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))
+**S2A commit:** `7370595` · **S2A-FOLLOWUP commit:** `b9ded3f` ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))
 
 **Prerequisite:** [S1 complete](stage3l_s1_validator_spec.md) (`db7072f`) — runtime operation validator v2; `operation_type` authority in `runtime_skill_catalog.py`.
 

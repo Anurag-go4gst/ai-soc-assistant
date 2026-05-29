@@ -11,7 +11,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 |-------|---------|
 | **3L-S0** | Done / signed off |
 | **3L-S1** | Done — runtime operation validator v2; safety preserved; execution disabled; router authority unchanged |
-| **Next** | S2A shadow/lineage wiring (optional); S2B design sign-off then implementation |
+| **Next** | Review shadow traces; S2B sign-off; S3 Step 3+ (coverage-gated) |
 
 ## Stage index
 
@@ -19,9 +19,10 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 |------|-------|--------------|--------|--------|
 | S0-core | Contract field audit + `operation_type` canon | [docs/stage3l_s0_runtime_operation_contract_audit.md](../docs/stage3l_s0_runtime_operation_contract_audit.md) | Done / signed off | `db7072f` |
 | S1 | Validator v2 per S0 | [docs/stage3l_s1_validator_spec.md](../docs/stage3l_s1_validator_spec.md) | Done | `db7072f` |
-| S2A | Intent↔operation bridge | [docs/stage3l_s2_intent_bridge_design.md](../docs/stage3l_s2_intent_bridge_design.md) | Done — library + tests (shadow wiring deferred) | `7370595` |
+| S2A | Intent↔operation bridge | [docs/stage3l_s2_intent_bridge_design.md](../docs/stage3l_s2_intent_bridge_design.md) | Done — library (`7370595`) + shadow follow-up | `7370595` |
+| S2A.1 | Bridge on `route_plan_shadow` | same | Done | `b9ded3f` |
 | S2B | Output artifacts design | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Design — pending review (not signed) | — |
-| S3 | Route authority migration (Step 3+ per `coverage_id`) | — | Proposed | — |
+| S3 | Route authority migration | [docs/stage3l_s3_route_authority_migration.md](../docs/stage3l_s3_route_authority_migration.md) | Steps 1–2 done; Step 3+ gated | `b9ded3f` |
 | S4 | Layered skill registry | — | Proposed | — |
 | S5 | Q4A promotion workflow | [tools/coverage_authoring/README.md](../tools/coverage_authoring/README.md) | Q4A done (`0e2cd30`) | — |
 | S6 | 105-Q mapping + manifest promotion | [docs/soc_question_taxonomy_stage3k_q0.md](../docs/soc_question_taxonomy_stage3k_q0.md) | Proposed | — |
@@ -56,7 +57,7 @@ S3 Steps 1–2 (shadow/compare) may run after S2A without a manifest row.
 
 | Check | Result |
 |-------|--------|
-| Backend pytest | 540 pass (post S2A) |
+| Backend pytest | 554 pass (post S3 Steps 1–2) |
 | Harness default | 6/6 |
 | `/chat` `selected_skill` | Unchanged |
 | MCP / SPL execution | Disabled |

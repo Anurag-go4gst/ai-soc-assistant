@@ -2,6 +2,8 @@
 
 **Status:** Steps 1–2 implemented (shadow/compare only). Step 3+ gated on promoted `coverage_id`.
 
+**S3 Steps 1–2 commit:** `b9ded3f` ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))
+
 **Prerequisites:** S1 (`db7072f`), S2A bridge (`7370595`), S2A-FOLLOWUP shadow wiring.
 
 ---
