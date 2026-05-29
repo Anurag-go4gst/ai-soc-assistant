@@ -40,6 +40,7 @@ Steps 1–2 must **not** change `selected_skill`, analyst answer text, Experienc
 |---------------|---------|---------|
 | `ROUTE_AUTHORITY_COMPARE_ENABLED` | `true` | Emit `route_authority_compare` on shadow |
 | `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED` | `false` | Step 3+ kill-switch; must stay false until allowlisted |
+| `ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST` | `` (empty) | Only `cov.q046.excessive_failed_logins_sample` permitted when set (S3.3A) |
 
 Step 3 will add a per-`coverage_id` allowlist (promoted Q4 manifest rows only).
 

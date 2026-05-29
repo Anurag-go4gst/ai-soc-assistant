@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any, Final
 
 from app.config import settings
+from app.routing.route_authority_gate import (
+    evaluate_route_authority,
+    authority_evaluation_to_shadow_fields,
+)
 
 AUTHORITY_HOLDER_LEGACY_SELECTED_SKILL: Final[str] = "legacy_selected_skill"
 MIGRATION_PHASE_S3_STEPS_1_2: Final[str] = "S3_steps_1_2_shadow_compare"
@@ -60,5 +64,10 @@ def apply_route_authority_compare_to_shadow(
         route_plan_shadow=shadow,
         routing_comparison=routing_comparison,
     )
+    authority_eval = evaluate_route_authority(
+        selected_skill=selected_skill,
+        route_plan_shadow=shadow,
+    )
+    payload.update(authority_evaluation_to_shadow_fields(authority_eval))
     shadow["route_authority_compare"] = payload
     return payload

@@ -284,6 +284,13 @@ def _route_plan_shadow_stage(query: str, *, deterministic_primary_skill: str | N
     )
     validated_plan = validation.normalized_route_plan if validation.is_valid else None
     apply_template_match_to_shadow(shadow, normalized_route_plan=validated_plan)
+    if validated_plan:
+        parameters = validated_plan.get("parameters")
+        if isinstance(parameters, dict):
+            shadow["route_plan_parameters"] = dict(parameters)
+        time_window = validated_plan.get("time_window")
+        if isinstance(time_window, str) and time_window.strip():
+            shadow["route_plan_time_window"] = time_window
     return shadow
 
 

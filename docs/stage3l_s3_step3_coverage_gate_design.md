@@ -88,7 +88,7 @@ ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false   # default; only true in 
 ### Per-`coverage_id` allowlist (design shape)
 
 ```text
-ROUTE_AUTHORITY_COVERAGE_ALLOWLIST=cov.q046.excessive_failed_logins_sample
+ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST=cov.q046.excessive_failed_logins_sample
 ```
 
 - Closed-world: only listed ids may enter operation-authoritative path.
@@ -141,9 +141,17 @@ Steps 1–2 remain sufficient for ongoing trace review until COE approves pilot 
 
 ---
 
+## S3.3A fallback harness (done — not authority migration)
+
+Shadow-only evaluation helper [`route_authority_gate.py`](../backend/app/routing/route_authority_gate.py) + allowlist [`route_authority_allowlist.py`](../backend/app/routing/route_authority_allowlist.py). Tests: [`test_route_authority_gate_stage3l_s3_3a.py`](../backend/app/tests/test_route_authority_gate_stage3l_s3_3a.py).
+
+- Production defaults: global authority **off**, allowlist **empty**
+- `cov.q046` is still **not** approved operation-authoritative behavior
+- Fallback reasons recorded on `route_authority_compare`; `selected_skill` unchanged
+
 ## COE gate review (required before Step 3 code)
 
-Checklist review: [stage3l_s3_step3_coe_gate_review.md](stage3l_s3_step3_coe_gate_review.md) (2026-05-29). **Verdict: NOT READY** — COE approval + fallback tests required.
+Checklist review: [stage3l_s3_step3_coe_gate_review.md](stage3l_s3_step3_coe_gate_review.md) (2026-05-29). **Verdict: NOT READY for Step 3 implementation** — COE pilot approval still required.
 
 ## Sign-off (required before Step 3 code)
 

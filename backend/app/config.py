@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     # Stage 3L-S3 Steps 1–2: shadow compare envelope only (no route authority change).
     route_authority_compare_enabled: bool = True
     route_authority_operation_authoritative_enabled: bool = False
+    route_authority_operation_coverage_allowlist: str = ""
     mcp_mode: str = "mock"
     mcp_servers: str = ""
     mcp_default_server: str = "splunk_soc"
@@ -259,6 +260,17 @@ def _validate(s: Settings) -> Settings:
     if routing_mode == "llm_primary_lab":
         if s.ai_soc_environment_mode == "production" or not s.routing_lab_llm_primary_enabled:
             raise ConfigError("ROUTING_MODE=llm_primary_lab requires non-production mode and ROUTING_LAB_LLM_PRIMARY_ENABLED=true.")
+    from app.routing.route_authority_allowlist import (
+        parse_route_authority_coverage_allowlist,
+        validate_allowlist_ids,
+    )
+
+    allowlist = parse_route_authority_coverage_allowlist(s.route_authority_operation_coverage_allowlist)
+    if allowlist:
+        try:
+            validate_allowlist_ids(allowlist)
+        except ValueError as exc:
+            raise ConfigError(str(exc)) from exc
     return s
 
 
