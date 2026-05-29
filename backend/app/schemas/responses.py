@@ -233,6 +233,7 @@ class RoutePlanShadowEnvelope(BaseModel):
     analyst_summary_shadow_source: str | None = None
     analyst_summary_narration_llm_called: bool = False
     intent_operation_bridge: dict[str, object] | None = None
+    output_artifacts: dict[str, object] | None = None
     route_authority_compare: dict[str, object] | None = None
 
 

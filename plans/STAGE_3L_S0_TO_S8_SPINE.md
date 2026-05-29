@@ -11,7 +11,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 |-------|---------|
 | **3L-S0** | Done / signed off |
 | **3L-S1** | Done — runtime operation validator v2; safety preserved; execution disabled; router authority unchanged |
-| **Next** | COE sign-off on pilot implementation; S2B — **no Step 3 authority code** until approved |
+| **Next** | COE sign-off on Step 3 pilot; S2B renderer consumers — **no Step 3 authority code** until approved |
 
 ## Stage index
 
@@ -21,7 +21,8 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S1 | Validator v2 per S0 | [docs/stage3l_s1_validator_spec.md](../docs/stage3l_s1_validator_spec.md) | Done | `db7072f` |
 | S2A | Intent↔operation bridge | [docs/stage3l_s2_intent_bridge_design.md](../docs/stage3l_s2_intent_bridge_design.md) | Done — library (`7370595`) + shadow follow-up | `7370595` |
 | S2A.1 | Bridge on `route_plan_shadow` | same | Done | `b9ded3f` |
-| S2B | Output artifacts design | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Design — pending review (not signed) | — |
+| S2B | Output artifacts (shadow) | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Shadow library done; COE sign-off + renderer pending | — |
+| S3 COE doc | Gate review aligned to S3.3A | [docs/stage3l_s3_step3_coe_gate_review.md](../docs/stage3l_s3_step3_coe_gate_review.md) | Done | `e1f6f22` |
 | S3 | Route authority migration | [docs/stage3l_s3_route_authority_migration.md](../docs/stage3l_s3_route_authority_migration.md) | Steps 1–2 done; Step 3 design only | `b9ded3f` |
 | S3.3 | Step 3 coverage gate (design) | [docs/stage3l_s3_step3_coverage_gate_design.md](../docs/stage3l_s3_step3_coverage_gate_design.md) | Design + [COE gate review](../docs/stage3l_s3_step3_coe_gate_review.md) — impl blocked | `e412c7c` |
 | S3.3A | Authority fallback harness | same + `route_authority_gate.py` | Done | `214c1e7` |
@@ -60,7 +61,7 @@ S3 Steps 1–2 (shadow/compare) may run after S2A without a manifest row.
 
 | Check | Result |
 |-------|--------|
-| Backend pytest | 569 pass (post S3.3A) |
+| Backend pytest | 576 pass (post S2B shadow) |
 | Harness default | 6/6 |
 | `/chat` `selected_skill` | Unchanged |
 | MCP / SPL execution | Disabled |

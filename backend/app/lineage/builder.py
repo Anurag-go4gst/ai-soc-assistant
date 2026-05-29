@@ -57,6 +57,8 @@ def build_investigation_lineage(
             stages.append(_analyst_summary_shadow_stage(route_plan_shadow))
         if route_plan_shadow.get("intent_operation_bridge"):
             stages.append(_intent_operation_bridge_stage(route_plan_shadow))
+        if route_plan_shadow.get("output_artifacts"):
+            stages.append(_output_artifacts_stage(route_plan_shadow))
         if route_plan_shadow.get("route_authority_compare"):
             stages.append(_route_authority_compare_stage(route_plan_shadow))
     stages.extend(
@@ -192,6 +194,24 @@ def _intent_operation_bridge_stage(route_plan_shadow: dict[str, Any]) -> Lineage
         [],
         "shadow",
         "Stage 3L-S2A-FOLLOWUP intent-to-operation bridge",
+    )
+
+
+def _output_artifacts_stage(route_plan_shadow: dict[str, Any]) -> LineageStage:
+    artifacts = route_plan_shadow.get("output_artifacts") or {}
+    tokens = artifacts.get("resolved_artifacts") or []
+    status = "skipped" if not tokens else "observed"
+    if artifacts.get("unknown_legacy_intent"):
+        status = "skipped"
+    return _stage(
+        "output_artifacts",
+        status,
+        "Output artifacts (shadow)",
+        "Resolved output-shape artifact IDs for lineage only; renderer and analyst card unchanged.",
+        dict(artifacts),
+        [],
+        "shadow",
+        "Stage 3L-S2B output artifacts registry",
     )
 
 

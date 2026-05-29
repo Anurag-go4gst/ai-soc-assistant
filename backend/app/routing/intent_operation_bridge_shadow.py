@@ -8,6 +8,7 @@ from app.routing.intent_to_operation_bridge import (
     IntentOperationBridgeResult,
     evaluate_intent_operation_bridge,
 )
+from app.routing.output_artifacts_shadow import apply_output_artifacts_to_shadow
 
 BRIDGE_STATUS_COMPATIBLE: Final[str] = "compatible"
 BRIDGE_STATUS_INCOMPATIBLE: Final[str] = "incompatible"
@@ -64,4 +65,5 @@ def apply_intent_operation_bridge_to_shadow(
         "output_artifact_hint": result.output_artifact_hint,
         "underlying_operation": result.underlying_operation,
     }
+    apply_output_artifacts_to_shadow(shadow, legacy_intent=legacy_intent, bridge_result=result)
     return result
