@@ -2,6 +2,8 @@
 
 **Status:** **S2A implementation complete** (2026-05-29) — library + tests landed; shadow/lineage wiring deferred. **S2B** remains unsigned (separate review).
 
+**S2A commit:** `7370595` ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))
+
 **Prerequisite:** [S1 complete](stage3l_s1_validator_spec.md) (`db7072f`) — runtime operation validator v2; `operation_type` authority in `runtime_skill_catalog.py`.
 
 ---

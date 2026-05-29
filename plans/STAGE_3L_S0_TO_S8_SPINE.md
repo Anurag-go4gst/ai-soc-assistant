@@ -11,7 +11,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 |-------|---------|
 | **3L-S0** | Done / signed off |
 | **3L-S1** | Done — runtime operation validator v2; safety preserved; execution disabled; router authority unchanged |
-| **Next** | S2A commit + optional shadow/lineage wiring; S2B design sign-off then implementation |
+| **Next** | S2A shadow/lineage wiring (optional); S2B design sign-off then implementation |
 
 ## Stage index
 
@@ -19,7 +19,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 |------|-------|--------------|--------|--------|
 | S0-core | Contract field audit + `operation_type` canon | [docs/stage3l_s0_runtime_operation_contract_audit.md](../docs/stage3l_s0_runtime_operation_contract_audit.md) | Done / signed off | `db7072f` |
 | S1 | Validator v2 per S0 | [docs/stage3l_s1_validator_spec.md](../docs/stage3l_s1_validator_spec.md) | Done | `db7072f` |
-| S2A | Intent↔operation bridge | [docs/stage3l_s2_intent_bridge_design.md](../docs/stage3l_s2_intent_bridge_design.md) | Done — library + tests (shadow wiring deferred) | — |
+| S2A | Intent↔operation bridge | [docs/stage3l_s2_intent_bridge_design.md](../docs/stage3l_s2_intent_bridge_design.md) | Done — library + tests (shadow wiring deferred) | `7370595` |
 | S2B | Output artifacts design | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Design — pending review (not signed) | — |
 | S3 | Route authority migration (Step 3+ per `coverage_id`) | — | Proposed | — |
 | S4 | Layered skill registry | — | Proposed | — |
