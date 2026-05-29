@@ -72,7 +72,9 @@ Do not enable operation-authoritative mode without a promoted coverage row.
 
 ## Trace review
 
-See [stage3l_s3_trace_review_checkpoint.md](stage3l_s3_trace_review_checkpoint.md) (2026-05-29): Steps 1–2 verified; Step 3 held.
+See [stage3l_s3_trace_review_checkpoint.md](stage3l_s3_trace_review_checkpoint.md) (`df11095`): Steps 1–2 verified; Step 3 held.
+
+Step 3 gate design (no implementation): [stage3l_s3_step3_coverage_gate_design.md](stage3l_s3_step3_coverage_gate_design.md) — candidate pilot `cov.q046.excessive_failed_logins_sample` is **not** approved operation-authoritative behavior.
 
 ## Verification
 
