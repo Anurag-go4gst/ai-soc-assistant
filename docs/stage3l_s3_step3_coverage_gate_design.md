@@ -1,7 +1,8 @@
 # Stage 3L-S3 Step 3: Per-`coverage_id` Operation Authority Gate — Design Only
 
 **Status:** **Design only — no implementation, no authority enablement.**  
-**Prerequisite:** [S3 trace review checkpoint](stage3l_s3_trace_review_checkpoint.md) (2026-05-29).  
+**Design commit:** `e412c7c` ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))  
+**Prerequisite:** [S3 trace review checkpoint](stage3l_s3_trace_review_checkpoint.md) (`df11095`).  
 **Parent:** [stage3l_s3_route_authority_migration.md](stage3l_s3_route_authority_migration.md) (Steps 1–2 done at `b9ded3f`).
 
 > **This document does not approve operation-authoritative behavior.** It specifies how Step 3 *would* be gated when COE explicitly approves a pilot.

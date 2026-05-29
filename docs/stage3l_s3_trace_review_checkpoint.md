@@ -1,6 +1,7 @@
 # Stage 3L-S3 Trace Review Checkpoint
 
 **Date:** 2026-05-29  
+**Checkpoint commit:** `df11095` ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))  
 **Scope:** Review `intent_operation_bridge` and `route_authority_compare` after `b9ded3f` (S2A-FOLLOWUP + S3 Steps 1–2).  
 **Verdict:** Safe to hold **S3 Step 3** until per-`coverage_id` gate design is written. No unexpected incompatible mappings in reviewed cases.
 
