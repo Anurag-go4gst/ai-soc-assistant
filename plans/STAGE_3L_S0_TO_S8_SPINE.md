@@ -24,7 +24,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S2B | Output artifacts design | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Design — pending review (not signed) | — |
 | S3 | Route authority migration | [docs/stage3l_s3_route_authority_migration.md](../docs/stage3l_s3_route_authority_migration.md) | Steps 1–2 done; Step 3 design only | `b9ded3f` |
 | S3.3 | Step 3 coverage gate (design) | [docs/stage3l_s3_step3_coverage_gate_design.md](../docs/stage3l_s3_step3_coverage_gate_design.md) | Design + [COE gate review](../docs/stage3l_s3_step3_coe_gate_review.md) — impl blocked | `e412c7c` |
-| S3.3A | Authority fallback harness | same + `route_authority_gate.py` | Done — pending commit hash | — |
+| S3.3A | Authority fallback harness | same + `route_authority_gate.py` | Done | `214c1e7` |
 | S3 trace | Steps 1–2 trace review | [docs/stage3l_s3_trace_review_checkpoint.md](../docs/stage3l_s3_trace_review_checkpoint.md) | Done | `df11095` |
 | S4 | Layered skill registry | — | Proposed | — |
 | S5 | Q4A promotion workflow | [tools/coverage_authoring/README.md](../tools/coverage_authoring/README.md) | Q4A done (`0e2cd30`) | — |
