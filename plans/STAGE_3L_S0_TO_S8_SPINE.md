@@ -21,7 +21,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S1 | Validator v2 per S0 | [docs/stage3l_s1_validator_spec.md](../docs/stage3l_s1_validator_spec.md) | Done | `db7072f` |
 | S2A | Intent↔operation bridge | [docs/stage3l_s2_intent_bridge_design.md](../docs/stage3l_s2_intent_bridge_design.md) | Done — library (`7370595`) + shadow follow-up | `7370595` |
 | S2A.1 | Bridge on `route_plan_shadow` | same | Done | `b9ded3f` |
-| S2B | Output artifacts (shadow) | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Shadow library done; COE sign-off + renderer pending | — |
+| S2B | Output artifacts (shadow) | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Shadow library done; COE sign-off + renderer pending | `eec3912` |
 | S3 COE doc | Gate review aligned to S3.3A | [docs/stage3l_s3_step3_coe_gate_review.md](../docs/stage3l_s3_step3_coe_gate_review.md) | Done | `e1f6f22` |
 | S3 | Route authority migration | [docs/stage3l_s3_route_authority_migration.md](../docs/stage3l_s3_route_authority_migration.md) | Steps 1–2 done; Step 3 design only | `b9ded3f` |
 | S3.3 | Step 3 coverage gate (design) | [docs/stage3l_s3_step3_coverage_gate_design.md](../docs/stage3l_s3_step3_coverage_gate_design.md) | Design + [COE gate review](../docs/stage3l_s3_step3_coe_gate_review.md) — impl blocked | `e412c7c` |
