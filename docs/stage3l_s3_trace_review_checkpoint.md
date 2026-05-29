@@ -109,9 +109,9 @@ Before `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=true` for any `coverage_
 
 ## Next move
 
-1. **COE / analyst:** Spot-check 5–8 live queries in UI technical trace (same fields as table above).
-2. **Engineering:** Write `docs/stage3l_s3_step3_coverage_gate_design.md` (per-`coverage_id` allowlist + fallback semantics) — **not** Step 3 code.
-3. Leave unstaged: `stage3l_s2_output_artifacts_design.md`, `.gitkeep`, `.claude/`, `docs/input/`.
+1. **COE:** Complete [Step 3 COE gate review](stage3l_s3_step3_coe_gate_review.md) checklist sign-off.
+2. **Analyst (optional):** Spot-check 5–8 live queries in UI technical trace.
+3. **Engineering:** Hold Step 3 code until COE approves pilot and fallback tests are specified in implementation PR.
 
 ---
 

@@ -141,6 +141,10 @@ Steps 1–2 remain sufficient for ongoing trace review until COE approves pilot 
 
 ---
 
+## COE gate review (required before Step 3 code)
+
+Checklist review: [stage3l_s3_step3_coe_gate_review.md](stage3l_s3_step3_coe_gate_review.md) (2026-05-29). **Verdict: NOT READY** — COE approval + fallback tests required.
+
 ## Sign-off (required before Step 3 code)
 
 | Reviewer | Pilot `cov.q046` approved for **implementation** | Step 3 gate design approved | Date |
