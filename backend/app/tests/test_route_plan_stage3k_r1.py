@@ -147,7 +147,39 @@ def test_sub_invocations_under_non_multi_signal_are_blocked() -> None:
     assert result.is_valid is False
     assert result.normalized_route_plan is not None
     assert result.normalized_route_plan["route_status"] == "blocked_invalid_composition"
-    assert "sub_invocations_allowed_only_for_multi_signal_correlation" in result.blocking_findings
+    assert "sub_invocations_not_allowed_for_skill:aggregate_and_rank" in result.blocking_findings
+
+
+def test_sequence_detection_primary_route_plan_passes() -> None:
+    """Stage 3L-S1 exit gate: first primary route plan for sequence_detection (success-after-failure class)."""
+    candidate = _base_plan(
+        primary_skill="sequence_detection",
+        pattern_id="auth_success_after_failure",
+        operation_type="sequence_match",
+        source_class="okta_authentication_logs",
+        parameters={
+            "detection_ref": "soc.impossible_travel.v1",
+            "time_window": "last_24_hours",
+        },
+    )
+
+    result = validate_route_plan_candidate(candidate)
+
+    assert result.is_valid is True
+    plan = result.normalized_route_plan
+    assert plan is not None
+    assert plan["primary_skill"] == "sequence_detection"
+    assert plan["operation_type"] == "sequence_match"
+
+
+def test_operation_type_not_allowed_for_skill_is_blocked() -> None:
+    candidate = _valid_aggregate_plan()
+    candidate["operation_type"] = "ioc_correlation"
+
+    result = validate_route_plan_candidate(candidate)
+
+    assert result.is_valid is False
+    assert "operation_type_not_allowed_for_skill:aggregate_and_rank:ioc_correlation" in result.blocking_findings
 
 
 def test_metadata_discovery_post_enrichment_blocked() -> None:

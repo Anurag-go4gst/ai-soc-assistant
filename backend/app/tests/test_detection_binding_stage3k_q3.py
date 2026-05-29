@@ -90,6 +90,21 @@ def test_route_plan_detection_dependency_blocks_without_registry(monkeypatch: py
     assert result.route_status == RouteStatus.CANNOT_ROUTE_MISSING_DETECTION
 
 
+def test_bindable_detection_ref_preserved_in_normalizer() -> None:
+    candidate = {
+        "route_plan_id": "rp_q3_bindable",
+        "primary_skill": "behavioral_detection_binding",
+        "parameters": {"detection_ref": "soc.dga.v1", "time_window": "last_24_hours"},
+        "model_advisory_metadata": {},
+    }
+
+    plan, warnings, _blocks = normalize_route_plan_candidate(candidate)
+
+    assert plan.get("parameters", {}).get("detection_ref") == "soc.dga.v1"
+    assert not any("unregistered_detection_ref_rejected" in warning for warning in warnings)
+    assert not any("unvetted_detection_ref_rejected" in warning for warning in warnings)
+
+
 def test_unregistered_detection_ref_stripped_in_normalizer() -> None:
     candidate = {
         "route_plan_id": "rp_q3",

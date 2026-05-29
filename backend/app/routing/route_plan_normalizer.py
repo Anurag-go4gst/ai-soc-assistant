@@ -75,6 +75,8 @@ def _reject_unregistered_detection_refs(plan: dict[str, Any], warnings: list[str
         if not is_bindable_detection_ref(registry, ref_text):
             rejections.append(f"unvetted_detection_ref_rejected:{ref_text}")
             warnings.append(f"unvetted_detection_ref_rejected:{ref_text}")
+            return
+        container["detection_ref"] = ref_text
 
     def _walk(value: Any) -> None:
         if isinstance(value, dict):

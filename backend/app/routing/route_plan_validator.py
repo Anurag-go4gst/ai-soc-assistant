@@ -19,6 +19,7 @@ from app.routing.runtime_skill_catalog import get_skill_contract
 
 GROUPING_ONLY_DESCRIPTORS = {"user", "host", "src_ip", "dest_ip", "source_ip", "destination_ip", "entity", "account"}
 METRIC_EXPRESSION_MARKERS = ("count(", "dc(", "sum(", "avg(", "stats ", " by ", " as ", "|")
+REGISTRY_REF_PATTERN = re.compile(r"^[a-z][a-z0-9._-]{2,}$")
 
 
 def validate_route_plan_candidate(candidate: dict[str, Any]) -> RoutePlanValidationResult:
@@ -29,8 +30,10 @@ def validate_route_plan_candidate(candidate: dict[str, Any]) -> RoutePlanValidat
     _validate_required_top_level(plan, blocking_findings)
     _validate_route_status(plan, blocking_findings)
     _validate_primary_skill(plan, blocking_findings)
+    _validate_operation_type(plan, blocking_findings)
     _validate_confidence_advisory_only(plan, validation_findings, blocking_findings, warnings)
     _validate_skill_slots(plan, blocking_findings)
+    _validate_skill_parameter_shapes(plan, blocking_findings)
     _validate_aggregate_parameters(plan, blocking_findings)
     _validate_exclusions(plan, blocking_findings)
     _validate_post_enrichment(plan, blocking_findings)
@@ -83,6 +86,24 @@ def _validate_route_status(plan: dict[str, Any], blocking_findings: list[str]) -
         blocking_findings.append("invalid_route_status")
 
 
+def _validate_operation_type(plan: dict[str, Any], blocking_findings: list[str]) -> None:
+    if plan.get("route_status") != RouteStatus.ROUTE_READY.value:
+        return
+    primary_skill = plan.get("primary_skill")
+    operation_type = plan.get("operation_type")
+    if not isinstance(primary_skill, str) or not primary_skill:
+        return
+    if not isinstance(operation_type, str) or not str(operation_type).strip():
+        blocking_findings.append("route_ready_requires_operation_type")
+        return
+    contract = get_skill_contract(primary_skill)
+    if not contract:
+        return
+    allowed = contract.get("allowed_operation_types") or []
+    if operation_type not in allowed:
+        blocking_findings.append(f"operation_type_not_allowed_for_skill:{primary_skill}:{operation_type}")
+
+
 def _validate_primary_skill(plan: dict[str, Any], blocking_findings: list[str]) -> None:
     primary_skill = plan.get("primary_skill")
     if isinstance(primary_skill, list):
@@ -128,6 +149,71 @@ def _validate_skill_slots(plan: dict[str, Any], blocking_findings: list[str]) ->
             continue
         if not plan.get(slot) and not parameters.get(slot):
             blocking_findings.append(f"missing_required_slot:{slot}")
+
+
+def _validate_skill_parameter_shapes(plan: dict[str, Any], blocking_findings: list[str]) -> None:
+    primary_skill = plan.get("primary_skill")
+    if not isinstance(primary_skill, str):
+        return
+    parameters = plan.get("parameters")
+    if not isinstance(parameters, dict):
+        return
+    if primary_skill == RuntimeSkill.AGGREGATE_AND_RANK.value:
+        return
+    if primary_skill == RuntimeSkill.THRESHOLD_ANOMALY.value:
+        _validate_threshold_parameters(parameters, blocking_findings)
+    elif primary_skill == RuntimeSkill.LOOKUP_CORRELATION.value:
+        _validate_lookup_parameters(parameters, blocking_findings)
+    elif primary_skill in {
+        RuntimeSkill.SEQUENCE_DETECTION.value,
+        RuntimeSkill.BEHAVIORAL_DETECTION_BINDING.value,
+    }:
+        _validate_detection_ref_parameter(parameters, blocking_findings)
+    elif primary_skill == RuntimeSkill.MULTI_SIGNAL_CORRELATION.value:
+        return
+
+
+def _validate_threshold_parameters(parameters: dict[str, Any], blocking_findings: list[str]) -> None:
+    metric = parameters.get("metric")
+    if metric is not None and isinstance(metric, dict):
+        metric_type = metric.get("type")
+        if metric_type not in {item.value for item in MetricType}:
+            blocking_findings.append("invalid_metric_type")
+    _validate_registry_ref_slot(parameters.get("threshold_ref"), "threshold_ref", blocking_findings)
+
+
+def _validate_lookup_parameters(parameters: dict[str, Any], blocking_findings: list[str]) -> None:
+    _validate_registry_ref_slot(parameters.get("lookup_ref"), "lookup_ref", blocking_findings)
+    match_field = parameters.get("match_field")
+    if match_field is not None:
+        _validate_plain_field_name(match_field, "match_field", blocking_findings)
+
+
+def _validate_detection_ref_parameter(parameters: dict[str, Any], blocking_findings: list[str]) -> None:
+    _validate_registry_ref_slot(parameters.get("detection_ref"), "detection_ref", blocking_findings)
+
+
+def _validate_registry_ref_slot(value: Any, slot_name: str, blocking_findings: list[str]) -> None:
+    if value is None:
+        return
+    if isinstance(value, dict):
+        ref = value.get("ref") or value.get("policy_id") or value.get("detection_id") or value.get("lookup_name")
+        if isinstance(ref, str) and ref.strip():
+            if REGISTRY_REF_PATTERN.match(ref.strip()):
+                return
+        blocking_findings.append(f"invalid_{slot_name}_structure")
+        return
+    if isinstance(value, str) and REGISTRY_REF_PATTERN.match(value.strip()):
+        return
+    blocking_findings.append(f"invalid_{slot_name}_structure")
+
+
+def _validate_plain_field_name(value: Any, slot_name: str, blocking_findings: list[str]) -> None:
+    if not isinstance(value, str) or not value.strip():
+        blocking_findings.append(f"invalid_{slot_name}_structure")
+        return
+    if _looks_like_metric_expression(value):
+        blocking_findings.append(f"invalid_{slot_name}_structure")
 
 
 def _validate_aggregate_parameters(plan: dict[str, Any], blocking_findings: list[str]) -> None:
@@ -223,8 +309,11 @@ def _validate_composition(plan: dict[str, Any], blocking_findings: list[str]) ->
     if not isinstance(sub_invocations, list):
         blocking_findings.append("sub_invocations_must_be_list")
         return
-    if sub_invocations and primary_skill != RuntimeSkill.MULTI_SIGNAL_CORRELATION.value:
-        blocking_findings.append("sub_invocations_allowed_only_for_multi_signal_correlation")
+    allows_sub = contract.get("allows_sub_invocations")
+    if sub_invocations and not allows_sub:
+        blocking_findings.append(f"sub_invocations_not_allowed_for_skill:{primary_skill}")
+    elif sub_invocations and allows_sub is not True:
+        blocking_findings.append("sub_invocations_allowed_flag_missing_in_contract")
     if primary_skill == RuntimeSkill.MULTI_SIGNAL_CORRELATION.value:
         _validate_multi_signal_sub_invocations(sub_invocations, blocking_findings)
 

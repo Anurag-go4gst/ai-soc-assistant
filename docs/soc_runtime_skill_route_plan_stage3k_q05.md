@@ -1,8 +1,10 @@
 # Stage 3K-Q0.5: Compact Runtime Skill Route Plan
 
-Status: design/contract only
+Status: design/contract only (Stage 3L-S1: `operation_type` tokens aligned to runtime catalog — see below)
 Inputs: `docs/soc_question_taxonomy_stage3k_q0.md`, `docs/soc_team_vetting_note_stage3k_q0_20260527-134736.md`
 Scope: compact runtime skill routing and route-plan design. No runtime code, `SKILL_ENUM`, runtime registry, SPL templates, SPL validator, LLM synthesis, Answer Guard, MCP/SPL gates, or Experience Center behavior changes are included.
+
+**Stage 3L-S1 conformance:** Canonical `operation_type` allowlists for route plans are **`backend/app/routing/runtime_skill_catalog.py`** (`allowed_operation_types` per skill). This document’s operation-type lists match that catalog as of Stage 3L-S1. Q4 manifest entries conform via the same tokens.
 
 ## Executive Summary
 
@@ -39,7 +41,7 @@ Examples from the SOC list:
 - Which source IPs generated the most authentication failures today?
 - Which devices are generating the most endpoint alerts?
 
-Allowed operation types: `top_n`, `bottom_n`, `rank_by_count`, `rank_by_distinct_count`, `rank_by_sum`, `enumerate_latest`.
+Allowed operation types: `top_n`, `bottom_n`, `rank`, `aggregate` (canonical: `runtime_skill_catalog.py`).
 
 Required slots: `source_class`, `domain`, `time_window`, `group_by.field`, `metric.type`, `metric.field`, `sort.field`, `sort.direction`, `limit`.
 
@@ -69,7 +71,7 @@ Examples from the SOC list:
 - Which domains were queried by multiple hosts in a short period?
 - Who is sending large amounts of data outbound?
 
-Allowed operation types: `threshold_count`, `threshold_distinct_count`, `threshold_sum`, `spike`, `baseline_deviation`, `repeated_activity`.
+Allowed operation types: `threshold_check`, `baseline_compare`, `spike_detection` (canonical: `runtime_skill_catalog.py`).
 
 Required slots: `source_class`, `domain`, `time_window`, `entity_field`, `metric`, `threshold` or `baseline_ref`, `comparison`.
 
@@ -98,7 +100,7 @@ Examples from the SOC list:
 - Which internal hosts generated outbound traffic after DNS lookups?
 - Which users had access to sensitive systems and then large outbound transfers?
 
-Allowed operation types: `success_after_failure`, `event_a_then_event_b`, `ordered_sequence`, `temporal_join`.
+Allowed operation types: `sequence_match`, `ordered_pattern` (canonical: `runtime_skill_catalog.py`).
 
 Required slots: `source_class`, `domain`, `entity_field`, `sequence_steps`, `time_window`, `max_step_gap`.
 
@@ -128,7 +130,7 @@ Examples from the SOC list:
 - Which hosts contacted IPs in an IOC lookup?
 - Which internal hosts contacted known command-and-control domains?
 
-Allowed operation types: `ioc_match`, `lookup_match`, `hash_match`, `domain_match`, `ip_match`, `url_match`, `approved_list_match`, `denylist_match`.
+Allowed operation types: `lookup_match`, `lookup_exclusion`, `ioc_correlation` (canonical: `runtime_skill_catalog.py`).
 
 Required slots: `source_class`, `domain`, `time_window`, `lookup_ref`, `lookup_key`, `event_field`, `entity_field`.
 
@@ -159,7 +161,7 @@ Examples from the SOC list:
 - Which systems show signs of webshell activity?
 - Which hosts show signs of lateral movement?
 
-Allowed operation types: `vetted_detection_lookup`, `correlation_search_result`, `detection_result_filter`, `detection_family_lookup`.
+Allowed operation types: `detection_binding`, `detection_lookup` (canonical: `runtime_skill_catalog.py`).
 
 Required slots: `detection_ref`, `domain`, `time_window`, `entity_field`, `source_class`.
 
@@ -186,7 +188,7 @@ Examples from the SOC list:
 - Which logs are missing from key security sources?
 - Which sources stopped sending events recently?
 
-Allowed operation types: `source_health`, `missing_source_check`, `stale_source_check`, `field_availability_check`, `safe_index_discovery`.
+Allowed operation types: `field_discovery`, `source_discovery`, `schema_discovery` (canonical: `runtime_skill_catalog.py`).
 
 Required slots: `operation_type`, `source_inventory_ref` or `source_class`, `time_window`.
 
@@ -215,7 +217,7 @@ Examples from the SOC list:
 - Which users performed privileged actions from non-admin workstations?
 - Which users accessed privileged applications unusually?
 
-Allowed operation types: `asset_lookup`, `identity_lookup`, `cmdb_lookup`, `privilege_lookup`, `owner_lookup`, `criticality_lookup`.
+Allowed operation types: `entity_lookup`, `asset_lookup`, `identity_lookup` (canonical: `runtime_skill_catalog.py`; post-enrichment-only in current coverage pack).
 
 Required slots: `entity`, `entity_type`, `lookup_ref`, `requested_attributes`.
 
@@ -245,7 +247,7 @@ Examples from the SOC list:
 - Which alerts are still open and unresolved?
 - Has this entity, IP, domain, or notable been seen or investigated before?
 
-Allowed operation types: `severity_filter`, `risk_rank`, `notable_lookup`, `case_state_lookup`, `prior_disposition_lookup`, `open_alert_lookup`.
+Allowed operation types: `risk_lookup`, `notable_lookup` (canonical: `runtime_skill_catalog.py`; post-enrichment-only in current coverage pack).
 
 Required slots: `source_class`, `domain`, `time_window` or `notable_id`, `filters`.
 
@@ -275,7 +277,7 @@ Examples from the SOC list:
 - Which users had access to sensitive systems and then large outbound transfers?
 - Which detections involved the same user and host repeatedly?
 
-Allowed operation types: `both_signals`, `all_signals`, `any_signal_set`, `temporal_multi_signal`, `same_entity_multi_detection`.
+Allowed operation types: `correlate_signals`, `combine_sub_results` (canonical: `runtime_skill_catalog.py`).
 
 Required slots: `correlation_entity`, `time_window`, `sub_invocations`, `join_policy`.
 
@@ -303,7 +305,7 @@ Examples from the SOC list:
 - Has this entity, IP, domain, or notable been seen or investigated before?
 - What happened for this specific notable event?
 
-Allowed operation types: `entity_activity_timeline`, `before_after_detection`, `prior_sightings`, `bounded_history`.
+Allowed operation types: `timeline`, `event_sequence` (canonical: `runtime_skill_catalog.py`).
 
 Required slots: `entity` or `notable_id`, `entity_type`, `time_window` or `anchor_event`, `source_classes`.
 
@@ -327,11 +329,11 @@ Taxonomy patterns are planning metadata. The runtime skill and operation type be
 
 | Taxonomy pattern | Runtime skill | operation_type | source_class | Required parameters | Clarification triggers | Dependency type | Notes |
 |---|---|---|---|---|---|---|---|
-| `top_n_aggregation` | `aggregate_and_rank` | `top_n` or `rank_by_*` | CIM/raw event or notable/risk | `group_by`, `metric`, `sort`, `limit`, `time_window` | ambiguous metric/entity, missing time default | source binding | Covers network, DNS, auth, endpoint alerts, notable rankings. |
-| `threshold_anomaly` | `threshold_anomaly` | `threshold_*`, `spike`, `baseline_deviation` | CIM/raw event | entity, metric, threshold/baseline, comparison, time_window | no threshold/default, no baseline | threshold/baseline plus source | "Excessive", "many", "large", "spike", "unusual" need approved values. |
-| `time_trend` | `aggregate_and_rank` | `enumerate_latest` or future `time_bucket_trend` | CIM/raw event | bucket span, metric, time_window | bucket span missing | source binding | No actual Q0 question; do not add a runtime skill now. |
-| `new_or_unusual_source` | `threshold_anomaly` | `baseline_deviation` or `lookup_match` | CIM/raw plus baseline/lookup | entity, comparison field, baseline_ref or lookup_ref, time_window | no baseline/allowlist/policy | baseline/policy | Geo, rare port, after-hours, new country need deterministic policy. |
-| `success_after_failure` | `sequence_detection` | `success_after_failure` | `cim.authentication` or VPN/MFA | entity, failure step, success step, threshold, max_gap, time_window | failure threshold missing, source mapping missing | source plus threshold | Covers AD/auth and VPN/MFA variants. |
+| `top_n_aggregation` | `aggregate_and_rank` | `top_n`, `bottom_n`, `rank`, `aggregate` | CIM/raw event or notable/risk | `group_by`, `metric`, `sort`, `limit`, `time_window` | ambiguous metric/entity, missing time default | source binding | Covers network, DNS, auth, endpoint alerts, notable rankings. |
+| `threshold_anomaly` | `threshold_anomaly` | `threshold_check`, `baseline_compare`, `spike_detection` | CIM/raw event | entity, metric, threshold/baseline, comparison, time_window | no threshold/default, no baseline | threshold/baseline plus source | "Excessive", "many", "large", "spike", "unusual" need approved values. |
+| `time_trend` | `aggregate_and_rank` | `aggregate` or future `time_bucket_trend` | CIM/raw event | bucket span, metric, time_window | bucket span missing | source binding | No actual Q0 question; do not add a runtime skill now. |
+| `new_or_unusual_source` | `threshold_anomaly` | `baseline_compare` or `lookup_match` | CIM/raw plus baseline/lookup | entity, comparison field, baseline_ref or lookup_ref, time_window | no baseline/allowlist/policy | baseline/policy | Geo, rare port, after-hours, new country need deterministic policy. |
+| `success_after_failure` | `sequence_detection` | `sequence_match`, `ordered_pattern` | `cim.authentication` or VPN/MFA | entity, failure step, success step, threshold, max_gap, time_window | failure threshold missing, source mapping missing | source plus threshold | Covers AD/auth and VPN/MFA variants. |
 | `ioc_correlation` | `lookup_correlation` | `ioc_match` | network/DNS/web/endpoint | lookup_ref, lookup_key, event_field, entity_field, time_window | no local lookup, IOC type missing | local lookup | No external threat-intel call. |
 | `threat_intel_enrichment` | `lookup_correlation` | `lookup_match` | DNS/web/network | lookup_ref, event_field, entity_field, time_window | "suspicious" source missing | local lookup | Treat as local lookup correlation, not external enrichment. |
 | `notable_risk_lookup` | `notable_risk_lookup` | `severity_filter`, `risk_rank` | ES notable/risk or equivalent | severity/status/risk filters, time_window, entity if needed | "right now" undefined, source missing | notable/risk source | Read-only only. |
