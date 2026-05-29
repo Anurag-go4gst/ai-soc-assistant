@@ -17,8 +17,8 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 
 | Code | Focus | Spec / audit | Status | Commit |
 |------|-------|--------------|--------|--------|
-| S0-core | Contract field audit + `operation_type` canon | [docs/stage3l_s0_runtime_operation_contract_audit.md](../docs/stage3l_s0_runtime_operation_contract_audit.md) | Done / signed off | — (docs; record on commit) |
-| S1 | Validator v2 per S0 | [docs/stage3l_s1_validator_spec.md](../docs/stage3l_s1_validator_spec.md) | Done | — (record on commit) |
+| S0-core | Contract field audit + `operation_type` canon | [docs/stage3l_s0_runtime_operation_contract_audit.md](../docs/stage3l_s0_runtime_operation_contract_audit.md) | Done / signed off | `db7072f` |
+| S1 | Validator v2 per S0 | [docs/stage3l_s1_validator_spec.md](../docs/stage3l_s1_validator_spec.md) | Done | `db7072f` |
 | S2A | Intent↔operation bridge | [docs/stage3l_s2_intent_bridge_design.md](../docs/stage3l_s2_intent_bridge_design.md) | Design — sign-off before code | — |
 | S2B | Output artifacts design | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Design — separate gate from S2A | — |
 | S3 | Route authority migration (Step 3+ per `coverage_id`) | — | Proposed | — |
@@ -28,7 +28,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S7 | `hard_preconditions` runtime enforcement | — | Proposed | — |
 | S8 | Governance readiness freeze | — | Proposed | — |
 
-**Commit hash rule:** Update the Commit column when the stage lands (same pattern as Stage 3K Section 9). S1 is implemented in working tree; hash is `—` until committed.
+**Commit hash rule:** Update the Commit column when the stage lands (same pattern as Stage 3K Section 9).
 
 ## Standing rules (S2 onward)
 

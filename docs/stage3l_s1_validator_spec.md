@@ -2,7 +2,7 @@
 
 **Status:** Complete (2026-05-29). S0 sign-off recorded; S1-1 gate (`sequence_detection` primary test) passed; S1-6/S1-7 shipped with code.
 
-**S1 commit:** — (record hash here when committed; spine [STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))
+**S1 commit:** `db7072f` ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))
 
 **Delivered:** Runtime operation validator v2 — `operation_type` per-skill enforcement, slot shape checks, contract-driven `allows_sub_invocations`, catalog governance/examples tests, Q4 + Q0.5 conformance, normalizer fix for bindable `detection_ref` preservation.
 
