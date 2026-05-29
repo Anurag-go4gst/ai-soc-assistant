@@ -11,7 +11,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 |-------|---------|
 | **3L-S0** | Done / signed off |
 | **3L-S1** | Done — runtime operation validator v2; safety preserved; execution disabled; router authority unchanged |
-| **Next** | S2 design-first ([intent bridge design](../docs/stage3l_s2_intent_bridge_design.md)); no bridge code until sign-off |
+| **Next** | S2A commit + optional shadow/lineage wiring; S2B design sign-off then implementation |
 
 ## Stage index
 
@@ -19,8 +19,8 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 |------|-------|--------------|--------|--------|
 | S0-core | Contract field audit + `operation_type` canon | [docs/stage3l_s0_runtime_operation_contract_audit.md](../docs/stage3l_s0_runtime_operation_contract_audit.md) | Done / signed off | `db7072f` |
 | S1 | Validator v2 per S0 | [docs/stage3l_s1_validator_spec.md](../docs/stage3l_s1_validator_spec.md) | Done | `db7072f` |
-| S2A | Intent↔operation bridge | [docs/stage3l_s2_intent_bridge_design.md](../docs/stage3l_s2_intent_bridge_design.md) | Design — sign-off before code | — |
-| S2B | Output artifacts design | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Design — separate gate from S2A | — |
+| S2A | Intent↔operation bridge | [docs/stage3l_s2_intent_bridge_design.md](../docs/stage3l_s2_intent_bridge_design.md) | Done — library + tests (shadow wiring deferred) | — |
+| S2B | Output artifacts design | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Design — pending review (not signed) | — |
 | S3 | Route authority migration (Step 3+ per `coverage_id`) | — | Proposed | — |
 | S4 | Layered skill registry | — | Proposed | — |
 | S5 | Q4A promotion workflow | [tools/coverage_authoring/README.md](../tools/coverage_authoring/README.md) | Q4A done (`0e2cd30`) | — |
@@ -33,7 +33,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 ## Standing rules (S2 onward)
 
 - No manifest or taxonomy `operation_type` token outside `runtime_skill_catalog.py` per-skill allowlists.
-- Do not treat `spl_generation` as a single-operation intent without S2A/Q2 sign-off (likely output modifier).
+- `spl_generation`: S2A modifier only (`candidate_spl_requested`); no operation restriction; artifacts deferred to S2B.
 - Do not add primary fixtures for `entity_context_lookup` / `notable_risk_lookup` unless product requires standalone lookup (post-enrichment-only is intentional today).
 - `hard_preconditions` catalog enforcement remains **S7** (`source_available`, `lookup_freshness`, `detection_vetted`, `template_available`, `evidence_contract_available`, etc.).
 
@@ -56,7 +56,7 @@ S3 Steps 1–2 (shadow/compare) may run after S2A without a manifest row.
 
 | Check | Result |
 |-------|--------|
-| Backend pytest | 530 pass |
+| Backend pytest | 540 pass (post S2A) |
 | Harness default | 6/6 |
 | `/chat` `selected_skill` | Unchanged |
 | MCP / SPL execution | Disabled |
