@@ -25,6 +25,7 @@ from app.routing.route_plan_preflight import preflight_route_plan
 from app.routing.route_plan_validator import validate_route_plan_candidate
 from app.routing.intent_operation_bridge_shadow import apply_intent_operation_bridge_to_shadow
 from app.coverage.question_runtime_map_shadow import apply_question_runtime_map_to_shadow
+from app.routing.precondition_evaluation_shadow import apply_precondition_evaluation_to_shadow
 from app.routing.route_authority_compare import apply_route_authority_compare_to_shadow
 from app.routing.template_match_shadow import apply_template_match_to_shadow
 from app.synthesis.analyst_summary_llm_assist import apply_analyst_summary_shadow
@@ -62,6 +63,7 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         routing_comparison=routed.get("comparison"),
     )
     apply_question_runtime_map_to_shadow(route_plan_shadow)
+    apply_precondition_evaluation_to_shadow(route_plan_shadow)
     apply_analyst_summary_shadow(route_plan_shadow)
     skill_selection = select_skill_chain(routed=routed, selected_use_case=selected_use_case)
     selected_skill_chain = skill_selection.selected_chain
@@ -333,6 +335,7 @@ def _route_plan_shadow_base(*, model_role: str) -> dict:
         "reasoning_model_used": ROUTE_PLAN_REASONING_MODEL_ALLOWED,
         "intent_operation_bridge": None,
         "route_authority_compare": None,
+        "precondition_evaluation": None,
     }
 
 

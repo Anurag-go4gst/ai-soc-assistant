@@ -236,6 +236,7 @@ class RoutePlanShadowEnvelope(BaseModel):
     output_artifacts: dict[str, object] | None = None
     route_authority_compare: dict[str, object] | None = None
     question_runtime_map: dict[str, object] | None = None
+    precondition_evaluation: dict[str, object] | None = None
 
 
 class AnalystResponseEnvelope(BaseModel):

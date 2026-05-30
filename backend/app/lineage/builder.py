@@ -61,6 +61,8 @@ def build_investigation_lineage(
             stages.append(_output_artifacts_stage(route_plan_shadow))
         if route_plan_shadow.get("route_authority_compare"):
             stages.append(_route_authority_compare_stage(route_plan_shadow))
+        if route_plan_shadow.get("precondition_evaluation"):
+            stages.append(_hard_preconditions_stage(route_plan_shadow))
     stages.extend(
         [
             _stage("spl_template", "complete" if spl_template else "skipped", "SPL template", "Template metadata attached when a use-case template exists.", spl_template or {}, ["spl_code"] if spl_template else [], "config" if spl_template else mode_source, "SCD/template registry"),
@@ -194,6 +196,24 @@ def _intent_operation_bridge_stage(route_plan_shadow: dict[str, Any]) -> Lineage
         [],
         "shadow",
         "Stage 3L-S2A-FOLLOWUP intent-to-operation bridge",
+    )
+
+
+def _hard_preconditions_stage(route_plan_shadow: dict[str, Any]) -> LineageStage:
+    evaluation = route_plan_shadow.get("precondition_evaluation") or {}
+    if evaluation.get("evaluation_skipped"):
+        status = "skipped"
+    else:
+        status = str(evaluation.get("route_status") or "observed")
+    return _stage(
+        "hard_preconditions",
+        status,
+        "Hard preconditions (shadow)",
+        "Registry-backed S7 precondition evaluation for lineage only; routing authority unchanged.",
+        dict(evaluation),
+        [],
+        "shadow",
+        "Stage 3L-S7.3 hard-precondition evaluator shadow",
     )
 
 

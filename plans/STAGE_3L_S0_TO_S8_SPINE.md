@@ -32,10 +32,10 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S4 | Layered skill registry | [docs/stage3l_s4_layered_registry_design.md](../docs/stage3l_s4_layered_registry_design.md) | Design doc done — implementation proposed | — |
 | S5 | Q4A promotion gates | [docs/stage3l_s5_q4a_promotion_gates.md](../docs/stage3l_s5_q4a_promotion_gates.md) | Done — S5.1 manifest audit; **S5.2** promotion workflow | `6bd2a75` |
 | S6 | 105-Q runtime map | [docs/stage3l_s6_question_runtime_map.md](../docs/stage3l_s6_question_runtime_map.md) | Done — S6.1 shadow; **S6.2** provisional report | `6bd2a75` |
-| S7 | `hard_preconditions` runtime enforcement | [docs/stage3l_s7_hard_preconditions_design.md](../docs/stage3l_s7_hard_preconditions_design.md) | **S7.1–S7.2** done (tests); S7.3–S7.4 proposed | — |
+| S7 | `hard_preconditions` runtime enforcement | [docs/stage3l_s7_hard_preconditions_design.md](../docs/stage3l_s7_hard_preconditions_design.md) | **S7.1–S7.3** done; S7.4 proposed | — |
 | S7.1 | Pure precondition evaluator | `precondition_evaluator.py` | Done — not wired to `/chat` | — |
 | S7.2 | Registry-backed dependency state | `precondition_dependency_state.py` | Done — tests feed `evaluate_hard_preconditions()` | — |
-| S7.3 | Shadow + lineage wiring | — | Proposed | — |
+| S7.3 | Shadow + lineage wiring | `precondition_evaluation_shadow.py` | Done — `/chat` shadow + lineage only | — |
 | S7.4 | S5 promotion alignment | — | Proposed | — |
 | S8 | Governance readiness freeze | — | Proposed | — |
 
