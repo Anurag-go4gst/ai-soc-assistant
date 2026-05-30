@@ -8,6 +8,7 @@ from uuid import uuid4
 from app.actions.capability_policy import action_capability_for
 from app.answer_guard.models import AnswerGuardStatus
 from app.demo.foundation_sec_fixtures import foundation_sec_governance_for
+from app.demo.llm_shadow_provider import DemoLlmShadowContext, run_demo_llm_shadow
 from app.demo.mcp_result_envelope import (
     apply_envelope_to_splunk_evidence,
     demo_envelope_from_rows,
@@ -76,6 +77,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     execution = _execution_payload(scenario, trace_id, spl_validation)
     source_evidence = _with_trace(deepcopy(scenario.source_evidence or []), trace_id)
     structured_context = _with_context_trace(deepcopy(scenario.structured_context or {}), scenario, trace_id, source_evidence)
+    demo_llm_shadow = run_demo_llm_shadow(_demo_llm_shadow_context(scenario, trace_id, structured_context))
     context_sufficiency = _context_sufficiency(scenario)
     review = _human_review(scenario, execution)
     analyst_response = _analyst_response(scenario)
@@ -116,6 +118,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         synthesis_status=synthesis_status,
         answer_guard_status=answer_guard,
         action_capability=action_capability,
+        demo_llm_shadow=demo_llm_shadow.to_lineage_dict() if demo_llm_shadow else None,
     )
 
     return {
@@ -359,6 +362,24 @@ def _human_review(scenario: DemoScenario, execution: dict[str, Any]) -> dict[str
             "Review the synthetic fixture output. It is not live production evidence and is not executed.",
         )
     return no_human_review()
+
+
+def _demo_llm_shadow_context(
+    scenario: DemoScenario,
+    trace_id: str,
+    structured_context: dict[str, Any],
+) -> DemoLlmShadowContext:
+    mitre_ids: list[str] = []
+    for candidate in structured_context.get("mitre_candidates") or []:
+        if isinstance(candidate, dict) and candidate.get("technique_id"):
+            mitre_ids.append(str(candidate["technique_id"]))
+    return DemoLlmShadowContext(
+        scenario_id=scenario.scenario_id,
+        query=scenario.query,
+        selected_skill=scenario.expected_skill,
+        governed_mitre_ids=tuple(sorted(set(mitre_ids))),
+        trace_id=trace_id,
+    )
 
 
 def _with_trace(evidence: list[dict[str, Any]], trace_id: str) -> list[dict[str, Any]]:

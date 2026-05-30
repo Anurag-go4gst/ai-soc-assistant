@@ -198,6 +198,13 @@ class Settings(BaseSettings):
     ai_soc_llm_final_synthesis_enabled: bool = False
     ai_soc_llm_answer_guard_enabled: bool = False
 
+    # Stage 3M-S4: Experience Center demo-only LLM shadow (lineage/trace; no final synthesis).
+    demo_llm_shadow_enabled: bool = False
+    demo_llm_shadow_provider: str = "disabled"
+    demo_llm_shadow_model: str = ""
+    demo_llm_shadow_endpoint: str = ""
+    demo_llm_shadow_timeout_seconds: int = 5
+
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"
     spl_validation_enabled: bool = True
@@ -260,6 +267,11 @@ def _validate(s: Settings) -> Settings:
     if routing_mode == "llm_primary_lab":
         if s.ai_soc_environment_mode == "production" or not s.routing_lab_llm_primary_enabled:
             raise ConfigError("ROUTING_MODE=llm_primary_lab requires non-production mode and ROUTING_LAB_LLM_PRIMARY_ENABLED=true.")
+    shadow_provider = s.demo_llm_shadow_provider.strip().lower()
+    if shadow_provider not in {"disabled", "fake", "huggingface"}:
+        raise ConfigError(
+            "DEMO_LLM_SHADOW_PROVIDER must be one of: disabled, fake, huggingface."
+        )
     from app.routing.route_authority_allowlist import (
         parse_route_authority_coverage_allowlist,
         validate_allowlist_ids,

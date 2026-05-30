@@ -29,6 +29,7 @@ def build_investigation_lineage(
     answer_guard_status: AnswerGuardStatus,
     action_capability: ActionCapability,
     route_plan_shadow: dict[str, Any] | None = None,
+    demo_llm_shadow: dict[str, Any] | None = None,
 ) -> InvestigationLineage:
     use_case_id = selected_use_case.use_case_id if selected_use_case else None
     stages = [
@@ -77,6 +78,8 @@ def build_investigation_lineage(
             _stage("action_capability", "complete", "Action capability", action_capability.reason, action_capability.model_dump(), ["recommended_actions"], "derived", "action tier policy"),
         ]
     )
+    if demo_llm_shadow is not None:
+        stages.append(_demo_foundation_sec_shadow_stage(demo_llm_shadow))
     return InvestigationLineage(
         lineage_id=f"lineage:{trace_id}",
         summary="Query understanding, skill-chain selection, captured Foundation-sec packaging, and governance status were recorded without enabling final synthesis or remediation.",
@@ -196,6 +199,22 @@ def _intent_operation_bridge_stage(route_plan_shadow: dict[str, Any]) -> Lineage
         [],
         "shadow",
         "Stage 3L-S2A-FOLLOWUP intent-to-operation bridge",
+    )
+
+
+def _demo_foundation_sec_shadow_stage(demo_llm_shadow: dict[str, Any]) -> LineageStage:
+    status = str(demo_llm_shadow.get("governed_acceptance_status") or "observed")
+    if demo_llm_shadow.get("dropped_reasons") and status == "accepted_shadow":
+        status = "partially_accepted"
+    return _stage(
+        "demo_foundation_sec_shadow",
+        status,
+        "Foundation-Sec shadow (demo)",
+        "Demo-only model proposal and narration for lineage reveal; deterministic demo answer unchanged.",
+        demo_llm_shadow,
+        [],
+        "shadow",
+        "Stage 3M-S4 demo LLM shadow provider",
     )
 
 
