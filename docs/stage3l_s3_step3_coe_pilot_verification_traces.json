@@ -1,0 +1,85 @@
+{
+  "pilot_coverage_id": "cov.q046.excessive_failed_logins_sample",
+  "query": "Find top 10 users with failed Okta logins in the last 24 hours.",
+  "note": "cov.q046 only; mock route_plan_shadow candidate via test hook",
+  "scenarios": [
+    {
+      "scenario": "default_production_safe_fallback",
+      "env": {
+        "ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED": false,
+        "ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST": "(empty)"
+      },
+      "response_selected_skill": "attack_discovery",
+      "execution_executed_spl": null,
+      "route_authority_compare": {
+        "coverage_id_resolved": "cov.q046.excessive_failed_logins_sample",
+        "operation_authoritative_applied": false,
+        "operation_authoritative_enabled": false,
+        "authority_applied": false,
+        "authority_eligible": false,
+        "authority_fallback_reason": "global_kill_switch_disabled",
+        "authority_decision": "fallback",
+        "authority_holder": "legacy_selected_skill",
+        "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='global_kill_switch_disabled'.",
+        "planning_primary_skill": null,
+        "selected_skill": "attack_discovery",
+        "legacy_selected_skill_preserved": "attack_discovery",
+        "global_enabled": false,
+        "coverage_id_allowlisted": false,
+        "migration_phase": "S3_steps_1_2_shadow_compare"
+      }
+    },
+    {
+      "scenario": "lab_pilot_happy_path",
+      "env": {
+        "ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED": true,
+        "ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST": "cov.q046.excessive_failed_logins_sample"
+      },
+      "response_selected_skill": "attack_discovery",
+      "execution_executed_spl": null,
+      "route_authority_compare": {
+        "coverage_id_resolved": "cov.q046.excessive_failed_logins_sample",
+        "operation_authoritative_applied": true,
+        "operation_authoritative_enabled": true,
+        "authority_applied": true,
+        "authority_eligible": true,
+        "authority_fallback_reason": null,
+        "authority_decision": "applied",
+        "authority_holder": "route_plan_primary_skill",
+        "authority_trace": "Operation authority applied for allowlisted coverage_id 'cov.q046.excessive_failed_logins_sample': planning uses route_plan.primary_skill='aggregate_and_rank'; legacy selected_skill='attack_discovery' remains on the /chat response.",
+        "planning_primary_skill": "aggregate_and_rank",
+        "selected_skill": "attack_discovery",
+        "legacy_selected_skill_preserved": "attack_discovery",
+        "global_enabled": true,
+        "coverage_id_allowlisted": true,
+        "migration_phase": "S3_step_3_cov_q046_pilot"
+      }
+    },
+    {
+      "scenario": "lab_pilot_missing_threshold_fallback",
+      "env": {
+        "ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED": true,
+        "ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST": "cov.q046.excessive_failed_logins_sample"
+      },
+      "response_selected_skill": "attack_discovery",
+      "execution_executed_spl": null,
+      "route_authority_compare": {
+        "coverage_id_resolved": "cov.q046.excessive_failed_logins_sample",
+        "operation_authoritative_applied": false,
+        "operation_authoritative_enabled": true,
+        "authority_applied": false,
+        "authority_eligible": false,
+        "authority_fallback_reason": "missing_required_threshold_ref",
+        "authority_decision": "fallback",
+        "authority_holder": "legacy_selected_skill",
+        "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='missing_required_threshold_ref'.",
+        "planning_primary_skill": null,
+        "selected_skill": "attack_discovery",
+        "legacy_selected_skill_preserved": "attack_discovery",
+        "global_enabled": true,
+        "coverage_id_allowlisted": true,
+        "migration_phase": "S3_step_3_cov_q046_pilot"
+      }
+    }
+  ]
+}

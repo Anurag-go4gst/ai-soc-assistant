@@ -1,8 +1,8 @@
 # Stage 3L-S3 Step 3: COE Gate Review — `cov.q046.excessive_failed_logins_sample`
 
-**Date:** 2026-05-29 (updated for Step 3 implementation acceptance)  
-**Gate review commit:** `157a83d` · **S3.3A:** `214c1e7` · **S3 Step 3:** (see spine)  
-**Pilot:** `cov.q046.excessive_failed_logins_sample` — **implementation approved under conditions below**  
+**Date:** 2026-05-29 (COE sign-off recorded)  
+**Gate review commit:** `157a83d` · **S3.3A:** `214c1e7` · **S3 Step 3:** `0494447`  
+**Pilot:** `cov.q046.excessive_failed_logins_sample` — **COE-approved for lab pilot only** (see observation window below)  
 **References:** [Step 3 gate design](stage3l_s3_step3_coverage_gate_design.md), [trace checkpoint](stage3l_s3_trace_review_checkpoint.md)
 
 ---
@@ -27,7 +27,7 @@ Production remains: `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false`, all
 
 | Reviewer | Gate review acknowledged | Approve `cov.q046` for Step 3 **implementation** | Date |
 |----------|--------------------------|-----------------------------------------------------|------|
-| COE / Anurag | ☐ | ☐ | |
+| COE / Anurag | ☑ | ☑ | 2026-05-29 |
 
 ---
 
@@ -51,13 +51,13 @@ Production remains: `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false`, all
 ## Proceed order (COE / engineering)
 
 1. ✅ Verify S3.3A harness committed and green (`test_route_authority_gate_stage3l_s3_3a.py`, full pytest).
-2. ☐ COE signs gate review + `cov.q046` implementation approval (table above).
+2. ✅ COE signs gate review + `cov.q046` implementation approval (table above).
 3. ✅ Implement minimal S3 Step 3 authority path (`route_authority_apply.py`; shadow compare only; `selected_skill` preserved on `/chat`).
-4. Run full backend tests + harness after each change.
-5. **Default mode verification** — flags off: `operation_authoritative_applied=false`, `authority_fallback_reason=global_kill_switch_disabled`.
-6. **Lab pilot verification** — flags on + allowlist + mock/fixture with `threshold_ref` + `time_window`: `operation_authoritative_applied=true`, `authority_holder=route_plan_primary_skill`.
-7. Observe a real window with zero disagreements before pattern #2.
-8. Only then discuss a second `coverage_id`.
+4. ✅ Full backend tests + harness (`587` pytest, harness `6/6`).
+5. ✅ **Default mode verification** — captured 2026-05-29 ([traces](#environment-verification-traces)).
+6. ✅ **Lab pilot verification** — captured 2026-05-29 ([traces](#environment-verification-traces)).
+7. ☐ Observe a real window with **zero unexpected disagreements** before pattern #2 (in progress).
+8. ☐ Only then discuss a second `coverage_id`.
 
 ---
 
@@ -65,7 +65,7 @@ Production remains: `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false`, all
 
 | # | Question | Result | Evidence / notes |
 |---|----------|--------|------------------|
-| 1 | COE approve `cov.q046` pilot implementation? | **Pending signature** | Acceptance criteria table + sign-off wording above |
+| 1 | COE approve `cov.q046` pilot implementation? | **Pass (signed)** | Sign-off table + environment traces below |
 | 2 | Manifest row stable? | **Pass** | `pattern_coverage_v1.json` |
 | 3 | Route-plan fixture + validator? | **Pass** | R1/R2 tests |
 | 4 | Bridge compatible? | **Pass (mock)** | Trace checkpoint 1b |
@@ -127,6 +127,73 @@ Engineering reuses S3.3A harness and adds shadow-only authority application with
 
 ---
 
+## Environment verification traces
+
+Captured with `python3 scripts/capture_stage3l_s3_coe_pilot_traces.py` (mock `route_plan_shadow` candidate; same gate path as `/chat`). Full JSON: [`stage3l_s3_step3_coe_pilot_verification_traces.json`](stage3l_s3_step3_coe_pilot_verification_traces.json).
+
+Query (cov.q046-shaped): `Find top 10 users with failed Okta logins in the last 24 hours.`
+
+### 1. Default production-safe fallback
+
+| Env | Value |
+|-----|-------|
+| `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED` | `false` |
+| `ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST` | *(empty)* |
+
+| Trace field | Value |
+|-------------|-------|
+| `coverage_id_resolved` | `cov.q046.excessive_failed_logins_sample` |
+| `operation_authoritative_applied` | `false` |
+| `authority_fallback_reason` | `global_kill_switch_disabled` |
+| `authority_holder` | `legacy_selected_skill` |
+| `response.selected_skill` | `attack_discovery` (unchanged) |
+| `execution.executed_spl` | `null` |
+
+`authority_trace`: Operation authority not applied; legacy selected_skill remains authoritative. `fallback_reason='global_kill_switch_disabled'`.
+
+### 2. Lab pilot happy path
+
+| Env | Value |
+|-----|-------|
+| `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED` | `true` |
+| `ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST` | `cov.q046.excessive_failed_logins_sample` |
+| Candidate | `threshold_ref` + `time_window` present in `route_plan_parameters` |
+
+| Trace field | Value |
+|-------------|-------|
+| `operation_authoritative_applied` | `true` |
+| `authority_fallback_reason` | `null` |
+| `authority_holder` | `route_plan_primary_skill` |
+| `planning_primary_skill` | `aggregate_and_rank` |
+| `response.selected_skill` | `attack_discovery` (legacy preserved on response) |
+| `migration_phase` | `S3_step_3_cov_q046_pilot` |
+
+`authority_trace`: Operation authority applied for allowlisted coverage_id `cov.q046.excessive_failed_logins_sample`; planning uses `route_plan.primary_skill='aggregate_and_rank'`.
+
+### 3. Lab pilot — missing `threshold_ref` fallback
+
+| Env | Same lab flags as happy path |
+|-----|------------------------------|
+| Candidate | Valid aggregate plan **without** `threshold_ref` in parameters |
+
+| Trace field | Value |
+|-------------|-------|
+| `operation_authoritative_applied` | `false` |
+| `authority_fallback_reason` | `missing_required_threshold_ref` |
+| `authority_holder` | `legacy_selected_skill` |
+| `response.selected_skill` | `attack_discovery` |
+
+No default injected for `threshold_ref` or `time_window`.
+
+---
+
+## Pilot observation rule (COE)
+
+- **Scope:** `cov.q046.excessive_failed_logins_sample` only.
+- **No pattern #2** and no second allowlist `coverage_id` until this pilot runs clean with **zero unexpected disagreements** in the observation window (proceed order step 7).
+
+---
+
 ## Verification run
 
 ```bash
@@ -134,9 +201,11 @@ cd backend && python3 -m pytest app/tests/test_route_authority_gate_stage3l_s3_3
 cd backend && python3 -m pytest app/tests/test_route_authority_step3_stage3l_s3.py -q
 cd backend && python3 -m pytest
 python3 -m test_harness.harness.runner --json
+python3 scripts/capture_stage3l_s3_coe_pilot_traces.py
 ```
 
 | Check | Result |
 |-------|--------|
-| Backend pytest | run after Step 3 commit |
-| Harness | 6/6 expected at default flags |
+| Backend pytest | 587 passed |
+| Harness | 6/6 |
+| COE trace capture | 3/3 scenarios match expected apply/fallback |
