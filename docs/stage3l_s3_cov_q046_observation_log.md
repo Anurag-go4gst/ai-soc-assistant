@@ -3,7 +3,10 @@
 **Pilot:** `cov.q046.excessive_failed_logins_sample`  
 **COE sign-off:** [stage3l_s3_step3_coe_gate_review.md](stage3l_s3_step3_coe_gate_review.md) (2026-05-29)  
 **Capture script:** `python3 scripts/capture_stage3l_s3_coe_pilot_traces.py`  
+**Record observation run:** add `--record-run` → appends to [stage3l_s3_cov_q046_observation_runs.jsonl](stage3l_s3_cov_q046_observation_runs.jsonl)
 **Machine-readable baseline:** [stage3l_s3_step3_coe_pilot_verification_traces.json](stage3l_s3_step3_coe_pilot_verification_traces.json)
+
+**Status:** Observation **active** — rerun capture on cadence; do not add pattern #2 authority until the expansion rule is satisfied.
 
 ---
 

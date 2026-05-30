@@ -11,8 +11,9 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 |-------|---------|
 | **3L-S0** | Done / signed off |
 | **3L-S1** | Done — runtime operation validator v2; safety preserved; execution disabled; router authority unchanged |
-| **Next** | COE signature on gate review; lab pilot observation window; S2B renderer consumers |
-| **S5/S6** | Done — promotion gates + 105-Q runtime map (`question_runtime_map_v1.json`) |
+| **Next** | cov.q046 observation (`--record-run`); S2B renderer consumers; S7 preconditions |
+| **S5/S6** | S5/S6 author-time done; **S5.1** manifest audit + **S6.1** shadow `question_runtime_map` consumer |
+| **Trust** | Build trust without paralysis — observe pilot, audit manifest, map questions; no pattern #2 authority |
 
 ## Stage index
 
@@ -29,8 +30,8 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S3.3A | Authority fallback harness | same + `route_authority_gate.py` | Done | `214c1e7` |
 | S3 trace | Steps 1–2 trace review | [docs/stage3l_s3_trace_review_checkpoint.md](../docs/stage3l_s3_trace_review_checkpoint.md) | Done | `df11095` |
 | S4 | Layered skill registry | — | Proposed | — |
-| S5 | Q4A promotion gates | [docs/stage3l_s5_q4a_promotion_gates.md](../docs/stage3l_s5_q4a_promotion_gates.md) | Done | `6bd2a75` |
-| S6 | 105-Q runtime map | [docs/stage3l_s6_question_runtime_map.md](../docs/stage3l_s6_question_runtime_map.md) | Done | `6bd2a75` |
+| S5 | Q4A promotion gates | [docs/stage3l_s5_q4a_promotion_gates.md](../docs/stage3l_s5_q4a_promotion_gates.md) | Done — S5.1 manifest audit in backend | `6bd2a75` |
+| S6 | 105-Q runtime map | [docs/stage3l_s6_question_runtime_map.md](../docs/stage3l_s6_question_runtime_map.md) | Done — S6.1 shadow consumer | `6bd2a75` |
 | S7 | `hard_preconditions` runtime enforcement | — | Proposed | — |
 | S8 | Governance readiness freeze | — | Proposed | — |
 
@@ -62,7 +63,7 @@ S3 Steps 1–2 (shadow/compare) may run after S2A without a manifest row.
 
 | Check | Result |
 |-------|--------|
-| Backend pytest | 587 pass (post S3 Step 3 pilot) |
+| Backend pytest | 592 pass (post S5.1 / S6.1) |
 | Harness default | 6/6 |
 | `/chat` `selected_skill` | Unchanged |
 | MCP / SPL execution | Disabled |

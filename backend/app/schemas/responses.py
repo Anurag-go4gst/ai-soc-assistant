@@ -235,6 +235,7 @@ class RoutePlanShadowEnvelope(BaseModel):
     intent_operation_bridge: dict[str, object] | None = None
     output_artifacts: dict[str, object] | None = None
     route_authority_compare: dict[str, object] | None = None
+    question_runtime_map: dict[str, object] | None = None
 
 
 class AnalystResponseEnvelope(BaseModel):

@@ -96,8 +96,37 @@ def _run_scenario(
         mp.undo()
 
 
+def _append_observation_run(scenarios: list[dict[str, Any]]) -> None:
+    from datetime import datetime, timezone
+
+    runs_path = _REPO / "docs" / "stage3l_s3_cov_q046_observation_runs.jsonl"
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with runs_path.open("a", encoding="utf-8") as handle:
+        for item in scenarios:
+            compare = item.get("route_authority_compare") or {}
+            record = {
+                "recorded_at": stamp,
+                "scenario": item.get("scenario"),
+                "operation_authoritative_applied": compare.get("operation_authoritative_applied"),
+                "authority_fallback_reason": compare.get("authority_fallback_reason"),
+                "authority_holder": compare.get("authority_holder"),
+                "selected_skill": compare.get("selected_skill"),
+                "legacy_selected_skill_preserved": compare.get("legacy_selected_skill_preserved"),
+            }
+            handle.write(json.dumps(record) + "\n")
+
+
 def main() -> int:
+    import argparse
     import pytest
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--record-run",
+        action="store_true",
+        help="Append scenario summary to docs/stage3l_s3_cov_q046_observation_runs.jsonl",
+    )
+    args = parser.parse_args()
 
     scenarios = [
         _run_scenario(
@@ -131,7 +160,11 @@ def main() -> int:
         "scenarios": scenarios,
     }
     out_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    if args.record_run:
+        _append_observation_run(scenarios)
     print(json.dumps({"written": str(out_path), "scenario_count": len(scenarios)}, indent=2))
+    if args.record_run:
+        print("appended observation run to docs/stage3l_s3_cov_q046_observation_runs.jsonl")
     for item in scenarios:
         compare = item.get("route_authority_compare") or {}
         print(

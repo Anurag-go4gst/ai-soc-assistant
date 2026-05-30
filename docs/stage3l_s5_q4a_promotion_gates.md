@@ -1,6 +1,6 @@
 # Stage 3L-S5: Q4A Promotion Gates
 
-**Status:** Implemented (2026-05-29) — author-time only; Q4A still never writes the manifest.
+**Status:** S5 author-time gates done; **S5.1** committed-manifest audit in backend (2026-05-29). Q4A still never writes the manifest.
 
 **Purpose:** Deterministic checklist before a human copies a draft `entry` into `backend/app/coverage/pattern_coverage_v1.json`.
 
@@ -8,7 +8,7 @@
 
 | Gate ID | Requirement |
 |---------|-------------|
-| `draft_validation_clean` | `validate_draft_entry` returns no errors |
+| `registry_validation_clean` | Manifest entry validator returns no errors (draft: strict; committed: fixture-aware) |
 | `coverage_id_not_in_manifest` | `coverage_id` not already present in committed manifest |
 | `route_plan_primary_skill_matches_entry` | `route_plan_shape.primary_skill` == `entry.primary_skill` |
 | `operation_type_allowed_for_skill` | `operation_type` in `runtime_skill_catalog.py` allowlist |
@@ -42,6 +42,26 @@ python tools/coverage_authoring/coverage_drafter.py \
 ```
 
 Exit code `0` when `manifest_copy_ready`; `1` otherwise.
+
+## S5.1 — Committed manifest audit (backend)
+
+Canonical implementation: [`backend/app/coverage/manifest_promotion_gates.py`](../backend/app/coverage/manifest_promotion_gates.py)
+Audit helper: [`backend/app/coverage/manifest_promotion_audit.py`](../backend/app/coverage/manifest_promotion_audit.py)
+
+| Mode | Use |
+|------|-----|
+| `draft` | New row before manual copy (`coverage_id_not_in_manifest`) |
+| `committed` | Every row already in `pattern_coverage_v1.json` (`coverage_id_in_manifest`) |
+
+```bash
+export PYTHONPATH=backend
+python tools/coverage_authoring/check_manifest_promotion.py
+python tools/coverage_authoring/check_manifest_promotion.py --json
+```
+
+`pytest`: `app/tests/test_manifest_promotion_audit_stage3l_s5.py` — fails CI if any committed row regresses.
+
+Does **not** block `/chat`; trust signal only.
 
 ## Manual promotion (unchanged)
 

@@ -1,6 +1,6 @@
 # Stage 3L-S6: 105-Question Runtime Operation Map
 
-**Status:** Implemented (2026-05-29)
+**Status:** S6 map done; **S6.1** shadow consumer wired (2026-05-29)
 
 **Artifact:** [`backend/app/coverage/question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json)  
 **Loader:** [`backend/app/coverage/question_runtime_map.py`](../backend/app/coverage/question_runtime_map.py)
@@ -16,6 +16,15 @@ Map each of the 105 Stage 3K-Q0 taxonomy questions to:
 - S3 authority pilot metadata for `q0.q046` only
 
 This registry is **read-only** for runtime tooling and tests. It does not change `/chat` routing, `selected_skill`, or operation authority.
+
+### S6.1 — Shadow surface (`question_runtime_map`)
+
+When `route_plan_shadow` resolves a `coverage_id`, `/chat` attaches an observational block:
+
+- [`backend/app/coverage/question_runtime_map_shadow.py`](../backend/app/coverage/question_runtime_map_shadow.py)
+- Field on `RoutePlanShadowEnvelope`: `question_runtime_map` (`observation_only: true`)
+
+No MCP/SPL/LLM enablement; no second authority pilot.
 
 ## Regenerate
 
@@ -33,7 +42,7 @@ After adding or changing manifest rows, rerun emit and commit the JSON.
 | Taxonomy questions | 105 |
 | Manifest rows linked | 10 |
 | Authority pilot | `q0.q046` → `cov.q046.excessive_failed_logins_sample` |
-| `s3_authority_ready` | `false` (COE Step 3 not approved) |
+| `s3_authority_ready` | `false` in map (expansion gate; COE signed pilot only — no pattern #2) |
 
 ## Skill drift
 
@@ -42,5 +51,5 @@ After adding or changing manifest rows, rerun emit and commit the JSON.
 ## Tests
 
 ```bash
-cd backend && python3 -m pytest app/tests/test_question_runtime_map_stage3l_s6.py -q
+cd backend && python3 -m pytest app/tests/test_question_runtime_map_stage3l_s6.py app/tests/test_question_runtime_map_shadow_stage3l_s6.py -q
 ```
