@@ -1,13 +1,6 @@
 from __future__ import annotations
 
-from typing import Final
-
-SKILL_ENUM: Final[tuple[str, ...]] = (
-    "alert_summary",
-    "spl_generation",
-    "attack_discovery",
-    "knowledge_recall",
-)
+from contracts.skill_enum import SKILL_ENUM
 
 
 def validate_skill(skill: str) -> str:

@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Stage 3L / 3M governance regression (no live MCP, no live LLM, no route authority).
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
+export PYTHONPATH="${REPO_ROOT}/backend:${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+
+section() {
+  echo ""
+  echo "== $1 =="
+}
+
+fail() {
+  echo "REGRESSION FAILED: $1" >&2
+  exit 1
+}
+
+section "backend pytest"
+(cd backend && python3 -m pytest -q) || fail "backend pytest"
+
+section "test harness (6/6)"
+python3 -m test_harness.harness.runner --json >/tmp/stage3_harness.jsonl
+if ! python3 -c "
+import json, sys
+lines = open('/tmp/stage3_harness.jsonl').read().splitlines()
+rows = [json.loads(l) for l in lines if l.strip()]
+assert len(rows) == 6, len(rows)
+assert all(r.get('overall_pass') for r in rows), [r.get('case_id') for r in rows if not r.get('overall_pass')]
+"; then
+  fail "harness not 6/6"
+fi
+
+section "manifest promotion audit"
+python3 tools/coverage_authoring/check_manifest_promotion.py || fail "manifest promotion audit"
+
+section "105-question operation map audit"
+python3 tools/coverage_authoring/check_question_operation_map.py || fail "operation map audit"
+
+section "cov.q046 trace capture baseline"
+python3 -c "
+import json
+from pathlib import Path
+p = Path('docs/stage3l_s3_step3_coe_pilot_verification_traces.json')
+data = json.loads(p.read_text(encoding='utf-8'))
+assert data.get('pilot_coverage_id') == 'cov.q046.excessive_failed_logins_sample'
+scenarios = data.get('scenarios') or []
+assert len(scenarios) >= 2, len(scenarios)
+for name in ('default_production_safe_fallback', 'lab_pilot_happy_path'):
+    assert any(s.get('scenario') == name for s in scenarios), [s.get('scenario') for s in scenarios]
+print('cov_q046_baseline_ok scenarios=%d' % len(scenarios))
+" || fail "cov.q046 baseline JSON"
+
+section "cov.q046 Step 7 observation window (pytest)"
+(cd backend && python3 -m pytest app/tests/test_cov_q046_observation_window_stage3l_s3_step7.py -q) || fail "cov.q046 observation window tests"
+
+section "cov.q046 observation summary closed"
+python3 -c "
+import json
+from pathlib import Path
+summary = json.loads(Path('docs/stage3l_s3_cov_q046_observation_summary.json').read_text(encoding='utf-8'))
+assert summary.get('status') == 'closed', summary
+assert summary.get('unexpected_disagreement_count') == 0, summary
+assert summary.get('authority_eligible') is True, summary
+print('cov_q046_window_closed', summary.get('closure_reason'))
+" || fail "observation summary not closed"
+
+section "Stage 3M-S5 live MCP capture fail-closed"
+if python3 scripts/capture_stage3m_s5_live_mcp_schema.py >/tmp/stage3m_s5_capture.out 2>/tmp/stage3m_s5_capture.err; then
+  fail "live MCP capture should fail closed without flag"
+fi
+grep -q 'capture_blocked:live_capture_flag_missing' /tmp/stage3m_s5_capture.err \
+  || fail "expected live_capture_flag_missing"
+
+section "105-question shadow route eval"
+python3 scripts/eval_stage3l_105_question_shadow_routes.py \
+  --out-dir docs/evals/out \
+  || fail "105-question shadow eval"
+
+section "done"
+echo "stage3_governance_regression: PASS"

@@ -59,11 +59,19 @@ Backend bare-run (outside Docker, rare): `uvicorn app.main:app --host 0.0.0.0 --
 
 ## Tests
 
-Backend tests:
+Canonical governance regression (pytest, harness 6/6, audits, cov.q046 closure, 105-Q eval):
+
+```bash
+./scripts/run_stage3_governance_regression.sh
+```
+
+See [`docs/evals/regression_baseline.md`](docs/evals/regression_baseline.md) for expected green counts.
+
+Backend tests only:
 
 ```bash
 cd backend
-python3 -m pytest
+PYTHONPATH=../backend:.. python3 -m pytest
 ```
 
 Frontend build:
@@ -76,15 +84,13 @@ npm run build
 Independent harness:
 
 ```bash
-python3 -m test_harness.harness.runner --json
-TELEMETRY_MODE=none python3 -m test_harness.harness.runner --json
+PYTHONPATH=backend:. python3 -m test_harness.harness.runner --json
+TELEMETRY_MODE=none PYTHONPATH=backend:. python3 -m test_harness.harness.runner --json
 ```
 
 Expected current baseline:
-- Backend pytest: all tests pass.
+- Governance regression script: PASS (0 pytest failures, harness 6/6).
 - Frontend build: passes.
-- Harness default: 6/6 pass.
-- Harness with `TELEMETRY_MODE=none`: 6/6 pass.
 
 ## Layout
 

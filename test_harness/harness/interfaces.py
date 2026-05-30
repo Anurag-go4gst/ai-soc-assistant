@@ -13,12 +13,7 @@ from typing import Any, Protocol
 
 
 # Closed enum of skills the routing layer is allowed to emit.
-SKILL_ENUM: tuple[str, ...] = (
-    "alert_summary",
-    "spl_generation",
-    "attack_discovery",
-    "knowledge_recall",
-)
+from contracts.skill_enum import SKILL_ENUM
 
 
 @dataclass(frozen=True)

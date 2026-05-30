@@ -59,11 +59,19 @@ Any change that violates these boundaries needs explicit user approval and a lat
 
 ## Verification
 
-For backend work:
+Canonical governance regression:
+
+```bash
+./scripts/run_stage3_governance_regression.sh
+```
+
+Baseline: [`docs/evals/regression_baseline.md`](docs/evals/regression_baseline.md).
+
+For backend work only:
 
 ```bash
 cd backend
-python3 -m pytest
+PYTHONPATH=../backend:.. python3 -m pytest
 ```
 
 For frontend or shared type changes:
@@ -76,16 +84,13 @@ npm run build
 For harness independence:
 
 ```bash
-python3 -m test_harness.harness.runner --json
-TELEMETRY_MODE=none python3 -m test_harness.harness.runner --json
+PYTHONPATH=backend:. python3 -m test_harness.harness.runner --json
 ```
 
 Expected baseline:
 
-- Backend tests pass.
+- Governance regression script PASS (0 failed pytest, harness 6/6).
 - Frontend build passes.
-- Harness default is 6/6.
-- Harness with `TELEMETRY_MODE=none` is 6/6.
 
 ## Commit Hygiene
 
