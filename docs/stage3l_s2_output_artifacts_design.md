@@ -1,6 +1,6 @@
 # Stage 3L-S2B: Output Artifacts — Design Note
 
-**Status:** Shadow library landed (2026-05-29) — [`output_artifacts.py`](../backend/app/routing/output_artifacts.py) + shadow/lineage only. **COE sign-off still pending** before renderer or analyst-card consumers. Gated separately from [S2A intent bridge](stage3l_s2_intent_bridge_design.md).
+**Status:** Shadow library landed (2026-05-29) — [`output_artifacts.py`](../backend/app/routing/output_artifacts.py) + shadow/lineage only. **COE sign-off still pending** before renderer or analyst-card consumers. See [stage3l_s2b_renderer_coe_signoff.md](stage3l_s2b_renderer_coe_signoff.md). Gated separately from [S2A intent bridge](stage3l_s2_intent_bridge_design.md).
 
 **Purpose:** Define what `output_artifacts` means; S2B resolves tokens on `route_plan_shadow` without renderer or answer-text changes.
 

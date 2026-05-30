@@ -17,6 +17,7 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
   const governance = resolveGovernanceTrace(trace);
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950/70 text-xs text-slate-300">
+      <RoutePlanShadowDemoCallout trace={trace} />
       <div className="divide-y divide-slate-800/80">
         {rows.map((row, index) => (
           <div key={row.title}>
@@ -121,9 +122,26 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
   ];
 }
 
+function RoutePlanShadowDemoCallout({ trace }: Stage3DTracePanelProps) {
+  if (!trace.demo_mode || trace.route_plan_shadow) {
+    return null;
+  }
+  return (
+    <div className="border-b border-slate-800/80 px-3 py-2.5 text-slate-400">
+      <p className="font-medium text-slate-300">Route-plan shadow</p>
+      <p className="mt-1 leading-5">
+        Experience Center demos keep <span className="font-mono text-slate-300">route_plan_shadow=null</span> by design.
+        Live <span className="font-mono text-slate-300">/chat</span> runs the shadow compare pipeline; demos use investigation
+        lineage and governance trace only (fixture-backed, deterministic answers).
+      </p>
+    </div>
+  );
+}
+
 function RawDeveloperTracePanel({ trace }: Stage3DTracePanelProps) {
   return (
     <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-300">
+      <RoutePlanShadowDemoCallout trace={trace} />
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary">Technical evidence path</Badge>
         <Badge>{trace.trace_id.slice(0, 8)}</Badge>

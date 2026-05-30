@@ -44,6 +44,8 @@ def test_fake_provider_adds_lineage_without_changing_analyst_text(monkeypatch: p
         for stage in after.investigation_lineage.stages
         if stage.stage_id == "demo_foundation_sec_shadow"
     )
+    assert shadow_stage.visible_label == "Demo shadow proposal (deterministic wins)"
+    assert "deterministic_wins=true" in shadow_stage.explanation
     assert shadow_stage.technical_output["called"] is True
     assert shadow_stage.technical_output["provider"] == "fake"
     assert shadow_stage.technical_output["deterministic_wins"] is True

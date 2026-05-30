@@ -206,11 +206,17 @@ def _demo_foundation_sec_shadow_stage(demo_llm_shadow: dict[str, Any]) -> Lineag
     status = str(demo_llm_shadow.get("governed_acceptance_status") or "observed")
     if demo_llm_shadow.get("dropped_reasons") and status == "accepted_shadow":
         status = "partially_accepted"
+    provider = str(demo_llm_shadow.get("provider") or "disabled")
+    deterministic_wins = demo_llm_shadow.get("deterministic_wins", True)
     return _stage(
         "demo_foundation_sec_shadow",
         status,
-        "Foundation-Sec shadow (demo)",
-        "Demo-only model proposal and narration for lineage reveal; deterministic demo answer unchanged.",
+        "Demo shadow proposal (deterministic wins)",
+        (
+            "Fixture-backed demo answer unchanged; raw model text is lineage-only shadow. "
+            f"deterministic_wins={str(bool(deterministic_wins)).lower()}; provider={provider}. "
+            "Not live Foundation-Sec or production LLM output."
+        ),
         demo_llm_shadow,
         [],
         "shadow",

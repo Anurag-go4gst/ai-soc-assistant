@@ -40,6 +40,7 @@ function LineageRow({ stage, isLast }: { stage: LineageStage; isLast: boolean })
             <span className="font-semibold text-slate-100">{stage.visible_label}</span>
             <Badge variant={statusVariant(stage.status)}>{stage.status}</Badge>
             <ModeSourceBadge source={stage.current_mode_source} />
+            <DemoShadowBadges stage={stage} />
           </div>
           <p className="mt-1 text-slate-400">{stage.explanation}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
@@ -60,6 +61,25 @@ function LineageRow({ stage, isLast }: { stage: LineageStage; isLast: boolean })
         </div>
       </div>
     </div>
+  );
+}
+
+function DemoShadowBadges({ stage }: { stage: LineageStage }) {
+  if (stage.stage_id !== 'demo_foundation_sec_shadow') {
+    return null;
+  }
+  const output = stage.technical_output ?? {};
+  const provider = typeof output.provider === 'string' ? output.provider : 'disabled';
+  const deterministicWins = output.deterministic_wins !== false;
+  return (
+    <>
+      <Badge variant="warning">scenario-backed</Badge>
+      <Badge variant={deterministicWins ? 'success' : 'warning'}>
+        deterministic wins: {deterministicWins ? 'true' : 'false'}
+      </Badge>
+      <Badge variant="outline">provider: {provider}</Badge>
+      <Badge variant="secondary">not live model output</Badge>
+    </>
   );
 }
 
