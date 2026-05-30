@@ -9,6 +9,7 @@ from app.skills.models import SkillChain, SkillSelectionResult
 from app.synthesis.models import SynthesisStatus
 from app.threat.mitre_kb import MitreMappingDecision
 from app.demo.experience_center_governance import ExperienceCenterGovernance
+from app.governance.trace_panels import GovernanceTrace
 from app.use_cases.models import UseCaseSelection
 
 
@@ -342,3 +343,4 @@ class PlaceholderResponse(BaseModel):
     answer_guard: AnswerGuardStatus | None = None
     action_capability: ActionCapability | None = None
     experience_center_governance: ExperienceCenterGovernance | None = None
+    governance_trace: GovernanceTrace | None = None

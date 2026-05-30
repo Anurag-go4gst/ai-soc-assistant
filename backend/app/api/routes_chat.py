@@ -29,6 +29,7 @@ from app.routing.precondition_evaluation_shadow import apply_precondition_evalua
 from app.routing.route_authority_compare import apply_route_authority_compare_to_shadow
 from app.routing.template_match_shadow import apply_template_match_to_shadow
 from app.synthesis.analyst_summary_llm_assist import apply_analyst_summary_shadow
+from app.governance.trace_panels import build_governance_trace
 from app.risk.severity_policy import decide_severity
 from app.routing.skill_router import route_skill
 from app.safeguards.spl_validator import validate_spl
@@ -135,6 +136,20 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         )
         note = "MITRE mapping requires grounded alert context; no SPL was generated."
 
+    governance_trace = build_governance_trace(
+        demo_mode=False,
+        use_case_id=selected_use_case.use_case_id if selected_use_case else None,
+        selected_skill=str(routed["skill"]),
+        severity_decision=severity_decision,
+        investigation_lineage=investigation_lineage,
+        source_evidence=source_evidence,
+        execution=execution,
+        route_plan_shadow=route_plan_shadow,
+        question_runtime_map=route_plan_shadow.get("question_runtime_map") if route_plan_shadow else None,
+        precondition_evaluation=route_plan_shadow.get("precondition_evaluation") if route_plan_shadow else None,
+        selected_use_case=selected_use_case.model_dump() if selected_use_case else None,
+    )
+
     return PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,
@@ -166,6 +181,7 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
         synthesis_status=synthesis_status,
         answer_guard=answer_guard,
         action_capability=action_capability,
+        governance_trace=governance_trace,
     )
 
 

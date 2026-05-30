@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/CopyButton';
 import { cn } from '@/lib/utils';
 import { ExperienceCenterGovernancePanels } from '@/components/ExperienceCenterGovernancePanels';
+import { resolveGovernanceTrace } from '@/lib/governanceTrace';
 import type { ExecutionEnvelope, HumanReviewEnvelope, PlaceholderResponse, SourceEvidenceEnvelope, SplValidationEnvelope, StructuredContextPackage, WorkflowPlan } from '@/types/api';
 
 interface Stage3DTracePanelProps {
@@ -13,6 +14,7 @@ interface Stage3DTracePanelProps {
 export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
   const rows = evidenceRowsFor(trace);
   const splunkRowIndex = rows.findIndex((row) => row.title === 'Splunk MCP');
+  const governance = resolveGovernanceTrace(trace);
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950/70 text-xs text-slate-300">
       <div className="divide-y divide-slate-800/80">
@@ -24,9 +26,10 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
                 <div className="font-semibold text-slate-100">{row.title}</div>
                 <div className="mt-1 text-slate-400">{row.detail}</div>
                 <div className="mt-1 text-slate-500">{row.meta}</div>
-                {trace.demo_mode && trace.experience_center_governance && index === splunkRowIndex ? (
+                {governance && index === splunkRowIndex ? (
                   <ExperienceCenterGovernancePanels
-                    governance={trace.experience_center_governance}
+                    governance={governance}
+                    demoMode={trace.demo_mode}
                     sections={['mcp']}
                   />
                 ) : null}
@@ -35,10 +38,11 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
           </div>
         ))}
       </div>
-      {trace.demo_mode && trace.experience_center_governance ? (
+      {governance ? (
         <div className="border-t border-slate-800/80 px-3 py-3">
           <ExperienceCenterGovernancePanels
-            governance={trace.experience_center_governance}
+            governance={governance}
+            demoMode={trace.demo_mode}
             sections={['severity', 'skills', 'completion']}
           />
         </div>

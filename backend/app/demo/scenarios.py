@@ -179,6 +179,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "answer_guard": answer_guard.model_dump(),
         "action_capability": action_capability.model_dump(),
         "experience_center_governance": experience_center_governance.model_dump(),
+        "governance_trace": experience_center_governance.model_dump(),
     }
 
 

@@ -55,6 +55,7 @@ export interface PlaceholderResponse {
   answer_guard?: AnswerGuardStatus | null;
   action_capability?: ActionCapability | null;
   experience_center_governance?: ExperienceCenterGovernance | null;
+  governance_trace?: ExperienceCenterGovernance | null;
 }
 
 export interface McpEnvelopeGovernancePanel {

@@ -23,7 +23,7 @@ def _visible_answer(response) -> str:
 def test_failed_login_governance_panels_and_answer_unchanged() -> None:
     response = _run("failed_login_spike_app01")
     visible = _visible_answer(response)
-    gov = response.experience_center_governance
+    gov = response.governance_trace or response.experience_center_governance
 
     assert response.analyst_response is not None
     assert response.analyst_response.severity_label == "P2 High"
@@ -84,15 +84,16 @@ def test_all_demo_scenarios_expose_governance_metadata() -> None:
 
     for item in list_demo_scenario_fixtures()["scenarios"]:
         response = _run(item["scenario_id"])
+        assert response.governance_trace is not None
         assert response.experience_center_governance is not None
-        assert response.experience_center_governance.skills_operations.intent_skill == response.selected_skill
-        assert response.experience_center_governance.completion_status.completed
-        assert response.experience_center_governance.completion_status.gated_wip
+        assert response.governance_trace.skills_operations.intent_skill == response.selected_skill
+        assert response.governance_trace.completion_status.completed
+        assert response.governance_trace.completion_status.gated_wip
 
 
 def test_lockout_demo_envelope_when_mock_execution_path() -> None:
     response = _run("account_lockouts_over_time_spl")
-    gov = response.experience_center_governance
+    gov = response.governance_trace or response.experience_center_governance
     assert gov is not None
     assert gov.mcp_envelope is not None
     assert gov.mcp_envelope.available is True

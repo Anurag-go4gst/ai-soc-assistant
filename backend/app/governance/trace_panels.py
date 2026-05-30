@@ -1,0 +1,378 @@
+"""Shared governance trace panels for Experience Center and /chat (explanation only)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+from app.demo.mcp_result_envelope import demo_envelope_from_rows
+from app.risk.severity_policy import SeverityDecision
+
+COMPLETED_CAPABILITIES = [
+    "legacy intent routing",
+    "runtime operation contracts",
+    "intent-to-operation bridge",
+    "SPL validation metadata",
+    "MCP execution gate",
+    "evidence packaging",
+    "MITRE mapping",
+    "severity decision",
+    "context sufficiency",
+    "action capability policy",
+]
+
+GATED_WIP_CAPABILITIES = [
+    "live MCP/Splunk execution",
+    "first real MCP schema confirmation",
+    "final LLM synthesis",
+    "Answer Guard execution",
+    "renderer consumption of output artifacts",
+    "pattern #2 authority expansion",
+    "full production readiness for all 105 questions",
+]
+
+PIPELINE_STAGE_SPECS: list[tuple[str, str, str]] = [
+    ("query_understanding", "query_understanding", "Query understanding"),
+    ("workflow_planning", "workflow", "Workflow planning"),
+    ("spl_template", "spl_template", "SPL template"),
+    ("spl_validation", "spl_validation", "SPL validation"),
+    ("mcp_execution_gate", "mcp_tool_decision", "MCP execution gate"),
+    ("source_evidence", "source_evidence", "Source evidence"),
+    ("mitre_mapping", "mitre_mapping", "MITRE mapping"),
+    ("severity_decision", "severity", "Severity decision"),
+    ("context_sufficiency", "context_sufficiency", "Context sufficiency"),
+    ("action_capability", "action_capability", "Action capability"),
+    ("llm_synthesis_planned", "synthesis", "LLM synthesis planned"),
+    ("answer_guard_planned", "answer_guard", "Answer Guard planned"),
+]
+
+FAILED_LOGIN_SCENARIO_ID = "failed_login_spike_app01"
+
+FAILED_LOGIN_WHY_P2 = [
+    "high failed-login volume",
+    "multiple source IPs",
+    "APP-01 target",
+    "T1110.001 supported",
+]
+
+FAILED_LOGIN_WHY_NOT_P1_P0 = [
+    "no confirmed successful login after failures",
+    "no confirmed privileged/service account impact",
+    "no confirmed critical asset status",
+    "no confirmed source ownership",
+    "no confirmed post-authentication activity",
+    "account compromise not confirmed",
+]
+
+FAILED_LOGIN_PRIORITY_NOTE = (
+    "Action priority is not the same as incident severity. P1 actions are immediate validation tasks; "
+    "the current incident severity remains P2 High."
+)
+
+# Documented parity gap: golden analyst card vs severity_decision (do not fix in trace-panel work).
+MITRE_MAPPING_AUTH_ALERT_SEVERITY_PARITY_GAP = "mitre_mapping_auth_alert_analyst_P2_vs_decision_P3"
+
+
+class McpEnvelopeGovernancePanel(BaseModel):
+    available: bool = False
+    origin: str | None = None
+    schema_confirmed: bool | None = None
+    schema_confirmed_reason: str | None = None
+    status: str | None = None
+    row_count: int | None = None
+    total_row_count: int | None = None
+    truncated: bool | None = None
+    truncation_reason: str | None = None
+    fields: list[str] = Field(default_factory=list)
+    preview_rows_count: int | None = None
+    warnings: list[str] = Field(default_factory=list)
+    provenance: str | None = None
+    executed_spl: str | None = None
+
+
+class SeverityGovernancePanel(BaseModel):
+    severity_label: str
+    why_severity_title: str
+    why_severity: list[str] = Field(default_factory=list)
+    why_not_higher_title: str = "Why not P1/P0?"
+    why_not_higher: list[str] = Field(default_factory=list)
+    priority_note: str | None = None
+
+
+class PipelineStageStatus(BaseModel):
+    stage_id: str
+    label: str
+    status: str
+
+
+class SkillsOperationsGovernancePanel(BaseModel):
+    intent_skill: str
+    legacy_router_skill: str
+    runtime_operation: str | None = None
+    runtime_operation_note: str
+    pipeline_stages: list[PipelineStageStatus] = Field(default_factory=list)
+
+
+class CompletionStatusGovernancePanel(BaseModel):
+    completed: list[str] = Field(default_factory=list)
+    gated_wip: list[str] = Field(default_factory=list)
+
+
+class GovernanceTrace(BaseModel):
+    mcp_envelope: McpEnvelopeGovernancePanel | None = None
+    severity: SeverityGovernancePanel | None = None
+    skills_operations: SkillsOperationsGovernancePanel
+    completion_status: CompletionStatusGovernancePanel
+
+
+def build_governance_trace(
+    *,
+    demo_mode: bool = False,
+    scenario_id: str | None = None,
+    use_case_id: str | None = None,
+    selected_skill: str | None = None,
+    severity_decision: SeverityDecision | None = None,
+    investigation_lineage: Any | None = None,
+    source_evidence: list[dict[str, Any]] | None = None,
+    execution: dict[str, Any] | None = None,
+    splunk_result_envelope: dict[str, Any] | None = None,
+    route_plan_shadow: dict[str, Any] | None = None,
+    question_runtime_map: dict[str, Any] | None = None,
+    precondition_evaluation: dict[str, Any] | None = None,
+    selected_use_case: dict[str, Any] | None = None,
+) -> GovernanceTrace | None:
+    """Build trace-only governance panels when minimum routing context exists."""
+    if not selected_skill:
+        return None
+
+    lineage_dict = _as_dict(investigation_lineage)
+    shadow = route_plan_shadow if isinstance(route_plan_shadow, dict) else None
+    runtime_map = question_runtime_map if isinstance(question_runtime_map, dict) else None
+    if runtime_map is None and shadow is not None:
+        runtime_map = shadow.get("question_runtime_map") if isinstance(shadow.get("question_runtime_map"), dict) else None
+
+    precond = precondition_evaluation if isinstance(precondition_evaluation, dict) else None
+    if precond is None and shadow is not None:
+        precond = shadow.get("precondition_evaluation") if isinstance(shadow.get("precondition_evaluation"), dict) else None
+
+    envelope_panel = _mcp_envelope_panel(
+        list(source_evidence or []),
+        execution,
+        splunk_result_envelope if isinstance(splunk_result_envelope, dict) else None,
+    )
+    severity_panel = _severity_panel(
+        scenario_id=scenario_id,
+        severity_decision=severity_decision,
+    )
+    skills_panel = _skills_operations_panel(
+        selected_skill=selected_skill,
+        investigation_lineage=lineage_dict,
+        route_plan_shadow=shadow,
+        question_runtime_map=runtime_map,
+        precondition_evaluation=precond,
+        selected_use_case=selected_use_case if isinstance(selected_use_case, dict) else None,
+        use_case_id=use_case_id,
+        demo_mode=demo_mode,
+    )
+
+    return GovernanceTrace(
+        mcp_envelope=envelope_panel,
+        severity=severity_panel,
+        skills_operations=skills_panel,
+        completion_status=CompletionStatusGovernancePanel(
+            completed=list(COMPLETED_CAPABILITIES),
+            gated_wip=list(GATED_WIP_CAPABILITIES),
+        ),
+    )
+
+
+def _as_dict(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    if isinstance(value, dict):
+        return value
+    return None
+
+
+def _mcp_envelope_panel(
+    source_evidence: list[dict[str, Any]],
+    execution: dict[str, Any] | None,
+    splunk_result_envelope: dict[str, Any] | None,
+) -> McpEnvelopeGovernancePanel | None:
+    envelope_dict: dict[str, Any] | None = None
+    executed_spl: str | None = None
+
+    if splunk_result_envelope:
+        envelope_dict = splunk_result_envelope
+        if execution:
+            executed_spl = execution.get("executed_spl")
+    elif execution and isinstance(execution.get("splunk_result_envelope"), dict):
+        envelope_dict = execution["splunk_result_envelope"]
+        executed_spl = execution.get("executed_spl")
+    else:
+        splunk_items = [item for item in source_evidence if item.get("source_type") == "splunk_mcp"]
+        if splunk_items:
+            item = splunk_items[0]
+            preview_rows = item.get("preview_rows") or []
+            if isinstance(preview_rows, list) and preview_rows:
+                envelope = demo_envelope_from_rows(
+                    preview_rows,
+                    trace_id=str(item.get("trace_id") or ""),
+                    normalized_spl=item.get("executed_spl"),
+                )
+                envelope_dict = envelope.to_dict()
+            executed_spl = item.get("executed_spl")
+
+    if not envelope_dict:
+        return None
+
+    preview_rows = envelope_dict.get("rows") or []
+    return McpEnvelopeGovernancePanel(
+        available=True,
+        origin=str(envelope_dict.get("origin") or ""),
+        schema_confirmed=bool(envelope_dict.get("schema_confirmed")),
+        schema_confirmed_reason=str(envelope_dict.get("schema_confirmed_reason") or ""),
+        status=str(envelope_dict.get("status") or ""),
+        row_count=int(envelope_dict.get("row_count") or 0),
+        total_row_count=envelope_dict.get("total_row_count"),
+        truncated=bool(envelope_dict.get("truncated")),
+        truncation_reason=envelope_dict.get("truncation_reason"),
+        fields=[str(field) for field in envelope_dict.get("fields") or []],
+        preview_rows_count=len(preview_rows) if isinstance(preview_rows, list) else 0,
+        warnings=[str(warning) for warning in envelope_dict.get("warnings") or []],
+        provenance=str(envelope_dict.get("provenance") or ""),
+        executed_spl=executed_spl,
+    )
+
+
+def _severity_panel(
+    *,
+    scenario_id: str | None,
+    severity_decision: SeverityDecision | None,
+) -> SeverityGovernancePanel | None:
+    if severity_decision is None:
+        return SeverityGovernancePanel(
+            severity_label="not available",
+            why_severity_title="Severity decision",
+            why_severity=["Severity policy output was not available for this trace."],
+            why_not_higher=[],
+            priority_note=None,
+        )
+
+    label = severity_decision.severity_label
+    if scenario_id == FAILED_LOGIN_SCENARIO_ID and label == "P2 High":
+        return SeverityGovernancePanel(
+            severity_label=label,
+            why_severity_title="Why P2 High?",
+            why_severity=list(FAILED_LOGIN_WHY_P2),
+            why_not_higher=list(FAILED_LOGIN_WHY_NOT_P1_P0),
+            priority_note=FAILED_LOGIN_PRIORITY_NOTE,
+        )
+
+    title = f"Why {label}?"
+    why_severity = list(severity_decision.matched_rules) or [f"Severity policy default: {label}."]
+    why_not_higher = list(severity_decision.why_not_higher)
+    if severity_decision.missing_evidence:
+        why_not_higher.extend(
+            f"missing evidence for escalation: {item}" for item in severity_decision.missing_evidence
+        )
+    return SeverityGovernancePanel(
+        severity_label=label,
+        why_severity_title=title,
+        why_severity=why_severity,
+        why_not_higher=why_not_higher or ["Higher severity thresholds were not met by available evidence."],
+        priority_note=None,
+    )
+
+
+def _skills_operations_panel(
+    *,
+    selected_skill: str,
+    investigation_lineage: dict[str, Any] | None,
+    route_plan_shadow: dict[str, Any] | None,
+    question_runtime_map: dict[str, Any] | None,
+    precondition_evaluation: dict[str, Any] | None,
+    selected_use_case: dict[str, Any] | None,
+    use_case_id: str | None,
+    demo_mode: bool,
+) -> SkillsOperationsGovernancePanel:
+    runtime_operation, runtime_note = _runtime_operation(
+        route_plan_shadow=route_plan_shadow,
+        question_runtime_map=question_runtime_map,
+        precondition_evaluation=precondition_evaluation,
+        selected_use_case=selected_use_case,
+        use_case_id=use_case_id,
+        demo_mode=demo_mode,
+    )
+    lineage_stages = {
+        str(stage.get("stage_id")): str(stage.get("status") or "unknown")
+        for stage in (investigation_lineage or {}).get("stages") or []
+        if isinstance(stage, dict)
+    }
+    pipeline = [
+        PipelineStageStatus(
+            stage_id=panel_id,
+            label=label,
+            status=lineage_stages.get(lineage_id, "not evaluated"),
+        )
+        for panel_id, lineage_id, label in PIPELINE_STAGE_SPECS
+    ]
+    return SkillsOperationsGovernancePanel(
+        intent_skill=selected_skill,
+        legacy_router_skill=selected_skill,
+        runtime_operation=runtime_operation,
+        runtime_operation_note=runtime_note,
+        pipeline_stages=pipeline,
+    )
+
+
+def _runtime_operation(
+    *,
+    route_plan_shadow: dict[str, Any] | None,
+    question_runtime_map: dict[str, Any] | None,
+    precondition_evaluation: dict[str, Any] | None,
+    selected_use_case: dict[str, Any] | None,
+    use_case_id: str | None,
+    demo_mode: bool,
+) -> tuple[str | None, str]:
+    if route_plan_shadow:
+        primary = route_plan_shadow.get("primary_skill")
+        if primary:
+            return str(primary), "from route_plan_shadow.primary_skill (shadow only; not authority)"
+
+        bridge = route_plan_shadow.get("intent_operation_bridge")
+        if isinstance(bridge, dict):
+            operation = bridge.get("runtime_operation") or bridge.get("operation_id")
+            if operation:
+                return str(operation), "from route_plan_shadow intent-operation bridge (shadow only)"
+
+        operation = route_plan_shadow.get("runtime_operation") or route_plan_shadow.get("coverage_operation")
+        if operation:
+            return str(operation), "from route_plan_shadow metadata (shadow only)"
+
+    if question_runtime_map and question_runtime_map.get("observation_only"):
+        operation = question_runtime_map.get("proposed_operation_type") or question_runtime_map.get(
+            "proposed_primary_skill"
+        )
+        if operation:
+            return str(operation), "from question_runtime_map (observation only; not authority)"
+
+    if precondition_evaluation:
+        op = precondition_evaluation.get("runtime_operation") or precondition_evaluation.get("operation_id")
+        if op:
+            return str(op), "from precondition_evaluation shadow (observation only)"
+
+    resolved_use_case = use_case_id
+    if not resolved_use_case and selected_use_case:
+        resolved_use_case = selected_use_case.get("use_case_id")
+
+    if demo_mode and resolved_use_case:
+        return None, f"not evaluated in demo fixture (production-equivalent mapping available: {resolved_use_case})"
+
+    if resolved_use_case:
+        return None, f"not evaluated (use case mapped: {resolved_use_case})"
+
+    return None, "not evaluated"

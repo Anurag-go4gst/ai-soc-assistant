@@ -6,11 +6,16 @@ import type { ExperienceCenterGovernance } from '@/types/api';
 
 interface ExperienceCenterGovernancePanelsProps {
   governance: ExperienceCenterGovernance;
+  demoMode?: boolean;
   /** When set, render only these panel groups (default: all except mcp, for post-evidence placement). */
   sections?: Array<'mcp' | 'severity' | 'skills' | 'completion'>;
 }
 
-export function ExperienceCenterGovernancePanels({ governance, sections }: ExperienceCenterGovernancePanelsProps) {
+export function ExperienceCenterGovernancePanels({
+  governance,
+  demoMode = false,
+  sections,
+}: ExperienceCenterGovernancePanelsProps) {
   const show = (key: 'mcp' | 'severity' | 'skills' | 'completion') =>
     !sections || sections.includes(key);
 

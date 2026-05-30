@@ -7,6 +7,27 @@ from app.api.routes_chat import chat
 from app.schemas.requests import ChatRequest
 
 
+def test_chat_clear_command_short_circuits_routing(monkeypatch) -> None:
+    called: list[bool] = []
+
+    def fake_route_skill(query: str, trace_id: str) -> dict[str, Any]:
+        called.append(True)
+        return {
+            "skill": "attack_discovery",
+            "tool_plan": ["route_only"],
+            "confidence": 0.5,
+            "comparison": {"match": True},
+        }
+
+    monkeypatch.setattr("app.api.routes_chat.route_skill", fake_route_skill)
+
+    response = chat(ChatRequest(message="/clear"))
+
+    assert called == []
+    assert response.note == "client_command:/clear"
+    assert response.message == "Chat cleared. Ask your next question when ready."
+
+
 def test_chat_query_endpoint_calls_route_skill(monkeypatch) -> None:
     calls: list[dict[str, str]] = []
     telemetry = FakeTelemetry()
@@ -105,7 +126,10 @@ def test_chat_generates_and_validates_spl_without_mcp_or_splunk_write(monkeypatc
     assert response.human_review.required is True
     assert any(event["event_type"] == "mcp_execution_requires_human_review" for event in telemetry.mcp_executions)
     assert not hasattr(telemetry, "splunk_write")
-    assert "Splunk" not in response.model_dump_json()
+    # Governance completion legend may mention gated Splunk execution; core chat fields must not.
+    payload = response.model_dump()
+    assert "Splunk" not in (payload.get("note") or "")
+    assert "Splunk" not in (payload.get("message") or "")
 
 
 def test_chat_response_does_not_expose_secrets(monkeypatch) -> None:
