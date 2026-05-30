@@ -191,6 +191,7 @@ No default injected for `threshold_ref` or `time_window`.
 
 - **Scope:** `cov.q046.excessive_failed_logins_sample` only.
 - **No pattern #2** and no second allowlist `coverage_id` until this pilot runs clean with **zero unexpected disagreements** in the observation window (proceed order step 7).
+- **Log:** [stage3l_s3_cov_q046_observation_log.md](stage3l_s3_cov_q046_observation_log.md)
 
 ---
 
