@@ -2,18 +2,25 @@ import { KeyboardEvent, useState } from 'react';
 import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { isClearChatCommand } from '@/lib/chatCommands';
 
 interface ChatInputProps {
   disabled?: boolean;
   onSend: (message: string) => void;
+  onClear?: () => void;
 }
 
-export function ChatInput({ disabled, onSend }: ChatInputProps) {
+export function ChatInput({ disabled, onSend, onClear }: ChatInputProps) {
   const [text, setText] = useState('');
 
   const submit = () => {
     const value = text.trim();
     if (!value) return;
+    if (isClearChatCommand(value)) {
+      onClear?.();
+      setText('');
+      return;
+    }
     onSend(value);
     setText('');
   };
@@ -32,7 +39,7 @@ export function ChatInput({ disabled, onSend }: ChatInputProps) {
         disabled={disabled}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Ask V.AI SOC to investigate, generate SPL, map MITRE, or prepare notes..."
+        placeholder="Ask V.AI SOC to investigate, generate SPL, map MITRE, or prepare notes… (/clear to reset)"
         value={text}
       />
       <Button type="button" size="icon" disabled={disabled || !text.trim()} onClick={submit} aria-label="Send message">

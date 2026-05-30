@@ -3,6 +3,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends
 
 from app.auth.session import require_auth
+from app.chat_commands import is_clear_chat_command
 from app.config import settings
 from app.connectors.telemetry import get_telemetry_connector
 from app.actions.capability_policy import action_capability_for
@@ -49,6 +50,14 @@ router = APIRouter()
 
 @router.post("/chat", response_model=PlaceholderResponse, dependencies=[Depends(require_auth)])
 def chat(request: ChatRequest) -> PlaceholderResponse:
+    if is_clear_chat_command(request.message):
+        return PlaceholderResponse(
+            trace_id=str(uuid4()),
+            message="Chat cleared. Ask your next question when ready.",
+            note="client_command:/clear",
+            user_query=request.message,
+        )
+
     trace_id = str(uuid4())
     query_understanding = understand_query(request.message)
     selected_use_case = _selected_use_case(request.message)
