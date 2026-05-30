@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Final
 
 from app.config import settings
+from app.routing.route_authority_apply import apply_operation_authority_to_compare
 from app.routing.route_authority_gate import (
     evaluate_route_authority,
     authority_evaluation_to_shadow_fields,
@@ -69,5 +70,6 @@ def apply_route_authority_compare_to_shadow(
         route_plan_shadow=shadow,
     )
     payload.update(authority_evaluation_to_shadow_fields(authority_eval))
+    apply_operation_authority_to_compare(payload, authority_eval)
     shadow["route_authority_compare"] = payload
     return payload

@@ -1,130 +1,142 @@
-  # Stage 3L-S3 Step 3: COE Gate Review — `cov.q046.excessive_failed_logins_sample`
+# Stage 3L-S3 Step 3: COE Gate Review — `cov.q046.excessive_failed_logins_sample`
 
-  **Date:** 2026-05-29  
-  **Gate review commit:** `157a83d` ([STAGE_3L_S0_TO_S8_SPINE.md](../plans/STAGE_3L_S0_TO_S8_SPINE.md))  
-  **Type:** Gate review (no implementation).  
-  **Pilot under review:** `cov.q046.excessive_failed_logins_sample` — **candidate only, not approved.**  
-  **References:** [Step 3 gate design](stage3l_s3_step3_coverage_gate_design.md) (`e412c7c`), [trace checkpoint](stage3l_s3_trace_review_checkpoint.md) (`df11095`).
+**Date:** 2026-05-29 (updated for Step 3 implementation acceptance)  
+**Gate review commit:** `157a83d` · **S3.3A:** `214c1e7` · **S3 Step 3:** (see spine)  
+**Pilot:** `cov.q046.excessive_failed_logins_sample` — **implementation approved under conditions below**  
+**References:** [Step 3 gate design](stage3l_s3_step3_coverage_gate_design.md), [trace checkpoint](stage3l_s3_trace_review_checkpoint.md)
 
-  ---
+---
 
-  ## Verdict
+## Verdict
 
-  | Outcome | Meaning |
-  |---------|---------|
-  | **NOT READY for S3 Step 3 implementation** | S3.3A fallback harness landed; **COE approval for pilot implementation still missing** |
+| Outcome | Meaning |
+|---------|---------|
+| **READY for lab pilot** | S3.3A harness + Step 3 minimal path landed; production defaults unchanged until COE enables env flags in a lab only |
 
-  Do **not** start Step 3 code until every **Blocker** row below is cleared and COE signs the review table at the bottom.
+Production remains: `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false`, allowlist empty.
 
-  ---
+---
 
-  ## Review checklist
+## COE sign-off wording (approved text)
 
-  | # | Question | Result | Evidence / notes |
-  |---|----------|--------|------------------|
-  | 1 | Does COE approve `cov.q046` as the first pilot `coverage_id`? | **Blocker — No** | Gate design sign-off table is unchecked ([`stage3l_s3_step3_coverage_gate_design.md`](stage3l_s3_step3_coverage_gate_design.md)). Pilot is explicitly **not** approved operation-authoritative behavior. |
-  | 2 | Is the manifest row stable and reviewed? | **Pass (engineering)** | Row in [`pattern_coverage_v1.json`](../backend/app/coverage/pattern_coverage_v1.json): `primary_skill=aggregate_and_rank`, `pattern_id=top_failed_okta_login_users`, `coverage_group=template_only`, `readiness=coe_synthetic_fixture`, governance execution flags false. Q4 test `test_sample_template_matches_route_plan_shape` asserts template match for this id. **COE:** confirm row text/notes acceptable for pilot. |
-  | 3 | Does the route-plan fixture pass validator consistently? | **Pass** | R1 `_valid_aggregate_plan()` / R2 `_valid_route_plan_candidate()` use same shape; `test_mock_candidate_validation_path_is_observational` asserts `validation_result.is_valid` and `primary_skill=aggregate_and_rank`. S1 catalog tests cover `aggregate_and_rank` / `top_n`. |
-  | 4 | Is bridge status compatible? | **Pass (mock path)** | Trace review: `attack_discovery` + `aggregate_and_rank` → `bridge_status=compatible` ([checkpoint](stage3l_s3_trace_review_checkpoint.md) case 1b). Live `/chat` without shadow candidate → `not_evaluated` (expected). |
-  | 5 | Is `route_authority_compare` clean for this case? | **Pass (mock path)** | `test_route_authority_compare_with_mock_candidate`: `compatible`, `operation_authoritative_enabled=false`, disagreements empty on bridge path; top-level shadow `disagreements` separate from `intent_bridge_disagreements`. |
-  | 6 | Is fallback-to-`selected_skill` explicitly tested? | **Pass (S3.3A harness)** | [`test_route_authority_gate_stage3l_s3_3a.py`](../backend/app/tests/test_route_authority_gate_stage3l_s3_3a.py) — five COE cases + blocked rows; `operation_authoritative_applied=false` when gates fail. Authority still **not** enabled in production defaults. |
-  | 7 | Is `operation_authoritative_enabled` still false by default? | **Pass** | `Settings.route_authority_operation_authoritative_enabled: bool = False` ([`config.py`](../backend/app/config.py)); `.env.example` `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false`; compare tests assert false on every `/chat` response. |
-  | 8 | Is there a kill switch? | **Pass** | Global: `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false` (design: must stay false until COE). Compare-only mode: `ROUTE_AUTHORITY_COMPARE_ENABLED` (default true). Per-id allowlist config exists from S3.3A and defaults empty. The allowlist does not enable authority unless `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=true`. Only `cov.q046.excessive_failed_logins_sample` is permitted when non-empty. Step 3 authority behavior is still not implemented/approved. |
-  | 9 | Are Experience Center and harness expectations unchanged? | **Pass** | `test_experience_center_unchanged` (S2A.1 + S3 compare tests): `route_plan_shadow=null` on demo. Harness 6/6 unchanged (no `cov.q046` in harness YAML). No `expected_skill` drift from Steps 1–2. |
-  | 10 | Is there a rollback path? | **Pass** | Rollback = set `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false` and clear `ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST`. S3.3A harness + [rollback runbook](#rollback-runbook-operation-authority) below. Step 3 must not enable authority in production defaults. |
+> COE acknowledges the S3 Step 3 gate review and approves implementation of the **cov.q046 authority pilot only**, behind the global kill switch and per-coverage_id allowlist.
+>
+> This approval does **not** approve live SPL execution, MCP execution, renderer changes, Answer Guard, final synthesis, or any second coverage_id.
+>
+> `threshold_ref` and `time_window` remain mandatory. If absent, the system must clarify or fall back to the legacy `selected_skill` path.
 
-  ---
+| Reviewer | Gate review acknowledged | Approve `cov.q046` for Step 3 **implementation** | Date |
+|----------|--------------------------|-----------------------------------------------------|------|
+| COE / Anurag | ☐ | ☐ | |
 
-  ## Explicit blocks (unchanged)
+---
 
-  | Item | Gate |
-  |------|------|
-  | `entity_context_lookup` as primary | **Blocked** — no primary fixture |
-  | `notable_risk_lookup` as primary | **Blocked** — post-enrichment only |
-  | `cov.q007.dga_detection_binding` | **Blocked** — detection-dependent / preflight |
+## COE acceptance criteria (10) — engineering evidence
 
-  ---
+| # | Criterion | Evidence |
+|---|-----------|----------|
+| 1 | **Only** `cov.q046.excessive_failed_logins_sample` allowlisted | `ALLOWLISTABLE_COVERAGE_IDS` + `validate_allowlist_ids`; config rejects any other id |
+| 2 | Authority false by default | `Settings.route_authority_operation_authoritative_enabled=False`; `test_production_defaults_authority_off_allowlist_empty` |
+| 3 | Missing `threshold_ref` / `time_window` never defaulted | Gate `missing_required_threshold_ref` / `missing_required_time_window`; `test_unit_no_threshold_default_injected` |
+| 4 | Five fallback cases pass | `test_route_authority_gate_stage3l_s3_3a.py` cases a–e |
+| 5 | Happy path passes only with explicit lab config | `test_happy_path_authority_applied_only_with_explicit_lab_config` (global on + allowlist + slots present) |
+| 6 | No SPL/MCP execution introduced | `execution.executed_spl is None`; workflow `execution_enabled=false`; governance unchanged |
+| 7 | Experience Center + harness green | `test_experience_center_unchanged`; full pytest + harness 6/6 |
+| 8 | Rollback runbook | [Rollback runbook](#rollback-runbook-operation-authority) below |
+| 9 | Trace explains apply/fallback | `authority_trace`, `authority_decision`, `authority_holder` on `route_authority_compare` |
+| 10 | No other pattern implicitly upgraded | `test_other_coverage_id_not_implicitly_upgraded` (e.g. q002 → `coverage_id_not_allowlisted`) |
 
-  ## Pilot row summary (`cov.q046`)
+---
 
-  | Field | Value |
-  |-------|--------|
-  | Question | Which users have excessive failed logins? |
-  | Legacy intent (typical router) | `attack_discovery` |
-  | Runtime `primary_skill` | `aggregate_and_rank` |
-  | `pattern_id` | `top_failed_okta_login_users` |
-  | `template_ref` | `sample_auth_failed_login_top_users_tstats` |
-  | `sample_only` / execution | `true` / all execution flags false |
+## Proceed order (COE / engineering)
 
-  **COE note:** `clarification_required` includes `threshold_ref`, `time_window` — authority migration must not bypass analyst threshold policy.
+1. ✅ Verify S3.3A harness committed and green (`test_route_authority_gate_stage3l_s3_3a.py`, full pytest).
+2. ☐ COE signs gate review + `cov.q046` implementation approval (table above).
+3. ✅ Implement minimal S3 Step 3 authority path (`route_authority_apply.py`; shadow compare only; `selected_skill` preserved on `/chat`).
+4. Run full backend tests + harness after each change.
+5. **Default mode verification** — flags off: `operation_authoritative_applied=false`, `authority_fallback_reason=global_kill_switch_disabled`.
+6. **Lab pilot verification** — flags on + allowlist + mock/fixture with `threshold_ref` + `time_window`: `operation_authoritative_applied=true`, `authority_holder=route_plan_primary_skill`.
+7. Observe a real window with zero disagreements before pattern #2.
+8. Only then discuss a second `coverage_id`.
 
-  ---
+---
 
-  ## Rollback runbook (operation authority)
+## Review checklist (engineering)
 
-If authority was enabled in a lab/pilot environment:
+| # | Question | Result | Evidence / notes |
+|---|----------|--------|------------------|
+| 1 | COE approve `cov.q046` pilot implementation? | **Pending signature** | Acceptance criteria table + sign-off wording above |
+| 2 | Manifest row stable? | **Pass** | `pattern_coverage_v1.json` |
+| 3 | Route-plan fixture + validator? | **Pass** | R1/R2 tests |
+| 4 | Bridge compatible? | **Pass (mock)** | Trace checkpoint 1b |
+| 5 | Compare clean? | **Pass** | S3 compare tests |
+| 6 | Fallback tested? | **Pass** | S3.3A + Step 3 tests |
+| 7 | Authority off by default? | **Pass** | Config + tests |
+| 8 | Kill switch + allowlist? | **Pass** | S3.3A; only `cov.q046` when non-empty |
+| 9 | EC / harness unchanged? | **Pass** | Demo `route_plan_shadow=null`; harness 6/6 |
+| 10 | Rollback path? | **Pass** | Runbook below |
+
+---
+
+## Explicit blocks (unchanged)
+
+| Item | Gate |
+|------|------|
+| `entity_context_lookup` / `notable_risk_lookup` as primary | **Blocked** |
+| `cov.q007.dga_detection_binding` | **Blocked** |
+| Second allowlist `coverage_id` | **Blocked** until COE re-approves |
+
+---
+
+## Pilot row summary (`cov.q046`)
+
+| Field | Value |
+|-------|--------|
+| Question | Which users have excessive failed logins? |
+| Legacy intent (typical router) | `attack_discovery` |
+| Runtime `primary_skill` | `aggregate_and_rank` |
+| `pattern_id` | `top_failed_okta_login_users` |
+| Clarification | `threshold_ref`, `time_window` — **no defaults** |
+
+---
+
+## Rollback runbook (operation authority)
 
 1. Set `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false`
-2. Clear `ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST=` (empty)
-3. Redeploy or restart the backend process
-4. Confirm `route_plan_shadow.route_authority_compare.operation_authoritative_enabled=false`
-5. Confirm `route_authority_compare.authority_fallback_reason=global_kill_switch_disabled` on `/chat` responses
-6. Confirm `selected_skill` remains the legacy deterministic router skill (no operation-authoritative override)
-
-Production default after S3.3A: steps 1–2 are already satisfied without redeploy.
+2. Clear `ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST=`
+3. Redeploy or restart backend
+4. Confirm `operation_authoritative_applied=false` and `authority_fallback_reason=global_kill_switch_disabled`
+5. Confirm `/chat` `selected_skill` unchanged (legacy router)
+6. Confirm `authority_holder=legacy_selected_skill`
 
 ---
 
-## S3.3A fallback harness (2026-05-29)
+## S3.3A + Step 3 behavior
 
-**Not Step 3 authority implementation.** Adds `evaluate_route_authority()` + allowlist config + tests only.
-
-| Env | Default |
-|-----|---------|
-| `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED` | `false` |
-| `ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST` | empty (only `cov.q046.excessive_failed_logins_sample` permitted when non-empty) |
+| Layer | Behavior |
+|-------|----------|
+| S3.3A | `evaluate_route_authority()` + allowlist; fallback reasons |
+| Step 3 | When gates pass + lab flags: `authority_holder=route_plan_primary_skill`, `planning_primary_skill` set; **`selected_skill` on response unchanged** |
+| Out of scope | SPL/MCP execution, renderer, synthesis, Answer Guard, second coverage_id |
 
 ---
 
-## Conditions to start Step 3 **implementation**
+## Conditions for Step 3 **implementation** (met by engineering PR)
 
-  1. **COE** checks “Pilot `cov.q046` approved for **implementation**” on gate design sign-off (separate from approving this review doc).
-  2. **Engineering** Step 3 PR must reuse the S3.3A allowlist and fallback harness, and must add only the minimal `cov.q046` authority application path. It must keep fallback tests green and add Step 3-specific tests proving authority applies only when every gate passes.
-    - No authority for blocked skills/rows listed above.
-    - Harness/EC unchanged for non-pilot paths (regression proof).
-    - Rollback note in commit / ops snippet (see [Rollback runbook](#rollback-runbook-operation-authority)).
+Engineering reuses S3.3A harness and adds shadow-only authority application with Step 3 tests. No authority for blocked rows. Harness/EC unchanged at default flags.
 
-  ---
+---
 
-  ## COE sign-off (this gate review)
+## Verification run
 
-  | Reviewer | Gate review acknowledged | Approve `cov.q046` for Step 3 **implementation** | Date |
-  |----------|--------------------------|-----------------------------------------------------|------|
-  | COE / Anurag | ☐ | ☐ | |
+```bash
+cd backend && python3 -m pytest app/tests/test_route_authority_gate_stage3l_s3_3a.py -q
+cd backend && python3 -m pytest app/tests/test_route_authority_step3_stage3l_s3.py -q
+cd backend && python3 -m pytest
+python3 -m test_harness.harness.runner --json
+```
 
-  Approving this document records checklist outcomes; it does **not** by itself enable operation-authoritative behavior.
-
-  ---
-
-  ## Verification run (2026-05-29)
-
-  ```bash
-  cd backend && python3 -m pytest app/tests/test_route_authority_gate_stage3l_s3_3a.py -q
-  cd backend && python3 -m pytest
-  python3 -m test_harness.harness.runner --json
-  ```
-
-  | Check | Result |
-  |-------|--------|
-  | Backend pytest | 569 passed |
-  | Harness | 6/6 |
-
-  Targeted Step 3 gate-review slice (optional):
-
-  ```bash
-  cd backend && python3 -m pytest \
-    app/tests/test_pattern_coverage_pack_stage3k_q4.py::test_sample_template_matches_route_plan_shape \
-    app/tests/test_route_plan_stage3k_r2.py::test_mock_candidate_validation_path_is_observational \
-    app/tests/test_intent_operation_bridge_shadow_stage3l_s2a1.py \
-    app/tests/test_route_authority_compare_stage3l_s3.py -q
-  ```
+| Check | Result |
+|-------|--------|
+| Backend pytest | run after Step 3 commit |
+| Harness | 6/6 expected at default flags |

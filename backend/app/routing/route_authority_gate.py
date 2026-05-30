@@ -33,6 +33,7 @@ FALLBACK_MISSING_TIME_WINDOW: Final[str] = "missing_required_time_window"
 FALLBACK_NO_VALIDATED_ROUTE_PLAN_SHADOW: Final[str] = "no_validated_route_plan_shadow"
 FALLBACK_BLOCKED_PRIMARY_FIXTURE_ABSENT: Final[str] = "blocked_primary_fixture_absent"
 FALLBACK_BLOCKED_DETECTION_DEPENDENT: Final[str] = "blocked_detection_dependent"
+FALLBACK_MANIFEST_PRIMARY_SKILL_MISMATCH: Final[str] = "manifest_primary_skill_mismatch"
 
 BLOCKED_ROUTE_STATUSES: Final[frozenset[str]] = frozenset(
     {
@@ -190,6 +191,14 @@ def evaluate_route_authority(
             fallback = FALLBACK_MISSING_THRESHOLD_REF
         elif "time_window" in missing_slots:
             fallback = FALLBACK_MISSING_TIME_WINDOW
+    if fallback is None and resolved_coverage_id:
+        entry = coverage_for_id(resolved_coverage_id)
+        if (
+            entry is not None
+            and candidate_primary is not None
+            and entry.primary_skill != candidate_primary
+        ):
+            fallback = FALLBACK_MANIFEST_PRIMARY_SKILL_MISMATCH
 
     authority_eligible = fallback is None
     authority_applied = authority_eligible and global_enabled
