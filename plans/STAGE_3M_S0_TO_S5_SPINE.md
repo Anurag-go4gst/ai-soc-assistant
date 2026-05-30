@@ -6,21 +6,20 @@ Canonical index for Splunk MCP result envelope and adapter program.
 
 ## Stage index
 
-| Code | Focus | Status |
-|------|-------|--------|
-| S0 | MCP readiness design | Done (docs) |
-| S1 | `SplunkResultEnvelope` + fixture adapter + tests | Done |
-| S2 | MCP adapter interface; gate + evidence migration | Proposed |
-| S3 | Experience Center demo consumes envelope | Proposed |
-| S4 | HF shadow proposal/narration demo | Proposed |
-| S5 | First controlled live MCP read + schema validation | Proposed |
+| Code | Focus | Spec | Status | Commit |
+|------|-------|------|--------|--------|
+| S0 | MCP readiness design | [docs/stage3m_s0_mcp_readiness_design.md](../docs/stage3m_s0_mcp_readiness_design.md) | Done | `35cecfd` |
+| S1 | `SplunkResultEnvelope` + fixture adapter + tests | [docs/stage3m_s1_splunk_result_envelope.md](../docs/stage3m_s1_splunk_result_envelope.md) | Done | `cc00739` |
+| S2 | MCP adapter interface; gate + evidence consume envelope (no live MCP) | — | Proposed | — |
+| S3 | Experience Center demo consumes envelope | — | Proposed | — |
+| S4 | HF shadow proposal/narration demo | — | Proposed | — |
+| S5 | First controlled live MCP read + schema validation | — | Proposed | — |
 
-## Specs
+**Commit hash rule:** Update the Commit column when the stage lands (same pattern as Stage 3L / 3K).
 
-| Stage | Document |
-|-------|----------|
-| S0 | [docs/stage3m_s0_mcp_readiness_design.md](../docs/stage3m_s0_mcp_readiness_design.md) |
-| S1 | [docs/stage3m_s1_splunk_result_envelope.md](../docs/stage3m_s1_splunk_result_envelope.md) |
+## Next (post-S1)
+
+**S2 (controlled):** Adapter interface; migrate `mcp_execution_gate` and `build_source_evidence` to consume `SplunkResultEnvelope` only. Real MCP branch stays `schema_confirmed=false` / `real_schema_unverified` until S5.
 
 ## Exit criteria
 

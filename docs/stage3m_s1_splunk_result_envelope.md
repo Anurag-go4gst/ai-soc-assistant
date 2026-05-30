@@ -1,6 +1,6 @@
 # Stage 3M-S1: SplunkResultEnvelope
 
-**Status:** Implemented (fixture adapter only).
+**Status:** Implemented (fixture adapter only). Landed in commit `cc00739`.
 
 **Modules:**
 
