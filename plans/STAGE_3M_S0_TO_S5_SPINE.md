@@ -10,16 +10,16 @@ Canonical index for Splunk MCP result envelope and adapter program.
 |------|-------|------|--------|--------|
 | S0 | MCP readiness design | [docs/stage3m_s0_mcp_readiness_design.md](../docs/stage3m_s0_mcp_readiness_design.md) | Done | `35cecfd` |
 | S1 | `SplunkResultEnvelope` + fixture adapter + tests | [docs/stage3m_s1_splunk_result_envelope.md](../docs/stage3m_s1_splunk_result_envelope.md) | Done | `cc00739` |
-| S2 | MCP adapter interface; gate + evidence consume envelope (no live MCP) | [docs/stage3m_s2_splunk_result_adapter.md](../docs/stage3m_s2_splunk_result_adapter.md) | Done | — |
-| S3 | Experience Center demo consumes envelope | — | Proposed | — |
+| S2 | MCP adapter interface; gate + evidence consume envelope (no live MCP) | [docs/stage3m_s2_splunk_result_adapter.md](../docs/stage3m_s2_splunk_result_adapter.md) | Done | `90224b7` |
+| S3 | Experience Center demo consumes envelope | [docs/stage3m_s3_demo_envelope.md](../docs/stage3m_s3_demo_envelope.md) | Done | — |
 | S4 | HF shadow proposal/narration demo | — | Proposed | — |
 | S5 | First controlled live MCP read + schema validation | — | Proposed | — |
 
 **Commit hash rule:** Update the Commit column when the stage lands (same pattern as Stage 3L / 3K).
 
-## Next (post-S2)
+## Next (post-S3)
 
-**S3:** Experience Center demo fixture path consumes `SplunkResultEnvelope` (analyst answer text unchanged). Real MCP stays unconfirmed until S5.
+**S4:** HF shadow proposal/narration demo path. **S5:** first controlled live MCP read + schema validation. Real MCP stays `schema_confirmed=false` until S5.
 
 ## Exit criteria
 

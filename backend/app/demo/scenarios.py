@@ -8,6 +8,11 @@ from uuid import uuid4
 from app.actions.capability_policy import action_capability_for
 from app.answer_guard.models import AnswerGuardStatus
 from app.demo.foundation_sec_fixtures import foundation_sec_governance_for
+from app.demo.mcp_result_envelope import (
+    apply_envelope_to_splunk_evidence,
+    demo_envelope_from_rows,
+    execution_fields_from_envelope,
+)
 from app.lineage.builder import build_investigation_lineage
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.workflow_planner import plan_workflow
@@ -308,6 +313,13 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
             "duration_ms": 0,
         }
     if scenario.mcp_execution_mode == "mock_success" and spl_validation and spl_validation.get("approved"):
+        rows = _mock_rows_for(trace_id)
+        envelope = demo_envelope_from_rows(
+            rows,
+            trace_id=trace_id,
+            normalized_spl=str(spl_validation["normalized_spl"]),
+        )
+        result_count, results_preview, envelope_dict = execution_fields_from_envelope(envelope)
         return {
             "status": "executed",
             "execution_intent": "mock_preview",
@@ -316,10 +328,11 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
             "tool_selection_status": "selected",
             "tool_selection_reason": "mock execution explicitly enabled for this fixture only",
             "executed_spl": spl_validation["normalized_spl"],
-            "result_count": 3,
-            "results_preview": _mock_rows_for(trace_id),
+            "result_count": result_count,
+            "results_preview": results_preview,
+            "splunk_result_envelope": envelope_dict,
             "block_reason": None,
-            "duration_ms": 7,
+            "duration_ms": envelope.duration_ms or 7,
         }
     return {
         "status": "requires_human_review",
@@ -352,6 +365,13 @@ def _with_trace(evidence: list[dict[str, Any]], trace_id: str) -> list[dict[str,
     for item in evidence:
         item["trace_id"] = trace_id
         item.setdefault("created_at", CREATED_AT)
+        if item.get("source_type") == "splunk_mcp" and isinstance(item.get("preview_rows"), list):
+            envelope = demo_envelope_from_rows(
+                item["preview_rows"],
+                trace_id=trace_id,
+                normalized_spl=item.get("executed_spl"),
+            )
+            apply_envelope_to_splunk_evidence(item, envelope)
     return evidence
 
 
