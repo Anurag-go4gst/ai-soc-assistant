@@ -11,6 +11,12 @@ class RouteStatus(StrEnum):
     CANNOT_ROUTE_MISSING_LOOKUP = "cannot_route_missing_lookup"
     CANNOT_ROUTE_MISSING_DETECTION = "cannot_route_missing_detection"
     CANNOT_ROUTE_MISSING_SOURCE = "cannot_route_missing_source"
+    CANNOT_ROUTE_MISSING_TEMPLATE = "cannot_route_missing_template"
+    CANNOT_ROUTE_MISSING_EVIDENCE_CONTRACT = "cannot_route_missing_evidence_contract"
+    CANNOT_ROUTE_LOOKUP_STALE = "cannot_route_lookup_stale"
+    CANNOT_ROUTE_UNVETTED_DETECTION = "cannot_route_unvetted_detection"
+    CANNOT_ROUTE_UNSUPPORTED_SOURCE = "cannot_route_unsupported_source"
+    CANNOT_ROUTE_MISSING_PRIMARY_FIXTURE = "cannot_route_missing_primary_fixture"
     BLOCKED_INVALID_COMPOSITION = "blocked_invalid_composition"
     BLOCKED_INVALID_PARAMETERS = "blocked_invalid_parameters"
 

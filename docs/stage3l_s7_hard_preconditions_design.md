@@ -1,6 +1,6 @@
 # Stage 3L-S7: Hard Preconditions and Dependency Readiness Design
 
-**Status:** Design only (2026-05-30). **No implementation** in this stage.
+**Status:** S7 design done (2026-05-30). **S7.1** pure evaluator landed — not wired to `/chat`. S7.2–S7.4 proposed.
 
 **Purpose:** Define how runtime operation `hard_preconditions` and dependency readiness are enforced **before** any future MCP/SPL execution path — without expanding route authority, enabling execution, or changing `/chat` `selected_skill`.
 
@@ -254,6 +254,19 @@ S7 stops at **plan sufficiency** and **dependency readiness** on the shadow/mani
 precondition_evaluator (S7) → route_plan_validator → route_authority_gate (optional)
   → template match / SPL generation → spl_validator → mcp_tool_selector → MCP execute
 ```
+
+---
+
+## Implementation phases
+
+| Phase | Status | Deliverable |
+|-------|--------|-------------|
+| **S7.1** | **Done** | [`precondition_evaluator.py`](../backend/app/routing/precondition_evaluator.py) + [`test_precondition_evaluator_stage3l_s7.py`](../backend/app/tests/test_precondition_evaluator_stage3l_s7.py) — explicit `HardPreconditionDependencyState` only; no registry I/O |
+| **S7.2** | Proposed | Registry-backed dependency snapshots fed into evaluator |
+| **S7.3** | Proposed | `route_plan_shadow.precondition_evaluation` + lineage stage |
+| **S7.4** | Proposed | S5 promotion audit alignment with evaluator |
+
+S7.1 API: `evaluate_hard_preconditions(route_plan, dependency_state)` → `preconditions_checked`, `preconditions_passed`, `preconditions_failed`, `dependency_readiness`, `route_status`, `blocking_findings`.
 
 ---
 
