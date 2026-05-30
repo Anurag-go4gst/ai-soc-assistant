@@ -13,7 +13,7 @@ Canonical index for Splunk MCP result envelope and adapter program.
 | S2 | MCP adapter interface; gate + evidence consume envelope (no live MCP) | [docs/stage3m_s2_splunk_result_adapter.md](../docs/stage3m_s2_splunk_result_adapter.md) | Done | `90224b7` |
 | S3 | Experience Center demo consumes envelope | [docs/stage3m_s3_demo_envelope.md](../docs/stage3m_s3_demo_envelope.md) | Done | `d153e44` |
 | S4 | HF shadow proposal/narration demo | [docs/stage3m_s4_hf_shadow_demo.md](../docs/stage3m_s4_hf_shadow_demo.md) | Done | `d741db3` |
-| S5 | First controlled live MCP read + schema validation | [docs/stage3m_s5_first_live_mcp_read_runbook.md](../docs/stage3m_s5_first_live_mcp_read_runbook.md) | Done (harness); live read pending | — |
+| S5 | First controlled live MCP read + schema validation | [docs/stage3m_s5_first_live_mcp_read_runbook.md](../docs/stage3m_s5_first_live_mcp_read_runbook.md) | Done (harness); live read pending | `99129b2` |
 
 **Commit hash rule:** Update the Commit column when the stage lands (same pattern as Stage 3L / 3K).
 
