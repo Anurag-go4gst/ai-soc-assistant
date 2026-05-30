@@ -35,8 +35,13 @@ from io_utils import (  # noqa: E402
 from llm_assist import assert_instruct_only, draft_entry_with_llm  # noqa: E402
 from registries import load_registry_snapshot  # noqa: E402
 from taxonomy_lookup import resolve_question_input  # noqa: E402
+from promotion_candidate import build_promotion_candidate, write_promotion_candidate  # noqa: E402
 from promotion_gates import evaluate_promotion_gates  # noqa: E402
-from question_runtime_map_builder import write_question_runtime_map  # noqa: E402
+from question_runtime_map_builder import (  # noqa: E402
+    write_all_question_maps,
+    write_operation_map_report,
+    write_question_runtime_map,
+)
 from validator import validate_draft_entry  # noqa: E402
 
 
@@ -90,6 +95,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--emit-runtime-map",
         action="store_true",
         help="Regenerate backend/app/coverage/question_runtime_map_v1.json (S6) and exit",
+    )
+    parser.add_argument(
+        "--emit-operation-map",
+        action="store_true",
+        help="Regenerate docs/stage3l_s6_105_question_operation_map.json (S6.2 report) and exit",
+    )
+    parser.add_argument(
+        "--emit-maps",
+        action="store_true",
+        help="Regenerate S6.1 runtime map and S6.2 operation report from one builder pass",
+    )
+    parser.add_argument(
+        "--promotion-candidate",
+        action="store_true",
+        help="Emit S5.2 human-review promotion artifact (single-entry patch hint only; no manifest write)",
+    )
+    parser.add_argument(
+        "--promotion-candidate-output",
+        type=Path,
+        help="Optional path under tools/coverage_authoring/promotion_candidates/",
     )
     return parser
 
@@ -150,9 +175,38 @@ def cmd_check_promotion(entry: PatternCoverageEntry) -> int:
     return 0 if result.manifest_copy_ready else 1
 
 
+def cmd_promotion_candidate(
+    entry: PatternCoverageEntry,
+    *,
+    output: Path | None,
+    print_json: bool,
+) -> int:
+    if print_json and output is None:
+        payload = build_promotion_candidate(entry)
+        print(json.dumps(payload, indent=2))
+        return 0 if payload["promotion_gate_result"]["manifest_copy_ready"] else 1
+    written = write_promotion_candidate(entry, output)
+    print(f"Wrote promotion candidate: {written}")
+    payload = json.loads(written.read_text(encoding="utf-8"))
+    return 0 if payload["promotion_gate_result"]["manifest_copy_ready"] else 1
+
+
 def cmd_emit_runtime_map() -> int:
     written = write_question_runtime_map()
     print(f"Wrote question runtime map: {written}")
+    return 0
+
+
+def cmd_emit_operation_map() -> int:
+    written = write_operation_map_report()
+    print(f"Wrote operation map report: {written}")
+    return 0
+
+
+def cmd_emit_maps() -> int:
+    runtime_path, report_path = write_all_question_maps()
+    print(f"Wrote question runtime map: {runtime_path}")
+    print(f"Wrote operation map report: {report_path}")
     return 0
 
 
@@ -160,8 +214,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.emit_maps:
+        return cmd_emit_maps()
     if args.emit_runtime_map:
         return cmd_emit_runtime_map()
+    if args.emit_operation_map:
+        return cmd_emit_operation_map()
 
     if args.validate_draft:
         return cmd_validate_draft(args.validate_draft)
@@ -170,6 +228,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.entry_json:
         entry = load_entry_json(Path(args.entry_json))
+        if args.promotion_candidate:
+            return cmd_promotion_candidate(
+                entry,
+                output=args.promotion_candidate_output,
+                print_json=args.promotion_candidate_output is None and args.output is None,
+            )
         if args.check_promotion:
             return cmd_check_promotion(entry)
         return cmd_write_draft(entry, output=args.output, allow_validation_errors=args.allow_validation_errors)
@@ -210,6 +274,13 @@ def main(argv: list[str] | None = None) -> int:
         extra_warnings.extend(disagreements)
     else:
         entry = draft_entry_deterministic(question, question_ref, pattern_type, snapshot)
+
+    if args.promotion_candidate:
+        return cmd_promotion_candidate(
+            entry,
+            output=args.promotion_candidate_output,
+            print_json=args.promotion_candidate_output is None and args.output is None,
+        )
 
     if args.check_promotion:
         return cmd_check_promotion(entry)

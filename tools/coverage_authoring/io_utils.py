@@ -11,7 +11,9 @@ from app.coverage.coverage_models import PatternCoverageEntry
 
 from draft_schema import CoverageDraftDocument
 from deterministic import slugify
-from registries import DRAFTS_DIR, MANIFEST_PATH
+from registries import DRAFTS_DIR, MANIFEST_PATH, REPO_ROOT
+
+COVERAGE_BACKEND_DIR = REPO_ROOT / "backend" / "app" / "coverage"
 
 
 def ensure_drafts_dir() -> Path:
@@ -35,6 +37,16 @@ def resolve_draft_path(path: Path) -> Path:
 
 def assert_not_manifest_path(path: Path) -> None:
     if path.resolve() == MANIFEST_PATH.resolve():
+        raise ValueError("Refusing to write the committed runtime manifest from Q4A")
+
+
+def assert_not_coverage_backend_path(path: Path) -> None:
+    """Refuse writes anywhere under backend/app/coverage/ (manifest, runtime maps, etc.)."""
+    resolved = path.resolve()
+    backend_root = COVERAGE_BACKEND_DIR.resolve()
+    if backend_root in resolved.parents or resolved == backend_root:
+        raise ValueError(f"Refusing to write under committed coverage backend dir: {backend_root}")
+    if resolved == MANIFEST_PATH.resolve():
         raise ValueError("Refusing to write the committed runtime manifest from Q4A")
 
 

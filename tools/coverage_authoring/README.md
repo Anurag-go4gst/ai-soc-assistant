@@ -76,6 +76,18 @@ python tools/coverage_authoring/coverage_drafter.py \
   --output tools/coverage_authoring/drafts/my_reviewed_draft.json
 ```
 
+## Promotion workflow (Stage 3L-S5.2)
+
+See [docs/stage3l_s5_q4a_promotion_workflow.md](../../docs/stage3l_s5_q4a_promotion_workflow.md).
+
+Promotion candidate artifact (review only — never writes manifest):
+
+```bash
+python tools/coverage_authoring/coverage_drafter.py \
+  --entry-json tools/coverage_authoring/drafts/my_reviewed_draft.json \
+  --promotion-candidate
+```
+
 ## Promotion to the runtime manifest (Stage 3L-S5)
 
 1. Run promotion gates (deterministic checklist):

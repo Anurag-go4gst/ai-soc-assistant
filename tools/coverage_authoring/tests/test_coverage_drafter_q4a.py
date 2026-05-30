@@ -69,6 +69,13 @@ def test_unknown_lookup_ref_rejected() -> None:
     assert any("unknown_lookup_ref" in item for item in errors)
 
 
+def test_unknown_primary_skill_rejected() -> None:
+    snapshot = load_registry_snapshot()
+    entry = _minimal_entry(primary_skill="not_a_runtime_skill")
+    errors, _ = validate_draft_entry(entry, snapshot)
+    assert any("unknown_primary_skill" in item for item in errors)
+
+
 def test_dependency_missing_allows_unknown_evidence_with_blocker() -> None:
     snapshot = load_registry_snapshot()
     entry = _minimal_entry(
