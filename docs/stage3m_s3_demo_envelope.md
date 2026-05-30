@@ -1,6 +1,6 @@
 # Stage 3M-S3: Experience Center Demo Envelope Wiring
 
-**Status:** Implemented.
+**Status:** Implemented. Landed in commit `d153e44`.
 
 **Module:** `backend/app/demo/mcp_result_envelope.py`
 

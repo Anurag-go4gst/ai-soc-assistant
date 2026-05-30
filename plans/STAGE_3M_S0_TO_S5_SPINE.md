@@ -11,7 +11,7 @@ Canonical index for Splunk MCP result envelope and adapter program.
 | S0 | MCP readiness design | [docs/stage3m_s0_mcp_readiness_design.md](../docs/stage3m_s0_mcp_readiness_design.md) | Done | `35cecfd` |
 | S1 | `SplunkResultEnvelope` + fixture adapter + tests | [docs/stage3m_s1_splunk_result_envelope.md](../docs/stage3m_s1_splunk_result_envelope.md) | Done | `cc00739` |
 | S2 | MCP adapter interface; gate + evidence consume envelope (no live MCP) | [docs/stage3m_s2_splunk_result_adapter.md](../docs/stage3m_s2_splunk_result_adapter.md) | Done | `90224b7` |
-| S3 | Experience Center demo consumes envelope | [docs/stage3m_s3_demo_envelope.md](../docs/stage3m_s3_demo_envelope.md) | Done | — |
+| S3 | Experience Center demo consumes envelope | [docs/stage3m_s3_demo_envelope.md](../docs/stage3m_s3_demo_envelope.md) | Done | `d153e44` |
 | S4 | HF shadow proposal/narration demo | — | Proposed | — |
 | S5 | First controlled live MCP read + schema validation | — | Proposed | — |
 
