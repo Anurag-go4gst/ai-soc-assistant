@@ -29,9 +29,9 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S3.3 | Step 3 coverage gate | [docs/stage3l_s3_step3_coverage_gate_design.md](../docs/stage3l_s3_step3_coverage_gate_design.md) | Implemented; [COE review](../docs/stage3l_s3_step3_coe_gate_review.md) pending signature | `e412c7c` |
 | S3.3A | Authority fallback harness | same + `route_authority_gate.py` | Done | `214c1e7` |
 | S3 trace | Steps 1–2 trace review | [docs/stage3l_s3_trace_review_checkpoint.md](../docs/stage3l_s3_trace_review_checkpoint.md) | Done | `df11095` |
-| S4 | Layered skill registry | — | Proposed | — |
-| S5 | Q4A promotion gates | [docs/stage3l_s5_q4a_promotion_gates.md](../docs/stage3l_s5_q4a_promotion_gates.md) | Done — S5.1 manifest audit in backend | `6bd2a75` |
-| S6 | 105-Q runtime map | [docs/stage3l_s6_question_runtime_map.md](../docs/stage3l_s6_question_runtime_map.md) | Done — S6.1 shadow consumer | `6bd2a75` |
+| S4 | Layered skill registry | [docs/stage3l_s4_layered_registry_design.md](../docs/stage3l_s4_layered_registry_design.md) | Design doc done — implementation proposed | — |
+| S5 | Q4A promotion gates | [docs/stage3l_s5_q4a_promotion_gates.md](../docs/stage3l_s5_q4a_promotion_gates.md) | Done — S5.1 manifest audit; **S5.2** promotion workflow | `6bd2a75` |
+| S6 | 105-Q runtime map | [docs/stage3l_s6_question_runtime_map.md](../docs/stage3l_s6_question_runtime_map.md) | Done — S6.1 shadow; **S6.2** provisional report | `6bd2a75` |
 | S7 | `hard_preconditions` runtime enforcement | — | Proposed | — |
 | S8 | Governance readiness freeze | — | Proposed | — |
 
