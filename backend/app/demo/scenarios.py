@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from app.actions.capability_policy import action_capability_for
 from app.answer_guard.models import AnswerGuardStatus
+from app.demo.experience_center_governance import build_experience_center_governance
 from app.demo.foundation_sec_fixtures import foundation_sec_governance_for
 from app.demo.llm_shadow_provider import DemoLlmShadowContext, run_demo_llm_shadow
 from app.demo.mcp_result_envelope import (
@@ -120,6 +121,16 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         action_capability=action_capability,
         demo_llm_shadow=demo_llm_shadow.to_lineage_dict() if demo_llm_shadow else None,
     )
+    experience_center_governance = build_experience_center_governance(
+        scenario_id=scenario.scenario_id,
+        selected_skill=scenario.expected_skill,
+        severity_decision=severity_decision,
+        source_evidence=source_evidence,
+        execution=execution,
+        investigation_lineage=investigation_lineage.model_dump(),
+        route_plan_shadow=None,
+        selected_use_case=selected_use_case.model_dump() if selected_use_case else None,
+    )
 
     return {
         "trace_id": trace_id,
@@ -167,6 +178,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "synthesis_status": synthesis_status.model_dump(),
         "answer_guard": answer_guard.model_dump(),
         "action_capability": action_capability.model_dump(),
+        "experience_center_governance": experience_center_governance.model_dump(),
     }
 
 

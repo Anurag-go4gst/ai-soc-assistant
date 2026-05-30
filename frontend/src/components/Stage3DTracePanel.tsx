@@ -3,6 +3,7 @@ import type React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/CopyButton';
 import { cn } from '@/lib/utils';
+import { ExperienceCenterGovernancePanels } from '@/components/ExperienceCenterGovernancePanels';
 import type { ExecutionEnvelope, HumanReviewEnvelope, PlaceholderResponse, SourceEvidenceEnvelope, SplValidationEnvelope, StructuredContextPackage, WorkflowPlan } from '@/types/api';
 
 interface Stage3DTracePanelProps {
@@ -11,20 +12,37 @@ interface Stage3DTracePanelProps {
 
 export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
   const rows = evidenceRowsFor(trace);
+  const splunkRowIndex = rows.findIndex((row) => row.title === 'Splunk MCP');
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950/70 text-xs text-slate-300">
       <div className="divide-y divide-slate-800/80">
-        {rows.map((row) => (
-          <div key={row.title} className="flex gap-3 px-3 py-3">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
-            <div className="min-w-0">
-              <div className="font-semibold text-slate-100">{row.title}</div>
-              <div className="mt-1 text-slate-400">{row.detail}</div>
-              <div className="mt-1 text-slate-500">{row.meta}</div>
+        {rows.map((row, index) => (
+          <div key={row.title}>
+            <div className="flex gap-3 px-3 py-3">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-slate-100">{row.title}</div>
+                <div className="mt-1 text-slate-400">{row.detail}</div>
+                <div className="mt-1 text-slate-500">{row.meta}</div>
+                {trace.demo_mode && trace.experience_center_governance && index === splunkRowIndex ? (
+                  <ExperienceCenterGovernancePanels
+                    governance={trace.experience_center_governance}
+                    sections={['mcp']}
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
         ))}
       </div>
+      {trace.demo_mode && trace.experience_center_governance ? (
+        <div className="border-t border-slate-800/80 px-3 py-3">
+          <ExperienceCenterGovernancePanels
+            governance={trace.experience_center_governance}
+            sections={['severity', 'skills', 'completion']}
+          />
+        </div>
+      ) : null}
       <details className="border-t border-slate-800/80">
         <summary className="cursor-pointer list-none px-3 py-2 text-[11px] font-medium text-slate-500 transition hover:text-slate-300">
           Show developer trace

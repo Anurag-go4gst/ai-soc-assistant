@@ -8,6 +8,7 @@ from app.risk.severity_policy import SeverityDecision
 from app.skills.models import SkillChain, SkillSelectionResult
 from app.synthesis.models import SynthesisStatus
 from app.threat.mitre_kb import MitreMappingDecision
+from app.demo.experience_center_governance import ExperienceCenterGovernance
 from app.use_cases.models import UseCaseSelection
 
 
@@ -340,3 +341,4 @@ class PlaceholderResponse(BaseModel):
     synthesis_status: SynthesisStatus | None = None
     answer_guard: AnswerGuardStatus | None = None
     action_capability: ActionCapability | None = None
+    experience_center_governance: ExperienceCenterGovernance | None = None

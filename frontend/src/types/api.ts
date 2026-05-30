@@ -54,6 +54,59 @@ export interface PlaceholderResponse {
   synthesis_status?: SynthesisStatus | null;
   answer_guard?: AnswerGuardStatus | null;
   action_capability?: ActionCapability | null;
+  experience_center_governance?: ExperienceCenterGovernance | null;
+}
+
+export interface McpEnvelopeGovernancePanel {
+  available: boolean;
+  origin?: string | null;
+  schema_confirmed?: boolean | null;
+  schema_confirmed_reason?: string | null;
+  status?: string | null;
+  row_count?: number | null;
+  total_row_count?: number | null;
+  truncated?: boolean | null;
+  truncation_reason?: string | null;
+  fields?: string[];
+  preview_rows_count?: number | null;
+  warnings?: string[];
+  provenance?: string | null;
+  executed_spl?: string | null;
+}
+
+export interface SeverityGovernancePanel {
+  severity_label: string;
+  why_severity_title: string;
+  why_severity: string[];
+  why_not_higher_title: string;
+  why_not_higher: string[];
+  priority_note?: string | null;
+}
+
+export interface PipelineStageStatus {
+  stage_id: string;
+  label: string;
+  status: string;
+}
+
+export interface SkillsOperationsGovernancePanel {
+  intent_skill: string;
+  legacy_router_skill: string;
+  runtime_operation?: string | null;
+  runtime_operation_note: string;
+  pipeline_stages: PipelineStageStatus[];
+}
+
+export interface CompletionStatusGovernancePanel {
+  completed: string[];
+  gated_wip: string[];
+}
+
+export interface ExperienceCenterGovernance {
+  mcp_envelope?: McpEnvelopeGovernancePanel | null;
+  severity?: SeverityGovernancePanel | null;
+  skills_operations: SkillsOperationsGovernancePanel;
+  completion_status: CompletionStatusGovernancePanel;
 }
 
 export type RequestedOutputType =
