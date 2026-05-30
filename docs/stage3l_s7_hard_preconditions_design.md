@@ -270,6 +270,18 @@ S7.1 API: `evaluate_hard_preconditions(route_plan, dependency_state)` → `preco
 
 S7.2 API: `build_hard_precondition_dependency_state(route_plan, coverage_entry=None, settings=None)` → `HardPreconditionDependencyState` derived from template registry, evidence contracts, IOC registry metadata (incl. staleness), detection registry/vetting, `APPROVED_SOURCE_CLASS_HINTS`, manifest `clarification_required`, and plan slots (`threshold_ref`, `time_window`). No MCP/Splunk reachability, no live LLM.
 
+### Leadership policy — COE sample rows (`q002`, `q017`, `q046`)
+
+**Decision (2026-05-30):** Keep manifest `expected_route_status: route_ready` for COE/demo sample-template rows. Do **not** change to `cannot_route_missing_template` yet.
+
+| Layer | Role |
+|-------|------|
+| Manifest / Experience Center | Governed sample coverage; demo story stays `route_ready` |
+| S7 evaluator | Production dependency truth — `sample_only` template → `cannot_route_missing_template` |
+| S7.4 audit | `documented_gap` (`coe_fixture_sample_template_blocks_s7`), **not** `drift` |
+
+When production-ready templates land, update `readiness` and `expected_route_status` together — not before.
+
 ---
 
 ## Hard boundaries (this stage)

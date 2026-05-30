@@ -42,7 +42,8 @@
 - S4 layered registry implementation
 - Wiring S7 `route_status` into route authority or execution gates
 - Final LLM synthesis, Answer Guard execution, live MCP/Splunk
-- Manifest `expected_route_status` updates for COE sample templates (documented as S7 `documented_gap` until product chooses)
+- Manifest `expected_route_status` updates for COE sample templates — **deferred by leadership** (2026-05-30): keep `route_ready` on sample rows; S7.4 `documented_gap` records production-truth mismatch until production templates exist
+- COE Step 3 formal sign-off travels in-repo: [stage3l_s3_step3_coe_gate_review.md](stage3l_s3_step3_coe_gate_review.md) (records approval only; does not enable production authority)
 
 ---
 
