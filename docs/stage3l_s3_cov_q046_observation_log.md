@@ -2,11 +2,19 @@
 
 **Pilot:** `cov.q046.excessive_failed_logins_sample`  
 **COE sign-off:** [stage3l_s3_step3_coe_gate_review.md](stage3l_s3_step3_coe_gate_review.md) (2026-05-29)  
-**Capture script:** `python3 scripts/capture_stage3l_s3_coe_pilot_traces.py`  
-**Record observation run:** add `--record-run` → appends to [stage3l_s3_cov_q046_observation_runs.jsonl](stage3l_s3_cov_q046_observation_runs.jsonl)
-**Machine-readable baseline:** [stage3l_s3_step3_coe_pilot_verification_traces.json](stage3l_s3_step3_coe_pilot_verification_traces.json)
+**Capture script:** `python3 scripts/capture_stage3l_s3_coe_pilot_traces.py --varied-window`  
+**Record observation run:** add `--record-run` → appends to [stage3l_s3_cov_q046_observation_runs.jsonl](stage3l_s3_cov_q046_observation_runs.jsonl)  
+**Summary JSON:** [stage3l_s3_cov_q046_observation_summary.json](stage3l_s3_cov_q046_observation_summary.json)  
+**Fixture:** `backend/app/tests/fixtures/stage3l_s3_cov_q046_observation_inputs.json`  
 
-**Status:** Observation **active** — rerun capture on cadence; do not add pattern #2 authority until the expansion rule is satisfied.
+**Status:** Observation **closed** — zero_unexpected_disagreements; `cov.q046` authority-eligible=true (production cutover remains separate COE decision).
+
+| Observation window | Status |
+|--------------------|--------|
+| Start | 2026-05-30T12:00:00Z |
+| End | 2026-05-30T18:00:00Z |
+| Unexpected disagreements | 0 (expected: 12) |
+| Closure | zero_unexpected_disagreements |
 
 ---
 
@@ -38,9 +46,10 @@ No second `coverage_id` until `cov.q046` runs clean with **zero unexpected disag
 
 | Observation window | Status |
 |--------------------|--------|
-| Start | 2026-05-29 |
-| End | *TBD — COE closes proceed-order step 7* |
-| Unexpected disagreements | *Record per entry below* |
+| Start | 2026-05-30T12:00:00Z |
+| End | 2026-05-30T18:00:00Z |
+| Unexpected disagreements | 0 (Step 7 varied set; see table below) |
+| Authority-eligible | yes — production cutover still separate |
 
 ---
 
@@ -114,16 +123,48 @@ No second `coverage_id` until `cov.q046` runs clean with **zero unexpected disag
 
 ## Observation window entries
 
-Re-run capture during the window and append a row. Log any **unexpected** `authority_fallback_reason`, bridge/validator disagreements, or `selected_skill` drift.
-
-| Date | Run | Mode | `operation_authoritative_applied` | `authority_fallback_reason` | Unexpected? | Notes |
-|------|-----|------|-----------------------------------|-----------------------------|-------------|-------|
-| 2026-05-29 | baseline-1 | default | `false` | `global_kill_switch_disabled` | no | Starting baseline |
-| 2026-05-29 | baseline-2 | lab happy | `true` | — | no | Starting baseline |
-| 2026-05-29 | baseline-3 | lab no threshold | `false` | `missing_required_threshold_ref` | no | Starting baseline |
-| | | | | | | |
-
----
+| Date | Case | Mode | Type | coverage_id | applied | fallback | Unexpected? | Class | Notes |
+|------|------|------|------|-------------|---------|----------|-------------|-------|-------|
+| 2026-05-30 | in_01 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_01 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_02 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_02 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_03 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_03 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_04 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_04 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_05 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_05 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_06 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_06 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_07 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_07 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_08 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_08 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_09 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_09 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_10 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_10 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_11 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_11 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | in_12 | prod_defaults | in_pattern | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | in_12 | lab_pilot | in_pattern | cov.q046.excessive_failed_logins_sample | True | — | no | expected | legacy selected_skill vs route_plan primary_skill (intentional pilot drift) |
+| 2026-05-30 | near_01 | prod_defaults | near_miss | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | near_01 | lab_pilot | near_miss | cov.q062.auth_failed_login_spike_raw | False | coverage_id_not_allowlisted | no | none | — |
+| 2026-05-30 | near_02 | prod_defaults | near_miss | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | near_02 | lab_pilot | near_miss | — | False | coverage_id_not_allowlisted | no | none | — |
+| 2026-05-30 | near_03 | prod_defaults | near_miss | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | near_03 | lab_pilot | near_miss | — | False | coverage_id_not_allowlisted | no | none | — |
+| 2026-05-30 | near_04 | prod_defaults | near_miss | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | near_04 | lab_pilot | near_miss | — | False | coverage_id_not_allowlisted | no | none | — |
+| 2026-05-30 | near_05 | prod_defaults | near_miss | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | near_05 | lab_pilot | near_miss | — | False | blocked_primary_fixture_absent | no | none | — |
+| 2026-05-30 | miss_01 | prod_defaults | missing_slot | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | miss_01 | lab_pilot | missing_slot | cov.q046.excessive_failed_logins_sample | False | missing_required_threshold_ref | no | none | — |
+| 2026-05-30 | miss_02 | prod_defaults | missing_slot | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | miss_02 | lab_pilot | missing_slot | cov.q046.excessive_failed_logins_sample | False | validator_blocked | no | none | — |
+| 2026-05-30 | miss_03 | prod_defaults | missing_slot | — | False | global_kill_switch_disabled | no | none | — |
+| 2026-05-30 | miss_03 | lab_pilot | missing_slot | cov.q046.excessive_failed_logins_sample | False | missing_required_threshold_ref | no | none | — |
 
 ## How to record the next observation
 

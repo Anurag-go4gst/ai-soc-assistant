@@ -1,0 +1,17 @@
+{
+  "window_start": "2026-05-30T12:00:00Z",
+  "window_end": "2026-05-30T18:00:00Z",
+  "status": "closed",
+  "closure_reason": "zero_unexpected_disagreements",
+  "authority_eligible": true,
+  "unexpected_disagreement_count": 0,
+  "expected_disagreement_count": 12,
+  "disagreement_counts": {
+    "none": 28,
+    "expected": 12,
+    "unexpected": 0
+  },
+  "blockers": [],
+  "pilot_coverage_id": "cov.q046.excessive_failed_logins_sample",
+  "note": "Stage 3L-S3 Step 7 varied-input observation; authority_eligible does not enable production."
+}

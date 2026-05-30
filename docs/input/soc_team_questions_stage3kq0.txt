@@ -1,0 +1,105 @@
+What incident or alert network events are high or critical right now?
+Which source IPs generated the most outbound connections?
+Which destination IPs received the most connections?
+Which hosts contacted known malicious IPs today?
+Which hosts contacted suspicious external domains?
+Which DNS queries have unusually long names?
+Which DNS queries look like DGA activity?
+Which hosts show possible beaconing behavior?
+Which hosts communicated with many unique external IPs?
+Which hosts are generating the most SMB traffic?
+Which hosts made SMB connections to many peers?
+Which systems used unusual destination ports?
+Which systems generated large outbound data transfers?
+Which hosts showed potential data exfiltration to cloud apps?
+Which hosts have repeated connections to rare destinations?
+Which hosts contacted the same external IP many times?
+Which hosts generated the most DNS queries?
+Which domains were queried by multiple hosts?
+Which hosts queried domains with suspicious subdomains?
+Which networks saw traffic to high-risk ports?
+Which hosts communicated with foreign IP ranges?
+Which hosts contacted IPs in an IOC lookup?
+Which hosts showed possible command-and-control beaconing?
+Which internal hosts generated outbound traffic after DNS lookups?
+Which hosts used unusual protocols?
+Which hosts have unusually high connection counts to one destination?
+Which DNS queries resolved to suspicious top-level domains?
+Which hosts showed peer-to-peer style communication?
+Which systems accessed the internet through rare ports?
+Which hosts contacted external IPs after hours?
+Which hosts repeatedly contacted the same destination at regular intervals?
+Which hosts had both DNS and network anomalies?
+Which hosts communicated with suspicious destination domains and IPs?
+Which destination IPs were contacted by many hosts?
+Which hosts generated the largest DNS response volumes?
+Which hosts reached known malicious domains from lookup data?
+Which hosts showed likely proxy or tunneling behavior?
+Which hosts had large inbound traffic from a single source?
+Which hosts downloaded large volumes from the internet?
+Which hosts initiated traffic to rare countries?
+Which systems have repeated hits to the same suspicious URL path?
+Which hosts contacted both malicious IPs and domains?
+Which hosts show consistent low-volume outbound connections?
+Which rules are generating the most alerts?
+What happened for this specific notable event?
+Which users have excessive failed logins?
+Is one IP attacking many accounts?
+Did a user log in from impossible locations?
+Which hosts ran suspicious PowerShell?
+Did Office apps spawn cmd or PowerShell?
+What unusual processes ran on critical servers?
+Did any host contact known malicious IPs?
+Are there suspicious DNS queries indicating C2 or DGA behavior?
+Who is sending large amounts of data outbound?
+Did anyone get added to Administrators?
+Which users are logging in outside normal hours?
+Did any endpoint run this suspicious hash?
+Which users or hosts have the highest risk scores?
+Which source IPs generated the most authentication failures today?
+Which accounts had a successful login after repeated failures?
+Which users logged in from new countries today?
+Which hosts show a spike in failed logins?
+Which endpoints spawned script interpreters recently?
+Which hosts executed encoded PowerShell commands?
+Which endpoints created new scheduled tasks?
+Which systems contacted rare external destinations?
+Which hosts are generating unusual DNS query volumes?
+Which internal hosts contacted known command-and-control domains?
+Which users accessed privileged applications unusually?
+Which users changed their password multiple times in a short window?
+Which accounts were disabled or re-enabled today?
+Which hosts show signs of lateral movement?
+Which systems had multiple remote service creations?
+Which hosts show SMB connections to many peers?
+Which endpoints created suspicious archive files?
+Which hosts uploaded large amounts of data to cloud services?
+Which endpoints accessed USB storage recently?
+Which systems had repeated malware detections?
+Which files were modified by suspicious processes?
+Which hosts spawned shells from email clients?
+Which users received and opened phishing attachments?
+Which domains were queried by multiple hosts in a short period?
+Which hosts have suspicious parent-child process chains?
+Which accounts have the most risk events?
+Which assets have accumulated risk from multiple detections?
+Which users were involved in both failed logins and privilege changes?
+Which hosts are communicating with unusual ports externally?
+Which endpoints have multiple persistence indicators?
+Which users authenticated to VPN after repeated MFA failures?
+Which assets are generating the most notable events?
+Which alerts are still open and unresolved?
+Which users had access to sensitive systems and then large outbound transfers?
+Which hosts showed both process execution and suspicious DNS within 24 hours?
+Which logs are missing from key security sources?
+Which sources stopped sending events recently?
+Which users performed privileged actions from non-admin workstations?
+Which systems show signs of webshell activity?
+Which hosts downloaded executables from the internet?
+Which detections involved the same user and host repeatedly?
+Which users triggered multiple different detections?
+Which devices are generating the most endpoint alerts?
+Which users are accessing resources from unusual hosts?
+For any flagged host or user, what is its asset criticality, business owner, and identity/privilege status?
+What is the full activity timeline for a given entity in the N hours before and after a detection?
+Has this entity, IP, domain, or notable been seen or investigated before, and what was the prior disposition?

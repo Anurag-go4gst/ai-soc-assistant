@@ -3,8 +3,10 @@ import { AnalystResponseCard } from '@/components/AnalystResponseCard';
 import { AnalystSummaryCard } from '@/components/AnalystSummaryCard';
 import { HumanReviewCard } from '@/components/HumanReviewCard';
 import { InvestigationLineagePanel } from '@/components/InvestigationLineagePanel';
+import { InvestigationProgressPanel } from '@/components/InvestigationProgressPanel';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
+import type { InvestigationProgressState } from '@/lib/investigationProgress';
 import { cn } from '@/lib/utils';
 import type {
   CandidateSplEnvelope,
@@ -16,10 +18,14 @@ import type {
   WorkflowPlan,
 } from '@/types/api';
 
+export type AssistantDisplayStage = 'progress' | 'summary' | 'complete';
+
 export interface SocChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  displayStage?: AssistantDisplayStage;
+  investigationProgress?: InvestigationProgressState | null;
   traceId?: string;
   note?: string;
   routing?: {
@@ -43,9 +49,14 @@ interface ChatBubbleProps {
 
 export function ChatBubble({ message }: ChatBubbleProps) {
   const isUser = message.role === 'user';
+  const showProgress = !isUser && message.displayStage === 'progress' && message.investigationProgress;
+  const showSummaryOnly = !isUser && message.displayStage === 'summary' && message.trace;
+  const showFullAnswer = !isUser && message.trace && message.displayStage !== 'progress' && message.displayStage !== 'summary';
+
+  const scrollAnswerToTop = showSummaryOnly || showFullAnswer;
 
   return (
-    <div className={cn('flex gap-3', isUser && 'flex-row-reverse')}>
+    <div className={cn('flex gap-3', isUser && 'flex-row-reverse')} data-message-id={message.id}>
       <div
         className={cn(
           'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
@@ -55,26 +66,49 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
       </div>
       <div className={cn('min-w-0 space-y-2', isUser ? 'max-w-[78%] items-end' : 'max-w-[94%] flex-1')}>
-        <div
-          className={cn(
-            'rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm',
-            isUser
-              ? 'rounded-tr-md bg-cyan-400 text-slate-950'
-              : 'max-w-[68ch] rounded-tl-md border border-slate-800 bg-slate-900/90 text-slate-100',
-          )}
-        >
-          {message.content}
-        </div>
-        {!isUser && message.trace?.analyst_response ? <AnalystResponseCard response={message.trace.analyst_response} foundationSecGovernance={message.trace.foundation_sec_governance} /> : null}
-        {!isUser && message.trace && !message.trace.analyst_response ? <AnalystSummaryCard trace={message.trace} /> : null}
-        {!isUser && message.trace?.human_review?.required && !message.trace.analyst_response ? <HumanReviewCard review={message.trace.human_review} /> : null}
+        {scrollAnswerToTop ? (
+          <div
+            data-answer-scroll-anchor={message.id}
+            className="scroll-mt-4 h-0 w-full shrink-0"
+            aria-hidden
+          />
+        ) : null}
+        {showProgress ? null : (
+          <div
+            className={cn(
+              'rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm',
+              isUser
+                ? 'rounded-tr-md bg-cyan-400 text-slate-950'
+                : 'max-w-[68ch] rounded-tl-md border border-slate-800 bg-slate-900/90 text-slate-100',
+            )}
+          >
+            {message.content}
+          </div>
+        )}
+        {showProgress && message.investigationProgress ? (
+          <InvestigationProgressPanel
+            state={message.investigationProgress}
+            demoMode={message.trace?.demo_mode ?? true}
+          />
+        ) : null}
+        {showSummaryOnly ? <AnalystSummaryCard trace={message.trace!} /> : null}
+        {showFullAnswer && message.trace?.analyst_response ? (
+          <AnalystResponseCard
+            response={message.trace.analyst_response}
+            foundationSecGovernance={message.trace.foundation_sec_governance}
+          />
+        ) : null}
+        {showFullAnswer && message.trace && !message.trace.analyst_response ? <AnalystSummaryCard trace={message.trace} /> : null}
+        {showFullAnswer && message.trace?.human_review?.required && !message.trace.analyst_response ? (
+          <HumanReviewCard review={message.trace.human_review} />
+        ) : null}
         {!isUser && !message.trace && message.note ? (
           <div className="flex flex-wrap gap-2">
             {message.traceId ? <Badge variant="secondary">trace {message.traceId.slice(0, 8)}</Badge> : null}
             <Badge>{message.note}</Badge>
           </div>
         ) : null}
-        {!isUser && message.trace?.investigation_lineage ? (
+        {showFullAnswer && message.trace?.investigation_lineage ? (
           <details className="group rounded-lg border border-slate-800/70 bg-slate-950/40">
             <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 transition hover:text-cyan-200">
               <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
@@ -89,7 +123,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             </div>
           </details>
         ) : null}
-        {!isUser && message.trace ? (
+        {showFullAnswer && message.trace ? (
           <details className="group rounded-lg border border-slate-800/70 bg-slate-950/40">
             <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-400 transition hover:text-cyan-200">
               <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />

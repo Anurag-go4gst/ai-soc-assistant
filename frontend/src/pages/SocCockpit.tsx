@@ -48,7 +48,7 @@ export function SocCockpit() {
       {/* Center column: chat + trace summary */}
       <div className="flex h-full min-h-0 flex-col gap-3">
         <div className="min-h-0 flex-1">
-          <ChatPanel onTrace={setLastTrace} compactHeader />
+          <ChatPanel onTrace={setLastTrace} onClear={() => setLastTrace(null)} compactHeader />
         </div>
         <TraceSummaryStrip trace={lastTrace} />
       </div>

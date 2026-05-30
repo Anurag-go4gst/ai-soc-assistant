@@ -1,0 +1,21 @@
+{
+  "_note": "DESIGN ONLY — not used in CI until COE approves pattern #2 observation window",
+  "pilot_coverage_id": "cov.q063.success_after_failed_logins_sample",
+  "primary_skill": "sequence_detection",
+  "pattern_id": "auth_success_after_failures",
+  "in_pattern": [
+    {"case_id": "in_01", "input_phrasing": "Which accounts had a successful login after repeated failures?"},
+    {"case_id": "in_02", "input_phrasing": "Users who failed Okta login then succeeded within one hour"},
+    {"case_id": "in_03", "input_phrasing": "Show accounts with success after multiple failed authentication attempts today"}
+  ],
+  "near_miss": [
+    {"case_id": "miss_01", "input_phrasing": "Top users by failed logins in the last 24 hours", "reason": "aggregate_pilot_not_sequence"},
+    {"case_id": "miss_02", "input_phrasing": "Successful logins today", "reason": "missing_event_a"},
+    {"case_id": "miss_03", "input_phrasing": "Failed logins only for app01", "reason": "missing_event_b"}
+  ],
+  "missing_slot": [
+    {"case_id": "slot_01", "input_phrasing": "Success after failures", "reason": "missing_join_entity"},
+    {"case_id": "slot_02", "input_phrasing": "Accounts with login sequence", "reason": "missing_sequence_window"},
+    {"case_id": "slot_03", "input_phrasing": "Correlate auth events", "reason": "missing_time_window"}
+  ]
+}

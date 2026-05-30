@@ -1,0 +1,284 @@
+{
+  "observation_window": {
+    "start": "2026-05-30T12:00:00Z",
+    "end": "2026-05-30T18:00:00Z",
+    "description": "Stage 3L-S3 Step 7 varied-input observation (prod defaults + lab authority harness per case)."
+  },
+  "pilot_coverage_id": "cov.q046.excessive_failed_logins_sample",
+  "cases": [
+    {
+      "case_id": "in_01",
+      "input_type": "in_pattern",
+      "message": "top users by failed logins",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_02",
+      "input_type": "in_pattern",
+      "message": "which accounts had the most failed Okta logins today",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_03",
+      "input_type": "in_pattern",
+      "message": "rank users by authentication failures in the last 24 hours",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_04",
+      "input_type": "in_pattern",
+      "message": "show users with the highest failed login counts",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_05",
+      "input_type": "in_pattern",
+      "message": "who generated the most failed logins",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_06",
+      "input_type": "in_pattern",
+      "message": "top failed login users for Okta",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_07",
+      "input_type": "in_pattern",
+      "message": "which users are leading failed authentication attempts",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_08",
+      "input_type": "in_pattern",
+      "message": "list the users with maximum failed sign-in attempts",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_09",
+      "input_type": "in_pattern",
+      "message": "show top accounts by failed login count",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_10",
+      "input_type": "in_pattern",
+      "message": "who had the most authentication failures yesterday",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_11",
+      "input_type": "in_pattern",
+      "message": "rank failed login users by count",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "in_12",
+      "input_type": "in_pattern",
+      "message": "show top failed-login accounts for the last day",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_slotted",
+      "lab_expect_authority_applied": true
+    },
+    {
+      "case_id": "near_01",
+      "input_type": "near_miss",
+      "message": "Which users exceeded the approved failed-login threshold?",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q062.auth_failed_login_spike_raw",
+        "pattern_id": "auth_failed_login_spike",
+        "primary_skill": "threshold_anomaly"
+      },
+      "lab_shadow_template": "cov_q062_threshold_spike",
+      "lab_expect_authority_applied": false,
+      "lab_expect_fallback": "coverage_id_not_allowlisted"
+    },
+    {
+      "case_id": "near_02",
+      "input_type": "near_miss",
+      "message": "Which users had an abnormal spike in failed logins versus baseline?",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q062.auth_failed_login_spike_raw",
+        "pattern_id": "auth_failed_login_spike",
+        "primary_skill": "threshold_anomaly"
+      },
+      "lab_shadow_template": "cov_q062_threshold_spike",
+      "lab_expect_authority_applied": false,
+      "lab_expect_fallback": "coverage_id_not_allowlisted"
+    },
+    {
+      "case_id": "near_03",
+      "input_type": "near_miss",
+      "message": "What happened for this login?",
+      "lab_message": "What happened for this notable?",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": null,
+        "pattern_id": null,
+        "primary_skill": null,
+        "route_status": "clarification_required"
+      },
+      "lab_shadow_template": null,
+      "lab_expect_authority_applied": false,
+      "lab_expect_fallback": "coverage_id_not_allowlisted"
+    },
+    {
+      "case_id": "near_04",
+      "input_type": "near_miss",
+      "message": "Did any user successfully log in after repeated failures?",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": null,
+        "pattern_id": "success_after_failed_logins",
+        "primary_skill": "sequence_detection"
+      },
+      "lab_shadow_template": "sequence_success_after_failures",
+      "lab_expect_authority_applied": false,
+      "lab_expect_fallback": "coverage_id_not_allowlisted"
+    },
+    {
+      "case_id": "near_05",
+      "input_type": "near_miss",
+      "message": "Which privileged accounts had failed logins?",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": null,
+        "pattern_id": null,
+        "primary_skill": "entity_context_lookup"
+      },
+      "lab_shadow_template": "entity_context_lookup_primary",
+      "lab_expect_authority_applied": false,
+      "lab_expect_fallback": "blocked_primary_fixture_absent"
+    },
+    {
+      "case_id": "miss_01",
+      "input_type": "missing_slot",
+      "message": "show excessive failed logins",
+      "lab_message": "Find top 10 users with failed Okta logins in the last 24 hours",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_no_threshold",
+      "lab_expect_authority_applied": false,
+      "lab_expect_fallback": "missing_required_threshold_ref"
+    },
+    {
+      "case_id": "miss_02",
+      "input_type": "missing_slot",
+      "message": "failed login spike",
+      "lab_message": "Find top 10 users with failed Okta logins in the last 24 hours",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_no_time_window",
+      "lab_expect_authority_applied": false,
+      "lab_expect_fallback": "validator_blocked",
+      "lab_expect_fallback_alternatives": ["missing_required_time_window", "validator_blocked"]
+    },
+    {
+      "case_id": "miss_03",
+      "input_type": "missing_slot",
+      "message": "which users failed login too much",
+      "lab_message": "Find top 10 users with failed Okta logins in the last 24 hours",
+      "legacy_skill": "attack_discovery",
+      "expected_route": {
+        "coverage_id": "cov.q046.excessive_failed_logins_sample",
+        "pattern_id": "top_failed_okta_login_users",
+        "primary_skill": "aggregate_and_rank"
+      },
+      "lab_shadow_template": "cov_q046_no_threshold",
+      "lab_expect_authority_applied": false,
+      "lab_expect_fallback": "missing_required_threshold_ref"
+    }
+  ]
+}

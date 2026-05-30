@@ -13,6 +13,10 @@ _BACKEND = _REPO / "backend"
 sys.path.insert(0, str(_BACKEND))
 
 from app.api.routes_chat import chat  # noqa: E402
+from app.observation.cov_q046_observation import (  # noqa: E402
+    render_observation_markdown_table,
+    run_observation_window,
+)
 from app.routing.route_authority_allowlist import COV_Q046_PILOT_COVERAGE_ID  # noqa: E402
 from app.schemas.requests import ChatRequest  # noqa: E402
 from app.tests.test_route_plan_stage3k_r2 import (  # noqa: E402
@@ -96,24 +100,94 @@ def _run_scenario(
         mp.undo()
 
 
-def _append_observation_run(scenarios: list[dict[str, Any]]) -> None:
-    from datetime import datetime, timezone
-
+def _append_observation_run(records: list[dict[str, Any]]) -> None:
     runs_path = _REPO / "docs" / "stage3l_s3_cov_q046_observation_runs.jsonl"
-    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     with runs_path.open("a", encoding="utf-8") as handle:
-        for item in scenarios:
-            compare = item.get("route_authority_compare") or {}
-            record = {
-                "recorded_at": stamp,
-                "scenario": item.get("scenario"),
-                "operation_authoritative_applied": compare.get("operation_authoritative_applied"),
-                "authority_fallback_reason": compare.get("authority_fallback_reason"),
-                "authority_holder": compare.get("authority_holder"),
-                "selected_skill": compare.get("selected_skill"),
-                "legacy_selected_skill_preserved": compare.get("legacy_selected_skill_preserved"),
-            }
+        for record in records:
             handle.write(json.dumps(record) + "\n")
+
+
+def _run_varied_observation_window(monkeypatch_module: Any, *, record_run: bool) -> int:
+    mp = monkeypatch_module.MonkeyPatch()
+    try:
+        result = run_observation_window(mp, include_baselines=True)
+    finally:
+        mp.undo()
+    summary_path = _REPO / "docs" / "stage3l_s3_cov_q046_observation_summary.json"
+    summary_payload = {
+        "window_start": result.window_start,
+        "window_end": result.window_end,
+        "status": result.status,
+        "closure_reason": result.closure_reason,
+        "authority_eligible": result.authority_eligible,
+        "unexpected_disagreement_count": result.unexpected_disagreement_count,
+        "expected_disagreement_count": result.expected_disagreement_count,
+        "disagreement_counts": result.summary_counts(),
+        "blockers": result.blockers,
+        "pilot_coverage_id": COV_Q046_PILOT_COVERAGE_ID,
+        "note": "Stage 3L-S3 Step 7 varied-input observation; authority_eligible does not enable production.",
+    }
+    summary_path.write_text(json.dumps(summary_payload, indent=2) + "\n", encoding="utf-8")
+
+    log_path = _REPO / "docs" / "stage3l_s3_cov_q046_observation_log.md"
+    _update_observation_log_markdown(log_path, result)
+
+    if record_run:
+        _append_observation_run([row.to_jsonl_record() for row in result.rows])
+
+    print(json.dumps(summary_payload, indent=2))
+    exit_code = 0
+    if result.status != "closed":
+        print("OBSERVATION WINDOW OPEN — blockers:", result.blockers, file=sys.stderr)
+        exit_code = 1
+    return exit_code
+
+
+def _update_observation_log_markdown(log_path: Path, result: Any) -> None:
+    text = log_path.read_text(encoding="utf-8")
+    table = render_observation_markdown_table(result)
+
+    window_block = (
+        f"**Status:** Observation **{result.status}** — "
+        f"{result.closure_reason}; "
+        f"`cov.q046` authority-eligible={str(result.authority_eligible).lower()} "
+        f"(production cutover remains separate COE decision).\n\n"
+        f"| Observation window | Status |\n"
+        f"|--------------------|--------|\n"
+        f"| Start | {result.window_start} |\n"
+        f"| End | {result.window_end} |\n"
+        f"| Unexpected disagreements | {result.unexpected_disagreement_count} "
+        f"(expected: {result.expected_disagreement_count}) |\n"
+        f"| Closure | {result.closure_reason} |\n"
+    )
+
+    if "**Status:** Observation **active**" in text:
+        text = text.replace(
+            text.split("---\n\n## Config")[0],
+            f"# Stage 3L-S3 cov.q046 Observation Log\n\n"
+            f"**Pilot:** `cov.q046.excessive_failed_logins_sample`  \n"
+            f"**COE sign-off:** [stage3l_s3_step3_coe_gate_review.md](stage3l_s3_step3_coe_gate_review.md) (2026-05-29)  \n"
+            f"**Capture script:** `python3 scripts/capture_stage3l_s3_coe_pilot_traces.py --varied-window`  \n"
+            f"**Record observation run:** add `--record-run` → appends to "
+            f"[stage3l_s3_cov_q046_observation_runs.jsonl](stage3l_s3_cov_q046_observation_runs.jsonl)  \n"
+            f"**Summary JSON:** [stage3l_s3_cov_q046_observation_summary.json](stage3l_s3_cov_q046_observation_summary.json)  \n"
+            f"**Fixture:** `backend/app/tests/fixtures/stage3l_s3_cov_q046_observation_inputs.json`  \n\n"
+            f"{window_block}\n---\n\n",
+        )
+
+    marker = "## Observation window entries"
+    if marker in text:
+        before, _after = text.split(marker, 1)
+        rest = _after.split("\n", 1)[-1]
+        # drop old table rows until next ##
+        if "## How to record" in rest:
+            _, tail = rest.split("## How to record", 1)
+            rest = "## How to record" + tail
+        else:
+            rest = ""
+        text = before + marker + "\n\n" + table + "\n" + rest
+
+    log_path.write_text(text, encoding="utf-8")
 
 
 def main() -> int:
@@ -126,7 +200,15 @@ def main() -> int:
         action="store_true",
         help="Append scenario summary to docs/stage3l_s3_cov_q046_observation_runs.jsonl",
     )
+    parser.add_argument(
+        "--varied-window",
+        action="store_true",
+        help="Run Stage 3L-S3 Step 7 varied-input observation window closure harness",
+    )
     args = parser.parse_args()
+
+    if args.varied_window:
+        return _run_varied_observation_window(pytest, record_run=args.record_run)
 
     scenarios = [
         _run_scenario(
@@ -161,7 +243,26 @@ def main() -> int:
     }
     out_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     if args.record_run:
-        _append_observation_run(scenarios)
+        _append_observation_run(
+            [
+                {
+                    "recorded_at": scenarios[0]["route_authority_compare"].get("recorded_at"),
+                    "scenario": item["scenario"],
+                    "operation_authoritative_applied": item["route_authority_compare"].get(
+                        "operation_authoritative_applied"
+                    ),
+                    "authority_fallback_reason": item["route_authority_compare"].get(
+                        "authority_fallback_reason"
+                    ),
+                    "authority_holder": item["route_authority_compare"].get("authority_holder"),
+                    "selected_skill": item["route_authority_compare"].get("selected_skill"),
+                    "legacy_selected_skill_preserved": item["route_authority_compare"].get(
+                        "legacy_selected_skill_preserved"
+                    ),
+                }
+                for item in scenarios
+            ]
+        )
     print(json.dumps({"written": str(out_path), "scenario_count": len(scenarios)}, indent=2))
     if args.record_run:
         print("appended observation run to docs/stage3l_s3_cov_q046_observation_runs.jsonl")

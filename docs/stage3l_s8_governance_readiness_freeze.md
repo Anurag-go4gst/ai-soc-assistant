@@ -11,7 +11,7 @@
 | Layer | State |
 |-------|--------|
 | **Routing authority** | `selected_skill` / legacy skill router remains authoritative on `/chat`. Route-plan shadow, precondition evaluation, and authority compare are **observational only**. |
-| **Operation authority** | `operation_authoritative_enabled` stays **false**. Single allowlist pilot: `cov.q046.excessive_failed_logins_sample` only when lab flags + COE sign-off. |
+| **Operation authority** | `operation_authoritative_enabled` stays **false** in production. `cov.q046` is **authority-eligible** after Step 7 observation closure; lab allowlist pilot only when explicit flags + COE production cutover (separate). |
 | **Execution** | MCP/SPL execution disabled by default globally and per server. `candidate_spl` never executed. |
 | **LLM** | No final synthesis; Answer Guard execution disabled. Route-plan and analyst-summary LLM paths are shadow/candidate only. |
 | **Hard preconditions (S7)** | Canonical evaluator + registry-backed dependency state + shadow `precondition_evaluation` + S5/S7 manifest audit alignment. Evaluator does **not** override `selected_skill` or authorize execution. |
@@ -36,7 +36,7 @@
 
 ## Explicitly deferred (not in this freeze)
 
-- Pattern #2+ operation authority / second allowlist IDs
+- Pattern #2+ operation authority / second allowlist IDs (Step 7 closed for `cov.q046` only — eligibility ≠ production enablement)
 - Auto-promotion of manifest rows
 - Renderer consumers for S2B output artifacts (COE sign-off pending)
 - S4 layered registry implementation

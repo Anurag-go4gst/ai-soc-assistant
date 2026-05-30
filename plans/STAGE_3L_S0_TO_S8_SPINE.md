@@ -5,15 +5,17 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 
 > LLM assistance is candidate-only. Deterministic core owns validation, normalization, binding, rendering, execution eligibility, and all blocking decisions. If LLM output disagrees with deterministic validation, deterministic wins and the disagreement is recorded.
 
-## Checkpoint judgment (2026-05-29)
+## Checkpoint judgment (2026-05-30)
 
 | Stage | Verdict |
 |-------|---------|
 | **3L-S0** | Done / signed off |
 | **3L-S1** | Done — runtime operation validator v2; safety preserved; execution disabled; router authority unchanged |
-| **Next** | S2B renderer consumers; COE Step 3 signature; S4 registry implementation (proposed) |
+| **Next** | S2B renderer consumers; S4 registry implementation (proposed); COE production authority cutover (separate) |
 | **S5/S6** | S5/S6 author-time done; **S5.1** manifest audit + **S6.1** shadow `question_runtime_map` consumer |
-| **Trust** | Build trust without paralysis — observe pilot, audit manifest, map questions; no pattern #2 authority |
+| **S3 Step 7** | `cov.q046` observation window **closed** — authority-eligible; pattern #2 still blocked |
+| **S3.8** | Pattern #2 design (`sequence_detection`) — [docs/stage3l_s3_pattern2_sequence_detection_design.md](../docs/stage3l_s3_pattern2_sequence_detection_design.md) — design only |
+| **Trust** | Pilot observed with varied inputs; no pattern #2 allowlist expansion |
 
 ## Stage index
 
@@ -26,7 +28,8 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S2B | Output artifacts (shadow) | [docs/stage3l_s2_output_artifacts_design.md](../docs/stage3l_s2_output_artifacts_design.md) | Shadow library done; COE sign-off + renderer pending | `eec3912` |
 | S3 COE doc | Gate review aligned to S3.3A | [docs/stage3l_s3_step3_coe_gate_review.md](../docs/stage3l_s3_step3_coe_gate_review.md) | Done | `e1f6f22` |
 | S3 | Route authority migration | [docs/stage3l_s3_route_authority_migration.md](../docs/stage3l_s3_route_authority_migration.md) | Steps 1–2 + Step 3 pilot (lab flags; `selected_skill` preserved) | `b9ded3f` |
-| S3.3 | Step 3 coverage gate | [docs/stage3l_s3_step3_coverage_gate_design.md](../docs/stage3l_s3_step3_coverage_gate_design.md) | Implemented; [COE review](../docs/stage3l_s3_step3_coe_gate_review.md) pending signature | `e412c7c` |
+| S3.3 | Step 3 coverage gate | [docs/stage3l_s3_step3_coverage_gate_design.md](../docs/stage3l_s3_step3_coverage_gate_design.md) | Implemented; [COE review](../docs/stage3l_s3_step3_coe_gate_review.md) signed | `e412c7c` |
+| S3.7 | cov.q046 observation window closure | [docs/stage3l_s3_cov_q046_observation_log.md](../docs/stage3l_s3_cov_q046_observation_log.md) | **Closed** — authority-eligible; production authority still off | — |
 | S3.3A | Authority fallback harness | same + `route_authority_gate.py` | Done | `214c1e7` |
 | S3 trace | Steps 1–2 trace review | [docs/stage3l_s3_trace_review_checkpoint.md](../docs/stage3l_s3_trace_review_checkpoint.md) | Done | `df11095` |
 | S4 | Layered skill registry | [docs/stage3l_s4_layered_registry_design.md](../docs/stage3l_s4_layered_registry_design.md) | Design doc done — implementation proposed | — |

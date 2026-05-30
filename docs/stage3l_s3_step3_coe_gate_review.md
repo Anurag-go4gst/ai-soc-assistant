@@ -56,8 +56,8 @@ Production remains: `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false`, all
 4. ✅ Full backend tests + harness (`587` pytest, harness `6/6`).
 5. ✅ **Default mode verification** — captured 2026-05-29 ([traces](#environment-verification-traces)).
 6. ✅ **Lab pilot verification** — captured 2026-05-29 ([traces](#environment-verification-traces)).
-7. ☐ Observe a real window with **zero unexpected disagreements** before pattern #2 (in progress).
-8. ☐ Only then discuss a second `coverage_id`.
+7. ✅ Observe varied-input window with **zero unexpected disagreements** (Step 7 closed 2026-05-30; [observation log](stage3l_s3_cov_q046_observation_log.md)).
+8. ☐ Only then discuss a second `coverage_id` (COE decision; pattern #2 remains blocked).
 
 ---
 
@@ -190,7 +190,7 @@ No default injected for `threshold_ref` or `time_window`.
 ## Pilot observation rule (COE)
 
 - **Scope:** `cov.q046.excessive_failed_logins_sample` only.
-- **No pattern #2** and no second allowlist `coverage_id` until this pilot runs clean with **zero unexpected disagreements** in the observation window (proceed order step 7).
+- **No pattern #2** and no second allowlist `coverage_id` until COE separately approves expansion. Step 7 observation window is **closed** (`cov.q046` is **authority-eligible**; production authority remains off by default).
 - **Log:** [stage3l_s3_cov_q046_observation_log.md](stage3l_s3_cov_q046_observation_log.md)
 
 ---

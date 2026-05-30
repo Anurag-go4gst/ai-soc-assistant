@@ -7,3 +7,5 @@ dist/
 .DS_Store
 *.pyc
 test_harness/audit_logs/*.jsonl
+docs/evals/out/*
+!docs/evals/out/.gitkeep

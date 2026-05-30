@@ -4,6 +4,8 @@ Canonical index for Splunk MCP result envelope and adapter program.
 
 > Downstream must consume `SplunkResultEnvelope` only past the MCP adapter — never raw MCP dicts.
 
+**Tracking:** S0–S5 implementation todos from the original plan are **closed** — use this spine and the Commit column, not stale Cursor/agent task lists. S1 envelope/fixture work shipped in `cc00739`; later stages built on it per rows below.
+
 ## Stage index
 
 | Code | Focus | Spec | Status | Commit |
