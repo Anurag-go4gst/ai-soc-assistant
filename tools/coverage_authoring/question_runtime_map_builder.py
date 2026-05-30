@@ -9,6 +9,7 @@ from typing import Any
 from registries import MANIFEST_PATH, REPO_ROOT, TAXONOMY_PATH
 from taxonomy_lookup import TaxonomyRow, load_taxonomy_rows
 
+from operation_report_fields import build_report_entry
 from pattern_runtime_mapping import (
     AUTHORITY_PILOT_COVERAGE_ID,
     AUTHORITY_PILOT_QUESTION_REF,
@@ -17,7 +18,9 @@ from pattern_runtime_mapping import (
 )
 
 MAP_VERSION = "stage3l_s6_v1"
+OPERATION_REPORT_VERSION = "stage3l_s6_2_v1"
 OUTPUT_PATH = REPO_ROOT / "backend" / "app" / "coverage" / "question_runtime_map_v1.json"
+OPERATION_REPORT_PATH = REPO_ROOT / "docs" / "stage3l_s6_105_question_operation_map.json"
 
 
 def _load_manifest_by_question_ref() -> dict[str, dict[str, Any]]:
@@ -96,12 +99,68 @@ def build_question_runtime_map(
     }
 
 
+def build_operation_map_report(
+    *,
+    taxonomy_path: Path | None = None,
+    runtime_payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """S6.2 provisional report from the same rows as S6.1 (no second source of truth)."""
+    runtime = runtime_payload or build_question_runtime_map(taxonomy_path=taxonomy_path)
+    report_entries = [build_report_entry(row) for row in runtime["entries"]]
+    return {
+        "report_version": OPERATION_REPORT_VERSION,
+        "source_of_truth": (
+            "tools/coverage_authoring/question_runtime_map_builder.py "
+            "+ docs/soc_question_taxonomy_stage3k_q0.md + pattern_coverage_v1.json"
+        ),
+        "runtime_map_artifact": str(OUTPUT_PATH.relative_to(REPO_ROOT)),
+        "taxonomy_source": runtime["taxonomy_source"],
+        "question_count": runtime["question_count"],
+        "manifest_row_count": runtime["manifest_row_count"],
+        "provisional_disclaimer": (
+            "Provisional analysis only. Not coverage readiness. Not authority approval. "
+            "Not live /chat support."
+        ),
+        "entries": report_entries,
+    }
+
+
 def write_question_runtime_map(path: Path | None = None) -> Path:
     target = path or OUTPUT_PATH
     payload = build_question_runtime_map()
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return target
+
+
+def write_operation_map_report(
+    path: Path | None = None,
+    *,
+    taxonomy_path: Path | None = None,
+    runtime_payload: dict[str, Any] | None = None,
+) -> Path:
+    runtime = runtime_payload or build_question_runtime_map(taxonomy_path=taxonomy_path)
+    target = path or OPERATION_REPORT_PATH
+    payload = build_operation_map_report(taxonomy_path=taxonomy_path, runtime_payload=runtime)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return target
+
+
+def write_all_question_maps(
+    *,
+    taxonomy_path: Path | None = None,
+) -> tuple[Path, Path]:
+    """Regenerate S6.1 runtime map and S6.2 report from one builder pass."""
+    runtime_payload = build_question_runtime_map(taxonomy_path=taxonomy_path)
+    runtime_path = OUTPUT_PATH
+    runtime_path.parent.mkdir(parents=True, exist_ok=True)
+    runtime_path.write_text(json.dumps(runtime_payload, indent=2) + "\n", encoding="utf-8")
+    report_path = write_operation_map_report(
+        taxonomy_path=taxonomy_path,
+        runtime_payload=runtime_payload,
+    )
+    return runtime_path, report_path
 
 
 def main() -> int:

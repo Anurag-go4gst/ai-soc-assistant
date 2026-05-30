@@ -26,14 +26,30 @@ When `route_plan_shadow` resolves a `coverage_id`, `/chat` attaches an observati
 
 No MCP/SPL/LLM enablement; no second authority pilot.
 
+## S6.1 vs S6.2
+
+| Artifact | Path | Role |
+|----------|------|------|
+| **S6.1** (this doc) | `backend/app/coverage/question_runtime_map_v1.json` | Runtime shadow map |
+| **S6.2** (provisional report) | [stage3l_s6_105_question_operation_map.md](stage3l_s6_105_question_operation_map.md) | Analysis report only; not wired to `/chat` |
+
+Both are generated from the **same builder pass**. See S6.2 doc for drift audit requirements.
+
 ## Regenerate
 
 ```bash
 export PYTHONPATH=backend
+python tools/coverage_authoring/coverage_drafter.py --emit-maps
+python tools/coverage_authoring/check_question_operation_map.py
+```
+
+Or runtime map only:
+
+```bash
 python tools/coverage_authoring/coverage_drafter.py --emit-runtime-map
 ```
 
-After adding or changing manifest rows, rerun emit and commit the JSON.
+After adding or changing manifest rows, rerun emit and commit both JSON artifacts when using `--emit-maps`.
 
 ## Current snapshot
 
