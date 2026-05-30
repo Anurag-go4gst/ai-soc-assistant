@@ -1,6 +1,6 @@
 # Stage 3L-S7: Hard Preconditions and Dependency Readiness Design
 
-**Status:** S7 design done (2026-05-30). **S7.1** pure evaluator landed. **S7.2** registry-backed dependency state landed (tests only). **S7.3** shadow + lineage wiring landed (observational `/chat` only). **S7.4** proposed.
+**Status:** S7 done (2026-05-30). **S7.1** pure evaluator. **S7.2** registry-backed dependency state. **S7.3** shadow + lineage. **S7.4** S5 promotion audit alignment.
 
 **Purpose:** Define how runtime operation `hard_preconditions` and dependency readiness are enforced **before** any future MCP/SPL execution path — without expanding route authority, enabling execution, or changing `/chat` `selected_skill`.
 
@@ -264,7 +264,7 @@ precondition_evaluator (S7) → route_plan_validator → route_authority_gate (o
 | **S7.1** | **Done** | [`precondition_evaluator.py`](../backend/app/routing/precondition_evaluator.py) + [`test_precondition_evaluator_stage3l_s7.py`](../backend/app/tests/test_precondition_evaluator_stage3l_s7.py) — explicit `HardPreconditionDependencyState` only; no registry I/O |
 | **S7.2** | **Done** | [`precondition_dependency_state.py`](../backend/app/routing/precondition_dependency_state.py) + [`test_precondition_dependency_state_stage3l_s7.py`](../backend/app/tests/test_precondition_dependency_state_stage3l_s7.py) — closed-world registry/manifest snapshots; tests call `evaluate_hard_preconditions()` only |
 | **S7.3** | **Done** | [`precondition_evaluation_shadow.py`](../backend/app/routing/precondition_evaluation_shadow.py) + [`test_precondition_evaluation_shadow_stage3l_s7.py`](../backend/app/tests/test_precondition_evaluation_shadow_stage3l_s7.py) — `route_plan_shadow.precondition_evaluation` + lineage `hard_preconditions`; no `selected_skill` / execution change |
-| **S7.4** | Proposed | S5 promotion audit alignment with evaluator |
+| **S7.4** | **Done** | [`manifest_precondition_alignment.py`](../backend/app/coverage/manifest_precondition_alignment.py) — S5 audit embeds `precondition_alignment`; documented gaps for COE sample templates |
 
 S7.1 API: `evaluate_hard_preconditions(route_plan, dependency_state)` → `preconditions_checked`, `preconditions_passed`, `preconditions_failed`, `dependency_readiness`, `route_status`, `blocking_findings`.
 

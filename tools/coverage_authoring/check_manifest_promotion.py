@@ -32,16 +32,30 @@ def main() -> int:
     if args.json:
         print(json.dumps(report, indent=2))
     else:
-        print(f"entries={report['entry_count']} all_ok={report['all_manifest_integrity_ok']}")
+        print(
+            f"entries={report['entry_count']} "
+            f"s5_ok={report['all_manifest_integrity_ok']} "
+            f"s7_align_ok={report.get('all_precondition_alignment_ok', False)}"
+        )
         for item in report["entries"]:
             status = "OK" if item["manifest_integrity_ok"] else "FAIL"
-            print(f"  [{status}] {item['coverage_id']} ({item['question_ref']})")
+            align = item.get("precondition_alignment") or {}
+            align_tag = align.get("alignment_status", "n/a")
+            print(
+                f"  [{status}] {item['coverage_id']} ({item['question_ref']}) "
+                f"s7={align.get('precondition_route_status')} align={align_tag}"
+            )
             if not item["manifest_integrity_ok"]:
                 failed = [c for c in item["checks"] if not c["passed"]]
                 for check in failed[:5]:
                     print(f"       - {check['gate_id']}: {check['detail']}")
+            if align_tag == "drift":
+                for note in (align.get("alignment_notes") or [])[:3]:
+                    print(f"       ! {note}")
 
-    return 0 if report["all_manifest_integrity_ok"] else 1
+    s5_ok = report["all_manifest_integrity_ok"]
+    s7_ok = report.get("all_precondition_alignment_ok", True)
+    return 0 if s5_ok and s7_ok else 1
 
 
 if __name__ == "__main__":

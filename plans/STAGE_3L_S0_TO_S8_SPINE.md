@@ -11,7 +11,7 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 |-------|---------|
 | **3L-S0** | Done / signed off |
 | **3L-S1** | Done — runtime operation validator v2; safety preserved; execution disabled; router authority unchanged |
-| **Next** | cov.q046 observation (`--record-run`); S2B renderer consumers; S7 preconditions |
+| **Next** | S2B renderer consumers; COE Step 3 signature; S4 registry implementation (proposed) |
 | **S5/S6** | S5/S6 author-time done; **S5.1** manifest audit + **S6.1** shadow `question_runtime_map` consumer |
 | **Trust** | Build trust without paralysis — observe pilot, audit manifest, map questions; no pattern #2 authority |
 
@@ -32,12 +32,12 @@ Canonical index for runtime operation governance (post Stage 3K Q4/Q4A).
 | S4 | Layered skill registry | [docs/stage3l_s4_layered_registry_design.md](../docs/stage3l_s4_layered_registry_design.md) | Design doc done — implementation proposed | — |
 | S5 | Q4A promotion gates | [docs/stage3l_s5_q4a_promotion_gates.md](../docs/stage3l_s5_q4a_promotion_gates.md) | Done — S5.1 manifest audit; **S5.2** promotion workflow | `6bd2a75` |
 | S6 | 105-Q runtime map | [docs/stage3l_s6_question_runtime_map.md](../docs/stage3l_s6_question_runtime_map.md) | Done — S6.1 shadow; **S6.2** provisional report | `6bd2a75` |
-| S7 | `hard_preconditions` runtime enforcement | [docs/stage3l_s7_hard_preconditions_design.md](../docs/stage3l_s7_hard_preconditions_design.md) | **S7.1–S7.3** done; S7.4 proposed | — |
+| S7 | `hard_preconditions` runtime enforcement | [docs/stage3l_s7_hard_preconditions_design.md](../docs/stage3l_s7_hard_preconditions_design.md) | **Done** (S7.1–S7.4) | `0cfbf38`+ |
 | S7.1 | Pure precondition evaluator | `precondition_evaluator.py` | Done — not wired to `/chat` | — |
 | S7.2 | Registry-backed dependency state | `precondition_dependency_state.py` | Done — tests feed `evaluate_hard_preconditions()` | — |
 | S7.3 | Shadow + lineage wiring | `precondition_evaluation_shadow.py` | Done — `/chat` shadow + lineage only | — |
-| S7.4 | S5 promotion alignment | — | Proposed | — |
-| S8 | Governance readiness freeze | — | Proposed | — |
+| S7.4 | S5 promotion alignment | `manifest_precondition_alignment.py` | Done — embedded in manifest audit | — |
+| S8 | Governance readiness freeze | [docs/stage3l_s8_governance_readiness_freeze.md](../docs/stage3l_s8_governance_readiness_freeze.md) | Done — doc freeze only | — |
 
 **Commit hash rule:** Update the Commit column when the stage lands (same pattern as Stage 3K Section 9).
 

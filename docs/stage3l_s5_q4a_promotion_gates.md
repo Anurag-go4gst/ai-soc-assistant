@@ -59,7 +59,9 @@ python tools/coverage_authoring/check_manifest_promotion.py
 python tools/coverage_authoring/check_manifest_promotion.py --json
 ```
 
-`pytest`: `app/tests/test_manifest_promotion_audit_stage3l_s5.py` — fails CI if any committed row regresses.
+`pytest`: `app/tests/test_manifest_promotion_audit_stage3l_s5.py`, `app/tests/test_manifest_precondition_alignment_stage3l_s7.py` — fails CI if any committed row regresses or S7 alignment drifts.
+
+**S7.4:** Each audit entry includes `precondition_alignment` (S7 evaluator vs manifest `expected_route_status` + S5 validation cross-walk). COE `sample_only` fixture rows may show `documented_gap` `coe_fixture_sample_template_blocks_s7` while S5 integrity stays OK.
 
 Does **not** block `/chat`; trust signal only.
 
