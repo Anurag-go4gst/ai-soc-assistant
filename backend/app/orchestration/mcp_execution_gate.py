@@ -5,6 +5,7 @@ from typing import Any
 
 from app.connectors.mcp import get_mcp_connector
 from app.connectors.mcp.registry import load_mcp_registry_status
+from app.connectors.mcp.splunk_result_adapter import adapt_mcp_search_payload, execution_preview_from_envelope
 from app.connectors.telemetry import get_telemetry_connector
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS, select_mcp_tool
@@ -84,8 +85,18 @@ def evaluate_mcp_execution(
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=type(exc).__name__)
         return execution, review
 
-    rows = _safe_rows(result.get("rows", []))
     duration_ms = int((perf_counter() - started) * 1000)
+    envelope = adapt_mcp_search_payload(
+        result,
+        mcp_mode=registry.mode,
+        trace_id=trace_id,
+        normalized_spl=normalized_spl,
+        duration_ms=duration_ms,
+    )
+    result_count, results_preview = execution_preview_from_envelope(
+        envelope,
+        preview_cap=RESULT_PREVIEW_CAP,
+    )
     execution = {
         "status": "executed",
         "execution_intent": "spl_search",
@@ -94,8 +105,9 @@ def evaluate_mcp_execution(
         "tool_selection_status": selection["tool_selection_status"],
         "tool_selection_reason": selection["tool_selection_reason"],
         "executed_spl": normalized_spl,
-        "result_count": min(int(result.get("row_count", len(rows)) or 0), RESULT_PREVIEW_CAP),
-        "results_preview": rows[:RESULT_PREVIEW_CAP],
+        "result_count": result_count,
+        "results_preview": results_preview,
+        "splunk_result_envelope": envelope.to_dict(),
         "block_reason": None,
         "duration_ms": duration_ms,
     }
@@ -195,19 +207,3 @@ def _selection_event(selection: dict[str, Any]) -> dict[str, Any]:
         "blocked_reason": selection.get("blocked_reason"),
     }
 
-
-def _safe_rows(rows: Any) -> list[dict[str, Any]]:
-    if not isinstance(rows, list):
-        return []
-    safe: list[dict[str, Any]] = []
-    for row in rows[:RESULT_PREVIEW_CAP]:
-        if not isinstance(row, dict):
-            continue
-        safe.append({str(key)[:80]: _safe_value(value) for key, value in row.items()})
-    return safe
-
-
-def _safe_value(value: Any) -> Any:
-    if isinstance(value, (int, float, bool)) or value is None:
-        return value
-    return str(value)[:240]

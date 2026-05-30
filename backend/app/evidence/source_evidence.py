@@ -58,12 +58,11 @@ def build_source_evidence(
         return evidence
 
     status = str(execution.get("status") or "skipped")
-    rows = _safe_rows(execution.get("results_preview", []))
-    fields = _fields_returned(rows)
+    rows, fields, envelope_warnings = _preview_from_execution(execution)
     sensitivity_flags = _sensitivity_flags(rows, fields)
     raw_result_hash = _raw_hash(rows) if rows else None
     collection_status = _collection_status(status)
-    warnings = []
+    warnings: list[str] = list(envelope_warnings)
     if execution.get("block_reason"):
         warnings.append(str(execution["block_reason"])[:VALUE_CAP])
     if spl_validation.get("warnings"):
@@ -203,6 +202,34 @@ def _tool_category(tool_name: Any) -> str | None:
 def _request_summary(selected_skill: str, query: str, execution: dict[str, Any]) -> str:
     intent = execution.get("execution_intent") or "none"
     return _safe_text(f"{selected_skill}:{intent}:{query}", 300)
+
+
+def _preview_from_execution(
+    execution: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[str], list[str]]:
+    """Prefer SplunkResultEnvelope on execution; fall back to legacy results_preview."""
+    envelope_data = execution.get("splunk_result_envelope")
+    if isinstance(envelope_data, dict):
+        raw_rows = envelope_data.get("rows")
+        if isinstance(raw_rows, list):
+            rows = [dict(row) for row in raw_rows[:SOURCE_PREVIEW_CAP] if isinstance(row, dict)]
+        else:
+            rows = []
+        fields = [str(item) for item in envelope_data.get("fields", []) if item is not None][:FIELD_CAP]
+        if not fields:
+            fields = _fields_returned(rows)
+        envelope_warnings = [
+            str(item)[:VALUE_CAP]
+            for item in envelope_data.get("warnings", [])
+            if item is not None
+        ]
+        if envelope_data.get("schema_confirmed") is False:
+            reason = envelope_data.get("schema_confirmed_reason")
+            if reason:
+                envelope_warnings.append(f"schema_unconfirmed:{reason}"[:VALUE_CAP])
+        return rows, fields, envelope_warnings
+    rows = _safe_rows(execution.get("results_preview", []))
+    return rows, _fields_returned(rows), []
 
 
 def _safe_rows(rows: Any) -> list[dict[str, Any]]:
