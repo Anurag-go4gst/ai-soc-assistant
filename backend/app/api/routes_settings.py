@@ -22,6 +22,7 @@ from app.connectors.llm.registry import SUPPORTED_PROVIDER_TYPES as SUPPORTED_LL
 from app.connectors.llm.registry import load_llm_registry_status
 from app.connectors.mcp import get_mcp_connector
 from app.connectors.mcp.discovery import classify_mcp_tool
+from app.connectors.mcp.live_readiness import evaluate_splunk_mcp_live_readiness
 from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.mcp.registry import SUPPORTED_AUTH_MODES as SUPPORTED_MCP_AUTH_MODES
 from app.connectors.mcp.registry import SUPPORTED_MCP_TYPES, SUPPORTED_TRANSPORTS
@@ -178,6 +179,7 @@ def settings_status() -> dict:
             "max_rows": 1000,
             "last_check_status": "not_checked",
             "splunk_capability": splunk_capability.model_dump(),
+            "splunk_live_readiness": evaluate_splunk_mcp_live_readiness(registry=mcp_registry),
             "environment_mode": splunk_capability.environment_mode,
             "splunk_mcp_enabled": settings.splunk_mcp_enabled,
             "splunk_mcp_discovery_mode": settings.splunk_mcp_discovery_mode,

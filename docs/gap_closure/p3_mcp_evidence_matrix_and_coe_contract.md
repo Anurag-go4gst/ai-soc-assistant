@@ -39,9 +39,37 @@ not enable real MCP execution.
 | Policy | saved-search, write/admin, SAIA/generative tool policy |
 | Telemetry | audit fields required by SOC/COE |
 
+## When MCP Becomes Live
+
+Real Splunk MCP can move from report/mock to live read execution only when all
+of these gates pass:
+
+1. COE approves the contract above, including rollback owner and audit fields.
+2. Registry mode is configured: `MCP_MODE=registry`, `MCP_SERVERS=splunk_soc`,
+   `MCP_DEFAULT_SERVER=splunk_soc`.
+3. The Splunk MCP server is enabled and configured with endpoint/transport/auth:
+   `MCP_SERVER_SPLUNK_SOC_ENABLED=true`, `TYPE=splunk`, `TRANSPORT`,
+   `URL` or `COMMAND`, `AUTH_MODE`, and non-committed credentials.
+4. The tool allowlist contains only safe read tools: metadata tools and one
+   validator-approved search tool (`splunk_run_query` or `run_splunk_query`).
+5. `/settings/mcp/validate`, `/settings/mcp/test`, and
+   `/settings/mcp/discover` pass without persisting secrets.
+6. `splunk_live_readiness.ready_for_live_splunk_mcp=true` appears in
+   `/settings/status`.
+7. Only then set both execution switches in the approved environment:
+   `MCP_GLOBAL_EXECUTION_ENABLED=true` and
+   `MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED=true`.
+8. Run governance regression and a bounded live-read smoke test with HIL and
+   rollback owner present.
+
+The readiness checker is implemented in
+`app/connectors/mcp/live_readiness.py`. It never calls MCP; it only inspects
+registry state and returns blockers.
+
 ## Verification
 
 ```bash
 cd backend
 PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_p3_mcp_evidence_matrix.py -q
+PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_p3_mcp_live_readiness.py -q
 ```
