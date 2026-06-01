@@ -111,6 +111,15 @@ def test_builder_t1110_001_is_supported_for_auth_failed_login_spike() -> None:
     assert entry.status == STATUS_SUPPORTED
 
 
+def test_builder_t1110_001_needs_review_for_success_after_failure() -> None:
+    """P5 report builder must not upgrade beyond live mitre_kb default status."""
+    result = build_mitre_permitted_for_question("q0.q060", use_case_id="auth_success_after_failure")
+    entry = next((e for e in result.entries if e.technique_id == "T1110.001"), None)
+    assert entry is not None
+    assert entry.status == STATUS_NEEDS_REVIEW
+    assert entry.requires_soc_review is True
+
+
 def test_builder_soc_approved_always_false() -> None:
     """Builder never marks soc_approved=True — report-only."""
     result = build_mitre_permitted_for_question("q0.q001", use_case_id="auth_failed_login_spike")

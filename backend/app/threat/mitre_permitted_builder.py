@@ -109,7 +109,7 @@ def _deterministic_status(use_case_id: str, technique_id: str) -> str:
         return STATUS_SUPPORTED
     if technique_id == "T1078":
         return STATUS_CANDIDATE
-    return STATUS_CANDIDATE
+    return STATUS_NEEDS_REVIEW
 
 
 def build_mitre_permitted_for_question(
