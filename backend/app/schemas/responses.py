@@ -170,6 +170,8 @@ class StructuredContextPackage(BaseModel):
     prohibited_conclusions: list[str]
     context_quality: str
     synthesis_allowed: bool = False
+    rag_approval_summary: dict[str, object] | None = None
+    evidence_origin_labels: list[str] = []
 
 
 class ContextSufficiencyEnvelope(BaseModel):
@@ -308,6 +310,7 @@ class PlaceholderResponse(BaseModel):
     note: str
     demo_mode: bool = False
     evidence_origin: str | None = None
+    answer_readiness: str | None = None
     no_live_customer_data: bool = False
     demo_badge: str | None = None
     environment_mode: str | None = None

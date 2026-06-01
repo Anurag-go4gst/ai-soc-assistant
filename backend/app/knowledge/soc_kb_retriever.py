@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from app.config import settings
+from app.knowledge.rag_evidence_lineage import build_rag_approval_summary, classify_rag_evidence_origin
 from app.knowledge.ambiguity_assist import assist_status, run_ambiguity_assist
 from app.knowledge.hybrid import apply_rerank, reranker_configured, retrieval_stage_metadata, vector_backend
 from app.knowledge.rag_collection_selector import select_rag_collections
@@ -144,7 +145,7 @@ def soc_kb_source_evidence(trace_id: str, query: str, retrieval: dict[str, Any])
     }.get(str(status), "failed")
     preview_rows = [_preview_row(item) for item in entries]
     source_name = _source_name(entries)
-    return _evidence(
+    envelope = _evidence(
         trace_id=trace_id,
         source_type="rag",
         source_name=source_name,
@@ -159,7 +160,12 @@ def soc_kb_source_evidence(trace_id: str, query: str, retrieval: dict[str, Any])
         time_range=None,
         warnings=list(retrieval.get("warnings") or []),
         sensitivity_flags=sorted({flag for item in entries for flag in item.get("sensitivity_flags", [])}),
+        provenance="governed_soc_kb_retrieval",
     )
+    envelope["evidence_origin"] = retrieval.get("evidence_origin")
+    envelope["rag_approval_summary"] = retrieval.get("rag_approval_summary")
+    envelope["direct_to_llm"] = False
+    return envelope
 
 
 def _retrieve(
@@ -244,7 +250,7 @@ def _retrieve(
     if status == "ambiguous" and settings.soc_kb_llm_ambiguity_assist_enabled:
         warnings.append("llm_ambiguity_assist_limited_to_retrieved_candidates")
 
-    return {
+    payload = {
         "retrieved_entries": retrieved,
         "retrieval_status": status,
         "ambiguity_status": status if status == "ambiguous" else "clear",
@@ -265,6 +271,9 @@ def _retrieve(
         "hybrid_placeholder_enabled": settings.soc_kb_hybrid_placeholder_enabled,
         "graph_placeholder_enabled": settings.soc_kb_graph_placeholder_enabled,
     }
+    payload["evidence_origin"] = classify_rag_evidence_origin(retrieval=payload)
+    payload["rag_approval_summary"] = build_rag_approval_summary(payload)
+    return payload
 
 
 def _eligible_collections(collections: list[dict[str, Any]], allowed_use: list[str], environment: str, collection_ids: list[str] | None) -> dict[str, dict[str, Any]]:
@@ -627,7 +636,7 @@ def _parse_time(value: Any) -> datetime | None:
 
 
 def _empty_result(status: str, reasons: list[str]) -> dict[str, Any]:
-    return {
+    payload = {
         "retrieved_entries": [],
         "retrieval_status": status,
         "ambiguity_status": "clear",
@@ -647,3 +656,6 @@ def _empty_result(status: str, reasons: list[str]) -> dict[str, Any]:
         "hybrid_placeholder_enabled": settings.soc_kb_hybrid_placeholder_enabled,
         "graph_placeholder_enabled": settings.soc_kb_graph_placeholder_enabled,
     }
+    payload["evidence_origin"] = classify_rag_evidence_origin(retrieval=payload)
+    payload["rag_approval_summary"] = build_rag_approval_summary(payload)
+    return payload

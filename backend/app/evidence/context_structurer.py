@@ -66,6 +66,8 @@ def structure_context(
         "allowed_conclusions": ["source_coverage_and_collection_status_only"],
         "context_quality": context_quality,
         "synthesis_allowed": False,
+        "rag_approval_summary": _rag_approval_summary(source_evidence),
+        "evidence_origin_labels": _evidence_origin_labels(source_evidence),
     }
 
 
@@ -282,6 +284,24 @@ def _validation_warnings(source_evidence: list[dict[str, Any]]) -> list[str]:
             if "validation" in str(warning):
                 values.append(str(warning))
     return sorted(set(values))
+
+
+def _rag_approval_summary(source_evidence: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for item in source_evidence:
+        if item.get("source_type") == "rag":
+            summary = item.get("rag_approval_summary")
+            if isinstance(summary, dict):
+                return dict(summary)
+    return None
+
+
+def _evidence_origin_labels(source_evidence: list[dict[str, Any]]) -> list[str]:
+    labels: list[str] = []
+    for item in source_evidence:
+        origin = item.get("evidence_origin")
+        if isinstance(origin, str) and origin.strip() and origin not in labels:
+            labels.append(origin.strip())
+    return labels
 
 
 def _mitre_candidates(collected: list[dict[str, Any]]) -> list[dict[str, Any]]:

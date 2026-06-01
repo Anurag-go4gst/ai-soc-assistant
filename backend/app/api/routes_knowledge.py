@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.auth.session import require_auth
 from app.config import settings
 from app.knowledge.import_prompt import build_extraction_prompt
+from app.knowledge.soc_kb_intake_template import build_soc_kb_intake_template, soc_kb_intake_contract
 from app.knowledge.repository import get_knowledge_repository
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.knowledge.validation import llm_import_contract, parse_import_payload, validate_import_batch
@@ -49,13 +50,23 @@ def import_contract() -> dict[str, Any]:
     return llm_import_contract()
 
 
+@router.get("/knowledge/intake/contract")
+def intake_contract() -> dict[str, Any]:
+    """P4-9: Full SOC-KB intake schema, approval metadata, and API map."""
+    return soc_kb_intake_contract()
+
+
 @router.get("/knowledge/import/prompt-template")
 def import_prompt_template(
     collection_id: str | None = None,
     document_type: str | None = None,
     environment: str | None = None,
 ) -> dict[str, Any]:
-    return build_extraction_prompt(collection_id=collection_id, document_type=document_type, environment=environment)
+    return build_soc_kb_intake_template(
+        collection_id=collection_id,
+        document_type=document_type,
+        environment=environment,
+    )
 
 
 @router.post("/knowledge/import/validate")

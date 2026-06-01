@@ -10,6 +10,7 @@ from app.answer_guard.models import AnswerGuardStatus
 from app.evidence.context_structurer import structure_context
 from app.evidence.context_sufficiency import check_context_sufficiency
 from app.evidence.source_evidence import build_source_evidence
+from app.knowledge.rag_evidence_lineage import resolve_answer_readiness, resolve_response_evidence_origin
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.lineage.builder import build_investigation_lineage
 from app.orchestration.human_review import human_review, no_human_review
@@ -304,6 +305,22 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             message = audit_review["safe_message_for_user"]
             note = "Novel operation proposals stop at audit/HIL; no MCP or SPL execution is authorized."
 
+    evidence_origin = resolve_response_evidence_origin(
+        source_evidence=source_evidence,
+        soc_kb_retrieval=None,
+        execution=execution,
+    )
+    answer_readiness = resolve_answer_readiness(
+        evidence_origin=evidence_origin,
+        context_sufficiency=context_sufficiency,
+    )
+    if evidence_origin:
+        reasons = list(context_sufficiency.get("reasons") or [])
+        label = f"evidence_origin:{evidence_origin}"
+        if label not in reasons:
+            reasons.append(label)
+            context_sufficiency = {**context_sufficiency, "reasons": sorted(reasons)}
+
     comparison = state.get("comparison") or {}
     governance_trace = build_governance_trace(
         demo_mode=False,
@@ -333,6 +350,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             (routing_skill_resolution or {}).get("legacy_intent_authority", True)
         ),
         routing_skill_resolution=routing_skill_resolution,
+        evidence_origin=evidence_origin,
+        answer_readiness=answer_readiness,
         semantic_intent=semantic_intent,
         operation_audit=operation_audit,
         tool_plan=list(routed["tool_plan"]),

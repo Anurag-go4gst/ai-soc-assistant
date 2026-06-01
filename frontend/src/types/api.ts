@@ -15,6 +15,7 @@ export interface PlaceholderResponse {
   note: string;
   demo_mode?: boolean;
   evidence_origin?: string | null;
+  answer_readiness?: string | null;
   no_live_customer_data?: boolean;
   demo_badge?: string | null;
   environment_mode?: string | null;
