@@ -73,8 +73,35 @@ def build_investigation_lineage(
             _stage("mitre_mapping", "complete" if mitre_mappings else "skipped", "MITRE mapping", "Local MITRE mapping statuses are advisory until fully validated.", {"mappings": [_dump(item) for item in mitre_mappings]}, ["mitre_mappings"], "derived" if mitre_mappings else mode_source, "local MITRE KB"),
             _stage("severity", "complete", "Severity decision", severity_decision.severity_label, severity_decision.model_dump(), ["severity_label"], "derived", "severity matrix"),
             _stage("context_sufficiency", "complete" if context_sufficiency else "skipped", "Context sufficiency", (context_sufficiency or {}).get("status", "not evaluated"), context_sufficiency or {}, [], mode_source, "production context gate"),
-            _stage("synthesis", synthesis_status.status, "LLM synthesis", synthesis_status.reason, synthesis_status.model_dump(), [], "planned", "Stage 3K"),
-            _stage("answer_guard", answer_guard_status.guard_status, "Answer Guard", answer_guard_status.reason, answer_guard_status.model_dump(), [], "planned", "Stage 3L"),
+            _stage(
+                "synthesis",
+                synthesis_status.status,
+                "LLM synthesis",
+                synthesis_status.reason,
+                {
+                    **synthesis_status.model_dump(),
+                    "llm_raw_output_placeholder": None,
+                    "adapter_overrides_placeholder": [],
+                    "note": "Reserved for Phase C guarded synthesis audit; not populated while synthesis is disabled.",
+                },
+                [],
+                "planned",
+                "Stage 3K",
+            ),
+            _stage(
+                "answer_guard",
+                answer_guard_status.guard_status,
+                "Answer Guard",
+                answer_guard_status.reason,
+                {
+                    **answer_guard_status.model_dump(),
+                    "guard_overrides_placeholder": [],
+                    "note": "Reserved for Answer Guard disagreement/override log when enabled.",
+                },
+                [],
+                "planned",
+                "Stage 3L",
+            ),
             _stage("action_capability", "complete", "Action capability", action_capability.reason, action_capability.model_dump(), ["recommended_actions"], "derived", "action tier policy"),
         ]
     )

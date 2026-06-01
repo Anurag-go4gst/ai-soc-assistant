@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.knowledge.soc_kb_retriever import soc_kb_source_evidence
+from app.safeguards.mcp_result_safeguard import scan_mcp_preview_rows
 
 SOURCE_PREVIEW_CAP = 5
 FIELD_CAP = 40
@@ -59,7 +60,10 @@ def build_source_evidence(
 
     status = str(execution.get("status") or "skipped")
     rows, fields, envelope_warnings = _preview_from_execution(execution)
-    sensitivity_flags = _sensitivity_flags(rows, fields)
+    rows, injection_flags, injection_warnings = scan_mcp_preview_rows(rows)
+    sensitivity_flags = sorted(set(_sensitivity_flags(rows, fields) + injection_flags))
+    if injection_warnings:
+        envelope_warnings = [*envelope_warnings, *injection_warnings]
     raw_result_hash = _raw_hash(rows) if rows else None
     collection_status = _collection_status(status)
     warnings: list[str] = list(envelope_warnings)
@@ -67,6 +71,9 @@ def build_source_evidence(
         warnings.append(str(execution["block_reason"])[:VALUE_CAP])
     if spl_validation.get("warnings"):
         warnings.extend(str(item)[:VALUE_CAP] for item in spl_validation.get("warnings", []))
+    result_count = int(execution.get("result_count") or 0)
+    if status == "executed" and result_count == 0:
+        warnings.append("execution_completed_zero_rows")
 
     evidence.append(
         _evidence(
@@ -77,7 +84,8 @@ def build_source_evidence(
             collection_status=collection_status,
             query_or_request_summary=_request_summary(selected_skill, query, execution),
             executed_spl=execution.get("executed_spl"),
-            result_count=int(execution.get("result_count") or 0),
+            result_count=result_count,
+            execution_outcome="negative_result" if status == "executed" and result_count == 0 else None,
             fields_returned=fields,
             preview_rows=rows,
             raw_result_hash=raw_result_hash,
@@ -152,9 +160,10 @@ def _evidence(
     saved_search_name: str | None = None,
     output_type: str | None = None,
     provenance: str | None = None,
+    execution_outcome: str | None = None,
 ) -> dict[str, Any]:
     stable = f"{trace_id}:{source_type}:{source_name}:{tool_name or 'none'}:{collection_status}"
-    return {
+    payload: dict[str, Any] = {
         "evidence_id": f"ev_{hashlib.sha256(stable.encode('utf-8')).hexdigest()[:16]}",
         "trace_id": trace_id,
         "source_type": source_type,
@@ -178,6 +187,9 @@ def _evidence(
         "provenance": provenance,
         "created_at": datetime.now(UTC).isoformat(),
     }
+    if execution_outcome:
+        payload["execution_outcome"] = execution_outcome
+    return payload
 
 
 def _collection_status(execution_status: str) -> str:

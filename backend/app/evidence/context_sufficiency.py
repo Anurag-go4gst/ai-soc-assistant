@@ -105,6 +105,15 @@ def _classify(
             human_review=_analyst_review("knowledge_ambiguity_requires_review"),
         )
 
+    # Rule 3b: executed MCP search returned zero rows — valid negative result, not "no evidence".
+    if collected and all(_is_executed_zero_row_mcp(item) for item in collected):
+        mode = FULL_ANSWER if not missing_evidence else PARTIAL_ANSWER
+        return ContextSufficiencyResult(
+            mode=mode,
+            reasons=["execution_negative_result"],
+            missing_evidence=missing_evidence,
+        )
+
     # Rule 4: nothing was collected at all.
     if not collected:
         return ContextSufficiencyResult(
@@ -173,6 +182,21 @@ def _classify(
         reasons=[],
         missing_evidence=[],
     )
+
+
+def _is_executed_zero_row_mcp(item: dict[str, Any]) -> bool:
+    if item.get("collection_status") != "collected":
+        return False
+    if item.get("source_type") not in {"splunk_mcp", "mcp"}:
+        return False
+    if int(item.get("result_count") or 0) != 0:
+        return False
+    warnings = item.get("warnings") or []
+    if "execution_completed_zero_rows" in warnings:
+        return True
+    if item.get("execution_outcome") == "negative_result":
+        return True
+    return bool(item.get("executed_spl"))
 
 
 def _has_asset_criticality_claim(facts: list[dict[str, Any]]) -> bool:

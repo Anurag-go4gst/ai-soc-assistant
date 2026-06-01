@@ -23,6 +23,9 @@ SUPPORTED_ROUTING_MODES: tuple[str, ...] = (
     "llm_primary_lab",
 )
 
+# P0-9: flow-check profile label only — does not change runtime behavior until wired.
+SUPPORTED_AI_SOC_FLOW_CHECK_MODES: tuple[str, ...] = ("", "stub_evidence")
+
 
 class ConfigError(RuntimeError):
     """Raised on unsupported or unsafe configuration values."""
@@ -204,6 +207,9 @@ class Settings(BaseSettings):
     demo_llm_shadow_model: str = ""
     demo_llm_shadow_endpoint: str = ""
     demo_llm_shadow_timeout_seconds: int = 5
+    # P0-9 documentation/readiness: proposed profile name for COE system-check demos.
+    # Empty = unset. Does not orchestrate env vars until a later stage wires it.
+    ai_soc_flow_check_mode: str = ""
 
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"
@@ -267,6 +273,12 @@ def _validate(s: Settings) -> Settings:
     if routing_mode == "llm_primary_lab":
         if s.ai_soc_environment_mode == "production" or not s.routing_lab_llm_primary_enabled:
             raise ConfigError("ROUTING_MODE=llm_primary_lab requires non-production mode and ROUTING_LAB_LLM_PRIMARY_ENABLED=true.")
+    flow_check = s.ai_soc_flow_check_mode.strip().lower()
+    if flow_check and flow_check not in SUPPORTED_AI_SOC_FLOW_CHECK_MODES:
+        raise ConfigError(
+            f"AI_SOC_FLOW_CHECK_MODE={s.ai_soc_flow_check_mode!r} is not valid. "
+            f"Use one of: {SUPPORTED_AI_SOC_FLOW_CHECK_MODES}."
+        )
     shadow_provider = s.demo_llm_shadow_provider.strip().lower()
     if shadow_provider not in {"disabled", "fake", "huggingface"}:
         raise ConfigError(
