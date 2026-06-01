@@ -318,6 +318,7 @@ class PlaceholderResponse(BaseModel):
     primary_operation: str | None = None
     coverage_id: str | None = None
     route_authority: dict[str, object] | None = None
+    semantic_intent: dict[str, object] | None = None
     tool_plan: list[str] | None = None
     confidence: float | None = None
     routing_mode: str | None = None

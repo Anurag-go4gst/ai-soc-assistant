@@ -26,6 +26,10 @@ export interface PlaceholderResponse {
   trace_explanation?: string[];
   user_query?: string | null;
   selected_skill?: string | null;
+  primary_operation?: string | null;
+  coverage_id?: string | null;
+  route_authority?: Record<string, unknown> | null;
+  semantic_intent?: Record<string, unknown> | null;
   tool_plan?: string[] | null;
   confidence?: number | null;
   routing_mode?: string | null;

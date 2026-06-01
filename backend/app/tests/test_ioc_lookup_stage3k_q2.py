@@ -56,9 +56,9 @@ def test_lookup_ip_domain_hash(monkeypatch: pytest.MonkeyPatch) -> None:
     assert digest.match is True
 
 
-def test_ipv6_canonical_normalization(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ipv6_canonical_normalization(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(settings, "ioc_registry_enabled", True)
-    path = FIXTURE_PATH.parent / "ioc_registry_ipv6_test.json"
+    path = tmp_path / "ioc_registry_ipv6_test.json"
     payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     payload["iocs"] = [
         {
@@ -81,12 +81,11 @@ def test_ipv6_canonical_normalization(monkeypatch: pytest.MonkeyPatch) -> None:
     result = lookup_ioc("2001:DB8::0001", IocType.IP)
     assert result.match is True
     assert result.normalized_value == "2001:db8::1"
-    path.unlink(missing_ok=True)
 
 
-def test_stale_source_blocks_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_stale_source_blocks_lookup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(settings, "ioc_registry_enabled", True)
-    path = FIXTURE_PATH.parent / "ioc_registry_stale_source.json"
+    path = tmp_path / "ioc_registry_stale_source.json"
     payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     payload["sources"] = [
         {
@@ -119,12 +118,11 @@ def test_stale_source_blocks_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.match is False
     assert result.staleness_status == StalenessStatus.STALE
     assert result.blocking_reason == BLOCK_CANNOT_ROUTE_LOOKUP_STALE
-    path.unlink(missing_ok=True)
 
 
-def test_expired_ioc_record_blocks_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expired_ioc_record_blocks_lookup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(settings, "ioc_registry_enabled", True)
-    path = FIXTURE_PATH.parent / "ioc_registry_expired_test.json"
+    path = tmp_path / "ioc_registry_expired_test.json"
     payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     payload["iocs"] = [
         {
@@ -148,12 +146,14 @@ def test_expired_ioc_record_blocks_lookup(monkeypatch: pytest.MonkeyPatch) -> No
     result = lookup_ioc("10.9.8.7", IocType.IP)
     assert result.match is False
     assert result.staleness_status == StalenessStatus.EXPIRED
-    path.unlink(missing_ok=True)
 
 
-def test_route_plan_lookup_dependency_stale_registry_blocks_preflight(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_route_plan_lookup_dependency_stale_registry_blocks_preflight(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     monkeypatch.setattr(settings, "ioc_registry_enabled", True)
-    path = FIXTURE_PATH.parent / "ioc_registry_all_stale.json"
+    path = tmp_path / "ioc_registry_all_stale.json"
     payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     stale_time = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
     payload["sources"] = [
@@ -175,7 +175,6 @@ def test_route_plan_lookup_dependency_stale_registry_blocks_preflight(monkeypatc
     assert result.route_status == RouteStatus.CANNOT_ROUTE_MISSING_LOOKUP
     assert BLOCK_CANNOT_ROUTE_LOOKUP_STALE in result.blocking_findings
     assert "lookup_stale" in result.blocking_findings
-    path.unlink(missing_ok=True)
 
 
 def test_redacted_provenance_has_no_raw_url(monkeypatch: pytest.MonkeyPatch) -> None:

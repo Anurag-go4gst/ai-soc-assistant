@@ -15,6 +15,7 @@ from app.lineage.builder import build_investigation_lineage
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
+from app.query_understanding.semantic_intent import build_semantic_intent_envelope
 from app.query_understanding.parser import understand_query
 from app.routing.llm_route_plan_candidate import skipped_reason_to_candidate_reason
 from app.routing.route_plan_models import ROUTE_PLAN_GENERATOR_MODEL_FAMILY, ROUTE_PLAN_REASONING_MODEL_ALLOWED
@@ -217,6 +218,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     route_authority = _route_authority_payload(route_plan_shadow)
     primary_operation = _primary_operation_from_authority(route_plan_shadow, route_authority)
     coverage_id = _coverage_id_from_authority(route_authority)
+    semantic_intent = build_semantic_intent_envelope(
+        query_understanding=state["query_understanding"],
+        routed=routed,
+        route_plan_shadow=route_plan_shadow,
+        route_authority=route_authority,
+        primary_operation=primary_operation,
+        coverage_id=coverage_id,
+    )
     investigation_lineage = build_investigation_lineage(
         trace_id=trace_id,
         mode_source="live",
@@ -271,6 +280,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         primary_operation=primary_operation,
         coverage_id=coverage_id,
         route_authority=route_authority,
+        semantic_intent=semantic_intent,
         tool_plan=list(routed["tool_plan"]),
         confidence=float(routed["confidence"]),
         routing_mode=settings.routing_mode,
