@@ -315,6 +315,9 @@ class PlaceholderResponse(BaseModel):
     trace_explanation: list[str] = []
     user_query: str | None = None
     selected_skill: str | None = None
+    primary_operation: str | None = None
+    coverage_id: str | None = None
+    route_authority: dict[str, object] | None = None
     tool_plan: list[str] | None = None
     confidence: float | None = None
     routing_mode: str | None = None

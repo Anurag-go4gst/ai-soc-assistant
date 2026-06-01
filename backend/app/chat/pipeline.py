@@ -214,6 +214,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision.severity_label,
     )
     route_plan_shadow = state["route_plan_shadow"]
+    route_authority = _route_authority_payload(route_plan_shadow)
+    primary_operation = _primary_operation_from_authority(route_plan_shadow, route_authority)
+    coverage_id = _coverage_id_from_authority(route_authority)
     investigation_lineage = build_investigation_lineage(
         trace_id=trace_id,
         mode_source="live",
@@ -265,6 +268,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         trace_id=trace_id,
         user_query=request.message,
         selected_skill=str(routed["skill"]),
+        primary_operation=primary_operation,
+        coverage_id=coverage_id,
+        route_authority=route_authority,
         tool_plan=list(routed["tool_plan"]),
         confidence=float(routed["confidence"]),
         routing_mode=settings.routing_mode,
@@ -295,6 +301,40 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         governance_trace=governance_trace,
     )
     return {**state, "response": response}
+
+
+def _route_authority_payload(route_plan_shadow: dict[str, Any] | None) -> dict[str, object] | None:
+    if not isinstance(route_plan_shadow, dict):
+        return None
+    compare = route_plan_shadow.get("route_authority_compare")
+    if isinstance(compare, dict):
+        return dict(compare)
+    return None
+
+
+def _primary_operation_from_authority(
+    route_plan_shadow: dict[str, Any] | None,
+    route_authority: dict[str, object] | None,
+) -> str | None:
+    if route_authority:
+        for key in ("planning_primary_skill", "candidate_primary_skill", "route_plan_primary_skill_observed"):
+            value = route_authority.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    if isinstance(route_plan_shadow, dict):
+        value = route_plan_shadow.get("primary_skill")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _coverage_id_from_authority(route_authority: dict[str, object] | None) -> str | None:
+    if not route_authority:
+        return None
+    value = route_authority.get("coverage_id_resolved") or route_authority.get("coverage_id")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
 
 
 def _selected_use_case(query: str) -> UseCaseSelection | None:
