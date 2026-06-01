@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     route_authority_compare_enabled: bool = True
     route_authority_operation_authoritative_enabled: bool = False
     route_authority_operation_coverage_allowlist: str = ""
+    # P2-open: structural validation for non-seed primary_skill (lab/shadow).
+    route_plan_open_operations_enabled: bool = True
+    # P2-9: when false and operation authority applied, workflow uses registry operation mirror.
+    legacy_selected_skill_authority_enabled: bool = True
+    # P2-supporter: run read-only supporters during route-plan sidecar (not post-hoc only).
+    route_plan_supporters_runtime_enabled: bool = True
+    # P2-audit: persist operation audit rows to in-process store + telemetry.
+    operation_audit_persistence_enabled: bool = True
     mcp_mode: str = "mock"
     mcp_servers: str = ""
     mcp_default_server: str = "splunk_soc"

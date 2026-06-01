@@ -34,6 +34,7 @@ from app.routing.route_plan_models import (
     RoutePlanValidationResult,
 )
 from app.routing.route_plan_validator import validate_route_plan_candidate
+from app.routing.supporter_registry import build_supporter_trace
 from app.safeguards.spl_validator import APPROVED_DATAMODELS
 
 ROUTE_PLAN_LLM_TIMEOUT_SECONDS = 3.0
@@ -83,6 +84,7 @@ class LlmRoutePlanCandidateResult:
     rejected_reason: str | None = None
     skipped_reason: str | None = None
     candidate_reason: str | None = None
+    supporter_trace: dict[str, Any] | None = None
 
     def apply_to_shadow(self, shadow: dict[str, Any]) -> None:
         shadow["llm_called"] = self.llm_called
@@ -103,6 +105,8 @@ class LlmRoutePlanCandidateResult:
         for note in self.extraction_warnings + self.adapter_warnings:
             if note not in shadow["warnings"]:
                 shadow["warnings"].append(note)
+        if self.supporter_trace is not None:
+            shadow["supporter_trace"] = self.supporter_trace
 
 
 def generate_llm_route_plan_candidate(
@@ -174,7 +178,7 @@ def _process_llm_raw_output(
     result: LlmRoutePlanCandidateResult,
     deterministic_primary_skill: str | None,
 ) -> LlmRoutePlanCandidateResult:
-    del user_query, preflight  # reserved for future prompt assembly
+    del preflight  # reserved for future prompt assembly
 
     extraction = extract_route_plan_candidate_json(raw_output)
     result.extraction_warnings = list(extraction.warnings)
@@ -219,6 +223,15 @@ def _process_llm_raw_output(
     result.validation = validation
     result.candidate = candidate
 
+    plan_for_supporters = validation.normalized_route_plan or candidate
+    shadow_fragment = _shadow_fragment_from_plan(plan_for_supporters)
+    result.supporter_trace = build_supporter_trace(
+        plan_for_supporters,
+        query=user_query,
+        shadow=shadow_fragment,
+        runtime_invoked=True,
+    )
+
     if not validation.is_valid:
         result.llm_candidate_dropped_reasons = [DROP_ROUTE_VALIDATION_FAILED]
         return result
@@ -230,6 +243,22 @@ def _process_llm_raw_output(
         deterministic_primary_skill=deterministic_primary_skill,
     )
     return result
+
+
+def _shadow_fragment_from_plan(plan: dict[str, Any]) -> dict[str, Any]:
+    fragment: dict[str, Any] = {
+        "primary_skill": plan.get("primary_skill"),
+        "pattern_id": plan.get("pattern_id"),
+        "route_status": plan.get("route_status"),
+        "source_class": plan.get("source_class"),
+    }
+    parameters = plan.get("parameters")
+    if isinstance(parameters, dict):
+        fragment["route_plan_parameters"] = dict(parameters)
+    time_window = plan.get("time_window")
+    if isinstance(time_window, str) and time_window.strip():
+        fragment["route_plan_time_window"] = time_window
+    return fragment
 
 
 def expand_route_plan_candidate_payload(adapted: dict[str, Any]) -> dict[str, Any]:

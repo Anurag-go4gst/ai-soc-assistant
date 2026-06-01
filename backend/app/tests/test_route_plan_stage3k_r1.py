@@ -208,7 +208,14 @@ def test_confidence_ignored_for_invalid_plan() -> None:
     result = validate_route_plan_candidate(candidate)
 
     assert result.is_valid is False
-    assert "unknown_primary_skill:llm_action_chain" in result.blocking_findings
+    assert any(
+        finding in result.blocking_findings
+        for finding in (
+            "unknown_primary_skill:llm_action_chain",
+            "open_operation_forbidden_marker:llm_",
+            "open_operation_forbidden_marker:action_chain",
+        )
+    )
     assert "model_self_reported_confidence_ignored_for_validation" in result.validation_findings
     assert "model_self_reported_confidence_is_advisory_only" in result.warnings
 

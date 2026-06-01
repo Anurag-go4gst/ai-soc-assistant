@@ -240,6 +240,8 @@ class RoutePlanShadowEnvelope(BaseModel):
     question_runtime_map: dict[str, object] | None = None
     precondition_evaluation: dict[str, object] | None = None
     supporter_trace: dict[str, object] | None = None
+    use_case_registry_bridge: dict[str, object] | None = None
+    routing_skill_resolution: dict[str, object] | None = None
     operation_audit: dict[str, object] | None = None
 
 
@@ -320,6 +322,8 @@ class PlaceholderResponse(BaseModel):
     primary_operation: str | None = None
     coverage_id: str | None = None
     route_authority: dict[str, object] | None = None
+    legacy_intent_authority: bool | None = None
+    routing_skill_resolution: dict[str, object] | None = None
     semantic_intent: dict[str, object] | None = None
     operation_audit: dict[str, object] | None = None
     tool_plan: list[str] | None = None

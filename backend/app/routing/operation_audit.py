@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.config import settings
+from app.routing.operation_audit_store import export_coe_promotion_candidates, record_operation_audit
 from app.routing.runtime_skill_catalog import get_skill_contract
 
 
@@ -12,18 +14,24 @@ def build_operation_audit_record(
     coverage_id: str | None,
     semantic_intent: dict[str, object] | None,
     route_plan_shadow: dict[str, Any] | None,
+    trace_id: str | None = None,
 ) -> dict[str, object] | None:
     """Build a trace-only audit record for OOD operation proposals."""
+    if not primary_operation and isinstance(route_plan_shadow, dict):
+        shadow_skill = route_plan_shadow.get("primary_skill")
+        if isinstance(shadow_skill, str) and shadow_skill.strip():
+            primary_operation = shadow_skill.strip()
     semantic_audit = semantic_intent.get("audit_record") if isinstance(semantic_intent, dict) else None
     if isinstance(semantic_audit, dict):
         if not semantic_audit.get("proposed_operation"):
             return None
-        return {
+        record = {
             **semantic_audit,
             "audit_sink": "trace_only",
             "mcp_called": False,
             "spl_execution_allowed": False,
         }
+        return _finalize_audit_record(record, trace_id=trace_id)
 
     if not primary_operation or coverage_id or get_skill_contract(primary_operation):
         return None
@@ -32,7 +40,7 @@ def build_operation_audit_record(
     if isinstance(route_plan_shadow, dict):
         blocking_findings = list(route_plan_shadow.get("blocking_findings") or [])
 
-    return {
+    record = {
         "audit_required": True,
         "audit_sink": "trace_only",
         "query": query,
@@ -49,6 +57,20 @@ def build_operation_audit_record(
         "mcp_called": False,
         "spl_execution_allowed": False,
     }
+    return _finalize_audit_record(record, trace_id=trace_id)
+
+
+def _finalize_audit_record(
+    record: dict[str, object],
+    *,
+    trace_id: str | None,
+) -> dict[str, object]:
+    if settings.operation_audit_persistence_enabled:
+        persisted = record_operation_audit(record, trace_id=trace_id)
+        if persisted:
+            record = dict(persisted)
+    record["coe_promotion_queue"] = export_coe_promotion_candidates()
+    return record
 
 
 def operation_audit_human_review(audit_record: dict[str, object] | None) -> dict[str, Any] | None:

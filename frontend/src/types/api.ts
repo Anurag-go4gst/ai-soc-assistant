@@ -29,6 +29,8 @@ export interface PlaceholderResponse {
   primary_operation?: string | null;
   coverage_id?: string | null;
   route_authority?: Record<string, unknown> | null;
+  legacy_intent_authority?: boolean | null;
+  routing_skill_resolution?: Record<string, unknown> | null;
   semantic_intent?: Record<string, unknown> | null;
   operation_audit?: Record<string, unknown> | null;
   tool_plan?: string[] | null;

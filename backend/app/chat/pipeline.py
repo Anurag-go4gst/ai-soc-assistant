@@ -26,7 +26,9 @@ from app.routing.intent_operation_bridge_shadow import apply_intent_operation_br
 from app.coverage.question_runtime_map_shadow import apply_question_runtime_map_to_shadow
 from app.routing.precondition_evaluation_shadow import apply_precondition_evaluation_to_shadow
 from app.routing.route_authority_compare import apply_route_authority_compare_to_shadow
+from app.routing.registry_route_authority import resolve_effective_routing_skill
 from app.routing.supporter_registry import build_supporter_trace
+from app.routing.use_case_registry_bridge import build_use_case_registry_bridge
 from app.routing.template_match_shadow import apply_template_match_to_shadow
 from app.synthesis.analyst_summary_llm_assist import apply_analyst_summary_shadow
 from app.governance.trace_panels import build_governance_trace
@@ -57,6 +59,7 @@ class ChatPipelineState(TypedDict, total=False):
     selected_use_case: Any
     routed: dict[str, Any]
     route_plan_shadow: dict[str, Any]
+    routing_skill_resolution: dict[str, Any]
     skill_selection: Any
     selected_skill_chain: Any
     disagreement: bool
@@ -117,6 +120,7 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
 
 
 def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
+    request = state["request"]
     routed = state["routed"]
     route_plan_shadow = state["route_plan_shadow"]
     apply_intent_operation_bridge_to_shadow(route_plan_shadow, legacy_intent=str(routed["skill"]))
@@ -125,14 +129,37 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
         selected_skill=str(routed["skill"]),
         routing_comparison=routed.get("comparison"),
     )
+    route_authority = _route_authority_payload(route_plan_shadow)
+    primary_operation = _primary_operation_from_authority(route_plan_shadow, route_authority)
+    routing_skill_resolution = resolve_effective_routing_skill(
+        selected_skill=str(routed["skill"]),
+        route_authority=route_authority,
+        primary_operation=primary_operation,
+    )
+    route_plan_shadow["routing_skill_resolution"] = routing_skill_resolution
+    route_plan_shadow["use_case_registry_bridge"] = build_use_case_registry_bridge(request.message)
+    if isinstance(route_authority, dict):
+        route_authority["legacy_intent_authority"] = routing_skill_resolution.get("legacy_intent_authority", True)
+        route_authority["selected_skill_mirror_only"] = not bool(
+            routing_skill_resolution.get("legacy_intent_authority", True)
+        )
+        route_plan_shadow["route_authority_compare"] = route_authority
     apply_question_runtime_map_to_shadow(route_plan_shadow)
     apply_precondition_evaluation_to_shadow(route_plan_shadow)
+    if route_plan_shadow.get("candidate_available"):
+        route_plan_shadow["supporter_trace"] = build_supporter_trace(
+            _route_plan_for_supporters(route_plan_shadow),
+            query=request.message,
+            shadow=route_plan_shadow,
+            runtime_invoked=True,
+        )
     apply_analyst_summary_shadow(route_plan_shadow)
     skill_selection = select_skill_chain(routed=routed, selected_use_case=state.get("selected_use_case"))
     comparison = routed.get("comparison", {})
     return {
         **state,
         "route_plan_shadow": route_plan_shadow,
+        "routing_skill_resolution": routing_skill_resolution,
         "skill_selection": skill_selection,
         "selected_skill_chain": skill_selection.selected_chain,
         "comparison": comparison,
@@ -144,16 +171,17 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     request = state["request"]
     routed = state["routed"]
     trace_id = state["trace_id"]
+    effective_skill = _effective_routing_skill(state)
     rc = _routes_chat()
     workflow_plan = rc.plan_workflow(
-        selected_skill=str(routed["skill"]),
+        selected_skill=effective_skill,
         tool_plan=list(routed["tool_plan"]),
         query=request.message,
         trace_id=trace_id,
     )
     candidate_spl, spl_validation = _candidate_spl_stage(
         trace_id=trace_id,
-        skill=str(routed["skill"]),
+        skill=effective_skill,
         user_query=request.message,
     )
     return {
@@ -169,7 +197,7 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
     routed = state["routed"]
     execution, human_review = _execution_stage(
         trace_id=state["trace_id"],
-        selected_skill=str(routed["skill"]),
+        selected_skill=_effective_routing_skill(state),
         workflow_plan=state["workflow_plan"],
         spl_validation=state.get("spl_validation"),
         requested_mcp_server=request.requested_mcp_server,
@@ -234,6 +262,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         coverage_id=coverage_id,
         semantic_intent=semantic_intent,
         route_plan_shadow=route_plan_shadow,
+        trace_id=trace_id,
     )
     if operation_audit is not None:
         route_plan_shadow["operation_audit"] = operation_audit
@@ -290,6 +319,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case=selected_use_case.model_dump() if selected_use_case else None,
     )
 
+    routing_skill_resolution = state.get("routing_skill_resolution") or route_plan_shadow.get(
+        "routing_skill_resolution"
+    )
     response = PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,
@@ -297,6 +329,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         primary_operation=primary_operation,
         coverage_id=coverage_id,
         route_authority=route_authority,
+        legacy_intent_authority=bool(
+            (routing_skill_resolution or {}).get("legacy_intent_authority", True)
+        ),
+        routing_skill_resolution=routing_skill_resolution,
         semantic_intent=semantic_intent,
         operation_audit=operation_audit,
         tool_plan=list(routed["tool_plan"]),
@@ -483,7 +519,12 @@ def _route_plan_shadow_stage(query: str, *, deterministic_primary_skill: str | N
             "normalized_plan_available": bool(validation.normalized_route_plan and validation.is_valid),
         }
     )
-    shadow["supporter_trace"] = build_supporter_trace(validation.normalized_route_plan or candidate)
+    shadow["supporter_trace"] = build_supporter_trace(
+        validation.normalized_route_plan or candidate,
+        query=query,
+        shadow=shadow,
+        runtime_invoked=True,
+    )
     validated_plan = validation.normalized_route_plan if validation.is_valid else None
     apply_template_match_to_shadow(shadow, normalized_route_plan=validated_plan)
     if validated_plan:
@@ -536,7 +577,31 @@ def _route_plan_shadow_base(*, model_role: str) -> dict:
         "precondition_evaluation": None,
         "supporter_trace": None,
         "operation_audit": None,
+        "use_case_registry_bridge": None,
+        "routing_skill_resolution": None,
     }
+
+
+def _route_plan_for_supporters(route_plan_shadow: dict[str, Any]) -> dict[str, Any]:
+    plan: dict[str, Any] = {}
+    for key in ("primary_skill", "pattern_id", "route_status", "source_class", "evidence_needs"):
+        value = route_plan_shadow.get(key)
+        if value is not None:
+            plan[key] = value
+    parameters = route_plan_shadow.get("route_plan_parameters")
+    if isinstance(parameters, dict):
+        plan["parameters"] = dict(parameters)
+    return plan
+
+
+def _effective_routing_skill(state: ChatPipelineState) -> str:
+    resolution = state.get("routing_skill_resolution")
+    if isinstance(resolution, dict):
+        skill = resolution.get("effective_skill")
+        if isinstance(skill, str) and skill.strip():
+            return skill.strip()
+    routed = state.get("routed") or {}
+    return str(routed.get("skill") or "knowledge_recall")
 
 
 def _route_plan_shadow_candidate(query: str) -> dict | None:

@@ -13,6 +13,8 @@ from app.routing.route_plan_models import (
     route_status_values,
     runtime_skill_values,
 )
+from app.config import settings
+from app.routing.open_operation_validation import classify_operation_provenance, validate_open_operation
 from app.routing.route_plan_normalizer import normalize_route_plan_candidate
 from app.routing.runtime_skill_catalog import get_skill_contract
 
@@ -29,7 +31,7 @@ def validate_route_plan_candidate(candidate: dict[str, Any]) -> RoutePlanValidat
 
     _validate_required_top_level(plan, blocking_findings)
     _validate_route_status(plan, blocking_findings)
-    _validate_primary_skill(plan, blocking_findings)
+    _validate_primary_skill(plan, blocking_findings, warnings)
     _validate_operation_type(plan, blocking_findings)
     _validate_confidence_advisory_only(plan, validation_findings, blocking_findings, warnings)
     _validate_skill_slots(plan, blocking_findings)
@@ -38,6 +40,7 @@ def validate_route_plan_candidate(candidate: dict[str, Any]) -> RoutePlanValidat
     _validate_exclusions(plan, blocking_findings)
     _validate_post_enrichment(plan, blocking_findings)
     _validate_composition(plan, blocking_findings)
+    _attach_operation_provenance(plan)
 
     if blocking_findings:
         if any(
@@ -104,15 +107,45 @@ def _validate_operation_type(plan: dict[str, Any], blocking_findings: list[str])
         blocking_findings.append(f"operation_type_not_allowed_for_skill:{primary_skill}:{operation_type}")
 
 
-def _validate_primary_skill(plan: dict[str, Any], blocking_findings: list[str]) -> None:
+def _attach_operation_provenance(plan: dict[str, Any]) -> None:
+    primary_skill = plan.get("primary_skill")
+    skill = primary_skill.strip() if isinstance(primary_skill, str) else None
+    provenance = classify_operation_provenance(skill)
+    plan["operation_provenance"] = provenance
+    if provenance == "open_proposed":
+        plan.setdefault("model_advisory_metadata", {})
+        metadata = plan["model_advisory_metadata"]
+        if isinstance(metadata, dict):
+            metadata["open_operation_advisory_only"] = True
+
+
+def _validate_primary_skill(
+    plan: dict[str, Any],
+    blocking_findings: list[str],
+    warnings: list[str],
+) -> None:
     primary_skill = plan.get("primary_skill")
     if isinstance(primary_skill, list):
         blocking_findings.append("primary_skill_must_be_exactly_one")
         return
     if plan.get("route_status") == RouteStatus.ROUTE_READY.value and not primary_skill:
         blocking_findings.append("route_ready_requires_primary_skill")
-    if primary_skill and primary_skill not in runtime_skill_values():
-        blocking_findings.append(f"unknown_primary_skill:{primary_skill}")
+    if not primary_skill:
+        return
+
+    open_result = validate_open_operation(
+        plan,
+        open_operations_enabled=settings.route_plan_open_operations_enabled,
+    )
+    if open_result.is_seed_catalog:
+        if primary_skill not in runtime_skill_values():
+            blocking_findings.append(f"unknown_primary_skill:{primary_skill}")
+        return
+
+    blocking_findings.extend(open_result.blocking_findings)
+    warnings.extend(open_result.warnings)
+    if open_result.policy_passed and plan.get("route_status") == RouteStatus.ROUTE_READY.value:
+        plan["route_status"] = "open_operation_proposed"
 
 
 def _validate_confidence_advisory_only(
