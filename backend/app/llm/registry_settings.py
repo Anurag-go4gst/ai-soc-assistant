@@ -480,7 +480,7 @@ def build_llm_governance_status() -> dict[str, Any]:
         "warnings": warnings,
         "notes": [
             "Read-only governed LLM readiness. No real LLM is called in this stage.",
-            "Final synthesis and answer guard are not implemented; flags are inert.",
+            "P6 lab: deterministic synthesis draft and Answer Guard run only when flags are enabled (default off); no live LLM synthesis.",
             "Foundation-sec role mappings are advisory/config-planning only until Stage 3K explicitly wires synthesis.",
             "Foundation-sec outputs are advisory until validated by deterministic policy and Answer Guard.",
             "Endpoint URLs and API keys are never returned, only configured booleans.",

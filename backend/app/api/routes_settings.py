@@ -494,9 +494,9 @@ def check_llm_settings_draft(payload: LlmSettingsDraftCheckRequest) -> dict:
     if payload.allow_cloud and payload.airgap_enforced:
         warnings.append("cloud_allowance_overridden_by_airgap_enforcement")
     if payload.final_synthesis_enabled:
-        warnings.append("final_synthesis_flag_inert_not_implemented")
+        warnings.append("final_synthesis_lab_deterministic_draft_only_no_live_llm")
     if payload.answer_guard_enabled:
-        warnings.append("answer_guard_flag_inert_not_implemented")
+        warnings.append("answer_guard_runs_on_synthesis_draft_when_synthesis_enabled")
     if payload.allow_insufficient_evidence_response and payload.require_source_refs:
         warnings.append("insufficient_evidence_answer_conflicts_with_required_source_refs")
 

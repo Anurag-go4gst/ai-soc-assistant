@@ -170,5 +170,5 @@ def test_llm_draft_check_flags_inert_synthesis_and_guard() -> None:
     result = check_llm_settings_draft(
         LlmSettingsDraftCheckRequest(mode="mock", final_synthesis_enabled=True, answer_guard_enabled=True)
     )
-    assert "final_synthesis_flag_inert_not_implemented" in result["warnings"]
-    assert "answer_guard_flag_inert_not_implemented" in result["warnings"]
+    assert "final_synthesis_lab_deterministic_draft_only_no_live_llm" in result["warnings"]
+    assert "answer_guard_runs_on_synthesis_draft_when_synthesis_enabled" in result["warnings"]

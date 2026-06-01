@@ -41,6 +41,8 @@ from app.skills.selector import select_skill_chain
 from app.spl.template_registry import template_summary
 from app.splunk.capabilities import build_splunk_capability_profile
 from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
+from app.answer_guard.runner import run_answer_guard_lab
+from app.synthesis.lab_runner import apply_synthesis_allowed_to_sufficiency, run_governed_synthesis_lab
 from app.synthesis.models import SynthesisStatus
 from app.threat.mitre_kb import map_mitre_for_use_case
 from app.use_cases.models import UseCaseSelection
@@ -231,20 +233,50 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         structured_context,
         source_refs,
     )
-    synthesis_status = SynthesisStatus(
-        enabled=False,
-        status="disabled",
-        reason="Stage 3K synthesis is disabled; production chat returns governed evidence/status only.",
-    )
-    answer_guard = AnswerGuardStatus(
-        enabled=False,
-        guard_status="disabled",
-        reason="Stage 3L Answer Guard is disabled; no generated answer is being guarded.",
-    )
     action_capability = action_capability_for(
         selected_use_case.use_case_id if selected_use_case else None,
         severity_decision.severity_label,
     )
+    synthesis_lab = run_governed_synthesis_lab(
+        structured_context=structured_context,
+        source_evidence=source_evidence,
+        context_sufficiency=context_sufficiency,
+        mitre_mappings=mitre_mappings,
+        action_capability=action_capability,
+        severity_label=severity_decision.severity_label,
+        spl_validation=spl_validation,
+        human_review=human_review,
+    )
+    synthesis_status = synthesis_lab.status
+    context_sufficiency = apply_synthesis_allowed_to_sufficiency(
+        context_sufficiency,
+        package=synthesis_lab.package,
+    )
+    answer_guard = run_answer_guard_lab(
+        draft=synthesis_lab.draft,
+        package=synthesis_lab.package,
+        structured_context=structured_context,
+        source_evidence=source_evidence,
+        severity_label=severity_decision.severity_label,
+        action_policy={
+            "allowed_actions": list(action_capability.allowed_actions),
+            "current_tier": action_capability.current_tier,
+        },
+    )
+    analyst_summary_from_lab: str | None = None
+    if synthesis_lab.analyst_summary and synthesis_status.status == "completed":
+        if not answer_guard.enabled or answer_guard.guard_status == "passed":
+            analyst_summary_from_lab = synthesis_lab.analyst_summary
+        elif answer_guard.guard_status == "blocked":
+            human_review = {
+                **human_review,
+                "required": True,
+                "review_type": "answer_guard_blocked",
+                "safe_message_for_user": (
+                    "A governed draft answer was produced but blocked by Answer Guard. "
+                    "Review the technical trace and evidence package."
+                ),
+            }
     route_plan_shadow = state["route_plan_shadow"]
     route_authority = _route_authority_payload(route_plan_shadow)
     primary_operation = _primary_operation_from_authority(route_plan_shadow, route_authority)
@@ -365,6 +397,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         skill_selection=state["skill_selection"],
         message=message,
         note=note,
+        analyst_summary=analyst_summary_from_lab,
         workflow_plan=state["workflow_plan"],
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
