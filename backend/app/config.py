@@ -210,6 +210,8 @@ class Settings(BaseSettings):
     # P0-9 documentation/readiness: proposed profile name for COE system-check demos.
     # Empty = unset. Does not orchestrate env vars until a later stage wires it.
     ai_soc_flow_check_mode: str = ""
+    # P1: LangGraph orchestration parity with imperative /chat (default off).
+    langgraph_orchestration_enabled: bool = False
 
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"

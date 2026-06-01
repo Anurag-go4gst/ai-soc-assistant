@@ -177,6 +177,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-28_0523_stage-3k-q2-local-ioc-lookup.md` | Proposed |
 | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Proposed |
 | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Proposed |
+| `plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md` | Proposed — COE review: live MCP adapter + synthesis enablement, query→answer |
 
 ## Git Notes
 

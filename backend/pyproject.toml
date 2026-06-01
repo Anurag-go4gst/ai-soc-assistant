@@ -12,6 +12,7 @@ dependencies = [
     "httpx",
     "sqlalchemy",
     "asyncpg",
+    "langgraph>=0.2.60",
     "pytest",
 ]
 

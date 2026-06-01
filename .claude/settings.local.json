@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose *)",
+      "Bash(curl -s http://127.0.0.1:8010/health)",
+      "Bash(npm run *)",
+      "Bash(git -C /var/www/ai-soc-assistant commit -m ' *)",
+      "Bash(git *)",
+      "Bash(curl -s http://127.0.0.1:8010/api/settings/status)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('mcp.implemented:', d['mcp'].get\\('implemented'\\)\\); print\\('mcp.fallback:', d['mcp'].get\\('fallback'\\)\\); print\\('llm.implemented:', d['llm'].get\\('implemented'\\)\\); print\\('telemetry.sink:', d['telemetry']['sink']\\); print\\('telemetry.splunk_write_enabled:', d['telemetry']['splunk_write_enabled']\\); print\\('obs.telemetry_write_failures:', d['observability']['telemetry_write_failures']\\)\")",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('soc_kb_collections.json'\\)\\);print\\('count',len\\(d\\)\\);[print\\(c.get\\('collection_id'\\),c.get\\('enabled'\\)\\) for c in d]\")",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('soc_kb_documents.json'\\)\\);print\\('count',len\\(d\\)\\);from collections import Counter;c=Counter\\(x.get\\('collection_id'\\) for x in d\\);print\\(dict\\(c\\)\\);print\\('canonical groups:'\\);cc=Counter\\(x.get\\('canonical_doc_id'\\) for x in d\\);print\\({k:v for k,v in cc.items\\(\\) if v>1}\\)\")",
+      "Bash(python3 -m pytest app/tests/test_soc_kb_retriever.py app/tests/test_soc_kb_stage3g.py -q)",
+      "Bash(python3 -m pytest -q)",
+      "Bash(python3 -m pytest app/tests/test_soc_kb_stage3g1.py -q)",
+      "Bash(npx tsc *)",
+      "Bash(python3 -m test_harness.harness.runner --json)",
+      "Bash(python3 -c \"import sys,json; rows=[json.loads\\(l\\) for l in sys.stdin if l.strip\\(\\)]; p=sum\\(1 for r in rows if r.get\\('overall_pass'\\)\\); print\\(f'{p}/{len\\(rows\\)} pass'\\)\")",
+      "Bash(TELEMETRY_MODE=none python3 -m test_harness.harness.runner --json)",
+      "mcp__claude_ai_Velocis_MCP__wiki_search",
+      "Bash(python3 -c \"import sys,json;r=[json.loads\\(l\\) for l in sys.stdin if l.strip\\(\\)];print\\(sum\\(1 for x in r if x.get\\('overall_pass'\\)\\),'/',len\\(r\\)\\)\")",
+      "Bash(ln -s /var/www/ai-soc-assistant/frontend/node_modules /tmp/ragverify/frontend/node_modules)",
+      "Read(//tmp/ragverify/frontend/**)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('backend/app/evidence/source_evidence.py'\\).read\\(\\)\\); print\\('source_evidence valid'\\)\")",
+      "Bash(tar xzf *)",
+      "Bash(ln -s /var/www/ai-soc-assistant/frontend/node_modules /tmp/audit/frontend/node_modules)",
+      "Bash(curl -s -i http://127.0.0.1:8010/api/settings/status)",
+      "Bash(curl -s -i http://127.0.0.1:8010/settings/status)",
+      "Bash(echo \"x=$?\")",
+      "Bash(echo \"rc=$?\")"
+    ]
+  }
+}
