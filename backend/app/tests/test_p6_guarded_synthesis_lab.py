@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from app.actions.capability_policy import action_capability_for
+from app.answer_guard.runner import build_guard_evidence_bundle
 from app.answer_guard.runner import run_answer_guard_lab
 from app.api.routes_chat import chat
 from app.config import settings
@@ -115,6 +116,36 @@ def test_p6_answer_guard_blocks_aggregate_overclaim(monkeypatch: pytest.MonkeyPa
     assert guard.enabled is True
     assert guard.guard_status == "blocked"
     assert "guard.aggregate_overclaim" in guard.failed_checks
+
+
+def test_answer_guard_bundle_aggregates_multiple_splunk_mcp_envelopes() -> None:
+    source_evidence = [
+        {
+            "evidence_id": "ev-1",
+            "source_type": "splunk_mcp",
+            "collection_status": "collected",
+            "preview_rows": [{"user": "alice", "failed_logins": 40}],
+        },
+        {
+            "evidence_id": "ev-2",
+            "source_type": "splunk_mcp",
+            "collection_status": "collected",
+            "preview_rows": [{"user": "bob", "failed_logins": 11}],
+        },
+    ]
+
+    bundle = build_guard_evidence_bundle(
+        draft={},
+        package=None,
+        structured_context={"metrics": {}},
+        source_evidence=source_evidence,
+    )
+
+    assert bundle["splunk_preview_rows"] == [
+        {"user": "alice", "failed_logins": 40},
+        {"user": "bob", "failed_logins": 11},
+    ]
+    assert bundle["total_failed_logins"] == 51
 
 
 def test_synthesis_lab_blocked_when_sufficiency_not_ready(monkeypatch: pytest.MonkeyPatch) -> None:

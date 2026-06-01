@@ -109,19 +109,19 @@ def build_guard_evidence_bundle(
     for aggregate in package.precomputed_aggregates if package else []:
         if aggregate.safe_for_model_use and aggregate.value is not None:
             bundle[aggregate.aggregate_key] = aggregate.value
-    bundle["splunk_preview_rows"] = _preview_rows(source_evidence)
+    splunk_preview_rows = _preview_rows(source_evidence)
+    bundle["splunk_preview_rows"] = splunk_preview_rows
     # Per-source distinct counts stay in preview rows only (not summed globally).
-    for envelope in source_evidence:
-        if envelope.get("source_type") == "splunk_mcp":
-            rows = envelope.get("preview_rows") or []
-            if rows and isinstance(rows[0], dict) and "failed_logins" in rows[0]:
-                bundle["total_failed_logins"] = sum(int(row.get("failed_logins") or 0) for row in rows if isinstance(row, dict))
+    failed_login_rows = [row for row in splunk_preview_rows if "failed_logins" in row]
+    if failed_login_rows:
+        bundle["total_failed_logins"] = sum(int(row.get("failed_logins") or 0) for row in failed_login_rows)
     return bundle
 
 
 def _preview_rows(source_evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    preview_rows: list[dict[str, Any]] = []
     for envelope in source_evidence:
         if envelope.get("source_type") == "splunk_mcp":
             rows = envelope.get("preview_rows") or []
-            return [row for row in rows if isinstance(row, dict)]
-    return []
+            preview_rows.extend(row for row in rows if isinstance(row, dict))
+    return preview_rows
