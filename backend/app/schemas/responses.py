@@ -239,6 +239,8 @@ class RoutePlanShadowEnvelope(BaseModel):
     route_authority_compare: dict[str, object] | None = None
     question_runtime_map: dict[str, object] | None = None
     precondition_evaluation: dict[str, object] | None = None
+    supporter_trace: dict[str, object] | None = None
+    operation_audit: dict[str, object] | None = None
 
 
 class AnalystResponseEnvelope(BaseModel):
@@ -319,6 +321,7 @@ class PlaceholderResponse(BaseModel):
     coverage_id: str | None = None
     route_authority: dict[str, object] | None = None
     semantic_intent: dict[str, object] | None = None
+    operation_audit: dict[str, object] | None = None
     tool_plan: list[str] | None = None
     confidence: float | None = None
     routing_mode: str | None = None

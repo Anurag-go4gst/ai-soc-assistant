@@ -17,6 +17,7 @@ from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
 from app.query_understanding.semantic_intent import build_semantic_intent_envelope
 from app.query_understanding.parser import understand_query
+from app.routing.operation_audit import build_operation_audit_record, operation_audit_human_review
 from app.routing.llm_route_plan_candidate import skipped_reason_to_candidate_reason
 from app.routing.route_plan_models import ROUTE_PLAN_GENERATOR_MODEL_FAMILY, ROUTE_PLAN_REASONING_MODEL_ALLOWED
 from app.routing.route_plan_preflight import preflight_route_plan
@@ -25,6 +26,7 @@ from app.routing.intent_operation_bridge_shadow import apply_intent_operation_br
 from app.coverage.question_runtime_map_shadow import apply_question_runtime_map_to_shadow
 from app.routing.precondition_evaluation_shadow import apply_precondition_evaluation_to_shadow
 from app.routing.route_authority_compare import apply_route_authority_compare_to_shadow
+from app.routing.supporter_registry import build_supporter_trace
 from app.routing.template_match_shadow import apply_template_match_to_shadow
 from app.synthesis.analyst_summary_llm_assist import apply_analyst_summary_shadow
 from app.governance.trace_panels import build_governance_trace
@@ -226,6 +228,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         primary_operation=primary_operation,
         coverage_id=coverage_id,
     )
+    operation_audit = build_operation_audit_record(
+        query=request.message,
+        primary_operation=primary_operation,
+        coverage_id=coverage_id,
+        semantic_intent=semantic_intent,
+        route_plan_shadow=route_plan_shadow,
+    )
+    if operation_audit is not None:
+        route_plan_shadow["operation_audit"] = operation_audit
     investigation_lineage = build_investigation_lineage(
         trace_id=trace_id,
         mode_source="live",
@@ -257,6 +268,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             "detection rule, notable/event ID, or the SPL and a few sample fields."
         )
         note = "MITRE mapping requires grounded alert context; no SPL was generated."
+    else:
+        audit_review = operation_audit_human_review(operation_audit)
+        if audit_review is not None:
+            human_review = audit_review
+            message = audit_review["safe_message_for_user"]
+            note = "Novel operation proposals stop at audit/HIL; no MCP or SPL execution is authorized."
 
     comparison = state.get("comparison") or {}
     governance_trace = build_governance_trace(
@@ -281,6 +298,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         coverage_id=coverage_id,
         route_authority=route_authority,
         semantic_intent=semantic_intent,
+        operation_audit=operation_audit,
         tool_plan=list(routed["tool_plan"]),
         confidence=float(routed["confidence"]),
         routing_mode=settings.routing_mode,
@@ -444,6 +462,7 @@ def _route_plan_shadow_stage(query: str, *, deterministic_primary_skill: str | N
     if candidate is None:
         shadow["candidate_available"] = False
         shadow["candidate_reason"] = candidate_reason or "live_llm_routing_disabled"
+        shadow["supporter_trace"] = build_supporter_trace(None)
         apply_template_match_to_shadow(shadow, normalized_route_plan=None)
         return shadow
 
@@ -464,6 +483,7 @@ def _route_plan_shadow_stage(query: str, *, deterministic_primary_skill: str | N
             "normalized_plan_available": bool(validation.normalized_route_plan and validation.is_valid),
         }
     )
+    shadow["supporter_trace"] = build_supporter_trace(validation.normalized_route_plan or candidate)
     validated_plan = validation.normalized_route_plan if validation.is_valid else None
     apply_template_match_to_shadow(shadow, normalized_route_plan=validated_plan)
     if validated_plan:
@@ -514,6 +534,8 @@ def _route_plan_shadow_base(*, model_role: str) -> dict:
         "intent_operation_bridge": None,
         "route_authority_compare": None,
         "precondition_evaluation": None,
+        "supporter_trace": None,
+        "operation_audit": None,
     }
 
 
