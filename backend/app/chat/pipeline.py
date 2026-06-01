@@ -16,10 +16,7 @@ from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
 from app.query_understanding.parser import understand_query
-from app.routing.llm_route_plan_candidate import (
-    generate_llm_route_plan_candidate,
-    skipped_reason_to_candidate_reason,
-)
+from app.routing.llm_route_plan_candidate import skipped_reason_to_candidate_reason
 from app.routing.route_plan_models import ROUTE_PLAN_GENERATOR_MODEL_FAMILY, ROUTE_PLAN_REASONING_MODEL_ALLOWED
 from app.routing.route_plan_preflight import preflight_route_plan
 from app.routing.route_plan_validator import validate_route_plan_candidate
@@ -364,7 +361,7 @@ def _route_plan_shadow_stage(query: str, *, deterministic_primary_skill: str | N
         apply_template_match_to_shadow(shadow, normalized_route_plan=None)
         return shadow
 
-    llm_result = generate_llm_route_plan_candidate(
+    llm_result = _routes_chat().generate_llm_route_plan_candidate(
         query,
         preflight=preflight,
         deterministic_primary_skill=deterministic_primary_skill,
