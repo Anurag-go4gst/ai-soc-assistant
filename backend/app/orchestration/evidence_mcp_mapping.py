@@ -6,6 +6,8 @@ from app.connectors.mcp.discovery import safe_tool_name
 
 SPLUNK_METADATA_DISCOVERY = "splunk_metadata_discovery"
 SPLUNK_AUTH_EVIDENCE = "splunk_auth_evidence"
+LOCAL_LOOKUP_REGISTRY = "local_lookup_registry"
+DETECTION_REGISTRY_BINDING = "detection_registry_binding"
 SAIA_GENERATE_SPL = "saia_generate_spl"
 
 _METADATA_DISCOVERY_TOOLS = ("splunk_get_indexes", "splunk_get_metadata")
@@ -76,6 +78,10 @@ def map_evidence_need_to_mcp_tools(
             warnings=warnings,
             allow_saved_searches=allow_saved_searches,
         )
+    elif need == LOCAL_LOOKUP_REGISTRY:
+        warnings.append("local_lookup_registry_is_not_mcp_execution")
+    elif need == DETECTION_REGISTRY_BINDING:
+        warnings.append("detection_registry_binding_is_not_mcp_execution")
     else:
         warnings.append(f"unknown_evidence_need_ignored:{need}")
 
