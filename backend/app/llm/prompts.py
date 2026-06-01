@@ -336,6 +336,58 @@ for _reasoning_role in ("mitre_reasoner", "missing_evidence_reasoner", "risk_rat
         "purpose": f"Produce advisory {_reasoning_role.replace('_', ' ')} output from already provided evidence.",
     }
 
+PROMPT_CONTRACTS["mitre_candidate_mapper"] = {
+    "model_family": "Foundation-sec-8B-Instruct",
+    "purpose": "Suggest MITRE ATT&CK candidate technique IDs for a SOC question; advisory only; IDs validated against local bundle.",
+    "max_input_tokens": "2000",
+    "system_instruction": (
+        "You are a MITRE ATT&CK candidate mapping assistant for a SOC. "
+        "Return JSON only. Do not add markdown or prose before or after JSON. "
+        "Do not invent ATT&CK IDs. Use only IDs from MITRE ATT&CK Enterprise. "
+        "If the question is too generic for ATT&CK, return empty arrays and explain in not_applicable_reason. "
+        "Output is advisory only. SOC approval is required before any technique becomes authoritative. "
+        "Do not include mitigations, detection SPL, or recommended actions."
+    ),
+    "include": ["soc_question", "question_ref", "use_case_id", "local_technique_hints"],
+    "exclude": [
+        "Splunk rows",
+        "RAG chunks",
+        "full developer trace",
+        "credentials",
+        "SPL",
+        "detection logic",
+    ],
+    "output_schema": {
+        "primary_techniques": [
+            {
+                "technique_id": "T1110",
+                "technique_name": "Brute Force",
+                "confidence": "high",
+                "reason": "short reason",
+            }
+        ],
+        "secondary_techniques": [
+            {
+                "technique_id": "T1110.001",
+                "technique_name": "Password Guessing",
+                "confidence": "medium",
+                "reason": "short reason",
+            }
+        ],
+        "not_applicable_reason": None,
+        "assumptions": ["short assumption strings"],
+    },
+    "consumption_rules": [
+        "Extract first balanced JSON object; attempt one schema repair if needed.",
+        "Validate all technique_id values against local ATT&CK bundle before use.",
+        "IDs not in local bundle → downgrade to needs_review or not_mapped.",
+        "Weak rationale or broad/generic mapping → downgrade to needs_review.",
+        "LLM output alone cannot set status=supported or populate mitre_permitted[].",
+        "Output is review-queue and trace only; SOC approval required to promote.",
+        "Parse failure after repair → record parse_failed; keep deterministic status.",
+    ],
+}
+
 PROMPT_CONTRACTS["investigation_note_drafter"] = {
     **PROMPT_CONTRACTS["analyst_response_drafter"],
     "purpose": "Draft investigation note content from approved evidence and deterministic constraints.",

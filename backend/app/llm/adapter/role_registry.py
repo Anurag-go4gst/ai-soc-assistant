@@ -4,6 +4,7 @@ from typing import TypeAlias
 
 from app.llm.adapter.schemas import (
     AnalystResponseDraft,
+    MitreCandidateMapperPayload,
     QueryUnderstandingCandidate,
     ReasoningAdvisoryResult,
     AnalystSummaryNarrationPayload,
@@ -29,6 +30,7 @@ ROLE_SCHEMA_REGISTRY: dict[str, AdapterSchema] = {
     "template_render_parameter_assist": TemplateRenderParameterAssistPayload,
     "route_plan_candidate_generator": RoutePlanCandidateLlmPayload,
     "analyst_summary_narration": AnalystSummaryNarrationPayload,
+    "mitre_candidate_mapper": MitreCandidateMapperPayload,
 }
 
 

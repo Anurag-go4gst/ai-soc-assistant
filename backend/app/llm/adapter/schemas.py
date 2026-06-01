@@ -206,3 +206,23 @@ class OutputTemplateCandidate(AdapterPayload):
     def _validate_template(self) -> "OutputTemplateCandidate":
         self.output_template = validate_output_template(self.output_template)
         return self
+
+
+class MitreCandidateTechnique(AdapterPayload):
+    technique_id: str
+    technique_name: str
+    confidence: str = "low"
+    reason: str = ""
+
+
+class MitreCandidateMapperPayload(AdapterPayload):
+    """P5-10: LLM MITRE candidate mapper output schema.
+
+    Advisory only. Never authoritative. IDs must be validated against local
+    ATT&CK bundle before use. soc_approved is always False from LLM output.
+    """
+
+    primary_techniques: list[MitreCandidateTechnique] = Field(default_factory=list)
+    secondary_techniques: list[MitreCandidateTechnique] = Field(default_factory=list)
+    not_applicable_reason: str | None = None
+    assumptions: list[str] = Field(default_factory=list)

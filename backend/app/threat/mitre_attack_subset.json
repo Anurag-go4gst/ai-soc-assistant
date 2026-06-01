@@ -1,12 +1,27 @@
 {
   "metadata": {
     "domain": "enterprise",
-    "version": "curated-subset-v1",
-    "release_date": "2026-05-25",
+    "version": "curated-subset-v2",
+    "release_date": "2026-06-01",
     "checksum": "local-curated-subset",
     "curated_use_case_mappings": ["auth_failed_login_spike", "auth_success_after_failure", "auth_new_source_ip_login"]
   },
   "techniques": [
+    {
+      "technique_id": "T1110",
+      "name": "Brute Force",
+      "tactic": "Credential Access",
+      "description": "Adversaries may use brute force techniques to gain access to accounts when passwords are unknown or when password hashes are obtained.",
+      "detection_patterns": ["repeated_authentication_failures", "high_volume_login_attempts"],
+      "evidence_requirements": ["authentication_failure_count", "time_window", "source_distribution"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["authentication_failures_present"],
+        "supported": ["threshold_exceeded", "repeated_pattern"],
+        "confirmed": ["benign_sources_cleared", "automation_cleared"]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": ["check_sub_techniques", "review_source_reputation", "check_account_lockouts"]
+    },
     {
       "technique_id": "T1110.001",
       "name": "Password Guessing",
@@ -21,6 +36,21 @@
       },
       "related_use_cases": ["auth_failed_login_spike", "auth_success_after_failure"],
       "recommended_pivots": ["check_success_after_failure", "review_source_reputation", "check_privileged_users"]
+    },
+    {
+      "technique_id": "T1110.003",
+      "name": "Password Spraying",
+      "tactic": "Credential Access",
+      "description": "Adversaries may use a single or small list of commonly used passwords against many different accounts to attempt to acquire valid account credentials.",
+      "detection_patterns": ["many_users_few_failures_each", "distributed_source_pattern"],
+      "evidence_requirements": ["distinct_user_count", "failure_distribution", "time_window"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["multiple_users_with_failures"],
+        "supported": ["spray_pattern_confirmed", "low_per_user_threshold"],
+        "confirmed": ["benign_sources_cleared", "automation_cleared"]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": ["check_user_distribution", "compare_per_user_failure_count", "review_source_ip"]
     },
     {
       "technique_id": "T1078",

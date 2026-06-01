@@ -180,6 +180,10 @@ class Settings(BaseSettings):
     ai_soc_llm_analyst_summary_narration_model: str = ""
     ai_soc_llm_guard_provider: str = ""
     ai_soc_llm_guard_model: str = ""
+    # P5: MITRE candidate mapper sidecar (review-queue only; never authoritative).
+    ai_soc_llm_mitre_candidate_mapping_enabled: bool = False
+    ai_soc_llm_mitre_candidate_provider: str = ""
+    ai_soc_llm_mitre_candidate_model: str = ""
     # Provider endpoint placeholders. Secrets are never surfaced in status.
     ai_soc_llm_openai_base_url: str = ""
     ai_soc_llm_openai_api_key: str = ""

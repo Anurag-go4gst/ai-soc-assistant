@@ -201,6 +201,20 @@ ROLE_DEFAULTS: tuple[dict[str, Any], ...] = (
         "max_output_tokens": 1500,
         "execution_eligible": False,
     },
+    {
+        "role": "mitre_candidate_mapper",
+        "preferred_provider": INSTRUCT_PROVIDER_ID,
+        "preferred_model": INSTRUCT_DEFAULT_MODEL,
+        "mode": "advisory",
+        "output": "MitreCandidateMapperPayload JSON",
+        "authority": "candidate_review_only",
+        "validator_required": True,
+        "strict_json": True,
+        "temperature": 0.0,
+        "max_input_tokens": 2000,
+        "max_output_tokens": 800,
+        "execution_eligible": False,
+    },
 )
 
 ROLE_ENV_MAP: dict[str, tuple[str, str]] = {
@@ -229,6 +243,10 @@ ROLE_ENV_MAP: dict[str, tuple[str, str]] = {
         "ai_soc_llm_analyst_summary_narration_model",
     ),
     "answer_guard_assistant": ("ai_soc_llm_guard_provider", "ai_soc_llm_guard_model"),
+    "mitre_candidate_mapper": (
+        "ai_soc_llm_mitre_candidate_provider",
+        "ai_soc_llm_mitre_candidate_model",
+    ),
 }
 
 
