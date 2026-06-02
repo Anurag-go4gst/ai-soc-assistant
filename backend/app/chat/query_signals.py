@@ -71,6 +71,20 @@ def extract_query_signals(
         term in normalized
         for term in ("block all", "block suspicious", "contain ", "isolate ", "quarantine ", "disable all")
     )
+    procedural_investigation = any(
+        term in normalized
+        for term in (
+            "investigation steps",
+            "steps for investigation",
+            "how to investigate",
+            "investigation procedure",
+        )
+    ) or (
+        "explain" in normalized
+        and "step" in normalized
+        and not live_investigation_verbs
+        and not spl_generation
+    )
     time_window_24h = any(term in normalized for term in ("last 24 hours", "last 24h", "past 24 hours", "24 hours", "24h"))
     exclude_service_accounts = "exclude service account" in normalized or "excluding service account" in normalized
 
@@ -94,14 +108,17 @@ def extract_query_signals(
         "knowledge_definition": knowledge_definition,
         "dga": dga,
         "block_or_contain": block_or_contain,
+        "procedural_investigation": procedural_investigation,
         "time_window_24h": time_window_24h,
         "exclude_service_accounts": exclude_service_accounts,
         "mitre_requires_alert_context": mitre_requires_alert_context,
         "projected_needs_rag": policy_terms
         or escalation_without_policy_word
         or playbook_procedure
+        or procedural_investigation
         or (knowledge_definition and not spl_generation and not live_investigation_verbs),
         "projected_needs_spl": spl_generation
+        and not block_or_contain
         or (live_investigation_verbs and not policy_terms and not block_or_contain),
         "projected_needs_mcp": live_investigation_verbs
         and not spl_generation

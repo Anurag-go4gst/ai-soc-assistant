@@ -38,6 +38,7 @@ AnswerGoal = Literal[
 ]
 ConfidenceBand = Literal["high", "medium", "low"]
 LlmIntentAssistStatus = Literal["skipped", "attempted", "accepted", "rejected", "corrected"]
+ActionMode = Literal["recommend_only", "execute_action_not_allowed", "hil_required"]
 
 
 class IntentClassification(BaseModel):
@@ -50,6 +51,8 @@ class IntentClassification(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     confidence_band: ConfidenceBand
     requires_clarification: bool
+    requires_hil: bool = False
+    action_mode: ActionMode | None = None
     reason: str
 
 

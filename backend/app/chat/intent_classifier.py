@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.chat.contracts.intent_classification import (
+    ActionMode,
     AnswerGoal,
     ConfidenceBand,
     IntentClassification,
@@ -42,6 +43,20 @@ def classify_intent(
     candidate_mappings: dict[str, Any],
     query_understanding: QueryUnderstandingResult | None = None,
 ) -> IntentClassification:
+    if signals.get("block_or_contain"):
+        return _build_classification(
+            intent_family="clarification_required",
+            primary_intent="human_review",
+            query_type="ask_for_next_action",
+            answer_goal=["clarification", "analyst_action_guidance"],
+            confidence=0.82,
+            requires_clarification=True,
+            requires_hil=True,
+            action_mode="recommend_only",
+            reason="Destructive or containment action requires human review and overrides SPL generation.",
+            requested_output_type="ACTION_PLAN",
+        )
+
     if signals.get("spl_generation"):
         return _build_classification(
             intent_family="spl_generation_only",
@@ -79,6 +94,18 @@ def classify_intent(
             if needs_clarification
             else "User requested MITRE mapping.",
             requested_output_type="MITRE_MAPPING",
+        )
+
+    if signals.get("procedural_investigation") and not signals.get("live_investigation_verbs"):
+        return _build_classification(
+            intent_family="knowledge_only",
+            primary_intent="knowledge_recall",
+            query_type="ask_for_explanation",
+            answer_goal=["procedural_steps"],
+            confidence=0.86,
+            requires_clarification=False,
+            reason="User asked for procedural investigation guidance.",
+            requested_output_type="INVESTIGATION",
         )
 
     if signals.get("playbook_procedure") and not signals.get("live_investigation_verbs"):
@@ -156,18 +183,6 @@ def classify_intent(
             requested_output_type="INVESTIGATION",
         )
 
-    if signals.get("block_or_contain"):
-        return _build_classification(
-            intent_family="clarification_required",
-            primary_intent="human_review",
-            query_type="ask_for_next_action",
-            answer_goal=["clarification"],
-            confidence=0.7,
-            requires_clarification=True,
-            reason="Destructive or containment action requires human review.",
-            requested_output_type="ACTION_PLAN",
-        )
-
     return _build_classification(
         intent_family="clarification_required",
         primary_intent="knowledge_recall",
@@ -216,6 +231,8 @@ def _build_classification(
     reason: str,
     requested_output_type: str | None = None,
     secondary_intents: list[str] | None = None,
+    requires_hil: bool = False,
+    action_mode: ActionMode | None = None,
 ) -> IntentClassification:
     return IntentClassification(
         intent_family=intent_family,  # type: ignore[arg-type]
@@ -227,6 +244,8 @@ def _build_classification(
         confidence=confidence,
         confidence_band=_confidence_band(confidence),
         requires_clarification=requires_clarification,
+        requires_hil=requires_hil,
+        action_mode=action_mode,
         reason=reason,
     )
 

@@ -45,6 +45,7 @@ from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_pro
 from app.answer_guard.runner import run_answer_guard_lab
 from app.synthesis.lab_runner import apply_synthesis_allowed_to_sufficiency, run_governed_synthesis_lab
 from app.synthesis.models import SynthesisStatus
+from app.threat.mitre_kb import map_mitre_for_use_case
 from app.threat.mitre_permitted import resolve_mitre_mappings_for_chat
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
@@ -272,7 +273,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     mapped_refs = provenance.get("mapped_use_case_ids") if isinstance(provenance.get("mapped_use_case_ids"), list) else []
     use_case_id = selected_use_case.use_case_id if selected_use_case else (str(mapped_refs[0]) if mapped_refs else None)
     question_ref = provenance.get("mapped_question_ref") if isinstance(provenance.get("mapped_question_ref"), str) else None
-    mitre_mappings = resolve_mitre_mappings_for_chat(
+    mitre_mappings = _mitre_mappings_for_finalize(
         question_ref=question_ref,
         use_case_id=use_case_id,
         source_refs=source_refs,
@@ -508,6 +509,22 @@ def _selected_use_case(query: str) -> UseCaseSelection | None:
     if matches:
         return matches[0]
     return None
+
+
+def _mitre_mappings_for_finalize(
+    *,
+    question_ref: str | None,
+    use_case_id: str | None,
+    source_refs: list[str],
+) -> list[Any]:
+    """Legacy use-case KB mapping by default; registry-augmented path only when control plane is on."""
+    if not settings.control_plane_enabled:
+        return map_mitre_for_use_case(use_case_id, source_refs)
+    return resolve_mitre_mappings_for_chat(
+        question_ref=question_ref,
+        use_case_id=use_case_id,
+        source_refs=source_refs,
+    )
 
 
 _MITRE_INTENT_KEYWORDS = ("mitre", "att&ck", "attack technique", "map this alert", "map the alert")

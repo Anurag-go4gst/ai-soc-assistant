@@ -100,8 +100,31 @@ def test_investigate_dga_alerts_plus_playbook_is_hybrid_with_rag() -> None:
 
 def test_block_ips_from_failed_login_search_requires_hil_recommend_only() -> None:
     result = _result("Block all suspicious IPs from failed login search")
+    intent = result.intent_classification
     assert result.query_signals["requires_hil"] is True
     assert result.query_signals["projected_action_mode"] == "recommend_only"
+    assert intent.requires_hil is True
+    assert intent.action_mode == "recommend_only"
+    assert intent.intent_family == "clarification_required"
+    assert intent.requires_clarification is True
+
+
+def test_block_ips_plus_generate_spl_action_precedence_over_spl() -> None:
+    result = _result("Block all suspicious IPs from failed login search and generate SPL")
+    intent = result.intent_classification
+    assert intent.intent_family != "spl_generation_only"
+    assert intent.requires_hil is True
+    assert intent.action_mode == "recommend_only"
+    assert "spl_artifact" not in intent.answer_goal
+
+
+def test_explain_dga_investigation_steps_is_procedural_knowledge() -> None:
+    result = _result("Explain investigation steps for DGA detection")
+    intent = result.intent_classification
+    assert intent.intent_family == "knowledge_only"
+    assert "procedural_steps" in intent.answer_goal
+    assert intent.requires_clarification is False
+    assert intent.primary_intent == "knowledge_recall"
 
 
 def test_query_to_intent_envelope_fields_present() -> None:
@@ -125,6 +148,8 @@ def test_query_to_intent_envelope_fields_present() -> None:
         "confidence",
         "confidence_band",
         "requires_clarification",
+        "requires_hil",
+        "action_mode",
         "reason",
     ):
         assert field in intent
