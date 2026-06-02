@@ -6,8 +6,11 @@ services:
       - "127.0.0.1:8010:8010"
     env_file:
       - .env
+    environment:
+      PYTHONPATH: /app:/workspace
     volumes:
       - ./backend:/app
+      - .:/workspace:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 
   frontend:
