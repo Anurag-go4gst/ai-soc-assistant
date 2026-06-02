@@ -18,6 +18,7 @@ from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
 from app.query_understanding.semantic_intent import build_semantic_intent_envelope
 from app.query_understanding.parser import understand_query
+from app.routing.routing_provenance import degraded_query_understanding_from_failover
 from app.routing.operation_audit import build_operation_audit_record, operation_audit_human_review
 from app.routing.llm_route_plan_candidate import skipped_reason_to_candidate_reason
 from app.routing.route_plan_models import ROUTE_PLAN_GENERATOR_MODEL_FAMILY, ROUTE_PLAN_REASONING_MODEL_ALLOWED
@@ -104,10 +105,25 @@ def build_live_chat_response(request: ChatRequest) -> PlaceholderResponse:
 def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
     request = state["request"]
     trace_id = str(uuid4())
-    query_understanding = understand_query(request.message)
+    qu_failed = False
+    try:
+        query_understanding = understand_query(request.message)
+    except Exception:
+        query_understanding = None
+        qu_failed = True
     selected_use_case = _selected_use_case(request.message)
     rc = _routes_chat()
-    routed = rc.route_skill(request.message, trace_id=trace_id)
+    routed = rc.route_skill(
+        request.message,
+        trace_id=trace_id,
+        query_understanding=query_understanding,
+        qu_failed=qu_failed,
+    )
+    if query_understanding is None:
+        query_understanding = degraded_query_understanding_from_failover(
+            request.message,
+            routed.get("routing_provenance") or {},
+        )
     route_plan_shadow = _route_plan_shadow_stage(
         request.message,
         deterministic_primary_skill=str(routed["skill"]),

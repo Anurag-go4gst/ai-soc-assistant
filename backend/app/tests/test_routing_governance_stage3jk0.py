@@ -19,7 +19,7 @@ def test_deterministic_only_does_not_call_llm(monkeypatch: pytest.MonkeyPatch) -
     assert connector.calls == 0
     assert routed["skill"] == "attack_discovery"
     assert routed["llm_shadow"] is None
-    assert routed["route_decision"]["selected_by"] == "deterministic"
+    assert routed["route_decision"]["selected_by"].startswith("query_understanding")
 
 
 def test_llm_shadow_only_calls_llm_for_comparison_and_selects_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -82,6 +82,54 @@ def test_llm_assisted_normalizes_and_rejects_unknown_registry_values(monkeypatch
     assert "use_case_id" in decision["disagreements"]
     assert decision["deterministic_tool_mapping_summary"][0]["gated_after_validation_tools"] == ["splunk_run_query"]
     assert decision["deterministic_tool_mapping_summary"][0]["accepted_or_ignored"] == "ignored_raw_llm_tools"
+    assert routed["llm_adjudication"]["status"] == "rejected"
+
+
+def test_llm_assisted_accepts_validated_question_ref_when_deterministic_is_uncertain(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "routing_mode", "llm_assisted_semantic")
+    connector = CountingLlmConnector(
+        skill="attack_discovery",
+        confidence=0.91,
+        metadata={
+            "question_ref": "q0.q002",
+            "selected_skill": "attack_discovery",
+            "reasoning_summary": "Paraphrase of the outbound source IP top-N question.",
+        },
+    )
+
+    routed = route_skill("source IPs with the most outbound connections", llm_connector=connector)
+
+    assert connector.calls == 1
+    assert routed["skill"] == "attack_discovery"
+    assert routed["selected_by"] == "llm_advisory_validated"
+    assert routed["llm_adjudication"]["status"] == "accepted"
+    assert routed["llm_adjudication"]["deterministic_reconsidered_after_llm"] is True
+    assert routed["llm_adjudication"]["llm_question_ref_candidate"] == "q0.q002"
+    assert routed["llm_adjudication"]["selected_question_ref"] == "q0.q002"
+    assert routed["llm_adjudication"]["selected_coverage_id"] == "cov.q002.top_outbound_source_ips"
+    assert routed["route_decision"]["adjudication_status"] == "accepted"
+    assert "deterministic_reconsidered_after_llm" in routed["route_decision"]["guard_checks"]
+
+
+def test_llm_assisted_rejects_unknown_question_ref_and_keeps_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "routing_mode", "llm_assisted_semantic")
+    connector = CountingLlmConnector(
+        skill="attack_discovery",
+        confidence=0.91,
+        metadata={
+            "question_ref": "q0.q999",
+            "selected_skill": "Imaginary Skill",
+        },
+    )
+
+    routed = route_skill("source IPs with the most outbound connections", llm_connector=connector)
+
+    assert connector.calls == 1
+    assert routed["skill"] == "attack_discovery"
+    assert routed["selected_by"] != "llm_advisory_validated"
+    assert routed["llm_adjudication"]["status"] == "rejected"
+    assert "unknown_llm_question_ref_rejected:q0.q999" in routed["llm_semantic_advisory"]["warnings"]
+    assert "unknown_llm_selected_skill_rejected:Imaginary Skill" in routed["llm_semantic_advisory"]["warnings"]
 
 
 def test_context_dependent_mitre_prompt_forces_clarification_before_llm(monkeypatch: pytest.MonkeyPatch) -> None:

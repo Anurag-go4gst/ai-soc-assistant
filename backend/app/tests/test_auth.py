@@ -74,7 +74,7 @@ def test_chat_allows_authenticated_request(monkeypatch) -> None:
     assert response.selected_skill == "knowledge_recall"
 
 
-def _fake_route_skill(query: str, trace_id: str) -> dict:
+def _fake_route_skill(query: str, trace_id: str, **kwargs) -> dict:
     return {
         "skill": "knowledge_recall",
         "tool_plan": ["needs_clarification"],

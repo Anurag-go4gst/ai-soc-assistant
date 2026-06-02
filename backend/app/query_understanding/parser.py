@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import re
 
+from app.coverage.question_runtime_map import match_question_runtime_entry, nearest_question_runtime_entry
 from app.query_understanding.models import OutputTemplate, QueryEntities, QueryUnderstandingResult, RequestedOutputType
 from app.query_understanding.time_window import normalize_time_window
-from app.use_cases.registry import match_use_cases
+from app.use_cases.registry import load_use_case_catalog, match_use_cases
 
 IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 INDEX_RE = re.compile(r"\bindex=([^\s|]+)", re.IGNORECASE)
@@ -21,24 +22,49 @@ def understand_query(query: str) -> QueryUnderstandingResult:
     normalized = " ".join(query.lower().split())
     use_cases = match_use_cases(query)
     primary_use_case = use_cases[0] if use_cases else None
+    exact_question_registry_entry = match_question_runtime_entry(query)
+    near_question_registry_entry = None if exact_question_registry_entry else nearest_question_runtime_entry(query)
+    question_registry_entry = exact_question_registry_entry or near_question_registry_entry
     requested_output_type, output_template = _requested_output(normalized, primary_use_case.output_template if primary_use_case else None)
     ambiguity_flags = _ambiguity_flags(normalized)
+    registry_warnings = _registry_warnings(primary_use_case, question_registry_entry)
     clarification_needed = bool(ambiguity_flags)
     clarification_question = _clarification_question(ambiguity_flags)
+    mapped_primary_skill = _mapped_primary_skill(primary_use_case, question_registry_entry)
+    deterministic_match_path = _deterministic_match_path(
+        exact_question_registry_entry=exact_question_registry_entry,
+        near_question_registry_entry=near_question_registry_entry,
+        primary_use_case=primary_use_case,
+    )
 
     return QueryUnderstandingResult(
         raw_query=query,
         normalized_query=normalized,
-        primary_intent=primary_use_case.primary_skill if primary_use_case else "unknown",
+        primary_intent=mapped_primary_skill,
         secondary_intents=[item.primary_skill for item in use_cases[1:] if item.primary_skill != (primary_use_case.primary_skill if primary_use_case else None)],
         requested_output_type=requested_output_type,
         output_template=output_template,
         entities=_entities(query),
         ambiguity_flags=ambiguity_flags,
-        confidence=primary_use_case.confidence if primary_use_case else 0.2,
+        confidence=primary_use_case.confidence if primary_use_case else (0.55 if question_registry_entry else 0.2),
         clarification_needed=clarification_needed,
         clarification_question=clarification_question,
         mapped_use_case_ids=[item.use_case_id for item in use_cases],
+        mapped_question_ref=_registry_str(question_registry_entry, "question_ref"),
+        mapped_question_number=_registry_int(question_registry_entry, "question_number"),
+        mapped_coverage_id=_registry_str(question_registry_entry, "manifest_coverage_id"),
+        mapped_pattern_type=_registry_str(question_registry_entry, "pattern_type"),
+        mapped_primary_skill=_registry_str(question_registry_entry, "proposed_primary_skill"),
+        mapped_operation_type=_registry_str(question_registry_entry, "proposed_operation_type"),
+        question_registry_match_source=_question_registry_match_source(exact_question_registry_entry, near_question_registry_entry),
+        question_registry_match_score=_registry_score(near_question_registry_entry),
+        question_registry_observation_only=True,
+        use_case_catalog_size=len(load_use_case_catalog()),
+        use_case_match_source="expanded_catalog" if primary_use_case else None,
+        deterministic_match_path=deterministic_match_path,
+        registry_consistency=_registry_consistency(primary_use_case, question_registry_entry),
+        registry_warnings=registry_warnings,
+        llm_advisory_recommended=_llm_advisory_recommended(deterministic_match_path, registry_warnings),
     )
 
 
@@ -107,4 +133,86 @@ def _ambiguity_flags(normalized: str) -> list[str]:
 def _clarification_question(flags: list[str]) -> str | None:
     if "mitre_mapping_requires_alert_context" in flags:
         return "Share the alert title, detection rule, notable/event ID, or SPL with sample fields before MITRE mapping."
+    if "question_registry_use_case_skill_conflict" in flags:
+        return "This query matches known registry entries with different skill hints. Confirm whether you want investigation, SPL, SOP, summary, or action planning."
     return None
+
+
+def _mapped_primary_skill(primary_use_case: object | None, registry_entry: dict | None) -> str:
+    if registry_entry:
+        for key in ("legacy_router_intent_hint", "proposed_primary_skill"):
+            value = registry_entry.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    if primary_use_case is not None:
+        return str(getattr(primary_use_case, "primary_skill", None) or "unknown")
+    return "unknown"
+
+
+def _registry_str(registry_entry: dict | None, key: str) -> str | None:
+    if not registry_entry:
+        return None
+    value = registry_entry.get(key)
+    return value if isinstance(value, str) and value else None
+
+
+def _registry_int(registry_entry: dict | None, key: str) -> int | None:
+    if not registry_entry:
+        return None
+    value = registry_entry.get(key)
+    return value if isinstance(value, int) else None
+
+
+def _registry_score(registry_entry: dict | None) -> float | None:
+    if not registry_entry:
+        return None
+    value = registry_entry.get("_near_match_score")
+    return float(value) if isinstance(value, float | int) else None
+
+
+def _question_registry_match_source(
+    exact_question_registry_entry: dict | None,
+    near_question_registry_entry: dict | None,
+) -> str | None:
+    if exact_question_registry_entry:
+        return "question_runtime_map_105_exact"
+    if near_question_registry_entry:
+        return "question_runtime_map_105_near_token"
+    return None
+
+
+def _deterministic_match_path(
+    *,
+    exact_question_registry_entry: dict | None,
+    near_question_registry_entry: dict | None,
+    primary_use_case: object | None,
+) -> str:
+    if exact_question_registry_entry and primary_use_case:
+        return "exact_105_plus_use_case_catalog"
+    if exact_question_registry_entry:
+        return "exact_105_question"
+    if primary_use_case:
+        return "use_case_catalog"
+    if near_question_registry_entry:
+        return "near_105_question"
+    return "out_of_registry"
+
+
+def _registry_consistency(primary_use_case: object | None, registry_entry: dict | None) -> str:
+    if not primary_use_case or not registry_entry:
+        return "not_evaluated"
+    catalog_skill = str(getattr(primary_use_case, "primary_skill", "") or "")
+    registry_skill = _registry_str(registry_entry, "legacy_router_intent_hint") or _registry_str(registry_entry, "proposed_primary_skill")
+    if not registry_skill:
+        return "not_evaluated"
+    return "consistent" if catalog_skill == registry_skill else "conflict"
+
+
+def _registry_warnings(primary_use_case: object | None, registry_entry: dict | None) -> list[str]:
+    if _registry_consistency(primary_use_case, registry_entry) == "conflict":
+        return ["question_registry_use_case_skill_conflict"]
+    return []
+
+
+def _llm_advisory_recommended(deterministic_match_path: str, registry_warnings: list[str]) -> bool:
+    return deterministic_match_path in {"near_105_question", "out_of_registry"} or bool(registry_warnings)

@@ -136,7 +136,7 @@ def test_experience_center_route_plan_shadow_unchanged() -> None:
 
 def _patch_common_chat_dependencies(monkeypatch, *, skill: str) -> None:
     telemetry = FakeTelemetry()
-    monkeypatch.setattr("app.api.routes_chat.route_skill", lambda query, trace_id: _routed(skill))
+    monkeypatch.setattr("app.api.routes_chat.route_skill", lambda query, trace_id, **kwargs: _routed(skill))
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
     monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: telemetry)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)

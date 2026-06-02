@@ -51,3 +51,18 @@ class QueryUnderstandingResult(BaseModel):
     clarification_needed: bool = False
     clarification_question: str | None = None
     mapped_use_case_ids: list[str] = Field(default_factory=list)
+    mapped_question_ref: str | None = None
+    mapped_question_number: int | None = None
+    mapped_coverage_id: str | None = None
+    mapped_pattern_type: str | None = None
+    mapped_primary_skill: str | None = None
+    mapped_operation_type: str | None = None
+    question_registry_match_source: str | None = None
+    question_registry_match_score: float | None = None
+    question_registry_observation_only: bool = True
+    use_case_catalog_size: int | None = None
+    use_case_match_source: str | None = None
+    deterministic_match_path: str = "out_of_registry"
+    registry_consistency: str = "not_evaluated"
+    registry_warnings: list[str] = Field(default_factory=list)
+    llm_advisory_recommended: bool = False

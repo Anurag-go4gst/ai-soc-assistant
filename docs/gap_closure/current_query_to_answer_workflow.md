@@ -76,27 +76,28 @@ This stage does not call MCP, does not call RAG, and does not execute SPL.
 
 ## 3. Intent and Skill Routing
 
-The legacy `selected_skill` still exists as an API/output compatibility field. The major skills are still the four historical buckets:
+The legacy `selected_skill` field remains one of four closed enum skills (`alert_summary`, `spl_generation`, `attack_discovery`, `knowledge_recall`). Query understanding (105 registry + 42 catalog) drives routing; the four-keyword router is fallback only.
 
-| Legacy skill | Typical use |
-|--------------|-------------|
-| `attack_discovery` | investigation / detection-style questions |
-| `spl_generation` | explicit SPL creation or optimization |
-| `knowledge_recall` | SOP, MITRE explanation, playbook, knowledge-only questions |
-| `alert_summary` | alert or evidence summarization |
+| Authority source | When |
+|------------------|------|
+| `query_understanding_105` | Verbatim or exact 105 registry match |
+| `query_understanding_105_near` | Near 105 paraphrase (provisional; LLM may override in assisted/lab) |
+| `query_understanding_catalog` | 42 catalog match with enum `primary_skill` |
+| `query_understanding_catalog` + `collapsed_from` | Catalog row with non-enum skill (`action_planning`, `mitre_mapping`, …) collapsed to `knowledge_recall`; `requested_output_type` + `use_case_id` preserved on `routing_provenance` |
+| `query_understanding_weak` | Out-of-registry or no valid legacy hint |
+| `keyword_router_fallback` / `qu_parse_failed` | QU selection exhausted or `understand_query` raised |
+| `deterministic_clarification` | MITRE/map-this without alert context (before QU paths) |
+| `llm_advisory_validated` | Assisted/lab only, when uncertain and LLM candidate validates |
 
-Today, routing is not a free-form LLM decision.
+Routing flow:
 
-The routing flow is:
+1. `understand_query` once per request (pipeline try/except; on failure deterministic keyword failover — LLM not used on parse-failed path).
+2. `select_route_from_understanding` picks skill from 105 / catalog / near / weak (not the keyword router on confident paths).
+3. Context-clarification override when required.
+4. LLM modes record shadow/advisory; override only when uncertain (not on exact 105).
+5. `routing_provenance` on `routed` is the authoritative routing snapshot for trace/downstream (full QU fields forwarded).
 
-1. Deterministic router runs.
-2. Context-clarification override can force `knowledge_recall` + `needs_clarification`.
-3. If `ROUTING_MODE=llm_primary_lab`, LLM routing is invoked only as a governed lab/advisory path.
-4. LLM output is normalized through deterministic registries and policy.
-5. Unknown LLM skill/use-case values are rejected or recorded as disagreements.
-6. Final selected route still respects deterministic guard checks.
-
-So “LLM primary lab” means the system exercises the LLM-primary path for lab visibility, not that arbitrary LLM-selected skill can bypass policy.
+“LLM primary lab” exercises the lab path for visibility; validated LLM candidates cannot bypass registry policy or expand `SKILL_ENUM`.
 
 ## 4. Route Plan Shadow and Known vs OOD
 

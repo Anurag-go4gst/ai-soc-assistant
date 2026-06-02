@@ -36,7 +36,7 @@ def _understanding(
 def _enable_semantic_llm_shadow(monkeypatch: pytest.MonkeyPatch, advisory: dict[str, Any]) -> None:
     monkeypatch.setattr(
         "app.api.routes_chat.route_skill",
-        lambda query, trace_id: {
+        lambda query, trace_id, **kwargs: {
             "skill": "attack_discovery",
             "tool_plan": ["route_only", "attack_discovery"],
             "confidence": 0.91,

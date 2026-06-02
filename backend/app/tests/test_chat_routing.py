@@ -10,7 +10,7 @@ from app.schemas.requests import ChatRequest
 def test_chat_clear_command_short_circuits_routing(monkeypatch) -> None:
     called: list[bool] = []
 
-    def fake_route_skill(query: str, trace_id: str) -> dict[str, Any]:
+    def fake_route_skill(query: str, trace_id: str, **kwargs: Any) -> dict[str, Any]:
         called.append(True)
         return {
             "skill": "attack_discovery",
@@ -32,7 +32,7 @@ def test_chat_query_endpoint_calls_route_skill(monkeypatch) -> None:
     calls: list[dict[str, str]] = []
     telemetry = FakeTelemetry()
 
-    def fake_route_skill(query: str, trace_id: str) -> dict[str, Any]:
+    def fake_route_skill(query: str, trace_id: str, **kwargs: Any) -> dict[str, Any]:
         calls.append({"query": query, "trace_id": trace_id})
         return {
             "skill": "attack_discovery",
@@ -100,7 +100,7 @@ def test_chat_response_reports_routing_disagreement(monkeypatch) -> None:
 def test_chat_generates_and_validates_spl_without_mcp_or_splunk_write(monkeypatch) -> None:
     telemetry = FakeTelemetry()
 
-    def fake_route_skill(query: str, trace_id: str) -> dict[str, Any]:
+    def fake_route_skill(query: str, trace_id: str, **kwargs: Any) -> dict[str, Any]:
         return {
             "skill": "spl_generation",
             "tool_plan": ["route_only", "spl_generation"],
@@ -133,7 +133,7 @@ def test_chat_generates_and_validates_spl_without_mcp_or_splunk_write(monkeypatc
 
 
 def test_chat_response_does_not_expose_secrets(monkeypatch) -> None:
-    def fake_route_skill(query: str, trace_id: str) -> dict[str, Any]:
+    def fake_route_skill(query: str, trace_id: str, **kwargs: Any) -> dict[str, Any]:
         return {
             "skill": "knowledge_recall",
             "tool_plan": ["needs_clarification"],

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 
@@ -53,7 +54,7 @@ def test_failed_login_curated_severity_unchanged_on_governance_trace() -> None:
 def test_chat_includes_governance_trace_without_demo_mode(monkeypatch) -> None:
     telemetry = FakeTelemetry()
 
-    def fake_route_skill(query: str, trace_id: str) -> dict:
+    def fake_route_skill(query: str, trace_id: str, **kwargs: Any) -> dict:
         return {
             "skill": "attack_discovery",
             "tool_plan": ["route_only", "attack_discovery"],
@@ -81,7 +82,7 @@ def test_chat_governance_severity_uses_policy_not_curated_failed_login_bullets(m
 
     monkeypatch.setattr(
         "app.api.routes_chat.route_skill",
-        lambda query, trace_id: {
+        lambda query, trace_id, **kwargs: {
             "skill": "attack_discovery",
             "tool_plan": ["route_only", "attack_discovery"],
             "confidence": 0.91,
@@ -106,7 +107,7 @@ def test_chat_governance_trace_does_not_change_selected_skill_or_route_plan_shad
 
     monkeypatch.setattr(
         "app.api.routes_chat.route_skill",
-        lambda query, trace_id: {
+        lambda query, trace_id, **kwargs: {
             "skill": "spl_generation",
             "tool_plan": ["route_only", "spl_generation"],
             "confidence": 0.80,

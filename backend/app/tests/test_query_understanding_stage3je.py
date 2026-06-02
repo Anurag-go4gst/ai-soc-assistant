@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from app.api.routes_chat import chat
+from app.coverage.question_runtime_map import list_question_runtime_entries
 from app.demo.scenarios import run_demo_scenario
 from app.query_understanding.parser import understand_query
 from app.query_understanding.time_window import normalize_time_window
 from app.schemas.requests import ChatRequest
 from app.skills.selector import select_skill_chain
 from app.skills.registry import build_skill_chain, get_skill, load_skill_registry
+from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import load_use_case_catalog, match_use_cases
 
 
@@ -43,6 +45,103 @@ def test_query_understanding_mitre_without_context_requires_clarification() -> N
     assert result.clarification_needed is True
     assert "mitre_mapping_requires_alert_context" in result.ambiguity_flags
     assert result.clarification_question
+
+
+def test_query_understanding_maps_exact_105_question_registry_rows() -> None:
+    entries = list_question_runtime_entries()
+    assert len(entries) == 105
+
+    for entry in entries:
+        result = understand_query(entry["question"])
+        assert result.mapped_question_ref == entry["question_ref"]
+        assert result.mapped_question_number == entry["question_number"]
+        assert result.mapped_pattern_type == entry["pattern_type"]
+        assert result.mapped_primary_skill == entry["proposed_primary_skill"]
+        assert result.mapped_operation_type == entry["proposed_operation_type"]
+        assert result.mapped_coverage_id == entry["manifest_coverage_id"]
+        assert result.question_registry_match_source == "question_runtime_map_105_exact"
+        assert result.question_registry_observation_only is True
+        assert result.deterministic_match_path in {
+            "exact_105_question",
+            "exact_105_plus_use_case_catalog",
+        }
+
+
+def test_query_understanding_uses_question_registry_as_intent_fallback() -> None:
+    entry = next(item for item in list_question_runtime_entries() if item["question_ref"] == "q0.q001")
+    result = understand_query(entry["question"])
+
+    assert result.mapped_use_case_ids == []
+    assert result.primary_intent == entry["legacy_router_intent_hint"]
+    assert result.confidence == 0.55
+
+
+def test_query_understanding_near_matches_105_question_paraphrase() -> None:
+    result = understand_query("source IPs with the most outbound connections")
+
+    assert result.mapped_question_ref == "q0.q002"
+    assert result.mapped_coverage_id == "cov.q002.top_outbound_source_ips"
+    assert result.question_registry_match_source == "question_runtime_map_105_near_token"
+    assert result.question_registry_match_score is not None
+    assert result.deterministic_match_path in {"near_105_question", "use_case_catalog"}
+    assert result.llm_advisory_recommended is True
+
+
+def test_query_understanding_expands_use_case_catalog_with_examples() -> None:
+    result = understand_query("Recommend endpoint isolation")
+
+    assert result.mapped_question_ref is None
+    assert result.mapped_use_case_ids == ["edr_isolation_recommendation"]
+    assert result.primary_intent == "action_planning"
+    assert result.use_case_match_source == "expanded_catalog"
+    assert result.deterministic_match_path == "use_case_catalog"
+
+
+def test_query_understanding_recommends_llm_advisory_for_out_of_registry_query() -> None:
+    result = understand_query("Can you correlate badge-reader swipes with cafeteria purchases?")
+
+    assert result.primary_intent == "unknown"
+    assert result.mapped_question_ref is None
+    assert result.mapped_use_case_ids == []
+    assert result.deterministic_match_path == "out_of_registry"
+    assert result.llm_advisory_recommended is True
+
+
+def test_query_understanding_exact_105_and_catalog_are_not_contradictory() -> None:
+    for entry in list_question_runtime_entries():
+        result = understand_query(entry["question"])
+        if result.mapped_use_case_ids:
+            assert result.registry_consistency == "consistent"
+            assert result.registry_warnings == []
+
+
+def test_query_understanding_records_registry_catalog_conflict_without_clarification(monkeypatch) -> None:
+    def fake_match_use_cases(query: str) -> list[UseCaseSelection]:
+        return [
+            UseCaseSelection(
+                use_case_id="fake_conflict",
+                display_name="Fake conflict",
+                category="test",
+                primary_skill="knowledge_recall",
+                confidence=0.9,
+                matched_patterns=["Which source IPs generated the most outbound connections?"],
+                default_spl_template=None,
+                output_template="investigation_answer",
+                required_sources=[],
+                optional_sources=[],
+                action_capability_tier=0,
+            )
+        ]
+
+    monkeypatch.setattr("app.query_understanding.parser.match_use_cases", fake_match_use_cases)
+    result = understand_query("Which source IPs generated the most outbound connections?")
+
+    assert result.mapped_question_ref == "q0.q002"
+    assert result.mapped_use_case_ids == ["fake_conflict"]
+    assert result.registry_consistency == "conflict"
+    assert "question_registry_use_case_skill_conflict" in result.registry_warnings
+    assert result.llm_advisory_recommended is True
+    assert result.clarification_needed is False
 
 
 def test_time_window_normalization_is_centralized() -> None:

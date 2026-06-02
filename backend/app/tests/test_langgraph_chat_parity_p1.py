@@ -27,7 +27,7 @@ class FakeTelemetry:
 def _install_chat_mocks(monkeypatch: pytest.MonkeyPatch) -> FakeTelemetry:
     telemetry = FakeTelemetry()
 
-    def fake_route_skill(query: str, trace_id: str) -> dict[str, Any]:
+    def fake_route_skill(query: str, trace_id: str, **kwargs: Any) -> dict[str, Any]:
         return {
             "skill": "attack_discovery",
             "tool_plan": ["route_only", "attack_discovery"],

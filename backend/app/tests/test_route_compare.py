@@ -98,7 +98,10 @@ def test_routing_agreement_records_decision_not_disagreement() -> None:
     assert telemetry.decisions[0]["trace_id"] == "trace-agree"
 
 
-def test_low_confidence_returns_needs_clarification_route() -> None:
+def test_low_confidence_returns_needs_clarification_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "routing_mode", "deterministic_only")
     telemetry = FakeTelemetry()
     routed = route_skill(
         "Please look at this vague situation.",
