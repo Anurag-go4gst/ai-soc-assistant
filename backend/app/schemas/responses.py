@@ -88,6 +88,7 @@ class ExecutionEnvelope(BaseModel):
     results_preview: list[dict[str, object]]
     block_reason: str | None = None
     duration_ms: int
+    precondition_evaluation: dict[str, object] | None = None
 
 
 class HumanReviewEnvelope(BaseModel):
@@ -242,6 +243,7 @@ class RoutePlanShadowEnvelope(BaseModel):
     question_runtime_map: dict[str, object] | None = None
     precondition_evaluation: dict[str, object] | None = None
     supporter_trace: dict[str, object] | None = None
+    ood_llm_route_plan_lab: dict[str, object] | None = None
     use_case_registry_bridge: dict[str, object] | None = None
     routing_skill_resolution: dict[str, object] | None = None
     operation_audit: dict[str, object] | None = None

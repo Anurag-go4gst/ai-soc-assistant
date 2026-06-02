@@ -156,6 +156,7 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
             shadow=route_plan_shadow,
             runtime_invoked=True,
         )
+    _apply_ood_llm_lab_metadata(route_plan_shadow, request.message)
     apply_analyst_summary_shadow(route_plan_shadow)
     skill_selection = select_skill_chain(routed=routed, selected_use_case=state.get("selected_use_case"))
     comparison = routed.get("comparison", {})
@@ -203,6 +204,7 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         selected_skill=_effective_routing_skill(state),
         workflow_plan=state["workflow_plan"],
         spl_validation=state.get("spl_validation"),
+        precondition_evaluation=state.get("route_plan_shadow", {}).get("precondition_evaluation"),
         requested_mcp_server=request.requested_mcp_server,
         requested_mcp_tool=request.requested_mcp_tool,
     )
@@ -628,6 +630,7 @@ def _route_plan_shadow_base(*, model_role: str) -> dict:
         "route_authority_compare": None,
         "precondition_evaluation": None,
         "supporter_trace": None,
+        "ood_llm_route_plan_lab": None,
         "operation_audit": None,
         "use_case_registry_bridge": None,
         "routing_skill_resolution": None,
@@ -644,6 +647,40 @@ def _route_plan_for_supporters(route_plan_shadow: dict[str, Any]) -> dict[str, A
     if isinstance(parameters, dict):
         plan["parameters"] = dict(parameters)
     return plan
+
+
+def _apply_ood_llm_lab_metadata(route_plan_shadow: dict[str, Any], query: str) -> None:
+    """Annotate P6-add lab-primary OOD routing without granting execution authority."""
+    if settings.routing_mode != "llm_primary_lab" or not settings.routing_lab_llm_primary_enabled:
+        route_plan_shadow["ood_llm_route_plan_lab"] = {
+            "enabled": False,
+            "reason": "lab_primary_mode_disabled",
+        }
+        return
+    if settings.ai_soc_environment_mode == "production":
+        route_plan_shadow["ood_llm_route_plan_lab"] = {
+            "enabled": False,
+            "reason": "production_blocked",
+        }
+        return
+
+    runtime_map = route_plan_shadow.get("question_runtime_map")
+    registry_hit = bool(isinstance(runtime_map, dict) and runtime_map.get("map_entry_found") is True)
+    route_plan_shadow["supporter_trace"] = build_supporter_trace(
+        _route_plan_for_supporters(route_plan_shadow),
+        query=query,
+        shadow=route_plan_shadow,
+        runtime_invoked=True,
+    )
+    route_plan_shadow["ood_llm_route_plan_lab"] = {
+        "enabled": True,
+        "registry_exact_match": registry_hit,
+        "llm_primary_for_ood": not registry_hit,
+        "candidate_source": route_plan_shadow.get("candidate_reason"),
+        "validator_wins": True,
+        "execution_authorized": False,
+        "mcp_called": False,
+    }
 
 
 def _effective_routing_skill(state: ChatPipelineState) -> str:
@@ -747,6 +784,7 @@ def _execution_stage(
     selected_skill: str,
     workflow_plan: dict,
     spl_validation: dict | None,
+    precondition_evaluation: dict | None,
     requested_mcp_server: str | None,
     requested_mcp_tool: str | None,
 ) -> tuple[dict, dict]:
@@ -772,6 +810,7 @@ def _execution_stage(
         selected_skill=selected_skill,
         workflow_plan=workflow_plan,
         spl_validation=spl_validation,
+        precondition_evaluation=precondition_evaluation,
         requested_mcp_server=requested_mcp_server,
         requested_mcp_tool=requested_mcp_tool,
     )

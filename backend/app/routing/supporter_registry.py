@@ -9,6 +9,7 @@ from app.orchestration.evidence_mcp_mapping import (
     SPLUNK_METADATA_DISCOVERY,
     map_evidence_need_to_mcp_tools,
 )
+from app.coverage.question_runtime_map import list_question_runtime_entries
 from app.routing.precondition_evaluation_shadow import resolve_precondition_evaluation_for_shadow
 from app.routing.route_plan_preflight import preflight_route_plan
 from app.use_cases.registry import match_use_cases
@@ -71,6 +72,7 @@ def run_read_only_supporters(
     extended = (
         *READ_ONLY_SUPPORTERS,
         "match_use_cases",
+        "nearest_registry_row",
         "map_evidence_needs",
     )
     for supporter_id in extended:
@@ -119,9 +121,73 @@ def _supporter_status(
             "match_count": len(matches),
             "top_use_case_id": matches[0].use_case_id if matches else None,
         }
+    if supporter_id == "nearest_registry_row":
+        return _nearest_registry_row_status(query, route_plan)
     if supporter_id == "map_evidence_needs":
         return _evidence_needs_status(route_plan)
     return {"supporter_id": supporter_id, "status": "unknown_supporter", "side_effects": False}
+
+
+def _nearest_registry_row_status(query: str | None, route_plan: dict[str, Any] | None) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "supporter_id": "nearest_registry_row",
+        "status": "not_available",
+        "side_effects": False,
+        "authority": "advisory_only",
+    }
+    if not query:
+        return {**base, "reason": "query_missing"}
+
+    query_tokens = _tokens(query)
+    if not query_tokens:
+        return {**base, "reason": "query_tokens_missing"}
+
+    plan_primary = route_plan.get("primary_skill") if isinstance(route_plan, dict) else None
+    plan_pattern = route_plan.get("pattern_id") if isinstance(route_plan, dict) else None
+    best: tuple[float, dict[str, Any]] | None = None
+    for row in list_question_runtime_entries():
+        row_text = " ".join(
+            str(row.get(key) or "")
+            for key in (
+                "question",
+                "pattern_type",
+                "legacy_router_intent_hint",
+                "proposed_primary_skill",
+                "proposed_operation_type",
+            )
+        )
+        row_tokens = _tokens(row_text)
+        if not row_tokens:
+            continue
+        score = len(query_tokens & row_tokens) / len(query_tokens | row_tokens)
+        if isinstance(plan_primary, str) and plan_primary and row.get("proposed_primary_skill") == plan_primary:
+            score += 0.08
+        if isinstance(plan_pattern, str) and plan_pattern and row.get("pattern_type") == plan_pattern:
+            score += 0.04
+        if best is None or score > best[0]:
+            best = (score, row)
+
+    if best is None:
+        return {**base, "reason": "registry_empty"}
+    score, row = best
+    return {
+        **base,
+        "status": "checked",
+        "question_ref": row.get("question_ref"),
+        "question": row.get("question"),
+        "proposed_primary_skill": row.get("proposed_primary_skill"),
+        "proposed_operation_type": row.get("proposed_operation_type"),
+        "manifest_coverage_id": row.get("manifest_coverage_id"),
+        "score": round(score, 4),
+    }
+
+
+def _tokens(value: str) -> set[str]:
+    return {
+        token
+        for token in "".join(ch.lower() if ch.isalnum() else " " for ch in value).split()
+        if len(token) > 2
+    }
 
 
 def _evidence_needs_status(route_plan: dict[str, Any] | None) -> dict[str, Any]:

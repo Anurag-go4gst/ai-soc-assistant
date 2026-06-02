@@ -19,11 +19,36 @@ def evaluate_mcp_execution(
     selected_skill: str,
     workflow_plan: dict[str, Any],
     spl_validation: dict[str, Any] | None,
+    precondition_evaluation: dict[str, Any] | None = None,
     requested_mcp_server: str | None = None,
     requested_mcp_tool: str | None = None,
     llm_tool_recommendation: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     telemetry = get_telemetry_connector()
+    precondition_block_reason = _precondition_block_reason(precondition_evaluation)
+    if precondition_block_reason:
+        selection = {
+            "execution_intent": "spl_search",
+            "selected_mcp_server": None,
+            "selected_mcp_tool": None,
+            "tool_selection_status": "blocked_by_precondition_eval",
+            "tool_selection_reason": precondition_block_reason,
+        }
+        review = _review(
+            "precondition_review",
+            precondition_block_reason,
+            "soc_lead",
+            ["fix_preconditions", "reject_execution"],
+        )
+        execution = _blocked_execution(selection, "requires_human_review", precondition_block_reason)
+        execution["precondition_evaluation"] = precondition_evaluation
+        telemetry.record_mcp_execution(
+            trace_id,
+            event_type="mcp_execution_blocked",
+            reason=precondition_block_reason,
+        )
+        return execution, review
+
     registry = load_mcp_registry_status()
     _record_discovery(telemetry, trace_id, registry)
 
@@ -129,6 +154,20 @@ def _record_discovery(telemetry: Any, trace_id: str, registry: Any) -> None:
         telemetry.record_mcp_execution(trace_id, event_type="mcp_tool_discovery_failed", reason=type(exc).__name__)
 
 
+def _precondition_block_reason(precondition_evaluation: dict[str, Any] | None) -> str | None:
+    if not isinstance(precondition_evaluation, dict):
+        return None
+    if precondition_evaluation.get("evaluation_skipped") is True:
+        return None
+    failed = precondition_evaluation.get("preconditions_failed")
+    if isinstance(failed, list) and failed:
+        return "precondition_eval_failed"
+    route_status = precondition_evaluation.get("route_status")
+    if isinstance(route_status, str) and route_status not in {"route_ready", "ready"}:
+        return "precondition_eval_failed"
+    return None
+
+
 def _gate_review(
     *,
     selected_skill: str,
@@ -206,4 +245,3 @@ def _selection_event(selection: dict[str, Any]) -> dict[str, Any]:
         "tool_selection_reason": selection.get("tool_selection_reason"),
         "blocked_reason": selection.get("blocked_reason"),
     }
-

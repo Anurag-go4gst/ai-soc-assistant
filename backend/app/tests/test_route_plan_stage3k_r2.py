@@ -140,6 +140,7 @@ def _patch_common_chat_dependencies(monkeypatch, *, skill: str) -> None:
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
     monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: telemetry)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
+    monkeypatch.setattr("app.routing.operation_audit_store.get_telemetry_connector", lambda: telemetry)
 
 
 def _routed(skill: str) -> dict[str, Any]:
