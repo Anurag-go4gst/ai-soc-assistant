@@ -45,9 +45,10 @@ from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_pro
 from app.answer_guard.runner import run_answer_guard_lab
 from app.synthesis.lab_runner import apply_synthesis_allowed_to_sufficiency, run_governed_synthesis_lab
 from app.synthesis.models import SynthesisStatus
-from app.threat.mitre_kb import map_mitre_for_use_case
+from app.threat.mitre_permitted import resolve_mitre_mappings_for_chat
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
+from app.chat.intent_classifier import build_query_to_intent
 
 def _routes_chat():
     """Lazy import so tests can monkeypatch symbols on app.api.routes_chat."""
@@ -86,12 +87,15 @@ class ChatPipelineState(TypedDict, total=False):
     message: str
     note: str
     governance_trace: Any
+    query_to_intent: dict[str, Any] | None
+    intent_classification: dict[str, Any] | None
     response: PlaceholderResponse
 
 
 def build_live_chat_response(request: ChatRequest) -> PlaceholderResponse:
     state: ChatPipelineState = {"request": request}
     state = graph_node_init_routing(state)
+    state = graph_node_query_to_intent(state)
     state = graph_node_shadow_enrichment(state)
     state = graph_node_workflow_spl(state)
     state = graph_node_execution(state)
@@ -135,6 +139,25 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
         "selected_use_case": selected_use_case,
         "routed": routed,
         "route_plan_shadow": route_plan_shadow,
+    }
+
+
+def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
+    """Passive query-to-intent stage (does not change routing when flag is off)."""
+    request = state["request"]
+    query_understanding = state.get("query_understanding")
+    routed = state.get("routed") or {}
+    routed_skill = str(routed.get("skill")) if routed.get("skill") else None
+    result = build_query_to_intent(
+        query=request.message,
+        query_understanding=query_understanding,
+        routed_skill=routed_skill,
+    )
+    payload = result.model_dump()
+    return {
+        **state,
+        "query_to_intent": payload,
+        "intent_classification": payload.get("intent_classification"),
     }
 
 
@@ -245,7 +268,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     human_review = _attach_hil_soc_kb_guidance(state["human_review"], source_evidence)
     source_refs = [str(item.get("evidence_id")) for item in source_evidence]
     spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
-    mitre_mappings = map_mitre_for_use_case(selected_use_case.use_case_id if selected_use_case else None, source_refs)
+    provenance = routed.get("routing_provenance") if isinstance(routed.get("routing_provenance"), dict) else {}
+    mapped_refs = provenance.get("mapped_use_case_ids") if isinstance(provenance.get("mapped_use_case_ids"), list) else []
+    use_case_id = selected_use_case.use_case_id if selected_use_case else (str(mapped_refs[0]) if mapped_refs else None)
+    question_ref = provenance.get("mapped_question_ref") if isinstance(provenance.get("mapped_question_ref"), str) else None
+    mitre_mappings = resolve_mitre_mappings_for_chat(
+        question_ref=question_ref,
+        use_case_id=use_case_id,
+        source_refs=source_refs,
+    )
     severity_decision = decide_severity(
         selected_use_case.use_case_id if selected_use_case else None,
         structured_context,
@@ -433,6 +464,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         answer_guard=answer_guard,
         action_capability=action_capability,
         governance_trace=governance_trace,
+        query_to_intent=state.get("query_to_intent"),
     )
     return {**state, "response": response}
 

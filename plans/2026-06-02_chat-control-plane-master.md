@@ -196,7 +196,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 |-------|--------|--------|-------|
 | 0 | Baseline xfail tests | Done | Six `/chat` baseline anchors xfail after schema checks |
 | 1 | Control contracts | Done | `EvidencePlan`, `RouteAdjudication`, `ToolPlan`; `CONTROL_PLANE_ENABLED=false` |
-| 1A | Query-to-intent engine | Pending | 12 unit tests |
+| 1A | Query-to-intent engine | **Done** | 12 unit tests |
 | **1B-a** | MITRE loader + audit | **Done** | Reads DRAFT JSONs only |
 | 1B-b | Promote MITRE to runtime JSON | Pending (conditional) | Script only, after audit green + COE sign-off |
 | 2 | Evidence planner | Pending | Consumes `IntentClassification` only |
@@ -226,7 +226,7 @@ Use this checklist in order. Mark **Done** only after that phase’s agent check
 | — | **1B-a** | MITRE schema, loader, audit, 11 tests, stub `mitre_decision` | **Done** |
 | 1 | **0** | `test_current_chat_runtime_baseline.py` (6 xfail, no prod changes) | **Done** |
 | 2 | **1** | `chat/contracts/*`, `CONTROL_PLANE_ENABLED`, response stubs | **Done** |
-| 3 | **1A** | `query_signals`, `intent_classifier`, 12 tests, `graph_node_query_to_intent` | Pending |
+| 3 | **1A** | `query_signals`, `intent_classifier`, 12 tests, `graph_node_query_to_intent` | Done |
 | 4 | **1B-b** | `promote_mitre_registry_to_runtime.py` + runtime loader precedence | **Execute per §1.3** (COE sign-off waived for promote) |
 | 5 | **2** | `evidence_planner.py`, `graph_node_evidence_planning` | Pending |
 | 6 | **3** | RAG-only / hybrid branching, `rag_no_match`, `test_evidence_plan_rag_only_skip.py` | Pending |

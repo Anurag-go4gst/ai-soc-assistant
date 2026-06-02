@@ -13,6 +13,7 @@ from app.chat.pipeline import (
     graph_node_context_finalize,
     graph_node_execution,
     graph_node_init_routing,
+    graph_node_query_to_intent,
     graph_node_shadow_enrichment,
     graph_node_workflow_spl,
 )
@@ -24,12 +25,14 @@ from app.schemas.responses import PlaceholderResponse
 def _compiled_chat_graph() -> Any:
     graph: StateGraph = StateGraph(ChatPipelineState)
     graph.add_node("init_routing", graph_node_init_routing)
+    graph.add_node("query_to_intent", graph_node_query_to_intent)
     graph.add_node("shadow_enrichment", graph_node_shadow_enrichment)
     graph.add_node("workflow_spl", graph_node_workflow_spl)
     graph.add_node("execution", graph_node_execution)
     graph.add_node("context_finalize", graph_node_context_finalize)
     graph.set_entry_point("init_routing")
-    graph.add_edge("init_routing", "shadow_enrichment")
+    graph.add_edge("init_routing", "query_to_intent")
+    graph.add_edge("query_to_intent", "shadow_enrichment")
     graph.add_edge("shadow_enrichment", "workflow_spl")
     graph.add_edge("workflow_spl", "execution")
     graph.add_edge("execution", "context_finalize")
