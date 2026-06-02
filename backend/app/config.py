@@ -225,6 +225,8 @@ class Settings(BaseSettings):
     ai_soc_flow_check_mode: str = ""
     # P1: LangGraph orchestration parity with imperative /chat (default off).
     langgraph_orchestration_enabled: bool = False
+    # Chat control plane rollout gate. Default false until golden tests pass.
+    control_plane_enabled: bool = False
 
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"

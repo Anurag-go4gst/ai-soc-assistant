@@ -352,6 +352,11 @@ class PlaceholderResponse(BaseModel):
     analyst_response: AnalystResponseEnvelope | None = None
     foundation_sec_governance: FoundationSecGovernance | None = None
     spl_template: dict[str, object] | None = None
+    evidence_plan: dict[str, object] | None = None
+    route_adjudication: dict[str, object] | None = None
+    tool_plan_structured: dict[str, object] | None = None
+    query_to_intent: dict[str, object] | None = None
+    control_plane_trace: dict[str, object] | None = None
     mitre_mappings: list[MitreMappingDecision] | None = None
     severity_decision: SeverityDecision | None = None
     investigation_lineage: InvestigationLineage | None = None
