@@ -49,6 +49,7 @@ from app.threat.mitre_kb import map_mitre_for_use_case
 from app.threat.mitre_permitted import resolve_mitre_mappings_for_chat
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
+from app.chat.evidence_planner import plan_evidence
 from app.chat.intent_classifier import build_query_to_intent
 
 def _routes_chat():
@@ -90,6 +91,8 @@ class ChatPipelineState(TypedDict, total=False):
     governance_trace: Any
     query_to_intent: dict[str, Any] | None
     intent_classification: dict[str, Any] | None
+    evidence_plan: dict[str, Any] | None
+    soc_kb_retrieval: dict[str, Any] | None
     response: PlaceholderResponse
 
 
@@ -97,9 +100,16 @@ def build_live_chat_response(request: ChatRequest) -> PlaceholderResponse:
     state: ChatPipelineState = {"request": request}
     state = graph_node_init_routing(state)
     state = graph_node_query_to_intent(state)
+    state = graph_node_evidence_planning(state)
     state = graph_node_shadow_enrichment(state)
-    state = graph_node_workflow_spl(state)
-    state = graph_node_execution(state)
+    if _uses_rag_only_path(state):
+        state = graph_node_prepare_rag_only(state)
+        state = graph_node_rag_early(state)
+    else:
+        state = graph_node_workflow_spl(state)
+        if _uses_pre_mcp_rag(state):
+            state = graph_node_rag_early(state)
+        state = graph_node_execution(state)
     state = graph_node_context_finalize(state)
     response = state.get("response")
     if response is None:
@@ -160,6 +170,20 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         "query_to_intent": payload,
         "intent_classification": payload.get("intent_classification"),
     }
+
+
+def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
+    if not settings.control_plane_enabled:
+        return {**state, "evidence_plan": None}
+    intent = state.get("intent_classification")
+    if not isinstance(intent, dict):
+        return {**state, "evidence_plan": None}
+    plan = plan_evidence(
+        intent,
+        query_to_intent=state.get("query_to_intent"),
+        routed=state.get("routed"),
+    )
+    return {**state, "evidence_plan": plan.model_dump()}
 
 
 def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
@@ -227,6 +251,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         trace_id=trace_id,
         skill=effective_skill,
         user_query=request.message,
+        spl_allowed=_spl_allowed(state),
     )
     return {
         **state,
@@ -247,8 +272,54 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         precondition_evaluation=state.get("route_plan_shadow", {}).get("precondition_evaluation"),
         requested_mcp_server=request.requested_mcp_server,
         requested_mcp_tool=request.requested_mcp_tool,
+        mcp_allowed=_mcp_allowed(state),
     )
     return {**state, "execution": execution, "human_review": human_review}
+
+
+def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
+    request = state["request"]
+    trace_id = state["trace_id"]
+    rc = _routes_chat()
+    workflow_plan = rc.plan_workflow(
+        selected_skill="knowledge_recall",
+        tool_plan=["retrieve_approved_knowledge", "no_spl", "no_mcp"],
+        query=request.message,
+        trace_id=trace_id,
+    )
+    execution, human_review = _execution_stage(
+        trace_id=trace_id,
+        selected_skill="knowledge_recall",
+        workflow_plan=workflow_plan,
+        spl_validation=None,
+        precondition_evaluation=state.get("route_plan_shadow", {}).get("precondition_evaluation"),
+        requested_mcp_server=request.requested_mcp_server,
+        requested_mcp_tool=request.requested_mcp_tool,
+        mcp_allowed=False,
+    )
+    return {
+        **state,
+        "workflow_plan": workflow_plan,
+        "candidate_spl": None,
+        "spl_validation": None,
+        "execution": execution,
+        "human_review": human_review,
+    }
+
+
+def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
+    request = state["request"]
+    workflow_plan = state["workflow_plan"]
+    execution = state["execution"] if "execution" in state else {"block_reason": None}
+    retrieval = retrieve_soc_kb(
+        query=request.message,
+        selected_skill=_context_selected_skill(state),
+        workflow_stage="context",
+        workflow_plan=workflow_plan,
+        required_sources=list(workflow_plan.get("required_sources") or []),
+        execution_block_reason=execution.get("block_reason"),
+    )
+    return {**state, "soc_kb_retrieval": retrieval}
 
 
 def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
@@ -261,10 +332,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     source_evidence, structured_context, context_sufficiency = _context_stage(
         trace_id=trace_id,
         query=request.message,
-        selected_skill=str(routed["skill"]),
+        selected_skill=_context_selected_skill(state),
         workflow_plan=state["workflow_plan"],
         spl_validation=spl_validation,
         execution=execution,
+        soc_kb_retrieval=state.get("soc_kb_retrieval"),
+        evidence_plan=state.get("evidence_plan"),
     )
     human_review = _attach_hil_soc_kb_guidance(state["human_review"], source_evidence)
     source_refs = [str(item.get("evidence_id")) for item in source_evidence]
@@ -389,7 +462,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
 
     evidence_origin = resolve_response_evidence_origin(
         source_evidence=source_evidence,
-        soc_kb_retrieval=None,
+        soc_kb_retrieval=state.get("soc_kb_retrieval"),
         execution=execution,
     )
     answer_readiness = resolve_answer_readiness(
@@ -466,6 +539,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         action_capability=action_capability,
         governance_trace=governance_trace,
         query_to_intent=state.get("query_to_intent"),
+        evidence_plan=state.get("evidence_plan"),
     )
     return {**state, "response": response}
 
@@ -502,6 +576,46 @@ def _coverage_id_from_authority(route_authority: dict[str, object] | None) -> st
     if isinstance(value, str) and value.strip():
         return value.strip()
     return None
+
+
+def _evidence_plan(state: ChatPipelineState) -> dict[str, Any]:
+    plan = state.get("evidence_plan")
+    return plan if isinstance(plan, dict) else {}
+
+
+def _uses_rag_only_path(state: ChatPipelineState) -> bool:
+    if not settings.control_plane_enabled:
+        return False
+    return _evidence_plan(state).get("answer_mode") == "rag_only"
+
+
+def _uses_pre_mcp_rag(state: ChatPipelineState) -> bool:
+    if not settings.control_plane_enabled:
+        return False
+    plan = _evidence_plan(state)
+    return bool(plan.get("needs_rag")) and plan.get("rag_phase") == "pre_mcp"
+
+
+def _spl_allowed(state: ChatPipelineState) -> bool:
+    if not settings.control_plane_enabled:
+        return True
+    return bool(_evidence_plan(state).get("spl_allowed", True))
+
+
+def _mcp_allowed(state: ChatPipelineState) -> bool:
+    if not settings.control_plane_enabled:
+        return True
+    return bool(_evidence_plan(state).get("mcp_allowed", True))
+
+
+def _context_selected_skill(state: ChatPipelineState) -> str:
+    workflow_plan = state.get("workflow_plan")
+    if settings.control_plane_enabled and isinstance(workflow_plan, dict):
+        skill = workflow_plan.get("skill")
+        if isinstance(skill, str) and skill.strip():
+            return skill.strip()
+    routed = state.get("routed") or {}
+    return str(routed.get("skill") or _effective_routing_skill(state))
 
 
 def _selected_use_case(query: str) -> UseCaseSelection | None:
@@ -762,7 +876,15 @@ def _route_plan_shadow_candidate(query: str) -> dict | None:
     return None
 
 
-def _candidate_spl_stage(trace_id: str, skill: str, user_query: str) -> tuple[dict | None, dict | None]:
+def _candidate_spl_stage(
+    trace_id: str,
+    skill: str,
+    user_query: str,
+    *,
+    spl_allowed: bool = True,
+) -> tuple[dict | None, dict | None]:
+    if not spl_allowed:
+        return None, None
     if skill not in {"attack_discovery", "spl_generation"}:
         return None, None
 
@@ -852,6 +974,7 @@ def _execution_stage(
     precondition_evaluation: dict | None,
     requested_mcp_server: str | None,
     requested_mcp_tool: str | None,
+    mcp_allowed: bool = True,
 ) -> tuple[dict, dict]:
     if spl_validation is None:
         return (
@@ -866,6 +989,23 @@ def _execution_stage(
                 "result_count": 0,
                 "results_preview": [],
                 "block_reason": None,
+                "duration_ms": 0,
+            },
+            no_human_review(),
+        )
+    if not mcp_allowed:
+        return (
+            {
+                "status": "skipped",
+                "execution_intent": "none",
+                "selected_mcp_server": None,
+                "selected_mcp_tool": None,
+                "tool_selection_status": "blocked_by_evidence_plan",
+                "tool_selection_reason": "mcp_not_allowed_by_evidence_plan",
+                "executed_spl": None,
+                "result_count": 0,
+                "results_preview": [],
+                "block_reason": "mcp_not_allowed_by_evidence_plan",
                 "duration_ms": 0,
             },
             no_human_review(),
@@ -889,16 +1029,19 @@ def _context_stage(
     workflow_plan: dict,
     spl_validation: dict | None,
     execution: dict,
+    soc_kb_retrieval: dict | None = None,
+    evidence_plan: dict | None = None,
 ) -> tuple[list[dict], dict, dict]:
     telemetry = _routes_chat().get_telemetry_connector()
-    soc_kb_retrieval = retrieve_soc_kb(
-        query=query,
-        selected_skill=selected_skill,
-        workflow_stage="context",
-        workflow_plan=workflow_plan,
-        required_sources=list(workflow_plan.get("required_sources") or []),
-        execution_block_reason=execution.get("block_reason"),
-    )
+    if soc_kb_retrieval is None:
+        soc_kb_retrieval = retrieve_soc_kb(
+            query=query,
+            selected_skill=selected_skill,
+            workflow_stage="context",
+            workflow_plan=workflow_plan,
+            required_sources=list(workflow_plan.get("required_sources") or []),
+            execution_block_reason=execution.get("block_reason"),
+        )
     source_evidence = build_source_evidence(
         trace_id=trace_id,
         query=query,
@@ -932,6 +1075,12 @@ def _context_stage(
         synthesis_allowed=False,
     )
     context_sufficiency = check_context_sufficiency(structured_context, source_evidence)
+    context_sufficiency = _apply_evidence_plan_sufficiency_reasons(
+        context_sufficiency,
+        evidence_plan=evidence_plan,
+        soc_kb_retrieval=soc_kb_retrieval,
+        source_evidence=source_evidence,
+    )
     telemetry.record_step(
         trace_id,
         "context_sufficiency_checked",
@@ -942,6 +1091,25 @@ def _context_stage(
         reasons=context_sufficiency["reasons"],
     )
     return source_evidence, structured_context, context_sufficiency
+
+
+def _apply_evidence_plan_sufficiency_reasons(
+    context_sufficiency: dict[str, Any],
+    *,
+    evidence_plan: dict | None,
+    soc_kb_retrieval: dict | None,
+    source_evidence: list[dict],
+) -> dict[str, Any]:
+    if not isinstance(evidence_plan, dict) or not evidence_plan.get("policy_context_required"):
+        return context_sufficiency
+    reasons = set(context_sufficiency.get("reasons") or [])
+    reasons.add("policy_context_required")
+    retrieved = soc_kb_retrieval if isinstance(soc_kb_retrieval, dict) else {}
+    retrieval_status = str(retrieved.get("retrieval_status") or "")
+    has_rag = any(item.get("source_type") == "rag" and item.get("collection_status") == "collected" for item in source_evidence)
+    if retrieval_status in {"no_match", "disabled", "failed"} or not has_rag:
+        reasons.add("rag_no_match")
+    return {**context_sufficiency, "reasons": sorted(reasons)}
 
 
 def _attach_hil_soc_kb_guidance(human_review: dict, source_evidence: list[dict]) -> dict:

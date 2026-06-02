@@ -1,7 +1,8 @@
 # Chat Control Plane — Master Implementation Plan
 
 **Created:** 2026-06-02  
-**Status:** Approved for implementation  
+**Status:** In progress — Phases **0, 1, 1A, 1B-a, 1B-b** merged on `master`; **Phase 2** is next  
+**Last tracker update:** 2026-06-02 (post `8a7e52a` 1A alignment fix)  
 **Canonical for:** COE review, agent execution, commit sequencing  
 
 > **Single plan only.** This file is the **only** implementation spec for the chat control plane. Do not use or extend separate Cursor plans (`control_plane_agent_guide_*.plan.md`, `control_plane_plan_amendments_*.plan.md`, etc.) — all amendments and agent steps live here.
@@ -39,20 +40,20 @@
 
 | Question | Answer |
 |----------|--------|
-| What is done? | **Commit 1B-a** — MITRE schema, loader, audit, 11 tests ([`mitre_registry_enrichment.py`](../backend/app/threat/mitre_registry_enrichment.py), etc.) |
-| What is next? | **Commit 0** — baseline xfail tests **before** Commits 1/1A/2 change `/chat` flow |
-| What flag gates rollout? | `CONTROL_PLANE_ENABLED` (add in Commit 1, default `false`) |
-| Where is MITRE data? | DRAFT JSONs under [`docs/input/mitre_enrichment/`](../docs/input/mitre_enrichment/) until optional Commit 1B-b |
+| What is done? | **0, 1, 1A** (+ `8a7e52a` fix), **1B-a, 1B-b** — baseline xfail, contracts, query-to-intent (15 tests), MITRE loader/audit/promote, pipeline MITRE gated on flag |
+| What is next? | **Commit 4** — route adjudication; Phases 2–3 are implemented and gated |
+| What flag gates rollout? | `CONTROL_PLANE_ENABLED` (Commit 1, default `false`; stay off until Phase 10 golden) |
+| Where is MITRE data? | Runtime [`question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json) + [`catalog.json`](../backend/app/use_cases/catalog.json) (promoted); DRAFT JSONs remain under [`docs/input/mitre_enrichment/`](../docs/input/mitre_enrichment/) as fallback |
 | What must never happen? | Live MCP, live Foundation-Sec synthesis, execute `candidate_spl`, LLM→MCP, keyword intent overrides after 1A |
 
 **Execution order (mandatory):**
 
 ```text
-DONE:  1B-a
-NEXT:  0  →  1  →  1A  →  1B-b (conditional)  →  2  →  3  →  4  →  5  →  6  →  7  →  8  →  9  →  10  →  11
+DONE:  0  →  1  →  1A  →  1A-fix (8a7e52a)  →  1B-a  →  1B-b (56b48d9)
+NEXT:  2  →  3  →  4  →  5  →  6  →  7  →  8  →  9  →  10  →  11
 ```
 
-Do **not** start with 1B-b unless COE explicitly prioritizes MITRE runtime merge over baseline.
+**Recent commits on `master`:** `816cdf8` (0) · `0cc1242` (1) · `8a83929` (1A) · `56b48d9` (1B-b) · `8a7e52a` (1A MITRE gate + intent HIL/procedural fixes)
 
 ---
 
@@ -92,7 +93,7 @@ Phases **0–11** deliver **control-plane logic** (intent → evidence plan → 
 | **KB / content completeness** | Escalation/SOP/playbook queries retrieve real policy text; `rag_no_match` is rare for golden policy rows | COE / content: SOC-KB corpus, doc types (`sop`, `runbook`, `escalation_matrix`), embeddings/index | Phase 3 `rag_no_match`; env `SOC_KB_RETRIEVAL_ENABLED` ([`config.py`](../backend/app/config.py)); [`retrieve_soc_kb`](../backend/app/knowledge/soc_kb_retriever.py) |
 | **SPL template coverage for slot binding** | Use cases used in hybrid/live golden tests have `default_spl_template` (or registry template) with slots for 24h, exclude service accounts, top N | COE / detection engineering: [`catalog.json`](../backend/app/use_cases/catalog.json), [`template_registry`](../backend/app/spl/template_registry.py) | Phase 6 — validator can only bind constraints **into** templates that exist |
 | **Source / precondition readiness** | `precondition_evaluation` in shadow/route plan reflects real lookup/MCP **readiness** (not live execution); failed preconditions block tool selection with clear HIL | COE + connector config: MCP registry status, precondition shadow ([`precondition_evaluation_shadow`](../backend/app/routing/precondition_evaluation_shadow.py), [`precondition_dependency_state`](../backend/app/routing/precondition_dependency_state.py)) | Phase 4–5 adjudication + validator; execution stays gated |
-| **Promoted MITRE runtime data** | `mitre_registry` fields live in runtime 105/42 JSON, not only DRAFT paths | **COE sign-off** on DRAFT files + audit exit 0 → Commit **1B-b** script | Phase 1B-b; until then loader reads DRAFT only (1B-a) |
+| **Promoted MITRE runtime data** | `mitre_registry` fields live in runtime 105/42 JSON, not only DRAFT paths | **Done (1B-b)** — promote committed; DRAFT still fallback; **COE review** before production cutover | Phase 1B-b; loader prefers runtime row when `mitre_registry` present |
 | **Frontend trace polish** | If `control_plane_trace` / new response fields are exposed in UI: types, collapsed “technical trace”, no secret leakage | Frontend when Phase 9 ships | [`frontend/src/types/api.ts`](../frontend/src/types/api.ts), trace components; `npm run build` |
 
 **Agent rule:** Implement phases with **stubs/fixtures/tests** where content is missing; document gap in commit message and Phase 11 docs. Do **not** expand SOC-KB corpus, rewrite all SPL templates, or enable live MCP as a side effect of control-plane commits.
@@ -101,7 +102,7 @@ Phases **0–11** deliver **control-plane logic** (intent → evidence plan → 
 
 - Policy golden (#1, #7) may stay `insufficient_evidence` or partial KB until escalation content is indexed — control plane should still enforce `rag_only`, no SPL/MCP, no visible MITRE.
 - Hybrid golden (#2, #6) may keep `spl_validation` rejections until templates encode slots — Phase 6 should **fail closed** (reject), not invent SPL.
-- MITRE visibility tests use DRAFT loader (1B-a) until 1B-b promote; runtime parity tests wait for COE.
+- MITRE registry metadata tests use runtime + DRAFT loader (1B-b); `/chat` finalize still uses **legacy** `map_mitre_for_use_case` until `CONTROL_PLANE_ENABLED=true` (Phase 7).
 
 ### 1.2 What we can complete in-repo (without live MCP / LLM)
 
@@ -110,30 +111,30 @@ Phases **0–11** deliver **control-plane logic** (intent → evidence plan → 
 | **KB / content** | **Partial** | Enable `SOC_KB_RETRIEVAL_ENABLED=true` in dev `.env`; fixtures already include `escalation_matrix` + auth SOP entries ([`fixtures/soc_kb_*.json`](../backend/app/knowledge/fixtures/)). **Add 1–2 fixture entries** with `retrieval_hints` / `positive_examples` for policy golden strings (`repeated failed login alerts`, `when should … be escalated`) so Phase 3/10 can pass KB match in CI. | Production KB import, customer corpus, embeddings at scale |
 | **SPL templates + slots** | **Partial** | Phase **6** validator + extend [`templates.json`](../backend/app/spl/templates.json): e.g. new `auth_failed_login_top_users_24h` with `render_pattern` slots `{earliest}`, `{latest}`, `{result_limit}`, `{exclude_service_accounts_filter}`; point hybrid golden use case at it in catalog. Reuse patterns from `sample_auth_failed_login_top_users_tstats` (already has `{earliest}` / `{result_limit}`). | SCD field names, index/sourcetype truth for customer Splunk |
 | **Source / preconditions** | **Yes (logic)** | Wire existing [`precondition_evaluation_shadow`](../backend/app/routing/precondition_evaluation_shadow.py) into adjudication trace; surface registry MCP `configured` / `available` / blocked tool status in `control_plane_trace` (no live execution). Tests with mock registry. | Real Splunk MCP URL, auth, COE tool allowlist for production |
-| **MITRE runtime promote** | **Partial** | **Implement** `scripts/promote_mitre_registry_to_runtime.py` + `--dry-run` (Commit 1B-b code); audit already passes for DRAFT. Dev can keep DRAFT-only loader. | **COE sign-off** before running promote against committed runtime JSON |
+| **MITRE runtime promote** | **Done (1B-b)** | Promote script run; 105/105 + 42/42 merged; audit exit 0 (warnings OK). | **COE review** before production cutover; Phase 7 governs `/chat` visibility |
 | **Frontend trace** | **Yes (with Phase 9)** | Types for `control_plane_trace`, `evidence_plan`, `route_adjudication` in [`api.ts`](../frontend/src/types/api.ts); render nested under existing collapsed “technical trace” (same pattern as `governance_trace`). Redact secrets. | Design review if layout changes |
 
 **Recommended parallel track (can start before Phase 10):**
 
-1. **Dev KB fixtures** — policy escalation hints (small JSON edit + retrieval test).
-2. **1B-b script only** — dry-run promote; do not commit runtime JSON until COE approves.
+1. **Dev KB fixtures** — policy escalation hints (small JSON edit + retrieval test) — **still pending** (§1.3 step D).
+2. ~~**1B-b script only**~~ — **done** (`56b48d9`).
 3. **Slot template** — one hybrid-capable template for golden #2 / #6 (Phase 6 dependency).
 
 **Phases 0–11 remain the main line;** items above are additive and do not replace Commit 0 → 1A → …
 
 ### 1.3 Execute now (user-approved — do not wait for COE on 1B-b)
 
-**Status:** Spec ready; **implementation blocked in Plan mode** — switch to **Agent mode** and run this checklist.
+**Status:** **1B-b complete** (commits `56b48d9`, loader + promote). Steps **D–F** below remain optional parallel work.
 
-| Step | Action | Verify |
+| Step | Action | Status |
 |------|--------|--------|
-| A | Create [`scripts/promote_mitre_registry_to_runtime.py`](../scripts/promote_mitre_registry_to_runtime.py) (promote DRAFT → runtime JSON, `--dry-run`) | `python3 scripts/promote_mitre_registry_to_runtime.py --dry-run` |
-| B | Run promote (writes files) | `python3 scripts/promote_mitre_registry_to_runtime.py` → 105/105 questions, 42/42 use cases |
-| C | Update [`mitre_registry_enrichment.py`](../backend/app/threat/mitre_registry_enrichment.py): prefer runtime row when `mitre_registry` present, else DRAFT | `pytest app/tests/test_mitre_registry_enrichment.py -q` |
-| D | Add KB fixture entry `coe-policy-failed-login-escalation` in [`soc_kb_entries.json`](../backend/app/knowledge/fixtures/soc_kb_entries.json) (hints below) | retrieval test / manual `/chat` |
-| E | Dev flags in [`.env`](../.env) (see table) — **do not** set `CONTROL_PLANE_ENABLED=true` until Phases 1–3 wired | `grep SOC_KB .env` |
-| F | Document in `.env.example` under “Dev experience / control plane” | — |
-| G | Mark tracker row **1B-b** Done after B+C | audit + pytest |
+| A | Create [`scripts/promote_mitre_registry_to_runtime.py`](../scripts/promote_mitre_registry_to_runtime.py) | **Done** |
+| B | Run promote (writes files) | **Done** — 105/105 questions, 42/42 use cases |
+| C | Update [`mitre_registry_enrichment.py`](../backend/app/threat/mitre_registry_enrichment.py): runtime row first, DRAFT fallback | **Done** — 12 enrichment tests |
+| D | Add KB fixture entry `coe-policy-failed-login-escalation` in [`soc_kb_entries.json`](../backend/app/knowledge/fixtures/soc_kb_entries.json) (hints below) | **Pending** |
+| E | Dev flags in [`.env`](../.env) (see table) — **do not** set `CONTROL_PLANE_ENABLED=true` until Phases 2–3 wired | **Pending** (verify locally) |
+| F | Document in `.env.example` under “Dev experience / control plane” | **Pending** |
+| G | Mark tracker row **1B-b** Done | **Done** |
 
 **Promote script behavior:** For each DRAFT `id`, merge `mitre_registry` + normalized `mitre_permitted` / `mitre_candidate` / `mitre_blocked` / visibility into [`question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json) (`question_ref`) and [`catalog.json`](../backend/app/use_cases/catalog.json) (`use_case_id`). Use `normalize_legacy_mitre_fields` from enrichment module.
 
@@ -194,13 +195,14 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 
 | Phase | Commit | Status | Notes |
 |-------|--------|--------|-------|
-| 0 | Baseline xfail tests | Done | Six `/chat` baseline anchors xfail after schema checks |
-| 1 | Control contracts | Done | `EvidencePlan`, `RouteAdjudication`, `ToolPlan`; `CONTROL_PLANE_ENABLED=false` |
-| 1A | Query-to-intent engine | **Done** | 12 unit tests |
-| **1B-a** | MITRE loader + audit | **Done** | Reads DRAFT JSONs only |
-| 1B-b | Promote MITRE to runtime JSON | **Done** | Runtime JSON + loader prefers promoted rows |
-| 2 | Evidence planner | Pending | Consumes `IntentClassification` only |
-| 3 | RAG-first branching | Pending | `rag_no_match`, hard gates |
+| 0 | Baseline xfail tests | **Done** (`816cdf8`) | Six `/chat` baseline anchors xfail after schema checks |
+| 1 | Control contracts | **Done** (`0cc1242`) | `EvidencePlan`, `RouteAdjudication`, `ToolPlan`; `CONTROL_PLANE_ENABLED=false` |
+| 1A | Query-to-intent engine | **Done** (`8a83929`, `8a7e52a`) | 15 unit tests; `requires_hil` / `action_mode` on intent; passive `graph_node_query_to_intent` |
+| 1A-fix | Intent + MITRE alignment | **Done** (`8a7e52a`) | HIL/action precedence; DGA procedural; finalize uses `map_mitre_for_use_case` when flag off |
+| **1B-a** | MITRE loader + audit | **Done** (`56b48d9`) | Schema, loader, audit, stub `mitre_decision`, 12 tests |
+| 1B-b | Promote MITRE to runtime JSON | **Done** (`56b48d9`) | Runtime JSON + loader prefers promoted rows |
+| 2 | Evidence planner | **Done** | Consumes `IntentClassification` only |
+| 3 | RAG-first branching | **Done** | `rag_no_match` reasons, hard gates |
 | 4 | Route adjudication | Pending | Intent > registry |
 | 5 | LLM plan validator | Pending | Advisory JSON only |
 | 6 | SPL slot binding | Pending | User constraint encoding |
@@ -212,10 +214,9 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 
 **Rollout:** `CONTROL_PLANE_ENABLED=false` until Phase 10 golden tests pass with flag on.
 
-### Next commit (after 1B-a)
+### Next commit
 
-1. **Commit 0** — [`test_current_chat_runtime_baseline.py`](../backend/app/tests/test_current_chat_runtime_baseline.py): six queries; `chat()` + shape asserts must pass; **xfail only on behavioral snapshot** (see Phase 0); **no behavior fixes**.
-2. Then Commit 1 (contracts + flag), then 1A (query-to-intent).
+**Commit 2 (Phase 2)** — [`evidence_planner.py`](../backend/app/chat/evidence_planner.py) + `graph_node_evidence_planning`; `plan_evidence()` reads **only** `IntentClassification`; attach `evidence_plan` when `CONTROL_PLANE_ENABLED=true` (trace-only stub OK when false).
 
 ### Implementation tracker (all commits)
 
@@ -223,13 +224,13 @@ Use this checklist in order. Mark **Done** only after that phase’s agent check
 
 | Order | Commit | Deliverable | Status |
 |-------|--------|-------------|--------|
-| — | **1B-a** | MITRE schema, loader, audit, 11 tests, stub `mitre_decision` | **Done** |
-| 1 | **0** | `test_current_chat_runtime_baseline.py` (6 xfail, no prod changes) | **Done** |
-| 2 | **1** | `chat/contracts/*`, `CONTROL_PLANE_ENABLED`, response stubs | **Done** |
-| 3 | **1A** | `query_signals`, `intent_classifier`, 12 tests, `graph_node_query_to_intent` | Done |
-| 4 | **1B-b** | `promote_mitre_registry_to_runtime.py` + runtime loader precedence | Done |
-| 5 | **2** | `evidence_planner.py`, `graph_node_evidence_planning` | Pending |
-| 6 | **3** | RAG-only / hybrid branching, `rag_no_match`, `test_evidence_plan_rag_only_skip.py` | Pending |
+| — | **1B-a** | MITRE schema, loader, audit, 12 tests, stub `mitre_decision` | **Done** (`56b48d9`) |
+| 1 | **0** | `test_current_chat_runtime_baseline.py` (6 xfail, no prod changes) | **Done** (`816cdf8`) |
+| 2 | **1** | `chat/contracts/*`, `CONTROL_PLANE_ENABLED`, response stubs | **Done** (`0cc1242`) |
+| 3 | **1A** | `query_signals`, `intent_classifier`, 15 tests, `graph_node_query_to_intent` | **Done** (`8a83929`, `8a7e52a`) |
+| 4 | **1B-b** | `promote_mitre_registry_to_runtime.py` + runtime loader precedence | **Done** (`56b48d9`) |
+| 5 | **2** | `evidence_planner.py`, `graph_node_evidence_planning` | **Done** |
+| 6 | **3** | RAG-only / hybrid branching, `rag_no_match`, `test_evidence_plan_rag_only_skip.py` | **Done** |
 | 7 | **4** | `route_adjudication.py`, effective_skill from adjudication | Pending |
 | 8 | **5** | `llm_plan_validator.py` | Pending |
 | 9 | **6** | `spl_slot_binding_validator.py` | Pending |
@@ -248,7 +249,7 @@ Use this checklist in order. Mark **Done** only after that phase’s agent check
 | KB / content completeness | Yes for policy answers | No — merge with `rag_no_match` handling |
 | SPL template + slot coverage | Yes for hybrid SPL quality | No — Phase 6 fail-closed |
 | Source / precondition readiness | Yes for MCP path clarity | No — mock/registry status sufficient |
-| MITRE runtime promote (1B-b) | Trace/registry parity in prod JSON | No — DRAFT loader OK for dev |
+| MITRE runtime promote (1B-b) | **Done in repo** — prod COE review still recommended | No — merged (`56b48d9`) |
 | Frontend trace polish | Analyst UX only | No — optional with Phase 9 |
 
 ---
@@ -578,7 +579,7 @@ Config: `CONTROL_PLANE_ENABLED` default `false` in [`config.py`](../backend/app/
 | `backend/app/chat/query_signals.py` | Extract signals from query + QU |
 | `backend/app/chat/intent_classifier.py` | Classify, validate, LLM assist |
 | `backend/app/chat/contracts/intent_classification.py` | Pydantic + enums |
-| `backend/app/tests/test_query_to_intent.py` | 12 tests |
+| `backend/app/tests/test_query_to_intent.py` | 15 tests (12 core + 3 alignment) |
 
 ### `QueryToIntentResult` envelope
 
@@ -610,9 +611,13 @@ Config: `CONTROL_PLANE_ENABLED` default `false` in [`config.py`](../backend/app/
   "confidence": 0.86,
   "confidence_band": "high",
   "requires_clarification": false,
+  "requires_hil": false,
+  "action_mode": null,
   "reason": "..."
 }
 ```
+
+(`requires_hil` / `action_mode` set on destructive-action intents, e.g. test #12 → `recommend_only`.)
 
 #### `intent_family`
 
@@ -634,7 +639,7 @@ Config: `CONTROL_PLANE_ENABLED` default `false` in [`config.py`](../backend/app/
 | `medium` | 0.55–0.79 | LLM assist / adjudication OK |
 | `low` | < 0.55 | Clarification / safe `knowledge_recall` |
 
-### 12 required tests
+### Required tests (15 in `test_query_to_intent.py`; 12 core scenarios below)
 
 | # | Query | Expected |
 |---|--------|----------|
@@ -649,7 +654,9 @@ Config: `CONTROL_PLANE_ENABLED` default `false` in [`config.py`](../backend/app/
 | 9 | Investigate repeated failed logins 24h | `live_investigation`, spl+mcp in projected EvidencePlan |
 | 10 | What is a DGA domain? | `knowledge_only` |
 | 11 | Investigate DGA alerts + playbook next steps | `hybrid`, needs_rag |
-| 12 | Block all suspicious IPs from failed login search | `requires_hil`, `action_mode=recommend_only` |
+| 12 | Block all suspicious IPs from failed login search | `requires_hil`, `action_mode=recommend_only` on **intent** |
+| — | Block … + generate SPL | action/HIL precedence over `spl_generation_only` (extra test) |
+| — | Explain investigation steps for DGA detection | `knowledge_only`, `procedural_steps` (baseline golden #5) |
 
 **Pipeline wiring (Commit 1A):**
 
@@ -672,10 +679,11 @@ state = graph_node_query_to_intent(state)
 
 **Agent checklist (Commit 1A):**
 
-- [ ] `backend/app/chat/query_signals.py` — signals: policy verbs, live investigation verbs, SPL verbs, MITRE verbs, hybrid markers, action verbs
-- [ ] `backend/app/chat/intent_classifier.py` — `classify_intent(signals, qu, candidate_mappings) -> IntentClassification`
-- [ ] `backend/app/tests/test_query_to_intent.py` — **all 12 rows** in table above (unit tests, no full `/chat` unless trivial)
-- [ ] No keyword checks added to `evidence_planner` or `route_adjudication` in this commit (those files may not exist yet)
+- [x] `backend/app/chat/query_signals.py` — signals: policy verbs, live investigation verbs, SPL verbs, MITRE verbs, hybrid markers, action verbs, procedural investigation
+- [x] `backend/app/chat/intent_classifier.py` — `classify_intent(signals, qu, candidate_mappings) -> IntentClassification`
+- [x] `backend/app/tests/test_query_to_intent.py` — 15 tests (12 core rows + block+SPL precedence + DGA procedural)
+- [x] `8a7e52a` — `requires_hil` / `action_mode` on contract; action before SPL; DGA procedural; `_mitre_mappings_for_finalize` uses legacy `map_mitre_for_use_case` when flag off
+- [ ] No keyword checks added to `evidence_planner` or `route_adjudication` (those files do not exist yet — Phase 2+)
 
 ---
 
@@ -732,7 +740,7 @@ python3 -m json.tool docs/input/mitre_enrichment/use_case_42_for_mitre_enrichmen
 
 **Merge order:** (1) `mitre_registry` block, (2) legacy `mitre_permitted` / `mitre_candidates`, (3) 105 KB overlap → candidate.
 
-**Unchanged:** `pipeline.py`, `resolve_mitre_mappings_for_chat`, demo paths.
+**Pipeline MITRE (post `8a7e52a`):** [`_mitre_mappings_for_finalize`](../backend/app/chat/pipeline.py) — flag **off** → `map_mitre_for_use_case` only; flag **on** → `resolve_mitre_mappings_for_chat` until Phase 7 `resolve_mitre_decision`. Demo paths unchanged.
 
 **Regression anchors:**
 
@@ -750,15 +758,15 @@ python3 -m json.tool docs/input/mitre_enrichment/use_case_42_for_mitre_enrichmen
 
 ---
 
-### Phase 1B-b — Promote MITRE registry to runtime JSON (Commit 1B-b, **conditional**)
+### Phase 1B-b — Promote MITRE registry to runtime JSON (Commit 1B-b) — **DONE** (`56b48d9`)
 
-**Do not start** until baseline (0), contracts (1), and query-to-intent (1A) are merged unless COE explicitly reprioritizes.
+**Prerequisites met:** baseline (0), contracts (1), query-to-intent (1A), 1A-fix.
 
-**Gates (all required):**
+**Gates (met):**
 
 - [`scripts/audit_105_42_mitre_coverage.py`](../scripts/audit_105_42_mitre_coverage.py) exits **0** (warnings OK)
-- COE sign-off on DRAFT enrichment files
-- Promotion via **script only** — no hand-editing 3000+ line JSON
+- Promote executed via script (not hand-edited JSON)
+- COE production cutover review still recommended; promote execution waived per §1.3
 
 **Create:** `scripts/promote_mitre_registry_to_runtime.py`
 
@@ -774,14 +782,14 @@ python3 -m json.tool docs/input/mitre_enrichment/use_case_42_for_mitre_enrichmen
 3. Write JSON with stable formatting; print diff summary (counts updated).
 4. Support `--dry-run` (no write).
 
-**Until 1B-b:** [`registry_mitre_metadata()`](../backend/app/threat/mitre_registry_enrichment.py) reads DRAFT paths only (current 1B-a).
+**Loader after 1B-b:** [`registry_mitre_metadata()`](../backend/app/threat/mitre_registry_enrichment.py) prefers runtime row `mitre_registry`, else DRAFT.
 
 **Agent checklist:**
 
-- [ ] Script + dry-run documented in script `--help`
-- [ ] Re-run audit after promote
-- [ ] 11 MITRE enrichment tests still pass
-- [ ] **Still no** `pipeline.py` MITRE wire-up (Phase 7)
+- [x] Script + `--dry-run`
+- [x] Audit after promote
+- [x] 12 MITRE enrichment tests pass
+- [x] `/chat` finalize: legacy `map_mitre_for_use_case` when flag off (`8a7e52a`); full `resolve_mitre_decision` wire-up remains **Phase 7**
 
 ---
 
@@ -996,8 +1004,9 @@ Implement full [`resolve_mitre_decision()`](../backend/app/threat/mitre_decision
 
 | `CONTROL_PLANE_ENABLED` | MITRE path in finalize |
 |-------------------------|-------------------------|
-| `false` (default) | **Unchanged:** [`resolve_mitre_mappings_for_chat`](../backend/app/threat/mitre_permitted.py) — rollback safe |
-| `true` | `resolve_mitre_decision(intent, evidence_plan, registry_metadata, ...)`; analyst-facing output from **answer-visible** techniques only; suppressed registry in `control_plane_trace` |
+| `false` (default) | **Legacy:** [`map_mitre_for_use_case`](../backend/app/threat/mitre_kb.py) only — no 105 `mitre_permitted[]` merge on `/chat` (`8a7e52a`) |
+| `true` (interim until Phase 7 complete) | [`resolve_mitre_mappings_for_chat`](../backend/app/threat/mitre_permitted.py) — registry-augmented merge |
+| `true` (Phase 7 target) | `resolve_mitre_decision(intent, evidence_plan, registry_metadata, ...)`; analyst-facing output from **answer-visible** techniques only; suppressed registry in `control_plane_trace` |
 
 **Do not** delete legacy path. Governance regression must pass with flag `false`.
 
@@ -1149,12 +1158,11 @@ Row **7** mirrors Phase 1A test **#8** (unit) — E2E proves full pipeline with 
 
 | Order | Commit | Scope |
 |-------|--------|--------|
-| **Next** | **0** | **Baseline xfail — mandatory before 1** |
-| | 1 | Contracts + `CONTROL_PLANE_ENABLED` + response stubs |
-| | 1A | Query-to-intent + 12 tests + `graph_node_query_to_intent` |
-| Done | **1B-a** | MITRE schema, loader, audit, stub decision, 11 tests |
-| Conditional | 1B-b | `promote_mitre_registry_to_runtime.py` after audit + COE |
-| 2 | `evidence_planner` + graph node |
+| Done | **0** | Baseline xfail (`816cdf8`) |
+| Done | **1** | Contracts + `CONTROL_PLANE_ENABLED` + response stubs (`0cc1242`) |
+| Done | **1A** | Query-to-intent + 15 tests + `graph_node_query_to_intent` (`8a83929`, `8a7e52a`) |
+| Done | **1B-a / 1B-b** | MITRE schema, loader, audit, promote, 12 enrichment tests (`56b48d9`) |
+| **Next** | **2** | `evidence_planner` + graph node |
 | 3 | RAG-only / hybrid / `rag_no_match` + LangGraph edges |
 | 4 | `route_adjudication` |
 | 5 | `llm_plan_validator` |
@@ -1182,8 +1190,8 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q   # full suite must 
 |--------------|---------------------|
 | 1B-a (done) | `pytest app/tests/test_mitre_registry_enrichment.py -q` · `python3 scripts/audit_105_42_mitre_coverage.py` |
 | 0 | `pytest app/tests/test_current_chat_runtime_baseline.py -v` (expect xfail, zero ERROR) |
-| 1, 1A | `pytest app/tests/test_query_to_intent.py -q` (1A only) |
-| 1B-b | audit script + enrichment tests |
+| 1, 1A, 1A-fix | `pytest app/tests/test_query_to_intent.py -q` (expect 15 passed) |
+| 1B-b (done) | `python3 scripts/audit_105_42_mitre_coverage.py` · `pytest app/tests/test_mitre_registry_enrichment.py -q` |
 | 3 | `pytest app/tests/test_evidence_plan_rag_only_skip.py -q` |
 | 6 | tests covering slot binding + schema fields |
 | 7 | `CONTROL_PLANE_ENABLED=true pytest app/tests/test_mitre_decision_runtime.py -q` |
@@ -1220,7 +1228,7 @@ python3 -m json.tool docs/input/mitre_enrichment/use_case_42_for_mitre_enrichmen
 | Policy golden passes logic but empty answer | §1.1 KB completeness + `SOC_KB_RETRIEVAL_ENABLED` |
 | Hybrid golden never approves SPL | §1.1 template coverage; Phase 6 fail-closed |
 | Preconditions always skipped in shadow | §1.1 source/precondition COE readiness |
-| Registry MITRE differs prod vs dev | §1.1 Commit 1B-b after COE sign-off |
+| Registry MITRE differs prod vs dev | §1.1 COE review before prod; promote done in dev (`56b48d9`) |
 | Trace unusable in UI | §1.1 Phase 9 FE types + collapsed trace polish |
 
 ---
@@ -1304,7 +1312,7 @@ Use **identical strings** in Phase 0 (xfail) and Phase 10 (must pass with flag o
 ## Appendix — Review amendments (merged 2026-06-02)
 
 1. **Phase 0 before 1/1A/2** — baseline xfail even though 1B-a landed early.
-2. **1B-b conditional** — script `promote_mitre_registry_to_runtime.py` with `--dry-run`; gates: audit exit 0 + COE.
+2. **1B-b** — **done** (`56b48d9`); promote script + runtime JSON; COE review before prod cutover.
 3. **No duplicate intent** — Phases 3–4 use `EvidencePlan` / `IntentClassification` only (§3.1).
 4. **Golden #7** — implicit policy wording (`policy_implicit` row).
 5. **Phase 7 flag gate** — legacy MITRE when flag off (Phase 7 table).
@@ -1338,6 +1346,7 @@ Use with COE before calling control plane “production ready” (in addition to
 - [ ] SOC-KB: escalation / failed-login policy docs indexed; retrieval enabled where intended
 - [ ] SPL: slot-capable templates for `auth_failed_login_spike` (and other hybrid golden use cases)
 - [ ] Preconditions: shadow evaluation reflects configured sources; HIL messages reviewed
-- [ ] MITRE: 1B-b promoted runtime JSON + audit green
+- [x] MITRE: 1B-b promoted runtime JSON + audit green (dev repo; COE prod sign-off pending)
+- [ ] MITRE: Phase 7 `resolve_mitre_decision` wired when `CONTROL_PLANE_ENABLED=true`
 - [ ] UI: `control_plane_trace` typed and readable in analyst UI (if exposed)
 - [ ] Still separate stage: live MCP adapter, live Foundation-Sec synthesis (§4 hard boundaries)

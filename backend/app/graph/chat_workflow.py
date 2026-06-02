@@ -11,9 +11,12 @@ from app.chat.pipeline import (
     ChatPipelineState,
     build_live_chat_response,
     graph_node_context_finalize,
+    graph_node_evidence_planning,
     graph_node_execution,
     graph_node_init_routing,
+    graph_node_prepare_rag_only,
     graph_node_query_to_intent,
+    graph_node_rag_early,
     graph_node_shadow_enrichment,
     graph_node_workflow_spl,
 )
@@ -26,18 +29,60 @@ def _compiled_chat_graph() -> Any:
     graph: StateGraph = StateGraph(ChatPipelineState)
     graph.add_node("init_routing", graph_node_init_routing)
     graph.add_node("query_to_intent", graph_node_query_to_intent)
+    graph.add_node("evidence_planning", graph_node_evidence_planning)
     graph.add_node("shadow_enrichment", graph_node_shadow_enrichment)
+    graph.add_node("prepare_rag_only", graph_node_prepare_rag_only)
+    graph.add_node("rag_early", graph_node_rag_early)
     graph.add_node("workflow_spl", graph_node_workflow_spl)
     graph.add_node("execution", graph_node_execution)
     graph.add_node("context_finalize", graph_node_context_finalize)
     graph.set_entry_point("init_routing")
     graph.add_edge("init_routing", "query_to_intent")
-    graph.add_edge("query_to_intent", "shadow_enrichment")
-    graph.add_edge("shadow_enrichment", "workflow_spl")
-    graph.add_edge("workflow_spl", "execution")
+    graph.add_edge("query_to_intent", "evidence_planning")
+    graph.add_edge("evidence_planning", "shadow_enrichment")
+    graph.add_conditional_edges(
+        "shadow_enrichment",
+        _after_shadow_enrichment,
+        {"rag_only": "prepare_rag_only", "workflow_spl": "workflow_spl"},
+    )
+    graph.add_edge("prepare_rag_only", "rag_early")
+    graph.add_conditional_edges(
+        "workflow_spl",
+        _after_workflow_spl,
+        {"rag_early": "rag_early", "execution": "execution"},
+    )
+    graph.add_conditional_edges(
+        "rag_early",
+        _after_rag_early,
+        {"context_finalize": "context_finalize", "execution": "execution"},
+    )
     graph.add_edge("execution", "context_finalize")
     graph.add_edge("context_finalize", END)
     return graph.compile()
+
+
+def _evidence_plan(state: ChatPipelineState) -> dict[str, Any]:
+    plan = state.get("evidence_plan")
+    return plan if isinstance(plan, dict) else {}
+
+
+def _after_shadow_enrichment(state: ChatPipelineState) -> str:
+    if _evidence_plan(state).get("answer_mode") == "rag_only":
+        return "rag_only"
+    return "workflow_spl"
+
+
+def _after_workflow_spl(state: ChatPipelineState) -> str:
+    plan = _evidence_plan(state)
+    if bool(plan.get("needs_rag")) and plan.get("rag_phase") == "pre_mcp":
+        return "rag_early"
+    return "execution"
+
+
+def _after_rag_early(state: ChatPipelineState) -> str:
+    if "execution" in state:
+        return "context_finalize"
+    return "execution"
 
 
 def run_chat_via_langgraph(request: ChatRequest) -> PlaceholderResponse:
