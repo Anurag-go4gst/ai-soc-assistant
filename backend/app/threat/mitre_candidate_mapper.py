@@ -28,6 +28,7 @@ from app.threat.mitre_permitted_builder import (
     STATUS_SUPPORTED,
     MitrePermittedEntry,
     build_mitre_permitted_for_question,
+    canonical_technique_name_tactic,
     technique_in_local_bundle,
 )
 
@@ -122,10 +123,27 @@ def _entries_from_llm_payload(
             )
             validation_statuses.append(validation_note)
 
+            # Name/tactic are authoritative from the bundle, never trusted from the
+            # LLM. A model may pair a valid ID with the wrong name (observed:
+            # T1110.002 labelled "Password Guessing"). On a valid ID, override the
+            # name and record a mismatch note; otherwise keep the raw LLM name for trace.
+            entry_notes = [f"llm_candidate:{validation_note}"]
+            canonical = canonical_technique_name_tactic(technique_id)
+            if canonical is not None:
+                canonical_name, canonical_tactic = canonical
+                if technique_name and technique_name.lower() != canonical_name.lower():
+                    entry_notes.append(f"llm_name_overridden:{technique_name}->{canonical_name}")
+                resolved_name = canonical_name
+                resolved_tactic = canonical_tactic
+            else:
+                resolved_name = technique_name
+                resolved_tactic = "unknown"
+
             entries.append({
                 "technique_id": technique_id,
-                "technique_name": technique_name,
-                "tactic": "unknown",
+                "technique_name": resolved_name,
+                "llm_supplied_name": technique_name,
+                "tactic": resolved_tactic,
                 "status": status,
                 "source": "llm_candidate",
                 "use_case_ids": [use_case_id] if use_case_id else [],
@@ -136,7 +154,7 @@ def _entries_from_llm_payload(
                 "reason": reason,
                 "is_primary": is_primary,
                 "llm_validation_note": validation_note,
-                "notes": [f"llm_candidate:{validation_note}"],
+                "notes": entry_notes,
             })
 
     if not validation_statuses:

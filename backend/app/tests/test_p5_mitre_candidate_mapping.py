@@ -400,3 +400,128 @@ def test_all_entries_require_soc_review() -> None:
     for entry in result.entries:
         if entry.status != STATUS_SUPPORTED:
             assert entry.requires_soc_review is True
+
+
+# ---------------------------------------------------------------------------
+# Captured live Foundation-sec-8B-Instruct payload (real model output)
+# ---------------------------------------------------------------------------
+
+# Verbatim raw output from Foundation-sec-8B-Instruct (HuggingFace) for the
+# question "Which users had excessive failed login attempts in the last hour?".
+# Note: the model returned a valid JSON object followed by a prose paragraph,
+# and hallucinated T1110.002 ("Password Cracking" in real ATT&CK) labelled as
+# "Password Guessing" at high confidence. This fixture locks the adapter's
+# behaviour against a REAL model error, not a synthetic one.
+CAPTURED_FOUNDATION_SEC_INSTRUCT_OUTPUT = """{
+  "primary_techniques": [
+    {
+      "technique_id": "T1110",
+      "technique_name": "Brute Force",
+      "confidence": "high",
+      "reason": "Directly related to the question as it involves attempting multiple login attempts to gain access."
+    }
+  ],
+  "secondary_techniques": [
+    {
+      "technique_id": "T1110.002",
+      "technique_name": "Password Guessing",
+      "confidence": "high",
+      "reason": "A common method used in brute force attacks, especially when targeting valid accounts."
+    },
+    {
+      "technique_id": "T1110.003",
+      "technique_name": "Password Spraying",
+      "confidence": "high",
+      "reason": "A specific type of brute force attack where the attacker tries a small number of common passwords against many accounts."
+    }
+  ],
+  "not_applicable_reason": null,
+  "assumptions": []
+}This JSON output maps the SOC analyst question to relevant MITRE ATT&CK techniques that are associated with brute force attacks."""
+
+
+def _run_captured_payload():
+    with (
+        patch("app.config.settings.ai_soc_llm_mitre_candidate_mapping_enabled", True),
+        patch("app.config.settings.ai_soc_llm_enabled", True),
+        patch("app.config.settings.ai_soc_llm_mode", "mock"),
+    ):
+        return run_mitre_candidate_mapping(
+            "q0.q001",
+            use_case_id="auth_failed_login_spike",
+            llm_raw_output_provider=_llm_provider(CAPTURED_FOUNDATION_SEC_INSTRUCT_OUTPUT),
+        )
+
+
+def test_captured_payload_parses_despite_trailing_prose() -> None:
+    """Real model appended prose after the JSON object; extractor must still parse."""
+    result = _run_captured_payload()
+    assert result.llm_mitre_candidate_used is True
+    assert result.llm_mitre_parse_status in ("valid", "repaired")
+    ids = {e["technique_id"] for e in result.llm_candidate_entries}
+    assert ids == {"T1110", "T1110.002", "T1110.003"}
+
+
+def test_captured_payload_hallucinated_subtechnique_downgraded() -> None:
+    """T1110.002 is not in the local bundle → unknown_id, needs_review (caught)."""
+    result = _run_captured_payload()
+    bad = next(e for e in result.llm_candidate_entries if e["technique_id"] == "T1110.002")
+    assert bad["in_local_bundle"] is False
+    assert bad["status"] == STATUS_NEEDS_REVIEW
+    assert bad["llm_validation_note"] == "unknown_id"
+    assert result.llm_mitre_candidate_validation == "unknown_id"
+
+
+def test_captured_payload_valid_ids_capped_at_candidate() -> None:
+    """In-bundle T1110 / T1110.003 must be candidate, never supported from LLM."""
+    result = _run_captured_payload()
+    for tid in ("T1110", "T1110.003"):
+        entry = next(e for e in result.llm_candidate_entries if e["technique_id"] == tid)
+        assert entry["in_local_bundle"] is True
+        assert entry["status"] == STATUS_CANDIDATE
+
+
+def test_captured_payload_name_authoritative_from_bundle() -> None:
+    """T1110.003 model name happens to match; T1110 name comes from bundle, not LLM trust."""
+    result = _run_captured_payload()
+    t1110 = next(e for e in result.llm_candidate_entries if e["technique_id"] == "T1110")
+    assert t1110["technique_name"] == "Brute Force"  # bundle canonical
+    assert t1110["tactic"] == "Credential Access"  # filled from bundle, not "unknown"
+
+
+def test_captured_payload_no_supported_anywhere() -> None:
+    """Authority boundary: no LLM-derived entry reaches supported."""
+    result = _run_captured_payload()
+    for entry in result.llm_candidate_entries:
+        assert entry["status"] != STATUS_SUPPORTED
+    assert result.requires_soc_review is True
+
+
+def test_name_override_flagged_when_valid_id_wrong_name() -> None:
+    """Valid in-bundle ID + wrong LLM name → name overridden from bundle + mismatch note.
+
+    Guards the future case where the bundle expands to include T1110.002: a wrong
+    name paired with a now-valid ID must still be corrected, not silently trusted.
+    """
+    wrong_name = json.dumps({
+        "primary_techniques": [
+            {"technique_id": "T1110.001", "technique_name": "Totally Wrong Name", "confidence": "high", "reason": "x"}
+        ],
+        "secondary_techniques": [],
+        "not_applicable_reason": None,
+        "assumptions": [],
+    })
+    with (
+        patch("app.config.settings.ai_soc_llm_mitre_candidate_mapping_enabled", True),
+        patch("app.config.settings.ai_soc_llm_enabled", True),
+        patch("app.config.settings.ai_soc_llm_mode", "mock"),
+    ):
+        result = run_mitre_candidate_mapping(
+            "q0.q001",
+            use_case_id="auth_failed_login_spike",
+            llm_raw_output_provider=_llm_provider(wrong_name),
+        )
+    entry = next(e for e in result.llm_candidate_entries if e["technique_id"] == "T1110.001")
+    assert entry["technique_name"] == "Password Guessing"  # bundle canonical, not LLM
+    assert entry["llm_supplied_name"] == "Totally Wrong Name"
+    assert any(n.startswith("llm_name_overridden:") for n in entry["notes"])

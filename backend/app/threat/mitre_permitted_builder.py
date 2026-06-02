@@ -218,3 +218,17 @@ def technique_in_local_bundle(technique_id: str) -> bool:
     """Return True if technique_id exists in the local ATT&CK bundle."""
     bundle = _build_bundle_index()
     return technique_id in bundle
+
+
+def canonical_technique_name_tactic(technique_id: str) -> tuple[str, str] | None:
+    """Return authoritative (name, tactic) from the local bundle, or None if absent.
+
+    Used to override untrusted LLM-supplied technique_name: a model may pair a
+    real ID with the wrong name (observed: T1110.002 labelled "Password Guessing"
+    instead of "Password Cracking"). The bundle is the single source of truth for
+    the name once the ID validates.
+    """
+    technique = _build_bundle_index().get(technique_id)
+    if technique is None:
+        return None
+    return technique.name, technique.tactic
