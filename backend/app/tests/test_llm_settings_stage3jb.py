@@ -60,13 +60,15 @@ def test_airgap_overrides_cloud_allowance_safely(monkeypatch) -> None:
     assert "cloud_allowance_overridden_by_airgap_enforcement" in block["warnings"]
 
 
-def test_final_synthesis_defaults_false() -> None:
+def test_final_synthesis_defaults_false(monkeypatch) -> None:
     assert _fresh_settings().ai_soc_llm_final_synthesis_enabled is False
+    monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", False)
     assert build_llm_governance_status()["final_synthesis_enabled"] is False
 
 
-def test_answer_guard_defaults_false() -> None:
+def test_answer_guard_defaults_false(monkeypatch) -> None:
     assert _fresh_settings().ai_soc_llm_answer_guard_enabled is False
+    monkeypatch.setattr(settings, "ai_soc_llm_answer_guard_enabled", False)
     assert build_llm_governance_status()["answer_guard_enabled"] is False
 
 

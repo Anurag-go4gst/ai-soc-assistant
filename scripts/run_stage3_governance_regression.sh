@@ -74,6 +74,11 @@ grep -q 'capture_blocked:live_capture_flag_missing' /tmp/stage3m_s5_capture.err 
   || fail "expected live_capture_flag_missing"
 
 section "105-question shadow route eval"
+ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false \
+LEGACY_SELECTED_SKILL_AUTHORITY_ENABLED=true \
+ROUTING_MODE=llm_assisted_semantic \
+MCP_GLOBAL_EXECUTION_ENABLED=false \
+DEMO_LLM_SHADOW_ENABLED=false \
 python3 scripts/eval_stage3l_105_question_shadow_routes.py \
   --out-dir docs/evals/out \
   || fail "105-question shadow eval"

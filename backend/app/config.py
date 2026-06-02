@@ -93,6 +93,7 @@ class Settings(BaseSettings):
     mcp_servers: str = ""
     mcp_default_server: str = "splunk_soc"
     mcp_global_execution_enabled: bool = False
+    mcp_server_mock_execution_enabled: bool = False
     rag_mode: str = "mock"
     soc_kb_retrieval_enabled: bool = False
     soc_kb_collections_path: str = "backend/app/knowledge/fixtures/soc_kb_collections.json"
