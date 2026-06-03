@@ -1,6 +1,28 @@
 # Current Query-to-Answer Workflow
 
-Verified state: `master` through P6 + P6-add. This document describes what happens today when an analyst sends a `/chat` query under the full-throttle system-check profile.
+Verified state: `master` through Chat Control Plane Phase 10. This document describes what happens today when an analyst sends a `/chat` query under the full-throttle system-check profile.
+
+## Control Plane Rollout Gate
+
+`CONTROL_PLANE_ENABLED=false` remains the production-safe default. With the flag off, `/chat` keeps the legacy skill/SPL/MCP/RAG behavior and the baseline xfail anchors remain unchanged. With `CONTROL_PLANE_ENABLED=true`, the new control plane runs:
+
+```text
+User query
+  -> query signals
+  -> 105 / 42 candidate mapping
+  -> IntentClassification
+  -> EvidencePlan
+  -> RouteAdjudication
+  -> LLM advisory plan validation (JSON-only, no provider call)
+  -> conditional RAG / SPL / MCP gates
+  -> SPL slot binding validation
+  -> runtime MITRE decision
+  -> sufficiency
+  -> response_mode / synthesis_mode
+  -> control_plane_trace
+```
+
+Phase 10 added `backend/app/tests/test_chat_control_plane_golden.py`, seven flag-on golden queries with no xfail. COE may consider flipping the default only after those golden tests and `./scripts/run_stage3_governance_regression.sh` pass in the target environment.
 
 ## Current Full-Throttle Profile
 
@@ -31,19 +53,23 @@ User query
   -> /chat
   -> LangGraph or imperative five-stage pipeline
   -> deterministic query understanding
+  -> query-to-intent control plane (flag on)
+  -> evidence planning + route adjudication (flag on)
   -> query understanding (105 + 42) -> route_skill (4 skills) + LLM assisted advisory
+  -> LLM advisory plan validator (JSON-only)
   -> route-plan shadow / known-vs-OOD split
   -> authority + preconditions
   -> workflow plan
   -> candidate SPL, if needed
   -> deterministic SPL validation
+  -> SPL slot binding validation (flag on)
   -> precondition gate before MCP
   -> mock MCP and/or governed RAG evidence
   -> structured context + sufficiency
-  -> MITRE/severity/action policy
+  -> runtime MITRE decision / severity / action policy
   -> P6 synthesis lab
   -> Answer Guard
-  -> final response + trace
+  -> response_mode + synthesis_mode + final response + trace
 ```
 
 ## 1. Chat Entry
@@ -191,7 +217,7 @@ There is no direct RAG-to-LLM path. Draft/unapproved knowledge remains excluded 
 
 ## 9. MITRE
 
-MITRE mapping has deterministic and LLM-assisted layers.
+MITRE mapping has deterministic and LLM-assisted layers. With `CONTROL_PLANE_ENABLED=true`, analyst-visible MITRE output is governed by `mitre_decision`, not raw registry metadata.
 
 | Layer | Authority |
 |-------|-----------|
@@ -200,6 +226,25 @@ MITRE mapping has deterministic and LLM-assisted layers.
 | LLM MITRE candidate mapper | candidate/review-only |
 
 LLM MITRE output cannot write authoritative `mitre_permitted[]`. If the LLM output has bad JSON, it is not automatically treated as a bad mapping; formatting/parsing failure is separated from semantic validation.
+
+Runtime rules:
+
+- Policy/RAG-only questions suppress analyst-visible MITRE even when registry candidates exist.
+- Live investigation and explicit MITRE asks can show only registry-permitted/candidate techniques as candidate mappings.
+- Blocked techniques never become visible mappings.
+- Missing alert context returns clarification / trace-only metadata.
+
+## Control Plane Dependencies
+
+These do not block merged control-plane logic, but they do block production-quality answers:
+
+| Dependency | Owner/gate | Current behavior |
+|------------|------------|------------------|
+| KB content for escalation/SOP/playbook answers | COE content | Golden tests allow `insufficient_evidence` / fail-closed when mock KB has no match |
+| Slot-capable SPL templates | Detection engineering | Slot binding rejects candidate SPL when requested constraints are not encoded |
+| Source/precondition readiness | COE + connector config | Preconditions and MCP gates block before execution |
+| MITRE production review | COE | Registry metadata is promoted in repo; runtime decision controls visibility |
+| Frontend trace polish | UI owner | Backend exposes `control_plane_trace`; UI can render collapsed technical trace later |
 
 ## 10. Context Sufficiency
 

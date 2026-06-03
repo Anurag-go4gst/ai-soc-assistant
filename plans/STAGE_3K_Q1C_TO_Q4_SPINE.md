@@ -10,12 +10,13 @@ This document is canonical. The individual stage plan files give detail; this fi
 
 | Layer | Stage | What it gives us |
 |-------|-------|------------------|
+| Chat control plane | Phases 0-10 | Intent -> evidence plan -> route adjudication -> validation gates -> MITRE visibility -> unified trace (`plans/2026-06-02_chat-control-plane-master.md`) |
 | Routing | R1 | Route-plan schema, preflight, validator, normalizer (`app/routing/route_plan_*`) |
 | Routing | R2 | Route-plan shadow integration in `/chat` (`RoutePlanShadowEnvelope`, lineage builder) |
 | SPL | Q1A | SPL validator supports `raw_search`, `tstats_datamodel`, `from_datamodel` (`app/safeguards/spl_validator.py`) |
 | SPL | Q1B | Template registry schema for CIM/tstats/datamodel templates + 3 disabled sample templates (`app/spl/template_registry.py`) |
 
-These are the substrate the rest of the spine builds on. **No stage below is allowed to weaken them.**
+These are the substrate the rest of the spine builds on. **No stage below is allowed to weaken them.** Q1C+ routing work must treat the chat control plane as the authority layer: LLM route/template outputs remain advisory, `EvidencePlan` and `RouteAdjudication` own final path selection, SPL slot binding can fail closed, and `CONTROL_PLANE_ENABLED=false` remains the rollout default until COE flips it.
 
 ---
 
@@ -23,6 +24,9 @@ These are the substrate the rest of the spine builds on. **No stage below is all
 
 ```
 user query
+   │
+   ▼
+query signals → IntentClassification → EvidencePlan → RouteAdjudication       (Chat control plane)
    │
    ▼
 deterministic preflight                                          (R1)

@@ -1,8 +1,8 @@
 # Chat Control Plane — Master Implementation Plan
 
 **Created:** 2026-06-02  
-**Status:** In progress — Phases **0–10** implemented on `master`; **Phase 11** is next  
-**Last tracker update:** 2026-06-03 (Phase 10 golden E2E suite — pending commit)  
+**Status:** Complete — Phases **0–11** implemented on `master`; `CONTROL_PLANE_ENABLED=false` remains rollout default  
+**Last tracker update:** 2026-06-03 (Phase 11 docs — pending commit)  
 **Canonical for:** COE review, agent execution, commit sequencing  
 
 > **Single plan only.** This file is the **only** implementation spec for the chat control plane. Do not use or extend separate Cursor plans (`control_plane_agent_guide_*.plan.md`, `control_plane_plan_amendments_*.plan.md`, etc.) — all amendments and agent steps live here.
@@ -40,8 +40,8 @@
 
 | Question | Answer |
 |----------|--------|
-| What is done? | **0–10** — through flag-on golden E2E suite |
-| What is next? | **Commit 11** — final docs |
+| What is done? | **0–11** — full in-repo chat control plane through docs and rollout gates |
+| What is next? | COE rollout review; do not flip `CONTROL_PLANE_ENABLED` default without approval |
 | What flag gates rollout? | `CONTROL_PLANE_ENABLED` (Commit 1, default `false`; stay off until Phase 10 golden) |
 | Where is MITRE data? | Runtime [`question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json) + [`catalog.json`](../backend/app/use_cases/catalog.json) (promoted); DRAFT JSONs remain under [`docs/input/mitre_enrichment/`](../docs/input/mitre_enrichment/) as fallback |
 | What must never happen? | Live MCP, live Foundation-Sec synthesis, execute `candidate_spl`, LLM→MCP, keyword intent overrides after 1A |
@@ -49,8 +49,8 @@
 **Execution order (mandatory):**
 
 ```text
-DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6  →  7  →  8  →  9  →  10
-NEXT:  11
+DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6  →  7  →  8  →  9  →  10  →  11
+NEXT:  COE rollout review
 ```
 
 **Recent commits on `master`:** `816cdf8` (0) · `0cc1242` (1) · `8a83929` (1A) · `56b48d9` (1B-b) · `8a7e52a` (1A MITRE gate + intent HIL/procedural fixes) · `bfe4d91` (2/3 evidence planner + RAG-only path) · `1106dd3` (route bridge and MITRE registry tooling)
@@ -210,7 +210,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 | 8 | Synthesis honesty | **Done** (uncommitted) | `response_mode`, `synthesis_mode` |
 | 9 | Unified trace | **Done** (uncommitted) | `control_plane_trace` |
 | 10 | Golden E2E tests | **Done** (uncommitted) | 7 queries, flag on |
-| 11 | Docs | Pending | Workflow + spine + baseline |
+| 11 | Docs | **Done** (uncommitted) | Workflow + spine + baseline |
 
 **Rollout:** `CONTROL_PLANE_ENABLED=false` until Phase 10 golden tests pass with flag on.
 
@@ -238,7 +238,7 @@ Use this checklist in order. Mark **Done** only after that phase’s agent check
 | 11 | **8** | `response_mode`, `synthesis_mode` honesty | **Done** (uncommitted) |
 | 12 | **9** | `control_plane_trace.py` | **Done** (uncommitted) |
 | 13 | **10** | `test_chat_control_plane_golden.py` (7 queries, flag on) | **Done** (uncommitted) |
-| 14 | **11** | Docs: workflow, spine, regression baseline | **Pending — NEXT** |
+| 14 | **11** | Docs: workflow, spine, regression baseline | **Done** (uncommitted) |
 
 **Rollout rule:** Keep `CONTROL_PLANE_ENABLED=false` in production until row **10** (Phase 10) passes with flag on in CI/local golden run.
 
@@ -1270,7 +1270,7 @@ Only stage the baseline file if it was intentionally touched for comments or imp
 
 ---
 
-## Phase 11 — Docs (Commit 11)
+## Phase 11 — Docs (Commit 11) — **DONE** (uncommitted)
 
 - [`docs/gap_closure/current_query_to_answer_workflow.md`](../docs/gap_closure/current_query_to_answer_workflow.md) — document new graph order and authority hierarchy
 - [`plans/STAGE_3K_Q1C_TO_Q4_SPINE.md`](STAGE_3K_Q1C_TO_Q4_SPINE.md) — link control plane as prerequisite for Q1C+ routing
@@ -1278,15 +1278,13 @@ Only stage the baseline file if it was intentionally touched for comments or imp
 
 **Agent checklist (Commit 11):**
 
-- [ ] Docs only; no behavior change
-- [ ] Update [`current_query_to_answer_workflow.md`](../docs/gap_closure/current_query_to_answer_workflow.md) with final graph order, authority hierarchy, and fail-closed behavior
-- [ ] Update [`STAGE_3K_Q1C_TO_Q4_SPINE.md`](STAGE_3K_Q1C_TO_Q4_SPINE.md) to link control plane as prerequisite for Q1C+ routing
-- [ ] Update [`regression_baseline.md`](../docs/evals/regression_baseline.md) with golden suite, phase-specific tests, and flag gating
-- [ ] Mention `CONTROL_PLANE_ENABLED=false` default and Phase 10 as rollout gate
-- [ ] List all new pytest modules added in Phases 4-10
-- [ ] Document §1.1 parallel dependencies with owners/gates: KB content, SPL templates, preconditions/source readiness, MITRE COE review, frontend trace polish
-- [ ] Mark implementation tracker complete through Phase 11 only after validation passes
-- [ ] Do not edit production code or defaults
+- [x] Docs only; no behavior change
+- [x] Update [`current_query_to_answer_workflow.md`](../docs/gap_closure/current_query_to_answer_workflow.md) with final graph order, authority hierarchy, fail-closed behavior, dependencies
+- [x] Update [`STAGE_3K_Q1C_TO_Q4_SPINE.md`](STAGE_3K_Q1C_TO_Q4_SPINE.md) to link control plane as prerequisite for Q1C+ routing
+- [x] Update [`regression_baseline.md`](../docs/evals/regression_baseline.md) with golden suite, phase-specific tests, and flag gating
+- [x] Mention `CONTROL_PLANE_ENABLED=false` default and Phase 10 as rollout gate
+- [x] List new pytest modules added by the control plane
+- [x] Do not edit production defaults
 
 **Verification and commit gate (Commit 11):**
 
@@ -1320,8 +1318,8 @@ Docs commit should contain no behavior changes.
 | Done | **7** | Runtime `mitre_decision` + pipeline wire-up (`1810e0f`) |
 | Done | **8** | `response_mode` / `synthesis_mode` (`f423c16`) |
 | Done | **9** | `control_plane_trace` (`cd5f565`) |
-| Done | **10** | Golden E2E tests (uncommitted) |
-| **Next** | **11** | Docs |
+| Done | **10** | Golden E2E tests (`d8ae860`) |
+| Done | **11** | Docs (uncommitted) |
 
 ---
 
