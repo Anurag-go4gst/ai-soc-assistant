@@ -32,6 +32,26 @@ def test_generate_spl_for_failed_logins_is_spl_generation_only() -> None:
     intent = result.intent_classification
     assert intent.intent_family == "spl_generation_only"
     assert "spl_artifact" in intent.answer_goal
+    assert result.query_signals["projected_needs_mcp"] is False
+
+
+def test_generate_spl_and_run_without_scope_is_generation_and_execution() -> None:
+    result = _result("Generate SPL for successful login after failures and run")
+    intent = result.intent_classification
+    assert intent.intent_family == "spl_generation_and_run"
+    assert result.query_signals["projected_needs_mcp"] is True
+
+
+def test_generate_spl_and_run_with_scope_is_generation_and_execution() -> None:
+    result = _result(
+        "Generate SPL for successful login after failures and run on host APP-01 "
+        "in index pgcil_soc sourcetype pgcil:auth for the last 60 minutes"
+    )
+    intent = result.intent_classification
+    assert intent.intent_family == "spl_generation_and_run"
+    assert "spl_artifact" in intent.answer_goal
+    assert "live_results" in intent.answer_goal
+    assert result.query_signals["projected_needs_mcp"] is True
 
 
 def test_failed_login_plus_analyst_action_is_hybrid() -> None:

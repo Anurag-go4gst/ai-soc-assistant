@@ -42,7 +42,7 @@ def test_chat_selected_skill_and_message_unchanged_with_bridge(monkeypatch) -> N
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
     assert response.selected_skill == "attack_discovery"
-    assert response.message == "SPL validation complete. MCP execution is disabled."
+    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
     bridge = response.route_plan_shadow.intent_operation_bridge if response.route_plan_shadow else None
     assert bridge is not None
     assert bridge["bridge_status"] == BRIDGE_STATUS_NOT_EVALUATED

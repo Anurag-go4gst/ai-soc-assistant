@@ -103,6 +103,28 @@ def test_auth_aggregate_matches_sample_tstats_template() -> None:
     assert "exact_datamodel_match" in result.match_reasons
 
 
+def test_explicit_raw_template_id_prefers_active_pgcil_over_cim_sample() -> None:
+    plan = _aggregate_plan(datamodel=None, group_by="userIdentity.arn", source_class="aws_cloudtrail")
+    plan["pattern_id"] = "aws_security_group_modifications"
+    plan["source_class"] = "aws_cloudtrail"
+    plan["domain"] = "cloud"
+    plan["parameters"]["group_by"] = {"field": "userIdentity.arn"}
+    plan["parameters"]["metric"] = {"type": "count", "field": "change_count"}
+    plan["evidence_needs"] = {
+        "template_id": "aws_security_group_modifications",
+        "query_shape": "raw_search",
+        "group_by": ["userIdentity.arn"],
+        "metric": {"type": "count", "field": "change_count"},
+    }
+    result = match_route_plan_to_template(plan)
+
+    assert result.matched is True
+    assert result.matched_template_id == "aws_security_group_modifications"
+    assert result.production_executable is True
+    assert result.sample_only is False
+    assert "raw_search_template" in result.match_reasons
+
+
 def test_network_aggregate_matches_sample_tstats_template() -> None:
     plan = _aggregate_plan(
         datamodel="Network_Traffic",

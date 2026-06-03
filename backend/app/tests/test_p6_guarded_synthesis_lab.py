@@ -71,7 +71,7 @@ def test_p6_flags_off_parity_with_prior_chat_surface(monkeypatch: pytest.MonkeyP
     assert response.answer_guard is not None
     assert response.answer_guard.enabled is False
     assert response.analyst_summary is None
-    assert response.message == "SPL validation complete. MCP execution is disabled."
+    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
 
 
 def test_p6_synthesis_on_produces_deterministic_summary_when_ready(monkeypatch: pytest.MonkeyPatch) -> None:
