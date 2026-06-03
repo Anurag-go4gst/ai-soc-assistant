@@ -213,6 +213,12 @@ class Settings(BaseSettings):
     # Hard kill-switches. Default false; no synthesis or answer guard exists yet.
     ai_soc_llm_final_synthesis_enabled: bool = False
     ai_soc_llm_answer_guard_enabled: bool = False
+    # When true (and final synthesis is on, mode is not mock/disabled, and a
+    # local/openai-compatible endpoint is configured), the live-chat synthesis
+    # narrates the analyst summary with the real model instead of the
+    # deterministic lab draft. Defaults false so the test suite and the
+    # Experience Center fixture path never make a live model call.
+    ai_soc_llm_live_synthesis_enabled: bool = False
 
     # Stage 3M-S4: Experience Center demo-only LLM shadow (lineage/trace; no final synthesis).
     demo_llm_shadow_enabled: bool = False
@@ -223,6 +229,10 @@ class Settings(BaseSettings):
     # P0-9 documentation/readiness: proposed profile name for COE system-check demos.
     # Empty = unset. Does not orchestrate env vars until a later stage wires it.
     ai_soc_flow_check_mode: str = ""
+    # When true, /chat returns the same governed payload as Experience Center when the
+    # user message exactly matches a demo scenario query (normalized). Does not enable
+    # real Splunk MCP or live Foundation-sec calls.
+    ai_soc_live_chat_ec_parity_enabled: bool = False
     # P1: LangGraph orchestration parity with imperative /chat (default off).
     langgraph_orchestration_enabled: bool = False
     # Chat control plane rollout gate. Default false until golden tests pass.

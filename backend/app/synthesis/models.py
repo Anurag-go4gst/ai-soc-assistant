@@ -13,6 +13,7 @@ class SynthesisStatus(BaseModel):
     status: str = "disabled"
     provider: str | None = None
     model: str | None = None
+    latency_ms: int | None = None
     reason: str = "Stage 3K evidence-based synthesis is not enabled."
     allowed_inputs: list[str] = Field(default_factory=lambda: ["StructuredContext", "SourceEvidence summaries", "approved RAG excerpts"])
 

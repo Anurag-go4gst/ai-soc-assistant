@@ -1,4 +1,9 @@
-"""P6: flag-gated governed synthesis lab (deterministic draft; no live LLM calls)."""
+"""Flag-gated governed synthesis lab.
+
+Default path builds a deterministic draft (no live LLM). When live synthesis is
+enabled, the analyst-summary prose is narrated by the real model while every
+fact stays deterministic; any failure falls back to the deterministic summary.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +12,8 @@ from typing import Any
 
 from app.actions.capability_policy import ActionCapability
 from app.config import settings
+from app.llm.clients import LocalChatClient, build_synthesis_client_from_settings
+from app.synthesis.live_narration import narrate_analyst_summary
 from app.evidence.context_sufficiency import (
     ANALYST_REVIEW_REQUIRED,
     BLOCKED_BY_POLICY,
@@ -41,6 +48,7 @@ def run_governed_synthesis_lab(
     severity_label: str | None,
     spl_validation: dict[str, Any] | None,
     human_review: dict[str, Any] | None,
+    synthesis_client: LocalChatClient | None = None,
 ) -> SynthesisLabResult:
     if not settings.ai_soc_llm_final_synthesis_enabled:
         return SynthesisLabResult(
@@ -106,13 +114,42 @@ def run_governed_synthesis_lab(
         spl_validation=spl_validation,
     )
     summary = str(draft.get("analyst_summary") or "").strip() or None
+
+    provider = "deterministic_lab"
+    model: str | None = None
+    latency_ms: int | None = None
+    reason = "Governed synthesis lab produced a deterministic draft from StructuredContext and SourceEvidence only."
+
+    # Live narration: the model rewrites ONLY the analyst-summary prose from the
+    # governed package; all structured facts stay deterministic. Any failure
+    # keeps the deterministic summary, so a live model never breaks the answer.
+    if settings.ai_soc_llm_live_synthesis_enabled and mode in _LAB_READY_MODES:
+        client = synthesis_client or build_synthesis_client_from_settings()
+        if client is not None:
+            narration = narrate_analyst_summary(
+                package=package,
+                deterministic_draft=draft,
+                severity_label=severity_label,
+                client=client,
+            )
+            if narration is not None:
+                draft = {**draft, "analyst_summary": narration.summary, "draft_source": "live_model"}
+                summary = narration.summary
+                provider = "local_model"
+                model = narration.model
+                latency_ms = narration.latency_ms
+                reason = "Analyst summary narrated by the live model; all facts remain deterministic."
+            else:
+                reason = "Live narration failed or was unavailable; kept the deterministic summary."
+
     return SynthesisLabResult(
         status=SynthesisStatus(
             enabled=True,
             status="completed",
-            provider="deterministic_lab",
-            model=None,
-            reason="Governed synthesis lab produced a deterministic draft from StructuredContext and SourceEvidence only.",
+            provider=provider,
+            model=model,
+            latency_ms=latency_ms,
+            reason=reason,
         ),
         package=package,
         draft=draft,
