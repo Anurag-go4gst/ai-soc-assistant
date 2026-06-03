@@ -131,6 +131,7 @@ def run_governed_synthesis_lab(
                 deterministic_draft=draft,
                 severity_label=severity_label,
                 client=client,
+                structured_context=structured_context,
             )
             if narration is not None:
                 draft = {**draft, "analyst_summary": narration.summary, "draft_source": "live_model"}

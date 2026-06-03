@@ -134,9 +134,13 @@ def build_synthesis_client_from_settings() -> LocalChatClient | None:
     )
     if not base_url or not model:
         return None
+    # Cap the synthesis timeout below the full provider timeout: the
+    # deterministic draft is a free fallback, so a stalled model should not make
+    # a live-chat user wait the full provider budget before falling back.
+    timeout_seconds = min(settings.ai_soc_llm_timeout_seconds, 60)
     return LocalChatClient(
         base_url=base_url,
         model=model,
         api_key=api_key,
-        timeout_seconds=settings.ai_soc_llm_timeout_seconds,
+        timeout_seconds=timeout_seconds,
     )

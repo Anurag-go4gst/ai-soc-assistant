@@ -46,12 +46,14 @@ def narrate_analyst_summary(
     deterministic_draft: dict[str, Any],
     severity_label: str | None,
     client: LocalChatClient,
+    structured_context: dict[str, Any] | None = None,
 ) -> NarrationResult | None:
     """Return a model-narrated summary, or None on any failure."""
     user_prompt = _build_governed_prompt(
         package=package,
         deterministic_draft=deterministic_draft,
         severity_label=severity_label,
+        structured_context=structured_context or {},
     )
     max_tokens = min(settings.ai_soc_llm_max_output_tokens, 256)
     try:
@@ -79,14 +81,33 @@ def _build_governed_prompt(
     package: GovernedSynthesisPackage,
     deterministic_draft: dict[str, Any],
     severity_label: str | None,
+    structured_context: dict[str, Any],
 ) -> str:
     """Render the governed facts as a compact, fixed-structure fact sheet.
 
-    Source: the deterministic draft + governed package only. No raw event text
-    and no `source_evidence` rows are included, so attacker-controlled fields
-    never reach the model.
+    Source: the deterministic draft, the governed package, and only the
+    deterministically-derived (`computed_by_ai_soc`) structured-fact statements
+    plus aggregate metric counts. No raw event text, no `source_evidence` rows,
+    and no extracted entity values (src IPs, users, hosts) are included, so
+    attacker-controlled fields never reach the model.
     """
     lines: list[str] = ["GOVERNED FACTS:"]
+
+    findings = [
+        str(fact.get("statement") or "").strip()
+        for fact in (structured_context.get("structured_facts") or [])
+        if isinstance(fact, dict)
+        and fact.get("derivation") == "computed_by_ai_soc"
+        and str(fact.get("statement") or "").strip()
+    ]
+    for statement in findings[:4]:
+        lines.append(f"- Finding: {statement}")
+
+    metrics = structured_context.get("metrics") or {}
+    total = metrics.get("total_result_count")
+    if isinstance(total, int):
+        lines.append(f"- Total previewable rows collected across sources: {total}")
+
     if severity_label:
         priority = deterministic_draft.get("priority")
         lines.append(f"- Severity: {severity_label}" + (f" (priority {priority})" if priority else ""))
