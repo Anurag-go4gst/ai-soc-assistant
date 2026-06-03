@@ -30,6 +30,11 @@ from app.routing.precondition_evaluation_shadow import apply_precondition_evalua
 from app.routing.route_authority_compare import apply_route_authority_compare_to_shadow
 from app.routing.registry_route_authority import resolve_effective_routing_skill
 from app.routing.route_adjudication import adjudicate_route as adjudicate_control_plane_route
+from app.routing.llm_plan_validator import (
+    build_advisory_plan_from_context,
+    should_validate_llm_advisory_plan,
+    validate_llm_advisory_plan,
+)
 from app.routing.supporter_registry import build_supporter_trace
 from app.routing.use_case_registry_bridge import build_use_case_registry_bridge
 from app.routing.template_match_shadow import apply_template_match_to_shadow
@@ -94,6 +99,7 @@ class ChatPipelineState(TypedDict, total=False):
     intent_classification: dict[str, Any] | None
     evidence_plan: dict[str, Any] | None
     route_adjudication: dict[str, Any] | None
+    llm_plan_validation: dict[str, Any] | None
     soc_kb_retrieval: dict[str, Any] | None
     response: PlaceholderResponse
 
@@ -227,6 +233,7 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
     skill_selection = select_skill_chain(routed=routed, selected_use_case=state.get("selected_use_case"))
     comparison = routed.get("comparison", {})
     route_adjudication_payload: dict[str, Any] | None = None
+    llm_plan_validation_payload: dict[str, Any] | None = None
     if settings.control_plane_enabled and isinstance(state.get("intent_classification"), dict):
         llm_advisory = comparison.get("llm_shadow") if isinstance(comparison, dict) else None
         adjudication = adjudicate_control_plane_route(
@@ -247,11 +254,30 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
             "legacy_intent_authority": False,
             "route_adjudication_authority_source": adjudication.authority_source,
         }
+    if should_validate_llm_advisory_plan():
+        advisory_plan = build_advisory_plan_from_context(
+            comparison=comparison if isinstance(comparison, dict) else None,
+            route_plan_shadow=route_plan_shadow,
+        )
+        q2i = state.get("query_to_intent")
+        candidate_mappings = (
+            q2i.get("candidate_mappings") if isinstance(q2i, dict) else None
+        )
+        llm_validation = validate_llm_advisory_plan(
+            advisory_plan,
+            evidence_plan=state.get("evidence_plan"),
+            route_adjudication=route_adjudication_payload,
+            intent_classification=state.get("intent_classification"),
+            candidate_mappings=candidate_mappings,
+        )
+        llm_plan_validation_payload = llm_validation.model_dump()
+        route_plan_shadow["llm_plan_validation"] = llm_plan_validation_payload
     return {
         **state,
         "route_plan_shadow": route_plan_shadow,
         "routing_skill_resolution": routing_skill_resolution,
         "route_adjudication": route_adjudication_payload,
+        "llm_plan_validation": llm_plan_validation_payload,
         "skill_selection": skill_selection,
         "selected_skill_chain": skill_selection.selected_chain,
         "comparison": comparison,

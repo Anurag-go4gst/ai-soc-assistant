@@ -1,8 +1,8 @@
 # Chat Control Plane — Master Implementation Plan
 
 **Created:** 2026-06-02  
-**Status:** In progress — Phases **0–4** implemented on `master`; **Phase 5** is next  
-**Last tracker update:** 2026-06-03 (Phase 4 route adjudication — pending commit)  
+**Status:** In progress — Phases **0–5** implemented on `master`; **Phase 6** is next  
+**Last tracker update:** 2026-06-03 (Phase 5 LLM plan validator — pending commit)  
 **Canonical for:** COE review, agent execution, commit sequencing  
 
 > **Single plan only.** This file is the **only** implementation spec for the chat control plane. Do not use or extend separate Cursor plans (`control_plane_agent_guide_*.plan.md`, `control_plane_plan_amendments_*.plan.md`, etc.) — all amendments and agent steps live here.
@@ -40,8 +40,8 @@
 
 | Question | Answer |
 |----------|--------|
-| What is done? | **0–4** — through route adjudication (`route_adjudication.py`, flag-gated `effective_skill`) |
-| What is next? | **Commit 5** — `llm_plan_validator.py` (advisory JSON only) |
+| What is done? | **0–5** — through LLM advisory plan validation (`llm_plan_validator.py`, no live LLM) |
+| What is next? | **Commit 6** — `spl_slot_binding_validator.py` |
 | What flag gates rollout? | `CONTROL_PLANE_ENABLED` (Commit 1, default `false`; stay off until Phase 10 golden) |
 | Where is MITRE data? | Runtime [`question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json) + [`catalog.json`](../backend/app/use_cases/catalog.json) (promoted); DRAFT JSONs remain under [`docs/input/mitre_enrichment/`](../docs/input/mitre_enrichment/) as fallback |
 | What must never happen? | Live MCP, live Foundation-Sec synthesis, execute `candidate_spl`, LLM→MCP, keyword intent overrides after 1A |
@@ -49,8 +49,8 @@
 **Execution order (mandatory):**
 
 ```text
-DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4
-NEXT:  5  →  6  →  7  →  8  →  9  →  10  →  11
+DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5
+NEXT:  6  →  7  →  8  →  9  →  10  →  11
 ```
 
 **Recent commits on `master`:** `816cdf8` (0) · `0cc1242` (1) · `8a83929` (1A) · `56b48d9` (1B-b) · `8a7e52a` (1A MITRE gate + intent HIL/procedural fixes) · `bfe4d91` (2/3 evidence planner + RAG-only path) · `1106dd3` (route bridge and MITRE registry tooling)
@@ -204,7 +204,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 | 2 | Evidence planner | **Done** | Consumes `IntentClassification` only |
 | 3 | RAG-first branching | **Done** | `rag_no_match` reasons, hard gates |
 | 4 | Route adjudication | **Done** (uncommitted) | `route_adjudication.py`, §3.2 tie-breaker, 5 tests |
-| 5 | LLM plan validator | Pending | Advisory JSON only |
+| 5 | LLM plan validator | **Done** (uncommitted) | `llm_plan_validator.py`, 7 tests, JSON-only |
 | 6 | SPL slot binding | Pending | User constraint encoding |
 | 7 | Runtime MITRE decision | Pending | Wire `pipeline.py` |
 | 8 | Synthesis honesty | Pending | `response_mode`, `synthesis_mode` |
@@ -216,7 +216,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 
 ### Next commit
 
-**Commit 5 (Phase 5)** — [`llm_plan_validator.py`](../backend/app/routing/llm_plan_validator.py); advisory plan JSON validation only (no live LLM, no execution grants).
+**Commit 6 (Phase 6)** — [`spl_slot_binding_validator.py`](../backend/app/safeguards/spl_slot_binding_validator.py); user constraint slots into approved templates only.
 
 ### Implementation tracker (all commits)
 
@@ -232,8 +232,8 @@ Use this checklist in order. Mark **Done** only after that phase’s agent check
 | 5 | **2** | `evidence_planner.py`, `graph_node_evidence_planning` | **Done** |
 | 6 | **3** | RAG-only / hybrid branching, `rag_no_match`, `test_evidence_plan_rag_only_skip.py` | **Done** |
 | 7 | **4** | `route_adjudication.py`, effective_skill from adjudication | **Done** (uncommitted) |
-| 8 | **5** | `llm_plan_validator.py` | **Pending — NEXT** |
-| 9 | **6** | `spl_slot_binding_validator.py` | Pending |
+| 8 | **5** | `llm_plan_validator.py` | **Done** (uncommitted) |
+| 9 | **6** | `spl_slot_binding_validator.py` | **Pending — NEXT** |
 | 10 | **7** | Full `mitre_decision` + flag-gated pipeline wire-up | Pending |
 | 11 | **8** | `response_mode`, `synthesis_mode` honesty | Pending |
 | 12 | **9** | `control_plane_trace.py` | Pending |
@@ -959,7 +959,7 @@ Do not stage `.claude/`, `.env`, or unrelated dirty files.
 
 ---
 
-## Phase 5 — LLM plan validator (Commit 5)
+## Phase 5 — LLM plan validator (Commit 5) — **DONE** (uncommitted)
 
 **File:** `backend/app/routing/llm_plan_validator.py`
 
@@ -975,18 +975,12 @@ Reuse patterns from [`route_plan_validator.py`](../backend/app/routing/route_pla
 
 **Agent checklist (Commit 5):**
 
-- [ ] Read first: [`route_plan_validator.py`](../backend/app/routing/route_plan_validator.py), [`route_adjudication.py`](../backend/app/routing/route_adjudication.py), [`settings.py` / config routing mode fields](../backend/app/config.py), LLM-assisted routing tests
-- [ ] Add [`llm_plan_validator.py`](../backend/app/routing/llm_plan_validator.py)
-- [ ] Validator input is advisory plan JSON + deterministic context (`EvidencePlan`, `RouteAdjudication`, `IntentClassification`, registry candidates)
-- [ ] Return normalized validation result: accepted/rejected/corrected plan, reasons, warnings, policy version
-- [ ] Never set `mcp_execution_allowed=true` or any execution permission by itself
-- [ ] Reject `needs_mcp=true` when `evidence_plan.mcp_allowed=false`
-- [ ] Reject `needs_spl=true` for `rag_only` / policy-only / SOP-only evidence plans
-- [ ] Reject unknown skills and normalize known skills only through deterministic registries
-- [ ] Reject MITRE visibility claims that conflict with clarification policy or future Phase 7 `answer_visible=false`
-- [ ] Wire only into shadow/assisted routing path when `ROUTING_MODE` allows LLM assist; deterministic-only mode must not invoke it
-- [ ] Tests: three reject examples above, one accepted corrected advisory plan, deterministic-only no-op
-- [ ] Confirm no live LLM call is introduced; this is JSON validation only
+- [x] Add [`llm_plan_validator.py`](../backend/app/routing/llm_plan_validator.py) — JSON validation only
+- [x] Inputs: advisory plan + `EvidencePlan` + `RouteAdjudication` + `IntentClassification`
+- [x] Statuses: skipped / accepted / rejected / corrected; `mcp_execution_allowed` always false
+- [x] Reject needs_mcp vs evidence plan; needs_spl for rag/policy; unknown skills; MITRE vs clarification
+- [x] Wired in `graph_node_shadow_enrichment` when `ROUTING_MODE` allows assist (`llm_plan_validation` on shadow)
+- [x] `test_llm_plan_validator.py` — 7 tests including deterministic-only skip
 
 **Verification and commit gate (Commit 5):**
 
@@ -1338,8 +1332,8 @@ Docs commit should contain no behavior changes.
 | Done | **2** | `evidence_planner` + graph node (`bfe4d91`) |
 | Done | **3** | RAG-only / hybrid / `rag_no_match` + LangGraph edges (`bfe4d91`) |
 | Done | **4** | `route_adjudication` (uncommitted) |
-| **Next** | **5** | `llm_plan_validator` |
-| 6 | `spl_slot_binding_validator` |
+| Done | **5** | `llm_plan_validator` (uncommitted) |
+| **Next** | **6** | `spl_slot_binding_validator` |
 | 7 | Runtime `mitre_decision` + pipeline wire-up |
 | 8 | `response_mode` / `synthesis_mode` |
 | 9 | `control_plane_trace` |
