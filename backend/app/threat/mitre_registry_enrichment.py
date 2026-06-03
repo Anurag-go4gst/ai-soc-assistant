@@ -13,7 +13,22 @@ from app.threat.mitre_registry_schema import (
     MitreVisibilityPolicy,
 )
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+def _find_repo_root() -> Path:
+    """Resolve the repo root in both the host checkout and the container.
+
+    `parents[3]` is correct on the host (.../backend/app/threat/file -> repo) but
+    resolves to "/" inside the container, where the backend is mounted at /app
+    and the full repo is mounted read-only at /workspace. Search upward for the
+    enrichment data dir, then fall back to /workspace, then to parents[3].
+    """
+    here = Path(__file__).resolve()
+    for base in (*here.parents, Path("/workspace")):
+        if (base / "docs/input/mitre_enrichment").is_dir():
+            return base
+    return here.parents[3]
+
+
+_REPO_ROOT = _find_repo_root()
 _QUESTION_DRAFT_PATH = (
     _REPO_ROOT / "docs/input/mitre_enrichment/question_105_for_mitre_enrichment.DRAFT.json"
 )
