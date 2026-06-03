@@ -1,8 +1,8 @@
 # Chat Control Plane — Master Implementation Plan
 
 **Created:** 2026-06-02  
-**Status:** In progress — Phases **0–6** implemented on `master`; **Phase 7** is next  
-**Last tracker update:** 2026-06-03 (Phase 6 SPL slot binding — pending commit)  
+**Status:** In progress — Phases **0–7** implemented on `master`; **Phase 8** is next  
+**Last tracker update:** 2026-06-03 (Phase 7 runtime MITRE decision — pending commit)  
 **Canonical for:** COE review, agent execution, commit sequencing  
 
 > **Single plan only.** This file is the **only** implementation spec for the chat control plane. Do not use or extend separate Cursor plans (`control_plane_agent_guide_*.plan.md`, `control_plane_plan_amendments_*.plan.md`, etc.) — all amendments and agent steps live here.
@@ -40,8 +40,8 @@
 
 | Question | Answer |
 |----------|--------|
-| What is done? | **0–6** — through SPL slot binding validation (`spl_slot_binding_validator.py`, fail-closed) |
-| What is next? | **Commit 7** — runtime MITRE decision |
+| What is done? | **0–7** — through runtime MITRE visibility decision (`mitre_decision.py`) |
+| What is next? | **Commit 8** — response / synthesis honesty |
 | What flag gates rollout? | `CONTROL_PLANE_ENABLED` (Commit 1, default `false`; stay off until Phase 10 golden) |
 | Where is MITRE data? | Runtime [`question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json) + [`catalog.json`](../backend/app/use_cases/catalog.json) (promoted); DRAFT JSONs remain under [`docs/input/mitre_enrichment/`](../docs/input/mitre_enrichment/) as fallback |
 | What must never happen? | Live MCP, live Foundation-Sec synthesis, execute `candidate_spl`, LLM→MCP, keyword intent overrides after 1A |
@@ -49,8 +49,8 @@
 **Execution order (mandatory):**
 
 ```text
-DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6
-NEXT:  7  →  8  →  9  →  10  →  11
+DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6  →  7
+NEXT:  8  →  9  →  10  →  11
 ```
 
 **Recent commits on `master`:** `816cdf8` (0) · `0cc1242` (1) · `8a83929` (1A) · `56b48d9` (1B-b) · `8a7e52a` (1A MITRE gate + intent HIL/procedural fixes) · `bfe4d91` (2/3 evidence planner + RAG-only path) · `1106dd3` (route bridge and MITRE registry tooling)
@@ -206,7 +206,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 | 4 | Route adjudication | **Done** (uncommitted) | `route_adjudication.py`, §3.2 tie-breaker, 5 tests |
 | 5 | LLM plan validator | **Done** (uncommitted) | `llm_plan_validator.py`, 7 tests, JSON-only |
 | 6 | SPL slot binding | **Done** (uncommitted) | User constraint encoding, fail-closed |
-| 7 | Runtime MITRE decision | Pending | Wire `pipeline.py` |
+| 7 | Runtime MITRE decision | **Done** (uncommitted) | Flag-gated visibility decision wired in `pipeline.py` |
 | 8 | Synthesis honesty | Pending | `response_mode`, `synthesis_mode` |
 | 9 | Unified trace | Pending | `control_plane_trace` |
 | 10 | Golden E2E tests | Pending | `CONTROL_PLANE_ENABLED=true` |
@@ -216,7 +216,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 
 ### Next commit
 
-**Commit 7 (Phase 7)** — [`mitre_decision.py`](../backend/app/threat/mitre_decision.py); flag-gated analyst-visible MITRE from intent and evidence.
+**Commit 8 (Phase 8)** — `response_mode` / `synthesis_mode`; honest answer mode reporting without live Foundation-Sec synthesis.
 
 ### Implementation tracker (all commits)
 
@@ -234,8 +234,8 @@ Use this checklist in order. Mark **Done** only after that phase’s agent check
 | 7 | **4** | `route_adjudication.py`, effective_skill from adjudication | **Done** (uncommitted) |
 | 8 | **5** | `llm_plan_validator.py` | **Done** (uncommitted) |
 | 9 | **6** | `spl_slot_binding_validator.py` | **Done** (uncommitted) |
-| 10 | **7** | Full `mitre_decision` + flag-gated pipeline wire-up | **Pending — NEXT** |
-| 11 | **8** | `response_mode`, `synthesis_mode` honesty | Pending |
+| 10 | **7** | Full `mitre_decision` + flag-gated pipeline wire-up | **Done** (uncommitted) |
+| 11 | **8** | `response_mode`, `synthesis_mode` honesty | **Pending — NEXT** |
 | 12 | **9** | `control_plane_trace.py` | Pending |
 | 13 | **10** | `test_chat_control_plane_golden.py` (7 queries, flag on) | Pending |
 | 14 | **11** | Docs: workflow, spine, regression baseline | Pending |
@@ -1050,7 +1050,7 @@ If no docs are changed for COE follow-up, omit `docs/gap_closure/*` from `git ad
 
 ---
 
-## Phase 7 — Runtime MITRE decision (Commit 7)
+## Phase 7 — Runtime MITRE decision (Commit 7) — **DONE** (uncommitted)
 
 Implement full [`resolve_mitre_decision()`](../backend/app/threat/mitre_decision.py) (replace stub). Wire in `graph_node_context_finalize` **only when flag on**.
 
@@ -1113,17 +1113,15 @@ Preserve existing clarification safety; allow cautious candidate + `not_claimed:
 
 **Agent checklist (Commit 7):**
 
-- [ ] Read first: [`mitre_decision.py`](../backend/app/threat/mitre_decision.py), [`mitre_registry_enrichment.py`](../backend/app/threat/mitre_registry_enrichment.py), [`mitre_permitted.py`](../backend/app/threat/mitre_permitted.py), [`pipeline.py`](../backend/app/chat/pipeline.py), [`intent_classifier.py`](../backend/app/chat/intent_classifier.py)
-- [ ] Replace stub `resolve_mitre_decision()` with deterministic decision logic
-- [ ] Inputs must include intent answer goals, evidence plan, registry metadata, use case/question refs, and future evidence flags placeholder
-- [ ] Suppress analyst-visible MITRE when `answer_goal` lacks `mitre_mapping` / `mitre_explanation`
-- [ ] Emit trace-only registry candidates when `answer_visible=false`
-- [ ] Preserve cautious candidate status for live investigation where evidence is incomplete
-- [ ] Preserve clarification safety for explicit MITRE mapping without enough context
-- [ ] Wire `graph_node_context_finalize` to use `resolve_mitre_decision()` only when `CONTROL_PLANE_ENABLED=true`
-- [ ] Flag off: keep legacy [`map_mitre_for_use_case`](../backend/app/threat/mitre_kb.py), no 105 `mitre_permitted[]` merge
-- [ ] Tests: examples 1-3 above, blocked technique never visible, flag-off baseline unchanged
-- [ ] Update trace state with `mitre_decision` for Phase 9 to consume
+- [x] Replace stub `resolve_mitre_decision()` with deterministic decision logic
+- [x] Inputs include intent answer goals, evidence plan, registry metadata, question/use-case refs, source refs
+- [x] Suppress analyst-visible MITRE for policy / RAG-only paths
+- [x] Emit trace-only registry candidates when `answer_visible=false`
+- [x] Preserve candidate-only status for live investigation; blocked techniques never visible
+- [x] Preserve clarification safety for explicit MITRE mapping without enough context
+- [x] Wire `graph_node_context_finalize` to use `resolve_mitre_decision()` only when `CONTROL_PLANE_ENABLED=true`
+- [x] Flag off keeps legacy [`map_mitre_for_use_case`](../backend/app/threat/mitre_kb.py)
+- [x] `test_mitre_decision_runtime.py` covers examples 1-3, blocked IDs, flag-off behavior
 
 **Verification and commit gate (Commit 7):**
 
@@ -1329,9 +1327,9 @@ Docs commit should contain no behavior changes.
 | Done | **3** | RAG-only / hybrid / `rag_no_match` + LangGraph edges (`bfe4d91`) |
 | Done | **4** | `route_adjudication` (uncommitted) |
 | Done | **5** | `llm_plan_validator` (`79a0f66`) |
-| Done | **6** | `spl_slot_binding_validator` (uncommitted) |
-| **Next** | **7** | Runtime `mitre_decision` + pipeline wire-up |
-| 8 | `response_mode` / `synthesis_mode` |
+| Done | **6** | `spl_slot_binding_validator` (`7a3cc5a`) |
+| Done | **7** | Runtime `mitre_decision` + pipeline wire-up (uncommitted) |
+| **Next** | **8** | `response_mode` / `synthesis_mode` |
 | 9 | `control_plane_trace` |
 | 10 | Golden E2E tests |
 | 11 | Docs |

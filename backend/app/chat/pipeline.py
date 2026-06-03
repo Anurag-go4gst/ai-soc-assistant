@@ -52,8 +52,8 @@ from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_pro
 from app.answer_guard.runner import run_answer_guard_lab
 from app.synthesis.lab_runner import apply_synthesis_allowed_to_sufficiency, run_governed_synthesis_lab
 from app.synthesis.models import SynthesisStatus
-from app.threat.mitre_kb import map_mitre_for_use_case
-from app.threat.mitre_permitted import resolve_mitre_mappings_for_chat
+from app.threat.mitre_decision import resolve_mitre_decision
+from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
 from app.chat.evidence_planner import plan_evidence
@@ -101,6 +101,7 @@ class ChatPipelineState(TypedDict, total=False):
     evidence_plan: dict[str, Any] | None
     route_adjudication: dict[str, Any] | None
     llm_plan_validation: dict[str, Any] | None
+    mitre_decision: dict[str, Any] | None
     soc_kb_retrieval: dict[str, Any] | None
     response: PlaceholderResponse
 
@@ -404,10 +405,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     mapped_refs = provenance.get("mapped_use_case_ids") if isinstance(provenance.get("mapped_use_case_ids"), list) else []
     use_case_id = selected_use_case.use_case_id if selected_use_case else (str(mapped_refs[0]) if mapped_refs else None)
     question_ref = provenance.get("mapped_question_ref") if isinstance(provenance.get("mapped_question_ref"), str) else None
-    mitre_mappings = _mitre_mappings_for_finalize(
+    mitre_mappings, mitre_decision = _mitre_outputs_for_finalize(
         question_ref=question_ref,
         use_case_id=use_case_id,
         source_refs=source_refs,
+        intent_classification=state.get("intent_classification"),
+        evidence_plan=state.get("evidence_plan"),
     )
     severity_decision = decide_severity(
         selected_use_case.use_case_id if selected_use_case else None,
@@ -599,8 +602,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         query_to_intent=state.get("query_to_intent"),
         evidence_plan=state.get("evidence_plan"),
         route_adjudication=state.get("route_adjudication"),
+        mitre_decision=mitre_decision,
     )
-    return {**state, "response": response}
+    return {**state, "response": response, "mitre_decision": mitre_decision}
 
 
 def _route_authority_payload(route_plan_shadow: dict[str, Any] | None) -> dict[str, object] | None:
@@ -684,20 +688,28 @@ def _selected_use_case(query: str) -> UseCaseSelection | None:
     return None
 
 
-def _mitre_mappings_for_finalize(
+def _mitre_outputs_for_finalize(
     *,
     question_ref: str | None,
     use_case_id: str | None,
     source_refs: list[str],
-) -> list[Any]:
-    """Legacy use-case KB mapping by default; registry-augmented path only when control plane is on."""
+    intent_classification: dict[str, Any] | None,
+    evidence_plan: dict[str, Any] | None,
+) -> tuple[list[Any], dict[str, Any] | None]:
+    """Legacy mapping by default; Phase 7 decision only when control plane is on."""
     if not settings.control_plane_enabled:
-        return map_mitre_for_use_case(use_case_id, source_refs)
-    return resolve_mitre_mappings_for_chat(
+        return map_mitre_for_use_case(use_case_id, source_refs), None
+    decision = resolve_mitre_decision(
         question_ref=question_ref,
         use_case_id=use_case_id,
         source_refs=source_refs,
+        intent_classification=intent_classification,
+        evidence_plan=evidence_plan,
     )
+    if not decision.answer_visible:
+        return [], decision.model_dump()
+    visible = [MitreMappingDecision(**item) for item in decision.techniques]
+    return visible, decision.model_dump()
 
 
 _MITRE_INTENT_KEYWORDS = ("mitre", "att&ck", "attack technique", "map this alert", "map the alert")

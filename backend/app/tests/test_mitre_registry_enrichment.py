@@ -116,9 +116,9 @@ def test_permitted_missing_from_attack_subset_is_warning_not_schema_failure() ->
     assert missing == ["T9999.999"]
 
 
-def test_resolve_mitre_decision_stub_legacy_passthrough() -> None:
+def test_resolve_mitre_decision_defaults_to_safe_non_visible_runtime_decision() -> None:
     decision = resolve_mitre_decision(question_ref="q0.q046")
-    assert decision.mitre_status == "legacy_passthrough"
+    assert decision.mitre_status in {"requires_alert_context", "not_answer_visible"}
     assert decision.answer_visible is False
     assert decision.registry_metadata is not None
     assert "T1110.001" in decision.registry_candidates

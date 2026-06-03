@@ -357,6 +357,7 @@ class PlaceholderResponse(BaseModel):
     tool_plan_structured: dict[str, object] | None = None
     query_to_intent: dict[str, object] | None = None
     control_plane_trace: dict[str, object] | None = None
+    mitre_decision: dict[str, object] | None = None
     mitre_mappings: list[MitreMappingDecision] | None = None
     severity_decision: SeverityDecision | None = None
     investigation_lineage: InvestigationLineage | None = None
