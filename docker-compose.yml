@@ -8,6 +8,10 @@ services:
       - .env
     environment:
       PYTHONPATH: /app:/workspace
+    # Reach the host-bound llama-server (127.0.0.1:8081 on the VPS) from inside
+    # the container via host.docker.internal. Required for AI_SOC_LLM local mode.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./backend:/app
       - .:/workspace:ro
