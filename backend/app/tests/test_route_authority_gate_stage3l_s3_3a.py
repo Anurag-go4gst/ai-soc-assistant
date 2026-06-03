@@ -252,4 +252,6 @@ def test_experience_center_unchanged() -> None:
 
 def test_default_allowlist_empty() -> None:
     assert parse_route_authority_coverage_allowlist("") == frozenset()
-    assert ALLOWLISTABLE_COVERAGE_IDS == frozenset({COV_Q046_PILOT_COVERAGE_ID})
+    assert COV_Q046_PILOT_COVERAGE_ID in ALLOWLISTABLE_COVERAGE_IDS
+    assert "cov.q002.top_outbound_source_ips" in ALLOWLISTABLE_COVERAGE_IDS
+    assert "cov.q007.dga_detection_binding" not in ALLOWLISTABLE_COVERAGE_IDS

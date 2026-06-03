@@ -38,6 +38,9 @@ python3 tools/coverage_authoring/check_manifest_promotion.py || fail "manifest p
 section "105-question operation map audit"
 python3 tools/coverage_authoring/check_question_operation_map.py || fail "operation map audit"
 
+section "QU route bridge 105 routing comparison"
+python3 scripts/eval_qu_route_bridge_105.py >/tmp/qu_route_bridge_105.json || fail "QU route bridge 105 eval"
+
 section "cov.q046 trace capture baseline"
 python3 -c "
 import json

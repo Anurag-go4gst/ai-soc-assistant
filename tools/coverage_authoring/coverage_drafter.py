@@ -107,6 +107,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Regenerate S6.1 runtime map and S6.2 operation report from one builder pass",
     )
     parser.add_argument(
+        "--append-supplemental",
+        type=Path,
+        help="Merge JSON {entries:[{question_ref, question, pattern_type, ...}]} into supplemental_taxonomy_rows.json before --emit-maps",
+    )
+    parser.add_argument(
         "--promotion-candidate",
         action="store_true",
         help="Emit S5.2 human-review promotion artifact (single-entry patch hint only; no manifest write)",
@@ -210,10 +215,42 @@ def cmd_emit_maps() -> int:
     return 0
 
 
+def cmd_append_supplemental(path: Path) -> int:
+    from question_runtime_map_builder import SUPPLEMENTAL_TAXONOMY_PATH
+
+    incoming = json.loads(path.read_text(encoding="utf-8"))
+    new_entries = incoming.get("entries", incoming if isinstance(incoming, list) else [])
+    if not isinstance(new_entries, list):
+        raise SystemExit("Supplemental file must contain entries[] list")
+
+    existing_payload: dict = {"entries": []}
+    if SUPPLEMENTAL_TAXONOMY_PATH.is_file():
+        existing_payload = json.loads(SUPPLEMENTAL_TAXONOMY_PATH.read_text(encoding="utf-8"))
+    by_ref = {
+        str(item["question_ref"]).lower(): item
+        for item in existing_payload.get("entries", [])
+        if isinstance(item, dict) and item.get("question_ref")
+    }
+    for item in new_entries:
+        if not isinstance(item, dict) or not item.get("question_ref"):
+            continue
+        by_ref[str(item["question_ref"]).lower()] = item
+    merged = {
+        "schema_version": "supplemental_taxonomy_v1",
+        "description": existing_payload.get("description") or SUPPLEMENTAL_TAXONOMY_PATH.name,
+        "entries": sorted(by_ref.values(), key=lambda row: str(row["question_ref"])),
+    }
+    SUPPLEMENTAL_TAXONOMY_PATH.write_text(json.dumps(merged, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote supplemental taxonomy ({len(merged['entries'])} rows): {SUPPLEMENTAL_TAXONOMY_PATH}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.append_supplemental:
+        return cmd_append_supplemental(args.append_supplemental)
     if args.emit_maps:
         return cmd_emit_maps()
     if args.emit_runtime_map:

@@ -1,0 +1,3269 @@
+{
+  "export_purpose": "mitre_enrichment",
+  "source_artifacts": [
+    "backend/app/use_cases/catalog.json",
+    "backend/app/threat/mitre_attack_subset.json"
+  ],
+  "item_count": 42,
+  "items": [
+    {
+      "id": "auth_failed_login_spike",
+      "use_case_name": "Failed login spike",
+      "description": "Authentication / Identity. Example queries: Investigate failed login spike on APP-01",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "spl_generation",
+      "tags": [
+        "category:Authentication / Identity",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:auth_failed_login_spike",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "failed login",
+          "failed logins",
+          "failure",
+          "failures",
+          "brute force",
+          "abnormally high"
+        ],
+        "example_queries": [
+          "Investigate failed login spike on APP-01"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": "auth_failed_login_spike",
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1110.001"
+      ],
+      "tactics": [
+        "Credential Access"
+      ],
+      "severity": "auth_failed_login_spike",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop",
+          "splunk_context"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "rag:sop",
+          "mitre:enterprise",
+          "asset_inventory"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "user",
+          "time_window"
+        ],
+        "default_time_window": "earliest=-60m latest=now",
+        "mitre_kb_related_techniques": [
+          "T1110.001"
+        ]
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1110.001"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Failed-login evidence alone does not support OS Credential Dumping.",
+          "T1078": "Failed attempts alone do not prove Valid Accounts or successful credential use."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for Failed login spike. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1110.001"
+          ],
+          "tactics": [
+            "Credential Access"
+          ]
+        }
+      }
+    },
+    {
+      "id": "auth_success_after_failure",
+      "use_case_name": "Successful login after failures",
+      "description": "Authentication / Identity. Example queries: Generate SPL for successful login after failures",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "spl_generation",
+      "tags": [
+        "category:Authentication / Identity",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:auth_success_after_failure",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "successful login after",
+          "success after",
+          "success following",
+          "after failures"
+        ],
+        "example_queries": [
+          "Generate SPL for successful login after failures"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": "auth_success_after_failure",
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1110.001",
+        "T1078"
+      ],
+      "tactics": [
+        "Credential Access",
+        "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+      ],
+      "severity": "auth_success_after_failure",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "rag:sop",
+          "mitre:enterprise",
+          "identity"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "user",
+          "source_ip",
+          "time_window"
+        ],
+        "default_time_window": "earliest=-60m latest=now",
+        "mitre_kb_related_techniques": [
+          "T1110.001",
+          "T1078"
+        ]
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1110.001",
+          "T1078"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Valid-account use/anomaly does not by itself prove credential dumping."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for Successful login after failures. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1110.001",
+            "T1078"
+          ],
+          "tactics": [
+            "Credential Access",
+            "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+          ]
+        }
+      }
+    },
+    {
+      "id": "auth_new_source_ip_login",
+      "use_case_name": "New source IP login",
+      "description": "Authentication / Identity. Example queries: Show new source IP logins",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "spl_generation",
+      "tags": [
+        "category:Authentication / Identity",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:auth_new_source_ip_login",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "new source ip",
+          "new source",
+          "unusual source",
+          "unusual source ips"
+        ],
+        "example_queries": [
+          "Show new source IP logins"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": "auth_new_source_ip",
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1078"
+      ],
+      "tactics": [
+        "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+      ],
+      "severity": "auth_new_source_ip_login",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "identity",
+          "asset_inventory"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "user",
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": [
+          "T1078"
+        ]
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1078"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Valid-account use/anomaly does not by itself prove credential dumping.",
+          "T1110.001": "Valid-account use/anomaly does not by itself prove password guessing unless failed-login evidence is present."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for New source IP login. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1078"
+          ],
+          "tactics": [
+            "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+          ]
+        }
+      }
+    },
+    {
+      "id": "auth_impossible_travel",
+      "use_case_name": "Impossible travel",
+      "description": "Authentication / Identity. Example queries: Investigate impossible travel",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "identity_enrichment",
+      "tags": [
+        "category:Authentication / Identity",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:auth_impossible_travel",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "impossible travel"
+        ],
+        "example_queries": [
+          "Investigate impossible travel"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1078"
+      ],
+      "tactics": [
+        "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+      ],
+      "severity": "auth_impossible_travel",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "identity"
+        ],
+        "required_entities": [
+          "user"
+        ],
+        "optional_entities": [
+          "time_window"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1078"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Valid-account use/anomaly does not by itself prove credential dumping.",
+          "T1110.001": "Valid-account use/anomaly does not by itself prove password guessing unless failed-login evidence is present."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for Impossible travel. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1078"
+          ],
+          "tactics": [
+            "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+          ]
+        }
+      }
+    },
+    {
+      "id": "auth_privileged_login_anomaly",
+      "use_case_name": "Privileged account login anomaly",
+      "description": "Authentication / Identity. Example queries: Investigate privileged account login anomaly",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "identity_enrichment",
+      "tags": [
+        "category:Authentication / Identity",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:auth_privileged_login_anomaly",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "privileged account",
+          "admin login",
+          "privileged login"
+        ],
+        "example_queries": [
+          "Investigate privileged account login anomaly"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": "privileged_account_failure",
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1078"
+      ],
+      "tactics": [
+        "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+      ],
+      "severity": "auth_privileged_login_anomaly",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "identity"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "user",
+          "host",
+          "time_window"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1078"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Valid-account use/anomaly does not by itself prove credential dumping.",
+          "T1110.001": "Valid-account use/anomaly does not by itself prove password guessing unless failed-login evidence is present."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for Privileged account login anomaly. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1078"
+          ],
+          "tactics": [
+            "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+          ]
+        }
+      }
+    },
+    {
+      "id": "auth_service_account_abnormal_login",
+      "use_case_name": "Service account abnormal login",
+      "description": "Authentication / Identity. Example queries: Investigate service account abnormal login",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "identity_enrichment",
+      "tags": [
+        "category:Authentication / Identity",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:auth_service_account_abnormal_login",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "service account",
+          "svc account"
+        ],
+        "example_queries": [
+          "Investigate service account abnormal login"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1078"
+      ],
+      "tactics": [
+        "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+      ],
+      "severity": "auth_service_account_abnormal_login",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "identity"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "user",
+          "host"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1078"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Valid-account use/anomaly does not by itself prove credential dumping.",
+          "T1110.001": "Valid-account use/anomaly does not by itself prove password guessing unless failed-login evidence is present."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for Service account abnormal login. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1078"
+          ],
+          "tactics": [
+            "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+          ]
+        }
+      }
+    },
+    {
+      "id": "auth_account_lockout_trend",
+      "use_case_name": "Account lockouts over time",
+      "description": "Authentication / Identity. Example queries: Show account lockouts over time",
+      "primary_skill": "alert_summary",
+      "legacy_skill_hint": "spl_generation",
+      "tags": [
+        "category:Authentication / Identity",
+        "output_template:summary",
+        "action_capability_tier:1",
+        "severity_policy:auth_account_lockout_trend",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "lockout",
+          "lockouts",
+          "account_locked",
+          "locked"
+        ],
+        "example_queries": [
+          "Show account lockouts over time"
+        ]
+      },
+      "requested_output_type": "summary",
+      "spl_template_id": "auth_account_lockout_trend",
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1110.001"
+      ],
+      "tactics": [
+        "Credential Access"
+      ],
+      "severity": "auth_account_lockout_trend",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "rag:sop"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "user",
+          "host",
+          "time_window"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1110.001"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Failed-login evidence alone does not support OS Credential Dumping.",
+          "T1078": "Failed attempts alone do not prove Valid Accounts or successful credential use."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for Account lockouts over time. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1110.001"
+          ],
+          "tactics": [
+            "Credential Access"
+          ]
+        }
+      }
+    },
+    {
+      "id": "auth_mfa_failure_spike",
+      "use_case_name": "MFA failure spike",
+      "description": "Authentication / Identity. Example queries: Investigate MFA failure spike",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "identity_enrichment",
+      "tags": [
+        "category:Authentication / Identity",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:auth_mfa_failure_spike",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "mfa failure",
+          "mfa failures"
+        ],
+        "example_queries": [
+          "Investigate MFA failure spike"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1110.001"
+      ],
+      "tactics": [
+        "Credential Access"
+      ],
+      "severity": "auth_mfa_failure_spike",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "identity"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "user",
+          "time_window"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1110.001"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Failed-login evidence alone does not support OS Credential Dumping.",
+          "T1078": "Failed attempts alone do not prove Valid Accounts or successful credential use."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for MFA failure spike. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1110.001"
+          ],
+          "tactics": [
+            "Credential Access"
+          ]
+        }
+      }
+    },
+    {
+      "id": "auth_disabled_account_login",
+      "use_case_name": "Login from disabled account",
+      "description": "Authentication / Identity. Example queries: Check login from disabled account",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "identity_enrichment",
+      "tags": [
+        "category:Authentication / Identity",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:auth_disabled_account_login",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "disabled account"
+        ],
+        "example_queries": [
+          "Check login from disabled account"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1078"
+      ],
+      "tactics": [
+        "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+      ],
+      "severity": "auth_disabled_account_login",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "identity"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "user",
+          "time_window"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1078"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Valid-account use/anomaly does not by itself prove credential dumping.",
+          "T1110.001": "Valid-account use/anomaly does not by itself prove password guessing unless failed-login evidence is present."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for Login from disabled account. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1078"
+          ],
+          "tactics": [
+            "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+          ]
+        }
+      }
+    },
+    {
+      "id": "auth_after_hours_critical_asset",
+      "use_case_name": "After-hours login to critical asset",
+      "description": "Authentication / Identity. Example queries: Investigate after-hours login to critical asset",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:Authentication / Identity",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:auth_after_hours_critical_asset",
+        "required_source:mcp:splunk",
+        "required_source:asset_inventory"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "after-hours login",
+          "after hours login",
+          "critical asset after hours"
+        ],
+        "example_queries": [
+          "Investigate after-hours login to critical asset"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": "after_hours_login_critical_asset",
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1078"
+      ],
+      "tactics": [
+        "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+      ],
+      "severity": "auth_after_hours_critical_asset",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk",
+          "asset_inventory"
+        ],
+        "optional_sources": [
+          "identity"
+        ],
+        "required_entities": [
+          "host"
+        ],
+        "optional_entities": [
+          "user",
+          "time_window"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1078"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Valid-account use/anomaly does not by itself prove credential dumping.",
+          "T1110.001": "Valid-account use/anomaly does not by itself prove password guessing unless failed-login evidence is present."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for After-hours login to critical asset. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1078"
+          ],
+          "tactics": [
+            "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+          ]
+        }
+      }
+    },
+    {
+      "id": "net_firewall_deny_spike",
+      "use_case_name": "Firewall deny spike",
+      "description": "Network / Firewall. Example queries: Investigate firewall deny spike",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "network_enrichment",
+      "tags": [
+        "category:Network / Firewall",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:net_firewall_deny_spike",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "firewall deny",
+          "deny spike"
+        ],
+        "example_queries": [
+          "Investigate firewall deny spike"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": "firewall_deny_spike",
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": "net_firewall_deny_spike",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "network_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "asset_inventory"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "source_ip",
+          "destination_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Network/DNS evidence alone does not support credential dumping.",
+          "T1078": "Network/DNS evidence alone does not prove valid-account abuse.",
+          "T1110.001": "Network/DNS evidence alone does not prove password guessing."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "net_new_outbound_destination",
+      "use_case_name": "New outbound destination",
+      "description": "Network / Firewall. Example queries: Find new outbound destinations",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "network_enrichment",
+      "tags": [
+        "category:Network / Firewall",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:net_new_outbound_destination",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "new outbound destination"
+        ],
+        "example_queries": [
+          "Find new outbound destinations"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": "net_new_outbound_destination",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "network_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "asset_inventory"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "destination_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Network/DNS evidence alone does not support credential dumping.",
+          "T1078": "Network/DNS evidence alone does not prove valid-account abuse.",
+          "T1110.001": "Network/DNS evidence alone does not prove password guessing."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "net_port_scanning",
+      "use_case_name": "Suspicious port scanning",
+      "description": "Network / Firewall. Example queries: Investigate port scanning",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "network_enrichment",
+      "tags": [
+        "category:Network / Firewall",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:net_port_scanning",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "port scanning",
+          "port scan"
+        ],
+        "example_queries": [
+          "Investigate port scanning"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1046"
+      ],
+      "tactics": [],
+      "severity": "net_port_scanning",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "network_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "optional_entities": [
+          "source_ip",
+          "destination_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1046"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Network/DNS evidence alone does not support credential dumping.",
+          "T1078": "Network/DNS evidence alone does not prove valid-account abuse.",
+          "T1110.001": "Network/DNS evidence alone does not prove password guessing."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for Suspicious port scanning. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1046"
+          ],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "net_east_west_anomaly",
+      "use_case_name": "East-west traffic anomaly",
+      "description": "Network / Firewall. Example queries: Investigate east-west traffic anomaly",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "network_enrichment",
+      "tags": [
+        "category:Network / Firewall",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:net_east_west_anomaly",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "east-west traffic",
+          "east west traffic"
+        ],
+        "example_queries": [
+          "Investigate east-west traffic anomaly"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": "net_east_west_anomaly",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "network_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "asset_inventory"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "destination_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Network/DNS evidence alone does not support credential dumping.",
+          "T1078": "Network/DNS evidence alone does not prove valid-account abuse.",
+          "T1110.001": "Network/DNS evidence alone does not prove password guessing."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "net_blocked_region_connection",
+      "use_case_name": "Connection to blocked country/region",
+      "description": "Network / Firewall. Example queries: Check connection to blocked country",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "network_enrichment",
+      "tags": [
+        "category:Network / Firewall",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:net_blocked_region_connection",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "blocked country",
+          "blocked region"
+        ],
+        "example_queries": [
+          "Check connection to blocked country"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": "net_blocked_region_connection",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "network_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "optional_entities": [
+          "source_ip",
+          "destination_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Network/DNS evidence alone does not support credential dumping.",
+          "T1078": "Network/DNS evidence alone does not prove valid-account abuse.",
+          "T1110.001": "Network/DNS evidence alone does not prove password guessing."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "net_repeated_critical_asset_connections",
+      "use_case_name": "Repeated connection attempts to critical asset",
+      "description": "Network / Firewall. Example queries: Repeated connection attempts to critical asset",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:Network / Firewall",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:net_repeated_critical_asset_connections",
+        "required_source:mcp:splunk",
+        "required_source:asset_inventory"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "repeated connection",
+          "critical asset connections"
+        ],
+        "example_queries": [
+          "Repeated connection attempts to critical asset"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": "net_repeated_critical_asset_connections",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "network_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk",
+          "asset_inventory"
+        ],
+        "optional_sources": [],
+        "required_entities": [
+          "host"
+        ],
+        "optional_entities": [
+          "source_ip",
+          "destination_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Network/DNS evidence alone does not support credential dumping.",
+          "T1078": "Network/DNS evidence alone does not prove valid-account abuse.",
+          "T1110.001": "Network/DNS evidence alone does not prove password guessing."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "net_vpn_login_anomaly",
+      "use_case_name": "VPN login anomaly",
+      "description": "Network / Firewall. Example queries: Investigate VPN login anomaly",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "identity_enrichment",
+      "tags": [
+        "category:Network / Firewall",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:net_vpn_login_anomaly",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "vpn login",
+          "vpn anomaly"
+        ],
+        "example_queries": [
+          "Investigate VPN login anomaly"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": "vpn_failure_spike",
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1078"
+      ],
+      "tactics": [
+        "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+      ],
+      "severity": "net_vpn_login_anomaly",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "identity"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "user",
+          "source_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1078"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Valid-account use/anomaly does not by itself prove credential dumping.",
+          "T1110.001": "Valid-account use/anomaly does not by itself prove password guessing unless failed-login evidence is present."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for VPN login anomaly. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1078"
+          ],
+          "tactics": [
+            "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+          ]
+        }
+      }
+    },
+    {
+      "id": "dns_unusual_query_volume",
+      "use_case_name": "Unusual DNS query volume",
+      "description": "Network / Firewall. Example queries: Show unusual DNS query volume",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "network_enrichment",
+      "tags": [
+        "category:Network / Firewall",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:dns_unusual_query_volume",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "dns query volume",
+          "unusual dns"
+        ],
+        "example_queries": [
+          "Show unusual DNS query volume"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1071.004"
+      ],
+      "tactics": [],
+      "severity": "dns_unusual_query_volume",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "dns_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "source_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1071.004"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Network/DNS evidence alone does not support credential dumping.",
+          "T1078": "Network/DNS evidence alone does not prove valid-account abuse.",
+          "T1110.001": "Network/DNS evidence alone does not prove password guessing."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for Unusual DNS query volume. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1071.004"
+          ],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "dns_tunneling_candidate",
+      "use_case_name": "DNS tunneling candidate",
+      "description": "Network / Firewall. Example queries: Investigate DNS tunneling candidate",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "network_enrichment",
+      "tags": [
+        "category:Network / Firewall",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:dns_tunneling_candidate",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "dns tunneling",
+          "dns tunnel"
+        ],
+        "example_queries": [
+          "Investigate DNS tunneling candidate"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1071.004"
+      ],
+      "tactics": [],
+      "severity": "dns_tunneling_candidate",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "dns_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "source_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1071.004"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Network/DNS evidence alone does not support credential dumping.",
+          "T1078": "Network/DNS evidence alone does not prove valid-account abuse.",
+          "T1110.001": "Network/DNS evidence alone does not prove password guessing."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for DNS tunneling candidate. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1071.004"
+          ],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "dns_beaconing_candidate",
+      "use_case_name": "Beaconing pattern candidate",
+      "description": "Network / Firewall. Example queries: Investigate beaconing pattern candidate",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "network_enrichment",
+      "tags": [
+        "category:Network / Firewall",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:dns_beaconing_candidate",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "beaconing",
+          "beacon pattern"
+        ],
+        "example_queries": [
+          "Investigate beaconing pattern candidate"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": "dns_beaconing_candidate",
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1071"
+      ],
+      "tactics": [],
+      "severity": "dns_beaconing_candidate",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "dns_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "destination_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1071"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Network/DNS evidence alone does not support credential dumping.",
+          "T1078": "Network/DNS evidence alone does not prove valid-account abuse.",
+          "T1110.001": "Network/DNS evidence alone does not prove password guessing."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for Beaconing pattern candidate. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1071"
+          ],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "edr_suspicious_process",
+      "use_case_name": "Suspicious process execution",
+      "description": "Endpoint / EDR. Example queries: Investigate suspicious process execution",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:Endpoint / EDR",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:edr_suspicious_process",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "suspicious process"
+        ],
+        "example_queries": [
+          "Investigate suspicious process execution"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": "edr_suspicious_process",
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1059"
+      ],
+      "tactics": [],
+      "severity": "edr_suspicious_process",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "edr_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "edr",
+          "asset_inventory"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "user"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1059"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1078": "Endpoint/process evidence does not prove valid-account abuse without authentication context.",
+          "T1110.001": "Endpoint/process evidence does not prove password guessing without authentication failures."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for Suspicious process execution. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1059"
+          ],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "edr_powershell_suspicious_command",
+      "use_case_name": "PowerShell suspicious command",
+      "description": "Endpoint / EDR. Example queries: Investigate PowerShell suspicious command",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:Endpoint / EDR",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:edr_powershell_suspicious_command",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "powershell suspicious",
+          "suspicious powershell"
+        ],
+        "example_queries": [
+          "Investigate PowerShell suspicious command"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1059.001"
+      ],
+      "tactics": [],
+      "severity": "edr_powershell_suspicious_command",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "edr_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "edr"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "user"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1059.001"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1078": "Endpoint/process evidence does not prove valid-account abuse without authentication context.",
+          "T1110.001": "Endpoint/process evidence does not prove password guessing without authentication failures."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for PowerShell suspicious command. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1059.001"
+          ],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "edr_new_service_creation",
+      "use_case_name": "New service creation",
+      "description": "Endpoint / EDR. Example queries: Investigate new service creation",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:Endpoint / EDR",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:edr_new_service_creation",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "new service creation"
+        ],
+        "example_queries": [
+          "Investigate new service creation"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1543"
+      ],
+      "tactics": [],
+      "severity": "edr_new_service_creation",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "edr_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "edr"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "user"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1543"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1078": "Endpoint/process evidence does not prove valid-account abuse without authentication context.",
+          "T1110.001": "Endpoint/process evidence does not prove password guessing without authentication failures."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for New service creation. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1543"
+          ],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "edr_scheduled_task_creation",
+      "use_case_name": "Scheduled task creation",
+      "description": "Endpoint / EDR. Example queries: Investigate scheduled task creation",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:Endpoint / EDR",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:edr_scheduled_task_creation",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "scheduled task"
+        ],
+        "example_queries": [
+          "Investigate scheduled task creation"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1053"
+      ],
+      "tactics": [],
+      "severity": "edr_scheduled_task_creation",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "edr_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "edr"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "user"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1053"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1078": "Endpoint/process evidence does not prove valid-account abuse without authentication context.",
+          "T1110.001": "Endpoint/process evidence does not prove password guessing without authentication failures."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for Scheduled task creation. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1053"
+          ],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "edr_lateral_movement_candidate",
+      "use_case_name": "Lateral movement candidate",
+      "description": "Endpoint / EDR. Example queries: Investigate lateral movement candidate",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:Endpoint / EDR",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:edr_lateral_movement_candidate",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "lateral movement"
+        ],
+        "example_queries": [
+          "Investigate lateral movement candidate"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1021"
+      ],
+      "tactics": [],
+      "severity": "edr_lateral_movement_candidate",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "edr_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "edr",
+          "identity"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "user"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1021"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1078": "Endpoint/process evidence does not prove valid-account abuse without authentication context.",
+          "T1110.001": "Endpoint/process evidence does not prove password guessing without authentication failures."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for Lateral movement candidate. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1021"
+          ],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "edr_credential_dumping_signal",
+      "use_case_name": "Credential dumping signal",
+      "description": "Endpoint / EDR. Example queries: Investigate credential dumping signal",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:Endpoint / EDR",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:edr_credential_dumping_signal",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "credential dumping"
+        ],
+        "example_queries": [
+          "Investigate credential dumping signal"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1003"
+      ],
+      "tactics": [],
+      "severity": "edr_credential_dumping_signal",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "edr_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "edr"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "user"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1003"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1078": "Endpoint/process evidence does not prove valid-account abuse without authentication context.",
+          "T1110.001": "Endpoint/process evidence does not prove password guessing without authentication failures."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for Credential dumping signal. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1003"
+          ],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "edr_malware_alert_summary",
+      "use_case_name": "Malware alert summarization",
+      "description": "Endpoint / EDR. Example queries: Summarize malware alert",
+      "primary_skill": "alert_summary",
+      "legacy_skill_hint": "knowledge_recall",
+      "tags": [
+        "category:Endpoint / EDR",
+        "output_template:summary",
+        "action_capability_tier:1",
+        "severity_policy:edr_malware_alert_summary",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "malware alert"
+        ],
+        "example_queries": [
+          "Summarize malware alert"
+        ]
+      },
+      "requested_output_type": "summary",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": "edr_malware_alert_summary",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "edr_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "edr",
+          "rag:sop"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "alert_id"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1078": "Endpoint/process evidence does not prove valid-account abuse without authentication context.",
+          "T1110.001": "Endpoint/process evidence does not prove password guessing without authentication failures."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "edr_isolation_recommendation",
+      "use_case_name": "Endpoint isolation recommendation",
+      "description": "Endpoint / EDR. Example queries: Recommend endpoint isolation",
+      "primary_skill": "action_planning",
+      "legacy_skill_hint": "knowledge_recall",
+      "tags": [
+        "category:Endpoint / EDR",
+        "output_template:action_plan",
+        "action_capability_tier:1",
+        "severity_policy:edr_isolation_recommendation",
+        "required_source:rag:sop"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "endpoint isolation",
+          "isolate endpoint"
+        ],
+        "example_queries": [
+          "Recommend endpoint isolation"
+        ]
+      },
+      "requested_output_type": "action_plan",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": "edr_isolation_recommendation",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "edr_sop"
+        ],
+        "required_sources": [
+          "rag:sop"
+        ],
+        "optional_sources": [
+          "edr"
+        ],
+        "required_entities": [
+          "host"
+        ],
+        "optional_entities": [
+          "alert_id"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001",
+          "T1078",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1078": "Endpoint/process evidence does not prove valid-account abuse without authentication context.",
+          "T1110.001": "Endpoint/process evidence does not prove password guessing without authentication failures."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "soc_show_sop",
+      "use_case_name": "Show SOP/playbook",
+      "description": "SOC / Knowledge / Analyst workflow. Example queries: Show SOP for brute-force investigation",
+      "primary_skill": "knowledge_recall",
+      "legacy_skill_hint": "context_sufficiency",
+      "tags": [
+        "category:SOC / Knowledge / Analyst workflow",
+        "output_template:sop_response",
+        "action_capability_tier:0",
+        "required_source:rag:sop"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "sop",
+          "playbook",
+          "runbook",
+          "standard operating procedure",
+          "standard-operating-procedure"
+        ],
+        "example_queries": [
+          "Show SOP for brute-force investigation"
+        ]
+      },
+      "requested_output_type": "sop_response",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": null,
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop",
+          "network_sop",
+          "edr_sop"
+        ],
+        "required_sources": [
+          "rag:sop"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "optional_entities": [
+          "event_type"
+        ],
+        "default_time_window": null,
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "soc_generate_spl",
+      "use_case_name": "Generate SPL",
+      "description": "SOC / Knowledge / Analyst workflow. Example queries: Generate SPL for failed logins",
+      "primary_skill": "spl_generation",
+      "legacy_skill_hint": "spl_validation",
+      "tags": [
+        "category:SOC / Knowledge / Analyst workflow",
+        "output_template:spl_response",
+        "action_capability_tier:1"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "generate spl",
+          "write spl",
+          "produce spl",
+          "create spl",
+          "spl query"
+        ],
+        "example_queries": [
+          "Generate SPL for failed logins"
+        ]
+      },
+      "requested_output_type": "spl_response",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": null,
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "spl_examples"
+        ],
+        "required_sources": [],
+        "optional_sources": [
+          "rag:spl_examples"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "time_window"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Failed-login evidence alone does not support OS Credential Dumping.",
+          "T1078": "Failed attempts alone do not prove Valid Accounts or successful credential use."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "soc_explain_spl",
+      "use_case_name": "Explain SPL",
+      "description": "SOC / Knowledge / Analyst workflow. Example queries: Explain this SPL",
+      "primary_skill": "knowledge_recall",
+      "legacy_skill_hint": null,
+      "tags": [
+        "category:SOC / Knowledge / Analyst workflow",
+        "output_template:sop_response",
+        "action_capability_tier:0",
+        "required_source:rag:sop"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "explain spl"
+        ],
+        "example_queries": [
+          "Explain this SPL"
+        ]
+      },
+      "requested_output_type": "sop_response",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": null,
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "spl_examples"
+        ],
+        "required_sources": [
+          "rag:sop"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "optional_entities": [],
+        "default_time_window": null,
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "soc_optimize_spl",
+      "use_case_name": "Optimize SPL",
+      "description": "SOC / Knowledge / Analyst workflow. Example queries: Optimize this SPL",
+      "primary_skill": "spl_generation",
+      "legacy_skill_hint": "spl_validation",
+      "tags": [
+        "category:SOC / Knowledge / Analyst workflow",
+        "output_template:spl_response",
+        "action_capability_tier:1"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "optimize spl"
+        ],
+        "example_queries": [
+          "Optimize this SPL"
+        ]
+      },
+      "requested_output_type": "spl_response",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": null,
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "spl_examples"
+        ],
+        "required_sources": [],
+        "optional_sources": [
+          "rag:spl_examples"
+        ],
+        "required_entities": [],
+        "optional_entities": [],
+        "default_time_window": null,
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "soc_map_alert_mitre",
+      "use_case_name": "Map alert to MITRE",
+      "description": "SOC / Knowledge / Analyst workflow. Example queries: Map this alert to MITRE",
+      "primary_skill": "mitre_mapping",
+      "legacy_skill_hint": "knowledge_recall",
+      "tags": [
+        "category:SOC / Knowledge / Analyst workflow",
+        "output_template:mitre_mapping_response",
+        "action_capability_tier:0",
+        "required_source:mitre:enterprise"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "mitre",
+          "att&ck",
+          "attack technique",
+          "map this alert",
+          "map the alert"
+        ],
+        "example_queries": [
+          "Map this alert to MITRE"
+        ]
+      },
+      "requested_output_type": "mitre_mapping_response",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": null,
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "mitre_notes"
+        ],
+        "required_sources": [
+          "mitre:enterprise"
+        ],
+        "optional_sources": [
+          "mcp:splunk"
+        ],
+        "required_entities": [
+          "alert_id"
+        ],
+        "optional_entities": [
+          "host",
+          "index",
+          "sourcetype"
+        ],
+        "default_time_window": null,
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "soc_create_investigation_note",
+      "use_case_name": "Create investigation note",
+      "description": "SOC / Knowledge / Analyst workflow. Example queries: Create investigation note",
+      "primary_skill": "investigation_notes",
+      "legacy_skill_hint": "knowledge_recall",
+      "tags": [
+        "category:SOC / Knowledge / Analyst workflow",
+        "output_template:note_response",
+        "action_capability_tier:1",
+        "required_source:source_evidence"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "investigation note"
+        ],
+        "example_queries": [
+          "Create investigation note"
+        ]
+      },
+      "requested_output_type": "note_response",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": null,
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "note_templates"
+        ],
+        "required_sources": [
+          "source_evidence"
+        ],
+        "optional_sources": [
+          "rag:sop"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "alert_id"
+        ],
+        "default_time_window": null,
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "soc_summarize_alert_evidence",
+      "use_case_name": "Summarize alert evidence",
+      "description": "SOC / Knowledge / Analyst workflow. Example queries: Summarize alert evidence",
+      "primary_skill": "alert_summary",
+      "legacy_skill_hint": "context_sufficiency",
+      "tags": [
+        "category:SOC / Knowledge / Analyst workflow",
+        "output_template:summary",
+        "action_capability_tier:0",
+        "required_source:source_evidence"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "summarize alert",
+          "summarize evidence"
+        ],
+        "example_queries": [
+          "Summarize alert evidence"
+        ]
+      },
+      "requested_output_type": "summary",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": null,
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "auth_sop"
+        ],
+        "required_sources": [
+          "source_evidence"
+        ],
+        "optional_sources": [
+          "rag:sop"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "alert_id"
+        ],
+        "default_time_window": null,
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "soc_recommend_next_pivots",
+      "use_case_name": "Recommend next pivots",
+      "description": "SOC / Knowledge / Analyst workflow. Example queries: Recommend next pivots",
+      "primary_skill": "action_planning",
+      "legacy_skill_hint": "knowledge_recall",
+      "tags": [
+        "category:SOC / Knowledge / Analyst workflow",
+        "output_template:action_plan",
+        "action_capability_tier:1",
+        "required_source:source_evidence"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "next pivots",
+          "recommend pivots"
+        ],
+        "example_queries": [
+          "Recommend next pivots"
+        ]
+      },
+      "requested_output_type": "action_plan",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": null,
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "pivot_guidance"
+        ],
+        "required_sources": [
+          "source_evidence"
+        ],
+        "optional_sources": [
+          "rag:sop"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "alert_id"
+        ],
+        "default_time_window": null,
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "soc_draft_ticket",
+      "use_case_name": "Draft ticket",
+      "description": "SOC / Knowledge / Analyst workflow. Example queries: Draft ticket for this alert",
+      "primary_skill": "ticket_drafting",
+      "legacy_skill_hint": "investigation_notes",
+      "tags": [
+        "category:SOC / Knowledge / Analyst workflow",
+        "output_template:note_response",
+        "action_capability_tier:1",
+        "required_source:source_evidence"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "draft ticket",
+          "create ticket",
+          "draft incident"
+        ],
+        "example_queries": [
+          "Draft ticket for this alert"
+        ]
+      },
+      "requested_output_type": "note_response",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": null,
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "ticket_templates"
+        ],
+        "required_sources": [
+          "source_evidence"
+        ],
+        "optional_sources": [
+          "ticketing"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "alert_id"
+        ],
+        "default_time_window": null,
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "soc_compare_past_incidents",
+      "use_case_name": "Compare current alert with past incidents",
+      "description": "SOC / Knowledge / Analyst workflow. Example queries: Compare current alert with past incidents",
+      "primary_skill": "knowledge_recall",
+      "legacy_skill_hint": "alert_summary",
+      "tags": [
+        "category:SOC / Knowledge / Analyst workflow",
+        "output_template:summary",
+        "action_capability_tier:0",
+        "required_source:rag:sop"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "past incidents",
+          "compare current alert"
+        ],
+        "example_queries": [
+          "Compare current alert with past incidents"
+        ]
+      },
+      "requested_output_type": "summary",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": null,
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "past_incidents"
+        ],
+        "required_sources": [
+          "rag:sop"
+        ],
+        "optional_sources": [
+          "case_history"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "alert_id"
+        ],
+        "default_time_window": null,
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "ot_unexpected_command",
+      "use_case_name": "Unexpected command to OT/grid asset",
+      "description": "OT / Critical infrastructure later. Example queries: Unexpected command to OT asset",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:OT / Critical infrastructure later",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:ot_unexpected_command",
+        "required_source:mcp:splunk",
+        "required_source:asset_inventory"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "unexpected command",
+          "grid asset command"
+        ],
+        "example_queries": [
+          "Unexpected command to OT asset"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": "ot_unexpected_command",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "ot_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk",
+          "asset_inventory"
+        ],
+        "optional_sources": [
+          "ot_inventory"
+        ],
+        "required_entities": [
+          "host"
+        ],
+        "optional_entities": [
+          "source_ip",
+          "time_window"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    },
+    {
+      "id": "ot_it_to_ot_auth_anomaly",
+      "use_case_name": "IT-to-OT authentication anomaly",
+      "description": "OT / Critical infrastructure later. Example queries: Investigate IT-to-OT authentication anomaly",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:OT / Critical infrastructure later",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:ot_it_to_ot_auth_anomaly",
+        "required_source:mcp:splunk",
+        "required_source:asset_inventory"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "it-to-ot",
+          "it to ot"
+        ],
+        "example_queries": [
+          "Investigate IT-to-OT authentication anomaly"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1078"
+      ],
+      "tactics": [
+        "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+      ],
+      "severity": "ot_it_to_ot_auth_anomaly",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "ot_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk",
+          "asset_inventory"
+        ],
+        "optional_sources": [
+          "identity"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "user",
+          "host",
+          "source_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1078"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Valid-account use/anomaly does not by itself prove credential dumping.",
+          "T1110.001": "Valid-account use/anomaly does not by itself prove password guessing unless failed-login evidence is present."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for IT-to-OT authentication anomaly. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1078"
+          ],
+          "tactics": [
+            "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ot_critical_asset_after_hours",
+      "use_case_name": "Critical asset after-hours access",
+      "description": "OT / Critical infrastructure later. Example queries: Critical asset after-hours access",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:OT / Critical infrastructure later",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:ot_critical_asset_after_hours",
+        "required_source:mcp:splunk",
+        "required_source:asset_inventory"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "critical asset after-hours",
+          "critical asset after hours"
+        ],
+        "example_queries": [
+          "Critical asset after-hours access"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [
+        "T1078"
+      ],
+      "tactics": [
+        "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+      ],
+      "severity": "ot_critical_asset_after_hours",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "ot_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk",
+          "asset_inventory"
+        ],
+        "optional_sources": [
+          "identity"
+        ],
+        "required_entities": [
+          "host"
+        ],
+        "optional_entities": [
+          "user",
+          "source_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1078"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1110.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence.",
+          "T1003": "Valid-account use/anomaly does not by itself prove credential dumping.",
+          "T1110.001": "Valid-account use/anomaly does not by itself prove password guessing unless failed-login evidence is present."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "do_not_show_unless_user_asks_mitre",
+        "mapping_confidence": "medium",
+        "mapping_rationale": "Registry-level MITRE candidates for Critical asset after-hours access. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1078"
+          ],
+          "tactics": [
+            "Initial Access / Persistence / Privilege Escalation / Defense Evasion"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ot_protocol_anomaly",
+      "use_case_name": "OT protocol anomaly",
+      "description": "OT / Critical infrastructure later. Example queries: Investigate OT protocol anomaly",
+      "primary_skill": "attack_discovery",
+      "legacy_skill_hint": "asset_enrichment",
+      "tags": [
+        "category:OT / Critical infrastructure later",
+        "output_template:investigation_answer",
+        "action_capability_tier:1",
+        "severity_policy:ot_protocol_anomaly",
+        "required_source:mcp:splunk"
+      ],
+      "patterns_keywords": {
+        "intent_patterns": [
+          "ot protocol anomaly",
+          "modbus anomaly",
+          "dnp3 anomaly",
+          "iec-104 anomaly"
+        ],
+        "example_queries": [
+          "Investigate OT protocol anomaly"
+        ]
+      },
+      "requested_output_type": "investigation_answer",
+      "spl_template_id": null,
+      "mitre_permitted": null,
+      "mitre_candidates": [],
+      "tactics": [],
+      "severity": "ot_protocol_anomaly",
+      "detection_family": null,
+      "kb_references": {
+        "rag_collections": [
+          "ot_sop"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "optional_sources": [
+          "ot_inventory"
+        ],
+        "required_entities": [],
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "destination_ip"
+        ],
+        "default_time_window": "earliest=-24h latest=now",
+        "mitre_kb_related_techniques": []
+      },
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "not_applicable",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        }
+      }
+    }
+  ],
+  "mitre_enrichment_schema_version": "2026-06-control-plane-v1-draft",
+  "mitre_enrichment_notes": [
+    "Registry MITRE mappings are not observed evidence.",
+    "Runtime mitre_decision.py must decide answer visibility based on intent, evidence sufficiency, and user request.",
+    "LLM may explain or rank permitted/candidate techniques but must not introduce new techniques without validator approval."
+  ]
+}

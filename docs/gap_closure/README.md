@@ -7,6 +7,7 @@
 | ID | Document |
 |----|----------|
 | Current | [Current query-to-answer workflow](current_query_to_answer_workflow.md) |
+| QU bridge | [QU→route_skill validation](qu_route_bridge_validation.md) |
 | P0-6 / P0-7 | [Unified 105+ registry](p0_unified_105_registry.md) |
 | P0-8 | [48 `likely_routable` + MITRE three layers](p0_stakeholder_48_routable_and_mitre.md) |
 | P0-9 | [Live flow-check profile](p0_live_flow_check_profile.md) |

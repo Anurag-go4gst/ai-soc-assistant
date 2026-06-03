@@ -1,0 +1,5 @@
+{
+  "schema_version": "supplemental_taxonomy_v1",
+  "description": "Optional q106+ rows merged into S6 runtime map emit. Author via coverage_drafter --entry-json then append here.",
+  "entries": []
+}

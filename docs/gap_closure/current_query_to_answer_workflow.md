@@ -11,8 +11,9 @@ Key enabled levers:
 | Area | Setting | Current profile intent |
 |------|---------|------------------------|
 | Orchestration | `LANGGRAPH_ORCHESTRATION_ENABLED=true` | Run the same five chat stages through LangGraph parity |
-| Routing | `ROUTING_MODE=llm_primary_lab` + `ROUTING_LAB_LLM_PRIMARY_ENABLED=true` | Exercise lab-primary LLM routing path |
-| Route authority | `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=true` | Allow operation authority only for allowlisted coverage IDs |
+| Routing | `ROUTING_MODE=llm_assisted_semantic` + `ROUTING_LLM_SHADOW_ENABLED=true` | QU-first skill selection; LLM advisory/trace (exact 105 keeps `query_understanding_105`) |
+| Routing (lab) | `ROUTING_MODE=llm_primary_lab` + `ROUTING_LAB_LLM_PRIMARY_ENABLED=true` | Optional lab-primary override experiments |
+| Route authority | `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=true` | Operation authority only for manifest allowlisted coverage IDs (see `route_authority_allowlist.py`) |
 | Legacy skill authority | `LEGACY_SELECTED_SKILL_AUTHORITY_ENABLED=false` | Prefer registry operation mirror when authority applies |
 | OOD control | `ROUTE_PLAN_OPEN_OPERATIONS_ENABLED=true`, supporters/audit enabled | Allow governed OOD proposals to be reviewed, not executed |
 | MCP | `MCP_MODE=mock`, global/mock execution enabled | Exercise mock MCP only |
@@ -30,7 +31,7 @@ User query
   -> /chat
   -> LangGraph or imperative five-stage pipeline
   -> deterministic query understanding
-  -> deterministic routing + LLM lab advisory
+  -> query understanding (105 + 42) -> route_skill (4 skills) + LLM assisted advisory
   -> route-plan shadow / known-vs-OOD split
   -> authority + preconditions
   -> workflow plan
@@ -277,7 +278,7 @@ The final `/chat` response can include:
 | `source_evidence` | MCP/RAG evidence envelopes |
 | `structured_context` | normalized evidence package |
 | `context_sufficiency` | readiness and missing-evidence reasons |
-| `mitre_mappings` | deterministic MITRE mapping |
+| `mitre_mappings` | default flag-off legacy use-case KB mapping; control-plane flag-on can add registry `mitre_permitted[]` overlap until Phase 7 decisioning |
 | `synthesis_status` | P6 synthesis lab status |
 | `answer_guard` | guard result |
 | `governance_trace` | consolidated trace panels |
@@ -286,8 +287,8 @@ The final `/chat` response can include:
 
 When a user asks a query today, the system:
 
-1. Parses the query deterministically.
-2. Routes with deterministic control plus LLM lab/advisory support.
+1. Parses the query deterministically (`understand_query`: 105, 42 catalog, near/out-of-registry).
+2. Routes via `route_skill` into four legacy skills with `routing_provenance`; LLM assisted mode is advisory unless uncertain.
 3. Splits known vs OOD.
 4. Applies authority and precondition gates.
 5. Generates and validates SPL only when needed.

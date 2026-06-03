@@ -6,8 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from mitre_permitted import build_mitre_permitted_for_row, load_taxonomy_mitre_by_ref
 from registries import MANIFEST_PATH, REPO_ROOT, TAXONOMY_PATH
 from taxonomy_lookup import TaxonomyRow, load_taxonomy_rows
+
+SUPPLEMENTAL_TAXONOMY_PATH = REPO_ROOT / "tools" / "coverage_authoring" / "supplemental_taxonomy_rows.json"
 
 from operation_report_fields import build_report_entry
 from pattern_runtime_mapping import (
@@ -31,7 +34,20 @@ def _load_manifest_by_question_ref() -> dict[str, dict[str, Any]]:
     return by_ref
 
 
-def _map_row(row: TaxonomyRow, manifest_entry: dict[str, Any] | None) -> dict[str, Any]:
+def _load_supplemental_rows() -> list[dict[str, Any]]:
+    if not SUPPLEMENTAL_TAXONOMY_PATH.is_file():
+        return []
+    payload = json.loads(SUPPLEMENTAL_TAXONOMY_PATH.read_text(encoding="utf-8"))
+    entries = payload.get("entries", [])
+    return [item for item in entries if isinstance(item, dict) and item.get("question_ref")]
+
+
+def _map_row(
+    row: TaxonomyRow,
+    manifest_entry: dict[str, Any] | None,
+    *,
+    taxonomy_mitre_by_ref: dict[str, list[str]],
+) -> dict[str, Any]:
     pattern = row.pattern_type
     runtime = PATTERN_TO_RUNTIME.get(pattern, PATTERN_TO_RUNTIME["other_or_unclear"])
     legacy_intent = LEGACY_ROUTER_INTENT_BY_PATTERN.get(pattern, "attack_discovery")
@@ -76,6 +92,39 @@ def _map_row(row: TaxonomyRow, manifest_entry: dict[str, Any] | None) -> dict[st
             "operation_authoritative_enabled_defaults_false",
         ]
 
+    from mitre_permitted import use_case_mitre_for_question_ref
+
+    taxonomy_mitre = taxonomy_mitre_by_ref.get(row.question_ref, [])
+    mitre_block = build_mitre_permitted_for_row(
+        question_ref=row.question_ref,
+        taxonomy_mitre=taxonomy_mitre,
+        use_case_mitre=use_case_mitre_for_question_ref(row.question_ref),
+    )
+    record.update(mitre_block)
+
+    return record
+
+
+def _map_supplemental_row(raw: dict[str, Any], manifest_by_ref: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    ref = str(raw["question_ref"]).strip().lower()
+    if not ref.startswith("q0."):
+        raise ValueError(f"supplemental row must use q0.qNNN ref: {ref!r}")
+    number = int(ref.split(".")[-1].lstrip("q"))
+    row = TaxonomyRow(
+        number=number,
+        question=str(raw.get("question") or raw.get("original_question") or ""),
+        pattern_type=str(raw.get("pattern_type") or "other_or_unclear"),
+        question_ref=ref,
+    )
+    taxonomy_mitre = raw.get("suggested_mitre_candidates")
+    if isinstance(taxonomy_mitre, list):
+        taxonomy_slice = [str(item).upper() for item in taxonomy_mitre]
+    else:
+        from mitre_permitted import parse_mitre_ids_from_cell
+
+        taxonomy_slice = parse_mitre_ids_from_cell(str(taxonomy_mitre or ""))
+    record = _map_row(row, manifest_by_ref.get(ref), taxonomy_mitre_by_ref={ref: taxonomy_slice})
+    record.update({k: v for k, v in raw.items() if k not in record})
     return record
 
 
@@ -85,14 +134,29 @@ def build_question_runtime_map(
 ) -> dict[str, Any]:
     rows = load_taxonomy_rows(taxonomy_path)
     manifest_by_ref = _load_manifest_by_question_ref()
-    entries = [_map_row(row, manifest_by_ref.get(row.question_ref)) for row in rows]
+    taxonomy_mitre_by_ref = load_taxonomy_mitre_by_ref(taxonomy_path)
+    entries = [
+        _map_row(row, manifest_by_ref.get(row.question_ref), taxonomy_mitre_by_ref=taxonomy_mitre_by_ref)
+        for row in rows
+    ]
+    existing_refs = {item["question_ref"] for item in entries}
+    for raw in _load_supplemental_rows():
+        ref = str(raw["question_ref"]).strip().lower()
+        if ref in existing_refs:
+            continue
+        entries.append(_map_supplemental_row(raw, manifest_by_ref))
+        existing_refs.add(ref)
+    entries.sort(key=lambda item: int(str(item["question_ref"]).split(".")[-1].lstrip("q")))
     in_manifest = sum(1 for item in entries if item["promotion_status"] == "in_manifest")
+    supplemental_count = len(_load_supplemental_rows())
     return {
         "map_version": MAP_VERSION,
         "taxonomy_source": str((taxonomy_path or TAXONOMY_PATH).relative_to(REPO_ROOT)),
+        "supplemental_source": str(SUPPLEMENTAL_TAXONOMY_PATH.relative_to(REPO_ROOT)),
         "runtime_mapping_source": "docs/soc_runtime_skill_route_plan_stage3k_q05.md",
         "manifest_source": "backend/app/coverage/pattern_coverage_v1.json",
         "question_count": len(entries),
+        "supplemental_row_count": supplemental_count,
         "manifest_row_count": in_manifest,
         "authority_pilot_question_ref": AUTHORITY_PILOT_QUESTION_REF,
         "entries": entries,

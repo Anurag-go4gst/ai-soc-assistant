@@ -10,7 +10,7 @@ COE and engineering need **one row per SOC question** that joins planning metada
 
 | Surface | Entry point | Routing authority | Answer |
 |---------|-------------|-------------------|--------|
-| **Live `/chat`** | [`routes_chat.py`](../../backend/app/api/routes_chat.py) | **4 legacy intents** (`selected_skill` via [`deterministic_router.py`](../../backend/app/routing/deterministic_router.py)) | No final synthesis; gates + trace + sufficiency |
+| **Live `/chat`** | [`routes_chat.py`](../../backend/app/api/routes_chat.py) | **4 legacy intents** via QU-first [`route_skill`](../../backend/app/routing/skill_router.py) (keyword router = failover only) | No final synthesis; gates + trace + sufficiency |
 | **Shadow / planning** | [`question_runtime_map_v1.json`](../../backend/app/coverage/question_runtime_map_v1.json), S6.2 report | **None on live** — observation, eval buckets, route-plan shadow | N/A |
 | **Experience Center** | [`routes_scenarios.py`](../../backend/app/api/routes_scenarios.py), [`scenarios.py`](../../backend/app/demo/scenarios.py) | **`expected_skill`** (4 intents) for demo scripts | Golden `coe_synthetic_fixture` answers |
 
@@ -53,7 +53,7 @@ legacy_intent_hint           # TEMP mirror of 4 intents; non-authoritative on li
 | `likely_routable` | Derived: `provisional_status == likely_routable` (48 rows) | **No** |
 | `coverage_id` | Manifest overlay on map row | Authority only if allowlisted |
 | `legacy_intent_hint` | S6.1 `legacy_router_intent_hint` | **Yes** — still drives `selected_skill` |
-| `mitre_permitted[]` | Not on map row | Partial via use-case keyword bridge (~2 techniques in runtime subset) |
+| `mitre_permitted[]` | `question_runtime_map_v1.json` (emit via `--emit-maps`) | Partial flag-on control-plane path: KB overlap via [`mitre_permitted.py`](../../backend/app/threat/mitre_permitted.py) + use-case bridge; default flag-off `/chat` stays legacy |
 | `mcp_evidence_needs[]` | Manifest rows (10) | Deterministic tool **record** only; execution gated |
 
 ## Regenerate maps (drift check)

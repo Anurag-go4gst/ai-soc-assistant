@@ -74,7 +74,7 @@ A row can be `likely_routable` yet fail runtime preconditions (missing template 
 | **Use cases (42)** | `mitre_candidates` in [`catalog.json`](../../backend/app/use_cases/catalog.json) | Keyword bridge | **Partial** — `match_use_cases` → [`mitre_kb.py`](../../backend/app/threat/mitre_kb.py) |
 | **Runtime KB** | [`mitre_attack_subset.json`](../../backend/app/threat/mitre_attack_subset.json) — **2 techniques** | Mappable with status | **Yes** — only when use case matches |
 
-Most `/chat` requests → `mitre_mappings: []`. Taxonomy MITRE is **not** joined to operations or the 105 runtime map today.
+Taxonomy MITRE is joined to **`mitre_permitted[]`** on `question_runtime_map_v1.json` (emit via `coverage_drafter --emit-maps`). Default live `/chat` still uses legacy use-case KB mapping while `CONTROL_PLANE_ENABLED=false`; the control-plane flag-on path can merge registry + use-case KB overlap in [`mitre_permitted.py`](../../backend/app/threat/mitre_permitted.py) until Phase 7 runtime MITRE decisioning lands.
 
 ### Target (P5) — `mitre_permitted[]` per registry row
 

@@ -167,6 +167,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-26_1849_stage-3j-i-3-prompt-contracts-role-suitability.md` | Done |
 | `plans/2026-05-26_1924_stage-3j-j-experience-center-llm-calibration.md` | Superseded — lighter calibration shipped in `2fefd10`; lineage reveal in `91f7b0e` |
 | `plans/2026-05-26_1955_stage-3j-k0-llm-assisted-routing-governance.md` | In Progress — routing backend landed (`05c95bc`); governance settings UI uncommitted |
+| `plans/2026-06-02_chat-control-plane-master.md` | **Canonical — chat control plane; phases 0, 1, 1A, 1B-b, 2, and 3 done; next phase 4 route adjudication** |
 | `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Canonical — agents read this first; logic hierarchy, rules, status tables |
 | `plans/2026-05-28_0523_stage-3k-q1c-q4-roadmap.md` | Proposed — Q1C→Q4 roadmap index |
 | `plans/2026-05-28_0523_stage-3k-q1c-route-plan-template-match.md` | Proposed |
