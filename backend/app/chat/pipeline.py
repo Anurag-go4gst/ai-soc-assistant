@@ -58,6 +58,7 @@ from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
 from app.chat.evidence_planner import plan_evidence
 from app.chat.intent_classifier import build_query_to_intent
+from app.chat.control_plane_trace import build_control_plane_trace
 
 def _routes_chat():
     """Lazy import so tests can monkeypatch symbols on app.api.routes_chat."""
@@ -555,6 +556,19 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     routing_skill_resolution = state.get("routing_skill_resolution") or route_plan_shadow.get(
         "routing_skill_resolution"
     )
+    response_mode = _response_mode(context_sufficiency, human_review, spl_validation)
+    synthesis_mode = _synthesis_mode(synthesis_status, analyst_summary_from_lab)
+    control_plane_trace = None
+    if settings.control_plane_enabled:
+        trace_state = {**state, "mitre_decision": mitre_decision}
+        control_plane_trace = build_control_plane_trace(
+            trace_state,
+            source_evidence=source_evidence,
+            context_sufficiency=context_sufficiency,
+            synthesis_mode=synthesis_mode,
+            answer_guard=answer_guard.model_dump(),
+        )
+
     response = PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,
@@ -582,8 +596,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         message=message,
         note=note,
         analyst_summary=analyst_summary_from_lab,
-        response_mode=_response_mode(context_sufficiency, human_review, spl_validation),
-        synthesis_mode=_synthesis_mode(synthesis_status, analyst_summary_from_lab),
+        response_mode=response_mode,
+        synthesis_mode=synthesis_mode,
         workflow_plan=state["workflow_plan"],
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
@@ -604,6 +618,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         query_to_intent=state.get("query_to_intent"),
         evidence_plan=state.get("evidence_plan"),
         route_adjudication=state.get("route_adjudication"),
+        control_plane_trace=control_plane_trace,
         mitre_decision=mitre_decision,
     )
     return {**state, "response": response, "mitre_decision": mitre_decision}
