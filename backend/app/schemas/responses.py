@@ -356,6 +356,7 @@ class PlaceholderResponse(BaseModel):
     spl_template: dict[str, object] | None = None
     evidence_plan: dict[str, object] | None = None
     route_adjudication: dict[str, object] | None = None
+    llm_plan_validation: dict[str, object] | None = None
     tool_plan_structured: dict[str, object] | None = None
     query_to_intent: dict[str, object] | None = None
     control_plane_trace: dict[str, object] | None = None

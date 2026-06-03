@@ -79,6 +79,38 @@ def test_demo_route_plan_shadow_and_skill_unchanged() -> None:
     assert response.route_plan_shadow is None
 
 
+def test_experience_center_control_plane_trace_uses_captured_hf_and_known_mcp_basis() -> None:
+    response = _run("new_source_ip_logins")
+
+    assert response.query_to_intent is not None
+    assert response.evidence_plan is not None
+    assert response.route_adjudication is not None
+    assert response.llm_plan_validation is not None
+    assert response.mitre_decision is not None
+    assert response.control_plane_trace is not None
+    assert response.response_mode is not None
+    assert response.synthesis_mode == "captured_huggingface_governed_output"
+    assert response.route_adjudication["llm_suggested_route"] is None
+
+    provenance = response.control_plane_trace["experience_center_provenance"]
+    assert provenance["llm_output_basis"] == "captured_huggingface_foundation_sec_output"
+    assert provenance["mcp_output_basis"] == "assumed_happy_path_fixture_from_known_mcp_tools"
+    assert provenance["live_llm_called"] is False
+    assert provenance["live_mcp_called"] is False
+    assert provenance["future_state_preview"] is False
+    assert provenance["hallucinated_mcp_output"] is False
+
+    serialized = json.dumps(response.control_plane_trace).lower()
+    assert "future-state preview" not in serialized
+    assert "future state preview" not in serialized
+
+    mcp_trace = response.control_plane_trace["mcp_execution"]
+    assert mcp_trace["status"] == "fixture_evidence_packaged"
+    assert mcp_trace["execution_intent"] == "known_mcp_happy_path_fixture"
+    assert mcp_trace["tool_selection_status"] == "fixture_evidence_packaged"
+    assert mcp_trace["selected_mcp_server"] == "splunk"
+
+
 def test_all_demo_scenarios_expose_governance_metadata() -> None:
     from app.api.routes_scenarios import list_demo_scenario_fixtures
 
@@ -86,6 +118,7 @@ def test_all_demo_scenarios_expose_governance_metadata() -> None:
         response = _run(item["scenario_id"])
         assert response.governance_trace is not None
         assert response.experience_center_governance is not None
+        assert response.control_plane_trace is not None
         assert response.governance_trace.skills_operations.intent_skill == response.selected_skill
         assert response.governance_trace.completion_status.completed
         assert response.governance_trace.completion_status.gated_wip

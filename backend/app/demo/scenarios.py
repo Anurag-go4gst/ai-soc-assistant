@@ -7,6 +7,9 @@ from uuid import uuid4
 
 from app.actions.capability_policy import action_capability_for
 from app.answer_guard.models import AnswerGuardStatus
+from app.chat.control_plane_trace import build_control_plane_trace
+from app.chat.evidence_planner import plan_evidence
+from app.chat.intent_classifier import build_query_to_intent
 from app.demo.experience_center_governance import build_experience_center_governance
 from app.demo.foundation_sec_fixtures import foundation_sec_governance_for
 from app.demo.llm_shadow_provider import DemoLlmShadowContext, run_demo_llm_shadow
@@ -21,6 +24,8 @@ from app.orchestration.workflow_planner import plan_workflow
 from app.query_understanding.models import OutputTemplate, RequestedOutputType
 from app.query_understanding.parser import understand_query
 from app.risk.severity_policy import decide_severity
+from app.routing.llm_plan_validator import validate_llm_advisory_plan
+from app.routing.route_adjudication import adjudicate_route
 from app.safeguards.spl_validator import validate_spl
 from app.skills.selector import select_skill_chain
 from app.spl.template_registry import template_summary
@@ -32,6 +37,15 @@ from app.use_cases.registry import get_use_case, match_use_cases
 CREATED_AT = "2026-05-24T00:00:00Z"
 EVIDENCE_ORIGIN = "coe_synthetic_fixture"
 DEMO_BADGE = "COE scenario"
+EXPERIENCE_CENTER_PROVENANCE = {
+    "mode": "captured_huggingface_plus_known_mcp_happy_path",
+    "llm_output_basis": "captured_huggingface_foundation_sec_output",
+    "mcp_output_basis": "assumed_happy_path_fixture_from_known_mcp_tools",
+    "live_llm_called": False,
+    "live_mcp_called": False,
+    "future_state_preview": False,
+    "hallucinated_mcp_output": False,
+}
 
 
 @dataclass(frozen=True)
@@ -84,6 +98,42 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     analyst_response = _analyst_response(scenario)
     foundation_sec_governance = foundation_sec_governance_for(scenario.scenario_id)
     query_understanding = _query_understanding_for_scenario(scenario)
+    query_to_intent = build_query_to_intent(
+        query=scenario.query,
+        query_understanding=query_understanding,
+        routed_skill=scenario.expected_skill,
+    ).model_dump()
+    intent_classification = query_to_intent["intent_classification"]
+    evidence_plan = plan_evidence(
+        intent_classification,
+        query_to_intent=query_to_intent,
+        routed={"skill": scenario.expected_skill, "tool_plan": _tool_plan(scenario)},
+    ).model_dump()
+    evidence_plan = _experience_center_evidence_plan(scenario, evidence_plan)
+    advisory_plan = _experience_center_advisory_plan(
+        scenario=scenario,
+        evidence_plan=evidence_plan,
+        mitre_mappings=[item.model_dump() for item in map_mitre_for_use_case(scenario.selected_use_case_id, [])]
+        if scenario.selected_use_case_id
+        else None,
+    )
+    route_adjudication = adjudicate_route(
+        deterministic_route=scenario.expected_skill,
+        llm_advisory=None,
+        route_plan_shadow=None,
+        evidence_plan=evidence_plan,
+        intent_classification=intent_classification,
+        query_understanding=query_understanding,
+        message=scenario.query,
+        query_to_intent=query_to_intent,
+    ).model_dump()
+    llm_plan_validation = validate_llm_advisory_plan(
+        advisory_plan,
+        evidence_plan=evidence_plan,
+        route_adjudication=route_adjudication,
+        intent_classification=intent_classification,
+        routing_mode="llm_assisted_semantic",
+    ).model_dump()
     selected_use_case = _selected_use_case(scenario)
     skill_selection = select_skill_chain(
         routed={
@@ -97,9 +147,10 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     source_refs = [str(item.get("evidence_id")) for item in source_evidence]
     spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
     mitre_mappings = map_mitre_for_use_case(selected_use_case.use_case_id if selected_use_case else None, source_refs)
+    mitre_decision = _experience_center_mitre_decision(mitre_mappings, source_refs)
     severity_decision = decide_severity(selected_use_case.use_case_id if selected_use_case else None, structured_context, source_refs)
-    synthesis_status = SynthesisStatus(enabled=False, status="planned", reason="Experience Center uses captured Foundation-sec outputs governed by deterministic policy; Stage 3K live synthesis is not run.")
-    answer_guard = AnswerGuardStatus(enabled=False, guard_status="planned", reason="Experience Center output is governed from captured Foundation-sec fixtures; Stage 3L Answer Guard execution is not run.")
+    synthesis_status = SynthesisStatus(enabled=False, status="planned", reason="Experience Center uses captured Hugging Face/Foundation-sec output governed by deterministic policy; no live final synthesis is run.")
+    answer_guard = AnswerGuardStatus(enabled=False, guard_status="planned", reason="Experience Center output is governed from captured Hugging Face/Foundation-sec output and fixture evidence; live Answer Guard execution is not run.")
     action_capability = action_capability_for(selected_use_case.use_case_id if selected_use_case else None, severity_decision.severity_label)
     investigation_lineage = build_investigation_lineage(
         trace_id=trace_id,
@@ -131,6 +182,27 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         route_plan_shadow=None,
         selected_use_case=selected_use_case.model_dump() if selected_use_case else None,
     )
+    response_mode = _experience_center_response_mode(scenario, context_sufficiency, review, spl_validation)
+    synthesis_mode = "captured_huggingface_governed_output"
+    control_plane_state = {
+        "query_to_intent": query_to_intent,
+        "evidence_plan": evidence_plan,
+        "route_adjudication": route_adjudication,
+        "llm_plan_validation": llm_plan_validation,
+        "mitre_decision": mitre_decision,
+        "workflow_plan": workflow,
+        "spl_validation": spl_validation,
+        "execution": execution,
+        "route_plan_shadow": None,
+    }
+    control_plane_trace = build_control_plane_trace(
+        control_plane_state,
+        source_evidence=source_evidence,
+        context_sufficiency=context_sufficiency,
+        synthesis_mode=synthesis_mode,
+        answer_guard=answer_guard.model_dump(),
+    )
+    control_plane_trace["experience_center_provenance"] = deepcopy(EXPERIENCE_CENTER_PROVENANCE)
 
     return {
         "trace_id": trace_id,
@@ -144,6 +216,8 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "rag_available": scenario.rag_available,
         "fallback_active": not scenario.saia_available,
         "analyst_summary": analyst_response.get("one_sentence_finding") or scenario.analyst_summary,
+        "response_mode": response_mode,
+        "synthesis_mode": synthesis_mode,
         "trace_explanation": list(scenario.trace_explanation),
         "message": analyst_response.get("finding_title") or scenario.analyst_summary,
         "note": (
@@ -158,6 +232,12 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "disagreement": False,
         "disagreement_reason": None,
         "query_understanding": query_understanding.model_dump(),
+        "query_to_intent": query_to_intent,
+        "evidence_plan": evidence_plan,
+        "route_adjudication": route_adjudication,
+        "llm_plan_validation": llm_plan_validation,
+        "control_plane_trace": control_plane_trace,
+        "mitre_decision": mitre_decision,
         "selected_use_case": selected_use_case.model_dump() if selected_use_case else None,
         "selected_skill_chain": selected_skill_chain.model_dump(),
         "skill_selection": skill_selection.model_dump(),
@@ -256,6 +336,124 @@ def _tool_plan(scenario: DemoScenario) -> list[str]:
     return ["route_only", "build_source_evidence", "structure_context", "context_sufficiency_gate"]
 
 
+def _experience_center_evidence_plan(
+    scenario: DemoScenario,
+    evidence_plan: dict[str, Any],
+) -> dict[str, Any]:
+    plan = dict(evidence_plan)
+    if scenario.expected_skill == "knowledge_recall":
+        plan.update(
+            {
+                "answer_mode": "rag_only",
+                "rag_phase": "rag_only",
+                "needs_rag": scenario.rag_available,
+                "needs_spl": False,
+                "needs_mcp": False,
+                "needs_mitre": False,
+                "spl_allowed": False,
+                "mcp_allowed": False,
+            }
+        )
+    elif scenario.expected_skill == "spl_generation":
+        plan.update(
+            {
+                "answer_mode": "live_investigation",
+                "rag_phase": "post_mcp",
+                "needs_rag": scenario.rag_available,
+                "needs_spl": bool(scenario.candidate_spl),
+                "needs_mcp": False,
+                "needs_mitre": False,
+                "spl_allowed": bool(scenario.candidate_spl),
+                "mcp_allowed": False,
+            }
+        )
+    else:
+        plan.update(
+            {
+                "answer_mode": "hybrid" if scenario.rag_available else "live_investigation",
+                "rag_phase": "pre_mcp" if scenario.rag_available else "post_mcp",
+                "needs_rag": scenario.rag_available,
+                "needs_spl": bool(scenario.candidate_spl),
+                "needs_mcp": scenario.mcp_execution_mode != "not_required",
+                "needs_mitre": True,
+                "spl_allowed": bool(scenario.candidate_spl),
+                "mcp_allowed": scenario.mcp_execution_mode != "not_required",
+            }
+        )
+    plan["reasons"] = sorted(
+        set([str(item) for item in plan.get("reasons") or []] + ["experience_center_fixture_alignment"])
+    )
+    plan["experience_center_provenance"] = deepcopy(EXPERIENCE_CENTER_PROVENANCE)
+    return plan
+
+
+def _experience_center_advisory_plan(
+    *,
+    scenario: DemoScenario,
+    evidence_plan: dict[str, Any],
+    mitre_mappings: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    return {
+        "skill": scenario.expected_skill,
+        "needs_spl": bool(evidence_plan.get("needs_spl")),
+        "needs_mcp": bool(evidence_plan.get("needs_mcp")),
+        "needs_rag": bool(evidence_plan.get("needs_rag")),
+        "needs_mitre": bool(mitre_mappings) or bool(evidence_plan.get("needs_mitre")),
+        "mcp_execution_allowed": False,
+        "provider": "captured_huggingface_foundation_sec",
+        "source": "captured_output_governed_by_experience_center_fixture",
+        "mcp_output_basis": "assumed_happy_path_fixture_from_known_mcp_tools",
+    }
+
+
+def _experience_center_mitre_decision(
+    mitre_mappings: list[Any],
+    source_refs: list[str],
+) -> dict[str, Any]:
+    techniques = [item.model_dump() if hasattr(item, "model_dump") else dict(item) for item in mitre_mappings]
+    technique_ids = [
+        str(item.get("technique_id") or item.get("Technique") or "")
+        for item in techniques
+        if item.get("technique_id") or item.get("Technique")
+    ]
+    return {
+        "answer_visible": bool(techniques),
+        "mitre_status": "fixture_evidence_governed_candidate" if techniques else "not_applicable",
+        "techniques": techniques,
+        "registry_candidates": technique_ids,
+        "source_refs": source_refs,
+        "requires_alert_context": False,
+        "requires_more_context_for_supported_mapping": False,
+        "reason": (
+            "Experience Center MITRE output is based on captured Hugging Face/Foundation-sec "
+            "analysis plus deterministic fixture evidence, then governed by V.AI SOC policy."
+        ),
+        "provenance": deepcopy(EXPERIENCE_CENTER_PROVENANCE),
+        "registry_metadata": {
+            "source": "experience_center_fixture",
+            "candidate_count": len(techniques),
+            "candidate_technique_ids": technique_ids,
+        },
+    }
+
+
+def _experience_center_response_mode(
+    scenario: DemoScenario,
+    context_sufficiency: dict[str, Any] | None,
+    human_review: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+) -> str:
+    review = human_review if isinstance(human_review, dict) else {}
+    if review.get("required") is True:
+        return "experience_center_human_review_required"
+    if scenario.expected_skill == "knowledge_recall":
+        return "experience_center_governed_knowledge"
+    sufficiency = context_sufficiency if isinstance(context_sufficiency, dict) else {}
+    if sufficiency.get("synthesis_readiness") is False and spl_validation and spl_validation.get("approved") is False:
+        return "experience_center_candidate_spl_rejected"
+    return "experience_center_fixture_answer"
+
+
 def _spl_payloads(scenario: DemoScenario, trace_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     if not scenario.candidate_spl:
         return None, None
@@ -350,6 +548,31 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
             "block_reason": None,
             "duration_ms": envelope.duration_ms or 7,
         }
+    if spl_validation is None and scenario.mcp_execution_mode != "not_required":
+        splunk_items = [
+            item
+            for item in (scenario.source_evidence or [])
+            if isinstance(item, dict) and item.get("source_type") == "splunk_mcp"
+        ]
+        if splunk_items:
+            result_count = sum(int(item.get("row_count") or 0) for item in splunk_items)
+            tool_name = str(splunk_items[0].get("tool_name") or "search")
+            return {
+                "status": "fixture_evidence_packaged",
+                "execution_intent": "known_mcp_happy_path_fixture",
+                "selected_mcp_server": "splunk",
+                "selected_mcp_tool": tool_name,
+                "tool_selection_status": "fixture_evidence_packaged",
+                "tool_selection_reason": (
+                    "Experience Center packaged assumed happy-path MCP fixture output "
+                    "from known Splunk MCP tool behavior; no live MCP call was made."
+                ),
+                "executed_spl": None,
+                "result_count": result_count,
+                "results_preview": [],
+                "block_reason": "live_mcp_not_called",
+                "duration_ms": 0,
+            }
     return {
         "status": "requires_human_review",
         "execution_intent": "validated_spl_review",

@@ -33,6 +33,8 @@ assert all(r.get('overall_pass') for r in rows), [r.get('case_id') for r in rows
 fi
 
 section "manifest promotion audit"
+IOC_REGISTRY_ENABLED=false \
+DETECTION_REGISTRY_ENABLED=false \
 python3 tools/coverage_authoring/check_manifest_promotion.py || fail "manifest promotion audit"
 
 section "105-question operation map audit"

@@ -24,6 +24,8 @@ export interface PlaceholderResponse {
   rag_available?: boolean | null;
   fallback_active?: boolean | null;
   analyst_summary?: string | null;
+  response_mode?: string | null;
+  synthesis_mode?: string | null;
   trace_explanation?: string[];
   user_query?: string | null;
   selected_skill?: string | null;
@@ -56,6 +58,12 @@ export interface PlaceholderResponse {
   analyst_response?: AnalystResponseEnvelope | null;
   foundation_sec_governance?: FoundationSecGovernance | null;
   spl_template?: Record<string, unknown> | null;
+  evidence_plan?: Record<string, unknown> | null;
+  route_adjudication?: Record<string, unknown> | null;
+  llm_plan_validation?: Record<string, unknown> | null;
+  query_to_intent?: Record<string, unknown> | null;
+  control_plane_trace?: Record<string, unknown> | null;
+  mitre_decision?: Record<string, unknown> | null;
   mitre_mappings?: MitreMappingDecision[] | null;
   severity_decision?: SeverityDecision | null;
   investigation_lineage?: InvestigationLineage | null;

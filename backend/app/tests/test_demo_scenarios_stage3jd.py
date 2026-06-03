@@ -448,7 +448,7 @@ def test_stage3jj3_trace_wording_mentions_captured_foundation_sec_without_enabli
     assert response.answer_guard is not None
     assert response.synthesis_status.enabled is False
     assert response.answer_guard.enabled is False
-    assert "captured Foundation-sec outputs governed by deterministic policy" in response.synthesis_status.reason
-    assert "Stage 3K live synthesis is not run" in response.synthesis_status.reason
-    assert "captured Foundation-sec" in response.answer_guard.reason
-    assert "Stage 3L Answer Guard execution is not run" in response.answer_guard.reason
+    assert "captured Hugging Face/Foundation-sec output governed by deterministic policy" in response.synthesis_status.reason
+    assert "no live final synthesis is run" in response.synthesis_status.reason
+    assert "captured Hugging Face/Foundation-sec output" in response.answer_guard.reason
+    assert "live Answer Guard execution is not run" in response.answer_guard.reason
