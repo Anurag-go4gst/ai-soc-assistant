@@ -504,7 +504,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         action_capability=action_capability,
     )
 
-    message = _chat_message(spl_validation, execution)
+    message = _chat_message(spl_validation, execution, analyst_summary_from_lab)
     note = _chat_note(spl_validation, execution)
     candidate_spl = state.get("candidate_spl")
     if _needs_mitre_clarification(request.message, candidate_spl):
@@ -582,6 +582,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         message=message,
         note=note,
         analyst_summary=analyst_summary_from_lab,
+        response_mode=_response_mode(context_sufficiency, human_review, spl_validation),
+        synthesis_mode=_synthesis_mode(synthesis_status, analyst_summary_from_lab),
         workflow_plan=state["workflow_plan"],
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
@@ -1034,12 +1036,60 @@ def _candidate_spl_stage(
     return candidate_payload, validation_payload
 
 
-def _chat_message(spl_validation: dict | None, execution: dict | None = None) -> str:
+def _chat_message(
+    spl_validation: dict | None,
+    execution: dict | None = None,
+    analyst_summary: str | None = None,
+) -> str:
     if spl_validation is None:
         return "Routing complete. SPL is not required at this stage."
     if execution and execution.get("status") == "executed":
+        if analyst_summary:
+            return "Mock MCP execution complete. Live Foundation-Sec synthesis is disabled; deterministic lab summary was generated from governed evidence."
         return "Mock MCP execution complete. Final synthesis is disabled."
     return "SPL validation complete. MCP execution is disabled."
+
+
+def _response_mode(
+    context_sufficiency: dict[str, Any] | None,
+    human_review: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+) -> str:
+    review = human_review if isinstance(human_review, dict) else {}
+    if review.get("required") is True:
+        review_type = str(review.get("review_type") or "")
+        if "clarification" in review_type:
+            return "clarification_required"
+        return "human_review_required"
+    sufficiency = context_sufficiency if isinstance(context_sufficiency, dict) else {}
+    if sufficiency.get("synthesis_readiness") is False and sufficiency.get("synthesis_allowed") is False:
+        if spl_validation and spl_validation.get("approved") is False:
+            return "candidate_spl_rejected"
+        if sufficiency.get("status") in {"insufficient_evidence", "rag_no_match"}:
+            return "insufficient_evidence"
+    if spl_validation is None:
+        return "deterministic_knowledge_or_routing"
+    return "deterministic_investigation"
+
+
+def _synthesis_mode(
+    synthesis_status: SynthesisStatus | dict[str, Any] | None,
+    analyst_summary: str | None,
+) -> str:
+    status = (
+        synthesis_status.model_dump()
+        if isinstance(synthesis_status, SynthesisStatus)
+        else synthesis_status
+        if isinstance(synthesis_status, dict)
+        else {}
+    )
+    if analyst_summary and status.get("status") == "completed":
+        return "deterministic_lab_summary"
+    if status.get("enabled") is False:
+        return "live_foundation_sec_disabled"
+    if status.get("status") == "blocked":
+        return "synthesis_blocked"
+    return "deterministic_no_final_llm"
 
 
 def _chat_note(spl_validation: dict | None, execution: dict | None = None) -> str:

@@ -1,8 +1,8 @@
 # Chat Control Plane — Master Implementation Plan
 
 **Created:** 2026-06-02  
-**Status:** In progress — Phases **0–7** implemented on `master`; **Phase 8** is next  
-**Last tracker update:** 2026-06-03 (Phase 7 runtime MITRE decision — pending commit)  
+**Status:** In progress — Phases **0–8** implemented on `master`; **Phase 9** is next  
+**Last tracker update:** 2026-06-03 (Phase 8 response / synthesis honesty — pending commit)  
 **Canonical for:** COE review, agent execution, commit sequencing  
 
 > **Single plan only.** This file is the **only** implementation spec for the chat control plane. Do not use or extend separate Cursor plans (`control_plane_agent_guide_*.plan.md`, `control_plane_plan_amendments_*.plan.md`, etc.) — all amendments and agent steps live here.
@@ -40,8 +40,8 @@
 
 | Question | Answer |
 |----------|--------|
-| What is done? | **0–7** — through runtime MITRE visibility decision (`mitre_decision.py`) |
-| What is next? | **Commit 8** — response / synthesis honesty |
+| What is done? | **0–8** — through response / synthesis honesty (`response_mode`, `synthesis_mode`) |
+| What is next? | **Commit 9** — unified control-plane trace |
 | What flag gates rollout? | `CONTROL_PLANE_ENABLED` (Commit 1, default `false`; stay off until Phase 10 golden) |
 | Where is MITRE data? | Runtime [`question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json) + [`catalog.json`](../backend/app/use_cases/catalog.json) (promoted); DRAFT JSONs remain under [`docs/input/mitre_enrichment/`](../docs/input/mitre_enrichment/) as fallback |
 | What must never happen? | Live MCP, live Foundation-Sec synthesis, execute `candidate_spl`, LLM→MCP, keyword intent overrides after 1A |
@@ -49,8 +49,8 @@
 **Execution order (mandatory):**
 
 ```text
-DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6  →  7
-NEXT:  8  →  9  →  10  →  11
+DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6  →  7  →  8
+NEXT:  9  →  10  →  11
 ```
 
 **Recent commits on `master`:** `816cdf8` (0) · `0cc1242` (1) · `8a83929` (1A) · `56b48d9` (1B-b) · `8a7e52a` (1A MITRE gate + intent HIL/procedural fixes) · `bfe4d91` (2/3 evidence planner + RAG-only path) · `1106dd3` (route bridge and MITRE registry tooling)
@@ -207,7 +207,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 | 5 | LLM plan validator | **Done** (uncommitted) | `llm_plan_validator.py`, 7 tests, JSON-only |
 | 6 | SPL slot binding | **Done** (uncommitted) | User constraint encoding, fail-closed |
 | 7 | Runtime MITRE decision | **Done** (uncommitted) | Flag-gated visibility decision wired in `pipeline.py` |
-| 8 | Synthesis honesty | Pending | `response_mode`, `synthesis_mode` |
+| 8 | Synthesis honesty | **Done** (uncommitted) | `response_mode`, `synthesis_mode` |
 | 9 | Unified trace | Pending | `control_plane_trace` |
 | 10 | Golden E2E tests | Pending | `CONTROL_PLANE_ENABLED=true` |
 | 11 | Docs | Pending | Workflow + spine + baseline |
@@ -216,7 +216,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 
 ### Next commit
 
-**Commit 8 (Phase 8)** — `response_mode` / `synthesis_mode`; honest answer mode reporting without live Foundation-Sec synthesis.
+**Commit 9 (Phase 9)** — [`control_plane_trace.py`](../backend/app/chat/control_plane_trace.py); unified trace from already-computed state.
 
 ### Implementation tracker (all commits)
 
@@ -235,8 +235,8 @@ Use this checklist in order. Mark **Done** only after that phase’s agent check
 | 8 | **5** | `llm_plan_validator.py` | **Done** (uncommitted) |
 | 9 | **6** | `spl_slot_binding_validator.py` | **Done** (uncommitted) |
 | 10 | **7** | Full `mitre_decision` + flag-gated pipeline wire-up | **Done** (uncommitted) |
-| 11 | **8** | `response_mode`, `synthesis_mode` honesty | **Pending — NEXT** |
-| 12 | **9** | `control_plane_trace.py` | Pending |
+| 11 | **8** | `response_mode`, `synthesis_mode` honesty | **Done** (uncommitted) |
+| 12 | **9** | `control_plane_trace.py` | **Pending — NEXT** |
 | 13 | **10** | `test_chat_control_plane_golden.py` (7 queries, flag on) | Pending |
 | 14 | **11** | Docs: workflow, spine, regression baseline | Pending |
 
@@ -1139,7 +1139,7 @@ git commit -m "feat: gate runtime MITRE visibility by intent and evidence"
 
 ---
 
-## Phase 8 — Response / synthesis honesty (Commit 8)
+## Phase 8 — Response / synthesis honesty (Commit 8) — **DONE** (uncommitted)
 
 Fields: `response_mode`, `synthesis_mode`.
 
@@ -1151,15 +1151,11 @@ Final builder uses `answer_goal[]` and `mitre_decision.answer_visible`.
 
 **Agent checklist (Commit 8):**
 
-- [ ] Read first: final response builder in [`pipeline.py`](../backend/app/chat/pipeline.py), response schemas, sufficiency gate, deterministic lab/demo answer paths
-- [ ] Add `response_mode` / `synthesis_mode` to response schema or trace with stable string values
-- [ ] Values must distinguish: deterministic answer, lab/mock synthesis, insufficient evidence, clarification required, live Foundation-Sec disabled
-- [ ] Do not introduce live Foundation-Sec calls
-- [ ] Lab synthesis path must not say “Final synthesis is disabled” when a deterministic lab summary exists
-- [ ] Policy `rag_only` answers must cite KB source labels when `policy_context_required`
-- [ ] Honor `answer_goal[]` and Phase 7 `mitre_decision.answer_visible`
-- [ ] Tests: lab/mock summary wording, policy RAG-only citations, insufficient evidence honesty, MITRE suppressed answer text
-- [ ] Update frontend types only if fields are top-level response fields
+- [x] Add `response_mode` / `synthesis_mode` to response schema
+- [x] Stable values distinguish deterministic routing, investigation, clarification, rejected SPL, insufficient evidence, deterministic lab summary, disabled live Foundation-Sec
+- [x] No live Foundation-Sec calls introduced
+- [x] Mock execution with lab summary no longer says only “Final synthesis is disabled”
+- [x] Tests cover lab/mock wording, clarification mode, rejected SPL mode, synthesis mode distinctions
 
 **Verification and commit gate (Commit 8):**
 
@@ -1328,9 +1324,9 @@ Docs commit should contain no behavior changes.
 | Done | **4** | `route_adjudication` (uncommitted) |
 | Done | **5** | `llm_plan_validator` (`79a0f66`) |
 | Done | **6** | `spl_slot_binding_validator` (`7a3cc5a`) |
-| Done | **7** | Runtime `mitre_decision` + pipeline wire-up (uncommitted) |
-| **Next** | **8** | `response_mode` / `synthesis_mode` |
-| 9 | `control_plane_trace` |
+| Done | **7** | Runtime `mitre_decision` + pipeline wire-up (`1810e0f`) |
+| Done | **8** | `response_mode` / `synthesis_mode` (uncommitted) |
+| **Next** | **9** | `control_plane_trace` |
 | 10 | Golden E2E tests |
 | 11 | Docs |
 

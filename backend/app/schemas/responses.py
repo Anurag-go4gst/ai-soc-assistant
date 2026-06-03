@@ -321,6 +321,8 @@ class PlaceholderResponse(BaseModel):
     rag_available: bool | None = None
     fallback_active: bool | None = None
     analyst_summary: str | None = None
+    response_mode: str | None = None
+    synthesis_mode: str | None = None
     trace_explanation: list[str] = []
     user_query: str | None = None
     selected_skill: str | None = None
