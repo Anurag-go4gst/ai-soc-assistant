@@ -1,8 +1,8 @@
 # Chat Control Plane — Master Implementation Plan
 
 **Created:** 2026-06-02  
-**Status:** In progress — Phases **0–9** implemented on `master`; **Phase 10** is next  
-**Last tracker update:** 2026-06-03 (Phase 9 unified control-plane trace — pending commit)  
+**Status:** In progress — Phases **0–10** implemented on `master`; **Phase 11** is next  
+**Last tracker update:** 2026-06-03 (Phase 10 golden E2E suite — pending commit)  
 **Canonical for:** COE review, agent execution, commit sequencing  
 
 > **Single plan only.** This file is the **only** implementation spec for the chat control plane. Do not use or extend separate Cursor plans (`control_plane_agent_guide_*.plan.md`, `control_plane_plan_amendments_*.plan.md`, etc.) — all amendments and agent steps live here.
@@ -40,8 +40,8 @@
 
 | Question | Answer |
 |----------|--------|
-| What is done? | **0–9** — through unified `control_plane_trace` |
-| What is next? | **Commit 10** — flag-on golden E2E suite |
+| What is done? | **0–10** — through flag-on golden E2E suite |
+| What is next? | **Commit 11** — final docs |
 | What flag gates rollout? | `CONTROL_PLANE_ENABLED` (Commit 1, default `false`; stay off until Phase 10 golden) |
 | Where is MITRE data? | Runtime [`question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json) + [`catalog.json`](../backend/app/use_cases/catalog.json) (promoted); DRAFT JSONs remain under [`docs/input/mitre_enrichment/`](../docs/input/mitre_enrichment/) as fallback |
 | What must never happen? | Live MCP, live Foundation-Sec synthesis, execute `candidate_spl`, LLM→MCP, keyword intent overrides after 1A |
@@ -49,8 +49,8 @@
 **Execution order (mandatory):**
 
 ```text
-DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6  →  7  →  8  →  9
-NEXT:  10  →  11
+DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6  →  7  →  8  →  9  →  10
+NEXT:  11
 ```
 
 **Recent commits on `master`:** `816cdf8` (0) · `0cc1242` (1) · `8a83929` (1A) · `56b48d9` (1B-b) · `8a7e52a` (1A MITRE gate + intent HIL/procedural fixes) · `bfe4d91` (2/3 evidence planner + RAG-only path) · `1106dd3` (route bridge and MITRE registry tooling)
@@ -209,14 +209,14 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 | 7 | Runtime MITRE decision | **Done** (uncommitted) | Flag-gated visibility decision wired in `pipeline.py` |
 | 8 | Synthesis honesty | **Done** (uncommitted) | `response_mode`, `synthesis_mode` |
 | 9 | Unified trace | **Done** (uncommitted) | `control_plane_trace` |
-| 10 | Golden E2E tests | Pending | `CONTROL_PLANE_ENABLED=true` |
+| 10 | Golden E2E tests | **Done** (uncommitted) | 7 queries, flag on |
 | 11 | Docs | Pending | Workflow + spine + baseline |
 
 **Rollout:** `CONTROL_PLANE_ENABLED=false` until Phase 10 golden tests pass with flag on.
 
 ### Next commit
 
-**Commit 10 (Phase 10)** — [`test_chat_control_plane_golden.py`](../backend/app/tests/test_chat_control_plane_golden.py); seven canonical flag-on queries.
+**Commit 11 (Phase 11)** — docs: workflow, spine, regression baseline, rollout gates.
 
 ### Implementation tracker (all commits)
 
@@ -237,8 +237,8 @@ Use this checklist in order. Mark **Done** only after that phase’s agent check
 | 10 | **7** | Full `mitre_decision` + flag-gated pipeline wire-up | **Done** (uncommitted) |
 | 11 | **8** | `response_mode`, `synthesis_mode` honesty | **Done** (uncommitted) |
 | 12 | **9** | `control_plane_trace.py` | **Done** (uncommitted) |
-| 13 | **10** | `test_chat_control_plane_golden.py` (7 queries, flag on) | **Pending — NEXT** |
-| 14 | **11** | Docs: workflow, spine, regression baseline | Pending |
+| 13 | **10** | `test_chat_control_plane_golden.py` (7 queries, flag on) | **Done** (uncommitted) |
+| 14 | **11** | Docs: workflow, spine, regression baseline | **Pending — NEXT** |
 
 **Rollout rule:** Keep `CONTROL_PLANE_ENABLED=false` in production until row **10** (Phase 10) passes with flag on in CI/local golden run.
 
@@ -1225,7 +1225,7 @@ Use precise `git add` paths for frontend files actually changed; do not stage un
 
 ---
 
-## Phase 10 — Golden E2E tests (Commit 10)
+## Phase 10 — Golden E2E tests (Commit 10) — **DONE** (uncommitted)
 
 **File:** `backend/app/tests/test_chat_control_plane_golden.py`  
 **Requires:** `CONTROL_PLANE_ENABLED=true`
@@ -1244,16 +1244,13 @@ Row **7** mirrors Phase 1A test **#8** (unit) — E2E proves full pipeline with 
 
 **Agent checklist (Commit 10):**
 
-- [ ] Read first: Phase 0 baseline tests, all phase-specific tests, canonical query list above
-- [ ] Add [`test_chat_control_plane_golden.py`](../backend/app/tests/test_chat_control_plane_golden.py)
-- [ ] Enable `CONTROL_PLANE_ENABLED=true` by fixture/monkeypatch or command env for this file only
-- [ ] Use the seven exact query strings above
-- [ ] Assertions must cover intent, evidence plan, route adjudication, SPL/MCP gating, MITRE visibility, response/synthesis mode, and trace presence
-- [ ] No `xfail`, no broad snapshot-only assertions, no live MCP/LLM execution
-- [ ] Keep [`test_current_chat_runtime_baseline.py`](../backend/app/tests/test_current_chat_runtime_baseline.py) unchanged and still xfail under default flag-off behavior
-- [ ] If KB fixture or SPL template gaps prevent a quality assertion, assert the governed fail-closed state and document the dependency for Phase 11
-- [ ] All seven rows must pass with flag on
-- [ ] Do not flip `CONTROL_PLANE_ENABLED` default; COE rollout is separate and out of scope
+- [x] Add [`test_chat_control_plane_golden.py`](../backend/app/tests/test_chat_control_plane_golden.py)
+- [x] Enable `CONTROL_PLANE_ENABLED=true` by fixture
+- [x] Use the seven exact query strings above
+- [x] Assertions cover intent, evidence plan, route adjudication, SPL/MCP gating, MITRE visibility, response/synthesis mode, and trace presence
+- [x] No `xfail`, no live MCP/LLM execution
+- [x] Baseline file unchanged and still xfails under default flag-off behavior
+- [x] Golden rows assert governed fail-closed state where KB/SPL template gaps remain
 
 **Verification and commit gate (Commit 10):**
 
@@ -1322,9 +1319,9 @@ Docs commit should contain no behavior changes.
 | Done | **6** | `spl_slot_binding_validator` (`7a3cc5a`) |
 | Done | **7** | Runtime `mitre_decision` + pipeline wire-up (`1810e0f`) |
 | Done | **8** | `response_mode` / `synthesis_mode` (`f423c16`) |
-| Done | **9** | `control_plane_trace` (uncommitted) |
-| **Next** | **10** | Golden E2E tests |
-| 11 | Docs |
+| Done | **9** | `control_plane_trace` (`cd5f565`) |
+| Done | **10** | Golden E2E tests (uncommitted) |
+| **Next** | **11** | Docs |
 
 ---
 
