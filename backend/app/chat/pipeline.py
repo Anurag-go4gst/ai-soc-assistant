@@ -42,6 +42,7 @@ from app.synthesis.analyst_summary_llm_assist import apply_analyst_summary_shado
 from app.governance.trace_panels import build_governance_trace
 from app.risk.severity_policy import decide_severity
 from app.safeguards.spl_validator import validate_spl
+from app.safeguards.spl_slot_binding_validator import validate_spl_slot_bindings
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
 from app.skills.selector import select_skill_chain
@@ -302,6 +303,13 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         skill=effective_skill,
         user_query=request.message,
         spl_allowed=_spl_allowed(state),
+        query_signals=_query_signals_from_state(state),
+        template_id=(
+            state["selected_use_case"].default_spl_template
+            if state.get("selected_use_case") is not None
+            else None
+        ),
+        slot_binding_enabled=settings.control_plane_enabled,
     )
     return {
         **state,
@@ -929,6 +937,14 @@ def _effective_routing_skill(state: ChatPipelineState) -> str:
     return str(routed.get("skill") or "knowledge_recall")
 
 
+def _query_signals_from_state(state: ChatPipelineState) -> dict[str, Any] | None:
+    q2i = state.get("query_to_intent")
+    if not isinstance(q2i, dict):
+        return None
+    signals = q2i.get("query_signals")
+    return signals if isinstance(signals, dict) else None
+
+
 def _route_plan_shadow_candidate(query: str) -> dict | None:
     return None
 
@@ -939,6 +955,9 @@ def _candidate_spl_stage(
     user_query: str,
     *,
     spl_allowed: bool = True,
+    query_signals: dict[str, Any] | None = None,
+    template_id: str | None = None,
+    slot_binding_enabled: bool = False,
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
@@ -985,13 +1004,20 @@ def _candidate_spl_stage(
         "optimization_revalidation_approved": optimization["revalidation_approved"],
         "capability_profile": profile.model_dump(),
     }
+    if slot_binding_enabled:
+        validation_payload = validate_spl_slot_bindings(
+            validation_payload,
+            user_query=user_query,
+            query_signals=query_signals,
+            template_id=template_id,
+        )
     telemetry.record_spl_validation(
         trace_id,
         stage="spl_validation_result",
-        approved=validation["approved"],
-        reject_reasons=validation["reject_reasons"],
-        warnings=validation["warnings"],
-        policy_version=validation["policy_version"],
+        approved=validation_payload["approved"],
+        reject_reasons=validation_payload["reject_reasons"],
+        warnings=validation_payload["warnings"],
+        policy_version=validation_payload["policy_version"],
     )
     return candidate_payload, validation_payload
 

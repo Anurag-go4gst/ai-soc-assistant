@@ -87,6 +87,7 @@ def extract_query_signals(
     )
     time_window_24h = any(term in normalized for term in ("last 24 hours", "last 24h", "past 24 hours", "24 hours", "24h"))
     exclude_service_accounts = "exclude service account" in normalized or "excluding service account" in normalized
+    top_n_match = re.search(r"\b(?:top|first|limit|head)\s+(\d+)\b", normalized)
 
     mitre_requires_alert_context = bool(
         qu
@@ -111,6 +112,7 @@ def extract_query_signals(
         "procedural_investigation": procedural_investigation,
         "time_window_24h": time_window_24h,
         "exclude_service_accounts": exclude_service_accounts,
+        "top_n": int(top_n_match.group(1)) if top_n_match else None,
         "mitre_requires_alert_context": mitre_requires_alert_context,
         "projected_needs_rag": policy_terms
         or escalation_without_policy_word

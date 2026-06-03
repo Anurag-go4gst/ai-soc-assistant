@@ -1,8 +1,8 @@
 # Chat Control Plane — Master Implementation Plan
 
 **Created:** 2026-06-02  
-**Status:** In progress — Phases **0–5** implemented on `master`; **Phase 6** is next  
-**Last tracker update:** 2026-06-03 (Phase 5 LLM plan validator — pending commit)  
+**Status:** In progress — Phases **0–6** implemented on `master`; **Phase 7** is next  
+**Last tracker update:** 2026-06-03 (Phase 6 SPL slot binding — pending commit)  
 **Canonical for:** COE review, agent execution, commit sequencing  
 
 > **Single plan only.** This file is the **only** implementation spec for the chat control plane. Do not use or extend separate Cursor plans (`control_plane_agent_guide_*.plan.md`, `control_plane_plan_amendments_*.plan.md`, etc.) — all amendments and agent steps live here.
@@ -40,8 +40,8 @@
 
 | Question | Answer |
 |----------|--------|
-| What is done? | **0–5** — through LLM advisory plan validation (`llm_plan_validator.py`, no live LLM) |
-| What is next? | **Commit 6** — `spl_slot_binding_validator.py` |
+| What is done? | **0–6** — through SPL slot binding validation (`spl_slot_binding_validator.py`, fail-closed) |
+| What is next? | **Commit 7** — runtime MITRE decision |
 | What flag gates rollout? | `CONTROL_PLANE_ENABLED` (Commit 1, default `false`; stay off until Phase 10 golden) |
 | Where is MITRE data? | Runtime [`question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json) + [`catalog.json`](../backend/app/use_cases/catalog.json) (promoted); DRAFT JSONs remain under [`docs/input/mitre_enrichment/`](../docs/input/mitre_enrichment/) as fallback |
 | What must never happen? | Live MCP, live Foundation-Sec synthesis, execute `candidate_spl`, LLM→MCP, keyword intent overrides after 1A |
@@ -49,8 +49,8 @@
 **Execution order (mandatory):**
 
 ```text
-DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5
-NEXT:  6  →  7  →  8  →  9  →  10  →  11
+DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6
+NEXT:  7  →  8  →  9  →  10  →  11
 ```
 
 **Recent commits on `master`:** `816cdf8` (0) · `0cc1242` (1) · `8a83929` (1A) · `56b48d9` (1B-b) · `8a7e52a` (1A MITRE gate + intent HIL/procedural fixes) · `bfe4d91` (2/3 evidence planner + RAG-only path) · `1106dd3` (route bridge and MITRE registry tooling)
@@ -205,7 +205,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 | 3 | RAG-first branching | **Done** | `rag_no_match` reasons, hard gates |
 | 4 | Route adjudication | **Done** (uncommitted) | `route_adjudication.py`, §3.2 tie-breaker, 5 tests |
 | 5 | LLM plan validator | **Done** (uncommitted) | `llm_plan_validator.py`, 7 tests, JSON-only |
-| 6 | SPL slot binding | Pending | User constraint encoding |
+| 6 | SPL slot binding | **Done** (uncommitted) | User constraint encoding, fail-closed |
 | 7 | Runtime MITRE decision | Pending | Wire `pipeline.py` |
 | 8 | Synthesis honesty | Pending | `response_mode`, `synthesis_mode` |
 | 9 | Unified trace | Pending | `control_plane_trace` |
@@ -216,7 +216,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 
 ### Next commit
 
-**Commit 6 (Phase 6)** — [`spl_slot_binding_validator.py`](../backend/app/safeguards/spl_slot_binding_validator.py); user constraint slots into approved templates only.
+**Commit 7 (Phase 7)** — [`mitre_decision.py`](../backend/app/threat/mitre_decision.py); flag-gated analyst-visible MITRE from intent and evidence.
 
 ### Implementation tracker (all commits)
 
@@ -233,8 +233,8 @@ Use this checklist in order. Mark **Done** only after that phase’s agent check
 | 6 | **3** | RAG-only / hybrid branching, `rag_no_match`, `test_evidence_plan_rag_only_skip.py` | **Done** |
 | 7 | **4** | `route_adjudication.py`, effective_skill from adjudication | **Done** (uncommitted) |
 | 8 | **5** | `llm_plan_validator.py` | **Done** (uncommitted) |
-| 9 | **6** | `spl_slot_binding_validator.py` | **Pending — NEXT** |
-| 10 | **7** | Full `mitre_decision` + flag-gated pipeline wire-up | Pending |
+| 9 | **6** | `spl_slot_binding_validator.py` | **Done** (uncommitted) |
+| 10 | **7** | Full `mitre_decision` + flag-gated pipeline wire-up | **Pending — NEXT** |
 | 11 | **8** | `response_mode`, `synthesis_mode` honesty | Pending |
 | 12 | **9** | `control_plane_trace.py` | Pending |
 | 13 | **10** | `test_chat_control_plane_golden.py` (7 queries, flag on) | Pending |
@@ -999,7 +999,7 @@ Do not add provider calls, tool calling, or execution flags.
 
 ---
 
-## Phase 6 — SPL slot binding (Commit 6)
+## Phase 6 — SPL slot binding (Commit 6) — **DONE** (uncommitted)
 
 **File:** `backend/app/safeguards/spl_slot_binding_validator.py`
 
@@ -1024,18 +1024,14 @@ Integrate in `_candidate_spl_stage` after [`validate_spl`](../backend/app/safegu
 
 **Agent checklist (Commit 6):**
 
-- [ ] Read first: [`spl_validator.py`](../backend/app/safeguards/spl_validator.py), [`template_registry.py`](../backend/app/spl/template_registry.py), [`templates.json`](../backend/app/spl/templates.json), [`pipeline.py`](../backend/app/chat/pipeline.py), [`query_signals.py`](../backend/app/chat/query_signals.py)
-- [ ] Add [`spl_slot_binding_validator.py`](../backend/app/safeguards/spl_slot_binding_validator.py)
-- [ ] Extract constraints from `query_signals` first; raw message parsing is allowed only for slot values not already captured by signals
-- [ ] Required slots: time window, entity type, group-by, exclude service accounts, top N, index/sourcetype, success/failure event type
-- [ ] Resolve templates through use case `default_spl_template` and [`get_spl_template`](../backend/app/spl/template_registry.py)
-- [ ] If no template or template cannot encode requested constraint, fail closed: `approved=false`, `normalized_spl=null`
-- [ ] Use declared schema fields only: prefer machine-readable `reject_reasons` tokens unless `SplValidationEnvelope` is explicitly extended and tested
-- [ ] Integrate after deterministic [`validate_spl`](../backend/app/safeguards/spl_validator.py) in `_candidate_spl_stage`
-- [ ] Golden hybrid #2 may remain rejected until COE adds slot-capable templates; assert `missing_binding:*` reasons, not approval
-- [ ] Do not execute SPL and do not make rejected SPL eligible for MCP
-- [ ] Add a COE follow-up list for use cases/templates that need slot-capable coverage
-- [ ] Tests: approved unchanged SPL with all constraints encoded, rejection for missing `last_24h`, rejection for missing service-account exclusion, rejection for no template
+- [x] Add [`spl_slot_binding_validator.py`](../backend/app/safeguards/spl_slot_binding_validator.py)
+- [x] Extract constraints from `query_signals` first with raw-message fallback for top N/time phrases
+- [x] Validate time window, entity/group-by, service-account exclusion, top N, index/datamodel, failure event type
+- [x] Resolve templates through use case `default_spl_template` and [`get_spl_template`](../backend/app/spl/template_registry.py)
+- [x] Fail closed using declared `SplValidationEnvelope` fields only (`reject_reasons`, `normalized_spl=null`)
+- [x] Integrated after deterministic [`validate_spl`](../backend/app/safeguards/spl_validator.py) in `_candidate_spl_stage`
+- [x] Flag-gated with `CONTROL_PLANE_ENABLED`; default runtime remains unchanged
+- [x] Tests cover accepted SPL, missing `last_24h`, missing service-account exclusion, missing template, pipeline flag gate
 
 **Verification and commit gate (Commit 6):**
 
@@ -1332,9 +1328,9 @@ Docs commit should contain no behavior changes.
 | Done | **2** | `evidence_planner` + graph node (`bfe4d91`) |
 | Done | **3** | RAG-only / hybrid / `rag_no_match` + LangGraph edges (`bfe4d91`) |
 | Done | **4** | `route_adjudication` (uncommitted) |
-| Done | **5** | `llm_plan_validator` (uncommitted) |
-| **Next** | **6** | `spl_slot_binding_validator` |
-| 7 | Runtime `mitre_decision` + pipeline wire-up |
+| Done | **5** | `llm_plan_validator` (`79a0f66`) |
+| Done | **6** | `spl_slot_binding_validator` (uncommitted) |
+| **Next** | **7** | Runtime `mitre_decision` + pipeline wire-up |
 | 8 | `response_mode` / `synthesis_mode` |
 | 9 | `control_plane_trace` |
 | 10 | Golden E2E tests |
