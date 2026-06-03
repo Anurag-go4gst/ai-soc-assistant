@@ -1,8 +1,8 @@
 # Chat Control Plane — Master Implementation Plan
 
 **Created:** 2026-06-02  
-**Status:** In progress — Phases **0, 1, 1A, 1B-a, 1B-b** merged on `master`; **Phase 2** is next  
-**Last tracker update:** 2026-06-02 (post `8a7e52a` 1A alignment fix)  
+**Status:** In progress — Phases **0, 1, 1A, 1B-a, 1B-b, 2, 3** merged on `master`; **Phase 4** is next  
+**Last tracker update:** 2026-06-03 (post `1106dd3` route bridge and MITRE registry tooling)  
 **Canonical for:** COE review, agent execution, commit sequencing  
 
 > **Single plan only.** This file is the **only** implementation spec for the chat control plane. Do not use or extend separate Cursor plans (`control_plane_agent_guide_*.plan.md`, `control_plane_plan_amendments_*.plan.md`, etc.) — all amendments and agent steps live here.
@@ -40,7 +40,7 @@
 
 | Question | Answer |
 |----------|--------|
-| What is done? | **0, 1, 1A** (+ `8a7e52a` fix), **1B-a, 1B-b** — baseline xfail, contracts, query-to-intent (15 tests), MITRE loader/audit/promote, pipeline MITRE gated on flag |
+| What is done? | **0, 1, 1A** (+ `8a7e52a` fix), **1B-a, 1B-b, 2, 3** — baseline xfail, contracts, query-to-intent, MITRE loader/audit/promote, evidence planning, RAG-only/hybrid control path |
 | What is next? | **Commit 4** — route adjudication; Phases 2–3 are implemented and gated |
 | What flag gates rollout? | `CONTROL_PLANE_ENABLED` (Commit 1, default `false`; stay off until Phase 10 golden) |
 | Where is MITRE data? | Runtime [`question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json) + [`catalog.json`](../backend/app/use_cases/catalog.json) (promoted); DRAFT JSONs remain under [`docs/input/mitre_enrichment/`](../docs/input/mitre_enrichment/) as fallback |
@@ -49,11 +49,11 @@
 **Execution order (mandatory):**
 
 ```text
-DONE:  0  →  1  →  1A  →  1A-fix (8a7e52a)  →  1B-a  →  1B-b (56b48d9)
-NEXT:  2  →  3  →  4  →  5  →  6  →  7  →  8  →  9  →  10  →  11
+DONE:  0  →  1  →  1A  →  1A-fix (8a7e52a)  →  1B-a  →  1B-b  →  2  →  3
+NEXT:  4  →  5  →  6  →  7  →  8  →  9  →  10  →  11
 ```
 
-**Recent commits on `master`:** `816cdf8` (0) · `0cc1242` (1) · `8a83929` (1A) · `56b48d9` (1B-b) · `8a7e52a` (1A MITRE gate + intent HIL/procedural fixes)
+**Recent commits on `master`:** `816cdf8` (0) · `0cc1242` (1) · `8a83929` (1A) · `56b48d9` (1B-b) · `8a7e52a` (1A MITRE gate + intent HIL/procedural fixes) · `bfe4d91` (2/3 evidence planner + RAG-only path) · `1106dd3` (route bridge and MITRE registry tooling)
 
 ---
 
@@ -216,7 +216,7 @@ Add to [`config.py`](../backend/app/config.py) when starting Commit 1: `control_
 
 ### Next commit
 
-**Commit 2 (Phase 2)** — [`evidence_planner.py`](../backend/app/chat/evidence_planner.py) + `graph_node_evidence_planning`; `plan_evidence()` reads **only** `IntentClassification`; attach `evidence_plan` when `CONTROL_PLANE_ENABLED=true` (trace-only stub OK when false).
+**Commit 4 (Phase 4)** — [`route_adjudication.py`](../backend/app/routing/route_adjudication.py); combine deterministic route, registry candidates, shadow route plan, `IntentClassification`, and `EvidencePlan` into one authoritative `RouteAdjudication`. Wire `routing_skill_resolution.effective_skill` from adjudication only when `CONTROL_PLANE_ENABLED=true`; default flag-off behavior must remain unchanged.
 
 ### Implementation tracker (all commits)
 
@@ -932,10 +932,35 @@ Rename conceptually: `shadow_enrichment` → `route_enrichment_and_adjudication`
 
 **Agent checklist (Commit 4):**
 
-- [ ] `state["route_adjudication"]` on response when flag on
-- [ ] `routing_skill_resolution.effective_skill` reflects adjudicated route
-- [ ] Tests: policy overrides failed-login template; hybrid preserves live + guidance goals
-- [ ] Respect `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED` allowlist if present in env
+- [ ] Read first: [`intent_classifier.py`](../backend/app/chat/intent_classifier.py), [`evidence_planner.py`](../backend/app/chat/evidence_planner.py), [`pipeline.py`](../backend/app/chat/pipeline.py), [`chat_workflow.py`](../backend/app/graph/chat_workflow.py), [`route_authority_allowlist.py`](../backend/app/routing/route_authority_allowlist.py), [`route_plan_validator.py`](../backend/app/routing/route_plan_validator.py)
+- [ ] Create [`route_adjudication.py`](../backend/app/routing/route_adjudication.py) with a pure `adjudicate_route(...) -> RouteAdjudication`
+- [ ] Inputs only: deterministic route, LLM advisory/shadow route plan, registry candidates, `EvidencePlan`, `IntentClassification`, query understanding, raw message for trace text only
+- [ ] Do **not** add keyword intent detection in adjudication; all intent authority comes from `IntentClassification`
+- [ ] Implement tie-breaker table from [§3.2](#32-route-adjudication-tie-breaker-resolves-intent-vs-exact-105-conflict): intent/evidence plan can suppress SPL/MCP even when a 105 row matches
+- [ ] Respect `ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED` and [`manifest_allowlistable_coverage_ids`](../backend/app/routing/route_authority_allowlist.py)
+- [ ] Set `state["route_adjudication"]` when `CONTROL_PLANE_ENABLED=true`
+- [ ] Wire `routing_skill_resolution.effective_skill` to adjudicated `final_skill` when `CONTROL_PLANE_ENABLED=true`
+- [ ] Flag off: preserve existing skill/use-case behavior and existing regression outputs
+- [ ] Tests: policy failed-login escalation resolves `rag_only`/knowledge route and no SPL/MCP
+- [ ] Tests: hybrid failed-login action query preserves live-data + analyst-guidance goals
+- [ ] Tests: exact 105 operation match is accepted only when allowlisted and not contradicted by intent/evidence plan
+- [ ] Tests: non-allowlisted/detection-dependent 105 row cannot become authoritative route
+- [ ] Extend LangGraph parity tests only if graph state/output changes
+
+**Verification and commit gate (Commit 4):**
+
+```bash
+cd backend
+PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_route_adjudication.py app/tests/test_route_authority_allowlist_manifest.py app/tests/test_route_authority_gate_stage3l_s3_3a.py -q
+PYTHONPATH=../backend:.. python3 -m pytest -q
+cd ..
+./scripts/run_stage3_governance_regression.sh
+git status --short
+git add backend/app/routing/route_adjudication.py backend/app/routing/route_authority_allowlist.py backend/app/chat/pipeline.py backend/app/graph/chat_workflow.py backend/app/tests/test_route_adjudication.py backend/app/tests/test_route_authority_allowlist_manifest.py backend/app/tests/test_route_authority_gate_stage3l_s3_3a.py plans/2026-06-02_chat-control-plane-master.md
+git commit -m "feat: add control-plane route adjudication"
+```
+
+Do not stage `.claude/`, `.env`, or unrelated dirty files.
 
 ---
 
@@ -955,10 +980,33 @@ Reuse patterns from [`route_plan_validator.py`](../backend/app/routing/route_pla
 
 **Agent checklist (Commit 5):**
 
-- [ ] Validator returns accept/reject/corrected JSON only; never sets `mcp_execution_allowed=true` alone
-- [ ] Reject plans that set `needs_mcp=true` when `evidence_plan.mcp_allowed=false`
-- [ ] Wire from shadow / assisted routing path only when `ROUTING_MODE` allows LLM assist
-- [ ] Unit tests: at least reject examples in table above
+- [ ] Read first: [`route_plan_validator.py`](../backend/app/routing/route_plan_validator.py), [`route_adjudication.py`](../backend/app/routing/route_adjudication.py), [`settings.py` / config routing mode fields](../backend/app/config.py), LLM-assisted routing tests
+- [ ] Add [`llm_plan_validator.py`](../backend/app/routing/llm_plan_validator.py)
+- [ ] Validator input is advisory plan JSON + deterministic context (`EvidencePlan`, `RouteAdjudication`, `IntentClassification`, registry candidates)
+- [ ] Return normalized validation result: accepted/rejected/corrected plan, reasons, warnings, policy version
+- [ ] Never set `mcp_execution_allowed=true` or any execution permission by itself
+- [ ] Reject `needs_mcp=true` when `evidence_plan.mcp_allowed=false`
+- [ ] Reject `needs_spl=true` for `rag_only` / policy-only / SOP-only evidence plans
+- [ ] Reject unknown skills and normalize known skills only through deterministic registries
+- [ ] Reject MITRE visibility claims that conflict with clarification policy or future Phase 7 `answer_visible=false`
+- [ ] Wire only into shadow/assisted routing path when `ROUTING_MODE` allows LLM assist; deterministic-only mode must not invoke it
+- [ ] Tests: three reject examples above, one accepted corrected advisory plan, deterministic-only no-op
+- [ ] Confirm no live LLM call is introduced; this is JSON validation only
+
+**Verification and commit gate (Commit 5):**
+
+```bash
+cd backend
+PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_llm_plan_validator.py app/tests/test_route_adjudication.py -q
+PYTHONPATH=../backend:.. python3 -m pytest -q
+cd ..
+./scripts/run_stage3_governance_regression.sh
+git status --short
+git add backend/app/routing/llm_plan_validator.py backend/app/routing/route_adjudication.py backend/app/tests/test_llm_plan_validator.py plans/2026-06-02_chat-control-plane-master.md
+git commit -m "feat: validate advisory LLM route plans"
+```
+
+Do not add provider calls, tool calling, or execution flags.
 
 ---
 
@@ -987,12 +1035,33 @@ Integrate in `_candidate_spl_stage` after [`validate_spl`](../backend/app/safegu
 
 **Agent checklist (Commit 6):**
 
-- [ ] Parse constraints from `query_signals` / user message (24h, exclude service accounts, top N)
-- [ ] On missing binding: `approved=false`, `normalized_spl=null`, structured `reject_reasons`
-- [ ] Resolve template via use case `default_spl_template` / [`get_spl_template`](../backend/app/spl/template_registry.py) — if no template, reject with clear `reject_reasons` (do not codegen SPL)
-- [ ] Golden hybrid query (#2) may **remain rejected** until COE adds template slots (§1.1) — test asserts reject reason, not approved SPL
-- [ ] Do not execute SPL; validation only
-- [ ] File COE follow-up list in commit or Phase 11 doc: which `use_case_id`s need slot-capable templates
+- [ ] Read first: [`spl_validator.py`](../backend/app/safeguards/spl_validator.py), [`template_registry.py`](../backend/app/spl/template_registry.py), [`templates.json`](../backend/app/spl/templates.json), [`pipeline.py`](../backend/app/chat/pipeline.py), [`query_signals.py`](../backend/app/chat/query_signals.py)
+- [ ] Add [`spl_slot_binding_validator.py`](../backend/app/safeguards/spl_slot_binding_validator.py)
+- [ ] Extract constraints from `query_signals` first; raw message parsing is allowed only for slot values not already captured by signals
+- [ ] Required slots: time window, entity type, group-by, exclude service accounts, top N, index/sourcetype, success/failure event type
+- [ ] Resolve templates through use case `default_spl_template` and [`get_spl_template`](../backend/app/spl/template_registry.py)
+- [ ] If no template or template cannot encode requested constraint, fail closed: `approved=false`, `normalized_spl=null`
+- [ ] Use declared schema fields only: prefer machine-readable `reject_reasons` tokens unless `SplValidationEnvelope` is explicitly extended and tested
+- [ ] Integrate after deterministic [`validate_spl`](../backend/app/safeguards/spl_validator.py) in `_candidate_spl_stage`
+- [ ] Golden hybrid #2 may remain rejected until COE adds slot-capable templates; assert `missing_binding:*` reasons, not approval
+- [ ] Do not execute SPL and do not make rejected SPL eligible for MCP
+- [ ] Add a COE follow-up list for use cases/templates that need slot-capable coverage
+- [ ] Tests: approved unchanged SPL with all constraints encoded, rejection for missing `last_24h`, rejection for missing service-account exclusion, rejection for no template
+
+**Verification and commit gate (Commit 6):**
+
+```bash
+cd backend
+PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_spl_slot_binding_validator.py app/tests/test_spl_validator.py app/tests/test_evidence_plan_rag_only_skip.py -q
+PYTHONPATH=../backend:.. python3 -m pytest -q
+cd ..
+./scripts/run_stage3_governance_regression.sh
+git status --short
+git add backend/app/safeguards/spl_slot_binding_validator.py backend/app/safeguards/spl_validator.py backend/app/chat/pipeline.py backend/app/spl/templates.json backend/app/tests/test_spl_slot_binding_validator.py docs/gap_closure/* plans/2026-06-02_chat-control-plane-master.md
+git commit -m "feat: validate SPL slot bindings before execution gates"
+```
+
+If no docs are changed for COE follow-up, omit `docs/gap_closure/*` from `git add`.
 
 ---
 
@@ -1059,9 +1128,31 @@ Preserve existing clarification safety; allow cautious candidate + `not_claimed:
 
 **Agent checklist (Commit 7):**
 
-- [ ] Examples 1–3 below covered by tests
-- [ ] `mitre_mappings` empty or trace-only when `answer_visible=false`
-- [ ] Flag off: zero behavior change vs baseline xfail anchors
+- [ ] Read first: [`mitre_decision.py`](../backend/app/threat/mitre_decision.py), [`mitre_registry_enrichment.py`](../backend/app/threat/mitre_registry_enrichment.py), [`mitre_permitted.py`](../backend/app/threat/mitre_permitted.py), [`pipeline.py`](../backend/app/chat/pipeline.py), [`intent_classifier.py`](../backend/app/chat/intent_classifier.py)
+- [ ] Replace stub `resolve_mitre_decision()` with deterministic decision logic
+- [ ] Inputs must include intent answer goals, evidence plan, registry metadata, use case/question refs, and future evidence flags placeholder
+- [ ] Suppress analyst-visible MITRE when `answer_goal` lacks `mitre_mapping` / `mitre_explanation`
+- [ ] Emit trace-only registry candidates when `answer_visible=false`
+- [ ] Preserve cautious candidate status for live investigation where evidence is incomplete
+- [ ] Preserve clarification safety for explicit MITRE mapping without enough context
+- [ ] Wire `graph_node_context_finalize` to use `resolve_mitre_decision()` only when `CONTROL_PLANE_ENABLED=true`
+- [ ] Flag off: keep legacy [`map_mitre_for_use_case`](../backend/app/threat/mitre_kb.py), no 105 `mitre_permitted[]` merge
+- [ ] Tests: examples 1-3 above, blocked technique never visible, flag-off baseline unchanged
+- [ ] Update trace state with `mitre_decision` for Phase 9 to consume
+
+**Verification and commit gate (Commit 7):**
+
+```bash
+cd backend
+CONTROL_PLANE_ENABLED=true PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_mitre_decision_runtime.py -q
+PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_current_chat_runtime_baseline.py -v
+PYTHONPATH=../backend:.. python3 -m pytest -q
+cd ..
+./scripts/run_stage3_governance_regression.sh
+git status --short
+git add backend/app/threat/mitre_decision.py backend/app/chat/pipeline.py backend/app/tests/test_mitre_decision_runtime.py plans/2026-06-02_chat-control-plane-master.md
+git commit -m "feat: gate runtime MITRE visibility by intent and evidence"
+```
 
 ---
 
@@ -1077,9 +1168,32 @@ Final builder uses `answer_goal[]` and `mitre_decision.answer_visible`.
 
 **Agent checklist (Commit 8):**
 
-- [ ] Add `response_mode` / `synthesis_mode` to response or trace (not live Foundation-Sec)
-- [ ] Lab synthesis path must not emit misleading “synthesis disabled” when lab summary exists
-- [ ] Policy `rag_only` answers use KB citation labels when `policy_context_required`
+- [ ] Read first: final response builder in [`pipeline.py`](../backend/app/chat/pipeline.py), response schemas, sufficiency gate, deterministic lab/demo answer paths
+- [ ] Add `response_mode` / `synthesis_mode` to response schema or trace with stable string values
+- [ ] Values must distinguish: deterministic answer, lab/mock synthesis, insufficient evidence, clarification required, live Foundation-Sec disabled
+- [ ] Do not introduce live Foundation-Sec calls
+- [ ] Lab synthesis path must not say “Final synthesis is disabled” when a deterministic lab summary exists
+- [ ] Policy `rag_only` answers must cite KB source labels when `policy_context_required`
+- [ ] Honor `answer_goal[]` and Phase 7 `mitre_decision.answer_visible`
+- [ ] Tests: lab/mock summary wording, policy RAG-only citations, insufficient evidence honesty, MITRE suppressed answer text
+- [ ] Update frontend types only if fields are top-level response fields
+
+**Verification and commit gate (Commit 8):**
+
+```bash
+cd backend
+PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_response_synthesis_honesty.py app/tests/test_evidence_plan_rag_only_skip.py app/tests/test_mitre_decision_runtime.py -q
+PYTHONPATH=../backend:.. python3 -m pytest -q
+cd ..
+./scripts/run_stage3_governance_regression.sh
+# If frontend response types changed:
+cd frontend && npm run build && cd ..
+git status --short
+git add backend/app/chat/pipeline.py backend/app/schemas/responses.py backend/app/tests/test_response_synthesis_honesty.py frontend/src/types/api.ts plans/2026-06-02_chat-control-plane-master.md
+git commit -m "feat: report governed response and synthesis modes"
+```
+
+If frontend types are unchanged, omit `frontend/src/types/api.ts`.
 
 ---
 
@@ -1106,10 +1220,33 @@ Final builder uses `answer_goal[]` and `mitre_decision.answer_visible`.
 
 **Agent checklist (Commit 9):**
 
-- [ ] `build_control_plane_trace(state)` called before response return when flag on
-- [ ] Attach as `response.control_plane_trace` (or nested in governance trace per existing UI)
-- [ ] Frontend types in [`frontend/src/types/api.ts`](../frontend/src/types/api.ts) if exposed to UI
-- [ ] `npm run build` if TS types change
+- [ ] Read first: existing `governance_trace` creation, response schemas, frontend trace components/types
+- [ ] Add [`control_plane_trace.py`](../backend/app/chat/control_plane_trace.py)
+- [ ] Build trace only from already-computed state; do not call RAG, MCP, SPL validation, LLM, or MITRE resolver from trace builder
+- [ ] Include keys shown above; absent phase data should be explicit `null` or status objects, not omitted unpredictably
+- [ ] Redact secrets, tokens, DSNs, raw provider config, and private MCP auth fields
+- [ ] Attach as `response.control_plane_trace` or nested under existing governance trace when `CONTROL_PLANE_ENABLED=true`
+- [ ] Flag off: default response shape remains compatible and existing governance regression passes
+- [ ] Frontend: update [`api.ts`](../frontend/src/types/api.ts) and collapsed technical trace UI only if field is exposed
+- [ ] Tests: trace contains query intent, evidence plan, route adjudication, MITRE decision, RAG status, and no secret-shaped values
+- [ ] Run frontend build if TypeScript touched
+
+**Verification and commit gate (Commit 9):**
+
+```bash
+cd backend
+PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_control_plane_trace.py app/tests/test_chat_routing.py -q
+PYTHONPATH=../backend:.. python3 -m pytest -q
+cd ..
+./scripts/run_stage3_governance_regression.sh
+# Required if frontend files changed:
+cd frontend && npm run build && cd ..
+git status --short
+git add backend/app/chat/control_plane_trace.py backend/app/chat/pipeline.py backend/app/schemas/responses.py backend/app/tests/test_control_plane_trace.py frontend/src/types/api.ts frontend/src/** plans/2026-06-02_chat-control-plane-master.md
+git commit -m "feat: add unified control-plane trace"
+```
+
+Use precise `git add` paths for frontend files actually changed; do not stage unrelated UI edits.
 
 ---
 
@@ -1132,10 +1269,32 @@ Row **7** mirrors Phase 1A test **#8** (unit) — E2E proves full pipeline with 
 
 **Agent checklist (Commit 10):**
 
-- [ ] `pytest` with env `CONTROL_PLANE_ENABLED=true` for golden file only (or per-test monkeypatch)
-- [ ] All 7 rows pass **without** xfail
-- [ ] Baseline file (`test_current_chat_runtime_baseline.py`) **unchanged** — still xfail under default env
-- [ ] Then COE may flip default flag (out of scope unless requested)
+- [ ] Read first: Phase 0 baseline tests, all phase-specific tests, canonical query list above
+- [ ] Add [`test_chat_control_plane_golden.py`](../backend/app/tests/test_chat_control_plane_golden.py)
+- [ ] Enable `CONTROL_PLANE_ENABLED=true` by fixture/monkeypatch or command env for this file only
+- [ ] Use the seven exact query strings above
+- [ ] Assertions must cover intent, evidence plan, route adjudication, SPL/MCP gating, MITRE visibility, response/synthesis mode, and trace presence
+- [ ] No `xfail`, no broad snapshot-only assertions, no live MCP/LLM execution
+- [ ] Keep [`test_current_chat_runtime_baseline.py`](../backend/app/tests/test_current_chat_runtime_baseline.py) unchanged and still xfail under default flag-off behavior
+- [ ] If KB fixture or SPL template gaps prevent a quality assertion, assert the governed fail-closed state and document the dependency for Phase 11
+- [ ] All seven rows must pass with flag on
+- [ ] Do not flip `CONTROL_PLANE_ENABLED` default; COE rollout is separate and out of scope
+
+**Verification and commit gate (Commit 10):**
+
+```bash
+cd backend
+CONTROL_PLANE_ENABLED=true PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_chat_control_plane_golden.py -q
+PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_current_chat_runtime_baseline.py -v
+PYTHONPATH=../backend:.. python3 -m pytest -q
+cd ..
+./scripts/run_stage3_governance_regression.sh
+git status --short
+git add backend/app/tests/test_chat_control_plane_golden.py backend/app/tests/test_current_chat_runtime_baseline.py plans/2026-06-02_chat-control-plane-master.md
+git commit -m "test: add flag-on chat control-plane golden suite"
+```
+
+Only stage the baseline file if it was intentionally touched for comments or import compatibility; otherwise omit it.
 
 ---
 
@@ -1148,9 +1307,28 @@ Row **7** mirrors Phase 1A test **#8** (unit) — E2E proves full pipeline with 
 **Agent checklist (Commit 11):**
 
 - [ ] Docs only; no behavior change
-- [ ] Mention `CONTROL_PLANE_ENABLED` and Phase 10 as rollout gate
-- [ ] List new pytest modules in baseline doc
-- [ ] Document §1.1 parallel dependencies (KB, SPL templates, preconditions, 1B-b COE, FE trace) in [`current_query_to_answer_workflow.md`](../docs/gap_closure/current_query_to_answer_workflow.md) with owners/gates
+- [ ] Update [`current_query_to_answer_workflow.md`](../docs/gap_closure/current_query_to_answer_workflow.md) with final graph order, authority hierarchy, and fail-closed behavior
+- [ ] Update [`STAGE_3K_Q1C_TO_Q4_SPINE.md`](STAGE_3K_Q1C_TO_Q4_SPINE.md) to link control plane as prerequisite for Q1C+ routing
+- [ ] Update [`regression_baseline.md`](../docs/evals/regression_baseline.md) with golden suite, phase-specific tests, and flag gating
+- [ ] Mention `CONTROL_PLANE_ENABLED=false` default and Phase 10 as rollout gate
+- [ ] List all new pytest modules added in Phases 4-10
+- [ ] Document §1.1 parallel dependencies with owners/gates: KB content, SPL templates, preconditions/source readiness, MITRE COE review, frontend trace polish
+- [ ] Mark implementation tracker complete through Phase 11 only after validation passes
+- [ ] Do not edit production code or defaults
+
+**Verification and commit gate (Commit 11):**
+
+```bash
+./scripts/run_stage3_governance_regression.sh
+cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q && cd ..
+# If frontend docs/types were touched, also run:
+cd frontend && npm run build && cd ..
+git status --short
+git add docs/gap_closure/current_query_to_answer_workflow.md docs/evals/regression_baseline.md plans/STAGE_3K_Q1C_TO_Q4_SPINE.md plans/2026-06-02_chat-control-plane-master.md
+git commit -m "docs: document completed chat control plane rollout gates"
+```
+
+Docs commit should contain no behavior changes.
 
 ---
 
@@ -1162,9 +1340,9 @@ Row **7** mirrors Phase 1A test **#8** (unit) — E2E proves full pipeline with 
 | Done | **1** | Contracts + `CONTROL_PLANE_ENABLED` + response stubs (`0cc1242`) |
 | Done | **1A** | Query-to-intent + 15 tests + `graph_node_query_to_intent` (`8a83929`, `8a7e52a`) |
 | Done | **1B-a / 1B-b** | MITRE schema, loader, audit, promote, 12 enrichment tests (`56b48d9`) |
-| **Next** | **2** | `evidence_planner` + graph node |
-| 3 | RAG-only / hybrid / `rag_no_match` + LangGraph edges |
-| 4 | `route_adjudication` |
+| Done | **2** | `evidence_planner` + graph node (`bfe4d91`) |
+| Done | **3** | RAG-only / hybrid / `rag_no_match` + LangGraph edges (`bfe4d91`) |
+| **Next** | **4** | `route_adjudication` |
 | 5 | `llm_plan_validator` |
 | 6 | `spl_slot_binding_validator` |
 | 7 | Runtime `mitre_decision` + pipeline wire-up |
@@ -1192,9 +1370,14 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q   # full suite must 
 | 0 | `pytest app/tests/test_current_chat_runtime_baseline.py -v` (expect xfail, zero ERROR) |
 | 1, 1A, 1A-fix | `pytest app/tests/test_query_to_intent.py -q` (expect 15 passed) |
 | 1B-b (done) | `python3 scripts/audit_105_42_mitre_coverage.py` · `pytest app/tests/test_mitre_registry_enrichment.py -q` |
+| 2 | `pytest app/tests/test_evidence_planner.py -q` |
 | 3 | `pytest app/tests/test_evidence_plan_rag_only_skip.py -q` |
-| 6 | tests covering slot binding + schema fields |
+| 4 | `pytest app/tests/test_route_adjudication.py app/tests/test_route_authority_allowlist_manifest.py app/tests/test_route_authority_gate_stage3l_s3_3a.py -q` |
+| 5 | `pytest app/tests/test_llm_plan_validator.py app/tests/test_route_adjudication.py -q` |
+| 6 | `pytest app/tests/test_spl_slot_binding_validator.py app/tests/test_spl_validator.py app/tests/test_evidence_plan_rag_only_skip.py -q` |
 | 7 | `CONTROL_PLANE_ENABLED=true pytest app/tests/test_mitre_decision_runtime.py -q` |
+| 8 | `pytest app/tests/test_response_synthesis_honesty.py app/tests/test_evidence_plan_rag_only_skip.py app/tests/test_mitre_decision_runtime.py -q` |
+| 9 | `pytest app/tests/test_control_plane_trace.py app/tests/test_chat_routing.py -q` |
 | 10 | `CONTROL_PLANE_ENABLED=true pytest app/tests/test_chat_control_plane_golden.py -q` |
 | 1, 9, 10 (if response types change) | `cd frontend && npm run build` |
 
