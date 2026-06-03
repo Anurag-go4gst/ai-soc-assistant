@@ -29,6 +29,7 @@ from app.coverage.question_runtime_map_shadow import apply_question_runtime_map_
 from app.routing.precondition_evaluation_shadow import apply_precondition_evaluation_to_shadow
 from app.routing.route_authority_compare import apply_route_authority_compare_to_shadow
 from app.routing.registry_route_authority import resolve_effective_routing_skill
+from app.routing.route_adjudication import adjudicate_route as adjudicate_control_plane_route
 from app.routing.supporter_registry import build_supporter_trace
 from app.routing.use_case_registry_bridge import build_use_case_registry_bridge
 from app.routing.template_match_shadow import apply_template_match_to_shadow
@@ -92,6 +93,7 @@ class ChatPipelineState(TypedDict, total=False):
     query_to_intent: dict[str, Any] | None
     intent_classification: dict[str, Any] | None
     evidence_plan: dict[str, Any] | None
+    route_adjudication: dict[str, Any] | None
     soc_kb_retrieval: dict[str, Any] | None
     response: PlaceholderResponse
 
@@ -224,10 +226,32 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
     apply_analyst_summary_shadow(route_plan_shadow)
     skill_selection = select_skill_chain(routed=routed, selected_use_case=state.get("selected_use_case"))
     comparison = routed.get("comparison", {})
+    route_adjudication_payload: dict[str, Any] | None = None
+    if settings.control_plane_enabled and isinstance(state.get("intent_classification"), dict):
+        llm_advisory = comparison.get("llm_shadow") if isinstance(comparison, dict) else None
+        adjudication = adjudicate_control_plane_route(
+            deterministic_route=str(routed.get("skill") or "knowledge_recall"),
+            llm_advisory=llm_advisory if isinstance(llm_advisory, dict) else None,
+            route_plan_shadow=route_plan_shadow,
+            evidence_plan=state.get("evidence_plan"),
+            intent_classification=state["intent_classification"],
+            query_understanding=state.get("query_understanding"),
+            message=request.message,
+            query_to_intent=state.get("query_to_intent"),
+        )
+        route_adjudication_payload = adjudication.model_dump()
+        routing_skill_resolution = {
+            **routing_skill_resolution,
+            "effective_skill": adjudication.final_route,
+            "skill_resolution": "control_plane_route_adjudication",
+            "legacy_intent_authority": False,
+            "route_adjudication_authority_source": adjudication.authority_source,
+        }
     return {
         **state,
         "route_plan_shadow": route_plan_shadow,
         "routing_skill_resolution": routing_skill_resolution,
+        "route_adjudication": route_adjudication_payload,
         "skill_selection": skill_selection,
         "selected_skill_chain": skill_selection.selected_chain,
         "comparison": comparison,
@@ -540,6 +564,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         governance_trace=governance_trace,
         query_to_intent=state.get("query_to_intent"),
         evidence_plan=state.get("evidence_plan"),
+        route_adjudication=state.get("route_adjudication"),
     )
     return {**state, "response": response}
 
@@ -863,6 +888,12 @@ def _apply_ood_llm_lab_metadata(route_plan_shadow: dict[str, Any], query: str) -
 
 
 def _effective_routing_skill(state: ChatPipelineState) -> str:
+    if settings.control_plane_enabled:
+        adjudication = state.get("route_adjudication")
+        if isinstance(adjudication, dict):
+            final_route = adjudication.get("final_route")
+            if isinstance(final_route, str) and final_route.strip():
+                return final_route.strip()
     resolution = state.get("routing_skill_resolution")
     if isinstance(resolution, dict):
         skill = resolution.get("effective_skill")
