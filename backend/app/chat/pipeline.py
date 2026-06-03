@@ -6,6 +6,7 @@ from uuid import uuid4
 from app.config import settings
 from app.connectors.telemetry import get_telemetry_connector
 from app.actions.capability_policy import action_capability_for
+from app.chat.analyst_response_builder import build_analyst_response_for_live
 from app.answer_guard.models import AnswerGuardStatus
 from app.evidence.context_structurer import structure_context
 from app.evidence.context_sufficiency import check_context_sufficiency
@@ -24,6 +25,7 @@ from app.routing.llm_route_plan_candidate import skipped_reason_to_candidate_rea
 from app.routing.route_plan_models import ROUTE_PLAN_GENERATOR_MODEL_FAMILY, ROUTE_PLAN_REASONING_MODEL_ALLOWED
 from app.routing.route_plan_preflight import preflight_route_plan
 from app.routing.route_plan_validator import validate_route_plan_candidate
+from app.chat.deterministic_route_plan_builder import build_deterministic_route_plan_candidate
 from app.routing.intent_operation_bridge_shadow import apply_intent_operation_bridge_to_shadow
 from app.coverage.question_runtime_map_shadow import apply_question_runtime_map_to_shadow
 from app.routing.precondition_evaluation_shadow import apply_precondition_evaluation_to_shadow
@@ -46,8 +48,9 @@ from app.safeguards.spl_slot_binding_validator import validate_spl_slot_bindings
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
 from app.skills.selector import select_skill_chain
-from app.spl.template_registry import template_summary
+from app.spl.template_registry import QUERY_SHAPE_RAW_SEARCH, get_spl_template, template_summary
 from app.splunk.capabilities import build_splunk_capability_profile
+from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
 from app.answer_guard.runner import run_answer_guard_lab
 from app.synthesis.lab_runner import apply_synthesis_allowed_to_sufficiency, run_governed_synthesis_lab
@@ -153,6 +156,8 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
     route_plan_shadow = _route_plan_shadow_stage(
         request.message,
         deterministic_primary_skill=str(routed["skill"]),
+        selected_use_case=selected_use_case,
+        query_understanding=query_understanding,
     )
     return {
         **state,
@@ -558,6 +563,25 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     response_mode = _response_mode(context_sufficiency, human_review, spl_validation)
     synthesis_mode = _synthesis_mode(synthesis_status, analyst_summary_from_lab)
+    use_case_label = None
+    if selected_use_case is not None:
+        use_case_label = getattr(selected_use_case, "display_name", None) or getattr(
+            selected_use_case, "use_case_id", None
+        )
+    analyst_response = build_analyst_response_for_live(
+        user_query=request.message,
+        message=message,
+        analyst_summary=analyst_summary_from_lab,
+        source_evidence=source_evidence,
+        mitre_mappings=mitre_mappings or [],
+        severity_label=severity_decision.severity_label,
+        synthesis_draft=synthesis_lab.draft,
+        human_review=human_review,
+        selected_use_case_label=str(use_case_label) if use_case_label else None,
+        candidate_spl=candidate_spl,
+        spl_validation=spl_validation,
+        execution=execution,
+    )
     control_plane_trace = None
     if settings.control_plane_enabled:
         trace_state = {**state, "mitre_decision": mitre_decision}
@@ -620,6 +644,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
         mitre_decision=mitre_decision,
+        analyst_response=analyst_response,
     )
     return {**state, "response": response, "mitre_decision": mitre_decision}
 
@@ -771,7 +796,13 @@ def _disagreement_reason(comparison: dict) -> str:
     return "unknown_mismatch"
 
 
-def _route_plan_shadow_stage(query: str, *, deterministic_primary_skill: str | None = None) -> dict:
+def _route_plan_shadow_stage(
+    query: str,
+    *,
+    deterministic_primary_skill: str | None = None,
+    selected_use_case: UseCaseSelection | None = None,
+    query_understanding: Any | None = None,
+) -> dict:
     shadow = _route_plan_shadow_base(model_role="instruct_candidate_only")
     preflight = preflight_route_plan(query)
     shadow["preflight_status"] = preflight.route_status.value if preflight.route_status else "passed"
@@ -785,6 +816,53 @@ def _route_plan_shadow_stage(query: str, *, deterministic_primary_skill: str | N
         shadow["candidate_reason"] = "deterministic_preflight_blocked"
         apply_template_match_to_shadow(shadow, normalized_route_plan=None)
         return shadow
+
+    deterministic_candidate = None
+    if settings.control_plane_enabled:
+        deterministic_candidate = build_deterministic_route_plan_candidate(
+            query=query,
+            selected_use_case=selected_use_case,
+            query_understanding=query_understanding,
+        )
+
+    if deterministic_candidate is not None:
+        validation = validate_route_plan_candidate(deterministic_candidate)
+        if validation.is_valid:
+            normalized = validation.normalized_route_plan or {}
+            shadow.update(
+                {
+                    "route_status": normalized.get("route_status"),
+                    "primary_skill": normalized.get("primary_skill") or deterministic_candidate.get("primary_skill"),
+                    "pattern_id": normalized.get("pattern_id") or deterministic_candidate.get("pattern_id"),
+                    "candidate_available": True,
+                    "candidate_reason": "deterministic_control_plane_route_plan",
+                    "validation_result": {"is_valid": validation.is_valid},
+                    "validation_findings": list(validation.validation_findings),
+                    "blocking_findings": list(validation.blocking_findings),
+                    "warnings": sorted(set(shadow["warnings"]) | set(validation.warnings)),
+                    "normalized_plan_available": True,
+                    "llm_candidate_route_plan_available": False,
+                    "deterministic_route_plan_wins": True,
+                    "model_role": "none",
+                }
+            )
+            shadow["supporter_trace"] = build_supporter_trace(
+                validation.normalized_route_plan,
+                query=query,
+                shadow=shadow,
+                runtime_invoked=True,
+            )
+            apply_template_match_to_shadow(shadow, normalized_route_plan=validation.normalized_route_plan)
+            parameters = normalized.get("parameters")
+            if isinstance(parameters, dict):
+                shadow["route_plan_parameters"] = dict(parameters)
+            time_window = normalized.get("time_window")
+            if isinstance(time_window, str) and time_window.strip():
+                shadow["route_plan_time_window"] = time_window
+            return shadow
+        shadow["warnings"] = sorted(
+            set(shadow["warnings"]) | {"deterministic_route_plan_validation_failed"} | set(validation.warnings)
+        )
 
     llm_result = _routes_chat().generate_llm_route_plan_candidate(
         query,
@@ -995,6 +1073,52 @@ def _candidate_spl_stage(
 
     telemetry = _routes_chat().get_telemetry_connector()
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
+    template_candidate = _candidate_from_default_template(
+        trace_id=trace_id,
+        skill=skill,
+        user_query=user_query,
+        template_id=template_id,
+    )
+    if template_candidate is not None:
+        candidate_payload, validation_payload = template_candidate
+        telemetry.record_step(
+            trace_id,
+            "candidate_spl_generated",
+            "completed",
+            skill=skill,
+            generation_mode=candidate_payload["generation_mode"],
+            confidence=candidate_payload["confidence"],
+            warnings=candidate_payload["warnings"],
+            selected_candidate_spl_provider=validation_payload["selected_candidate_spl_provider"],
+            fallback_required=validation_payload["fallback_required"],
+        )
+        if slot_binding_enabled:
+            validation_payload = validate_spl_slot_bindings(
+                validation_payload,
+                user_query=user_query,
+                query_signals=query_signals,
+                template_id=template_id,
+            )
+        telemetry.record_spl_validation(
+            trace_id,
+            stage="spl_validation_result",
+            approved=validation_payload["approved"],
+            reject_reasons=validation_payload["reject_reasons"],
+            warnings=validation_payload["warnings"],
+            policy_version=validation_payload["policy_version"],
+        )
+        return candidate_payload, validation_payload
+
+    fallback_candidate = _candidate_from_llm_fallback(
+        trace_id=trace_id,
+        skill=skill,
+        user_query=user_query,
+        telemetry=telemetry,
+        profile=profile,
+    )
+    if fallback_candidate is not None:
+        return fallback_candidate
+
     candidate, provider_metadata = generate_candidate_spl_with_provider(trace_id=trace_id, skill=skill, user_query=user_query, profile=profile)
     candidate_payload = candidate.model_dump()
     candidate_payload.update(provider_metadata)
@@ -1051,6 +1175,153 @@ def _candidate_spl_stage(
     return candidate_payload, validation_payload
 
 
+def _candidate_from_default_template(
+    *,
+    trace_id: str,
+    skill: str,
+    user_query: str,
+    template_id: str | None,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    template = get_spl_template(template_id)
+    if template is None or template.query_shape != QUERY_SHAPE_RAW_SEARCH or not template.spl_text:
+        return None
+    if template.status != "active":
+        return None
+
+    validation = validate_spl(template.spl_text)
+    candidate_payload = {
+        "trace_id": trace_id,
+        "skill": skill,
+        "user_query": user_query,
+        "candidate_spl": template.spl_text,
+        "generation_mode": "deterministic_template_render",
+        "confidence": 0.93,
+        "assumptions": [
+            f"Governed raw-search SPL template selected from use-case catalog: {template.template_id}.",
+            "Template output remains candidate SPL and requires validation/gated execution.",
+        ],
+        "warnings": [] if validation.get("approved") else ["template_spl_validation_failed"],
+        "template_id": template.template_id,
+    }
+    validation_payload = {
+        "approved": validation["approved"],
+        "normalized_spl": validation["normalized_spl"],
+        "reject_reasons": validation["reject_reasons"],
+        "warnings": validation["warnings"],
+        "enforced_limits": validation["enforced_limits"],
+        "policy_version": validation["policy_version"],
+        "selected_candidate_spl_provider": "deterministic_template_render",
+        "candidate_provider_reason": "use_case_catalog_default_raw_template",
+        "saia_available": False,
+        "fallback_required": False,
+        "spl_explanation_provider": "rule_based",
+        "spl_optimization_provider": "rule_based",
+        "spl_guidance_provider": "scd_rag",
+        "optimization_applied": False,
+        "optimization_revalidation_status": None,
+        "optimization_revalidation_approved": False,
+        "capability_profile": build_splunk_capability_profile(
+            required_saia_tool="saia_generate_spl"
+        ).model_dump(),
+        "template_id": template.template_id,
+    }
+    return candidate_payload, validation_payload
+
+
+def _candidate_from_llm_fallback(
+    *,
+    trace_id: str,
+    skill: str,
+    user_query: str,
+    telemetry: Any,
+    profile: Any,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """Governed LLM SPL advisory used only when no deterministic template matched.
+
+    Returns None when the fallback is disabled, so behaviour is byte-identical to
+    the prior Stage 3C stub path. When enabled, the LLM JSON is adapted through
+    the role schema (execution eligibility forced false) and the proposed SPL is
+    re-validated deterministically; a failed/unsupported result surfaces as a
+    clarification (non-approved, non-executable), never an executable query.
+    """
+    if not settings.ai_soc_llm_spl_fallback_enabled:
+        return None
+
+    result = generate_llm_spl_fallback(user_query=user_query)
+    if result is None:
+        return None
+
+    validation = result.validation
+    approved = bool(result.approved)
+    reject_reasons = list(validation.get("reject_reasons") or [])
+    if result.clarification_reason and result.clarification_reason not in reject_reasons:
+        reject_reasons = [*reject_reasons, result.clarification_reason]
+
+    candidate_payload = {
+        "trace_id": trace_id,
+        "skill": skill,
+        "user_query": user_query,
+        "candidate_spl": result.candidate_spl,
+        "generation_mode": "llm_spl_advisory_fallback",
+        "confidence": 0.6 if approved else 0.0,
+        "assumptions": [
+            *result.assumptions,
+            "LLM advisory fallback used because no governed template matched.",
+            "Output is candidate SPL only and requires validation/gated execution.",
+        ],
+        "warnings": [] if approved else ["llm_spl_fallback_requires_clarification"],
+        "template_id": None,
+    }
+    validation_payload = {
+        "approved": approved,
+        "normalized_spl": validation.get("normalized_spl"),
+        "reject_reasons": reject_reasons,
+        "warnings": list(validation.get("warnings") or []),
+        "enforced_limits": validation.get("enforced_limits"),
+        "policy_version": validation.get("policy_version"),
+        "selected_candidate_spl_provider": "llm_spl_advisory_fallback",
+        "candidate_provider_reason": result.clarification_reason or "template_miss_llm_advisory_fallback",
+        "saia_available": False,
+        "fallback_required": True,
+        "spl_explanation_provider": "rule_based",
+        "spl_optimization_provider": "rule_based",
+        "spl_guidance_provider": "scd_rag",
+        "optimization_applied": False,
+        "optimization_revalidation_status": None,
+        "optimization_revalidation_approved": False,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "llm_fallback": {
+            "provider": result.provider,
+            "model": result.model,
+            "latency_ms": result.latency_ms,
+            "clarification_required": result.clarification_required,
+            "clarification_reason": result.clarification_reason,
+            "adapter_errors": list(result.adapter_errors),
+        },
+    }
+    telemetry.record_step(
+        trace_id,
+        "candidate_spl_generated",
+        "completed",
+        skill=skill,
+        generation_mode=candidate_payload["generation_mode"],
+        confidence=candidate_payload["confidence"],
+        warnings=candidate_payload["warnings"],
+        selected_candidate_spl_provider="llm_spl_advisory_fallback",
+        fallback_required=True,
+    )
+    telemetry.record_spl_validation(
+        trace_id,
+        stage="spl_validation_result",
+        approved=approved,
+        reject_reasons=reject_reasons,
+        warnings=validation_payload["warnings"],
+        policy_version=validation_payload["policy_version"],
+    )
+    return candidate_payload, validation_payload
+
+
 def _chat_message(
     spl_validation: dict | None,
     execution: dict | None = None,
@@ -1058,6 +1329,10 @@ def _chat_message(
 ) -> str:
     if spl_validation is None:
         return "Routing complete. SPL is not required at this stage."
+    if spl_validation.get("approved") is True and (
+        not execution or execution.get("status") != "executed"
+    ):
+        return "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
     if execution and execution.get("status") == "executed":
         if analyst_summary:
             return "Mock MCP execution complete. Live Foundation-Sec synthesis is disabled; deterministic lab summary was generated from governed evidence."

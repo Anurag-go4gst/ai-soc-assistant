@@ -1,6 +1,7 @@
 """Stage 3K-Q1D deterministic SPL template renderer (library only).
 
-Pure render + Q1A validation. CIM sample templates only. No MCP, no ``/chat`` (Q1E).
+Pure render + Q1A validation. Raw templates render from approved static SPL;
+CIM/datamodel templates render from parameterized patterns. No MCP calls.
 """
 
 from __future__ import annotations
@@ -84,14 +85,34 @@ def render_template(
     *,
     route_window: Any = None,
 ) -> RenderResult:
-    """Render SPL from a CIM template ``render_pattern`` and validate with Q1A."""
+    """Render SPL from a governed template and validate with Q1A."""
     bound_params = dict(bound_params or {})
     errors: list[str] = []
     warnings: list[str] = []
 
     if template.query_shape == QUERY_SHAPE_RAW_SEARCH:
-        errors.append(RENDER_NOT_SUPPORTED)
-        return _failure(template, errors, warnings, bound_params)
+        if not template.spl_text:
+            errors.append(RENDER_MISSING_PATTERN)
+            return _failure(template, errors, warnings, bound_params)
+        validation = validate_spl(template.spl_text, load_spl_policy())
+        approved = bool(validation.get("approved"))
+        if not approved:
+            errors.append(RENDER_VALIDATION_FAILED)
+            errors.extend(str(item) for item in validation.get("reject_reasons", []))
+        return RenderResult(
+            rendered_spl=template.spl_text if approved else None,
+            render_ok=approved and not errors,
+            bound_parameters=bound_params,
+            validation_result=validation,
+            validator_approved=approved,
+            validator_profile=validation.get("validation_profile") or template.validator_profile,
+            execution_eligible=False,
+            render_warnings=warnings,
+            render_errors=errors,
+            template_id=template.template_id,
+            sample_only=template.sample_only,
+            production_executable=template.is_production_executable(),
+        )
 
     if template.query_shape not in {QUERY_SHAPE_TSTATS_DATAMODEL, QUERY_SHAPE_FROM_DATAMODEL}:
         errors.append(RENDER_NOT_SUPPORTED)

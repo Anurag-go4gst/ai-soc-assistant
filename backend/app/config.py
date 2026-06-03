@@ -179,6 +179,7 @@ class Settings(BaseSettings):
     ai_soc_llm_synthesis_model: str = ""
     ai_soc_llm_spl_advisory_provider: str = ""
     ai_soc_llm_spl_advisory_model: str = ""
+    ai_soc_llm_spl_fallback_enabled: bool = False
     ai_soc_llm_template_match_provider: str = ""
     ai_soc_llm_template_match_model: str = ""
     ai_soc_llm_template_render_provider: str = ""
@@ -242,7 +243,7 @@ class Settings(BaseSettings):
     telemetry_mode: str = "db"
     spl_validation_enabled: bool = True
     spl_allowed_indexes: str = "pgcil_soc"
-    spl_allowed_sourcetypes: str = "pgcil:auth"
+    spl_allowed_sourcetypes: str = "pgcil:auth,aws:cloudtrail"
     spl_default_earliest: str = "-24h"
     spl_default_latest: str = "now"
     spl_max_result_limit: int = 100

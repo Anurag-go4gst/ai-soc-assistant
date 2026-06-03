@@ -9,6 +9,7 @@ IntentFamily = Literal[
     "policy_knowledge",
     "live_investigation",
     "spl_generation_only",
+    "spl_generation_and_run",
     "hybrid_investigation_plus_policy",
     "mitre_mapping",
     "mitre_explanation",
@@ -19,6 +20,7 @@ IntentFamily = Literal[
 QueryType = Literal[
     "ask_for_policy",
     "ask_for_live_results",
+    "ask_for_query_generation_and_execution",
     "ask_for_query_generation",
     "ask_for_mapping",
     "ask_for_explanation",

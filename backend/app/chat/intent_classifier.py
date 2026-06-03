@@ -57,6 +57,23 @@ def classify_intent(
             requested_output_type="ACTION_PLAN",
         )
 
+    if signals.get("spl_generation") and signals.get("run_execution"):
+        return _build_classification(
+            intent_family="spl_generation_and_run",
+            primary_intent="spl_generation",
+            secondary_intents=["live_investigation"],
+            query_type="ask_for_query_generation_and_execution",
+            answer_goal=["spl_artifact", "live_results"],
+            confidence=0.88 if signals.get("has_specific_scope") else 0.84,
+            requires_clarification=False,
+            reason=(
+                "User requested governed SPL generation and scoped MCP execution."
+                if signals.get("has_specific_scope")
+                else "User requested governed SPL generation and MCP execution; template defaults apply when scope is omitted."
+            ),
+            requested_output_type="INVESTIGATION",
+        )
+
     if signals.get("spl_generation"):
         return _build_classification(
             intent_family="spl_generation_only",

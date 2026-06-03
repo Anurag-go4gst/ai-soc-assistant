@@ -39,6 +39,21 @@ def extract_query_signals(
         term in normalized
         for term in ("generate spl", "write spl", "create spl", "produce spl", "build spl", "spl for", "spl query")
     )
+    run_execution = any(
+        term in normalized
+        for term in (
+            " and run",
+            " then run",
+            "run it",
+            "run this",
+            "execute it",
+            "execute this",
+            "search splunk",
+            "run on ",
+            "run in ",
+        )
+    )
+    has_specific_scope = any(term in normalized for term in (" index=", "index ", "host=", "host ", "sourcetype=", "sourcetype ", "earliest=", "latest=", "last "))
     live_investigation_verbs = any(
         term in normalized
         for term in ("find ", "show ", "list ", "investigate", "search for", "look for", "top users", "which users")
@@ -101,6 +116,8 @@ def extract_query_signals(
         "escalation_without_policy_word": escalation_without_policy_word,
         "failed_login": failed_login,
         "spl_generation": spl_generation,
+        "run_execution": run_execution,
+        "has_specific_scope": has_specific_scope,
         "live_investigation_verbs": live_investigation_verbs,
         "mitre_map": mitre_map,
         "mitre_explain": mitre_explain,
@@ -122,11 +139,14 @@ def extract_query_signals(
         "projected_needs_spl": spl_generation
         and not block_or_contain
         or (live_investigation_verbs and not policy_terms and not block_or_contain),
-        "projected_needs_mcp": live_investigation_verbs
-        and not spl_generation
-        and not policy_terms
-        and not block_or_contain
-        and not mitre_map,
+        "projected_needs_mcp": (
+            live_investigation_verbs
+            and not spl_generation
+            and not policy_terms
+            and not block_or_contain
+            and not mitre_map
+        )
+        or (spl_generation and run_execution and not block_or_contain),
         "requires_hil": block_or_contain,
         "projected_action_mode": "recommend_only" if block_or_contain else None,
     }

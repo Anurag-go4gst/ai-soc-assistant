@@ -1,0 +1,294 @@
+"""Build analyst-facing response envelopes for Experience Center and live /chat."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from app.schemas.responses import AnalystResponseEnvelope
+
+_FAILED_LOGIN_NUMERIC_COLUMNS = (
+    "Failed logins",
+    "fail_count",
+    "failed_logins",
+    "failure_count",
+)
+
+
+def build_analyst_response_for_live(
+    *,
+    user_query: str,
+    message: str,
+    analyst_summary: str | None,
+    source_evidence: list[dict[str, Any]],
+    mitre_mappings: list[Any],
+    severity_label: str | None,
+    synthesis_draft: dict[str, Any] | None,
+    human_review: dict[str, Any] | None,
+    selected_use_case_label: str | None = None,
+    candidate_spl: dict[str, Any] | None = None,
+    spl_validation: dict[str, Any] | None = None,
+    execution: dict[str, Any] | None = None,
+) -> AnalystResponseEnvelope | None:
+    """Assemble analyst card payload from governed live pipeline outputs."""
+    draft = synthesis_draft if isinstance(synthesis_draft, dict) else {}
+    execution_payload = execution if isinstance(execution, dict) else {}
+    spl_code = _candidate_spl_text(candidate_spl, spl_validation, draft)
+    table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(draft.get("splunk_results_table"))
+    mitre_rows = _mitre_display_rows(mitre_mappings) or _as_table_rows(draft.get("mitre_mappings"))
+    playbook, sop_guidance, rag_meta = _playbook_from_rag(source_evidence)
+    recommended = _recommended_actions_from_draft(draft) or _recommended_from_rag(source_evidence)
+    summary = (analyst_summary or "").strip() or None
+    if not any([table, mitre_rows, playbook, summary, recommended, spl_code]):
+        return None
+    finding = _finding_title(message, user_query, selected_use_case_label)
+    execution_status = str(execution_payload.get("status") or "") or None
+    executed_spl = str(execution_payload.get("executed_spl") or "") or None
+    response_profile = "spl_executed" if execution_status == "executed" else "spl_only" if spl_code else None
+
+    review_notice = None
+    if isinstance(human_review, dict) and human_review.get("required"):
+        review_notice = str(human_review.get("safe_message_for_user") or "Analyst review is required before execution.")
+
+    envelope = AnalystResponseEnvelope(
+        scenario_label=selected_use_case_label,
+        severity_label=severity_label,
+        finding_title=finding,
+        one_sentence_finding=summary,
+        splunk_status_line=_splunk_status_line(table, execution_payload),
+        splunk_results_table=table,
+        mitre_mappings=mitre_rows,
+        retrieved_playbook=_enrich_playbook(playbook, rag_meta),
+        sop_guidance=sop_guidance,
+        recommended_actions=recommended,
+        spl_code=spl_code,
+        executed_spl=executed_spl,
+        execution_status=execution_status,
+        response_profile=response_profile,
+        review_notice=review_notice,
+        evidence_summary=summarize_failed_login_events(table),
+    )
+    return envelope
+
+
+def summarize_failed_login_events(rows: list[dict[str, Any]]) -> str | None:
+    """Explain total failed-login event count when the table supports it."""
+    if not rows:
+        return None
+    total, parts = _sum_failed_login_events(rows)
+    if total is None or not parts:
+        return None
+    breakdown = " + ".join(str(part) for part in parts)
+    return (
+        f"{total} total failed-login events across {len(parts)} source row(s) ({breakdown}). "
+        "Counts are failure events, not a global distinct-user total; use per-source "
+        '"Distinct users by source" columns only.'
+    )
+
+
+def attach_evidence_summary(payload: dict[str, Any]) -> dict[str, Any]:
+    """Add computed evidence_summary when a splunk table is present."""
+    table = payload.get("splunk_results_table") or []
+    if not isinstance(table, list):
+        return payload
+    summary = summarize_failed_login_events([row for row in table if isinstance(row, dict)])
+    if summary:
+        return {**payload, "evidence_summary": summary}
+    return payload
+
+
+def _sum_failed_login_events(rows: list[dict[str, Any]]) -> tuple[int | None, list[int]]:
+    values: list[int] = []
+    for row in rows:
+        for column in _FAILED_LOGIN_NUMERIC_COLUMNS:
+            if column in row and isinstance(row[column], (int, float)):
+                values.append(int(row[column]))
+                break
+    if not values:
+        return None, []
+    return sum(values), values
+
+
+def _splunk_table_from_evidence(source_evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for envelope in source_evidence:
+        if envelope.get("source_type") != "splunk_mcp":
+            continue
+        preview = envelope.get("preview_rows") or []
+        if not isinstance(preview, list):
+            continue
+        rows = [row for row in preview if isinstance(row, dict)]
+        if not rows:
+            continue
+        return [_normalize_splunk_row(row) for row in rows[:10]]
+    return []
+
+
+def _normalize_splunk_row(row: dict[str, Any]) -> dict[str, Any]:
+    mapping = {
+        "host": "Host",
+        "src": "Source IP",
+        "fail_count": "Failed logins",
+        "failed_logins": "Failed logins",
+        "distinct_users": "Distinct users by source",
+        "distinct_users_by_source": "Distinct users by source",
+        "first_seen": "First seen",
+        "last_seen": "Last seen",
+        "action": "Action",
+        "user": "User",
+    }
+    normalized: dict[str, Any] = {}
+    for key, value in row.items():
+        label = mapping.get(str(key), str(key).replace("_", " ").title())
+        normalized[label] = value
+    return normalized
+
+
+def _mitre_display_rows(mappings: list[Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in mappings:
+        payload = item.model_dump() if hasattr(item, "model_dump") else dict(item)
+        status = str(payload.get("status") or "")
+        confidence = "High" if status in {"supported", "candidate"} else "Moderate - analyst validation required"
+        rows.append(
+            {
+                "Technique": payload.get("technique_id"),
+                "Name": payload.get("name"),
+                "Tactic": payload.get("tactic"),
+                "Status": status.replace("_", " ").title(),
+                "Evidence": payload.get("why") or "",
+                "Confidence": confidence,
+            }
+        )
+    return rows
+
+
+def _playbook_from_rag(
+    source_evidence: list[dict[str, Any]],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
+    for envelope in source_evidence:
+        if envelope.get("source_type") != "rag" or envelope.get("collection_status") != "collected":
+            continue
+        preview = envelope.get("preview_rows") or []
+        if not isinstance(preview, list) or not preview:
+            continue
+        row = preview[0] if isinstance(preview[0], dict) else {}
+        doc_title = str(row.get("doc_title") or row.get("entry_title") or "SOC knowledge document")
+        doc_id = str(row.get("citation") or row.get("entry_id") or "soc_kb").split("#")[0]
+        version = str(row.get("doc_version") or "")
+        playbook = {
+            "title": doc_title,
+            "id": doc_id,
+            "version": f"v{version}" if version and not version.startswith("v") else version or None,
+            "purpose": str(row.get("source_excerpt") or "Governed SOC knowledge guidance for this investigation."),
+        }
+        rag_meta = {
+            "citation": row.get("citation"),
+            "retrieval_mode": row.get("retrieval_mode") or envelope.get("provider_used") or "governed_soc_kb",
+            "confidence": row.get("confidence"),
+            "source_evidence_id": envelope.get("evidence_id"),
+            "document_type": row.get("document_type"),
+        }
+        actions = [str(item) for item in row.get("recommended_actions") or []]
+        sop_guidance = {
+            "triage_steps": actions or [str(row.get("source_excerpt") or "")],
+            "validation_notes": actions
+            or [
+                "Confirm scope against approved SOP before closure.",
+                "Validate missing evidence items listed in the analysis summary.",
+            ],
+        }
+        return playbook, sop_guidance, rag_meta
+    return None, None, None
+
+
+def _enrich_playbook(playbook: dict[str, Any] | None, rag_meta: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not playbook:
+        return None
+    if not rag_meta:
+        return playbook
+    return {**playbook, **{k: v for k, v in rag_meta.items() if v is not None}}
+
+
+def _recommended_actions_from_draft(draft: dict[str, Any]) -> list[str]:
+    actions = draft.get("recommended_actions")
+    if not isinstance(actions, list):
+        return []
+    formatted: list[str] = []
+    for index, item in enumerate(actions):
+        text = str(item)
+        if text.startswith(("P1", "P2", "P3", "P4")):
+            formatted.append(text.replace(" - ", " — ", 1) if " - " in text else text)
+        else:
+            priority = "P1" if index == 0 else "P2" if index == 1 else "P3"
+            formatted.append(f"{priority} — {text}")
+    return formatted
+
+
+def _recommended_from_rag(source_evidence: list[dict[str, Any]]) -> list[str]:
+    for envelope in source_evidence:
+        if envelope.get("source_type") != "rag":
+            continue
+        for row in envelope.get("preview_rows") or []:
+            if not isinstance(row, dict):
+                continue
+            actions = row.get("recommended_actions")
+            if isinstance(actions, list) and actions:
+                return [f"P2 — {str(item)}" for item in actions[:6]]
+    return []
+
+
+def _splunk_status_line(table: list[dict[str, Any]], execution: dict[str, Any] | None = None) -> str | None:
+    if not table:
+        return None
+    execution = execution or {}
+    if execution.get("status") == "executed":
+        mode = "mock" if execution.get("splunk_result_envelope", {}).get("origin") == "fixture" else "governed"
+        return f"Splunk MCP executed ({mode}) · {int(execution.get('result_count') or len(table))} row(s)"
+    first = table[0]
+    index = first.get("index") or first.get("Index") or "pgcil_soc"
+    host = first.get("Host") or first.get("host")
+    host_part = f" · host={host}" if host else ""
+    return f"Splunk evidence [index={index}]{host_part} · governed retrieval window"
+
+
+def _candidate_spl_text(
+    candidate_spl: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+    draft: dict[str, Any],
+) -> str | None:
+    if isinstance(spl_validation, dict) and spl_validation.get("normalized_spl"):
+        return str(spl_validation["normalized_spl"])
+    if isinstance(candidate_spl, dict) and candidate_spl.get("candidate_spl"):
+        return str(candidate_spl["candidate_spl"])
+    if draft.get("candidate_spl"):
+        return str(draft["candidate_spl"])
+    return None
+
+
+def _finding_title(message: str, user_query: str, use_case_label: str | None) -> str | None:
+    text = (message or "").strip()
+    if text and len(text) < 120 and not _is_generic_pipeline_message(text):
+        return text
+    if use_case_label:
+        return use_case_label
+    query = user_query.strip()
+    if query:
+        return query[:100] + ("…" if len(query) > 100 else "")
+    return None
+
+
+def _is_generic_pipeline_message(text: str) -> bool:
+    lowered = text.lower()
+    return (
+        lowered.startswith("routing")
+        or "spl validation complete" in lowered
+        or "mcp execution is disabled" in lowered
+        or lowered.startswith("i need alert context")
+        or lowered.startswith("a governed draft answer")
+        or lowered.startswith("novel operation proposals stop")
+    )
+
+
+def _as_table_rows(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, dict)]

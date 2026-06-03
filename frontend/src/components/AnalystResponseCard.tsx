@@ -1,16 +1,238 @@
 import { Badge } from '@/components/ui/badge';
 import type React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { BookOpen, ChevronRight, Cpu, Crosshair, Database, ListChecks, Terminal } from 'lucide-react';
 import type { AnalystResponseEnvelope, FoundationSecGovernance } from '@/types/api';
 import { cn } from '@/lib/utils';
 
-export function AnalystResponseCard({ response, foundationSecGovernance }: { response: AnalystResponseEnvelope; foundationSecGovernance?: FoundationSecGovernance | null }) {
+type PhaseAccent = 'cyan' | 'violet' | 'emerald' | 'amber';
+
+interface Phase {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  accent: PhaseAccent;
+  chips: { text: string; variant?: 'secondary' | 'outline' | 'success' | 'warning' }[];
+  content: React.ReactNode;
+}
+
+const PHASE_ACCENT: Record<PhaseAccent, { node: string; label: string }> = {
+  cyan: { node: 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100', label: 'text-cyan-200' },
+  violet: { node: 'border-violet-400/40 bg-violet-500/10 text-violet-100', label: 'text-violet-200' },
+  emerald: { node: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100', label: 'text-emerald-200' },
+  amber: { node: 'border-amber-400/40 bg-amber-500/10 text-amber-100', label: 'text-amber-200' },
+};
+
+export function AnalystResponseCard({
+  response,
+  foundationSecGovernance,
+}: {
+  response: AnalystResponseEnvelope;
+  foundationSecGovernance?: FoundationSecGovernance | null;
+}) {
   const playbookTitle = formatPlaybook(response.retrieved_playbook);
   const triageSteps = stringList(response.sop_guidance?.triage_steps);
   const validationNotes = stringList(response.sop_guidance?.validation_notes);
   const hasInvestigationTable = Boolean(response.splunk_results_table?.length);
   const hasSopSections = Boolean(response.escalation_criteria?.length || response.closure_conditions?.length);
   const title = stripSeverityPrefix(response.finding_title);
+  const policyChecks = validationNotes.length ? validationNotes : triageSteps;
+  const priorityActions = response.recommended_actions ?? [];
+  const hasPriorityInvestigation = hasPriorityActions(priorityActions);
+  const splOnly = response.response_profile === 'spl_only';
+  const showInvestigationPlan =
+    !splOnly && priorityActions.length > 0 && (hasPriorityInvestigation || !response.spl_code);
+  const showPolicyBridge = policyChecks.length > 0 && showInvestigationPlan && hasPriorityInvestigation;
+  const governedAnalysis = splOnly ? null : foundationSecGovernance?.governed_analysis ?? null;
+  const hasReasoning = !splOnly && Boolean(governedAnalysis || response.foundation_sec_analysis);
+  const hasMitre = !splOnly && Boolean(response.mitre_mappings?.length);
+  const wasExecuted = response.execution_status === 'executed';
+  const playbookVersion =
+    typeof response.retrieved_playbook?.version === 'string' ? (response.retrieved_playbook.version as string) : null;
+  const tableRows = response.splunk_results_table?.length ?? 0;
+
+  // Phases are built from the fields that are actually present, so the same
+  // timeline renders the full Experience Center fixture and the partial live
+  // /chat answer (where MCP/LLM/RAG phases may be absent). Step numbers are
+  // assigned by render order, never hardcoded.
+  const phases: Phase[] = [];
+
+  if (response.splunk_status_line || hasInvestigationTable) {
+    phases.push({
+      key: 'evidence',
+      label: 'Evidence retrieved',
+      icon: <Database className="h-3.5 w-3.5" />,
+      accent: 'cyan',
+      chips: [
+        { text: 'Splunk MCP', variant: 'secondary' },
+        ...(tableRows ? [{ text: `${tableRows} row${tableRows === 1 ? '' : 's'}`, variant: 'outline' as const }] : []),
+      ],
+      content: (
+        <>
+          {response.splunk_status_line ? (
+            <p className="font-mono text-xs text-cyan-100">{response.splunk_status_line}</p>
+          ) : null}
+          {hasInvestigationTable ? <DataTable rows={response.splunk_results_table ?? []} /> : null}
+          {response.evidence_summary ? (
+            <p className="mt-3 rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-xs leading-5 text-slate-300">
+              {response.evidence_summary}
+            </p>
+          ) : null}
+        </>
+      ),
+    });
+  }
+
+  if (response.spl_code) {
+    phases.push({
+      key: 'spl',
+      label: wasExecuted ? 'Executed detection' : 'Generated SPL',
+      icon: <Terminal className="h-3.5 w-3.5" />,
+      accent: 'cyan',
+      chips: [
+        { text: 'Candidate SPL', variant: 'secondary' },
+        { text: wasExecuted ? 'executed' : 'not executed', variant: wasExecuted ? 'success' : 'outline' },
+      ],
+      content: (
+        <>
+          {response.one_sentence_finding ? (
+            <p className="leading-6 text-slate-200">{response.one_sentence_finding}</p>
+          ) : null}
+          <pre className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-5 text-cyan-100">
+            <code>{response.spl_code}</code>
+          </pre>
+          {wasExecuted && response.executed_spl && response.executed_spl !== response.spl_code ? (
+            <div className="mt-3">
+              <SectionTitle>Executed normalized SPL</SectionTitle>
+              <pre className="mt-2 max-h-80 overflow-auto rounded-lg border border-emerald-400/20 bg-slate-950 p-3 text-xs leading-5 text-emerald-100">
+                <code>{response.executed_spl}</code>
+              </pre>
+            </div>
+          ) : null}
+          {response.key_fields?.length ? (
+            <div className="mt-3">
+              <SectionTitle>Key returned fields</SectionTitle>
+              <BulletList items={response.key_fields} />
+            </div>
+          ) : null}
+        </>
+      ),
+    });
+  }
+
+  if (hasReasoning) {
+    phases.push({
+      key: 'reasoning',
+      label: 'Model reasoning',
+      icon: <Cpu className="h-3.5 w-3.5" />,
+      accent: 'violet',
+      chips: [
+        { text: 'Foundation-sec', variant: 'secondary' },
+        { text: 'governed', variant: 'outline' },
+      ],
+      content: (
+        <>
+          {governedAnalysis ? (
+            <FoundationSecReasoning governance={foundationSecGovernance!} />
+          ) : response.foundation_sec_analysis ? (
+            <div className="space-y-3 leading-6 text-slate-200">
+              {splitParagraphs(response.foundation_sec_analysis).map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </div>
+          ) : null}
+          {hasMitre ? (
+            <div className="mt-4">
+              <SectionTitle>MITRE ATT&amp;CK</SectionTitle>
+              <DataTable rows={response.mitre_mappings ?? []} />
+            </div>
+          ) : null}
+        </>
+      ),
+    });
+  } else if (hasMitre) {
+    // MITRE without a captured model signal is a local-KB mapping, not model output.
+    phases.push({
+      key: 'mitre',
+      label: 'Threat mapping',
+      icon: <Crosshair className="h-3.5 w-3.5" />,
+      accent: 'violet',
+      chips: [{ text: 'local MITRE KB', variant: 'outline' }],
+      content: <DataTable rows={response.mitre_mappings ?? []} />,
+    });
+  }
+
+  if (!splOnly && (playbookTitle || policyChecks.length)) {
+    phases.push({
+      key: 'knowledge',
+      label: 'SOC knowledge',
+      icon: <BookOpen className="h-3.5 w-3.5" />,
+      accent: 'emerald',
+      chips: [
+        { text: 'Governed RAG', variant: 'secondary' },
+        ...(playbookVersion ? [{ text: playbookVersion, variant: 'outline' as const }] : []),
+      ],
+      content: (
+        <>
+          {playbookTitle ? (
+            <>
+              <p className="font-medium text-cyan-100">{playbookTitle}</p>
+              <PlaybookProvenance playbook={response.retrieved_playbook} />
+              {typeof response.retrieved_playbook?.purpose === 'string' ? (
+                <div className="mt-3">
+                  <SectionTitle>Purpose</SectionTitle>
+                  <p className="mt-1 leading-6 text-slate-200">{response.retrieved_playbook.purpose}</p>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+          {policyChecks.length ? (
+            <div className={playbookTitle ? 'mt-3' : ''}>
+              <SectionTitle>Policy checks required by SOP</SectionTitle>
+              {hasSopSections ? <NumberedList items={policyChecks} /> : <BulletList items={policyChecks} />}
+            </div>
+          ) : null}
+        </>
+      ),
+    });
+  }
+
+  if (showInvestigationPlan || response.escalation_criteria?.length || response.closure_conditions?.length) {
+    phases.push({
+      key: 'plan',
+      label: hasPriorityInvestigation ? 'Investigation plan' : 'What to look for',
+      icon: <ListChecks className="h-3.5 w-3.5" />,
+      accent: 'amber',
+      chips: [{ text: 'V.AI SOC governed', variant: 'outline' }],
+      content: (
+        <>
+          {showPolicyBridge ? (
+            <p className="mb-3 text-sm leading-6 text-slate-300">
+              Complete the policy checks above, then execute the prioritized investigation steps below.
+            </p>
+          ) : null}
+          {showInvestigationPlan ? (
+            hasPriorityInvestigation ? (
+              <RecommendationList items={priorityActions} />
+            ) : (
+              <BulletList items={priorityActions} />
+            )
+          ) : null}
+          {response.escalation_criteria?.length ? (
+            <div className="mt-4">
+              <SectionTitle>Escalation criteria</SectionTitle>
+              <BulletList items={response.escalation_criteria} />
+            </div>
+          ) : null}
+          {response.closure_conditions?.length ? (
+            <div className="mt-4">
+              <SectionTitle>Closure conditions</SectionTitle>
+              <BulletList items={response.closure_conditions} />
+            </div>
+          ) : null}
+        </>
+      ),
+    });
+  }
 
   return (
     <div className="max-w-[1120px] rounded-xl border border-cyan-500/20 bg-slate-950/70 px-6 py-5 text-[15px] text-slate-100 shadow-sm">
@@ -20,102 +242,69 @@ export function AnalystResponseCard({ response, foundationSecGovernance }: { res
       </div>
 
       {title ? <h3 className="mt-3 text-xl font-semibold text-slate-50">{title}</h3> : null}
-      {response.one_sentence_finding ? <p className="mt-2 leading-6 text-slate-200">{response.one_sentence_finding}</p> : null}
 
-      {foundationSecGovernance?.governed_analysis ? <FoundationSecGovernanceBlock governance={foundationSecGovernance} /> : null}
-
-      {response.splunk_status_line ? <p className="mt-4 font-mono text-xs text-cyan-100">{response.splunk_status_line}</p> : null}
-      {hasInvestigationTable ? <DataTable rows={response.splunk_results_table ?? []} /> : null}
-
-      {response.spl_code ? (
-        <section className="mt-4">
-          <SectionTitle>What the SPL detects</SectionTitle>
-          <p className="mt-1 leading-6 text-slate-200">{response.one_sentence_finding}</p>
-          <pre className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-5 text-cyan-100">
-            <code>{response.spl_code}</code>
-          </pre>
-        </section>
+      {response.one_sentence_finding && !response.spl_code ? (
+        <p className="mt-2 leading-6 text-slate-200">{response.one_sentence_finding}</p>
       ) : null}
 
-      {response.key_fields?.length ? (
-        <section className="mt-4">
-          <SectionTitle>Key returned fields</SectionTitle>
-          <BulletList items={response.key_fields} />
-        </section>
-      ) : null}
+      {phases.length ? <PhaseTimeline phases={phases} /> : null}
 
-      {response.spl_code && response.recommended_actions?.length ? (
-        <section className="mt-4">
-          <SectionTitle>{hasPriorityActions(response.recommended_actions) ? 'Recommended actions' : 'What to look for'}</SectionTitle>
-          {hasPriorityActions(response.recommended_actions) ? <RecommendationList items={response.recommended_actions} /> : <BulletList items={response.recommended_actions} />}
-        </section>
+      {response.review_notice ? (
+        <p className="mt-5 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          {response.review_notice}
+        </p>
       ) : null}
-
-      {response.mitre_mappings?.length ? (
-        <section className="mt-4">
-          <SectionTitle>MITRE ATT&amp;CK</SectionTitle>
-          <DataTable rows={response.mitre_mappings} />
-        </section>
-      ) : null}
-
-      {playbookTitle ? (
-        <section className="mt-4">
-          <SectionTitle>{hasSopSections ? 'Playbook' : 'Retrieved playbook'}</SectionTitle>
-          <p className="mt-1 font-medium text-cyan-100">{playbookTitle}</p>
-          {typeof response.retrieved_playbook?.purpose === 'string' ? (
-            <div className="mt-3">
-              <SectionTitle>Purpose</SectionTitle>
-              <p className="mt-1 leading-6 text-slate-200">{response.retrieved_playbook.purpose}</p>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-
-      {triageSteps.length ? (
-        <section className="mt-4">
-          <SectionTitle>{hasSopSections ? 'Triage steps' : `Per ${playbookId(response.retrieved_playbook) ?? 'retrieved playbook'}`}</SectionTitle>
-          {hasSopSections ? <NumberedList items={triageSteps} /> : <BulletList items={validationNotes.length ? validationNotes : triageSteps} />}
-        </section>
-      ) : null}
-
-      {response.foundation_sec_analysis && !foundationSecGovernance?.governed_analysis ? (
-        <section className="mt-4">
-          <SectionTitle>Foundation-sec governed analysis</SectionTitle>
-          <div className="mt-1 space-y-3 leading-6 text-slate-200">
-            {splitParagraphs(response.foundation_sec_analysis).map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {!response.spl_code && response.recommended_actions?.length && !hasSopSections ? (
-        <section className="mt-4">
-          <SectionTitle>Recommended actions</SectionTitle>
-          <RecommendationList items={response.recommended_actions} />
-        </section>
-      ) : null}
-
-      {response.escalation_criteria?.length ? (
-        <section className="mt-4">
-          <SectionTitle>Escalation criteria</SectionTitle>
-          <BulletList items={response.escalation_criteria} />
-        </section>
-      ) : null}
-
-      {response.closure_conditions?.length ? (
-        <section className="mt-4">
-          <SectionTitle>Closure conditions</SectionTitle>
-          <BulletList items={response.closure_conditions} />
-        </section>
-      ) : null}
-
-      {response.review_notice ? <p className="mt-4 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">{response.review_notice}</p> : null}
     </div>
   );
 }
 
-function FoundationSecGovernanceBlock({ governance }: { governance: FoundationSecGovernance }) {
+function PhaseTimeline({ phases }: { phases: Phase[] }) {
+  return (
+    <ol className="mt-5">
+      {phases.map((phase, index) => {
+        const accent = PHASE_ACCENT[phase.accent];
+        const isLast = index === phases.length - 1;
+        return (
+          <li key={phase.key} className="relative pb-7 pl-14 last:pb-0">
+            {!isLast ? (
+              <span
+                aria-hidden
+                className="absolute bottom-1 left-[19px] top-11 w-px bg-gradient-to-b from-slate-600/70 to-slate-800/40"
+              />
+            ) : null}
+            <span
+              className={cn(
+                'absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border text-sm font-bold tabular-nums',
+                accent.node,
+              )}
+            >
+              {index + 1}
+            </span>
+            <div className="flex min-h-[2.5rem] flex-wrap items-center gap-2 pt-1.5">
+              <span
+                className={cn(
+                  'flex items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.08em]',
+                  accent.label,
+                )}
+              >
+                {phase.icon}
+                {phase.label}
+              </span>
+              {phase.chips.map((chip) => (
+                <Badge key={chip.text} variant={chip.variant ?? 'outline'}>
+                  {chip.text}
+                </Badge>
+              ))}
+            </div>
+            <div className="mt-2.5">{phase.content}</div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function FoundationSecReasoning({ governance }: { governance: FoundationSecGovernance }) {
   const analysis = governance.governed_analysis;
   if (!analysis) return null;
   const captured = governance.captured_outputs ?? [];
@@ -125,14 +314,8 @@ function FoundationSecGovernanceBlock({ governance }: { governance: FoundationSe
   const notes = analysis.guardrail_notes ?? [];
 
   return (
-    <section className="mt-4 rounded-lg border border-cyan-400/25 bg-cyan-400/[0.04] p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <SectionTitle>Foundation-sec governed analysis</SectionTitle>
-        <Badge variant="secondary">Captured model signal</Badge>
-        <Badge variant="outline">V.AI SOC governed</Badge>
-      </div>
-
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+    <div>
+      <div className="grid gap-3 lg:grid-cols-2">
         {analysis.model_signal ? (
           <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
             <p className="text-[0.68rem] font-medium uppercase tracking-[0.05em] text-slate-400">Advisory model signal</p>
@@ -140,8 +323,8 @@ function FoundationSecGovernanceBlock({ governance }: { governance: FoundationSe
           </div>
         ) : null}
         {analysis.vai_soc_decision ? (
-          <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
-            <p className="text-[0.68rem] font-medium uppercase tracking-[0.05em] text-slate-400">V.AI SOC decision</p>
+          <div className="rounded-md border border-cyan-400/25 bg-cyan-400/[0.05] p-3">
+            <p className="text-[0.68rem] font-medium uppercase tracking-[0.05em] text-cyan-300/80">V.AI SOC decision</p>
             <p className="mt-1 leading-6 text-slate-100">{analysis.vai_soc_decision}</p>
           </div>
         ) : null}
@@ -163,7 +346,11 @@ function FoundationSecGovernanceBlock({ governance }: { governance: FoundationSe
 
       {notes.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {notes.map((note) => <Badge key={note} variant="outline">{note}</Badge>)}
+          {notes.map((note) => (
+            <Badge key={note} variant="outline">
+              {note}
+            </Badge>
+          ))}
         </div>
       ) : null}
 
@@ -210,7 +397,7 @@ function FoundationSecGovernanceBlock({ governance }: { governance: FoundationSe
           </div>
         </details>
       ) : null}
-    </section>
+    </div>
   );
 }
 
@@ -330,6 +517,19 @@ function formatPlaybook(playbook?: Record<string, unknown> | null): string | nul
   return [title, id, version].filter(Boolean).join(' - ') || null;
 }
 
-function playbookId(playbook?: Record<string, unknown> | null): string | null {
-  return typeof playbook?.id === 'string' ? playbook.id : null;
+function PlaybookProvenance({ playbook }: { playbook?: Record<string, unknown> | null }) {
+  if (!playbook) return null;
+  const citation = typeof playbook.citation === 'string' ? playbook.citation : null;
+  const retrievalMode = typeof playbook.retrieval_mode === 'string' ? playbook.retrieval_mode : null;
+  const confidence = playbook.confidence;
+  const evidenceId = typeof playbook.source_evidence_id === 'string' ? playbook.source_evidence_id : null;
+  if (!citation && !retrievalMode && confidence == null && !evidenceId) return null;
+
+  const parts: string[] = [];
+  if (citation) parts.push(`Citation: ${citation}`);
+  if (retrievalMode) parts.push(`Retrieval: ${retrievalMode}`);
+  if (typeof confidence === 'number') parts.push(`Confidence: ${confidence.toFixed(2)}`);
+  if (evidenceId) parts.push(`Evidence ref: ${evidenceId}`);
+
+  return <p className="mt-2 font-mono text-[0.7rem] leading-5 text-slate-400">{parts.join(' · ')}</p>;
 }

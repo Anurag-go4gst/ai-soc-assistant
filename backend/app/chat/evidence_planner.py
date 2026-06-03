@@ -87,6 +87,23 @@ def plan_evidence(
             reasons=["spl_artifact_requested"],
         )
 
+    if family == "spl_generation_and_run":
+        return EvidencePlan(
+            answer_mode="live_investigation",
+            rag_phase="post_mcp",
+            needs_rag=False,
+            needs_spl=True,
+            needs_mcp=True,
+            needs_mitre=False,
+            spl_allowed=True,
+            mcp_allowed=True,
+            policy_context_required=False,
+            policy_context_recommended=False,
+            requires_hil=intent.requires_hil,
+            action_mode=intent.action_mode or "recommend_only",
+            reasons=["spl_artifact_and_scoped_execution_requested"],
+        )
+
     if family == "hybrid_investigation_plus_policy":
         return EvidencePlan(
             answer_mode="hybrid",

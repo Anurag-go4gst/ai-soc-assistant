@@ -263,10 +263,14 @@ class AnalystResponseEnvelope(BaseModel):
     foundation_sec_analysis: str | None = None
     recommended_actions: list[str] = []
     spl_code: str | None = None
+    executed_spl: str | None = None
+    execution_status: str | None = None
+    response_profile: str | None = None
     key_fields: list[str] = []
     escalation_criteria: list[str] = []
     closure_conditions: list[str] = []
     review_notice: str | None = None
+    evidence_summary: str | None = None
 
 
 class FoundationSecCapturedOutput(BaseModel):

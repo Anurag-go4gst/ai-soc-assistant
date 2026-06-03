@@ -306,10 +306,14 @@ export interface AnalystResponseEnvelope {
   foundation_sec_analysis?: string | null;
   recommended_actions?: string[];
   spl_code?: string | null;
+  executed_spl?: string | null;
+  execution_status?: string | null;
+  response_profile?: string | null;
   key_fields?: string[];
   escalation_criteria?: string[];
   closure_conditions?: string[];
   review_notice?: string | null;
+  evidence_summary?: string | null;
 }
 
 export interface FoundationSecCapturedOutput {

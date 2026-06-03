@@ -12,6 +12,7 @@ from app.chat.pipeline import (
 )
 from app.chat_commands import is_clear_chat_command
 from app.config import settings
+from app.demo.scenarios import resolve_demo_scenario_id_for_query, run_demo_scenario
 from app.connectors.telemetry import get_telemetry_connector
 from app.orchestration.workflow_planner import plan_workflow
 from app.routing.llm_route_plan_candidate import generate_llm_route_plan_candidate
@@ -31,6 +32,11 @@ def chat(request: ChatRequest) -> PlaceholderResponse:
             note="client_command:/clear",
             user_query=request.message,
         )
+
+    if settings.ai_soc_live_chat_ec_parity_enabled:
+        scenario_id = resolve_demo_scenario_id_for_query(request.message)
+        if scenario_id:
+            return PlaceholderResponse(**run_demo_scenario(scenario_id))
 
     if settings.langgraph_orchestration_enabled:
         from app.graph.chat_workflow import run_chat_via_langgraph
