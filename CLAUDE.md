@@ -179,6 +179,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Proposed |
 | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Proposed |
 | `plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md` | Proposed — COE review: live MCP adapter + synthesis enablement, query→answer |
+| `plans/2026-06-03_1609_local-llama-instruct-synthesis-client.md` | Proposed — Wall-2 delta of the 2026-05-30 plan; local llama.cpp Foundation-Sec Instruct synthesis client |
 
 ## Git Notes
 
