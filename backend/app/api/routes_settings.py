@@ -7,6 +7,7 @@ indicating whether they are configured.
 
 import base64
 import json
+import time
 from datetime import UTC, datetime
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
@@ -588,6 +589,112 @@ def list_llm_models(payload: LlmVerificationRequest | None = None) -> dict:
     return _llm_verification_result(draft, action="models")
 
 
+# Smoke prompt is fixed and self-contained so the generation check never depends
+# on governed evidence, RAG, or the /chat pipeline. This proves the model
+# actually generates text end-to-end through the backend; it is NOT a synthesis
+# path and never reaches a real answer surface.
+_LLM_SMOKE_PROMPT = (
+    "You are a SOC assistant. In one short sentence, name the first thing an "
+    "analyst should check for a brute-force login alert."
+)
+
+
+@router.post("/settings/llm/smoke")
+def smoke_llm_generation(payload: LlmVerificationRequest | None = None) -> dict:
+    """Send one fixed prompt to the provider's chat/completions and return the
+    generated text. Proves live generation without touching the /chat pipeline.
+
+    Output capped small on purpose: ``_json_request`` clamps the socket timeout
+    to 30s, and a local llama.cpp build runs at single-digit tokens/sec, so a
+    large completion would time out before it returned.
+    """
+    draft = _llm_verification_payload(payload)
+    errors = _validate_llm_draft(draft)
+    if errors:
+        return _llm_smoke_payload(
+            draft=draft,
+            status="Not connected",
+            generated=False,
+            reachable=False,
+            failure_reason=_plain_llm_reason(errors[0]),
+            technical_detail=", ".join(errors),
+        )
+    policy_allowed, policy_reason = _llm_policy_allowed(draft)
+    if not policy_allowed:
+        return _llm_smoke_payload(
+            draft=draft,
+            status="Blocked by airgap policy" if policy_reason == "airgap" else "Blocked by cloud policy",
+            generated=False,
+            reachable=False,
+            failure_reason="Provider is blocked by policy.",
+            technical_detail=f"blocked_by_{policy_reason}_policy",
+        )
+
+    url = draft.base_url.rstrip("/") + "/chat/completions"
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    _apply_auth(headers, auth_mode=draft.auth_mode, api_key=draft.api_key)
+    body: dict[str, object] = {
+        "model": draft.model.strip(),
+        "messages": [{"role": "user", "content": _LLM_SMOKE_PROMPT}],
+        "max_tokens": 64,
+        "temperature": settings.ai_soc_llm_temperature,
+        "stream": False,
+    }
+    started = time.monotonic()
+    try:
+        data = _json_request(url, headers=headers, timeout=draft.timeout_seconds, body=body)
+    except HTTPError as exc:
+        return _llm_smoke_payload(
+            draft=draft,
+            status="Reachable but error",
+            generated=False,
+            reachable=True,
+            failure_reason="Endpoint reached but returned an error during generation.",
+            technical_detail=f"http_{exc.code}",
+        )
+    except URLError as exc:
+        return _llm_smoke_payload(
+            draft=draft,
+            status="Not connected",
+            generated=False,
+            reachable=False,
+            failure_reason="Cannot reach LLM endpoint. Check URL, network, firewall, or that the server is bound where the backend can reach it.",
+            technical_detail=_sanitize_detail(f"url_error:{type(getattr(exc, 'reason', exc)).__name__}"),
+        )
+    except Exception as exc:  # noqa: BLE001 - report any failure as a safe smoke result, never raise to the client.
+        return _llm_smoke_payload(
+            draft=draft,
+            status="Error",
+            generated=False,
+            reachable=False,
+            failure_reason="Generation smoke failed before a completion was returned.",
+            technical_detail=_sanitize_detail(type(exc).__name__),
+        )
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    text, usage = _extract_llm_completion(data)
+    if not text:
+        return _llm_smoke_payload(
+            draft=draft,
+            status="Reachable but empty",
+            generated=False,
+            reachable=True,
+            failure_reason="Endpoint reached but returned no completion text.",
+            technical_detail="empty_completion",
+            latency_ms=elapsed_ms,
+        )
+    return _llm_smoke_payload(
+        draft=draft,
+        status="Generated",
+        generated=True,
+        reachable=True,
+        failure_reason="Live generation works. This is a connectivity smoke only; /chat synthesis is separate.",
+        technical_detail="completion_returned",
+        generated_text=text,
+        usage=usage,
+        latency_ms=elapsed_ms,
+    )
+
+
 def _mcp_verification_payload(payload: McpVerificationRequest | None) -> McpVerificationRequest:
     if payload is not None:
         return payload
@@ -1133,6 +1240,65 @@ def _extract_llm_models(payload: object) -> list[str]:
             if model:
                 names.append(str(model)[:160])
     return sorted({name for name in names if name})
+
+
+def _extract_llm_completion(payload: object) -> tuple[str, dict[str, int]]:
+    """Pull the first completion text + token usage from an OpenAI-compatible
+    chat.completion body. Returns ("", {}) on any unexpected shape."""
+    if not isinstance(payload, dict):
+        return "", {}
+    text = ""
+    choices = payload.get("choices")
+    if isinstance(choices, list) and choices:
+        first = choices[0]
+        if isinstance(first, dict):
+            message = first.get("message")
+            if isinstance(message, dict):
+                text = str(message.get("content") or "").strip()
+            if not text:
+                text = str(first.get("text") or "").strip()
+    usage_raw = payload.get("usage")
+    usage: dict[str, int] = {}
+    if isinstance(usage_raw, dict):
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            value = usage_raw.get(key)
+            if isinstance(value, int):
+                usage[key] = value
+    return text[:4000], usage
+
+
+def _llm_smoke_payload(
+    *,
+    draft: "LlmVerificationRequest",
+    status: str,
+    generated: bool,
+    reachable: bool,
+    failure_reason: str,
+    technical_detail: str,
+    generated_text: str = "",
+    usage: dict[str, int] | None = None,
+    latency_ms: int | None = None,
+) -> dict[str, object]:
+    return {
+        "action": "smoke",
+        "status": status,
+        "generated": generated,
+        "reachable": reachable,
+        "provider_id": draft.provider_id.strip()[:120] or None,
+        "provider_type": draft.provider_type.strip().lower(),
+        "model": draft.model.strip()[:160] or None,
+        "base_url_configured": bool(draft.base_url.strip()),
+        "api_key_configured": bool(draft.api_key.strip()),
+        "generated_text": generated_text,
+        "usage": usage or {},
+        "latency_ms": latency_ms,
+        "prompt": _LLM_SMOKE_PROMPT,
+        "last_checked_time": _now_iso(),
+        "failure_reason": failure_reason,
+        "technical_error_detail": _sanitize_detail(technical_detail),
+        "safe_message": failure_reason,
+        "secrets_returned": False,
+    }
 
 
 def _plain_llm_reason(reason: str) -> str:
