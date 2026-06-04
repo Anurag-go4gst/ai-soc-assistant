@@ -62,6 +62,7 @@ from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
 from app.chat.evidence_planner import plan_evidence
 from app.chat.contracts.answer_contract import build_answer_contract
+from app.chat.final_answer_validator import validate_final_answer
 from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.control_plane_trace import build_control_plane_trace
@@ -659,9 +660,38 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision=severity_decision,
         answer_contract=answer_contract,
     )
+    final_answer_validation = None
+    if settings.control_plane_enabled:
+        validation = validate_final_answer(
+            analyst_response=analyst_response,
+            answer_contract=answer_contract_payload,
+            evidence_plan=state.get("evidence_plan"),
+            mitre_decision=mitre_decision,
+        )
+        final_answer_validation = validation.model_dump()
+        if validation.guard_status == "blocked":
+            # Fail closed: the answer contradicts the contract/deciders. Route to
+            # analyst review rather than silently repairing the upstream defect.
+            human_review = {
+                **(human_review or {}),
+                "required": True,
+                "safe_message_for_user": validation.blocked_reason
+                or "Final-answer validation requires analyst review.",
+            }
+            context_sufficiency = {
+                **context_sufficiency,
+                "status": "analyst_review_required",
+                "synthesis_readiness": False,
+            }
+            response_mode = _response_mode(context_sufficiency, human_review, spl_validation)
     control_plane_trace = None
     if settings.control_plane_enabled:
-        trace_state = {**state, "mitre_decision": mitre_decision, "answer_contract": answer_contract_payload}
+        trace_state = {
+            **state,
+            "mitre_decision": mitre_decision,
+            "answer_contract": answer_contract_payload,
+            "final_answer_validation": final_answer_validation,
+        }
         control_plane_trace = build_control_plane_trace(
             trace_state,
             source_evidence=source_evidence,
@@ -723,6 +753,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
         answer_contract=answer_contract_payload,
+        final_answer_validation=final_answer_validation,
         mitre_decision=mitre_decision,
         analyst_response=analyst_response,
     )
