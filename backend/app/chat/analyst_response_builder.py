@@ -9,6 +9,7 @@ from app.config import settings
 from app.schemas.responses import AnalystResponseEnvelope
 from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.final_answer_readability import apply_final_answer_readability
+from app.threat.mitre_evidence_preconditions import PRECONDITION_BY_ID, not_claimed_reason
 
 _FAILED_LOGIN_NUMERIC_COLUMNS = (
     "Failed logins",
@@ -36,6 +37,7 @@ def build_analyst_response_for_live(
     intent_classification: dict[str, Any] | None = None,
     evidence_plan: dict[str, Any] | None = None,
     severity_decision: Any | None = None,
+    answer_contract: Any | None = None,
 ) -> AnalystResponseEnvelope | None:
     """Assemble analyst card payload from governed live pipeline outputs."""
     draft = synthesis_draft if isinstance(synthesis_draft, dict) else {}
@@ -49,7 +51,22 @@ def build_analyst_response_for_live(
     not_claimed = _not_claimed_rows(decision_payload)
     playbook, sop_guidance, rag_meta = _playbook_from_rag(source_evidence)
     recommended = _recommended_actions_from_draft(draft) or _recommended_from_rag(source_evidence)
-    summary = _governed_summary(user_query, analyst_summary, mitre_rows, not_claimed)
+    # Single AnswerContract: prefer the pipeline-built projection; build only as
+    # a fallback so the builder never makes a second, divergent contract.
+    contract = answer_contract
+    if contract is None and settings.control_plane_enabled:
+        contract = build_answer_contract(
+            intent_classification=intent_classification,
+            evidence_plan=evidence_plan,
+            mitre_decision=decision_payload,
+            severity_decision=severity_decision,
+            spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+            execution=execution_payload,
+            human_review=human_review if isinstance(human_review, dict) else None,
+            mitre_mappings=mitre_mappings,
+            user_query=user_query,
+        )
+    summary = _governed_summary(analyst_summary, mitre_rows, not_claimed, contract)
     if not any([table, mitre_rows, not_claimed, playbook, summary, recommended, spl_code]):
         return None
     finding = _finding_title(message, user_query, selected_use_case_label)
@@ -98,18 +115,7 @@ def build_analyst_response_for_live(
         review_notice=review_notice,
         evidence_summary=summarize_failed_login_events(table),
     )
-    if settings.control_plane_enabled:
-        contract = build_answer_contract(
-            intent_classification=intent_classification,
-            evidence_plan=evidence_plan,
-            mitre_decision=decision_payload,
-            severity_decision=severity_decision,
-            spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
-            execution=execution_payload,
-            human_review=human_review if isinstance(human_review, dict) else None,
-            mitre_mappings=mitre_mappings,
-            user_query=user_query,
-        )
+    if contract is not None:
         envelope = apply_final_answer_readability(envelope, contract)
     return envelope
 
@@ -226,23 +232,13 @@ def _mitre_display_rows(mappings: list[Any], *, user_query: str = "") -> list[di
     return rows
 
 
-_NOT_CLAIMED_DETAILS = {
-    "T1078": (
-        "Valid Accounts",
-        "No successful login or confirmed valid credential use.",
-    ),
-    "T1003": (
-        "Credential Dumping",
-        "No credential dumping evidence.",
-    ),
-    "T1562.001": (
-        "Impair Defenses",
-        "No defense impairment evidence.",
-    ),
-}
-
-
 def _not_claimed_rows(mitre_decision: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Build Not-Claimed rows from the MITRE decision.
+
+    Reasons/names come from the tactic-general evidence-precondition table
+    (Commit 1), not a per-technique dict — so any technique demoted for absent
+    evidence renders with a governed reason, across all tactics.
+    """
     if not mitre_decision:
         return []
     ids: list[str] = []
@@ -256,34 +252,30 @@ def _not_claimed_rows(mitre_decision: dict[str, Any] | None) -> list[dict[str, A
                 ids.append(technique_id)
     rows: list[dict[str, Any]] = []
     for technique_id in ids:
-        name, reason = _NOT_CLAIMED_DETAILS.get(
-            technique_id,
-            ("Not claimed", "Required supporting evidence was not present in the supplied scenario."),
-        )
+        precondition = PRECONDITION_BY_ID.get(technique_id)
         rows.append(
             {
                 "Technique": technique_id,
-                "Name": name,
+                "Name": precondition.name if precondition is not None else "Not claimed",
                 "Status": "Not Claimed",
-                "Reason": reason,
+                "Reason": not_claimed_reason(technique_id),
             }
         )
     return rows
 
 
 def _governed_summary(
-    user_query: str,
     analyst_summary: str | None,
     mitre_rows: list[dict[str, Any]],
     not_claimed: list[dict[str, Any]],
+    contract: Any | None,
 ) -> str | None:
+    """One-sentence finding, driven by the AnswerContract — not query re-parsing.
+
+    The success-after-failure framing keys on `contract.success_after_failure_context`
+    (a deterministic projection), not literal substrings in the user query.
+    """
     summary = (analyst_summary or "").strip() or None
-    query_l = user_query.lower()
-    has_negative_mitre_context = (
-        "no successful login" in query_l
-        and "no endpoint telemetry" in query_l
-        and "no evidence of credential dumping" in query_l
-    )
     has_t1110_candidate = any(
         row.get("Technique") == "T1110.001" and str(row.get("Status") or "").lower() == "candidate"
         for row in mitre_rows
@@ -292,19 +284,15 @@ def _governed_summary(
         row.get("Technique") == "T1078" and str(row.get("Status") or "").lower() == "candidate"
         for row in mitre_rows
     )
-    success_after_failure_query = (
-        "successful login" in query_l
-        and any(term in query_l for term in ("followed", "after failure", "after failures", "after failed"))
-        and "no successful login" not in query_l
-    )
-    if success_after_failure_query and has_t1110_candidate and has_t1078_candidate:
+    success_after_failure = bool(getattr(contract, "success_after_failure_context", False))
+    if success_after_failure and has_t1110_candidate and has_t1078_candidate:
         return (
             "Repeated failed logins followed by a successful login from the same user in the last hour "
             "is a candidate authentication security event. Severity should increase to P1 if the user is "
             "privileged, the asset is critical, the source IP is suspicious, MFA was bypassed, or abnormal "
             "post-login activity is confirmed."
         )
-    if has_negative_mitre_context and has_t1110_candidate and not_claimed:
+    if has_t1110_candidate and not_claimed:
         return (
             "Based on the provided activity, this is a candidate authentication security event. "
             "T1110.001 Password Guessing is candidate-mapped because repeated failed login attempts "

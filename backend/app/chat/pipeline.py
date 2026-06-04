@@ -657,6 +657,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         intent_classification=state.get("intent_classification"),
         evidence_plan=state.get("evidence_plan"),
         severity_decision=severity_decision,
+        answer_contract=answer_contract,
     )
     control_plane_trace = None
     if settings.control_plane_enabled:
