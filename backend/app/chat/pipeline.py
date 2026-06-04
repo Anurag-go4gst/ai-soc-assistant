@@ -639,6 +639,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             human_review=human_review,
             mitre_mappings=mitre_mappings or [],
             user_query=request.message,
+            query_signals=_query_signals_from_state(state),
         )
     answer_contract_payload = answer_contract.model_dump() if answer_contract is not None else None
     analyst_response = build_analyst_response_for_live(
@@ -670,8 +671,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         )
         final_answer_validation = validation.model_dump()
         if validation.guard_status == "blocked":
-            # Fail closed: the answer contradicts the contract/deciders. Route to
-            # analyst review rather than silently repairing the upstream defect.
+            # Fail closed: the answer contradicts the contract/deciders. Withhold
+            # the rejected card server-side (do not rely on the client to hide it)
+            # and route to analyst review rather than silently repairing the
+            # upstream defect.
+            analyst_response = None
+            mitre_mappings = []
             human_review = {
                 **(human_review or {}),
                 "required": True,

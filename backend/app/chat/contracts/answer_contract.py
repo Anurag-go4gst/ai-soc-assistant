@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -81,6 +80,7 @@ def build_answer_contract(
     human_review: dict[str, Any] | None,
     mitre_mappings: list[Any] | None = None,
     user_query: str | None = None,
+    query_signals: dict[str, Any] | None = None,
 ) -> AnswerContract:
     intent = intent_classification or {}
     plan = evidence_plan or {}
@@ -158,7 +158,9 @@ def build_answer_contract(
         execution_status_display=exec_display,
         section_order=section_order,
         render_sections=render,
-        success_after_failure_context=_success_after_failure_context(user_query, str(intent.get("intent_family") or "")),
+        success_after_failure_context=_success_after_failure_context(
+            query_signals, str(intent.get("intent_family") or "")
+        ),
     )
 
 
@@ -237,11 +239,13 @@ def _default_limitations(goals: list[str], spl_present: bool, exec_status: str |
     ]
 
 
-def _success_after_failure_context(user_query: str | None, intent_family: str) -> bool:
-    if intent_family != "hybrid_alert_review" or not user_query:
+def _success_after_failure_context(query_signals: dict[str, Any] | None, intent_family: str) -> bool:
+    """Read-model only: source the flag from the deterministic query signal.
+
+    No query re-parsing — the `success_after_failure` signal is computed once in
+    `chat.query_signals` and threaded here, keeping the contract a pure
+    projection of the deciders.
+    """
+    if intent_family != "hybrid_alert_review":
         return False
-    normalized = user_query.lower()
-    return bool(
-        re.search(r"successful login|success(?:ful)? login", normalized)
-        and re.search(r"failed login|failed logins|failures", normalized)
-    )
+    return bool((query_signals or {}).get("success_after_failure"))

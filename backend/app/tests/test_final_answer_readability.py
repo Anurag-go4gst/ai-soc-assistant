@@ -150,6 +150,7 @@ def test_success_after_failure_alert_review_limitations() -> None:
             "For alert ALT-2024-0891 failed logins followed by a successful login, "
             "what is the severity and MITRE mapping?"
         ),
+        query_signals={"success_after_failure": True},
     )
     result = apply_final_answer_readability(_hybrid_envelope(), contract)
     assert result.limitations == [

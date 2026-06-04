@@ -36,6 +36,18 @@ class _FinalGuardResult:
     affected_field: str | None = None
 
 
+# Single source of truth for the check ids, so passed/failed reporting in the
+# trace can never drift from the checks actually run.
+_CHECK_IDS: tuple[str, ...] = (
+    "final.blocked_finding_claimed",
+    "final.mitre_visible_when_suppressed",
+    "final.rag_override_mitre",
+    "final.spl_on_rag_only",
+    "final.candidate_described_as_confirmed",
+    "final.spl_only_missing_action_guidance",
+)
+
+
 def _blocking(guard_id: str, message: str, field: str | None = None) -> _FinalGuardResult:
     return _FinalGuardResult(
         guard_id=guard_id,
@@ -167,13 +179,6 @@ def validate_final_answer(
     return AnswerGuardStatus(
         enabled=True,
         guard_status="passed",
-        passed_checks=[
-            "final.blocked_finding_claimed",
-            "final.mitre_visible_when_suppressed",
-            "final.rag_override_mitre",
-            "final.spl_on_rag_only",
-            "final.candidate_described_as_confirmed",
-            "final.spl_only_missing_action_guidance",
-        ],
+        passed_checks=list(_CHECK_IDS),
         reason="Final answer is consistent with the AnswerContract and the deciders.",
     )
