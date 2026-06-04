@@ -13,7 +13,9 @@ from typing import Any
 
 from app.actions.capability_policy import ActionCapability
 from app.chat.progress_context import emit_heartbeat, emit_llm_degraded
-from app.synthesis.live_narration import NarrationFailure
+from app.llm.clients import LocalChatError
+from app.llm.clients.local_chat_errors import local_chat_error_code, user_message_for_local_chat_error
+from app.synthesis.live_narration import NarrationFailure, NarrationResult
 from app.chat.progress_events import live_synthesis_timeout_seconds
 from app.config import settings
 from app.llm.clients import LocalChatClient, build_synthesis_client_from_settings
@@ -309,7 +311,7 @@ def _narrate_with_progress_and_timeout(
     severity_label: str | None,
     client: LocalChatClient,
     structured_context: dict[str, Any],
-) -> tuple[Any | None, bool]:
+) -> tuple[NarrationResult | NarrationFailure | None, bool]:
     """Run live narration with heartbeats; return (result, timed_out)."""
     import time
 
@@ -331,9 +333,24 @@ def _narrate_with_progress_and_timeout(
             if remaining <= 0:
                 return None, True
             try:
-                return future.result(timeout=min(poll_s, remaining)), False
+                result = future.result(timeout=min(poll_s, remaining))
+                return result, False
             except concurrent.futures.TimeoutError:
                 emit_heartbeat("generating_answer", heartbeat_label)
+            except LocalChatError as exc:
+                return (
+                    NarrationFailure(code=exc.code, user_message=exc.user_message),
+                    False,
+                )
+            except Exception as exc:  # noqa: BLE001
+                code = local_chat_error_code(exc)
+                return (
+                    NarrationFailure(
+                        code=code,
+                        user_message=user_message_for_local_chat_error(code),
+                    ),
+                    False,
+                )
 
 
 def _preview_rows_from_evidence(source_evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:

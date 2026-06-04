@@ -17,6 +17,28 @@ _EXECUTION_LABELS = {
     "blocked_approval_required": "Blocked — approval required",
 }
 
+_ALERT_REVIEW_LIMITATIONS = [
+    "Privilege status missing",
+    "Asset criticality missing",
+    "Source IP ownership missing",
+    "MFA result missing",
+    "Post-login activity missing",
+]
+
+_LIMITATION_LABELS = {
+    "success_after_failure": "Success-after-failure confirmation missing",
+    "privileged_account_impacted": "Privilege status missing",
+    "critical_asset": "Asset criticality missing",
+    "confirmed_success": "Successful login confirmation missing",
+    "source_ownership": "Source IP ownership missing",
+    "mfa_status": "MFA result missing",
+    "post_login_activity": "Post-login activity missing",
+}
+
+_EXCLUDED_LIMITATIONS_WHEN_SUCCESS_STATED = {"confirmed_success", "success_after_failure"}
+
+_AGG_SPLIT = re.compile(r"\s+(?=(?:count|values|min|max|sum|avg|list|dc|earliest|latest)\()", re.IGNORECASE)
+
 
 def apply_final_answer_readability(
     envelope: AnalystResponseEnvelope,
@@ -39,9 +61,13 @@ def apply_final_answer_readability(
 
 
 def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
+    if contract.intent_family == "hybrid_alert_review":
+        return _natural_hybrid_alert_summary(envelope, contract)
+
     lines: list[str] = []
+    include_severity = "severity_assessment" not in contract.answer_goal
     for section in contract.section_order:
-        if section == "severity_assessment" and envelope.severity_label:
+        if section == "severity_assessment" and include_severity and envelope.severity_label:
             conf = envelope.severity_confidence or contract.severity_confidence
             line = f"Severity: {envelope.severity_label}"
             if conf:
@@ -66,18 +92,40 @@ def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerCo
     return " ".join(lines)
 
 
+def _natural_hybrid_alert_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
+    mapped = len(envelope.mitre_mappings or [])
+    blocked = len(envelope.not_claimed or [])
+    parts: list[str] = []
+    if mapped and blocked:
+        parts.append(
+            f"The alert has {mapped} candidate MITRE mapping{'s' if mapped != 1 else ''} "
+            f"and {blocked} technique{'s' if blocked != 1 else ''} explicitly not claimed."
+        )
+    elif mapped:
+        parts.append(
+            f"The alert has {mapped} candidate MITRE mapping{'s' if mapped != 1 else ''}."
+        )
+    elif blocked:
+        parts.append(
+            f"The alert has {blocked} technique{'s' if blocked != 1 else ''} explicitly not claimed."
+        )
+    if envelope.spl_code and contract.execution_status_display:
+        if contract.execution_status_display.startswith("Review only"):
+            parts.append(
+                "A governed SPL draft is available for review only and has not been executed."
+            )
+        else:
+            parts.append(f"A governed SPL draft is available ({contract.execution_status_display.lower()}).")
+    return " ".join(parts) if parts else str(envelope.one_sentence_finding or "")
+
+
 def _dedupe_labels(payload: dict[str, Any], contract: AnswerContract) -> dict[str, Any]:
-    severity = str(payload.get("severity_label") or "")
     exec_label = contract.execution_status_display or ""
-    if exec_label.startswith("Review only") and "review required" in severity.lower():
-        payload["severity_label"] = re.sub(r"\s*[—-]\s*review required\s*$", "", severity, flags=re.IGNORECASE).strip()
     review_notice = str(payload.get("review_notice") or "")
     if exec_label and review_notice:
         if "review only" in review_notice.lower() or "not executed" in review_notice.lower():
             payload["review_notice"] = exec_label
-    summary = str(payload.get("one_sentence_finding") or "")
-    direct = str(payload.get("direct_answer_summary") or "")
-    if summary and direct and summary.strip() == direct.strip():
+    if payload.get("direct_answer_summary"):
         payload["one_sentence_finding"] = None
     return payload
 
@@ -90,7 +138,8 @@ def _apply_section_visibility(payload: dict[str, Any], contract: AnswerContract)
         payload["not_claimed"] = []
     if not render.get("policy_citation") and not render.get("procedural_steps"):
         if contract.answer_mode == "rag_only" or (
-            contract.intent_family in {"spl_generation_only", "hybrid_alert_review"} and "policy_citation" not in contract.answer_goal
+            contract.intent_family in {"spl_generation_only", "hybrid_alert_review"}
+            and "policy_citation" not in contract.answer_goal
         ):
             payload["retrieved_playbook"] = None
             payload["sop_guidance"] = None
@@ -112,32 +161,30 @@ def _apply_section_visibility(payload: dict[str, Any], contract: AnswerContract)
 
 
 def _limitations_display(contract: AnswerContract) -> list[str]:
-    labels = {
-        "success_after_failure": "success-after-failure confirmation missing",
-        "privileged_account_impacted": "privilege status missing",
-        "critical_asset": "asset criticality missing",
-        "confirmed_success": "successful login confirmation missing",
-        "source_ownership": "source ownership missing",
-        "mfa_status": "MFA status missing",
-        "post_login_activity": "post-login activity missing",
-    }
+    if contract.success_after_failure_context:
+        return list(_ALERT_REVIEW_LIMITATIONS)
+
     items: list[str] = []
     for key in contract.missing_evidence:
+        if key in _EXCLUDED_LIMITATIONS_WHEN_SUCCESS_STATED:
+            continue
         normalized = str(key).replace("_", " ").lower()
-        items.append(labels.get(str(key), normalized if "missing" in normalized else f"{normalized} missing"))
+        items.append(
+            _LIMITATION_LABELS.get(
+                str(key),
+                normalized if "missing" in normalized else f"{normalized} missing",
+            )
+        )
     if not items and contract.render_sections.get("limitations"):
-        items = [
-            "asset criticality missing",
-            "privilege status missing",
-            "source ownership missing",
-            "MFA status missing",
-            "post-login activity missing",
-        ]
+        items = list(_ALERT_REVIEW_LIMITATIONS)
     deduped: list[str] = []
     for item in items:
         if item not in deduped:
             deduped.append(item)
     return deduped
+
+
+_STATS_INDENT = "    "
 
 
 def _format_spl_multiline(spl: Any) -> str | None:
@@ -152,9 +199,28 @@ def _format_spl_multiline(spl: Any) -> str | None:
     lines: list[str] = [parts[0]]
     for part in parts[1:]:
         if part.lower().startswith("stats"):
-            lines.append(f"| {part}")
+            lines.append(_expand_stats_pipe(part))
         else:
             lines.append(f"| {part}")
+    return "\n".join(lines)
+
+
+def _expand_stats_pipe(part: str) -> str:
+    text = part.strip()
+    by_split = re.split(r"\s+by\s+", text, maxsplit=1, flags=re.IGNORECASE)
+    head = by_split[0]
+    group_by = by_split[1].strip() if len(by_split) > 1 else ""
+
+    stats_body = re.sub(r"^stats\s+", "", head, flags=re.IGNORECASE).strip()
+    if not stats_body:
+        return f"| {text}"
+
+    aggregations = [item.strip() for item in _AGG_SPLIT.split(stats_body) if item.strip()]
+    lines = ["| stats"]
+    for agg in aggregations:
+        lines.append(f"{_STATS_INDENT}{agg}")
+    if group_by:
+        lines.append(f"{_STATS_INDENT}by {group_by}")
     return "\n".join(lines)
 
 

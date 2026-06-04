@@ -4,19 +4,26 @@ from __future__ import annotations
 
 
 def local_chat_error_code(exc: BaseException) -> str:
-    if hasattr(exc, "code") and isinstance(getattr(exc, "code"), str):
-        return str(exc.code)
-    message = str(exc)
-    if message.startswith("http_") or message.startswith("url_error"):
-        return message.split(":", 1)[0]
-    return "transport_error:Unknown"
+    code_attr = getattr(exc, "code", None)
+    if isinstance(code_attr, str) and code_attr:
+        return code_attr
+    name = type(exc).__name__ or "Exception"
+    text = str(exc).strip().replace("\n", " ")[:120]
+    if text.startswith(("http_", "url_error:", "transport_error:", "api_error:", "empty_completion")):
+        return text.split()[0] if text.split() else f"unexpected:{name}"
+    if text:
+        return f"unexpected:{name}:{text}"
+    return f"unexpected:{name}"
 
 
 def user_message_for_local_chat_error(code: str) -> str:
     if code == "base_url_not_configured":
         return "Live LLM synthesis is enabled but no model endpoint URL is configured."
     if code == "empty_completion":
-        return "The LLM returned an empty completion."
+        return "The LLM returned an empty completion (check model name and server logs)."
+    if code.startswith("api_error:"):
+        detail = code.split(":", 1)[-1].strip()
+        return f"The LLM API returned an error: {detail}. A governed deterministic answer will be used instead."
     if code.startswith("http_"):
         status = code.removeprefix("http_")
         if status in {"502", "503", "504"}:
@@ -39,17 +46,24 @@ def user_message_for_local_chat_error(code: str) -> str:
         )
     if code.startswith("url_error:"):
         reason = code.split(":", 1)[-1]
-        if reason in {"ConnectionRefusedError", "ConnectionRefused"}:
+        lowered = reason.lower()
+        if "refused" in lowered or reason in {"ConnectionRefusedError", "ConnectionRefused"}:
             return (
                 "Could not connect to the LLM server (connection refused). "
                 "Confirm the host, port, and that llama.cpp is listening."
             )
-        if reason in {"TimeoutError", "timed out"}:
-            return "The LLM server did not respond in time. A governed deterministic answer will be used instead."
-        if reason in {"NameResolutionError", "gaierror"}:
+        if "timeout" in lowered or reason in {"TimeoutError", "timed out", "timeout"}:
+            return (
+                "The LLM server did not respond in time. "
+                "The local model may still be loading or the request is too large—a governed deterministic answer will be used instead."
+            )
+        if "gaierror" in lowered or "name or service not known" in lowered:
             return "Could not resolve the LLM hostname. Check DNS and the configured base URL."
         return f"Network error reaching the LLM server ({reason}). A deterministic answer will be used instead."
     if code.startswith("transport_error:"):
         detail = code.split(":", 1)[-1]
+        return f"LLM request failed ({detail}). A governed deterministic answer will be used instead."
+    if code.startswith("unexpected:"):
+        detail = code.removeprefix("unexpected:")
         return f"LLM request failed ({detail}). A governed deterministic answer will be used instead."
     return "Live LLM synthesis failed. A governed deterministic answer will be used instead."

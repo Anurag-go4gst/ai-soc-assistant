@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from app.api.routes_chat import chat
@@ -24,10 +26,14 @@ def _chat(query: str):
     return response
 
 
+def _collapse_spl(spl: str) -> str:
+    return re.sub(r"[\s|]+", " ", spl.lower()).strip()
+
+
 def _assert_multiline_spl_present(envelope_spl: str | None, normalized_spl: str) -> None:
     assert envelope_spl is not None
     assert "\n" in envelope_spl
-    assert all(part.strip() in envelope_spl for part in normalized_spl.split("|"))
+    assert _collapse_spl(envelope_spl) == _collapse_spl(normalized_spl)
 
 
 def test_policy_escalation_failed_login_rag_only_no_spl_mcp_or_visible_mitre() -> None:
@@ -323,7 +329,6 @@ def test_aws_security_group_modifications_returns_raw_cloudtrail_spl_answer() ->
     assert "tstats" not in spl
     assert response.analyst_response is not None
     _assert_multiline_spl_present(response.analyst_response.spl_code, spl)
-    assert all(part.strip() in (response.analyst_response.spl_code or "") for part in spl.split("|"))
     assert response.analyst_response.response_profile == "spl_only"
     assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
     assert response.execution is not None
@@ -383,6 +388,7 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
     assert mapping_rows["T1110.001"]["Status"] == "Candidate"
     assert mapping_rows["T1078"]["Status"] == "Candidate"
     assert response.analyst_response.severity_label is not None
+    assert "Review required" in (response.analyst_response.severity_label or "")
     assert response.analyst_response.execution_status_label == "Review only — not executed"
     assert response.analyst_response.severity_confidence == "Medium"
     assert response.analyst_response.severity_rationale
@@ -392,6 +398,17 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
     assert 'alert_id="ALT-2024-0891"' in (response.analyst_response.spl_code or "")
     assert "\n" in (response.analyst_response.spl_code or "")
     assert response.analyst_response.direct_answer_summary
+    assert "candidate MITRE mapping" in response.analyst_response.direct_answer_summary
+    assert "not claimed" in response.analyst_response.direct_answer_summary
+    assert "governed SPL draft" in response.analyst_response.direct_answer_summary
+    assert "Severity:" not in (response.analyst_response.direct_answer_summary or "")
+    assert response.analyst_response.limitations == [
+        "Privilege status missing",
+        "Asset criticality missing",
+        "Source IP ownership missing",
+        "MFA result missing",
+        "Post-login activity missing",
+    ]
     assert len(response.analyst_response.mitre_mappings) >= 2
     assert len(response.analyst_response.not_claimed) >= 2
 
@@ -409,7 +426,7 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
 
     combined = response.analyst_response.model_dump_json().lower()
     assert "review only" in combined
-    assert "spl:" in (response.analyst_response.direct_answer_summary or "").lower()
+    assert "governed spl draft" in (response.analyst_response.direct_answer_summary or "").lower()
     assert response.analyst_response.not_claimed
     for technique_id in ("T1003", "T1562.001"):
         row = next(item for item in response.analyst_response.not_claimed if item["Technique"] == technique_id)

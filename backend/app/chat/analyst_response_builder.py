@@ -108,6 +108,7 @@ def build_analyst_response_for_live(
             execution=execution_payload,
             human_review=human_review if isinstance(human_review, dict) else None,
             mitre_mappings=mitre_mappings,
+            user_query=user_query,
         )
         envelope = apply_final_answer_readability(envelope, contract)
     return envelope

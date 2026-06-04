@@ -51,6 +51,8 @@ export function AnalystResponseCard({
     summaryText && (response.direct_answer_summary || isHybridAlertReview || !response.spl_code),
   );
   const showLimitations = Boolean(response.limitations?.length && (renderSections.limitations ?? true));
+  const severityShowsReviewRequired = /review required/i.test(response.severity_label ?? '');
+  const showReviewRequiredBadge = Boolean(response.review_notice && !severityShowsReviewRequired);
   const showSpl = Boolean(response.spl_code && (renderSections.spl_artifact ?? true));
   const showLiveResults =
     (renderSections.live_results ?? true) &&
@@ -281,7 +283,7 @@ export function AnalystResponseCard({
         {response.severity_confidence ? (
           <Badge variant="outline">Confidence: {response.severity_confidence}</Badge>
         ) : null}
-        {response.review_notice ? <Badge variant="warning">Review required</Badge> : null}
+        {showReviewRequiredBadge ? <Badge variant="warning">Review required</Badge> : null}
       </div>
 
       {title ? <h3 className="mt-3 text-xl font-semibold text-slate-50">{title}</h3> : null}
@@ -536,9 +538,13 @@ function recommendationTone(priority: string) {
 }
 
 function formatSplForDisplay(spl: string): string {
+  const trimmed = spl.trim();
+  if (trimmed.includes('\n')) {
+    return trimmed;
+  }
   const parts = spl.split('|').map((part) => part.trim()).filter(Boolean);
   if (parts.length <= 1) {
-    return spl.trim();
+    return trimmed;
   }
   return parts.map((part, index) => (index === 0 ? part : `| ${part}`)).join('\n');
 }

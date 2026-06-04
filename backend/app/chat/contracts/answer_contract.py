@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -52,6 +53,7 @@ class AnswerContract(BaseModel):
     execution_status_display: str | None = None
     section_order: list[str] = Field(default_factory=list)
     render_sections: dict[str, bool] = Field(default_factory=dict)
+    success_after_failure_context: bool = False
 
 
 _SECTION_PRIORITY: dict[str, int] = {
@@ -78,6 +80,7 @@ def build_answer_contract(
     execution: dict[str, Any] | None,
     human_review: dict[str, Any] | None,
     mitre_mappings: list[Any] | None = None,
+    user_query: str | None = None,
 ) -> AnswerContract:
     intent = intent_classification or {}
     plan = evidence_plan or {}
@@ -155,6 +158,7 @@ def build_answer_contract(
         execution_status_display=exec_display,
         section_order=section_order,
         render_sections=render,
+        success_after_failure_context=_success_after_failure_context(user_query, str(intent.get("intent_family") or "")),
     )
 
 
@@ -225,9 +229,19 @@ def _default_limitations(goals: list[str], spl_present: bool, exec_status: str |
     if not spl_present and "severity_assessment" not in goals:
         return []
     return [
-        "asset criticality missing",
-        "privilege status missing",
-        "source ownership missing",
-        "MFA status missing",
-        "post-login activity missing",
+        "privileged_account_impacted",
+        "critical_asset",
+        "source_ownership",
+        "mfa_status",
+        "post_login_activity",
     ]
+
+
+def _success_after_failure_context(user_query: str | None, intent_family: str) -> bool:
+    if intent_family != "hybrid_alert_review" or not user_query:
+        return False
+    normalized = user_query.lower()
+    return bool(
+        re.search(r"successful login|success(?:ful)? login", normalized)
+        and re.search(r"failed login|failed logins|failures", normalized)
+    )

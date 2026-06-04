@@ -10,6 +10,8 @@ longer than the connectivity smoke.
 from __future__ import annotations
 
 import json
+import logging
+import socket
 import time
 from dataclasses import dataclass, field
 from urllib.error import HTTPError, URLError
@@ -17,6 +19,8 @@ from urllib.request import Request, urlopen
 
 from app.config import settings
 from app.llm.clients.local_chat_errors import user_message_for_local_chat_error
+
+logger = logging.getLogger(__name__)
 
 
 class LocalChatError(RuntimeError):
@@ -38,6 +42,65 @@ class ChatResult:
     model: str
     latency_ms: int
     usage: dict[str, int] = field(default_factory=dict)
+
+
+def _url_error_code(exc: URLError) -> str:
+    reason = getattr(exc, "reason", None)
+    if isinstance(reason, BaseException):
+        return f"url_error:{type(reason).__name__}"
+    if reason is not None:
+        text = str(reason).strip().replace("\n", " ")[:80]
+        return f"url_error:{text}" if text else "url_error:URLError"
+    return "url_error:URLError"
+
+
+def _read_http_error_body(exc: HTTPError, limit: int = 512) -> str:
+    try:
+        raw = exc.read(limit)
+        if not raw:
+            return ""
+        return raw.decode("utf-8", errors="replace").strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _parse_completion(raw: bytes) -> tuple[str, dict[str, int]]:
+    if not raw:
+        return "", {}
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        snippet = raw[:200].decode("utf-8", errors="replace")
+        raise LocalChatError(
+            "api_error:invalid_json",
+            detail=f"non-JSON response ({type(exc).__name__}): {snippet[:120]}",
+        ) from exc
+    if not isinstance(data, dict):
+        return "", {}
+    error_block = data.get("error")
+    if error_block is not None:
+        if isinstance(error_block, dict):
+            message = str(error_block.get("message") or error_block.get("type") or error_block)
+        else:
+            message = str(error_block)
+        message = message.strip().replace("\n", " ")[:200]
+        raise LocalChatError(f"api_error:{message or 'unknown_api_error'}")
+    text = ""
+    choices = data.get("choices")
+    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+        message = choices[0].get("message")
+        if isinstance(message, dict):
+            text = str(message.get("content") or "").strip()
+        if not text:
+            text = str(choices[0].get("text") or "").strip()
+    usage: dict[str, int] = {}
+    usage_raw = data.get("usage")
+    if isinstance(usage_raw, dict):
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            value = usage_raw.get(key)
+            if isinstance(value, int):
+                usage[key] = value
+    return text, usage
 
 
 @dataclass(frozen=True)
@@ -78,46 +141,31 @@ class LocalChatClient:
         request = Request(url, data=body, method="POST", headers=headers)
         started = time.monotonic()
         try:
-            with urlopen(request, timeout=max(self.timeout_seconds, 1)) as response:  # noqa: S310 - admin-configured on-prem endpoint.
+            with urlopen(request, timeout=max(self.timeout_seconds, 1)) as response:  # noqa: S310
                 raw = response.read(1024 * 256)
         except HTTPError as exc:
-            raise LocalChatError(f"http_{exc.code}") from exc
+            body = _read_http_error_body(exc)
+            code = f"http_{exc.code}"
+            detail = f"HTTP {exc.code}"
+            if body:
+                detail = f"{detail}: {body[:200]}"
+            logger.warning("local_chat http error %s url=%s body=%s", exc.code, url, body[:200])
+            raise LocalChatError(code, detail=detail) from exc
         except URLError as exc:
-            raise LocalChatError(f"url_error:{type(getattr(exc, 'reason', exc)).__name__}") from exc
-        except Exception as exc:  # noqa: BLE001 - any transport failure must fall back, never raise to chat.
-            raise LocalChatError(f"transport_error:{type(exc).__name__}") from exc
+            code = _url_error_code(exc)
+            logger.warning("local_chat url error code=%s url=%s", code, url)
+            raise LocalChatError(code) from exc
+        except socket.timeout as exc:
+            raise LocalChatError("url_error:timeout") from exc
+        except Exception as exc:  # noqa: BLE001
+            name = type(exc).__name__ or "Exception"
+            logger.warning("local_chat transport error %s url=%s", name, url)
+            raise LocalChatError(f"transport_error:{name}") from exc
         elapsed_ms = int((time.monotonic() - started) * 1000)
         text, usage = _parse_completion(raw)
         if not text:
             raise LocalChatError("empty_completion")
         return ChatResult(text=text, model=self.model, latency_ms=elapsed_ms, usage=usage)
-
-
-def _parse_completion(raw: bytes) -> tuple[str, dict[str, int]]:
-    if not raw:
-        return "", {}
-    try:
-        data = json.loads(raw.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
-        return "", {}
-    if not isinstance(data, dict):
-        return "", {}
-    text = ""
-    choices = data.get("choices")
-    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
-        message = choices[0].get("message")
-        if isinstance(message, dict):
-            text = str(message.get("content") or "").strip()
-        if not text:
-            text = str(choices[0].get("text") or "").strip()
-    usage: dict[str, int] = {}
-    usage_raw = data.get("usage")
-    if isinstance(usage_raw, dict):
-        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
-            value = usage_raw.get(key)
-            if isinstance(value, int):
-                usage[key] = value
-    return text, usage
 
 
 def build_synthesis_client_from_settings() -> LocalChatClient | None:
@@ -143,10 +191,9 @@ def build_synthesis_client_from_settings() -> LocalChatClient | None:
     )
     if not base_url or not model:
         return None
-    # Cap the synthesis timeout below the full provider timeout: the
-    # deterministic draft is a free fallback, so a stalled model should not make
-    # a live-chat user wait the full provider budget before falling back.
-    timeout_seconds = min(settings.ai_soc_llm_timeout_seconds, 60)
+    # Local on-prem models are often slow; allow a longer narration budget than smoke tests.
+    configured = max(int(settings.ai_soc_llm_timeout_seconds or 60), 60)
+    timeout_seconds = max(configured, 120) if mode == "local" else min(configured, 90)
     return LocalChatClient(
         base_url=base_url,
         model=model,
