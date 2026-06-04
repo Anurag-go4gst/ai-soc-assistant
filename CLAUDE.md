@@ -181,6 +181,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Proposed |
 | `plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md` | Proposed — COE review: live MCP adapter + synthesis enablement, query→answer |
 | `plans/2026-06-03_1609_local-llama-instruct-synthesis-client.md` | In Progress — live-chat narration (P2/P3) landed: real client + summary narration, EC isolated, guard on, deterministic fallback. P4 latency UX + P5 live-MCP-into-prompt pending |
+| `plans/2026-06-04_0703_general-soc-reasoning-answer-contract.md` | Done — general SOC reasoning layer (Agent A): data-driven MITRE evidence-preconditions (replaces per-use-case not-claimed hardcoding), AnswerContract read-model wired into finalize, contract-driven builder, fail-closed final-answer validator, 32-case behavior matrix. Flag-gated; suite + governance regression green |
 
 ## Git Notes
 

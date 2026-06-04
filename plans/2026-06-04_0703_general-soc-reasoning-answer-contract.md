@@ -3,8 +3,9 @@
 **Date:** 2026-06-04
 **Branch:** `feat/deterministic-spl-llm-fallback` (~333 lines uncommitted across the same files this plan edits — `pipeline.py`, `analyst_response_builder.py`, `mitre_decision.py`, `query_signals.py`, `control_plane_trace.py`, `responses.py`, FE). **Reconcile first** (memory: parallel-chats-reconcile-first): commit or stash the WIP before Commit 1. The WIP already adds the `query_signals` plumbing Commit 1 consumes — confirm it isn't duplicating intended Commit 3 builder work before squashing into Commit 1.
 **Gate:** all new behavior runs only under `CONTROL_PLANE_ENABLED` (default `false`). Do **not** flip the default.
-**Saved at:** `plans/2026-06-04_0703_general-soc-reasoning-answer-contract.md`. Add a row to the `CLAUDE.md` Plans table once approved.
-**Status:** Proposed — awaiting review.
+**Saved at:** `plans/2026-06-04_0703_general-soc-reasoning-answer-contract.md`.
+**Status:** **Done** — shipped on `feat/deterministic-spl-llm-fallback`: commits `f0346f0` (1), `bf13d17` (2), `2c46b14` (3), `c17fc2a` (4), `806e8bb` (5), `63ff4d0` (review fixes), atop checkpoint `4ddc453`. Full backend suite (1058 passed) + governance regression PASS; frontend build PASS. Reconciled around a live parallel Agent-B session per option-2 (inheritance checkpoint, then clean Agent-A commits).
+**Deferred (minor, from review):** wire `rag_prohibited_conclusions` into a validator check or drop it; add `clarification` answer_mode to the SPL-free check. The hybrid action-guidance query is correctly fail-closed to review (a pre-existing synthesis gap, not a regression).
 **Coordination:** [`2026-06-04_PARALLEL_AGENT_COORDINATION.md`](2026-06-04_PARALLEL_AGENT_COORDINATION.md)
 
 ---
