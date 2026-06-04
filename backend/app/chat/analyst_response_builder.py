@@ -28,17 +28,22 @@ def build_analyst_response_for_live(
     candidate_spl: dict[str, Any] | None = None,
     spl_validation: dict[str, Any] | None = None,
     execution: dict[str, Any] | None = None,
+    mitre_decision: dict[str, Any] | None = None,
 ) -> AnalystResponseEnvelope | None:
     """Assemble analyst card payload from governed live pipeline outputs."""
     draft = synthesis_draft if isinstance(synthesis_draft, dict) else {}
     execution_payload = execution if isinstance(execution, dict) else {}
     spl_code = _candidate_spl_text(candidate_spl, spl_validation, draft)
     table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(draft.get("splunk_results_table"))
-    mitre_rows = _mitre_display_rows(mitre_mappings) or _as_table_rows(draft.get("mitre_mappings"))
+    decision_payload = mitre_decision if isinstance(mitre_decision, dict) else None
+    mitre_rows = _mitre_display_rows(mitre_mappings)
+    if not mitre_rows and not decision_payload:
+        mitre_rows = _as_table_rows(draft.get("mitre_mappings"))
+    not_claimed = _not_claimed_rows(decision_payload)
     playbook, sop_guidance, rag_meta = _playbook_from_rag(source_evidence)
     recommended = _recommended_actions_from_draft(draft) or _recommended_from_rag(source_evidence)
-    summary = (analyst_summary or "").strip() or None
-    if not any([table, mitre_rows, playbook, summary, recommended, spl_code]):
+    summary = _governed_summary(user_query, analyst_summary, mitre_rows, not_claimed)
+    if not any([table, mitre_rows, not_claimed, playbook, summary, recommended, spl_code]):
         return None
     finding = _finding_title(message, user_query, selected_use_case_label)
     execution_status = str(execution_payload.get("status") or "") or None
@@ -57,6 +62,7 @@ def build_analyst_response_for_live(
         splunk_status_line=_splunk_status_line(table, execution_payload),
         splunk_results_table=table,
         mitre_mappings=mitre_rows,
+        not_claimed=not_claimed,
         retrieved_playbook=_enrich_playbook(playbook, rag_meta),
         sop_guidance=sop_guidance,
         recommended_actions=recommended,
@@ -147,18 +153,98 @@ def _mitre_display_rows(mappings: list[Any]) -> list[dict[str, Any]]:
     for item in mappings:
         payload = item.model_dump() if hasattr(item, "model_dump") else dict(item)
         status = str(payload.get("status") or "")
-        confidence = "High" if status in {"supported", "candidate"} else "Moderate - analyst validation required"
+        confidence = "High" if status == "supported" else "Medium" if status == "candidate" else "Moderate - analyst validation required"
+        technique_id = str(payload.get("technique_id") or "")
+        evidence = str(payload.get("why") or "")
+        if technique_id == "T1110.001" and status == "candidate":
+            evidence = (
+                "Repeated failed login attempts across multiple accounts from external IPs "
+                "may indicate password guessing / brute-force behavior."
+            )
         rows.append(
             {
-                "Technique": payload.get("technique_id"),
+                "Technique": technique_id,
                 "Name": payload.get("name"),
                 "Tactic": payload.get("tactic"),
                 "Status": status.replace("_", " ").title(),
-                "Evidence": payload.get("why") or "",
+                "Evidence": evidence,
                 "Confidence": confidence,
             }
         )
     return rows
+
+
+_NOT_CLAIMED_DETAILS = {
+    "T1078": (
+        "Valid Accounts",
+        "No successful login or confirmed valid credential use.",
+    ),
+    "T1003": (
+        "Credential Dumping",
+        "No credential dumping evidence.",
+    ),
+    "T1562.001": (
+        "Impair Defenses",
+        "Missing endpoint telemetry is not evidence of defense impairment.",
+    ),
+}
+
+
+def _not_claimed_rows(mitre_decision: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not mitre_decision:
+        return []
+    ids: list[str] = []
+    for field in ("rejected_techniques", "not_claimed"):
+        values = mitre_decision.get(field)
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            technique_id = str(value)
+            if technique_id and technique_id not in ids:
+                ids.append(technique_id)
+    rows: list[dict[str, Any]] = []
+    for technique_id in ids:
+        name, reason = _NOT_CLAIMED_DETAILS.get(
+            technique_id,
+            ("Not claimed", "Required supporting evidence was not present in the supplied scenario."),
+        )
+        rows.append(
+            {
+                "Technique": technique_id,
+                "Name": name,
+                "Status": "Not Claimed",
+                "Reason": reason,
+            }
+        )
+    return rows
+
+
+def _governed_summary(
+    user_query: str,
+    analyst_summary: str | None,
+    mitre_rows: list[dict[str, Any]],
+    not_claimed: list[dict[str, Any]],
+) -> str | None:
+    summary = (analyst_summary or "").strip() or None
+    query_l = user_query.lower()
+    has_negative_mitre_context = (
+        "no successful login" in query_l
+        and "no endpoint telemetry" in query_l
+        and "no evidence of credential dumping" in query_l
+    )
+    has_t1110_candidate = any(
+        row.get("Technique") == "T1110.001" and str(row.get("Status") or "").lower() == "candidate"
+        for row in mitre_rows
+    )
+    if has_negative_mitre_context and has_t1110_candidate and not_claimed:
+        return (
+            "Based on the provided activity, this is a candidate authentication security event. "
+            "T1110.001 Password Guessing is candidate-mapped because repeated failed login attempts "
+            "across multiple accounts from external IPs may indicate password guessing / brute-force behavior."
+        )
+    if not summary:
+        return None
+    return summary.replace("security alert has been triggered", "activity can be treated as a candidate security event")
 
 
 def _playbook_from_rag(
@@ -170,7 +256,9 @@ def _playbook_from_rag(
         preview = envelope.get("preview_rows") or []
         if not isinstance(preview, list) or not preview:
             continue
-        row = preview[0] if isinstance(preview[0], dict) else {}
+        row = next((_rag_playbook_row(item) for item in preview if isinstance(item, dict) and _rag_playbook_row(item)), None)
+        if row is None:
+            continue
         doc_title = str(row.get("doc_title") or row.get("entry_title") or "SOC knowledge document")
         doc_id = str(row.get("citation") or row.get("entry_id") or "soc_kb").split("#")[0]
         version = str(row.get("doc_version") or "")
@@ -198,6 +286,16 @@ def _playbook_from_rag(
         }
         return playbook, sop_guidance, rag_meta
     return None, None, None
+
+
+def _rag_playbook_row(row: dict[str, Any]) -> dict[str, Any] | None:
+    document_type = str(row.get("document_type") or "").lower()
+    entry_type = str(row.get("entry_type") or "").lower()
+    if document_type in {"mitre_enterprise_reference", "mitre_ics_reference"}:
+        return None
+    if entry_type in {"mitre_mapping", "mitre_reference"}:
+        return None
+    return row
 
 
 def _enrich_playbook(playbook: dict[str, Any] | None, rag_meta: dict[str, Any] | None) -> dict[str, Any] | None:

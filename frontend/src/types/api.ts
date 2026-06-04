@@ -301,6 +301,7 @@ export interface AnalystResponseEnvelope {
   splunk_status_line?: string | null;
   splunk_results_table?: Record<string, unknown>[];
   mitre_mappings?: Record<string, unknown>[];
+  not_claimed?: Record<string, unknown>[];
   retrieved_playbook?: Record<string, unknown> | null;
   sop_guidance?: Record<string, unknown> | null;
   foundation_sec_analysis?: string | null;

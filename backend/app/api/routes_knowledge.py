@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+import csv
+import io
+import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 
 from app.auth.session import require_auth
 from app.config import settings
+from app.coverage.question_runtime_map import list_question_runtime_entries, load_question_runtime_map
 from app.knowledge.import_prompt import build_extraction_prompt
 from app.knowledge.soc_kb_intake_template import build_soc_kb_intake_template, soc_kb_intake_contract
 from app.knowledge.repository import get_knowledge_repository
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.knowledge.validation import llm_import_contract, parse_import_payload, validate_import_batch
+from app.use_cases.registry import load_use_case_catalog
 
 router = APIRouter(dependencies=[Depends(require_auth)])
 
@@ -147,6 +153,44 @@ def test_retrieval(
     return result
 
 
+@router.get("/knowledge/exports/{artifact}")
+def export_mapping_artifact(
+    artifact: str,
+    file_format: str = Query("json", pattern="^(json|csv)$"),
+) -> Response:
+    """Download governed mapping/catalog artifacts for analyst review."""
+    normalized = artifact.strip().lower().replace("-", "_")
+    if normalized in {"question_runtime_map", "105_questions", "questions"}:
+        rows = list_question_runtime_entries()
+        payload = {
+            "artifact": "question_runtime_map",
+            "format_version": load_question_runtime_map().get("map_version"),
+            "row_count": len(rows),
+            "rows": rows,
+        }
+        csv_rows = [_question_export_row(row) for row in rows]
+        filename = f"ai_soc_question_runtime_map_105.{file_format}"
+    elif normalized in {"use_case_catalog", "use_cases", "catalog"}:
+        rows = [item.model_dump() for item in load_use_case_catalog()]
+        payload = {
+            "artifact": "use_case_catalog",
+            "row_count": len(rows),
+            "rows": rows,
+        }
+        csv_rows = [_use_case_export_row(row) for row in rows]
+        filename = f"ai_soc_use_case_catalog.{file_format}"
+    else:
+        raise HTTPException(status_code=404, detail="unknown_export_artifact")
+
+    if file_format == "csv":
+        return _csv_response(csv_rows, filename)
+    return Response(
+        content=json.dumps(payload, indent=2, sort_keys=True),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 def _safe_document(doc: dict[str, Any]) -> dict[str, Any]:
     keys = (
         "doc_id",
@@ -198,3 +242,86 @@ def _safe_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "import_batch_id",
     )
     return {key: entry.get(key) for key in keys}
+
+
+def _question_export_row(row: dict[str, Any]) -> dict[str, Any]:
+    registry = row.get("mitre_registry") if isinstance(row.get("mitre_registry"), dict) else {}
+    return {
+        "question_number": row.get("question_number"),
+        "question_ref": row.get("question_ref"),
+        "question": row.get("question"),
+        "pattern_type": row.get("pattern_type"),
+        "legacy_router_intent_hint": row.get("legacy_router_intent_hint"),
+        "proposed_primary_skill": row.get("proposed_primary_skill"),
+        "proposed_operation_type": row.get("proposed_operation_type"),
+        "dependency_class": row.get("dependency_class"),
+        "route_blocked": row.get("route_blocked"),
+        "promotion_status": row.get("promotion_status"),
+        "manifest_coverage_id": row.get("manifest_coverage_id"),
+        "authority_pilot_candidate": row.get("authority_pilot_candidate"),
+        "s3_authority_ready": row.get("s3_authority_ready"),
+        "skill_drift": row.get("skill_drift"),
+        "mitre_permitted": _join(row.get("mitre_permitted")),
+        "mitre_candidate": _join(row.get("mitre_candidate")),
+        "mitre_blocked": _join(row.get("mitre_blocked")),
+        "mitre_registry_permitted": _join(registry.get("permitted")),
+        "mitre_registry_candidate": _join(registry.get("candidate")),
+        "mitre_registry_blocked": _join(registry.get("blocked")),
+        "mitre_requires_evidence": row.get("mitre_requires_evidence"),
+        "mitre_requires_alert_context": row.get("mitre_requires_alert_context"),
+        "mitre_visibility_policy": row.get("mitre_visibility_policy"),
+        "mitre_blocked_rationale": _json_cell(registry.get("blocked_rationale")),
+    }
+
+
+def _use_case_export_row(row: dict[str, Any]) -> dict[str, Any]:
+    registry = row.get("mitre_registry") if isinstance(row.get("mitre_registry"), dict) else {}
+    return {
+        "use_case_id": row.get("use_case_id"),
+        "display_name": row.get("display_name"),
+        "category": row.get("category"),
+        "primary_skill": row.get("primary_skill"),
+        "secondary_skills": _join(row.get("secondary_skills")),
+        "intent_patterns": _join(row.get("intent_patterns")),
+        "example_queries": _join(row.get("example_queries")),
+        "required_sources": _join(row.get("required_sources")),
+        "optional_sources": _join(row.get("optional_sources")),
+        "default_spl_template": row.get("default_spl_template"),
+        "rag_collections": _join(row.get("rag_collections")),
+        "mitre_candidates": _join(row.get("mitre_candidates")),
+        "mitre_registry_permitted": _join(registry.get("permitted")),
+        "mitre_registry_candidate": _join(registry.get("candidate")),
+        "mitre_registry_blocked": _join(registry.get("blocked") or row.get("mitre_blocked")),
+        "mitre_requires_evidence": row.get("mitre_requires_evidence"),
+        "mitre_requires_alert_context": row.get("mitre_requires_alert_context"),
+        "mitre_visibility_policy": row.get("mitre_visibility_policy"),
+        "mitre_blocked_rationale": _json_cell(registry.get("blocked_rationale")),
+        "severity_policy": _json_cell(row.get("severity_policy")),
+        "action_capability_tier": row.get("action_capability_tier"),
+        "output_template": row.get("output_template"),
+    }
+
+
+def _csv_response(rows: list[dict[str, Any]], filename: str) -> Response:
+    output = io.StringIO()
+    fieldnames = list(rows[0].keys()) if rows else []
+    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _join(value: Any) -> str:
+    if isinstance(value, list):
+        return "; ".join(str(item) for item in value)
+    return "" if value is None else str(value)
+
+
+def _json_cell(value: Any) -> str:
+    if value is None:
+        return ""
+    return json.dumps(value, sort_keys=True)

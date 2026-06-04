@@ -39,6 +39,7 @@ def resolve_mitre_decision(
     intent_classification: dict[str, Any] | None = None,
     evidence_plan: dict[str, Any] | None = None,
     source_refs: list[str] | None = None,
+    alert_context_present: bool = False,
     **_kwargs: Any,
 ) -> MitreDecision:
     """Resolve answer-visible MITRE mappings from registry metadata and intent."""
@@ -70,7 +71,7 @@ def resolve_mitre_decision(
             registry_metadata=meta,
         )
 
-    if requires_clarification or meta.mitre_requires_alert_context:
+    if requires_clarification or (meta.mitre_requires_alert_context and not alert_context_present):
         return MitreDecision(
             mitre_status="requires_alert_context",
             techniques=[],

@@ -109,12 +109,12 @@ class _Profile:
         return {}
 
 
-def test_wiring_disabled_falls_through_to_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_wiring_disabled_returns_none_for_legacy_non_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", False)
     out = chat_pipeline._candidate_from_llm_fallback(
         trace_id="t", skill="spl_generation", user_query="x", telemetry=_Telemetry(), profile=_Profile()
     )
-    assert out is None  # None => caller uses the deterministic stub, unchanged
+    assert out is None
 
 
 def test_wiring_enabled_maps_approved_payload(monkeypatch: pytest.MonkeyPatch) -> None:

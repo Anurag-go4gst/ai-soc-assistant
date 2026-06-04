@@ -228,3 +228,14 @@ export async function publishKnowledgeImport(payload: Record<string, unknown>): 
   if (!response.ok) throw new Error(`Knowledge publish failed: ${response.status}`);
   return response.json();
 }
+
+export async function downloadKnowledgeExport(
+  artifact: 'question_runtime_map' | 'use_case_catalog',
+  fileFormat: 'json' | 'csv',
+): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}/knowledge/exports/${artifact}?file_format=${fileFormat}`, {
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error(`Knowledge export failed: ${response.status}`);
+  return response.blob();
+}

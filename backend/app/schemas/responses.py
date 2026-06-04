@@ -54,6 +54,13 @@ class CandidateSplEnvelope(BaseModel):
     validation_required: bool | None = None
     execution_eligible: bool | None = None
     capability_profile: dict[str, object] | None = None
+    template_id: str | None = None
+    llm_supported: bool | None = None
+    llm_fallback_used: bool | None = None
+    llm_fallback_status: str | None = None
+    llm_fallback_reason: str | None = None
+    llm_model: str | None = None
+    llm_latency_ms: int | None = None
 
 
 class SplValidationEnvelope(BaseModel):
@@ -74,6 +81,14 @@ class SplValidationEnvelope(BaseModel):
     optimization_revalidation_status: dict[str, object] | None = None
     optimization_revalidation_approved: bool | None = None
     capability_profile: dict[str, object] | None = None
+    template_id: str | None = None
+    llm_supported: bool | None = None
+    llm_fallback_used: bool | None = None
+    llm_fallback_status: str | None = None
+    llm_fallback_reason: str | None = None
+    llm_model: str | None = None
+    llm_latency_ms: int | None = None
+    llm_fallback: dict[str, object] | None = None
 
 
 class ExecutionEnvelope(BaseModel):
@@ -258,6 +273,7 @@ class AnalystResponseEnvelope(BaseModel):
     splunk_status_line: str | None = None
     splunk_results_table: list[dict[str, object]] = []
     mitre_mappings: list[dict[str, object]] = []
+    not_claimed: list[dict[str, object]] = []
     retrieved_playbook: dict[str, object] | None = None
     sop_guidance: dict[str, object] | None = None
     foundation_sec_analysis: str | None = None

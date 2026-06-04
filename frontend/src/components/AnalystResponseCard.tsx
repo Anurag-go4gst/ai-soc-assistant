@@ -45,6 +45,7 @@ export function AnalystResponseCard({
   const governedAnalysis = splOnly ? null : foundationSecGovernance?.governed_analysis ?? null;
   const hasReasoning = !splOnly && Boolean(governedAnalysis || response.foundation_sec_analysis);
   const hasMitre = !splOnly && Boolean(response.mitre_mappings?.length);
+  const hasNotClaimed = !splOnly && Boolean(response.not_claimed?.length);
   const wasExecuted = response.execution_status === 'executed';
   const playbookVersion =
     typeof response.retrieved_playbook?.version === 'string' ? (response.retrieved_playbook.version as string) : null;
@@ -146,10 +147,16 @@ export function AnalystResponseCard({
               <DataTable rows={response.mitre_mappings ?? []} />
             </div>
           ) : null}
+          {hasNotClaimed ? (
+            <div className="mt-4">
+              <SectionTitle>Not claimed</SectionTitle>
+              <DataTable rows={response.not_claimed ?? []} />
+            </div>
+          ) : null}
         </>
       ),
     });
-  } else if (hasMitre) {
+  } else if (hasMitre || hasNotClaimed) {
     // MITRE without a captured model signal is a local-KB mapping, not model output.
     phases.push({
       key: 'mitre',
@@ -157,7 +164,17 @@ export function AnalystResponseCard({
       icon: <Crosshair className="h-3.5 w-3.5" />,
       accent: 'violet',
       chips: [{ text: 'local MITRE KB', variant: 'outline' }],
-      content: <DataTable rows={response.mitre_mappings ?? []} />,
+      content: (
+        <>
+          {hasMitre ? <DataTable rows={response.mitre_mappings ?? []} /> : null}
+          {hasNotClaimed ? (
+            <div className={hasMitre ? 'mt-4' : ''}>
+              <SectionTitle>Not claimed</SectionTitle>
+              <DataTable rows={response.not_claimed ?? []} />
+            </div>
+          ) : null}
+        </>
+      ),
     });
   }
 

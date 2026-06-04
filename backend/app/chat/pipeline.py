@@ -412,6 +412,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     use_case_id = selected_use_case.use_case_id if selected_use_case else (str(mapped_refs[0]) if mapped_refs else None)
     question_ref = provenance.get("mapped_question_ref") if isinstance(provenance.get("mapped_question_ref"), str) else None
     mitre_mappings, mitre_decision = _mitre_outputs_for_finalize(
+        query=request.message,
         question_ref=question_ref,
         use_case_id=use_case_id,
         source_refs=source_refs,
@@ -520,6 +521,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             "detection rule, notable/event ID, or the SPL and a few sample fields."
         )
         note = "MITRE mapping requires grounded alert context; no SPL was generated."
+    elif _is_spl_clarification_required(spl_validation):
+        human_review = _spl_clarification_review(spl_validation)
+        message = human_review["safe_message_for_user"]
+        note = "No governed candidate SPL was produced; clarification is required before validation or execution."
     else:
         audit_review = operation_audit_human_review(operation_audit)
         if audit_review is not None:
@@ -574,6 +579,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         analyst_summary=analyst_summary_from_lab,
         source_evidence=source_evidence,
         mitre_mappings=mitre_mappings or [],
+        mitre_decision=mitre_decision,
         severity_label=severity_decision.severity_label,
         synthesis_draft=synthesis_lab.draft,
         human_review=human_review,
@@ -732,6 +738,7 @@ def _selected_use_case(query: str) -> UseCaseSelection | None:
 
 def _mitre_outputs_for_finalize(
     *,
+    query: str | None = None,
     question_ref: str | None,
     use_case_id: str | None,
     source_refs: list[str],
@@ -741,17 +748,58 @@ def _mitre_outputs_for_finalize(
     """Legacy mapping by default; Phase 7 decision only when control plane is on."""
     if not settings.control_plane_enabled:
         return map_mitre_for_use_case(use_case_id, source_refs), None
+    effective_use_case_id = _mitre_use_case_for_query(query or "", use_case_id, intent_classification)
     decision = resolve_mitre_decision(
         question_ref=question_ref,
-        use_case_id=use_case_id,
+        use_case_id=effective_use_case_id,
         source_refs=source_refs,
         intent_classification=intent_classification,
         evidence_plan=evidence_plan,
+        alert_context_present=_mitre_alert_context_present(query or ""),
     )
     if not decision.answer_visible:
         return [], decision.model_dump()
     visible = [MitreMappingDecision(**item) for item in decision.techniques]
     return visible, decision.model_dump()
+
+
+def _mitre_use_case_for_query(
+    query: str,
+    use_case_id: str | None,
+    intent_classification: dict[str, Any] | None,
+) -> str | None:
+    if use_case_id and use_case_id != "soc_map_alert_mitre":
+        return use_case_id
+    intent = intent_classification or {}
+    if intent.get("intent_family") != "mitre_mapping":
+        return use_case_id
+    normalized = " ".join(query.lower().split())
+    if any(term in normalized for term in ("failed login", "failed-logins", "login failure", "failed authentication")):
+        return "auth_failed_login_spike"
+    return use_case_id
+
+
+def _mitre_alert_context_present(query: str) -> bool:
+    normalized = " ".join(query.lower().split())
+    if any(marker in normalized for marker in _ALERT_CONTEXT_MARKERS):
+        return True
+    if any(term in normalized for term in ("failed login", "failed-logins", "login failure", "failed authentication")):
+        has_negation = any(
+            term in normalized
+            for term in (
+                "no successful login",
+                "no success",
+                "no endpoint telemetry",
+                "no endpoint evidence",
+                "no evidence of credential dumping",
+                "no credential dumping",
+            )
+        )
+        if has_negation and any(term in normalized for term in ("external ip", "external ips", "source ip", "source ips")):
+            return True
+        if has_negation and "across" in normalized and any(term in normalized for term in ("accounts", "users", "hosts", "sources")):
+            return True
+    return False
 
 
 _MITRE_INTENT_KEYWORDS = ("mitre", "att&ck", "attack technique", "map this alert", "map the alert")
@@ -785,6 +833,24 @@ def _mitre_clarification_review() -> dict:
         "To map to MITRE ATT&CK I need the alert context first: the alert title, detection rule, "
         "notable/event ID, or the SPL with a few sample fields. I will not generate SPL or guess "
         "techniques without grounding.",
+    )
+
+
+def _spl_clarification_review(spl_validation: dict[str, Any] | None) -> dict:
+    reason = "spl_generation_requires_source_clarification"
+    if isinstance(spl_validation, dict):
+        reason = str(
+            spl_validation.get("llm_fallback_reason")
+            or spl_validation.get("candidate_provider_reason")
+            or reason
+        )
+    return human_review(
+        "intent_clarification",
+        reason,
+        "soc_analyst",
+        ["provide_source_profile", "enable_governed_llm_fallback", "add_catalog_template", "cancel"],
+        "I need a governed template match or supported source details before drafting SPL. "
+        "Confirm the index, sourcetype, key fields, and time range for this request.",
     )
 
 
@@ -1119,6 +1185,16 @@ def _candidate_spl_stage(
     if fallback_candidate is not None:
         return fallback_candidate
 
+    if settings.control_plane_enabled:
+        return _candidate_clarification(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            reason="llm_spl_fallback_disabled",
+        )
+
     candidate, provider_metadata = generate_candidate_spl_with_provider(trace_id=trace_id, skill=skill, user_query=user_query, profile=profile)
     candidate_payload = candidate.model_dump()
     candidate_payload.update(provider_metadata)
@@ -1228,6 +1304,89 @@ def _candidate_from_default_template(
     return candidate_payload, validation_payload
 
 
+def _candidate_clarification(
+    *,
+    trace_id: str,
+    skill: str,
+    user_query: str,
+    telemetry: Any,
+    profile: Any,
+    reason: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    validation = validate_spl("")
+    reject_reasons = list(validation.get("reject_reasons") or [])
+    if reason not in reject_reasons:
+        reject_reasons.append(reason)
+    candidate_payload = {
+        "trace_id": trace_id,
+        "skill": skill,
+        "user_query": user_query,
+        "candidate_spl": "",
+        "generation_mode": "clarification_required",
+        "confidence": 0.0,
+        "assumptions": [
+            "No governed raw-search SPL template matched this request.",
+            "No candidate SPL was generated; analyst clarification is required.",
+        ],
+        "warnings": ["spl_generation_requires_clarification"],
+        "selected_candidate_spl_provider": "none",
+        "fallback_required": True,
+        "candidate_spl_generated": False,
+        "validation_required": False,
+        "execution_eligible": False,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "llm_supported": False,
+        "llm_fallback_used": False,
+        "llm_fallback_status": "clarification_required",
+        "llm_fallback_reason": reason,
+    }
+    validation_payload = {
+        "approved": False,
+        "normalized_spl": None,
+        "reject_reasons": reject_reasons,
+        "warnings": list(validation.get("warnings") or []),
+        "enforced_limits": validation.get("enforced_limits"),
+        "policy_version": validation.get("policy_version"),
+        "selected_candidate_spl_provider": "none",
+        "candidate_provider_reason": reason,
+        "saia_available": False,
+        "fallback_required": True,
+        "spl_explanation_provider": "rule_based",
+        "spl_optimization_provider": "rule_based",
+        "spl_guidance_provider": "scd_rag",
+        "optimization_applied": False,
+        "optimization_revalidation_status": None,
+        "optimization_revalidation_approved": False,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "llm_supported": False,
+        "llm_fallback_used": False,
+        "llm_fallback_status": "clarification_required",
+        "llm_fallback_reason": reason,
+    }
+    telemetry.record_step(
+        trace_id,
+        "candidate_spl_generated",
+        "completed",
+        skill=skill,
+        generation_mode=candidate_payload["generation_mode"],
+        confidence=0.0,
+        warnings=candidate_payload["warnings"],
+        selected_candidate_spl_provider="none",
+        fallback_required=True,
+    )
+    telemetry.record_spl_validation(
+        trace_id,
+        stage="spl_validation_result",
+        approved=False,
+        reject_reasons=reject_reasons,
+        warnings=validation_payload["warnings"],
+        policy_version=validation_payload["policy_version"],
+    )
+    return candidate_payload, validation_payload
+
+
 def _candidate_from_llm_fallback(
     *,
     trace_id: str,
@@ -1270,7 +1429,19 @@ def _candidate_from_llm_fallback(
             "Output is candidate SPL only and requires validation/gated execution.",
         ],
         "warnings": [] if approved else ["llm_spl_fallback_requires_clarification"],
+        "selected_candidate_spl_provider": "llm_spl_advisory_fallback",
+        "fallback_required": True,
+        "candidate_spl_generated": bool(result.candidate_spl.strip()),
+        "validation_required": True,
+        "execution_eligible": False,
+        "capability_profile": profile.model_dump(),
         "template_id": None,
+        "llm_supported": True,
+        "llm_fallback_used": True,
+        "llm_fallback_status": "approved" if approved else "clarification_required",
+        "llm_fallback_reason": result.clarification_reason,
+        "llm_model": result.model,
+        "llm_latency_ms": result.latency_ms,
     }
     validation_payload = {
         "approved": approved,
@@ -1291,6 +1462,12 @@ def _candidate_from_llm_fallback(
         "optimization_revalidation_approved": False,
         "capability_profile": profile.model_dump(),
         "template_id": None,
+        "llm_supported": True,
+        "llm_fallback_used": True,
+        "llm_fallback_status": "approved" if approved else "clarification_required",
+        "llm_fallback_reason": result.clarification_reason,
+        "llm_model": result.model,
+        "llm_latency_ms": result.latency_ms,
         "llm_fallback": {
             "provider": result.provider,
             "model": result.model,
@@ -1329,6 +1506,11 @@ def _chat_message(
 ) -> str:
     if spl_validation is None:
         return "Routing complete. SPL is not required at this stage."
+    if _is_spl_clarification_required(spl_validation):
+        return (
+            "I need a governed template match or supported source details before drafting SPL. "
+            "Confirm the index, sourcetype, key fields, and time range for this request."
+        )
     if spl_validation.get("approved") is True and (
         not execution or execution.get("status") != "executed"
     ):
@@ -1338,6 +1520,25 @@ def _chat_message(
             return "Mock MCP execution complete. Live Foundation-Sec synthesis is disabled; deterministic lab summary was generated from governed evidence."
         return "Mock MCP execution complete. Final synthesis is disabled."
     return "SPL validation complete. MCP execution is disabled."
+
+
+def _is_spl_clarification_required(spl_validation: dict[str, Any] | None) -> bool:
+    if not isinstance(spl_validation, dict):
+        return False
+    if spl_validation.get("llm_fallback_status") == "clarification_required":
+        return True
+    reasons = {str(item) for item in spl_validation.get("reject_reasons") or []}
+    return any(
+        reason
+        in {
+            "llm_spl_fallback_disabled",
+            "llm_spl_fallback_client_unavailable",
+            "llm_spl_fallback_schema_invalid",
+            "llm_spl_fallback_validation_failed",
+            "llm_spl_fallback_unsupported_source",
+        }
+        for reason in reasons
+    )
 
 
 def _response_mode(

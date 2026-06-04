@@ -8,6 +8,7 @@ from typing import Any
 from app.query_understanding.models import QueryUnderstandingResult
 
 _TECHNIQUE_ID_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
+_MAP_TO_MITRE_RE = re.compile(r"\bmap\b.{0,120}\b(?:mitre|att&ck)\b", re.IGNORECASE)
 
 
 def extract_query_signals(
@@ -58,10 +59,27 @@ def extract_query_signals(
         term in normalized
         for term in ("find ", "show ", "list ", "investigate", "search for", "look for", "top users", "which users")
     )
-    mitre_map = any(
+    mitre_map = bool(_MAP_TO_MITRE_RE.search(query)) or any(
         term in normalized
         for term in ("map to mitre", "map this to mitre", "mitre mapping", "map alert to mitre", "map this alert")
     )
+    negative_successful_login = any(
+        term in normalized
+        for term in ("no successful login", "no success", "no login success", "without successful login")
+    )
+    negative_endpoint_telemetry = any(
+        term in normalized
+        for term in ("no endpoint telemetry", "without endpoint telemetry", "no endpoint evidence")
+    )
+    negative_credential_dumping = any(
+        term in normalized
+        for term in ("no evidence of credential dumping", "no credential dumping", "without credential dumping")
+    )
+    explicit_mitre_context = (
+        bool(re.search(r"\b\d+\s+(?:failed login|failed-logins|login failure|failed authentication)", normalized))
+        or bool(re.search(r"\bacross\s+\d+\s+(?:accounts|users|hosts|sources|ips)\b", normalized))
+        or any(term in normalized for term in ("external ip", "external ips", "source ip", "source ips", "no successful login"))
+    ) and (negative_successful_login or negative_endpoint_telemetry or negative_credential_dumping)
     mitre_explain = bool(_TECHNIQUE_ID_RE.search(query)) and any(
         term in normalized for term in ("explain", "what is", "describe", "meaning of")
     )
@@ -108,6 +126,7 @@ def extract_query_signals(
         qu
         and qu.clarification_needed
         and "mitre_mapping_requires_alert_context" in (qu.ambiguity_flags or [])
+        and not explicit_mitre_context
     )
 
     return {
@@ -120,6 +139,10 @@ def extract_query_signals(
         "has_specific_scope": has_specific_scope,
         "live_investigation_verbs": live_investigation_verbs,
         "mitre_map": mitre_map,
+        "explicit_mitre_context": explicit_mitre_context,
+        "negative_successful_login": negative_successful_login,
+        "negative_endpoint_telemetry": negative_endpoint_telemetry,
+        "negative_cred_dumping": negative_credential_dumping,
         "mitre_explain": mitre_explain,
         "analyst_action": analyst_action,
         "playbook_procedure": playbook_procedure,

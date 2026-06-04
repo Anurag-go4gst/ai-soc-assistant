@@ -4,6 +4,7 @@ import pytest
 
 from app.api.routes_chat import chat
 from app.schemas.requests import ChatRequest
+from app.spl.llm_fallback import LlmSplFallbackResult
 
 
 @pytest.fixture(autouse=True)
@@ -38,6 +39,23 @@ def test_policy_escalation_failed_login_rag_only_no_spl_mcp_or_visible_mitre() -
     assert response.mitre_decision["answer_visible"] is False
 
 
+def test_policy_escalation_l2_question_returns_sop_not_spl(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.mcp_global_execution_enabled", False)
+    monkeypatch.setattr("app.config.settings.soc_kb_retrieval_enabled", True)
+    response = _chat(
+        "What is the escalation policy for repeated failed login alerts, and when should it be assigned to L2?"
+    )
+
+    assert response.evidence_plan["answer_mode"] == "rag_only"
+    assert response.route_adjudication["final_route"] == "knowledge_recall"
+    assert response.candidate_spl is None
+    assert response.spl_validation is None
+    assert response.analyst_response is not None
+    assert response.analyst_response.retrieved_playbook is not None
+    assert response.analyst_response.recommended_actions
+    assert response.mitre_mappings == []
+
+
 def test_hybrid_failed_login_action_encodes_requested_slots_and_keeps_hil() -> None:
     response = _chat(
         "Find accounts failing login in the last 24 hours, exclude service accounts, "
@@ -58,6 +76,30 @@ def test_hybrid_failed_login_action_encodes_requested_slots_and_keeps_hil() -> N
     assert response.mitre_mappings == []
 
 
+def test_hybrid_failed_login_playbook_returns_spl_and_playbook_without_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.config.settings.mcp_global_execution_enabled", False)
+    monkeypatch.setattr("app.config.settings.soc_kb_retrieval_enabled", True)
+    response = _chat(
+        "Find users with the highest failed login count in the last 24 hours, "
+        "exclude service accounts, and tell me the analyst next action as per our playbook."
+    )
+
+    assert response.evidence_plan["answer_mode"] == "hybrid"
+    assert response.spl_validation is not None
+    assert response.spl_validation.approved is True
+    spl = response.spl_validation.normalized_spl or ""
+    assert "earliest=-24h" in spl
+    assert "svc_*" in spl
+    assert response.execution is not None
+    assert response.execution.executed_spl is None
+    assert response.analyst_response is not None
+    assert response.analyst_response.spl_code == spl
+    assert response.analyst_response.retrieved_playbook is not None
+    assert response.analyst_response.recommended_actions
+
+
 def test_mitre_mapping_without_alert_context_requires_clarification() -> None:
     response = _chat("Map 148 failed logins across 12 accounts from external IPs to MITRE")
     assert response.evidence_plan["answer_mode"] == "clarification"
@@ -69,16 +111,147 @@ def test_mitre_mapping_without_alert_context_requires_clarification() -> None:
     assert response.mitre_mappings == []
 
 
+def test_mitre_failed_login_context_maps_t1110_and_blocks_negated_techniques(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.config.settings.mcp_global_execution_enabled", False)
+    response = _chat(
+        "Map 148 failed login attempts across 12 accounts from external IPs to MITRE. "
+        "There is no successful login, no endpoint telemetry, and no evidence of credential dumping."
+    )
+
+    assert response.evidence_plan["needs_mitre"] is True
+    assert response.candidate_spl is None
+    assert response.spl_validation is None
+    ids = {item.technique_id for item in response.mitre_mappings or []}
+    assert "T1110.001" in ids
+    assert "T1078" not in ids
+    assert "T1003" not in ids
+    assert response.mitre_decision is not None
+    assert response.mitre_decision["answer_visible"] is True
+    assert "T1078" in response.mitre_decision["rejected_techniques"]
+    assert "T1003" in response.mitre_decision["rejected_techniques"]
+    assert "T1562.001" in response.mitre_decision["rejected_techniques"]
+
+    assert response.analyst_response is not None
+    mapping_rows = response.analyst_response.mitre_mappings
+    assert {row["Technique"] for row in mapping_rows} == {"T1110.001"}
+    t1110 = mapping_rows[0]
+    assert t1110["Name"] == "Password Guessing"
+    assert t1110["Status"] == "Candidate"
+    assert t1110["Confidence"] == "Medium"
+    assert "password guessing" in str(t1110["Evidence"]).lower()
+    assert "password policy discovery" not in str(t1110["Evidence"]).lower()
+
+    not_claimed = {row["Technique"]: row for row in response.analyst_response.not_claimed}
+    assert {"T1078", "T1003", "T1562.001"}.issubset(not_claimed)
+    assert "No successful login" in str(not_claimed["T1078"]["Reason"])
+    assert "No credential dumping evidence" in str(not_claimed["T1003"]["Reason"])
+    assert "not evidence of defense impairment" in str(not_claimed["T1562.001"]["Reason"])
+    assert response.analyst_response.retrieved_playbook is None
+
+    analyst_text = response.analyst_response.model_dump_json()
+    assert "password policy discovery" not in analyst_text.lower()
+    assert "security alert has been triggered" not in analyst_text.lower()
+
+
 def test_generate_spl_top_failed_login_users_rejects_missing_slot_binding_no_mcp() -> None:
     response = _chat("Generate SPL for the top failed-login users in the last 24 hours")
     assert response.evidence_plan["needs_spl"] is True
     assert response.evidence_plan["mcp_allowed"] is False
     assert response.candidate_spl is not None
+    assert response.candidate_spl.generation_mode == "clarification_required"
+    assert response.candidate_spl.candidate_spl == ""
     assert response.spl_validation is not None
     assert response.spl_validation.approved is False
-    assert "user_constraints_not_encoded" in response.spl_validation.reject_reasons
+    assert "llm_spl_fallback_disabled" in response.spl_validation.reject_reasons
+    assert response.response_mode == "clarification_required"
     assert response.execution is not None
     assert response.execution.block_reason == "mcp_not_allowed_by_evidence_plan"
+
+
+def test_uncatalogued_spl_generation_requires_clarification_not_stage3c_stub() -> None:
+    response = _chat("Write SPL to detect impossible travel from VPN logs")
+
+    assert response.selected_use_case is not None
+    assert response.selected_use_case.use_case_id == "soc_generate_spl"
+    assert response.candidate_spl is not None
+    assert response.candidate_spl.generation_mode == "clarification_required"
+    assert response.candidate_spl.candidate_spl == ""
+    assert response.candidate_spl.selected_candidate_spl_provider == "none"
+    assert response.candidate_spl.llm_fallback_status == "clarification_required"
+    assert response.spl_validation is not None
+    assert response.spl_validation.approved is False
+    assert response.spl_validation.normalized_spl is None
+    assert response.spl_validation.selected_candidate_spl_provider == "none"
+    assert response.spl_validation.llm_fallback_status == "clarification_required"
+    assert "llm_spl_fallback_disabled" in response.spl_validation.reject_reasons
+    assert response.response_mode == "clarification_required"
+    assert response.human_review is not None
+    assert response.human_review.required is True
+    assert response.human_review.review_type == "intent_clarification"
+    assert response.execution is not None
+    assert response.execution.executed_spl is None
+    trace = response.control_plane_trace or {}
+    generation = trace.get("candidate_spl_generation") or {}
+    assert generation["generation_mode"] == "clarification_required"
+    assert generation["selected_candidate_spl_provider"] == "none"
+    assert generation["llm_fallback_status"] == "clarification_required"
+
+
+def test_uncatalogued_spl_generation_uses_governed_llm_fallback_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spl = (
+        "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now "
+        "action=failure | stats count as fail_count by src_ip | sort -fail_count | head 100"
+    )
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+    monkeypatch.setattr(
+        "app.chat.pipeline.generate_llm_spl_fallback",
+        lambda *, user_query: LlmSplFallbackResult(
+            candidate_spl=spl,
+            approved=True,
+            validation={
+                "approved": True,
+                "normalized_spl": spl,
+                "reject_reasons": [],
+                "warnings": [],
+                "enforced_limits": {},
+                "policy_version": "spl-validator-v1",
+            },
+            assumptions=["LLM mapped VPN impossible travel to allowed auth source fields."],
+            required_fields=["src_ip"],
+            model="foundation-sec-test",
+            latency_ms=12,
+        ),
+    )
+
+    response = _chat("Write SPL to detect impossible travel from VPN logs")
+
+    assert response.candidate_spl is not None
+    assert response.candidate_spl.generation_mode == "llm_spl_advisory_fallback"
+    assert response.candidate_spl.selected_candidate_spl_provider == "llm_spl_advisory_fallback"
+    assert response.candidate_spl.llm_supported is True
+    assert response.candidate_spl.llm_fallback_used is True
+    assert response.candidate_spl.llm_fallback_status == "approved"
+    assert response.candidate_spl.execution_eligible is False
+    assert response.candidate_spl.llm_model == "foundation-sec-test"
+    assert response.spl_validation is not None
+    assert response.spl_validation.approved is True
+    assert response.spl_validation.selected_candidate_spl_provider == "llm_spl_advisory_fallback"
+    assert response.spl_validation.llm_supported is True
+    assert response.spl_validation.llm_fallback_used is True
+    assert response.spl_validation.llm_fallback_status == "approved"
+    assert response.spl_validation.llm_model == "foundation-sec-test"
+    assert response.execution is not None
+    assert response.execution.executed_spl is None
+    generation = (response.control_plane_trace or {}).get("candidate_spl_generation") or {}
+    assert generation["selected_candidate_spl_provider"] == "llm_spl_advisory_fallback"
+    assert generation["llm_supported"] is True
+    assert generation["llm_fallback_used"] is True
+    assert generation["llm_fallback_status"] == "approved"
+    assert generation["execution_eligible"] is False
 
 
 def test_dga_investigation_steps_are_knowledge_rag_only() -> None:
