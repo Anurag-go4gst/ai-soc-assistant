@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     operation_audit_persistence_enabled: bool = True
     quality_review_enabled: bool = False
     quality_review_user_allowlist: str = ""
+    quality_review_allow_any_authenticated: bool = False
     mcp_mode: str = "mock"
     mcp_servers: str = ""
     mcp_default_server: str = "splunk_soc"

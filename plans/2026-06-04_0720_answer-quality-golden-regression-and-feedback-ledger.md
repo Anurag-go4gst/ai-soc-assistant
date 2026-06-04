@@ -1,7 +1,7 @@
 # Answer Quality Golden Regression and Feedback Ledger Plan
 
 **Created:** 2026-06-04  
-**Status:** Plan saved for review; implementation not started  
+**Status:** **Done** — Phases 0–8 shipped on `feat/deterministic-spl-llm-fallback` (checkpoint `4ddc453` + completion commits). Tier 0 golden in governance regression; Tier 2 shallow JSONL (105+46) generated from expectation matrix; full Tier 2 chat regression is opt-in (`--tier 2`), not blocking CI.  
 **Canonical for:** golden-answer regression across 105-question runtime map + use-case catalog, durable chat-turn logging, analyst feedback loop  
 **Coordination:** [`2026-06-04_PARALLEL_AGENT_COORDINATION.md`](2026-06-04_PARALLEL_AGENT_COORDINATION.md)  
 **Related:** [`plans/2026-06-02_chat-control-plane-master.md`](2026-06-02_chat-control-plane-master.md), [`docs/evals/regression_baseline.md`](../docs/evals/regression_baseline.md), [`backend/app/coverage/question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json), [`backend/app/use_cases/catalog.json`](../backend/app/use_cases/catalog.json)
@@ -773,6 +773,21 @@ This plan is satisfactory to save because it:
 - defines concrete tables, endpoints, frontend behavior, runner shape, and phased tests;
 - avoids claiming all 105 + 46 can have high-confidence final answers before source/content readiness exists.
 
-## Recommended Next Step
+## Shipped artifacts (reference)
 
-Implement **Phase 1 — Chat Turn Ledger** first. It creates the durable dataset needed for both live feedback review and future golden-case generation. Do not start with the full 151-case golden suite; without real flagged/live observations, that would create many shallow expectations and high maintenance cost.
+| Phase | Deliverable |
+|-------|-------------|
+| 0 | `scripts/generate_answer_expectation_matrix.py` → `docs/evals/out/answer_expectation_matrix.{json,md}` |
+| 1 | `quality/store.py`, migration `0002_answer_quality.sql`, `turn_id`, `/chat` + stream ledger hooks |
+| 2 | `POST /chat/feedback`, `AnswerFeedbackControls.tsx` |
+| 3 | Review queue APIs, CSV export, `QUALITY_REVIEW_*` settings, `QualityPage.tsx` |
+| 4–5 | `golden_answers/tier0_control_plane.jsonl`, `golden_answer_runner.py`, governance Tier 0 step |
+| 6 | `question_105_golden.jsonl` (105), `use_case_catalog_golden.jsonl` (46), shared `fixtures/control_plane_critical_flows.jsonl` |
+| 7 | `POST /quality/chat-turns/{turn_id}/promote-golden` → `flagged_regressions.jsonl` |
+| 8 | `GET /quality/summary` + dashboard metrics on Quality page |
+
+## Recommended Next Step (post-ship)
+
+- Deepen Tier 2 expectations row-by-row using reviewer feedback and flagged promotions.
+- Optionally unify `test_chat_control_plane_golden.py` with `tier0_control_plane.jsonl` as single fixture source.
+- Run `python3 -m app.evals.golden_answer_runner --tier 2` locally after expectation review (not CI-blocking yet).

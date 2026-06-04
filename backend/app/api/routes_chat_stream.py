@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 
 from app.auth.session import require_auth
 from app.chat.pipeline import build_live_chat_response
+from app.quality.store import post_chat_response
 from app.chat.progress_events import (
     QueueProgressBridge,
     _STREAM_CLOSED,
@@ -44,24 +45,31 @@ def _clear_response(request: ChatRequest) -> PlaceholderResponse:
     )
 
 
+def _finalize_stream_response(request: ChatRequest, response: PlaceholderResponse) -> PlaceholderResponse:
+    return post_chat_response(response, request, entrypoint="chat_stream")
+
+
 def _run_chat_with_progress(request: ChatRequest, bridge: QueueProgressBridge) -> None:
     reporter = bridge.reporter()
     try:
         if settings.ai_soc_live_chat_ec_parity_enabled:
             scenario_id = resolve_demo_scenario_id_for_query(request.message)
             if scenario_id:
-                response = PlaceholderResponse(**run_demo_scenario(scenario_id))
+                response = _finalize_stream_response(
+                    request,
+                    PlaceholderResponse(**run_demo_scenario(scenario_id)),
+                )
                 reporter.final(response)
                 return
 
         if settings.langgraph_orchestration_enabled:
             from app.graph.chat_workflow import run_chat_via_langgraph
 
-            response = run_chat_via_langgraph(request)
+            response = _finalize_stream_response(request, run_chat_via_langgraph(request))
             reporter.final(response)
             return
 
-        response = build_live_chat_response(request, progress=reporter)
+        response = _finalize_stream_response(request, build_live_chat_response(request, progress=reporter))
         status = getattr(response.synthesis_status, "status", None) if response.synthesis_status else None
         if status == "partial_timeout":
             reporter.partial_timeout(

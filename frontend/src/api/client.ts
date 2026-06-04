@@ -107,6 +107,25 @@ export async function getQualityFlaggedTurns(limit = 50): Promise<QualityFlagged
   return response.json();
 }
 
+export interface QualitySummaryResponse {
+  total_turns: number;
+  flagged_turns: number;
+  in_review_turns: number;
+  golden_candidate_turns: number;
+  flagged_rate: number;
+  expectation_matrix_rows: number;
+  golden_coverage: Record<string, number>;
+  latest_golden_eval: Record<string, unknown>;
+}
+
+export async function getQualitySummary(): Promise<QualitySummaryResponse> {
+  const response = await fetch(`${API_BASE_URL}/quality/summary`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`Quality summary failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getDemoScenarios(): Promise<DemoScenariosResponse> {
   const response = await fetch(`${API_BASE_URL}/demo/scenarios`, { credentials: 'include' });
   if (!response.ok) {

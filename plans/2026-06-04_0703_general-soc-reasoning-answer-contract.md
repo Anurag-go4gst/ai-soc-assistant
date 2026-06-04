@@ -1,7 +1,7 @@
 # General SOC Reasoning & Answer-Goal Validation Layer
 
 **Date:** 2026-06-04
-**Branch:** `feat/deterministic-spl-llm-fallback` (~333 lines uncommitted across the same files this plan edits — `pipeline.py`, `analyst_response_builder.py`, `mitre_decision.py`, `query_signals.py`, `control_plane_trace.py`, `responses.py`, FE). **Reconcile first** (memory: parallel-chats-reconcile-first): commit or stash the WIP before Commit 1. The WIP already adds the `query_signals` plumbing Commit 1 consumes — confirm it isn't duplicating intended Commit 3 builder work before squashing into Commit 1.
+**Branch:** Shipped on `feat/deterministic-spl-llm-fallback` (merge to `master` when COE approves).
 **Gate:** all new behavior runs only under `CONTROL_PLANE_ENABLED` (default `false`). Do **not** flip the default.
 **Saved at:** `plans/2026-06-04_0703_general-soc-reasoning-answer-contract.md`.
 **Status:** **Done** — shipped on `feat/deterministic-spl-llm-fallback`: commits `f0346f0` (1), `bf13d17` (2), `2c46b14` (3), `c17fc2a` (4), `806e8bb` (5), `63ff4d0` (review fixes), atop checkpoint `4ddc453`. Full backend suite (1058 passed) + governance regression PASS; frontend build PASS. Reconciled around a live parallel Agent-B session per option-2 (inheritance checkpoint, then clean Agent-A commits).
@@ -193,11 +193,23 @@ backend/app/evals/fixtures/control_plane_critical_flows.json
 
 Do not enable live MCP, do not execute `candidate_spl`, do not enable live Foundation-Sec final synthesis, no LLM→MCP. Do not touch Experience Center / demo golden answers. Registry MITRE stays metadata-not-evidence. No per-question fixes — rules must apply across all tactics. Where any commit touches narration hooks, restate the spine §5 universal LLM boundary (LLM phrases prose only; facts stay deterministic authority) in the commit message.
 
-## Doc alignment (update when shipped)
+## Doc alignment (shipped)
 
-- **Chat control plane master** is marked complete (Phases 0–11). This is logically **post-11** — add a short **"Phase 12 (proposed) — General SOC reasoning & answer-contract validation"** subsection to the master plan (not only the `CLAUDE.md` table) so agents don't treat it as ad-hoc drift.
-- **STAGE_3K spine §5:** no conflict (stays deterministic, no LLM→MCP). Footnote that this "deterministic answer-contract validator" is distinct from Q1G shadow narration.
+- **Chat control plane master:** Phase 12 — General SOC reasoning & answer-contract validation (see [`2026-06-02_chat-control-plane-master.md`](2026-06-02_chat-control-plane-master.md) agent quick start).
+- **CLAUDE.md Plans table:** row added (`Done`).
+- **STAGE_3K spine §5:** no conflict (stays deterministic, no LLM→MCP). Deterministic `final_answer_validation` trace is distinct from Q1G shadow narration and from dormant LLM `answer_guard` rules.
 - **Experience Center:** out of scope, unchanged.
+
+## Shipped artifacts (reference)
+
+| Commit | Deliverable |
+|--------|-------------|
+| `f0346f0` | `mitre_evidence_preconditions.py`, `negative_evidence_extractor.py`, MITRE finalize wiring |
+| `bf13d17` | `AnswerContract` wired in finalize + `test_answer_contract.py` |
+| `2c46b14` | Contract-driven `analyst_response_builder` (removed per-pattern hardcoding) |
+| `c17fc2a` | `final_answer_validator.py` + `test_final_answer_validator.py` |
+| `806e8bb` | `test_control_plane_behavior_matrix.py` (32 cases) |
+| `63ff4d0` | Review fixes on contract + validator |
 
 ## Verification
 

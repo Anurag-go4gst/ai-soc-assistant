@@ -592,6 +592,16 @@ def discover_case_files(*, tier: int | None = None, all_cases: bool = False, cas
         return sorted(case_dir.glob("*.jsonl"))
     if tier == 0:
         return [case_dir / "tier0_control_plane.jsonl"]
+    if tier == 2:
+        return sorted(
+            [
+                case_dir / "question_105_golden.jsonl",
+                case_dir / "use_case_catalog_golden.jsonl",
+            ]
+        )
+    if tier == 3:
+        path = case_dir / "flagged_regressions.jsonl"
+        return [path] if path.is_file() else []
     if tier is None:
         raise GoldenCaseError("Select --tier or --all")
     return sorted(case_dir.glob(f"tier{tier}_*.jsonl"))

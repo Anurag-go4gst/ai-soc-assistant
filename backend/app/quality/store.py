@@ -223,6 +223,44 @@ def get_chat_turn(turn_id: str) -> dict[str, Any] | None:
     return {**turn, "feedback": feedback, "reviews": reviews}
 
 
+def mark_golden_candidate(turn_id: str, *, golden_case_id: str | None = None) -> None:
+    with _store_lock:
+        if turn_id not in _turns:
+            raise KeyError("turn_not_found")
+        _turns[turn_id]["golden_candidate"] = True
+        if golden_case_id:
+            _turns[turn_id]["golden_case_id"] = golden_case_id
+
+
+def export_chat_turns_csv(*, status: str | None = None, limit: int = 500) -> str:
+    """Redacted CSV export for quality review (no full JSON blobs)."""
+    import csv
+    import io
+
+    rows = list_chat_turns(status=status, limit=limit)
+    buffer = io.StringIO()
+    fieldnames = [
+        "turn_id",
+        "trace_id",
+        "created_at",
+        "user_query",
+        "selected_skill",
+        "selected_use_case_id",
+        "question_ref",
+        "answer_mode",
+        "response_mode",
+        "quality_status",
+        "golden_candidate",
+        "execution_status",
+        "final_message",
+    ]
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({key: row.get(key) for key in fieldnames})
+    return buffer.getvalue()
+
+
 def clear_quality_store_for_tests() -> None:
     global _db_disabled_after_failure, _schema_ready
     with _store_lock:

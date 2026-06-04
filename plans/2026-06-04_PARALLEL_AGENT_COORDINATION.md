@@ -4,8 +4,8 @@
 
 | Plan | File | Agent slot |
 |------|------|------------|
-| General SOC reasoning | [`2026-06-04_0703_general-soc-reasoning-answer-contract.md`](2026-06-04_0703_general-soc-reasoning-answer-contract.md) | **A** — pipeline answer / MITRE / contract / validator |
-| Answer quality ledger | [`2026-06-04_0720_answer-quality-golden-regression-and-feedback-ledger.md`](2026-06-04_0720_answer-quality-golden-regression-and-feedback-ledger.md) | **B** — DB, feedback, golden runner, FE feedback |
+| General SOC reasoning | [`2026-06-04_0703_general-soc-reasoning-answer-contract.md`](2026-06-04_0703_general-soc-reasoning-answer-contract.md) | **A** — **Done** (`f0346f0`…`63ff4d0` on `feat/deterministic-spl-llm-fallback`) |
+| Answer quality ledger | [`2026-06-04_0720_answer-quality-golden-regression-and-feedback-ledger.md`](2026-06-04_0720_answer-quality-golden-regression-and-feedback-ledger.md) | **B** — **Done** (ledger, feedback, review API, Tier 0–2 golden, promote-golden, Quality dashboard) |
 | E2E reference (read-only) | `.cursor/plans/query-to-answer_traversal_audit_4af31549.plan.md` | No implementation without stage approval |
 
 **Canonical pipeline (complete):** [`2026-06-02_chat-control-plane-master.md`](2026-06-02_chat-control-plane-master.md)

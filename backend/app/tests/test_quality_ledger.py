@@ -1,12 +1,23 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi import HTTPException
 from app.api.routes_chat import chat
-from app.api.routes_quality import quality_chat_turn_detail, quality_chat_turns, submit_chat_feedback, update_quality_review
+from app.api.routes_quality import (
+    promote_golden_case,
+    quality_chat_turns_export,
+    quality_flagged_turns,
+    quality_summary,
+    quality_chat_turn_detail,
+    quality_chat_turns,
+    submit_chat_feedback,
+    update_quality_review,
+)
+from app.api.routes_quality import PromoteGoldenRequest
 from app.config import settings
 from app.quality import store as quality_store_module
 from app.quality.store import clear_quality_store_for_tests, get_chat_turn
@@ -126,6 +137,52 @@ def test_feedback_unknown_turn_rejected() -> None:
     with pytest.raises(HTTPException) as exc_info:
         submit_chat_feedback(_feedback_payload("missing", rating="up"), user={"username": "reviewer", "role": "quality_reviewer"})
     assert exc_info.value.status_code == 404
+
+
+def test_flagged_turns_alias_and_csv_export(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.api.routes_chat.build_live_chat_response", _fake_chat_response)
+    response = chat(ChatRequest(message="export target"))
+    user = {"username": "reviewer", "role": "quality_reviewer"}
+    submit_chat_feedback(_feedback_payload(response.turn_id, rating="down"), user=user)
+
+    flagged = quality_flagged_turns(limit=10, user=user)
+    assert flagged["count"] >= 1
+    assert flagged["turns"][0]["turn_id"] == response.turn_id
+
+    csv_response = quality_chat_turns_export(
+        export_format="csv",
+        status_filter="flagged",
+        limit=10,
+        user=user,
+    )
+    csv_body = csv_response.body.decode("utf-8")
+    assert "turn_id" in csv_body
+    assert response.turn_id in csv_body
+
+
+def test_promote_golden_writes_draft_case(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from app.quality import promote_golden as promote_golden_module
+
+    monkeypatch.setattr(promote_golden_module, "FLAGGED_FILE", tmp_path / "flagged_regressions.jsonl")
+    monkeypatch.setattr("app.api.routes_chat.build_live_chat_response", _fake_chat_response)
+    response = chat(ChatRequest(message="promote me"))
+    user = {"username": "reviewer", "role": "quality_reviewer"}
+    submit_chat_feedback(_feedback_payload(response.turn_id, rating="down"), user=user)
+
+    result = promote_golden_case(response.turn_id, PromoteGoldenRequest(), user=user)
+    assert result["golden_case_id"].startswith("flagged.")
+    assert (tmp_path / "flagged_regressions.jsonl").is_file()
+    detail = quality_chat_turn_detail(response.turn_id, user=user)
+    assert detail["turn"]["golden_candidate"] is True
+
+
+def test_quality_summary_counts(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.api.routes_chat.build_live_chat_response", _fake_chat_response)
+    chat(ChatRequest(message="summary one"))
+    user = {"username": "reviewer", "role": "quality_reviewer"}
+    payload = quality_summary(user=user)
+    assert payload["total_turns"] >= 1
+    assert "golden_coverage" in payload
 
 
 def test_review_root_cause_validation(monkeypatch: pytest.MonkeyPatch) -> None:

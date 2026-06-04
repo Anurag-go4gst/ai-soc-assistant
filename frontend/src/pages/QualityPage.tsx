@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, ClipboardCheck, RefreshCcw } from 'lucide-react';
-import { getQualityFlaggedTurns } from '@/api/client';
+import { getQualityFlaggedTurns, getQualitySummary } from '@/api/client';
+import type { QualitySummaryResponse } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,14 +13,16 @@ type LoadState = 'loading' | 'ready' | 'empty' | 'unavailable' | 'error';
 export function QualityPage() {
   const [state, setState] = useState<LoadState>('loading');
   const [data, setData] = useState<QualityFlaggedTurnsResponse | null>(null);
+  const [summary, setSummary] = useState<QualitySummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadFlaggedTurns = async () => {
     setState('loading');
     setError(null);
     try {
-      const result = await getQualityFlaggedTurns(50);
+      const [result, summaryResult] = await Promise.all([getQualityFlaggedTurns(50), getQualitySummary()]);
       setData(result);
+      setSummary(summaryResult);
       setState(result.turns.length ? 'ready' : 'empty');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Quality queue unavailable';
@@ -54,17 +57,26 @@ export function QualityPage() {
           </Button>
         </header>
 
-        <section className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Flagged turns" value={String(data?.count ?? turns.length)} />
-          <MetricCard label="Visible queue" value={String(turns.length)} />
-          <MetricCard label="Endpoint" value={state === 'unavailable' ? 'pending' : state === 'error' ? 'error' : 'ready'} />
+        <section className="grid gap-3 md:grid-cols-3 lg:grid-cols-5">
+          <MetricCard label="Total turns" value={String(summary?.total_turns ?? '—')} />
+          <MetricCard label="Flagged" value={String(summary?.flagged_turns ?? data?.count ?? turns.length)} />
+          <MetricCard label="In review" value={String(summary?.in_review_turns ?? '—')} />
+          <MetricCard label="Golden Tier 0" value={String(summary?.golden_coverage?.tier0 ?? '—')} />
+          <MetricCard
+            label="105 + catalog cases"
+            value={
+              summary
+                ? `${summary.golden_coverage?.question_105 ?? 0} + ${summary.golden_coverage?.use_case_catalog ?? 0}`
+                : '—'
+            }
+          />
         </section>
 
         {state === 'unavailable' ? (
           <NoticeCard
             tone="warning"
             title="Quality endpoint not available"
-            detail="The frontend client is wired for /quality/flagged-turns. This page will populate when the backend route is enabled."
+            detail="Enable QUALITY_REVIEW_ENABLED and allow your user (role quality_reviewer or QUALITY_REVIEW_USER_ALLOWLIST)."
           />
         ) : null}
 
