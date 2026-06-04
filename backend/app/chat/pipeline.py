@@ -61,6 +61,7 @@ from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
 from app.chat.evidence_planner import plan_evidence
+from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.control_plane_trace import build_control_plane_trace
@@ -120,6 +121,7 @@ class ChatPipelineState(TypedDict, total=False):
     route_adjudication: dict[str, Any] | None
     llm_plan_validation: dict[str, Any] | None
     mitre_decision: dict[str, Any] | None
+    answer_contract: dict[str, Any] | None
     soc_kb_retrieval: dict[str, Any] | None
     response: PlaceholderResponse
 
@@ -624,6 +626,20 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         use_case_label = getattr(selected_use_case, "display_name", None) or getattr(
             selected_use_case, "use_case_id", None
         )
+    answer_contract = None
+    if settings.control_plane_enabled:
+        answer_contract = build_answer_contract(
+            intent_classification=state.get("intent_classification"),
+            evidence_plan=state.get("evidence_plan"),
+            mitre_decision=mitre_decision,
+            severity_decision=severity_decision,
+            spl_validation=spl_validation,
+            execution=execution,
+            human_review=human_review,
+            mitre_mappings=mitre_mappings or [],
+            user_query=request.message,
+        )
+    answer_contract_payload = answer_contract.model_dump() if answer_contract is not None else None
     analyst_response = build_analyst_response_for_live(
         user_query=request.message,
         message=message,
@@ -644,7 +660,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     control_plane_trace = None
     if settings.control_plane_enabled:
-        trace_state = {**state, "mitre_decision": mitre_decision}
+        trace_state = {**state, "mitre_decision": mitre_decision, "answer_contract": answer_contract_payload}
         control_plane_trace = build_control_plane_trace(
             trace_state,
             source_evidence=source_evidence,
@@ -705,10 +721,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         evidence_plan=state.get("evidence_plan"),
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
+        answer_contract=answer_contract_payload,
         mitre_decision=mitre_decision,
         analyst_response=analyst_response,
     )
-    return {**state, "response": response, "mitre_decision": mitre_decision}
+    return {
+        **state,
+        "response": response,
+        "mitre_decision": mitre_decision,
+        "answer_contract": answer_contract_payload,
+    }
 
 
 def _route_authority_payload(route_plan_shadow: dict[str, Any] | None) -> dict[str, object] | None:

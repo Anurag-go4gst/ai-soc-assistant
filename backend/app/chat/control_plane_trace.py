@@ -39,6 +39,7 @@ def build_control_plane_trace(
         "mcp_execution": _mcp_trace(execution),
         "sufficiency": context_sufficiency,
         "synthesis_mode": {"mode": synthesis_mode},
+        "answer_contract": state.get("answer_contract"),
         "answer_guard": answer_guard,
         "source_evidence_refs": [
             str(item.get("evidence_id"))

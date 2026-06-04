@@ -1,6 +1,16 @@
 from __future__ import annotations
 
+import pytest
+
+from app.api.routes_chat import chat
 from app.chat.contracts.answer_contract import build_answer_contract
+from app.schemas.requests import ChatRequest
+
+
+@pytest.fixture
+def _control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
+    monkeypatch.setattr("app.config.settings.spl_allowed_sourcetypes", "pgcil:auth,aws:cloudtrail")
 
 
 def test_policy_rag_only_hides_mitre_and_spl_sections() -> None:
@@ -71,3 +81,51 @@ def test_execution_label_mock_vs_live() -> None:
     )
     assert mock.execution_status_display == "Executed — mock evidence"
     assert live.execution_status_display == "Executed — live evidence"
+
+
+def test_blocked_findings_source_from_mitre_decision_union() -> None:
+    """not_claimed_technique_ids = MitreDecision.not_claimed ∪ rejected_techniques.
+
+    The contract makes no new MITRE decision; it projects the decider.
+    """
+    contract = build_answer_contract(
+        intent_classification={"answer_goal": ["mitre_mapping"]},
+        evidence_plan={"answer_mode": "live_investigation", "needs_mitre": True},
+        mitre_decision={
+            "answer_visible": True,
+            "not_claimed": ["T1078"],
+            "rejected_techniques": ["T1003", "T1562.001"],
+        },
+        severity_decision=None,
+        spl_validation=None,
+        execution={"status": "skipped"},
+        human_review={"required": False},
+        mitre_mappings=[{"technique_id": "T1110.001"}],
+    )
+    assert set(contract.not_claimed_technique_ids) == {"T1078", "T1003", "T1562.001"}
+    assert contract.mitre_technique_ids == ["T1110.001"]
+
+
+def test_human_review_forces_blocked_label() -> None:
+    contract = build_answer_contract(
+        intent_classification={"answer_goal": ["spl_artifact"]},
+        evidence_plan={"answer_mode": "live_investigation", "mcp_allowed": True},
+        mitre_decision={},
+        severity_decision=None,
+        spl_validation={"approved": True, "normalized_spl": "index=x"},
+        execution={"status": "requires_human_review"},
+        human_review={"required": True},
+    )
+    assert contract.human_review_required is True
+    assert contract.execution_status_label == "blocked_approval_required"
+
+
+def test_answer_contract_wired_into_live_chat(_control_plane: None) -> None:
+    """Commit 2 wiring: the live /chat response carries the projected contract."""
+    response = chat(ChatRequest(message="Generate SPL for the top failed-login users in the last 24 hours"))
+    assert response.answer_contract is not None
+    assert response.control_plane_trace is not None
+    assert response.control_plane_trace.get("answer_contract") is not None
+    # answer_goal is projected straight from IntentClassification, not re-derived.
+    intent_goal = response.query_to_intent["intent_classification"]["answer_goal"]
+    assert response.answer_contract["answer_goal"] == [str(g) for g in intent_goal]

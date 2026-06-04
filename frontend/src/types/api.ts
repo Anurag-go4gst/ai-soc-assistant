@@ -64,6 +64,7 @@ export interface PlaceholderResponse {
   llm_plan_validation?: Record<string, unknown> | null;
   query_to_intent?: Record<string, unknown> | null;
   control_plane_trace?: Record<string, unknown> | null;
+  answer_contract?: Record<string, unknown> | null;
   mitre_decision?: Record<string, unknown> | null;
   mitre_mappings?: MitreMappingDecision[] | null;
   severity_decision?: SeverityDecision | null;
