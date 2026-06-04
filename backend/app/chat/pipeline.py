@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any, TypedDict
 from uuid import uuid4
 
@@ -62,6 +63,18 @@ from app.use_cases.registry import match_use_cases
 from app.chat.evidence_planner import plan_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.control_plane_trace import build_control_plane_trace
+from app.chat.progress_context import (
+    bind_progress_reporter,
+    emit_mcp_status_from_execution,
+    emit_stage,
+    reset_progress_reporter,
+)
+from app.chat.progress_events import ProgressReporter
+
+_PARTIAL_SYNTHESIS_MESSAGE = (
+    "Final LLM synthesis timed out; showing validated intermediate result."
+)
+
 
 def _routes_chat():
     """Lazy import so tests can monkeypatch symbols on app.api.routes_chat."""
@@ -110,7 +123,21 @@ class ChatPipelineState(TypedDict, total=False):
     response: PlaceholderResponse
 
 
-def build_live_chat_response(request: ChatRequest) -> PlaceholderResponse:
+def build_live_chat_response(
+    request: ChatRequest,
+    *,
+    progress: ProgressReporter | None = None,
+) -> PlaceholderResponse:
+    token = bind_progress_reporter(progress) if progress is not None else None
+    try:
+        return _build_live_chat_response_inner(request)
+    finally:
+        if token is not None:
+            reset_progress_reporter(token)
+
+
+def _build_live_chat_response_inner(request: ChatRequest) -> PlaceholderResponse:
+    emit_stage("queued")
     state: ChatPipelineState = {"request": request}
     state = graph_node_init_routing(state)
     state = graph_node_query_to_intent(state)
@@ -132,6 +159,7 @@ def build_live_chat_response(request: ChatRequest) -> PlaceholderResponse:
 
 
 def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
+    emit_stage("understanding_query")
     request = state["request"]
     trace_id = str(uuid4())
     qu_failed = False
@@ -171,6 +199,7 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
 
 def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     """Passive query-to-intent stage (does not change routing when flag is off)."""
+    emit_stage("classifying_intent")
     request = state["request"]
     query_understanding = state.get("query_understanding")
     routed = state.get("routed") or {}
@@ -189,6 +218,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
 
 
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
+    emit_stage("planning_evidence")
     if not settings.control_plane_enabled:
         return {**state, "evidence_plan": None}
     intent = state.get("intent_classification")
@@ -203,6 +233,7 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
 
 
 def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
+    emit_stage("route_adjudication")
     request = state["request"]
     routed = state["routed"]
     route_plan_shadow = state["route_plan_shadow"]
@@ -294,6 +325,7 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
 
 
 def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
+    emit_stage("generating_spl")
     request = state["request"]
     routed = state["routed"]
     trace_id = state["trace_id"]
@@ -327,6 +359,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
 
 
 def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
+    emit_stage("checking_mcp")
     request = state["request"]
     routed = state["routed"]
     execution, human_review = _execution_stage(
@@ -339,6 +372,7 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         requested_mcp_tool=request.requested_mcp_tool,
         mcp_allowed=_mcp_allowed(state),
     )
+    emit_mcp_status_from_execution(execution)
     return {**state, "execution": execution, "human_review": human_review}
 
 
@@ -362,6 +396,7 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
         requested_mcp_tool=request.requested_mcp_tool,
         mcp_allowed=False,
     )
+    emit_mcp_status_from_execution(execution)
     return {
         **state,
         "workflow_plan": workflow_plan,
@@ -373,6 +408,7 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
 
 
 def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
+    emit_stage("retrieving_knowledge")
     request = state["request"]
     workflow_plan = state["workflow_plan"]
     execution = state["execution"] if "execution" in state else {"block_reason": None}
@@ -388,12 +424,14 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
 
 
 def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
+    emit_stage("mapping_mitre")
     request = state["request"]
     routed = state["routed"]
     trace_id = state["trace_id"]
     selected_use_case = state.get("selected_use_case")
     spl_validation = state.get("spl_validation")
     execution = state["execution"]
+    emit_stage("checking_sufficiency")
     source_evidence, structured_context, context_sufficiency = _context_stage(
         trace_id=trace_id,
         query=request.message,
@@ -428,6 +466,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case.use_case_id if selected_use_case else None,
         severity_decision.severity_label,
     )
+    emit_stage("generating_answer")
     synthesis_lab = run_governed_synthesis_lab(
         structured_context=structured_context,
         source_evidence=source_evidence,
@@ -443,6 +482,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         context_sufficiency,
         package=synthesis_lab.package,
     )
+    emit_stage("validating_answer")
     answer_guard = run_answer_guard_lab(
         draft=synthesis_lab.draft,
         package=synthesis_lab.package,
@@ -455,7 +495,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         },
     )
     analyst_summary_from_lab: str | None = None
-    if synthesis_lab.analyst_summary and synthesis_status.status == "completed":
+    if synthesis_lab.analyst_summary and synthesis_status.status in {
+        "completed",
+        "partial_timeout",
+        "degraded",
+    }:
         if not answer_guard.enabled or answer_guard.guard_status == "passed":
             analyst_summary_from_lab = synthesis_lab.analyst_summary
         elif answer_guard.guard_status == "blocked":
@@ -513,6 +557,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
 
     message = _chat_message(spl_validation, execution, analyst_summary_from_lab)
     note = _chat_note(spl_validation, execution)
+    if synthesis_status.status == "partial_timeout":
+        message = _PARTIAL_SYNTHESIS_MESSAGE
+        note = _PARTIAL_SYNTHESIS_MESSAGE
     candidate_spl = state.get("candidate_spl")
     if _needs_mitre_clarification(request.message, candidate_spl):
         human_review = _mitre_clarification_review()
@@ -587,6 +634,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
         execution=execution,
+        intent_classification=state.get("intent_classification"),
+        evidence_plan=state.get("evidence_plan"),
+        severity_decision=severity_decision,
     )
     control_plane_trace = None
     if settings.control_plane_enabled:
@@ -599,9 +649,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_guard=answer_guard.model_dump(),
         )
 
+    partial_fallback = synthesis_status.status == "partial_timeout"
     response = PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,
+        fallback_active=True if partial_fallback else None,
         selected_skill=str(routed["skill"]),
         primary_operation=primary_operation,
         coverage_id=coverage_id,
@@ -730,10 +782,27 @@ def _context_selected_skill(state: ChatPipelineState) -> str:
 
 
 def _selected_use_case(query: str) -> UseCaseSelection | None:
-    matches = match_use_cases(query, limit=1)
-    if matches:
-        return matches[0]
-    return None
+    matches = match_use_cases(query, limit=3)
+    if not matches:
+        return None
+    normalized = " ".join(query.lower().split())
+    success_after = (
+        ("successful login" in normalized and any(term in normalized for term in ("followed", "after failure", "after failures", "after failed")))
+        or any(
+            term in normalized
+            for term in (
+                "successful login after",
+                "success after",
+                "followed by a successful login",
+                "failures followed by",
+            )
+        )
+    )
+    if success_after:
+        preferred = next((item for item in matches if item.use_case_id == "auth_success_after_failure"), None)
+        if preferred is not None:
+            return preferred
+    return matches[0]
 
 
 def _mitre_outputs_for_finalize(
@@ -768,19 +837,54 @@ def _mitre_use_case_for_query(
     use_case_id: str | None,
     intent_classification: dict[str, Any] | None,
 ) -> str | None:
-    if use_case_id and use_case_id != "soc_map_alert_mitre":
+    normalized = " ".join(query.lower().split())
+    success_after = _success_after_failure_context(normalized)
+    if use_case_id == "auth_success_after_failure":
+        return use_case_id
+    if use_case_id and use_case_id not in {"soc_map_alert_mitre", "auth_failed_login_spike"}:
+        if success_after and use_case_id == "auth_failed_login_spike":
+            return "auth_success_after_failure"
         return use_case_id
     intent = intent_classification or {}
-    if intent.get("intent_family") != "mitre_mapping":
-        return use_case_id
-    normalized = " ".join(query.lower().split())
-    if any(term in normalized for term in ("failed login", "failed-logins", "login failure", "failed authentication")):
-        return "auth_failed_login_spike"
+    intent_family = str(intent.get("intent_family") or "")
+    if intent_family in {"mitre_mapping", "hybrid_alert_review"}:
+        if success_after:
+            return "auth_success_after_failure"
+        if any(term in normalized for term in ("failed login", "failed-logins", "login failure", "failed authentication")):
+            return "auth_failed_login_spike"
+    if success_after:
+        return "auth_success_after_failure"
     return use_case_id
+
+
+def _success_after_failure_context(normalized: str) -> bool:
+    return any(
+        term in normalized
+        for term in (
+            "successful login after",
+            "success after",
+            "success following",
+            "after failures",
+            "followed by a successful login",
+            "followed by successful login",
+            "failures followed by",
+            "failure followed by",
+        )
+    ) or (
+        "successful login" in normalized
+        and any(term in normalized for term in ("followed", "after failure", "after failures", "after failed"))
+        and "no successful login" not in normalized
+    )
 
 
 def _mitre_alert_context_present(query: str) -> bool:
     normalized = " ".join(query.lower().split())
+    if re.search(r"\balt-\d{4}-\d+\b", normalized):
+        return True
+    if re.search(r"\bfor alert\b", normalized):
+        return True
+    if re.search(r"\balert\s+[a-z0-9][\w.-]+\b", normalized):
+        return True
     if any(marker in normalized for marker in _ALERT_CONTEXT_MARKERS):
         return True
     if any(term in normalized for term in ("failed login", "failed-logins", "login failure", "failed authentication")):
@@ -1264,12 +1368,15 @@ def _candidate_from_default_template(
     if template.status != "active":
         return None
 
-    validation = validate_spl(template.spl_text)
+    from app.spl.template_query_bindings import customize_template_spl
+
+    rendered_spl = customize_template_spl(template.template_id, template.spl_text, user_query)
+    validation = validate_spl(rendered_spl)
     candidate_payload = {
         "trace_id": trace_id,
         "skill": skill,
         "user_query": user_query,
-        "candidate_spl": template.spl_text,
+        "candidate_spl": rendered_spl,
         "generation_mode": "deterministic_template_render",
         "confidence": 0.93,
         "assumptions": [

@@ -267,6 +267,9 @@ class RoutePlanShadowEnvelope(BaseModel):
 class AnalystResponseEnvelope(BaseModel):
     scenario_label: str | None = None
     severity_label: str | None = None
+    severity_confidence: str | None = None
+    severity_rationale: str | None = None
+    severity_safety_note: str | None = None
     finding_title: str | None = None
     one_sentence_finding: str | None = None
     status_badge: str | None = None
@@ -287,6 +290,11 @@ class AnalystResponseEnvelope(BaseModel):
     closure_conditions: list[str] = []
     review_notice: str | None = None
     evidence_summary: str | None = None
+    execution_status_label: str | None = None
+    direct_answer_summary: str | None = None
+    limitations: list[str] = []
+    section_order: list[str] = []
+    render_sections: dict[str, bool] = {}
 
 
 class FoundationSecCapturedOutput(BaseModel):
@@ -328,6 +336,7 @@ class FoundationSecGovernance(BaseModel):
 
 class PlaceholderResponse(BaseModel):
     trace_id: str
+    turn_id: str | None = None
     message: str
     note: str
     demo_mode: bool = False

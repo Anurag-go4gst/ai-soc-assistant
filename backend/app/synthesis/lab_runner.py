@@ -7,10 +7,14 @@ fact stays deterministic; any failure falls back to the deterministic summary.
 
 from __future__ import annotations
 
+import concurrent.futures
 from dataclasses import dataclass
 from typing import Any
 
 from app.actions.capability_policy import ActionCapability
+from app.chat.progress_context import emit_heartbeat, emit_llm_degraded
+from app.synthesis.live_narration import NarrationFailure
+from app.chat.progress_events import live_synthesis_timeout_seconds
 from app.config import settings
 from app.llm.clients import LocalChatClient, build_synthesis_client_from_settings
 from app.synthesis.live_narration import narrate_analyst_summary
@@ -126,13 +130,39 @@ def run_governed_synthesis_lab(
     if settings.ai_soc_llm_live_synthesis_enabled and mode in _LAB_READY_MODES:
         client = synthesis_client or build_synthesis_client_from_settings()
         if client is not None:
-            narration = narrate_analyst_summary(
+            narration, timed_out = _narrate_with_progress_and_timeout(
                 package=package,
                 deterministic_draft=draft,
                 severity_label=severity_label,
                 client=client,
                 structured_context=structured_context,
             )
+            if timed_out:
+                return SynthesisLabResult(
+                    status=SynthesisStatus(
+                        enabled=True,
+                        status="partial_timeout",
+                        provider="deterministic_lab",
+                        reason="Live narration exceeded the governed timeout; kept the deterministic summary.",
+                    ),
+                    package=package,
+                    draft=draft,
+                    analyst_summary=summary,
+                )
+            if isinstance(narration, NarrationFailure):
+                emit_llm_degraded(code=narration.code, message=narration.user_message)
+                reason = f"{narration.user_message} (code={narration.code})"
+                return SynthesisLabResult(
+                    status=SynthesisStatus(
+                        enabled=True,
+                        status="degraded",
+                        provider="deterministic_lab",
+                        reason=reason,
+                    ),
+                    package=package,
+                    draft=draft,
+                    analyst_summary=summary,
+                )
             if narration is not None:
                 draft = {**draft, "analyst_summary": narration.summary, "draft_source": "live_model"}
                 summary = narration.summary
@@ -141,6 +171,10 @@ def run_governed_synthesis_lab(
                 latency_ms = narration.latency_ms
                 reason = "Analyst summary narrated by the live model; all facts remain deterministic."
             else:
+                emit_llm_degraded(
+                    code="llm_client_unavailable",
+                    message="Live LLM client is not configured; using the deterministic summary.",
+                )
                 reason = "Live narration failed or was unavailable; kept the deterministic summary."
 
     return SynthesisLabResult(
@@ -266,6 +300,40 @@ def _build_deterministic_lab_draft(
         "sent_to_mcp": False,
         "draft_source": "deterministic_lab",
     }
+
+
+def _narrate_with_progress_and_timeout(
+    *,
+    package: GovernedSynthesisPackage,
+    deterministic_draft: dict[str, Any],
+    severity_label: str | None,
+    client: LocalChatClient,
+    structured_context: dict[str, Any],
+) -> tuple[Any | None, bool]:
+    """Run live narration with heartbeats; return (result, timed_out)."""
+    import time
+
+    timeout_s = live_synthesis_timeout_seconds()
+    heartbeat_label = "Still generating the final governed answer..."
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(
+            narrate_analyst_summary,
+            package=package,
+            deterministic_draft=deterministic_draft,
+            severity_label=severity_label,
+            client=client,
+            structured_context=structured_context,
+        )
+        started = time.monotonic()
+        poll_s = 4.0
+        while True:
+            remaining = timeout_s - (time.monotonic() - started)
+            if remaining <= 0:
+                return None, True
+            try:
+                return future.result(timeout=min(poll_s, remaining)), False
+            except concurrent.futures.TimeoutError:
+                emit_heartbeat("generating_answer", heartbeat_label)
 
 
 def _preview_rows_from_evidence(source_evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:

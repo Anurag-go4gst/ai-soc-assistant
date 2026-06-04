@@ -38,15 +38,36 @@ export function AnalystResponseCard({
   const policyChecks = validationNotes.length ? validationNotes : triageSteps;
   const priorityActions = response.recommended_actions ?? [];
   const hasPriorityInvestigation = hasPriorityActions(priorityActions);
+  const renderSections = response.render_sections ?? {};
   const splOnly = response.response_profile === 'spl_only';
+  const isHybridAlertReview = response.response_profile === 'hybrid_alert_review';
+  const wasExecuted = response.execution_status === 'executed';
+  const splReviewNotice =
+    response.spl_code && !wasExecuted
+      ? response.execution_status_label ?? response.review_notice ?? 'Review only — not executed'
+      : null;
+  const summaryText = response.direct_answer_summary ?? response.one_sentence_finding;
+  const showSummaryInHeader = Boolean(
+    summaryText && (response.direct_answer_summary || isHybridAlertReview || !response.spl_code),
+  );
+  const showLimitations = Boolean(response.limitations?.length && (renderSections.limitations ?? true));
+  const showSpl = Boolean(response.spl_code && (renderSections.spl_artifact ?? true));
+  const showLiveResults =
+    (renderSections.live_results ?? true) &&
+    Boolean(response.splunk_status_line || hasInvestigationTable);
+  const showFooterReviewNotice = Boolean(response.review_notice && !response.spl_code);
   const showInvestigationPlan =
     !splOnly && priorityActions.length > 0 && (hasPriorityInvestigation || !response.spl_code);
   const showPolicyBridge = policyChecks.length > 0 && showInvestigationPlan && hasPriorityInvestigation;
   const governedAnalysis = splOnly ? null : foundationSecGovernance?.governed_analysis ?? null;
   const hasReasoning = !splOnly && Boolean(governedAnalysis || response.foundation_sec_analysis);
-  const hasMitre = !splOnly && Boolean(response.mitre_mappings?.length);
-  const hasNotClaimed = !splOnly && Boolean(response.not_claimed?.length);
-  const wasExecuted = response.execution_status === 'executed';
+  const hasMitre =
+    (renderSections.mitre_mapping ?? !splOnly) && Boolean(response.mitre_mappings?.length);
+  const hasNotClaimed =
+    (renderSections.not_claimed ?? !splOnly) && Boolean(response.not_claimed?.length);
+  const showPlaybook =
+    (renderSections.policy_citation ?? !splOnly) &&
+    Boolean(playbookTitle || policyChecks.length);
   const playbookVersion =
     typeof response.retrieved_playbook?.version === 'string' ? (response.retrieved_playbook.version as string) : null;
   const tableRows = response.splunk_results_table?.length ?? 0;
@@ -57,7 +78,7 @@ export function AnalystResponseCard({
   // assigned by render order, never hardcoded.
   const phases: Phase[] = [];
 
-  if (response.splunk_status_line || hasInvestigationTable) {
+  if (showLiveResults) {
     phases.push({
       key: 'evidence',
       label: 'Evidence retrieved',
@@ -83,29 +104,31 @@ export function AnalystResponseCard({
     });
   }
 
-  if (response.spl_code) {
+  if (showSpl) {
     phases.push({
       key: 'spl',
       label: wasExecuted ? 'Executed detection' : 'Generated SPL',
       icon: <Terminal className="h-3.5 w-3.5" />,
       accent: 'cyan',
-      chips: [
-        { text: 'Candidate SPL', variant: 'secondary' },
-        { text: wasExecuted ? 'executed' : 'not executed', variant: wasExecuted ? 'success' : 'outline' },
-      ],
+      chips: [{ text: 'Candidate SPL', variant: 'secondary' }],
       content: (
         <>
-          {response.one_sentence_finding ? (
-            <p className="leading-6 text-slate-200">{response.one_sentence_finding}</p>
+          {!wasExecuted && splReviewNotice ? (
+            <p className="text-sm leading-6 text-amber-100/95">{splReviewNotice}</p>
           ) : null}
-          <pre className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-5 text-cyan-100">
-            <code>{response.spl_code}</code>
+          <pre
+            className={cn(
+              'max-h-96 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-6 text-cyan-100',
+              splReviewNotice ? 'mt-3' : '',
+            )}
+          >
+            <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(response.spl_code ?? '')}</code>
           </pre>
           {wasExecuted && response.executed_spl && response.executed_spl !== response.spl_code ? (
             <div className="mt-3">
               <SectionTitle>Executed normalized SPL</SectionTitle>
-              <pre className="mt-2 max-h-80 overflow-auto rounded-lg border border-emerald-400/20 bg-slate-950 p-3 text-xs leading-5 text-emerald-100">
-                <code>{response.executed_spl}</code>
+              <pre className="mt-2 max-h-96 overflow-auto rounded-lg border border-emerald-400/20 bg-slate-950 p-3 text-xs leading-6 text-emerald-100">
+                <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(response.executed_spl)}</code>
               </pre>
             </div>
           ) : null}
@@ -178,7 +201,7 @@ export function AnalystResponseCard({
     });
   }
 
-  if (!splOnly && (playbookTitle || policyChecks.length)) {
+  if (showPlaybook) {
     phases.push({
       key: 'knowledge',
       label: 'SOC knowledge',
@@ -255,18 +278,36 @@ export function AnalystResponseCard({
     <div className="max-w-[1120px] rounded-xl border border-cyan-500/20 bg-slate-950/70 px-6 py-5 text-[15px] text-slate-100 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
         {response.severity_label ? <SeverityBadge label={response.severity_label} /> : null}
+        {response.severity_confidence ? (
+          <Badge variant="outline">Confidence: {response.severity_confidence}</Badge>
+        ) : null}
         {response.review_notice ? <Badge variant="warning">Review required</Badge> : null}
       </div>
 
       {title ? <h3 className="mt-3 text-xl font-semibold text-slate-50">{title}</h3> : null}
 
-      {response.one_sentence_finding && !response.spl_code ? (
-        <p className="mt-2 leading-6 text-slate-200">{response.one_sentence_finding}</p>
+      {response.severity_rationale ? (
+        <p className="mt-2 text-sm leading-6 text-slate-300">{response.severity_rationale}</p>
+      ) : null}
+
+      {response.severity_safety_note ? (
+        <p className="mt-2 text-sm leading-6 text-slate-200">{response.severity_safety_note}</p>
+      ) : null}
+
+      {showSummaryInHeader ? (
+        <p className="mt-2 leading-6 text-slate-200">{summaryText}</p>
+      ) : null}
+
+      {showLimitations ? (
+        <div className="mt-3 rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2">
+          <SectionTitle>Limitations</SectionTitle>
+          <BulletList items={response.limitations ?? []} />
+        </div>
       ) : null}
 
       {phases.length ? <PhaseTimeline phases={phases} /> : null}
 
-      {response.review_notice ? (
+      {showFooterReviewNotice ? (
         <p className="mt-5 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
           {response.review_notice}
         </p>
@@ -492,6 +533,14 @@ function recommendationTone(priority: string) {
   if (priority === 'P2') return 'border-l-4 border-amber-400/70 bg-amber-500/10 text-amber-100';
   if (priority === 'P4') return 'border-l-4 border-slate-500/70 bg-slate-500/10 text-slate-200';
   return 'border-l-4 border-blue-400/70 bg-blue-500/10 text-blue-100';
+}
+
+function formatSplForDisplay(spl: string): string {
+  const parts = spl.split('|').map((part) => part.trim()).filter(Boolean);
+  if (parts.length <= 1) {
+    return spl.trim();
+  }
+  return parts.map((part, index) => (index === 0 ? part : `| ${part}`)).join('\n');
 }
 
 function splitParagraphs(value: string) {

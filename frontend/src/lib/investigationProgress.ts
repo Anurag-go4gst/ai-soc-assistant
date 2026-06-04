@@ -7,11 +7,58 @@ export interface InvestigationProgressStep {
   activity?: string[];
 }
 
+export type InvestigationProgressPhase = 'deterministic' | 'finalizing' | 'partial' | 'complete' | 'error';
+
+export interface InvestigationProgressError {
+  message: string;
+  code?: string | null;
+  recoverable?: boolean;
+}
+
+export interface InvestigationLlmWarning {
+  message: string;
+  code?: string | null;
+}
+
+export interface InvestigationFinalizationState {
+  phase: InvestigationProgressPhase;
+  statusLine: string;
+  timeoutTier: 0 | 1 | 2 | 3;
+  partialFallback: boolean;
+  currentServerStage?: string | null;
+  mcpDetail?: string | null;
+  showRetryHint: boolean;
+}
+
 export interface InvestigationProgressState {
   steps: InvestigationProgressStep[];
   activeStepIndex: number;
   completedStepIds: string[];
+  /** True when deterministic steps finished but final answer not yet received. */
+  finalization?: InvestigationFinalizationState;
+  /** Server-reported pipeline stage (live chat stream). */
+  serverStage?: string | null;
+  /** Non-fatal live LLM issue; deterministic answer still expected. */
+  llmWarning?: InvestigationLlmWarning | null;
+  /** Fatal stream/pipeline failure before an answer was delivered. */
+  error?: InvestigationProgressError | null;
 }
+
+/** Maps backend progress stage ids to loader step ids. */
+export const SERVER_STAGE_TO_STEP_ID: Record<string, string> = {
+  queued: 'query',
+  understanding_query: 'query',
+  classifying_intent: 'route',
+  planning_evidence: 'workflow',
+  route_adjudication: 'workflow',
+  retrieving_knowledge: 'rag',
+  generating_spl: 'spl_validation',
+  checking_mcp: 'mcp_connect',
+  mapping_mitre: 'mitre',
+  checking_sufficiency: 'severity',
+  generating_answer: 'llm_governance',
+  validating_answer: 'package',
+};
 
 const BASE_STEPS: Omit<InvestigationProgressStep, 'durationMs' | 'activity'>[] = [
   {
@@ -226,6 +273,7 @@ export function delay(ms: number): Promise<void> {
 export async function playInvestigationProgress(
   steps: InvestigationProgressStep[],
   onUpdate: (state: InvestigationProgressState) => void,
+  options?: { skipCompletion?: boolean },
 ): Promise<void> {
   const completedStepIds: string[] = [];
   for (let index = 0; index < steps.length; index += 1) {
@@ -233,5 +281,68 @@ export async function playInvestigationProgress(
     await delay(steps[index].durationMs);
     completedStepIds.push(steps[index].id);
   }
+  if (options?.skipCompletion) {
+    onUpdate({
+      steps,
+      activeStepIndex: steps.length - 1,
+      completedStepIds: steps.slice(0, -1).map((step) => step.id),
+      finalization: {
+        phase: 'finalizing',
+        statusLine: 'Generating final answer…',
+        timeoutTier: 0,
+        partialFallback: false,
+        showRetryHint: false,
+      },
+    });
+    return;
+  }
   onUpdate({ steps, activeStepIndex: steps.length, completedStepIds: [...completedStepIds] });
+}
+
+export function applyServerProgressStage(
+  state: InvestigationProgressState,
+  stage: string,
+  detail?: string,
+): InvestigationProgressState {
+  const stepId = SERVER_STAGE_TO_STEP_ID[stage];
+  if (!stepId) {
+    return { ...state, serverStage: stage };
+  }
+  const index = state.steps.findIndex((step) => step.id === stepId);
+  if (index < 0) {
+    return { ...state, serverStage: stage };
+  }
+  const completedStepIds = state.steps.slice(0, index).map((step) => step.id);
+  const isFinalization = stage === 'generating_answer' || stage === 'validating_answer';
+  let finalization = state.finalization;
+  if (stage === 'checking_mcp' && detail) {
+    finalization = {
+      phase: finalization?.phase ?? 'deterministic',
+      statusLine: finalization?.statusLine ?? 'Checking MCP…',
+      timeoutTier: finalization?.timeoutTier ?? 0,
+      partialFallback: false,
+      mcpDetail: detail,
+      showRetryHint: false,
+    };
+  } else if (isFinalization) {
+    finalization = {
+      phase: 'finalizing',
+      statusLine:
+        stage === 'validating_answer'
+          ? 'Validating answer safety and evidence grounding…'
+          : state.finalization?.statusLine ?? 'Generating final answer…',
+      timeoutTier: state.finalization?.timeoutTier ?? 0,
+      partialFallback: false,
+      currentServerStage: stage,
+      mcpDetail: state.finalization?.mcpDetail,
+      showRetryHint: state.finalization?.showRetryHint ?? false,
+    };
+  }
+  return {
+    ...state,
+    serverStage: stage,
+    activeStepIndex: index,
+    completedStepIds,
+    finalization,
+  };
 }

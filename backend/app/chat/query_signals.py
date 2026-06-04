@@ -75,11 +75,63 @@ def extract_query_signals(
         term in normalized
         for term in ("no evidence of credential dumping", "no credential dumping", "without credential dumping")
     )
+    success_after_failure = any(
+        term in normalized
+        for term in (
+            "successful login after",
+            "success after",
+            "success following",
+            "after failures",
+            "followed by a successful login",
+            "followed by successful login",
+            "failures followed by",
+            "failure followed by",
+        )
+    ) or (
+        "successful login" in normalized
+        and any(term in normalized for term in ("followed", "after failure", "after failures", "after failed"))
+    )
+    positive_successful_login = success_after_failure or (
+        "successful login" in normalized and not negative_successful_login
+    )
+    severity_request = "severity" in normalized
+    review_only_spl = any(
+        term in normalized
+        for term in (
+            "spl i can review",
+            "review-only spl",
+            "review only spl",
+            "governed spl",
+            "not execute",
+            "but not execute",
+            "without executing",
+            "do not execute",
+        )
+    ) or (("spl" in normalized or "query" in normalized) and "review" in normalized and not run_execution)
+    alert_context_present = bool(
+        re.search(r"\balt-\d{4}-\d+\b", normalized)
+        or re.search(r"\bfor alert\b", normalized)
+        or re.search(r"\balert\s+[a-z0-9][\w.-]+\b", normalized)
+    )
+    hybrid_alert_review = (
+        alert_context_present
+        and (success_after_failure or failed_login)
+        and mitre_map
+        and (severity_request or review_only_spl)
+        and not run_execution
+    )
     explicit_mitre_context = (
-        bool(re.search(r"\b\d+\s+(?:failed login|failed-logins|login failure|failed authentication)", normalized))
+        alert_context_present
+        or bool(re.search(r"\b\d+\s+(?:failed login|failed-logins|login failure|failed authentication)", normalized))
         or bool(re.search(r"\bacross\s+\d+\s+(?:accounts|users|hosts|sources|ips)\b", normalized))
         or any(term in normalized for term in ("external ip", "external ips", "source ip", "source ips", "no successful login"))
-    ) and (negative_successful_login or negative_endpoint_telemetry or negative_credential_dumping)
+    ) and (
+        alert_context_present
+        or success_after_failure
+        or negative_successful_login
+        or negative_endpoint_telemetry
+        or negative_credential_dumping
+    )
     mitre_explain = bool(_TECHNIQUE_ID_RE.search(query)) and any(
         term in normalized for term in ("explain", "what is", "describe", "meaning of")
     )
@@ -154,6 +206,12 @@ def extract_query_signals(
         "exclude_service_accounts": exclude_service_accounts,
         "top_n": int(top_n_match.group(1)) if top_n_match else None,
         "mitre_requires_alert_context": mitre_requires_alert_context,
+        "success_after_failure": success_after_failure,
+        "positive_successful_login": positive_successful_login,
+        "severity_request": severity_request,
+        "review_only_spl": review_only_spl,
+        "alert_context_present": alert_context_present,
+        "hybrid_alert_review": hybrid_alert_review,
         "projected_needs_rag": policy_terms
         or escalation_without_policy_word
         or playbook_procedure

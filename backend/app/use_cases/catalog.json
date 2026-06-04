@@ -102,7 +102,9 @@
         "successful login after",
         "success after",
         "success following",
-        "after failures"
+        "after failures",
+        "followed by a successful login",
+        "failures followed by"
       ],
       "example_queries": [
         "Generate SPL for successful login after failures"

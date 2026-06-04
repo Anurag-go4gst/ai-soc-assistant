@@ -121,6 +121,23 @@ def plan_evidence(
             reasons=["hybrid_live_results_with_guidance"],
         )
 
+    if family == "hybrid_alert_review":
+        return EvidencePlan(
+            answer_mode="live_investigation",
+            rag_phase="post_mcp",
+            needs_rag=False,
+            needs_spl=True,
+            needs_mcp=False,
+            needs_mitre=True,
+            spl_allowed=True,
+            mcp_allowed=False,
+            policy_context_required=False,
+            policy_context_recommended=False,
+            requires_hil=intent.requires_hil,
+            action_mode=intent.action_mode or "recommend_only",
+            reasons=["hybrid_alert_review_severity_mitre_spl"],
+        )
+
     if family == "mitre_mapping":
         return EvidencePlan(
             answer_mode="live_investigation",

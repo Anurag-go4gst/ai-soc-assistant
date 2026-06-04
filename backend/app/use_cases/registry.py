@@ -97,4 +97,17 @@ def _intent_boost(normalized_query: str, use_case_id: str) -> float:
         return 0.18
     if use_case_id == "soc_map_alert_mitre" and any(term in normalized_query for term in ("mitre", "att&ck")):
         return 0.18
+    if use_case_id == "auth_success_after_failure" and (
+        ("successful login" in normalized_query and any(term in normalized_query for term in ("followed", "after failure", "after failures", "after failed")))
+        or any(
+            term in normalized_query
+            for term in (
+                "successful login after",
+                "success after",
+                "followed by a successful login",
+                "failures followed by",
+            )
+        )
+    ):
+        return 0.34
     return 0.0

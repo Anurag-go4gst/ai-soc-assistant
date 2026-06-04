@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   Activity,
   Bug,
+  ClipboardCheck,
   DatabaseZap,
   FileSearch,
   LayoutDashboard,
@@ -17,6 +18,7 @@ const navItems = [
   { to: '/investigations', label: 'Investigations', icon: FileSearch },
   { to: '/scenarios', label: 'Scenarios', icon: Activity },
   { to: '/knowledge', label: 'Knowledge', icon: DatabaseZap },
+  { to: '/quality', label: 'Quality', icon: ClipboardCheck },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
   { to: '/debug', label: 'Debug', icon: Bug },
 ] as const;

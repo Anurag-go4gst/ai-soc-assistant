@@ -72,6 +72,22 @@ def test_map_this_to_mitre_requires_clarification() -> None:
     assert intent.requires_clarification is True
 
 
+def test_alt_alert_success_after_failure_is_hybrid_alert_review() -> None:
+    result = _result(
+        "For alert ALT-2024-0891 (failed logins followed by a successful login from the same user "
+        "in the last hour), what's the severity, MITRE mapping with status, and a governed SPL "
+        "I can review—but not execute"
+    )
+    intent = result.intent_classification
+    assert intent.intent_family == "hybrid_alert_review"
+    assert intent.action_mode == "recommend_only"
+    assert "severity_assessment" in intent.answer_goal
+    assert "mitre_mapping" in intent.answer_goal
+    assert "spl_artifact" in intent.answer_goal
+    assert result.query_signals["success_after_failure"] is True
+    assert result.query_signals["review_only_spl"] is True
+
+
 def test_explain_mitre_technique_is_mitre_explanation() -> None:
     result = _result("Explain MITRE T1110")
     intent = result.intent_classification

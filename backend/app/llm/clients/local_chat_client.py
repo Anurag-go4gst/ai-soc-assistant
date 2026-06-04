@@ -16,11 +16,20 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.config import settings
+from app.llm.clients.local_chat_errors import user_message_for_local_chat_error
 
 
 class LocalChatError(RuntimeError):
     """Raised on any failure to obtain a completion. Callers fall back to the
     deterministic draft; this never propagates to the chat response."""
+
+    def __init__(self, code: str, *, detail: str | None = None) -> None:
+        self.code = code
+        super().__init__(detail or code)
+
+    @property
+    def user_message(self) -> str:
+        return user_message_for_local_chat_error(self.code)
 
 
 @dataclass(frozen=True)

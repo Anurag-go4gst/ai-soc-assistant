@@ -89,6 +89,8 @@ class Settings(BaseSettings):
     route_plan_supporters_runtime_enabled: bool = True
     # P2-audit: persist operation audit rows to in-process store + telemetry.
     operation_audit_persistence_enabled: bool = True
+    quality_review_enabled: bool = False
+    quality_review_user_allowlist: str = ""
     mcp_mode: str = "mock"
     mcp_servers: str = ""
     mcp_default_server: str = "splunk_soc"

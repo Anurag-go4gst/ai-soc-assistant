@@ -71,7 +71,9 @@ def test_live_narration_failure_falls_back_to_deterministic(monkeypatch: pytest.
     result = _run(monkeypatch, live=True, client=client)
 
     assert client.calls == 1
+    assert result.status.status == "degraded"
     assert result.status.provider == "deterministic_lab"
+    assert "transport_error" in result.status.reason
     assert result.draft["draft_source"] == "deterministic_lab"
     assert result.analyst_summary  # deterministic summary retained
 

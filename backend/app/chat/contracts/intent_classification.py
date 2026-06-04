@@ -11,6 +11,7 @@ IntentFamily = Literal[
     "spl_generation_only",
     "spl_generation_and_run",
     "hybrid_investigation_plus_policy",
+    "hybrid_alert_review",
     "mitre_mapping",
     "mitre_explanation",
     "knowledge_only",
@@ -35,6 +36,7 @@ AnswerGoal = Literal[
     "spl_artifact",
     "mitre_mapping",
     "mitre_explanation",
+    "severity_assessment",
     "procedural_steps",
     "clarification",
 ]

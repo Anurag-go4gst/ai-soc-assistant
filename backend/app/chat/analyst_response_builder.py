@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
+from app.config import settings
 from app.schemas.responses import AnalystResponseEnvelope
+from app.chat.contracts.answer_contract import build_answer_contract
+from app.chat.final_answer_readability import apply_final_answer_readability
 
 _FAILED_LOGIN_NUMERIC_COLUMNS = (
     "Failed logins",
@@ -29,6 +33,9 @@ def build_analyst_response_for_live(
     spl_validation: dict[str, Any] | None = None,
     execution: dict[str, Any] | None = None,
     mitre_decision: dict[str, Any] | None = None,
+    intent_classification: dict[str, Any] | None = None,
+    evidence_plan: dict[str, Any] | None = None,
+    severity_decision: Any | None = None,
 ) -> AnalystResponseEnvelope | None:
     """Assemble analyst card payload from governed live pipeline outputs."""
     draft = synthesis_draft if isinstance(synthesis_draft, dict) else {}
@@ -36,7 +43,7 @@ def build_analyst_response_for_live(
     spl_code = _candidate_spl_text(candidate_spl, spl_validation, draft)
     table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(draft.get("splunk_results_table"))
     decision_payload = mitre_decision if isinstance(mitre_decision, dict) else None
-    mitre_rows = _mitre_display_rows(mitre_mappings)
+    mitre_rows = _mitre_display_rows(mitre_mappings, user_query=user_query)
     if not mitre_rows and not decision_payload:
         mitre_rows = _as_table_rows(draft.get("mitre_mappings"))
     not_claimed = _not_claimed_rows(decision_payload)
@@ -48,15 +55,33 @@ def build_analyst_response_for_live(
     finding = _finding_title(message, user_query, selected_use_case_label)
     execution_status = str(execution_payload.get("status") or "") or None
     executed_spl = str(execution_payload.get("executed_spl") or "") or None
-    response_profile = "spl_executed" if execution_status == "executed" else "spl_only" if spl_code else None
+    if execution_status == "executed":
+        response_profile = "spl_executed"
+    elif spl_code and mitre_rows:
+        response_profile = "hybrid_alert_review"
+    elif spl_code:
+        response_profile = "spl_only"
+    else:
+        response_profile = None
 
     review_notice = None
     if isinstance(human_review, dict) and human_review.get("required"):
         review_notice = str(human_review.get("safe_message_for_user") or "Analyst review is required before execution.")
+    elif spl_code and execution_status != "executed":
+        review_notice = "Candidate SPL — review only, not executed."
+
+    severity_confidence, severity_rationale = _severity_confidence(user_query, execution_payload)
+    severity_safety_note = _severity_safety_note(user_query, response_profile)
+    display_severity = severity_label
+    if review_notice and severity_label and "review required" not in severity_label.lower():
+        display_severity = f"{severity_label} — Review required"
 
     envelope = AnalystResponseEnvelope(
         scenario_label=selected_use_case_label,
-        severity_label=severity_label,
+        severity_label=display_severity,
+        severity_confidence=severity_confidence,
+        severity_rationale=severity_rationale,
+        severity_safety_note=severity_safety_note,
         finding_title=finding,
         one_sentence_finding=summary,
         splunk_status_line=_splunk_status_line(table, execution_payload),
@@ -73,6 +98,18 @@ def build_analyst_response_for_live(
         review_notice=review_notice,
         evidence_summary=summarize_failed_login_events(table),
     )
+    if settings.control_plane_enabled:
+        contract = build_answer_contract(
+            intent_classification=intent_classification,
+            evidence_plan=evidence_plan,
+            mitre_decision=decision_payload,
+            severity_decision=severity_decision,
+            spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+            execution=execution_payload,
+            human_review=human_review if isinstance(human_review, dict) else None,
+            mitre_mappings=mitre_mappings,
+        )
+        envelope = apply_final_answer_readability(envelope, contract)
     return envelope
 
 
@@ -148,7 +185,13 @@ def _normalize_splunk_row(row: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def _mitre_display_rows(mappings: list[Any]) -> list[dict[str, Any]]:
+def _mitre_display_rows(mappings: list[Any], *, user_query: str = "") -> list[dict[str, Any]]:
+    query_l = user_query.lower()
+    success_after_failure = (
+        "successful login" in query_l
+        and any(term in query_l for term in ("followed", "after failure", "after failures", "after failed"))
+        and "no successful login" not in query_l
+    )
     rows: list[dict[str, Any]] = []
     for item in mappings:
         payload = item.model_dump() if hasattr(item, "model_dump") else dict(item)
@@ -157,9 +200,17 @@ def _mitre_display_rows(mappings: list[Any]) -> list[dict[str, Any]]:
         technique_id = str(payload.get("technique_id") or "")
         evidence = str(payload.get("why") or "")
         if technique_id == "T1110.001" and status == "candidate":
+            if success_after_failure:
+                evidence = "Repeated failed logins indicate possible password guessing."
+            else:
+                evidence = (
+                    "Repeated failed login attempts across multiple accounts from external IPs "
+                    "may indicate password guessing / brute-force behavior."
+                )
+        if technique_id == "T1078" and status == "candidate":
             evidence = (
-                "Repeated failed login attempts across multiple accounts from external IPs "
-                "may indicate password guessing / brute-force behavior."
+                "Successful login after repeated failures may indicate valid credential use, "
+                "but compromise is not confirmed."
             )
         rows.append(
             {
@@ -185,7 +236,7 @@ _NOT_CLAIMED_DETAILS = {
     ),
     "T1562.001": (
         "Impair Defenses",
-        "Missing endpoint telemetry is not evidence of defense impairment.",
+        "No defense impairment evidence.",
     ),
 }
 
@@ -236,6 +287,22 @@ def _governed_summary(
         row.get("Technique") == "T1110.001" and str(row.get("Status") or "").lower() == "candidate"
         for row in mitre_rows
     )
+    has_t1078_candidate = any(
+        row.get("Technique") == "T1078" and str(row.get("Status") or "").lower() == "candidate"
+        for row in mitre_rows
+    )
+    success_after_failure_query = (
+        "successful login" in query_l
+        and any(term in query_l for term in ("followed", "after failure", "after failures", "after failed"))
+        and "no successful login" not in query_l
+    )
+    if success_after_failure_query and has_t1110_candidate and has_t1078_candidate:
+        return (
+            "Repeated failed logins followed by a successful login from the same user in the last hour "
+            "is a candidate authentication security event. Severity should increase to P1 if the user is "
+            "privileged, the asset is critical, the source IP is suspicious, MFA was bypassed, or abnormal "
+            "post-login activity is confirmed."
+        )
     if has_negative_mitre_context and has_t1110_candidate and not_claimed:
         return (
             "Based on the provided activity, this is a candidate authentication security event. "
@@ -363,6 +430,9 @@ def _candidate_spl_text(
 
 
 def _finding_title(message: str, user_query: str, use_case_label: str | None) -> str | None:
+    alert_match = re.search(r"\b(?:alert|alt)[\s:=]+([A-Za-z0-9][\w.-]*)", user_query, re.IGNORECASE)
+    if alert_match:
+        return f"Alert {alert_match.group(1)} review"
     text = (message or "").strip()
     if text and len(text) < 120 and not _is_generic_pipeline_message(text):
         return text
@@ -374,12 +444,43 @@ def _finding_title(message: str, user_query: str, use_case_label: str | None) ->
     return None
 
 
+def _severity_confidence(
+    user_query: str,
+    execution: dict[str, Any],
+) -> tuple[str | None, str | None]:
+    if execution.get("status") == "executed":
+        return "High", None
+    query_l = user_query.lower()
+    if re.search(r"\balt-\d", query_l) or "for alert" in query_l:
+        return (
+            "Medium",
+            "User supplied an alert pattern, but asset criticality, privilege status, source ownership, "
+            "MFA, and post-login behavior are still missing.",
+        )
+    return None, None
+
+
+def _severity_safety_note(user_query: str, response_profile: str | None) -> str | None:
+    if response_profile != "hybrid_alert_review":
+        return None
+    query_l = user_query.lower()
+    if "successful login" in query_l and any(
+        term in query_l for term in ("followed", "after failure", "after failures", "after failed")
+    ):
+        return (
+            "This is not confirmed account compromise; it is a candidate authentication security event "
+            "pending validation."
+        )
+    return None
+
+
 def _is_generic_pipeline_message(text: str) -> bool:
     lowered = text.lower()
     return (
         lowered.startswith("routing")
         or "spl validation complete" in lowered
         or "mcp execution is disabled" in lowered
+        or "governed spl draft ready" in lowered
         or lowered.startswith("i need alert context")
         or lowered.startswith("a governed draft answer")
         or lowered.startswith("novel operation proposals stop")

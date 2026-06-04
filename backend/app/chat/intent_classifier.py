@@ -86,6 +86,23 @@ def classify_intent(
             requested_output_type="SPL",
         )
 
+    if signals.get("hybrid_alert_review"):
+        return _build_classification(
+            intent_family="hybrid_alert_review",
+            primary_intent="attack_discovery",
+            secondary_intents=["mitre_mapping", "spl_generation"],
+            query_type="ask_for_mapping",
+            answer_goal=["severity_assessment", "mitre_mapping", "spl_artifact"],
+            confidence=0.9,
+            requires_clarification=False,
+            action_mode="recommend_only",
+            reason=(
+                "Alert review request combining severity assessment, MITRE mapping, "
+                "and review-only governed SPL without execution."
+            ),
+            requested_output_type="INVESTIGATION",
+        )
+
     if signals.get("mitre_explain"):
         return _build_classification(
             intent_family="mitre_explanation",

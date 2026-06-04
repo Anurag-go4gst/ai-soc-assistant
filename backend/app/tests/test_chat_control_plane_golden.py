@@ -24,6 +24,12 @@ def _chat(query: str):
     return response
 
 
+def _assert_multiline_spl_present(envelope_spl: str | None, normalized_spl: str) -> None:
+    assert envelope_spl is not None
+    assert "\n" in envelope_spl
+    assert all(part.strip() in envelope_spl for part in normalized_spl.split("|"))
+
+
 def test_policy_escalation_failed_login_rag_only_no_spl_mcp_or_visible_mitre() -> None:
     response = _chat("What is the escalation policy for repeated failed login alerts?")
     intent = response.query_to_intent["intent_classification"]
@@ -95,7 +101,7 @@ def test_hybrid_failed_login_playbook_returns_spl_and_playbook_without_execution
     assert response.execution is not None
     assert response.execution.executed_spl is None
     assert response.analyst_response is not None
-    assert response.analyst_response.spl_code == spl
+    _assert_multiline_spl_present(response.analyst_response.spl_code, spl)
     assert response.analyst_response.retrieved_playbook is not None
     assert response.analyst_response.recommended_actions
 
@@ -147,7 +153,7 @@ def test_mitre_failed_login_context_maps_t1110_and_blocks_negated_techniques(
     assert {"T1078", "T1003", "T1562.001"}.issubset(not_claimed)
     assert "No successful login" in str(not_claimed["T1078"]["Reason"])
     assert "No credential dumping evidence" in str(not_claimed["T1003"]["Reason"])
-    assert "not evidence of defense impairment" in str(not_claimed["T1562.001"]["Reason"])
+    assert "No defense impairment evidence" in str(not_claimed["T1562.001"]["Reason"])
     assert response.analyst_response.retrieved_playbook is None
 
     analyst_text = response.analyst_response.model_dump_json()
@@ -316,12 +322,98 @@ def test_aws_security_group_modifications_returns_raw_cloudtrail_spl_answer() ->
     assert "datamodel=" not in spl
     assert "tstats" not in spl
     assert response.analyst_response is not None
-    assert response.analyst_response.spl_code == spl
+    _assert_multiline_spl_present(response.analyst_response.spl_code, spl)
+    assert all(part.strip() in (response.analyst_response.spl_code or "") for part in spl.split("|"))
     assert response.analyst_response.response_profile == "spl_only"
     assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
     assert response.execution is not None
     assert response.execution.status == "skipped"
     assert response.execution.block_reason == "mcp_not_allowed_by_evidence_plan"
+
+
+def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.config.settings.mcp_global_execution_enabled", False)
+    query = (
+        "For alert ALT-2024-0891 (failed logins followed by a successful login from the same user "
+        "in the last hour), what's the severity, MITRE mapping with status, and a governed SPL "
+        "I can review—but not execute"
+    )
+    response = _chat(query)
+
+    intent = response.query_to_intent["intent_classification"]
+    assert intent["intent_family"] == "hybrid_alert_review"
+    assert "severity_assessment" in intent["answer_goal"]
+    assert "mitre_mapping" in intent["answer_goal"]
+    assert "spl_artifact" in intent["answer_goal"]
+
+    assert response.evidence_plan["needs_spl"] is True
+    assert response.evidence_plan["needs_mcp"] is False
+    assert response.evidence_plan["mcp_allowed"] is False
+    assert response.evidence_plan["action_mode"] == "recommend_only"
+
+    assert response.selected_use_case is not None
+    assert response.selected_use_case.use_case_id == "auth_success_after_failure"
+    assert response.severity_decision is not None
+    assert response.severity_decision.severity_label.startswith("P2")
+
+    assert response.candidate_spl is not None
+    assert response.spl_validation is not None
+    assert response.spl_validation.approved is True
+    spl = response.spl_validation.normalized_spl or ""
+    assert "host=APP-01" not in spl
+    assert 'alert_id="ALT-2024-0891"' in spl
+    assert " by user " in spl
+    assert "action=failure OR action=success" in spl or (
+        'action="failure"' in spl and 'action="success"' in spl
+    )
+    assert "fail_count" in spl
+    assert "success_count" in spl
+    assert "last_success" in spl
+
+    ids = {item.technique_id for item in response.mitre_mappings or []}
+    assert "T1110.001" in ids
+    assert "T1078" in ids
+    assert "T1003" not in ids
+    assert "T1562.001" not in ids
+
+    assert response.analyst_response is not None
+    mapping_rows = {row["Technique"]: row for row in response.analyst_response.mitre_mappings}
+    assert mapping_rows["T1110.001"]["Status"] == "Candidate"
+    assert mapping_rows["T1078"]["Status"] == "Candidate"
+    assert response.analyst_response.severity_label is not None
+    assert response.analyst_response.execution_status_label == "Review only — not executed"
+    assert response.analyst_response.severity_confidence == "Medium"
+    assert response.analyst_response.severity_rationale
+    assert response.analyst_response.response_profile == "hybrid_alert_review"
+    assert response.analyst_response.finding_title == "Alert ALT-2024-0891 review"
+    assert response.analyst_response.spl_code is not None
+    assert 'alert_id="ALT-2024-0891"' in (response.analyst_response.spl_code or "")
+    assert "\n" in (response.analyst_response.spl_code or "")
+    assert response.analyst_response.direct_answer_summary
+    assert len(response.analyst_response.mitre_mappings) >= 2
+    assert len(response.analyst_response.not_claimed) >= 2
+
+    not_claimed = {row["Technique"] for row in response.analyst_response.not_claimed}
+    assert "T1078" not in not_claimed
+    assert {"T1003", "T1562.001"}.issubset(not_claimed)
+
+    assert response.execution is not None
+    assert response.execution.executed_spl is None
+    assert response.execution.block_reason == "mcp_not_allowed_by_evidence_plan"
+
+    assert response.analyst_response.review_notice == "Review only — not executed"
+    assert response.analyst_response.severity_safety_note
+    assert "not confirmed account compromise" in response.analyst_response.severity_safety_note.lower()
+
+    combined = response.analyst_response.model_dump_json().lower()
+    assert "review only" in combined
+    assert "spl:" in (response.analyst_response.direct_answer_summary or "").lower()
+    assert response.analyst_response.not_claimed
+    for technique_id in ("T1003", "T1562.001"):
+        row = next(item for item in response.analyst_response.not_claimed if item["Technique"] == technique_id)
+        assert row["Status"] == "Not Claimed"
 
 
 @pytest.mark.parametrize(
@@ -391,5 +483,5 @@ def test_known_questions_use_specific_raw_templates(
     for term in forbidden_terms:
         assert term not in spl
     assert response.analyst_response is not None
-    assert response.analyst_response.spl_code == spl
+    _assert_multiline_spl_present(response.analyst_response.spl_code, spl)
     assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."

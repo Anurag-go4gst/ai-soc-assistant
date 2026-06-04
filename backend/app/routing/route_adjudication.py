@@ -26,6 +26,7 @@ _INTENT_COMPATIBLE_WITH_EXACT_105 = frozenset(
         "live_investigation",
         "spl_generation_only",
         "hybrid_investigation_plus_policy",
+        "hybrid_alert_review",
         "mitre_mapping",
     }
 )

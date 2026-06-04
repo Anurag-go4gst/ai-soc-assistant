@@ -15,6 +15,7 @@ from typing import Any
 
 from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError
+from app.llm.clients.local_chat_errors import user_message_for_local_chat_error
 from app.synthesis.models import GovernedSynthesisPackage
 
 _SYSTEM_PROMPT = (
@@ -40,6 +41,12 @@ class NarrationResult:
     usage: dict[str, int]
 
 
+@dataclass(frozen=True)
+class NarrationFailure:
+    code: str
+    user_message: str
+
+
 def narrate_analyst_summary(
     *,
     package: GovernedSynthesisPackage,
@@ -47,8 +54,8 @@ def narrate_analyst_summary(
     severity_label: str | None,
     client: LocalChatClient,
     structured_context: dict[str, Any] | None = None,
-) -> NarrationResult | None:
-    """Return a model-narrated summary, or None on any failure."""
+) -> NarrationResult | NarrationFailure | None:
+    """Return narrated summary, structured failure, or None when client misconfigured."""
     user_prompt = _build_governed_prompt(
         package=package,
         deterministic_draft=deterministic_draft,
@@ -63,11 +70,14 @@ def narrate_analyst_summary(
             max_tokens=max_tokens,
             temperature=settings.ai_soc_llm_temperature,
         )
-    except LocalChatError:
-        return None
+    except LocalChatError as exc:
+        return NarrationFailure(code=exc.code, user_message=exc.user_message)
     summary = result.text.strip()
     if not summary:
-        return None
+        return NarrationFailure(
+            code="empty_completion",
+            user_message=user_message_for_local_chat_error("empty_completion"),
+        )
     return NarrationResult(
         summary=summary[:1200],
         model=result.model,
