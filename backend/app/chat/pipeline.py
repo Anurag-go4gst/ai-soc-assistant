@@ -61,6 +61,7 @@ from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
 from app.chat.evidence_planner import plan_evidence
+from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.progress_context import (
@@ -456,6 +457,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         source_refs=source_refs,
         intent_classification=state.get("intent_classification"),
         evidence_plan=state.get("evidence_plan"),
+        query_signals=_query_signals_from_state(state),
+        source_evidence=source_evidence,
+        structured_context=structured_context,
     )
     severity_decision = decide_severity(
         selected_use_case.use_case_id if selected_use_case else None,
@@ -813,11 +817,19 @@ def _mitre_outputs_for_finalize(
     source_refs: list[str],
     intent_classification: dict[str, Any] | None,
     evidence_plan: dict[str, Any] | None,
+    query_signals: dict[str, Any] | None = None,
+    source_evidence: list[dict[str, Any]] | None = None,
+    structured_context: dict[str, Any] | None = None,
 ) -> tuple[list[Any], dict[str, Any] | None]:
     """Legacy mapping by default; Phase 7 decision only when control plane is on."""
     if not settings.control_plane_enabled:
         return map_mitre_for_use_case(use_case_id, source_refs), None
     effective_use_case_id = _mitre_use_case_for_query(query or "", use_case_id, intent_classification)
+    negative_evidence = extract_negative_evidence(
+        query_signals=query_signals,
+        source_evidence=source_evidence,
+        structured_context=structured_context,
+    )
     decision = resolve_mitre_decision(
         question_ref=question_ref,
         use_case_id=effective_use_case_id,
@@ -825,6 +837,7 @@ def _mitre_outputs_for_finalize(
         intent_classification=intent_classification,
         evidence_plan=evidence_plan,
         alert_context_present=_mitre_alert_context_present(query or ""),
+        negative_evidence=negative_evidence,
     )
     if not decision.answer_visible:
         return [], decision.model_dump()

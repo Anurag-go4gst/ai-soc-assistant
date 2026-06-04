@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.threat.mitre_evidence_preconditions import precondition_negated
 from app.threat.mitre_registry_schema import MitreRegistryMetadata
 
 _MITRE_VISIBLE_GOALS = frozenset({"mitre_mapping", "mitre_explanation", "severity_assessment"})
@@ -13,7 +14,6 @@ _LIVE_INTENT_FAMILIES = frozenset(
     {"live_investigation", "hybrid_investigation_plus_policy", "hybrid_alert_review", "spl_generation_only"}
 )
 _POLICY_INTENT_FAMILIES = frozenset({"policy_knowledge", "sop_or_playbook", "knowledge_only"})
-_DEFAULT_NOT_CLAIMED = ("T1003", "T1078", "T1562.001")
 
 
 class MitreDecision(BaseModel):
@@ -40,9 +40,16 @@ def resolve_mitre_decision(
     evidence_plan: dict[str, Any] | None = None,
     source_refs: list[str] | None = None,
     alert_context_present: bool = False,
+    negative_evidence: dict[str, Any] | None = None,
     **_kwargs: Any,
 ) -> MitreDecision:
-    """Resolve answer-visible MITRE mappings from registry metadata and intent."""
+    """Resolve answer-visible MITRE mappings from registry metadata and intent.
+
+    `negative_evidence` carries the present-evidence keys (see
+    `chat.negative_evidence_extractor`); a candidate technique whose required
+    evidence precondition is absent is demoted from visible to Not Claimed.
+    """
+    from app.chat.negative_evidence_extractor import present_evidence_keys
     from app.threat.mitre_registry_enrichment import registry_mitre_metadata
 
     meta = registry_metadata
@@ -51,6 +58,7 @@ def resolve_mitre_decision(
 
     candidates = meta.all_mapped_technique_ids() if meta is not None else []
     blocked = list(meta.mitre_blocked) if meta is not None else []
+    present_evidence = present_evidence_keys(negative_evidence)
     answer_goal = _answer_goal(intent_classification)
     intent_family = str((intent_classification or {}).get("intent_family") or "")
     requires_clarification = bool((intent_classification or {}).get("requires_clarification"))
@@ -77,7 +85,7 @@ def resolve_mitre_decision(
             techniques=[],
             rejected_techniques=blocked,
             registry_candidates=candidates,
-            not_claimed=list(_DEFAULT_NOT_CLAIMED),
+            not_claimed=[],
             answer_visible=False,
             requires_alert_context=True,
             requires_more_context_for_supported_mapping=True,
@@ -115,19 +123,20 @@ def resolve_mitre_decision(
             registry_metadata=meta,
         )
 
-    visible_ids = [tid for tid in candidates if tid not in set(blocked)]
-    not_claimed_defaults = _not_claimed_for_context(
-        visible_ids=visible_ids,
-        blocked=blocked,
-        use_case_id=use_case_id,
-        explicitly_requested=explicitly_requested,
-    )
+    # General negative-evidence rule: a non-blocked candidate is only visible
+    # when its required evidence precondition is present; otherwise it is
+    # demoted to Not Claimed. Registry-blocked techniques surface via
+    # `rejected_techniques` and are not re-listed here.
+    blocked_set = set(blocked)
+    non_blocked = [tid for tid in candidates if tid not in blocked_set]
+    visible_ids = [tid for tid in non_blocked if not precondition_negated(tid, present_evidence)]
+    demoted_ids = [tid for tid in non_blocked if precondition_negated(tid, present_evidence)]
     return MitreDecision(
         mitre_status="candidate",
         techniques=_technique_payloads(visible_ids, refs, use_case_id=use_case_id),
         rejected_techniques=blocked,
         registry_candidates=candidates,
-        not_claimed=not_claimed_defaults,
+        not_claimed=demoted_ids if explicitly_requested else [],
         answer_visible=False,
         requires_alert_context=False,
         requires_more_context_for_supported_mapping=False,
@@ -141,20 +150,6 @@ def _answer_goal(intent_classification: dict[str, Any] | None) -> set[str]:
     if not isinstance(value, list):
         return set()
     return {str(item) for item in value if item}
-
-
-def _not_claimed_for_context(
-    *,
-    visible_ids: list[str],
-    blocked: list[str],
-    use_case_id: str | None,
-    explicitly_requested: bool,
-) -> list[str]:
-    if not explicitly_requested:
-        return []
-    if use_case_id == "auth_success_after_failure":
-        return [item for item in ("T1003", "T1562.001") if item in blocked or item not in visible_ids]
-    return [item for item in _DEFAULT_NOT_CLAIMED if item not in visible_ids and item not in blocked]
 
 
 def _technique_payloads(
