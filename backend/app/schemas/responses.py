@@ -415,3 +415,9 @@ class PlaceholderResponse(BaseModel):
     action_capability: ActionCapability | None = None
     experience_center_governance: ExperienceCenterGovernance | None = None
     governance_trace: GovernanceTrace | None = None
+    # Batch 4 — additive visibility (control-plane gated; None when flag off).
+    mitre_evidence_status: dict[str, str] | None = None
+    spl_template_status: str | None = None
+    node_trace: list[dict[str, object]] | None = None
+    answer_guard_status: str | None = None
+    final_answer_safety_status: str | None = None

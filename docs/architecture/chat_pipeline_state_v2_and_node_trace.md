@@ -1,10 +1,10 @@
 # Chat Pipeline State v2 and Per-Node Trace — Specification
 
 > Slice **S1b** (work items **C1** + **C9**) of `plans/AI_SOC_MASTER_PLAN.md`.
-> **This is a specification only. No runtime code lands in this slice.** Every claim about
-> current behavior below cites `file:symbol` (or `file:line`) so it is checkable. Where the
-> master plan's C1/C9 text diverges from the actual code, the divergence is called out
-> explicitly under **Discrepancies**.
+> **Batch 4 runtime:** additive top-level visibility + `node_trace` ship in
+> `app/chat/pipeline_visibility.py` (control-plane gated). The field inventory and schema
+> below remain the C1/C9 reference. Where the master plan text diverges from code, see
+> **Discrepancies**.
 
 ---
 

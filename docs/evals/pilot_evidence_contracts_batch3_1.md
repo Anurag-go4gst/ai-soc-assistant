@@ -137,11 +137,15 @@ Fields **visible today** (verify in `test_batch3_response_surface_audit`):
 | HIL / execution | `human_review`, `execution`, `analyst_response.execution_status_label` |
 | Limitations | `analyst_response.limitations`, enrichment limitations in trace when wired |
 
-**Batch 4 candidates (not implemented in 3.1):**
+**Batch 4 landed (visibility):**
 
-- Top-level `PlaceholderResponse.spl_template_status` / `mitre_evidence_status` (plan §C10 additive fields)
-- Per-node `node_trace` with evidence-status decision reason
-- Unified `session_context_status` (Batch A5)
+- Top-level `PlaceholderResponse.spl_template_status`, `mitre_evidence_status`, `node_trace`, `answer_guard_status`, `final_answer_safety_status` (control-plane gated)
+- `control_plane_trace.node_trace` mirrors top-level `node_trace`
+- Deterministic final-answer validator blocks unsafe compromise/C2/ransomware/malware/execution wording
+
+**Still deferred:**
+
+- Unified `session_context_status` (Batch A5 / session memory)
 
 ---
 

@@ -242,6 +242,8 @@ def test_batch3_response_surface_audit_documents_batch4_gaps() -> None:
     assert payload["mitre_decision"] is not None
     assert "evidence_statuses" in payload["mitre_decision"]
     assert "control_plane_trace" in payload
-    # Planned top-level fields from master plan §C10 — Batch 4
-    assert "spl_template_status" not in payload
-    assert "mitre_evidence_status" not in payload
+    # Batch 4 additive visibility fields (control-plane gated; SPL status when SPL path runs)
+    assert payload.get("mitre_evidence_status")
+    assert payload.get("node_trace")
+    assert payload.get("final_answer_safety_status") in {"passed", "blocked", "skipped"}
+    assert payload.get("answer_guard_status") in {"disabled", "passed", "skipped"}

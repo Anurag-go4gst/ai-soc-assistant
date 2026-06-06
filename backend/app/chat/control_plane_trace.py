@@ -18,6 +18,7 @@ def build_control_plane_trace(
     context_sufficiency: dict[str, Any] | None = None,
     synthesis_mode: str | None = None,
     answer_guard: dict[str, Any] | None = None,
+    node_trace: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     route_shadow = state.get("route_plan_shadow") if isinstance(state.get("route_plan_shadow"), dict) else {}
     rag = state.get("soc_kb_retrieval") if isinstance(state.get("soc_kb_retrieval"), dict) else None
@@ -49,6 +50,8 @@ def build_control_plane_trace(
         ],
         "precondition_evaluation": route_shadow.get("precondition_evaluation"),
     }
+    if node_trace:
+        trace["node_trace"] = node_trace
     return _redact(trace)
 
 

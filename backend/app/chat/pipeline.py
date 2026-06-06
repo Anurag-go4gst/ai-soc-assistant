@@ -67,6 +67,7 @@ from app.chat.final_answer_validator import validate_final_answer
 from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.control_plane_trace import build_control_plane_trace
+from app.chat.pipeline_visibility import build_pipeline_visibility
 from app.chat.progress_context import (
     bind_progress_reporter,
     emit_mcp_status_from_execution,
@@ -679,6 +680,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_contract=answer_contract_payload,
             evidence_plan=state.get("evidence_plan"),
             mitre_decision=mitre_decision,
+            human_review=human_review if isinstance(human_review, dict) else None,
         )
         final_answer_validation = validation.model_dump()
         if validation.guard_status == "blocked":
@@ -700,8 +702,25 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 "synthesis_readiness": False,
             }
             response_mode = _response_mode(context_sufficiency, human_review, spl_validation)
+    visibility: dict[str, Any] = {}
     control_plane_trace = None
     if settings.control_plane_enabled:
+        use_case_id_for_visibility = (
+            selected_use_case.use_case_id if selected_use_case is not None else use_case_id
+        )
+        visibility = build_pipeline_visibility(
+            state=state,
+            selected_use_case_id=use_case_id_for_visibility,
+            mitre_decision=mitre_decision,
+            spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+            candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
+            execution=execution if isinstance(execution, dict) else None,
+            human_review=human_review if isinstance(human_review, dict) else None,
+            answer_guard=answer_guard.model_dump(),
+            final_answer_validation=final_answer_validation,
+            answer_contract=answer_contract_payload,
+            severity_decision=severity_decision,
+        )
         trace_state = {
             **state,
             "mitre_decision": mitre_decision,
@@ -714,6 +733,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             context_sufficiency=context_sufficiency,
             synthesis_mode=synthesis_mode,
             answer_guard=answer_guard.model_dump(),
+            node_trace=visibility.get("node_trace"),
         )
 
     partial_fallback = synthesis_status.status == "partial_timeout"
@@ -772,6 +792,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         final_answer_validation=final_answer_validation,
         mitre_decision=mitre_decision,
         analyst_response=analyst_response,
+        mitre_evidence_status=visibility.get("mitre_evidence_status"),
+        spl_template_status=visibility.get("spl_template_status"),
+        node_trace=visibility.get("node_trace"),
+        answer_guard_status=visibility.get("answer_guard_status"),
+        final_answer_safety_status=visibility.get("final_answer_safety_status"),
     )
     return {
         **state,

@@ -14,6 +14,7 @@ gated by AI_SOC_LLM_ANSWER_GUARD_ENABLED. It reuses `GuardResult` /
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -45,6 +46,20 @@ _CHECK_IDS: tuple[str, ...] = (
     "final.spl_on_rag_only",
     "final.candidate_described_as_confirmed",
     "final.spl_only_missing_action_guidance",
+    "final.unsafe_account_compromise_claim",
+    "final.unsafe_c2_confirmed_claim",
+    "final.unsafe_ransomware_confirmed_claim",
+    "final.unsafe_malware_confirmed_claim",
+    "final.unsafe_execution_claim",
+    "final.evidence_supported_without_status",
+    "final.containment_without_hil",
+)
+
+_UNSAFE_POSITIVE_PATTERNS: tuple[tuple[str, str, str], ...] = (
+    ("final.unsafe_account_compromise_claim", r"\baccount compromis", "direct_answer_summary"),
+    ("final.unsafe_c2_confirmed_claim", r"\b(c2 confirmed|confirmed c2)\b", "direct_answer_summary"),
+    ("final.unsafe_ransomware_confirmed_claim", r"\bransomware confirmed\b", "direct_answer_summary"),
+    ("final.unsafe_malware_confirmed_claim", r"\bmalware confirmed\b", "direct_answer_summary"),
 )
 
 
@@ -74,6 +89,7 @@ def validate_final_answer(
     answer_contract: dict[str, Any] | None,
     evidence_plan: dict[str, Any] | None,
     mitre_decision: dict[str, Any] | None,
+    human_review: dict[str, Any] | None = None,
 ) -> AnswerGuardStatus:
     """Validate the assembled answer against the contract; fail closed on conflict."""
     if analyst_response is None or answer_contract is None:
@@ -166,6 +182,74 @@ def validate_final_answer(
             )
         )
 
+    visible_text = _visible_analyst_text(analyst_response)
+    negated = _has_negated_compromise_wording(visible_text)
+
+    # 7–10. Unsafe positive claims without supporting evidence.
+    for guard_id, pattern, field in _UNSAFE_POSITIVE_PATTERNS:
+        if re.search(pattern, visible_text, flags=re.IGNORECASE) and not negated:
+            findings.append(
+                _blocking(
+                    guard_id,
+                    f"Unsafe wording detected in analyst-visible text ({pattern}).",
+                    field=field,
+                )
+            )
+
+    # 11. Do not describe SPL as executed when execution was review-gated or not run.
+    exec_label = str(
+        getattr(analyst_response, "execution_status_label", None)
+        or contract.get("execution_status_label")
+        or ""
+    )
+    if re.search(r"\b(spl (was )?executed|executed spl)\b", visible_text, flags=re.IGNORECASE):
+        allowed_executed = exec_label in {
+            "executed_mock_evidence",
+            "executed_live_evidence",
+            "mock_executed",
+            "live_executed",
+        }
+        if not allowed_executed:
+            findings.append(
+                _blocking(
+                    "final.unsafe_execution_claim",
+                    "Answer describes SPL as executed although execution was review-gated or not run.",
+                    field="direct_answer_summary",
+                )
+            )
+
+    # 12. Visible MITRE rows must not claim evidence-supported without resolver status.
+    evidence_statuses = {
+        str(key): str(value) for key, value in (decision.get("evidence_statuses") or {}).items()
+    }
+    for row in getattr(analyst_response, "mitre_mappings", None) or []:
+        if not isinstance(row, dict):
+            continue
+        technique_id = str(row.get("Technique") or row.get("technique_id") or "")
+        status_text = str(row.get("Status") or "").lower()
+        resolver_status = evidence_statuses.get(technique_id, "")
+        if status_text in {"evidence-supported", "evidence supported", "supported"} and resolver_status != "evidence_supported":
+            findings.append(
+                _blocking(
+                    "final.evidence_supported_without_status",
+                    f"Technique {technique_id} is shown as evidence-supported without resolver evidence status.",
+                    field="mitre_mappings",
+                )
+            )
+
+    # 13. Destructive containment recommendations require HIL.
+    review = human_review or {}
+    containment_terms = ("isolate host", "block account", "disable user", "contain endpoint", "wipe endpoint")
+    recommended_text = " ".join(str(item) for item in recommended).lower()
+    if any(term in recommended_text for term in containment_terms) and not bool(review.get("required")):
+        findings.append(
+            _blocking(
+                "final.containment_without_hil",
+                "Containment or destructive remediation recommended without human review gate.",
+                field="recommended_actions",
+            )
+        )
+
     blocking = [item for item in findings if item.severity == "blocking_candidate"]
     if blocking:
         return AnswerGuardStatus(
@@ -181,4 +265,34 @@ def validate_final_answer(
         guard_status="passed",
         passed_checks=list(_CHECK_IDS),
         reason="Final answer is consistent with the AnswerContract and the deciders.",
+    )
+
+
+def _visible_analyst_text(analyst_response: Any) -> str:
+    parts: list[str] = []
+    for field in (
+        "direct_answer_summary",
+        "one_sentence_finding",
+        "finding_title",
+        "severity_safety_note",
+        "foundation_sec_analysis",
+        "evidence_summary",
+        "review_notice",
+    ):
+        value = getattr(analyst_response, field, None)
+        if isinstance(value, str) and value.strip():
+            parts.append(value)
+    for row in getattr(analyst_response, "recommended_actions", None) or []:
+        if isinstance(row, str):
+            parts.append(row)
+    return " ".join(parts).lower()
+
+
+def _has_negated_compromise_wording(text: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(not confirmed|no evidence of|not evidence of|candidate only|is not confirmed)\b",
+            text,
+            flags=re.IGNORECASE,
+        )
     )
