@@ -87,6 +87,10 @@ def test_mock_execution_uses_only_normalized_spl(monkeypatch) -> None:
     connector = CapturingConnector()
     monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+    # Demo/lab mode so mock success runs without the HIL gate; this test asserts
+    # the execution mechanics, not the HIL contract (covered separately).
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_demo_or_lab_execution_mode", True)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_allow_mock_execution_without_hil_in_demo", True)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_mcp_connector", lambda: connector)
 
@@ -102,6 +106,8 @@ def test_mock_execution_uses_only_normalized_spl(monkeypatch) -> None:
     assert execution["executed_spl"] == APPROVED_VALIDATION["normalized_spl"]
     assert execution["result_count"] == 1
     assert len(execution["results_preview"]) == 1
+    assert execution["evidence_source"] == "mock"
+    assert execution["execution_status_label"] == "mock_executed"
     assert review["required"] is False
 
 

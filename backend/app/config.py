@@ -71,6 +71,16 @@ class Settings(BaseSettings):
     debug_trace_enabled: bool = True
     routing_deterministic_threshold: float = 0.70
     routing_llm_shadow_enabled: bool = True
+
+    # Batch 1 — mock-MCP execution HIL hardening. A valid SPL and a successful
+    # mock execution must never imply autonomous execution: by default a mock
+    # success surfaces an analyst-review requirement. The without-HIL relaxation
+    # applies ONLY when the deployment is explicitly flagged as demo/lab AND the
+    # allow flag is set — two independent axes, so enabling a demo cannot
+    # silently disable HIL on a non-demo deployment.
+    ai_soc_require_hil_for_mock_execution: bool = True
+    ai_soc_allow_mock_execution_without_hil_in_demo: bool = True
+    ai_soc_demo_or_lab_execution_mode: bool = False
     ai_soc_llm_shadow_narration_enabled: bool = False
     ioc_registry_enabled: bool = False
     ioc_registry_path: str = ""

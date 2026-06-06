@@ -104,6 +104,11 @@ class ExecutionEnvelope(BaseModel):
     block_reason: str | None = None
     duration_ms: int
     precondition_evaluation: dict[str, object] | None = None
+    # Batch 1 HIL hardening — explicit, always-present execution semantics.
+    # evidence_source: mock | live | unavailable
+    # execution_status_label: not_executed | review_required | mock_executed | live_executed
+    evidence_source: str | None = None
+    execution_status_label: str | None = None
 
 
 class HumanReviewEnvelope(BaseModel):
