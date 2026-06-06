@@ -29,18 +29,18 @@
         "no_direct_tool_execution": true
       },
       "implementation_status": {
-        "content_enrichment_added": false,
+        "content_enrichment_added": true,
         "mitre_kb_updated": false,
-        "evidence_requirements_added": false,
+        "evidence_requirements_added": true,
         "spl_template_bound": false,
         "rag_doc_added": false,
-        "answer_rules_added": false,
-        "tests_added": false
+        "answer_rules_added": true,
+        "tests_added": true
       },
       "priority": "P0",
       "owner": "TBD",
       "reviewed_date": "2026-06-06",
-      "notes": "Also evidence_reference. Pilots P1/P2. SPL templates auth_failed_login_spike + auth_success_after_failure active."
+      "notes": "Also evidence_reference. Pilots P1/P2. SPL templates auth_failed_login_spike + auth_success_after_failure active. Batch 2 content enrichment added."
     },
     {
       "github_skill_id": "triaging-security-alerts-in-splunk",
@@ -68,18 +68,18 @@
         "no_direct_tool_execution": true
       },
       "implementation_status": {
-        "content_enrichment_added": false,
+        "content_enrichment_added": true,
         "mitre_kb_updated": false,
-        "evidence_requirements_added": false,
+        "evidence_requirements_added": true,
         "spl_template_bound": false,
         "rag_doc_added": false,
-        "answer_rules_added": false,
-        "tests_added": false
+        "answer_rules_added": true,
+        "tests_added": true
       },
       "priority": "P0",
       "owner": "TBD",
       "reviewed_date": "2026-06-06",
-      "notes": "Cross-cutting SOP/workflow reference for P1, P2, P6 and Splunk use cases. Also workflow_reference."
+      "notes": "Cross-cutting SOP/workflow reference for P1, P2, P6 and Splunk use cases. Also workflow_reference. Batch 2 content enrichment added."
     },
     {
       "github_skill_id": "analyzing-email-headers-for-phishing-investigation",
@@ -103,18 +103,18 @@
         "no_direct_tool_execution": true
       },
       "implementation_status": {
-        "content_enrichment_added": false,
+        "content_enrichment_added": true,
         "mitre_kb_updated": false,
-        "evidence_requirements_added": false,
+        "evidence_requirements_added": true,
         "spl_template_bound": false,
         "rag_doc_added": false,
-        "answer_rules_added": false,
-        "tests_added": false
+        "answer_rules_added": true,
+        "tests_added": true
       },
       "priority": "P1",
       "owner": "TBD",
       "reviewed_date": "2026-06-06",
-      "notes": "Pilot P3. Proposed use case — no new 105-question row required initially. May map to knowledge_recall for SOP-only queries. SPL template planned."
+      "notes": "Pilot P3. Proposed use case; no new 105-question row required initially. May map to knowledge_recall for SOP-only queries. SPL template planned. Batch 2 content enrichment added."
     },
     {
       "github_skill_id": "hunting-for-anomalous-powershell-execution",
@@ -138,18 +138,18 @@
         "no_direct_tool_execution": true
       },
       "implementation_status": {
-        "content_enrichment_added": false,
+        "content_enrichment_added": true,
         "mitre_kb_updated": false,
-        "evidence_requirements_added": false,
+        "evidence_requirements_added": true,
         "spl_template_bound": false,
         "rag_doc_added": false,
-        "answer_rules_added": false,
-        "tests_added": false
+        "answer_rules_added": true,
+        "tests_added": true
       },
       "priority": "P1",
       "owner": "TBD",
       "reviewed_date": "2026-06-06",
-      "notes": "Pilot P4. Catalog use case exists. SPL template planned. Also mitre_reference."
+      "notes": "Pilot P4. Catalog use case exists. SPL template planned. Also mitre_reference. Batch 2 content enrichment added."
     },
     {
       "github_skill_id": "hunting-for-command-and-control-beaconing",
@@ -173,18 +173,18 @@
         "no_direct_tool_execution": true
       },
       "implementation_status": {
-        "content_enrichment_added": false,
+        "content_enrichment_added": true,
         "mitre_kb_updated": false,
-        "evidence_requirements_added": false,
+        "evidence_requirements_added": true,
         "spl_template_bound": false,
         "rag_doc_added": false,
-        "answer_rules_added": false,
-        "tests_added": false
+        "answer_rules_added": true,
+        "tests_added": true
       },
       "priority": "P1",
       "owner": "TBD",
       "reviewed_date": "2026-06-06",
-      "notes": "Pilot P5. Catalog use case exists. SPL template planned. Also workflow_reference."
+      "notes": "Pilot P5. Catalog use case exists. SPL template planned. Also workflow_reference. Batch 2 content enrichment added."
     },
     {
       "github_skill_id": "triaging-security-incident-with-ir-playbook",
@@ -208,18 +208,18 @@
         "no_direct_tool_execution": true
       },
       "implementation_status": {
-        "content_enrichment_added": false,
+        "content_enrichment_added": true,
         "mitre_kb_updated": false,
-        "evidence_requirements_added": false,
+        "evidence_requirements_added": true,
         "spl_template_bound": false,
         "rag_doc_added": false,
-        "answer_rules_added": false,
-        "tests_added": false
+        "answer_rules_added": true,
+        "tests_added": true
       },
       "priority": "P1",
       "owner": "TBD",
       "reviewed_date": "2026-06-06",
-      "notes": "Pilot P6. Proposed use case soc_incident_triage — may extend soc_show_sop. MITRE assigned per alert evidence only. knowledge_recall for playbook-only queries."
+      "notes": "Pilot P6. Proposed use case soc_incident_triage; may extend soc_show_sop. MITRE assigned per alert evidence only. knowledge_recall for playbook-only queries. Batch 2 content enrichment added."
     },
     {
       "github_skill_id": "analyzing-ransomware-encryption-mechanisms",
@@ -243,18 +243,18 @@
         "no_direct_tool_execution": true
       },
       "implementation_status": {
-        "content_enrichment_added": false,
+        "content_enrichment_added": true,
         "mitre_kb_updated": false,
-        "evidence_requirements_added": false,
+        "evidence_requirements_added": true,
         "spl_template_bound": false,
         "rag_doc_added": false,
-        "answer_rules_added": false,
-        "tests_added": false
+        "answer_rules_added": true,
+        "tests_added": true
       },
       "priority": "P1",
       "owner": "TBD",
       "reviewed_date": "2026-06-06",
-      "notes": "Pilot P7. Proposed use case — no new 105-question row required initially. SPL template planned."
+      "notes": "Pilot P7. Proposed use case; no new 105-question row required initially. SPL template planned. Batch 2 content enrichment added."
     }
   ]
 }
