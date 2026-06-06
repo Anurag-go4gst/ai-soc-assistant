@@ -70,6 +70,9 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
   const [loading, setLoading] = useState(false);
   const investigationEpochRef = useRef(0);
   const lastUserMessageRef = useRef<string | null>(null);
+  const sessionIdRef = useRef<string | null>(
+    typeof window !== 'undefined' ? window.sessionStorage.getItem('ai_soc_session_id') : null,
+  );
 
   const conversationStarted = messages.some((message) => message.role === 'user');
 
@@ -236,6 +239,12 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     response: PlaceholderResponse,
   ) => {
     if (isStaleInvestigation(epoch)) return;
+    if (response.session_context_status?.session_id) {
+      sessionIdRef.current = response.session_context_status.session_id;
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem('ai_soc_session_id', response.session_context_status.session_id);
+      }
+    }
     onTrace?.(response);
     if (response.synthesis_status?.status === 'degraded' && response.synthesis_status.reason) {
       toast.warning(response.synthesis_status.reason, { duration: 10_000 });
@@ -300,7 +309,9 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     try {
       if (!demoMode && userMessage) {
         let clearFinalizationTimers: (() => void) | undefined;
-        const response = await streamChatMessage(userMessage, (event) => {
+        const response = await streamChatMessage(
+          userMessage,
+          (event) => {
           if (
             event.type === 'progress' ||
             event.type === 'heartbeat' ||
@@ -316,7 +327,10 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
           if (event.type === 'failed') {
             throw new Error(event.message ?? 'Chat stream failed');
           }
-        });
+          },
+          undefined,
+          sessionIdRef.current,
+        );
         clearFinalizationTimers?.();
         await finishInvestigation(progressId, epoch, response);
         return;
@@ -362,6 +376,10 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
   const handleClear = useCallback(() => {
     investigationEpochRef.current += 1;
     setLoading(false);
+    sessionIdRef.current = null;
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('ai_soc_session_id');
+    }
     setMessages([welcome]);
     onClear?.();
   }, [onClear, welcome]);

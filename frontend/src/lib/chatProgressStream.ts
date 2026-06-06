@@ -114,12 +114,16 @@ export async function streamChatMessage(
   message: string,
   onEvent: (event: ChatProgressEvent) => void,
   signal?: AbortSignal,
+  sessionId?: string | null,
 ): Promise<PlaceholderResponse> {
   const response = await fetch(`${getApiBaseUrl()}/chat/stream`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({
+      message,
+      ...(sessionId ? { session_id: sessionId } : {}),
+    }),
     signal,
   });
   if (!response.ok) {
@@ -182,7 +186,7 @@ export async function streamChatMessage(
 
   if (!lastResponse) {
     try {
-      return await sendChatMessage(message);
+      return await sendChatMessage(message, sessionId);
     } catch (fallbackError) {
       const hint =
         fallbackError instanceof Error ? fallbackError.message : 'non-stream request also failed';

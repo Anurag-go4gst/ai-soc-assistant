@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.chat.control_plane_trace import _redact
+from app.chat.session_context import SessionContextResolution
 from app.use_cases.content_enrichment import enrichment_spl_governance
 
 GuardrailStatus = str  # passed | review_required | blocked | not_applicable
@@ -50,6 +51,7 @@ def build_pipeline_node_trace(
     final_answer_validation: dict[str, Any] | None,
     answer_contract: dict[str, Any] | None,
     severity_decision: Any | None,
+    session_context_resolution: SessionContextResolution | None = None,
 ) -> list[dict[str, Any]]:
     """Assemble lightweight per-stage trace records from finalized pipeline state."""
     records: list[dict[str, Any]] = []
@@ -65,6 +67,30 @@ def build_pipeline_node_trace(
         spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
     )
     mitre_statuses = resolve_mitre_evidence_status(mitre_decision) or {}
+
+    if session_context_resolution is not None:
+        records.append(
+            _trace_record(
+                node_name="session_context",
+                input_summary={
+                    "session_id": session_context_resolution.session_id,
+                    "follow_up_kind": session_context_resolution.follow_up_kind,
+                },
+                output_summary={
+                    "used_previous_context": session_context_resolution.status.used_previous_context,
+                    "staleness": session_context_resolution.status.staleness,
+                    "used_fields": session_context_resolution.status.used_fields,
+                    "ignored_fields": session_context_resolution.status.ignored_fields,
+                    "clarification_required": session_context_resolution.status.clarification_required,
+                },
+                decision_reason="structured_session_pins_only",
+                guardrail_status="review_required"
+                if session_context_resolution.status.clarification_required
+                else ("passed" if session_context_resolution.status.used_previous_context else "not_applicable"),
+                human_review_required=session_context_resolution.status.clarification_required,
+                limitations=[],
+            )
+        )
 
     records.append(
         _trace_record(
@@ -291,6 +317,7 @@ def build_pipeline_visibility(
     final_answer_validation: dict[str, Any] | None,
     answer_contract: dict[str, Any] | None,
     severity_decision: Any | None,
+    session_context_resolution: SessionContextResolution | None = None,
 ) -> dict[str, Any]:
     node_trace = build_pipeline_node_trace(
         state=state,
@@ -304,6 +331,7 @@ def build_pipeline_visibility(
         final_answer_validation=final_answer_validation,
         answer_contract=answer_contract,
         severity_decision=severity_decision,
+        session_context_resolution=session_context_resolution,
     )
     guard_status = str((answer_guard or {}).get("guard_status") or "disabled") if answer_guard else None
     safety_status = (

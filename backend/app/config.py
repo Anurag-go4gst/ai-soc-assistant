@@ -251,6 +251,9 @@ class Settings(BaseSettings):
     langgraph_orchestration_enabled: bool = False
     # Chat control plane rollout gate. Default false until golden tests pass.
     control_plane_enabled: bool = False
+    # Batch 5 — lightweight investigation session pins (structured only, no transcript).
+    ai_soc_session_context_enabled: bool = True
+    ai_soc_session_context_ttl_minutes: int = 30
 
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"
