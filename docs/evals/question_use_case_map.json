@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "description": "Offline, hand-curated question_ref -> use_case_id mapping layer for the skill coverage matrix (BL-004). This is the ONLY place to add a manual mapping. The generator (scripts/build_skill_coverage_matrix.py) reads this file plus deterministic auto-derivation (manifest template_ref == catalog default_spl_template). It NEVER reconstructs the live router and NEVER guesses. Manual entries here take precedence over auto-derivation and are emitted with mapping_status='curated_manual'. Add a row only when an explicit, defensible offline source supports it; record that source in 'evidence'.",
+  "rules": [
+    "Each entry MUST cite an explicit offline evidence source (file + field) in 'evidence'.",
+    "Do NOT add a mapping inferred only from fuzzy intent_patterns or query similarity.",
+    "mapping_confidence is one of: high | medium | low.",
+    "After editing, re-run: python3 scripts/build_skill_coverage_matrix.py && python3 scripts/build_skill_coverage_matrix.py --check"
+  ],
+  "mappings": {}
+}
