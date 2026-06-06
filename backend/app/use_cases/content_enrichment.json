@@ -1,0 +1,564 @@
+{
+  "schema_version": "2026-06-06-batch2-v1",
+  "description": "Tracked SOC skill enrichment metadata. Reference/provenance only; not loaded by runtime routing or prompt assembly.",
+  "source_repo": {
+    "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+    "repo_url": "https://github.com/mukul975/Anthropic-Cybersecurity-Skills",
+    "repo_commit": "04450304b12645cb2b974ab96d28c0664758a88d"
+  },
+  "records": {
+    "auth_failed_login_spike": {
+      "use_case_id": "auth_failed_login_spike",
+      "use_case_status": "active",
+      "domain": "identity-access-management",
+      "subdomain": "authentication-security",
+      "tags": ["brute_force", "failed_login", "authentication", "splunk"],
+      "live_execution_skill": "attack_discovery",
+      "planning_or_analytic_skill": "threshold_anomaly",
+      "github_reference_skills": [
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/detecting-rdp-brute-force-attacks/SKILL.md",
+          "domain": "identity-access-management",
+          "subdomain": "authentication-security",
+          "mitre_from_github": ["T1021.001", "T1110.001", "T1110.003", "T1078"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "auth_failed_login_spike",
+          "safety_notes": "Defensive brute-force workflow only; no blocking or remote-access execution steps reused.",
+          "reuse_type": "workflow_reference",
+          "implementation_status": "content_enrichment_added"
+        },
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/triaging-security-alerts-in-splunk/SKILL.md",
+          "domain": "soc-operations",
+          "subdomain": "alert-triage",
+          "mitre_from_github": ["T1078", "T1566"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "auth_failed_login_spike",
+          "safety_notes": "Splunk triage workflow converted to governed evidence-review metadata only.",
+          "reuse_type": "sop_reference",
+          "implementation_status": "content_enrichment_added"
+        }
+      ],
+      "reuse_types": ["workflow_reference", "evidence_reference", "sop_reference", "mitre_reference"],
+      "mitre_candidates": ["T1110", "T1110.001", "T1110.003"],
+      "conditional_mitre_candidates": [
+        {
+          "technique_id": "T1078",
+          "condition": "Only when success or valid-account misuse context exists."
+        }
+      ],
+      "evidence_requirements": ["user", "src", "host", "fail_count", "time_window", "first_failure", "last_failure"],
+      "investigation_workflow": [
+        "Scope authentication failures by user, source, host, and time window.",
+        "Confirm threshold evidence before labeling brute-force activity evidence-supported.",
+        "Pivot to success-after-failure only when successful authentication evidence exists.",
+        "Keep SPL generation and execution behind existing validation and review gates."
+      ],
+      "analyst_checklist": [
+        "Validate time window and threshold.",
+        "Compare distinct users and sources.",
+        "Check whether any successful authentication followed the failures.",
+        "Review asset or account criticality before severity claims."
+      ],
+      "allowed_spl_templates": ["auth_failed_login_spike"],
+      "spl_template_status": "active",
+      "answer_rules": [
+        "Do not claim account compromise from failed logins alone.",
+        "Mark brute force as evidence-supported only after threshold evidence exists.",
+        "SPL/execution remains review-gated."
+      ],
+      "limitations": [
+        "Failed login telemetry alone does not establish credential validity.",
+        "Source IP reuse, NAT, or scanner behavior may require analyst review."
+      ],
+      "not_claimed_defaults": ["account_compromise", "valid_account_abuse", "credential_dumping", "malware"],
+      "rag_doc_ids": ["auth_sop"],
+      "safety_review": {
+        "defensive_only": true,
+        "offensive_steps_removed": true,
+        "no_arbitrary_commands": true,
+        "no_runtime_markdown_loading": true,
+        "no_direct_tool_execution": true,
+        "no_unsupported_mitre_claims": true,
+        "limitations_included": true,
+        "hil_and_validation_preserved": true
+      },
+      "enrichment_status": "content_added",
+      "test_status": "tested"
+    },
+    "auth_success_after_failure": {
+      "use_case_id": "auth_success_after_failure",
+      "use_case_status": "active",
+      "domain": "identity-access-management",
+      "subdomain": "authentication-security",
+      "tags": ["brute_force", "successful_login", "sequence_correlation", "splunk"],
+      "live_execution_skill": "attack_discovery",
+      "planning_or_analytic_skill": "correlate_sequence",
+      "github_reference_skills": [
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/detecting-rdp-brute-force-attacks/SKILL.md",
+          "domain": "identity-access-management",
+          "subdomain": "authentication-security",
+          "mitre_from_github": ["T1021.001", "T1110.001", "T1110.003", "T1078"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "auth_success_after_failure",
+          "safety_notes": "Used for defensive failed-to-success sequence review only.",
+          "reuse_type": "workflow_reference",
+          "implementation_status": "content_enrichment_added"
+        },
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/triaging-security-alerts-in-splunk/SKILL.md",
+          "domain": "soc-operations",
+          "subdomain": "alert-triage",
+          "mitre_from_github": ["T1078", "T1566"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "auth_success_after_failure",
+          "safety_notes": "SOP reference only; no direct Splunk execution.",
+          "reuse_type": "sop_reference",
+          "implementation_status": "content_enrichment_added"
+        }
+      ],
+      "reuse_types": ["workflow_reference", "evidence_reference", "sop_reference", "mitre_reference"],
+      "mitre_candidates": ["T1110.001", "T1078"],
+      "evidence_requirements": [
+        "user",
+        "src",
+        "host",
+        "fail_count",
+        "success_count",
+        "first_failure",
+        "last_success",
+        "source_ip_novelty"
+      ],
+      "investigation_workflow": [
+        "Correlate failures followed by successful authentication for the same user, source, host, and time window.",
+        "Check source IP novelty where available.",
+        "Keep Valid Accounts as a candidate unless additional misuse evidence exists."
+      ],
+      "analyst_checklist": [
+        "Confirm failure and success event ordering.",
+        "Review whether the source is known for the user.",
+        "Check privileged account or critical asset context.",
+        "Look for follow-on activity before compromise language."
+      ],
+      "allowed_spl_templates": ["auth_success_after_failure"],
+      "spl_template_status": "active",
+      "answer_rules": [
+        "State 'successful login after failures observed.'",
+        "Do not state 'compromised account' unless additional evidence exists.",
+        "T1078 remains candidate unless stronger account-misuse evidence exists."
+      ],
+      "limitations": [
+        "Sequence evidence can be benign if the user retried successfully.",
+        "Novelty is optional and may be unavailable in current telemetry."
+      ],
+      "not_claimed_defaults": ["account_compromise", "credential_dumping", "malware"],
+      "rag_doc_ids": ["auth_sop"],
+      "safety_review": {
+        "defensive_only": true,
+        "offensive_steps_removed": true,
+        "no_arbitrary_commands": true,
+        "no_runtime_markdown_loading": true,
+        "no_direct_tool_execution": true,
+        "no_unsupported_mitre_claims": true,
+        "limitations_included": true,
+        "hil_and_validation_preserved": true
+      },
+      "enrichment_status": "content_added",
+      "test_status": "tested"
+    },
+    "email_phishing_header_review": {
+      "proposed_use_case_id": "email_phishing_header_review",
+      "use_case_status": "planned",
+      "domain": "phishing-defense",
+      "subdomain": "email-header-analysis",
+      "tags": ["phishing", "email_headers", "spf", "dkim", "dmarc"],
+      "live_execution_skill": "attack_discovery",
+      "planning_or_analytic_skill": "phishing_triage",
+      "github_reference_skills": [
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/analyzing-email-headers-for-phishing-investigation/SKILL.md",
+          "domain": "phishing-defense",
+          "subdomain": "email-header-analysis",
+          "mitre_from_github": ["T1566.001", "T1566.002", "T1598.003"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "email_phishing_header_review",
+          "safety_notes": "Header and authentication-result evidence only; no external lookups or scripts executed.",
+          "reuse_type": "evidence_reference",
+          "implementation_status": "content_enrichment_added"
+        },
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/triaging-security-alerts-in-splunk/SKILL.md",
+          "domain": "soc-operations",
+          "subdomain": "alert-triage",
+          "mitre_from_github": ["T1078", "T1566"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "email_phishing_header_review",
+          "safety_notes": "Optional alert-triage workflow reference only.",
+          "reuse_type": "sop_reference",
+          "implementation_status": "content_enrichment_added"
+        }
+      ],
+      "reuse_types": ["evidence_reference", "workflow_reference", "sop_reference", "mitre_reference"],
+      "mitre_candidates": ["T1566", "T1566.001", "T1566.002"],
+      "evidence_requirements": [
+        "sender",
+        "return_path",
+        "reply_to",
+        "SPF",
+        "DKIM",
+        "DMARC",
+        "URLs/domains",
+        "attachments/hashes",
+        "recipients",
+        "mail_gateway_verdict"
+      ],
+      "investigation_workflow": [
+        "Compare sender, return-path, reply-to, and authentication results.",
+        "Inspect URL/domain, attachment, recipient, and gateway verdict evidence.",
+        "Classify wording based on combined evidence strength."
+      ],
+      "analyst_checklist": [
+        "Check SPF, DKIM, and DMARC alignment.",
+        "Review sender and reply-to mismatch.",
+        "Collect URL/domain and attachment indicators.",
+        "Confirm gateway verdict and affected recipients."
+      ],
+      "allowed_spl_templates": [],
+      "spl_template_status": "planned",
+      "answer_rules": [
+        "Do not claim phishing confirmed only from sender mismatch.",
+        "Distinguish suspicious, likely phishing, and evidence-supported phishing."
+      ],
+      "limitations": [
+        "Email header anomalies may reflect forwarding or gateway behavior.",
+        "Phishing verdict needs more than a single mismatch signal."
+      ],
+      "not_claimed_defaults": ["phishing_confirmed", "credential_theft", "malware_delivery"],
+      "rag_doc_ids": [],
+      "safety_review": {
+        "defensive_only": true,
+        "offensive_steps_removed": true,
+        "no_arbitrary_commands": true,
+        "no_runtime_markdown_loading": true,
+        "no_direct_tool_execution": true,
+        "no_unsupported_mitre_claims": true,
+        "limitations_included": true,
+        "hil_and_validation_preserved": true
+      },
+      "enrichment_status": "content_added",
+      "test_status": "tested"
+    },
+    "edr_powershell_suspicious_command": {
+      "use_case_id": "edr_powershell_suspicious_command",
+      "use_case_status": "active",
+      "domain": "endpoint-security",
+      "subdomain": "suspicious-command-execution",
+      "tags": ["powershell", "script_block", "encoded_command", "edr"],
+      "live_execution_skill": "attack_discovery",
+      "planning_or_analytic_skill": "suspicious_command_execution",
+      "github_reference_skills": [
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/hunting-for-anomalous-powershell-execution/SKILL.md",
+          "domain": "endpoint-security",
+          "subdomain": "suspicious-command-execution",
+          "mitre_from_github": ["T1059", "T1059.001"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "edr_powershell_suspicious_command",
+          "safety_notes": "Defensive event and process evidence only; no command execution.",
+          "reuse_type": "evidence_reference",
+          "implementation_status": "content_enrichment_added"
+        }
+      ],
+      "reuse_types": ["evidence_reference", "workflow_reference", "mitre_reference"],
+      "mitre_candidates": ["T1059", "T1059.001"],
+      "evidence_requirements": [
+        "host",
+        "user",
+        "command_line",
+        "script_block_text",
+        "event_id",
+        "parent_process",
+        "encoded_command_flag",
+        "network_connection"
+      ],
+      "investigation_workflow": [
+        "Collect process, command line, parent process, and script block evidence.",
+        "Flag encoded command or suspicious invocation patterns as evidence, not malware verdicts.",
+        "Pivot to network and child-process activity when available."
+      ],
+      "analyst_checklist": [
+        "Review event ID and script block text.",
+        "Check parent process and user context.",
+        "Identify encoded-command usage.",
+        "Look for related network connections or child processes."
+      ],
+      "allowed_spl_templates": [],
+      "spl_template_status": "planned",
+      "answer_rules": [
+        "Do not classify as malware unless malware evidence exists.",
+        "State suspicious command execution evidence and required pivots."
+      ],
+      "limitations": [
+        "Administrative scripts may use PowerShell legitimately.",
+        "Encoded command is a suspicious indicator, not a standalone malware verdict."
+      ],
+      "not_claimed_defaults": ["malware", "ransomware", "credential_dumping", "account_compromise"],
+      "rag_doc_ids": ["edr_sop"],
+      "safety_review": {
+        "defensive_only": true,
+        "offensive_steps_removed": true,
+        "no_arbitrary_commands": true,
+        "no_runtime_markdown_loading": true,
+        "no_direct_tool_execution": true,
+        "no_unsupported_mitre_claims": true,
+        "limitations_included": true,
+        "hil_and_validation_preserved": true
+      },
+      "enrichment_status": "content_added",
+      "test_status": "tested"
+    },
+    "dns_beaconing_candidate": {
+      "use_case_id": "dns_beaconing_candidate",
+      "use_case_status": "active",
+      "domain": "threat-hunting",
+      "subdomain": "beaconing-review",
+      "tags": ["command_and_control", "beaconing", "dns", "network"],
+      "live_execution_skill": "attack_discovery",
+      "planning_or_analytic_skill": "beaconing_pattern_review",
+      "github_reference_skills": [
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/hunting-for-command-and-control-beaconing/SKILL.md",
+          "domain": "threat-hunting",
+          "subdomain": "beaconing-review",
+          "mitre_from_github": ["T1071"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "dns_beaconing_candidate",
+          "safety_notes": "Defensive frequency, jitter, and DNS evidence only; no C2 infrastructure guidance reused.",
+          "reuse_type": "evidence_reference",
+          "implementation_status": "content_enrichment_added"
+        }
+      ],
+      "reuse_types": ["evidence_reference", "workflow_reference", "mitre_reference"],
+      "mitre_candidates": ["T1071"],
+      "evidence_requirements": [
+        "src",
+        "dest",
+        "domain",
+        "periodicity",
+        "jitter",
+        "bytes_out",
+        "DNS_query_count",
+        "rare_domain_indicator",
+        "user_host_association"
+      ],
+      "investigation_workflow": [
+        "Review periodicity, jitter, outbound volume, and domain rarity together.",
+        "Associate source with user or host identity when possible.",
+        "Escalate from candidate to evidence-supported only when multiple signals align."
+      ],
+      "analyst_checklist": [
+        "Measure periodicity and jitter.",
+        "Check bytes out and DNS query count.",
+        "Assess domain rarity and destination context.",
+        "Tie traffic to a host or user before impact language."
+      ],
+      "allowed_spl_templates": ["dns_beaconing_candidate"],
+      "spl_template_status": "planned",
+      "answer_rules": [
+        "Do not claim C2 confirmed from periodicity alone.",
+        "Use candidate/evidence-supported wording based on multiple signals."
+      ],
+      "limitations": [
+        "Periodic traffic may be benign polling or monitoring.",
+        "Parent T1071 is used unless evidence supports a specific sub-technique."
+      ],
+      "not_claimed_defaults": ["c2_confirmed", "malware", "data_exfiltration"],
+      "rag_doc_ids": ["dns_sop"],
+      "safety_review": {
+        "defensive_only": true,
+        "offensive_steps_removed": true,
+        "no_arbitrary_commands": true,
+        "no_runtime_markdown_loading": true,
+        "no_direct_tool_execution": true,
+        "no_unsupported_mitre_claims": true,
+        "limitations_included": true,
+        "hil_and_validation_preserved": true
+      },
+      "enrichment_status": "content_added",
+      "test_status": "tested"
+    },
+    "soc_incident_triage": {
+      "proposed_use_case_id": "soc_incident_triage",
+      "use_case_status": "planned",
+      "domain": "incident-response",
+      "subdomain": "incident-triage",
+      "tags": ["incident_response", "playbook", "alert_triage", "hil"],
+      "live_execution_skill": "alert_summary",
+      "planning_or_analytic_skill": "incident_triage_playbook",
+      "github_reference_skills": [
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/triaging-security-incident-with-ir-playbook/SKILL.md",
+          "domain": "incident-response",
+          "subdomain": "incident-triage",
+          "mitre_from_github": ["T1486", "T1070", "T1078"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "soc_incident_triage",
+          "safety_notes": "IR/SOP guidance only; containment and remediation require human approval.",
+          "reuse_type": "sop_reference",
+          "implementation_status": "content_enrichment_added"
+        }
+      ],
+      "reuse_types": ["sop_reference", "workflow_reference"],
+      "mitre_candidates": [],
+      "evidence_requirements": [
+        "alert_type",
+        "affected_asset",
+        "user",
+        "severity_policy_inputs",
+        "current_status",
+        "prior_related_alerts",
+        "containment_state"
+      ],
+      "investigation_workflow": [
+        "Summarize alert type, affected asset, user, status, related alerts, and containment state.",
+        "Use SOP guidance without assigning MITRE absent alert evidence.",
+        "Require human approval for containment or remediation."
+      ],
+      "analyst_checklist": [
+        "Confirm alert type and affected asset.",
+        "Collect severity policy inputs.",
+        "Review prior related alerts.",
+        "Record containment state without recommending destructive action."
+      ],
+      "allowed_spl_templates": [],
+      "spl_template_status": "unavailable",
+      "answer_rules": [
+        "Use IR/SOP guidance.",
+        "Do not recommend destructive containment.",
+        "Human approval required for containment/remediation.",
+        "Do not assign MITRE without alert type/evidence."
+      ],
+      "limitations": [
+        "Playbook guidance depends on alert evidence supplied by the analyst or governed retrieval.",
+        "No remediation action is authorized by this enrichment."
+      ],
+      "not_claimed_defaults": ["mitre_technique", "containment_authorized", "remediation_authorized"],
+      "rag_doc_ids": ["network_sop", "edr_sop", "auth_sop"],
+      "safety_review": {
+        "defensive_only": true,
+        "offensive_steps_removed": true,
+        "no_arbitrary_commands": true,
+        "no_runtime_markdown_loading": true,
+        "no_direct_tool_execution": true,
+        "no_unsupported_mitre_claims": true,
+        "limitations_included": true,
+        "hil_and_validation_preserved": true
+      },
+      "enrichment_status": "content_added",
+      "test_status": "tested"
+    },
+    "endpoint_ransomware_impact_review": {
+      "proposed_use_case_id": "endpoint_ransomware_impact_review",
+      "use_case_status": "planned",
+      "domain": "ransomware-defense",
+      "subdomain": "impact-assessment",
+      "tags": ["ransomware", "impact", "encryption", "endpoint"],
+      "live_execution_skill": "attack_discovery",
+      "planning_or_analytic_skill": "ransomware_impact_review",
+      "github_reference_skills": [
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/analyzing-ransomware-encryption-mechanisms/SKILL.md",
+          "domain": "ransomware-defense",
+          "subdomain": "impact-assessment",
+          "mitre_from_github": ["T1486", "T1573", "T1027"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "endpoint_ransomware_impact_review",
+          "safety_notes": "Partial accept for defensive impact evidence only; reverse-engineering/decryptor workflow sections rejected.",
+          "reuse_type": "evidence_reference",
+          "implementation_status": "content_enrichment_added"
+        },
+        {
+          "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+          "path": "skills/triaging-security-incident-with-ir-playbook/SKILL.md",
+          "domain": "incident-response",
+          "subdomain": "incident-triage",
+          "mitre_from_github": ["T1486", "T1070", "T1078"],
+          "decision": "accepted",
+          "internal_use_case_mapping": "endpoint_ransomware_impact_review",
+          "safety_notes": "Optional IR playbook reference; containment/remediation require HIL.",
+          "reuse_type": "sop_reference",
+          "implementation_status": "content_enrichment_added"
+        }
+      ],
+      "reuse_types": ["evidence_reference", "workflow_reference", "sop_reference", "mitre_reference"],
+      "mitre_candidates": ["T1486"],
+      "conditional_mitre_candidates": [
+        {
+          "technique_id": "T1490",
+          "condition": "Only if recovery inhibition evidence exists."
+        },
+        {
+          "technique_id": "T1489",
+          "condition": "Only if service-stop evidence exists."
+        }
+      ],
+      "evidence_requirements": [
+        "file_rename_count",
+        "extension_pattern",
+        "affected_paths",
+        "process_name",
+        "shadow_copy_deletion_indicator",
+        "service_stop_event",
+        "encryption_behavior",
+        "impacted_host_count"
+      ],
+      "investigation_workflow": [
+        "Collect file-change, process, recovery-inhibition, service-stop, and host-impact signals.",
+        "Use T1486 evidence-supported wording only when multiple impact signals align.",
+        "Require human review for containment or remediation recommendations."
+      ],
+      "analyst_checklist": [
+        "Measure file rename count and extension patterns.",
+        "Identify affected paths and process name.",
+        "Check shadow copy deletion and service stop indicators.",
+        "Count impacted hosts before scope claims."
+      ],
+      "allowed_spl_templates": [],
+      "spl_template_status": "planned",
+      "answer_rules": [
+        "Do not claim ransomware from file changes alone.",
+        "Require multiple evidence signals for evidence-supported T1486.",
+        "Require HIL for containment or remediation guidance."
+      ],
+      "limitations": [
+        "Bulk file changes can be benign administrative or backup activity.",
+        "This enrichment does not include malware reverse-engineering or decryptor guidance."
+      ],
+      "not_claimed_defaults": ["ransomware_confirmed", "T1490", "T1489", "containment_authorized"],
+      "rag_doc_ids": ["edr_sop"],
+      "safety_review": {
+        "defensive_only": true,
+        "offensive_steps_removed": true,
+        "no_arbitrary_commands": true,
+        "no_runtime_markdown_loading": true,
+        "no_direct_tool_execution": true,
+        "no_unsupported_mitre_claims": true,
+        "limitations_included": true,
+        "hil_and_validation_preserved": true
+      },
+      "enrichment_status": "content_added",
+      "test_status": "tested"
+    }
+  }
+}

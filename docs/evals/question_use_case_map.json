@@ -7,5 +7,76 @@
     "mapping_confidence is one of: high | medium | low.",
     "After editing, re-run: python3 scripts/build_skill_coverage_matrix.py && python3 scripts/build_skill_coverage_matrix.py --check"
   ],
-  "mappings": {}
+  "mappings": {
+    "q0.q062": {
+      "question_id": "q0.q062",
+      "use_case_id": "auth_failed_login_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "Exact stable template evidence: backend/app/coverage/pattern_coverage_v1.json entry cov.q062.auth_failed_login_spike_raw has question_ref=q0.q062 and template_ref=auth_failed_login_spike; backend/app/use_cases/catalog.json has exactly one use case with default_spl_template=auth_failed_login_spike."
+    }
+  },
+  "reviewed_unmapped": [
+    {
+      "question_id": "q0.q008",
+      "candidate_area": "dns_beaconing_candidate",
+      "reason": "Manifest entry cov.q008.beaconing_detection_binding has no template_ref and no explicit use_case_id. Detection family beaconing is not an exact shared use-case ID."
+    },
+    {
+      "question_id": "q0.q023",
+      "candidate_area": "dns_beaconing_candidate",
+      "reason": "Runtime row has pattern_type=dns_beaconing_dga_behavior but no manifest coverage ID, template_ref, use_case_id, or exact catalog example match."
+    },
+    {
+      "question_id": "q0.q046",
+      "candidate_area": "auth_failed_login_spike",
+      "reason": "Manifest entry cov.q046.excessive_failed_logins_sample has template_ref=sample_auth_failed_login_top_users_tstats, which is not a catalog default_spl_template."
+    },
+    {
+      "question_id": "q0.q049",
+      "candidate_area": "edr_powershell_suspicious_command",
+      "reason": "Runtime row has pattern_type=suspicious_process_powershell but no manifest coverage ID, template_ref, use_case_id, or exact catalog example match."
+    },
+    {
+      "question_id": "q0.q050",
+      "candidate_area": "edr_powershell_suspicious_command",
+      "reason": "Runtime row has pattern_type=suspicious_process_powershell but no manifest coverage ID, template_ref, use_case_id, or exact catalog example match."
+    },
+    {
+      "question_id": "q0.q053",
+      "candidate_area": "dns_beaconing_candidate",
+      "reason": "Runtime row has pattern_type=dns_beaconing_dga_behavior but no manifest coverage ID, template_ref, use_case_id, or exact catalog example match."
+    },
+    {
+      "question_id": "q0.q060",
+      "candidate_area": "auth_success_after_failure",
+      "reason": "Runtime row has pattern_type=success_after_failure but no manifest coverage ID, template_ref, use_case_id, or exact catalog example match."
+    },
+    {
+      "question_id": "q0.q064",
+      "candidate_area": "edr_powershell_suspicious_command",
+      "reason": "Runtime row has pattern_type=suspicious_process_powershell but no manifest coverage ID, template_ref, use_case_id, or exact catalog example match."
+    },
+    {
+      "question_id": "q0.q068",
+      "candidate_area": "dns_beaconing_candidate",
+      "reason": "Runtime row has command-and-control wording but pattern_type=ioc_correlation and no manifest coverage ID, template_ref, use_case_id, or exact catalog example match."
+    },
+    {
+      "question_id": "q0.q080",
+      "candidate_area": "email_phishing_header_review",
+      "reason": "Runtime row is process-spawn evidence from email clients, not header investigation; no explicit phishing use_case_id, template_ref, or exact catalog example match."
+    },
+    {
+      "question_id": "q0.q081",
+      "candidate_area": "email_phishing_header_review",
+      "reason": "Runtime row concerns phishing attachments and uses pattern_type=suspicious_process_powershell; no explicit header-investigation use_case_id, template_ref, or exact catalog example match."
+    },
+    {
+      "question_id": "q0.q086",
+      "candidate_area": "auth_failed_login_spike",
+      "reason": "Runtime row is multi-signal correlation involving failed logins and privilege changes; no explicit use_case_id, template_ref, or exact catalog example match."
+    }
+  ]
 }

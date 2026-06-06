@@ -201,7 +201,7 @@ Cost: slightly less discoverable than a top-level `node_trace`. If product later
 3. **`mitre_evidence_status` vs `mitre_decision`/`mitre_mappings` duplication.** Needs a single-source rule: is `mitre_evidence_status` derived-on-read from `mitre_decision`, or a stored aggregate? Recommend derived to avoid drift; confirm at C5.
 4. **`execution_decision` overlap with `execution`/`human_review`.** Same risk; recommend a thin derived summary.
 5. **`session_id`/`session_pins` depend on A5.** They cannot be populated until `ChatRequest` carries a session id and `chat/session_store.py` exists. Spec lists them; they are inert until A5 lands.
-6. **`skill_enrichment` depends on B1.** No `content_enrichment` schema exists yet; field is a placeholder until Track B.
+6. **`skill_enrichment` depends on later runtime integration.** Batch 2 added the offline `backend/app/use_cases/content_enrichment.json` metadata schema, but the chat state field remains a placeholder until Track B explicitly wires runtime use.
 7. **`input_summary` granularity.** "Summary" is under-specified per node. Each node's exact summary keys should be fixed in the node's own unit test fixture when that node is implemented, not guessed here.
 
 ---

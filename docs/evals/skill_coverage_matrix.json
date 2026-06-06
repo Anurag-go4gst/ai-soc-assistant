@@ -1,8 +1,11 @@
 [
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "alert_summary",
     "mapping_confidence": null,
@@ -18,9 +21,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -36,9 +42,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -54,9 +63,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -75,9 +87,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "knowledge_recall",
     "mapping_confidence": null,
@@ -95,9 +110,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -115,9 +133,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -135,9 +156,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -155,9 +179,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -175,9 +202,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -195,9 +225,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -215,9 +248,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -233,9 +269,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -254,9 +293,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -274,9 +316,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -294,9 +339,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -314,9 +362,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -334,9 +385,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -354,9 +408,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -374,9 +431,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -392,9 +452,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -410,9 +473,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -430,9 +496,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -450,9 +519,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -470,9 +542,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -488,9 +563,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -508,9 +586,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -528,9 +609,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -546,9 +630,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -564,9 +651,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -584,9 +674,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -604,9 +697,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -624,9 +720,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -644,9 +743,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -662,9 +764,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -682,9 +787,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -702,9 +810,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -722,9 +833,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -740,9 +854,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -760,9 +877,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -778,9 +898,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -798,9 +921,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -818,9 +944,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -838,9 +967,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -856,9 +988,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "alert_summary",
     "mapping_confidence": null,
@@ -874,9 +1009,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -894,9 +1032,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -914,9 +1055,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -934,9 +1078,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -954,9 +1101,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -975,9 +1125,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -995,9 +1148,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1015,9 +1171,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1036,9 +1195,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1057,9 +1219,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "knowledge_recall",
     "mapping_confidence": null,
@@ -1077,9 +1242,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1097,9 +1265,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1117,9 +1288,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "alert_summary",
     "mapping_confidence": null,
@@ -1135,9 +1309,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1155,9 +1332,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1176,9 +1356,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1196,6 +1379,16 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": [
+      "user",
+      "src",
+      "host",
+      "fail_count",
+      "time_window",
+      "first_failure",
+      "last_failure"
+    ],
+    "enrichment_status": "content_added",
     "evidence_requirements": {
       "optional_entities": [
         "host",
@@ -1220,11 +1413,15 @@
       "detecting-rdp-brute-force-attacks",
       "triaging-security-alerts-in-splunk"
     ],
+    "github_reference_skills": [
+      "skills/detecting-rdp-brute-force-attacks/SKILL.md",
+      "skills/triaging-security-alerts-in-splunk/SKILL.md"
+    ],
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": "high",
-    "mapping_source_file": "backend/app/coverage/pattern_coverage_v1.json+backend/app/use_cases/catalog.json",
-    "mapping_status": "mapped_from_existing_metadata",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [
       "T1110.001"
     ],
@@ -1235,13 +1432,16 @@
     "query": "Which hosts show a spike in failed logins?",
     "question_id": "q0.q062",
     "spl_template_status": "active",
-    "test_status": "unknown",
+    "test_status": "tested",
     "use_case_id": "auth_failed_login_spike"
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1259,9 +1459,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1279,9 +1482,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1299,9 +1505,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1319,9 +1528,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1339,9 +1551,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1359,9 +1574,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "knowledge_recall",
     "mapping_confidence": null,
@@ -1379,9 +1597,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1399,9 +1620,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "knowledge_recall",
     "mapping_confidence": null,
@@ -1419,9 +1643,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1439,9 +1666,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1459,9 +1689,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1479,9 +1712,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1499,9 +1735,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1519,9 +1758,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1539,9 +1781,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1557,9 +1802,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1577,9 +1825,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1598,9 +1849,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1619,9 +1873,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1639,9 +1896,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1660,9 +1920,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "alert_summary",
     "mapping_confidence": null,
@@ -1678,9 +1941,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "alert_summary",
     "mapping_confidence": null,
@@ -1696,9 +1962,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1717,9 +1986,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1735,9 +2007,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1757,9 +2032,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1778,9 +2056,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "alert_summary",
     "mapping_confidence": null,
@@ -1796,9 +2077,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "alert_summary",
     "mapping_confidence": null,
@@ -1814,9 +2098,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1835,9 +2122,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1856,9 +2146,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "knowledge_recall",
     "mapping_confidence": null,
@@ -1874,9 +2167,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "knowledge_recall",
     "mapping_confidence": null,
@@ -1892,9 +2188,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "knowledge_recall",
     "mapping_confidence": null,
@@ -1912,9 +2211,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1932,9 +2234,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1952,9 +2257,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1970,9 +2278,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -1988,9 +2299,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -2006,9 +2320,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -2026,9 +2343,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "knowledge_recall",
     "mapping_confidence": null,
@@ -2044,9 +2364,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": null,
@@ -2062,9 +2385,12 @@
     "use_case_id": null
   },
   {
+    "enrichment_evidence_requirements": null,
+    "enrichment_status": null,
     "evidence_requirements": null,
     "github_intake_decision": null,
     "github_reference_skill": null,
+    "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "alert_summary",
     "mapping_confidence": null,

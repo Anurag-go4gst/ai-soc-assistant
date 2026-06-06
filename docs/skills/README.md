@@ -12,6 +12,7 @@ Canonical plan: [`plans/AI_SOC_MASTER_PLAN.md`](../../plans/AI_SOC_MASTER_PLAN.m
 | [`rejected_github_skills.md`](rejected_github_skills.md) | Permanent rejection log (D2) |
 | [`pending_skill_enrichment_backlog.md`](pending_skill_enrichment_backlog.md) | Deferred / future candidates (D3) |
 | [`skill_enrichment_status_matrix.md`](skill_enrichment_status_matrix.md) | Per use-case implementation status (D4) |
+| [`../../backend/app/use_cases/content_enrichment.json`](../../backend/app/use_cases/content_enrichment.json) | Batch 2 curated enrichment metadata keyed by internal/proposed use case |
 | [`../evals/skill_coverage_matrix.json`](../evals/skill_coverage_matrix.json) | 105-question coverage master (D5 / B9 — future) |
 
 ## Reference clone (read-only)
@@ -32,8 +33,9 @@ Re-clone when reviewing new skills; always record `repo_commit` in the intake re
 5. Rejected → `rejected_github_skills.md`. Deferred → `pending_skill_enrichment_backlog.md`.
 6. Accepted → map use case, live skill, planning skill, MITRE evidence, SPL status.
 7. Update `skill_enrichment_status_matrix.md`.
-8. Update `skill_coverage_matrix.json` when generator exists (slice ≥1).
-9. Tests only after Track B enrichment is implemented.
+8. Add curated metadata to `content_enrichment.json`; do not change `catalog.json` for metadata-only batches.
+9. Update `skill_coverage_matrix.json` through the offline generator.
+10. Add schema/data validation tests.
 
 ## Locked constraints
 
