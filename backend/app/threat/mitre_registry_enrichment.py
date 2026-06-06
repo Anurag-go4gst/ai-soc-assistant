@@ -12,6 +12,7 @@ from app.threat.mitre_registry_schema import (
     MitreRegistryMetadata,
     MitreVisibilityPolicy,
 )
+from app.use_cases.content_enrichment import get_content_enrichment
 
 def _find_repo_root() -> Path:
     """Resolve the repo root in both the host checkout and the container.
@@ -241,6 +242,20 @@ def registry_mitre_metadata(
         runtime_row = _load_runtime_use_case_entries_by_id().get(use_case_id)
         if isinstance(runtime_row, dict) and isinstance(runtime_row.get("mitre_registry"), dict):
             item = _synthetic_draft_item_from_runtime_row(runtime_row)
+            meta = normalize_legacy_mitre_fields(item, question_ref=None, use_case_id=use_case_id)
+            return _merge_enrichment_mitre_candidates(meta, use_case_id)
+        enrichment = get_content_enrichment(use_case_id)
+        if isinstance(enrichment, dict):
+            item = {
+                "mitre_registry": {
+                    "candidate": enrichment.get("mitre_candidates") or [],
+                    "requires_evidence": True,
+                    "requires_alert_context": False,
+                    "answer_visibility_policy": "answer_if_requested",
+                    "mapping_rationale": "Batch 3 pilot enrichment metadata; not observed evidence.",
+                },
+                "mitre_candidates": enrichment.get("mitre_candidates") or [],
+            }
             return normalize_legacy_mitre_fields(item, question_ref=None, use_case_id=use_case_id)
     drafts = load_mitre_enrichment_drafts()
     if question_ref:
@@ -252,6 +267,25 @@ def registry_mitre_metadata(
         if isinstance(item, dict):
             return normalize_legacy_mitre_fields(item, question_ref=None, use_case_id=use_case_id)
     return None
+
+
+def _merge_enrichment_mitre_candidates(
+    meta: MitreRegistryMetadata,
+    use_case_id: str,
+) -> MitreRegistryMetadata:
+    enrichment = get_content_enrichment(use_case_id)
+    if not isinstance(enrichment, dict):
+        return meta
+    blocked = set(meta.mitre_blocked)
+    existing = set(meta.mitre_permitted) | set(meta.mitre_candidate) | blocked
+    additions = [
+        tid
+        for tid in _upper_id_list(enrichment.get("mitre_candidates"))
+        if tid not in existing and tid not in blocked
+    ]
+    if not additions:
+        return meta
+    return meta.model_copy(update={"mitre_candidate": [*meta.mitre_candidate, *additions]})
 
 
 def iter_all_question_mitre_metadata() -> list[MitreRegistryMetadata]:

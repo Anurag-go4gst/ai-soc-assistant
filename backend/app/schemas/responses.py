@@ -61,6 +61,11 @@ class CandidateSplEnvelope(BaseModel):
     llm_fallback_reason: str | None = None
     llm_model: str | None = None
     llm_latency_ms: int | None = None
+    spl_template_status: str | None = None
+    template_production_executable: bool | None = None
+    governed_limitation: str | None = None
+    allowed_spl_templates: list[str] | None = None
+    enrichment_evidence_requirements: list[str] | None = None
 
 
 class SplValidationEnvelope(BaseModel):
@@ -89,6 +94,11 @@ class SplValidationEnvelope(BaseModel):
     llm_model: str | None = None
     llm_latency_ms: int | None = None
     llm_fallback: dict[str, object] | None = None
+    spl_template_status: str | None = None
+    template_production_executable: bool | None = None
+    governed_limitation: str | None = None
+    allowed_spl_templates: list[str] | None = None
+    enrichment_evidence_requirements: list[str] | None = None
 
 
 class ExecutionEnvelope(BaseModel):

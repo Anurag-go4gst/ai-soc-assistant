@@ -203,7 +203,13 @@ def _mitre_display_rows(mappings: list[Any], *, user_query: str = "") -> list[di
     for item in mappings:
         payload = item.model_dump() if hasattr(item, "model_dump") else dict(item)
         status = str(payload.get("status") or "")
-        confidence = "High" if status == "supported" else "Medium" if status == "candidate" else "Moderate - analyst validation required"
+        confidence = (
+            "High - evidence supported"
+            if status in {"supported", "evidence_supported"}
+            else "Medium"
+            if status == "candidate"
+            else "Moderate - analyst validation required"
+        )
         technique_id = str(payload.get("technique_id") or "")
         evidence = str(payload.get("why") or "")
         if technique_id == "T1110.001" and status == "candidate":

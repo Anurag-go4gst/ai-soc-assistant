@@ -196,6 +196,13 @@ def template_summary(template_id: str | None) -> dict[str, object] | None:
         "validation_rules": template.validation_rules,
         "result_limits": template.result_limits,
         "answer_sections_supported": template.answer_sections_supported,
+        "enabled": template.enabled,
+        "production_ready": template.production_ready,
+        "sample_only": template.sample_only,
+        "production_executable": template.is_production_executable(),
+        "governed_limitation": None
+        if template.is_production_executable()
+        else "template_not_production_executable",
     }
 
 

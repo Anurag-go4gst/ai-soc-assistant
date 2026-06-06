@@ -6,7 +6,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.threat.mitre_evidence_preconditions import precondition_negated
+from app.threat.mitre_evidence_preconditions import (
+    evaluate_pilot_mitre_evidence_status,
+    precondition_negated,
+)
 from app.threat.mitre_registry_schema import MitreRegistryMetadata
 
 _MITRE_VISIBLE_GOALS = frozenset({"mitre_mapping", "mitre_explanation", "severity_assessment"})
@@ -24,6 +27,8 @@ class MitreDecision(BaseModel):
     rejected_techniques: list[str] = Field(default_factory=list)
     registry_candidates: list[str] = Field(default_factory=list)
     not_claimed: list[str] = Field(default_factory=list)
+    evidence_statuses: dict[str, str] = Field(default_factory=dict)
+    evidence_status_details: dict[str, dict[str, Any]] = Field(default_factory=dict)
     answer_visible: bool = False
     requires_alert_context: bool = False
     requires_more_context_for_supported_mapping: bool = False
@@ -129,18 +134,39 @@ def resolve_mitre_decision(
     # `rejected_techniques` and are not re-listed here.
     blocked_set = set(blocked)
     non_blocked = [tid for tid in candidates if tid not in blocked_set]
-    visible_ids = [tid for tid in non_blocked if not precondition_negated(tid, present_evidence)]
-    demoted_ids = [tid for tid in non_blocked if precondition_negated(tid, present_evidence)]
+    status_details = {
+        tid: evaluate_pilot_mitre_evidence_status(
+            use_case_id=use_case_id,
+            technique_id=tid,
+            present_evidence=present_evidence,
+        )
+        for tid in non_blocked
+    }
+    visible_ids = [
+        tid
+        for tid, detail in status_details.items()
+        if detail.get("status") in {"candidate", "evidence_supported", "requires_validation"}
+        and not precondition_negated(tid, present_evidence)
+    ]
+    demoted_ids = [
+        tid
+        for tid, detail in status_details.items()
+        if detail.get("status") == "not_claimed" or precondition_negated(tid, present_evidence)
+    ]
+    evidence_statuses = {tid: str(detail.get("status") or "candidate") for tid, detail in status_details.items()}
+    aggregate_status = "evidence_supported" if "evidence_supported" in set(evidence_statuses.values()) else "candidate"
     return MitreDecision(
-        mitre_status="candidate",
-        techniques=_technique_payloads(visible_ids, refs, use_case_id=use_case_id),
+        mitre_status=aggregate_status,
+        techniques=_technique_payloads(visible_ids, refs, use_case_id=use_case_id, status_details=status_details),
         rejected_techniques=blocked,
         registry_candidates=candidates,
         not_claimed=demoted_ids if explicitly_requested else [],
+        evidence_statuses=evidence_statuses,
+        evidence_status_details=status_details,
         answer_visible=False,
         requires_alert_context=False,
         requires_more_context_for_supported_mapping=False,
-        reason="Registry-permitted MITRE candidates are visible as candidate mappings only; confirmation requires evidence review.",
+        reason="Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation.",
         registry_metadata=meta,
     ).model_copy(update={"answer_visible": bool(visible_ids)})
 
@@ -157,6 +183,7 @@ def _technique_payloads(
     source_refs: list[str],
     *,
     use_case_id: str | None = None,
+    status_details: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     from app.threat.mitre_kb import load_mitre_techniques
 
@@ -166,14 +193,16 @@ def _technique_payloads(
         technique = by_id.get(technique_id.upper())
         if technique is None:
             continue
-        why = "Registry-permitted MITRE candidate; not confirmed without supporting evidence."
+        detail = (status_details or {}).get(technique_id) or {}
+        evidence_status = str(detail.get("status") or "candidate")
+        why = str(detail.get("reason") or "Registry-permitted MITRE candidate; not confirmed without supporting evidence.")
         if use_case_id == "auth_success_after_failure":
-            if technique.technique_id == "T1110.001":
+            if technique.technique_id == "T1110.001" and evidence_status == "candidate":
                 why = (
                     "Repeated failed login attempts followed by a successful login for the same user "
                     "may indicate password guessing / brute-force behavior."
                 )
-            elif technique.technique_id == "T1078":
+            elif technique.technique_id == "T1078" and evidence_status == "candidate":
                 why = (
                     "Successful login after repeated failures is a Valid Accounts candidate; "
                     "confirm account criticality, MFA result, source ownership, and post-login activity."
@@ -183,7 +212,10 @@ def _technique_payloads(
                 "technique_id": technique.technique_id,
                 "name": technique.name,
                 "tactic": technique.tactic,
-                "status": "candidate",
+                "status": evidence_status,
+                "evidence_status": evidence_status,
+                "status_reason": why,
+                "evidence_keys": [str(item) for item in detail.get("evidence_keys") or []],
                 "why": why,
                 "evidence_requirements": list(technique.evidence_requirements),
                 "source_refs": list(source_refs),

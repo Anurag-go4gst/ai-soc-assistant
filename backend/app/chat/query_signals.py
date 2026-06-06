@@ -94,6 +94,58 @@ def extract_query_signals(
     positive_successful_login = success_after_failure or (
         "successful login" in normalized and not negative_successful_login
     )
+    spray_breadth = bool(
+        re.search(r"\bacross\s+\d+\s+(?:accounts|users)\b", normalized)
+        or "many users" in normalized
+        or "multiple users" in normalized
+        or "password spray" in normalized
+        or "password spraying" in normalized
+    )
+    source_ip_novelty = any(
+        term in normalized
+        for term in ("new source", "novel source", "unusual source", "new ip", "unusual ip", "unknown device")
+    )
+    valid_account_abuse = any(
+        term in normalized
+        for term in (
+            "impossible travel",
+            "suspicious device",
+            "privilege use",
+            "privileged action",
+            "post-login activity",
+            "post login activity",
+            "account misuse",
+        )
+    )
+    powershell_context = "powershell" in normalized or "script block" in normalized or "encodedcommand" in normalized
+    powershell_command_evidence = powershell_context and any(
+        term in normalized for term in ("command line", "command_line", "script block", "process", "event id", "event_id")
+    )
+    encoded_command = "encodedcommand" in normalized or "encoded command" in normalized or "-enc" in normalized
+    suspicious_parent_process = any(
+        term in normalized for term in ("parent process", "winword", "excel", "outlook", "wscript", "mshta")
+    )
+    download_cradle = any(term in normalized for term in ("download cradle", "invoke-webrequest", "iwr ", "http://", "https://"))
+    endpoint_network_connection = powershell_context and any(term in normalized for term in ("network connection", "beacon", "outbound"))
+    email_auth_failure = any(term in normalized for term in ("spf fail", "dkim fail", "dmarc fail", "authentication-results fail"))
+    sender_return_path_mismatch = any(term in normalized for term in ("sender mismatch", "return-path mismatch", "reply-to mismatch", "reply_to mismatch"))
+    malicious_url_or_domain = any(term in normalized for term in ("malicious url", "malicious domain", "url verdict", "domain verdict"))
+    attachment_hash_verdict = any(term in normalized for term in ("attachment hash", "malicious attachment", "attachment verdict"))
+    mail_gateway_verdict = any(term in normalized for term in ("gateway verdict", "mail gateway verdict", "secure email gateway"))
+    periodicity = any(term in normalized for term in ("periodic", "periodicity", "regular interval"))
+    jitter_profile = "jitter" in normalized
+    repeated_destination = any(term in normalized for term in ("repeated destination", "repeated domain", "same domain", "same destination"))
+    rare_domain = any(term in normalized for term in ("rare domain", "new domain", "low reputation domain"))
+    byte_pattern = any(term in normalized for term in ("bytes out", "byte pattern", "small bytes", "outbound bytes"))
+    host_association = any(term in normalized for term in ("host association", "host=", "src host", "user/host", "user host"))
+    file_rename_volume = any(term in normalized for term in ("file rename", "rename count", "many files", "mass file"))
+    extension_pattern = any(term in normalized for term in ("extension pattern", "new extension", "encrypted extension"))
+    encryption_behavior = any(term in normalized for term in ("encryption behavior", "encrypted files", "encrypting files"))
+    impacted_paths = any(term in normalized for term in ("affected paths", "impacted paths", "shared drive"))
+    process_evidence = any(term in normalized for term in ("process_name", "process name", "process evidence"))
+    shadow_copy_deletion = any(term in normalized for term in ("shadow copy", "vssadmin", "delete shadows"))
+    service_stop = any(term in normalized for term in ("service stop", "stopped service", "net stop"))
+    host_spread = any(term in normalized for term in ("host spread", "multiple hosts", "impacted host"))
     severity_request = "severity" in normalized
     review_only_spl = any(
         term in normalized
@@ -208,6 +260,34 @@ def extract_query_signals(
         "mitre_requires_alert_context": mitre_requires_alert_context,
         "success_after_failure": success_after_failure,
         "positive_successful_login": positive_successful_login,
+        "spray_breadth": spray_breadth,
+        "source_ip_novelty": source_ip_novelty,
+        "valid_account_abuse": valid_account_abuse,
+        "powershell_context": powershell_context,
+        "powershell_command_evidence": powershell_command_evidence,
+        "encoded_command": encoded_command,
+        "suspicious_parent_process": suspicious_parent_process,
+        "download_cradle": download_cradle,
+        "endpoint_network_connection": endpoint_network_connection,
+        "email_auth_failure": email_auth_failure,
+        "sender_return_path_mismatch": sender_return_path_mismatch,
+        "malicious_url_or_domain": malicious_url_or_domain,
+        "attachment_hash_verdict": attachment_hash_verdict,
+        "mail_gateway_verdict": mail_gateway_verdict,
+        "periodicity": periodicity,
+        "jitter_profile": jitter_profile,
+        "repeated_destination": repeated_destination,
+        "rare_domain": rare_domain,
+        "byte_pattern": byte_pattern,
+        "host_association": host_association,
+        "file_rename_volume": file_rename_volume,
+        "extension_pattern": extension_pattern,
+        "encryption_behavior": encryption_behavior,
+        "impacted_paths": impacted_paths,
+        "process_evidence": process_evidence,
+        "shadow_copy_deletion": shadow_copy_deletion,
+        "service_stop": service_stop,
+        "host_spread": host_spread,
         "severity_request": severity_request,
         "review_only_spl": review_only_spl,
         "alert_context_present": alert_context_present,

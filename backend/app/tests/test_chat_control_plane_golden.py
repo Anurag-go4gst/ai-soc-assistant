@@ -147,13 +147,14 @@ def test_mitre_failed_login_context_maps_t1110_and_blocks_negated_techniques(
 
     assert response.analyst_response is not None
     mapping_rows = response.analyst_response.mitre_mappings
-    assert {row["Technique"] for row in mapping_rows} == {"T1110.001"}
-    t1110 = mapping_rows[0]
-    assert t1110["Name"] == "Password Guessing"
-    assert t1110["Status"] == "Candidate"
-    assert t1110["Confidence"] == "Medium"
-    assert "password guessing" in str(t1110["Evidence"]).lower()
-    assert "password policy discovery" not in str(t1110["Evidence"]).lower()
+    assert {row["Technique"] for row in mapping_rows} == {"T1110", "T1110.001", "T1110.003"}
+    mapping_by_id = {row["Technique"]: row for row in mapping_rows}
+    assert mapping_by_id["T1110.001"]["Name"] == "Password Guessing"
+    assert mapping_by_id["T1110.001"]["Status"] == "Evidence Supported"
+    assert mapping_by_id["T1110.003"]["Status"] == "Evidence Supported"
+    assert mapping_by_id["T1110.001"]["Confidence"] == "High - evidence supported"
+    assert "password" in str(mapping_by_id["T1110.001"]["Evidence"]).lower()
+    assert "password policy discovery" not in str(mapping_by_id["T1110.001"]["Evidence"]).lower()
 
     not_claimed = {row["Technique"]: row for row in response.analyst_response.not_claimed}
     assert {"T1078", "T1003", "T1562.001"}.issubset(not_claimed)
@@ -385,7 +386,7 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
 
     assert response.analyst_response is not None
     mapping_rows = {row["Technique"]: row for row in response.analyst_response.mitre_mappings}
-    assert mapping_rows["T1110.001"]["Status"] == "Candidate"
+    assert mapping_rows["T1110.001"]["Status"] == "Evidence Supported"
     assert mapping_rows["T1078"]["Status"] == "Candidate"
     assert response.analyst_response.severity_label is not None
     assert "Review required" in (response.analyst_response.severity_label or "")

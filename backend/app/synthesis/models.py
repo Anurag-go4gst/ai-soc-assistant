@@ -205,9 +205,9 @@ def _has_success_or_session_evidence(structured_context: dict[str, Any]) -> bool
 
 
 def _confidence_for_status(status: str) -> float:
-    if status == "supported":
+    if status in {"supported", "evidence_supported"}:
         return 0.8
-    if status in {"candidate", "analyst_review", "requires_validation"}:
+    if status in {"candidate", "analyst_review", "requires_validation", "not_claimed", "ruled_out"}:
         return 0.5
     if status == "confirmed":
         return 0.95

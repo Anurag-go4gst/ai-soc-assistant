@@ -174,12 +174,11 @@ def test_active_records_and_spl_status_match_catalog_and_template_registry() -> 
                 assert template_status_by_id.get(template_id) == "active", record_id
 
 
-def test_github_markdown_and_enrichment_are_not_loaded_by_runtime_python() -> None:
+def test_github_markdown_and_intake_docs_are_not_loaded_by_runtime_python() -> None:
     runtime_root = REPO_ROOT / "backend" / "app"
     forbidden_tokens = (
         "Anthropic-Cybersecurity-Skills",
         "github_skill_intake_register",
-        "content_enrichment",
         "SKILL.md",
     )
 
