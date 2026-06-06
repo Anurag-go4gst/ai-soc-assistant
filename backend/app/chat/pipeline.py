@@ -1822,6 +1822,8 @@ def _execution_stage(
                 "results_preview": [],
                 "block_reason": "mcp_not_allowed_by_evidence_plan",
                 "duration_ms": 0,
+                "evidence_source": "unavailable",
+                "execution_status_label": "not_executed",
             },
             no_human_review(),
         )

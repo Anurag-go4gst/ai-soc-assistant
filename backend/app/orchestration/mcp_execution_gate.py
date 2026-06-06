@@ -6,11 +6,27 @@ from typing import Any
 from app.connectors.mcp import get_mcp_connector
 from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.mcp.splunk_result_adapter import adapt_mcp_search_payload, execution_preview_from_envelope
+from app.config import settings
 from app.connectors.telemetry import get_telemetry_connector
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS, select_mcp_tool
 
 RESULT_PREVIEW_CAP = 5
+
+
+def _mock_success_requires_hil() -> bool:
+    """Whether a successful mock execution must surface an analyst-review gate.
+
+    A valid SPL and a successful mock run never imply autonomous execution. HIL
+    is required by default; it is relaxed ONLY when the deployment is explicitly
+    flagged as demo/lab AND the without-HIL allowance is enabled — two
+    independent axes, so enabling a demo cannot silently disable HIL elsewhere.
+    """
+    relax = (
+        settings.ai_soc_demo_or_lab_execution_mode
+        and settings.ai_soc_allow_mock_execution_without_hil_in_demo
+    )
+    return settings.ai_soc_require_hil_for_mock_execution and not relax
 
 
 def evaluate_mcp_execution(
@@ -122,6 +138,7 @@ def evaluate_mcp_execution(
         envelope,
         preview_cap=RESULT_PREVIEW_CAP,
     )
+    requires_hil = _mock_success_requires_hil()
     execution = {
         "status": "executed",
         "execution_intent": "spl_search",
@@ -135,9 +152,28 @@ def evaluate_mcp_execution(
         "splunk_result_envelope": envelope.to_dict(),
         "block_reason": None,
         "duration_ms": duration_ms,
+        # Evidence is mock-generated; never present it as live telemetry.
+        "evidence_source": "mock",
+        "execution_status_label": "review_required" if requires_hil else "mock_executed",
     }
     telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_completed", result_count=execution["result_count"], duration_ms=duration_ms)
-    return execution, no_human_review()
+    if requires_hil:
+        review = human_review(
+            "mock_evidence_review",
+            "mock_execution_requires_analyst_review",
+            "analyst",
+            ["review_mock_evidence", "approve_mock_evidence", "reject_execution"],
+            "Mock evidence was generated and must be reviewed by an analyst before it informs any decision.",
+        )
+        telemetry.record_mcp_execution(
+            trace_id,
+            event_type="mcp_execution_requires_human_review",
+            reason="mock_execution_requires_analyst_review",
+        )
+        return execution, review
+    review = no_human_review()
+    review["safe_message_for_user"] = "Mock execution completed in demo/lab mode; results are synthetic, not live evidence."
+    return execution, review
 
 
 def _record_discovery(telemetry: Any, trace_id: str, registry: Any) -> None:
@@ -218,6 +254,8 @@ def _blocked_execution(selection: dict[str, Any], status: str, reason: str) -> d
         "results_preview": [],
         "block_reason": reason,
         "duration_ms": 0,
+        "evidence_source": "unavailable",
+        "execution_status_label": "not_executed",
     }
 
 

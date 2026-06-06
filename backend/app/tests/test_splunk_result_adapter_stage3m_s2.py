@@ -63,6 +63,10 @@ def test_execution_preview_from_envelope_caps_preview() -> None:
 def test_gate_execution_includes_envelope_dict(monkeypatch) -> None:
     monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+    # Demo/lab mode so mock success runs without the HIL gate; this test asserts
+    # the result-envelope mechanics, not the HIL contract.
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_demo_or_lab_execution_mode", True)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_allow_mock_execution_without_hil_in_demo", True)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: _FakeTelemetry())
 
     execution, review = evaluate_mcp_execution(
