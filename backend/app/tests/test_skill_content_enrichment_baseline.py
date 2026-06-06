@@ -17,6 +17,7 @@ GENERATOR_PATH = REPO_ROOT / "scripts" / "build_skill_coverage_matrix.py"
 REGISTRY_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "registry.py"
 CATALOG_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "catalog.json"
 SPL_TEMPLATES_PATH = REPO_ROOT / "backend" / "app" / "spl" / "templates.json"
+QUESTION_USE_CASE_MAP_PATH = REPO_ROOT / "docs" / "evals" / "question_use_case_map.json"
 
 REQUIRED_GITHUB_SKILLS = {
     "detecting-rdp-brute-force-attacks",
@@ -69,6 +70,15 @@ REQUIRED_SAFETY_KEYS = {
     "no_unsupported_mitre_claims",
     "limitations_included",
     "hil_and_validation_preserved",
+}
+
+REQUIRED_CURATED_MAPPING_KEYS = {
+    "question_id",
+    "use_case_id",
+    "mapping_status",
+    "mapping_source_file",
+    "mapping_confidence",
+    "evidence_note",
 }
 
 LIVE_SKILL_ENUM_BASELINE = {
@@ -209,6 +219,30 @@ def test_coverage_matrix_preserves_catalog_evidence_shape_and_adds_enrichment_sh
     } <= set(mapped_row["evidence_requirements"])
     assert isinstance(mapped_row["enrichment_evidence_requirements"], list)
     assert "fail_count" in mapped_row["enrichment_evidence_requirements"]
+
+
+def test_curated_question_use_case_mappings_have_required_evidence_fields() -> None:
+    payload = _load_json(QUESTION_USE_CASE_MAP_PATH)
+    assert isinstance(payload, dict)
+
+    mappings = payload["mappings"]
+    assert isinstance(mappings, dict)
+    for question_id, mapping in mappings.items():
+        assert REQUIRED_CURATED_MAPPING_KEYS <= set(mapping), question_id
+        assert mapping["question_id"] == question_id
+        assert mapping["mapping_status"] == "curated_manual"
+        assert mapping["mapping_confidence"] in {"high", "medium"}
+        assert mapping["mapping_source_file"] == "docs/evals/question_use_case_map.json"
+        assert "semantic" not in mapping["evidence_note"].lower()
+        assert "template_ref=" in mapping["evidence_note"] or "use_case_id=" in mapping["evidence_note"]
+
+    reviewed_unmapped = payload.get("reviewed_unmapped")
+    assert isinstance(reviewed_unmapped, list)
+    for review in reviewed_unmapped:
+        assert review.get("question_id")
+        assert review.get("candidate_area")
+        reason = review.get("reason", "").lower()
+        assert "no " in reason or "not " in reason
 
 
 def test_runtime_routing_contract_remains_unchanged() -> None:

@@ -1420,8 +1420,8 @@
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
     "mapping_confidence": "high",
-    "mapping_source_file": "backend/app/coverage/pattern_coverage_v1.json+backend/app/use_cases/catalog.json",
-    "mapping_status": "mapped_from_existing_metadata",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [
       "T1110.001"
     ],
