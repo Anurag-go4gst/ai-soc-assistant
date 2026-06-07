@@ -29,7 +29,7 @@ Expected green counts: [`regression_baseline.md`](regression_baseline.md).
 
 | Artifact | Rows | Role |
 |----------|------|------|
-| [`soc_capability_crosswalk.json`](soc_capability_crosswalk.json) | 105 + 49 + 7 | Canonical mapping spine for SOC review, Knowledge export, and later planner phases |
+| [`soc_capability_crosswalk.json`](soc_capability_crosswalk.json) | 105 + 49 + 7 + proposed | Canonical mapping spine for SOC review, Knowledge export, and later planner phases (joins Phase 0B factory artifacts) |
 | [`skill_coverage_matrix.json`](skill_coverage_matrix.json) | 105 | Legacy question-centric coverage view (retained for backward compatibility) |
 
 Regenerate crosswalk after source JSON changes:

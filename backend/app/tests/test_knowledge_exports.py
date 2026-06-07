@@ -126,13 +126,37 @@ def test_github_intake_register_csv_export_works() -> None:
     assert rows[0]["github_skill_id"]
 
 
-def test_skill_enrichment_status_matrix_markdown_export_works() -> None:
+def test_github_skill_discovery_export_works() -> None:
+    response = export_mapping_artifact("github_skill_discovery_index", file_format="json")
+    payload = json.loads(response.body)
+
+    assert payload["artifact"] == "github_skill_discovery_index"
+    assert payload["row_counts"]["accepted_for_enrichment"] == 7
+
+
+def test_github_skill_triage_export_works() -> None:
+    response = export_mapping_artifact("github_skill_triage_scores", file_format="json")
+    payload = json.loads(response.body)
+
+    assert payload["artifact"] == "github_skill_triage_scores"
+    assert payload["row_counts"]["scores"] >= 7
+
+
+def test_proposed_use_cases_export_works() -> None:
+    response = export_mapping_artifact("proposed_use_cases_from_github", file_format="json")
+    payload = json.loads(response.body)
+
+    assert payload["artifact"] == "proposed_use_cases_from_github"
+    assert payload["row_counts"]["proposed_use_cases"] >= 1
+
+
+def test_skill_enrichment_status_matrix_json_export_works() -> None:
     response = export_mapping_artifact("skill_enrichment_status_matrix", file_format="json")
     payload = json.loads(response.body)
 
     assert payload["artifact"] == "skill_enrichment_status_matrix"
-    assert payload["format"] == "markdown"
-    assert "Skill Enrichment Status Matrix" in payload["content"]
+    assert payload.get("export_kind") == "json_backed"
+    assert payload["row_counts"]["use_cases"] == 7
 
 
 def test_rejected_github_skills_markdown_export_works() -> None:
@@ -143,12 +167,13 @@ def test_rejected_github_skills_markdown_export_works() -> None:
     assert "Rejected GitHub Skills" in payload["content"]
 
 
-def test_pending_skill_enrichment_backlog_markdown_export_works() -> None:
+def test_pending_skill_enrichment_backlog_json_export_works() -> None:
     response = export_mapping_artifact("pending_backlog", file_format="json")
     payload = json.loads(response.body)
 
     assert payload["artifact"] == "pending_skill_enrichment_backlog"
-    assert "Pending Skill Enrichment Backlog" in payload["content"]
+    assert payload.get("export_kind") == "json_backed"
+    assert payload["row_counts"]["backlog_items"] >= 1
 
 
 def test_markdown_exports_reject_csv() -> None:

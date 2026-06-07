@@ -1174,7 +1174,10 @@ export type KnowledgeExportArtifact =
   | 'use_case_catalog'
   | 'soc_capability_crosswalk'
   | 'skill_coverage_matrix'
+  | 'github_skill_discovery_index'
+  | 'github_skill_triage_scores'
   | 'github_skill_intake_register'
+  | 'proposed_use_cases_from_github'
   | 'skill_enrichment_status_matrix'
   | 'rejected_github_skills'
   | 'pending_skill_enrichment_backlog';

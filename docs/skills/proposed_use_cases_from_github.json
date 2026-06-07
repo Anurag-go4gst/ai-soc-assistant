@@ -1,0 +1,114 @@
+{
+  "generated_at": "2026-06-07T17:45:49+00:00",
+  "proposed_use_cases": [
+    {
+      "catalog_promotion_required": true,
+      "evidence_requirements": [
+        "sender",
+        "return_path",
+        "reply_to",
+        "SPF",
+        "DKIM",
+        "DMARC",
+        "URLs/domains",
+        "attachments/hashes",
+        "recipients",
+        "mail_gateway_verdict"
+      ],
+      "github_acceptance_not_runtime_activation": true,
+      "implementation_status": "content_added",
+      "mitre_metadata": {
+        "candidates": [
+          "T1566",
+          "T1566.001",
+          "T1566.002"
+        ],
+        "role": "metadata_not_evidence"
+      },
+      "proposed_display_name": "email phishing header review",
+      "proposed_domain": "phishing-defense",
+      "proposed_live_execution_skill": "attack_discovery",
+      "proposed_planning_skill": "phishing_triage",
+      "proposed_subdomain": "email-header-analysis",
+      "proposed_use_case_id": "email_phishing_header_review",
+      "rag_sop_need": false,
+      "required_sources": [],
+      "runtime_support_status": "metadata_only",
+      "safety_notes": "Derived from curated enrichment metadata only; not catalog-promoted.",
+      "soc_approval_status": "needs_soc_review",
+      "source_github_skill_id": "analyzing-email-headers-for-phishing-investigation",
+      "spl_template_need": "planned"
+    },
+    {
+      "catalog_promotion_required": true,
+      "evidence_requirements": [
+        "file_rename_count",
+        "extension_pattern",
+        "affected_paths",
+        "process_name",
+        "shadow_copy_deletion_indicator",
+        "service_stop_event",
+        "encryption_behavior",
+        "impacted_host_count"
+      ],
+      "github_acceptance_not_runtime_activation": true,
+      "implementation_status": "content_added",
+      "mitre_metadata": {
+        "candidates": [
+          "T1486"
+        ],
+        "role": "metadata_not_evidence"
+      },
+      "proposed_display_name": "endpoint ransomware impact review",
+      "proposed_domain": "ransomware-defense",
+      "proposed_live_execution_skill": "attack_discovery",
+      "proposed_planning_skill": "ransomware_impact_review",
+      "proposed_subdomain": "impact-assessment",
+      "proposed_use_case_id": "endpoint_ransomware_impact_review",
+      "rag_sop_need": true,
+      "required_sources": [],
+      "runtime_support_status": "metadata_only",
+      "safety_notes": "Derived from curated enrichment metadata only; not catalog-promoted.",
+      "soc_approval_status": "needs_soc_review",
+      "source_github_skill_id": "analyzing-ransomware-encryption-mechanisms",
+      "spl_template_need": "planned"
+    },
+    {
+      "catalog_promotion_required": true,
+      "evidence_requirements": [
+        "alert_type",
+        "affected_asset",
+        "user",
+        "severity_policy_inputs",
+        "current_status",
+        "prior_related_alerts",
+        "containment_state"
+      ],
+      "github_acceptance_not_runtime_activation": true,
+      "implementation_status": "content_added",
+      "mitre_metadata": {
+        "candidates": [],
+        "role": "metadata_not_evidence"
+      },
+      "proposed_display_name": "soc incident triage",
+      "proposed_domain": "incident-response",
+      "proposed_live_execution_skill": "alert_summary",
+      "proposed_planning_skill": "incident_triage_playbook",
+      "proposed_subdomain": "incident-triage",
+      "proposed_use_case_id": "soc_incident_triage",
+      "rag_sop_need": true,
+      "required_sources": [],
+      "runtime_support_status": "metadata_only",
+      "safety_notes": "Derived from curated enrichment metadata only; not catalog-promoted.",
+      "soc_approval_status": "needs_soc_review",
+      "source_github_skill_id": "triaging-security-incident-with-ir-playbook",
+      "spl_template_need": "unavailable"
+    }
+  ],
+  "row_counts": {
+    "proposed_use_cases": 3
+  },
+  "schema_version": "2026-06-07-phase0b-v1",
+  "usage_note": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
+  "warnings": []
+}

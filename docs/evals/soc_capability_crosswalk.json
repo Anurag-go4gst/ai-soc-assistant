@@ -5,9 +5,17 @@
     "knowledge_recall",
     "spl_generation"
   ],
-  "generated_at": "2026-06-07T17:39:03+00:00",
+  "factory_visibility": {
+    "discovery_index_present": true,
+    "github_acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
+    "proposed_use_cases_present": true,
+    "triage_scores_present": true
+  },
+  "generated_at": "2026-06-07T17:47:28+00:00",
   "github_skill_rows": [
     {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "content_enrichment_added": true,
       "decision": "accept",
       "enrichment_linkage": {
@@ -19,6 +27,16 @@
         "use_case_id": "email_phishing_header_review"
       },
       "evidence_requirements_added": true,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [
+          "email_phishing_header_review"
+        ],
+        "triage_priority": "P1",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
       "github_reuse_type": "evidence_reference",
       "github_skill_id": "analyzing-email-headers-for-phishing-investigation",
       "mapped_use_case_id": "email_phishing_header_review",
@@ -27,6 +45,9 @@
       ],
       "mapping_state": "mapped",
       "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [
+        "email_phishing_header_review"
+      ],
       "review_status": "accepted_for_enrichment",
       "runtime_skill": false,
       "runtime_support_status": "metadata_only",
@@ -35,6 +56,8 @@
       "validation_status": "tests_added"
     },
     {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "content_enrichment_added": true,
       "decision": "accept",
       "enrichment_linkage": {
@@ -46,6 +69,16 @@
         "use_case_id": "endpoint_ransomware_impact_review"
       },
       "evidence_requirements_added": true,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [
+          "endpoint_ransomware_impact_review"
+        ],
+        "triage_priority": "P1",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
       "github_reuse_type": "evidence_reference",
       "github_skill_id": "analyzing-ransomware-encryption-mechanisms",
       "mapped_use_case_id": "endpoint_ransomware_impact_review",
@@ -54,6 +87,9 @@
       ],
       "mapping_state": "mapped",
       "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [
+        "endpoint_ransomware_impact_review"
+      ],
       "review_status": "accepted_for_enrichment",
       "runtime_skill": false,
       "runtime_support_status": "metadata_only",
@@ -62,6 +98,8 @@
       "validation_status": "tests_added"
     },
     {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "content_enrichment_added": true,
       "decision": "accept",
       "enrichment_linkage": {
@@ -70,6 +108,14 @@
         "use_case_id": null
       },
       "evidence_requirements_added": true,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [],
+        "triage_priority": "P0",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
       "github_reuse_type": "workflow_reference",
       "github_skill_id": "detecting-rdp-brute-force-attacks",
       "mapped_use_case_id": null,
@@ -79,6 +125,7 @@
       ],
       "mapping_state": "mapped",
       "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [],
       "review_status": "accepted_for_enrichment",
       "runtime_skill": false,
       "runtime_support_status": "metadata_only",
@@ -87,6 +134,8 @@
       "validation_status": "tests_added"
     },
     {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "content_enrichment_added": true,
       "decision": "accept",
       "enrichment_linkage": {
@@ -97,6 +146,14 @@
         "use_case_id": "edr_powershell_suspicious_command"
       },
       "evidence_requirements_added": true,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [],
+        "triage_priority": "P1",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
       "github_reuse_type": "evidence_reference",
       "github_skill_id": "hunting-for-anomalous-powershell-execution",
       "mapped_use_case_id": "edr_powershell_suspicious_command",
@@ -105,6 +162,7 @@
       ],
       "mapping_state": "mapped",
       "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [],
       "review_status": "accepted_for_enrichment",
       "runtime_skill": false,
       "runtime_support_status": "metadata_only",
@@ -113,6 +171,8 @@
       "validation_status": "tests_added"
     },
     {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "content_enrichment_added": true,
       "decision": "accept",
       "enrichment_linkage": {
@@ -123,6 +183,14 @@
         "use_case_id": "dns_beaconing_candidate"
       },
       "evidence_requirements_added": true,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [],
+        "triage_priority": "P1",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
       "github_reuse_type": "evidence_reference",
       "github_skill_id": "hunting-for-command-and-control-beaconing",
       "mapped_use_case_id": "dns_beaconing_candidate",
@@ -131,6 +199,7 @@
       ],
       "mapping_state": "mapped",
       "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [],
       "review_status": "accepted_for_enrichment",
       "runtime_skill": false,
       "runtime_support_status": "metadata_only",
@@ -139,6 +208,8 @@
       "validation_status": "tests_added"
     },
     {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "content_enrichment_added": true,
       "decision": "accept",
       "enrichment_linkage": {
@@ -147,6 +218,14 @@
         "use_case_id": null
       },
       "evidence_requirements_added": true,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [],
+        "triage_priority": "P0",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
       "github_reuse_type": "sop_reference",
       "github_skill_id": "triaging-security-alerts-in-splunk",
       "mapped_use_case_id": null,
@@ -157,6 +236,7 @@
       ],
       "mapping_state": "mapped",
       "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [],
       "review_status": "accepted_for_enrichment",
       "runtime_skill": false,
       "runtime_support_status": "metadata_only",
@@ -165,6 +245,8 @@
       "validation_status": "tests_added"
     },
     {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "content_enrichment_added": true,
       "decision": "accept",
       "enrichment_linkage": {
@@ -173,6 +255,16 @@
         "use_case_id": null
       },
       "evidence_requirements_added": true,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [
+          "soc_incident_triage"
+        ],
+        "triage_priority": "P1",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
       "github_reuse_type": "sop_reference",
       "github_skill_id": "triaging-security-incident-with-ir-playbook",
       "mapped_use_case_id": null,
@@ -182,6 +274,9 @@
       ],
       "mapping_state": "mapped",
       "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [
+        "soc_incident_triage"
+      ],
       "review_status": "accepted_for_enrichment",
       "runtime_skill": false,
       "runtime_support_status": "metadata_only",
@@ -191,6 +286,111 @@
     }
   ],
   "mitre_metadata_role": "metadata_not_evidence",
+  "proposed_use_case_rows": [
+    {
+      "catalog_promotion_required": true,
+      "evidence_requirements": [
+        "sender",
+        "return_path",
+        "reply_to",
+        "SPF",
+        "DKIM",
+        "DMARC",
+        "URLs/domains",
+        "attachments/hashes",
+        "recipients",
+        "mail_gateway_verdict"
+      ],
+      "github_acceptance_not_runtime_activation": true,
+      "implementation_status": "content_added",
+      "mitre_metadata": {
+        "candidates": [
+          "T1566",
+          "T1566.001",
+          "T1566.002"
+        ],
+        "role": "metadata_not_evidence"
+      },
+      "proposed_display_name": "email phishing header review",
+      "proposed_domain": "phishing-defense",
+      "proposed_live_execution_skill": "attack_discovery",
+      "proposed_planning_skill": "phishing_triage",
+      "proposed_subdomain": "email-header-analysis",
+      "proposed_use_case_id": "email_phishing_header_review",
+      "rag_sop_need": false,
+      "required_sources": [],
+      "runtime_support_status": "metadata_only",
+      "safety_notes": "Derived from curated enrichment metadata only; not catalog-promoted.",
+      "soc_approval_status": "needs_soc_review",
+      "source_github_skill_id": "analyzing-email-headers-for-phishing-investigation",
+      "spl_template_need": "planned"
+    },
+    {
+      "catalog_promotion_required": true,
+      "evidence_requirements": [
+        "file_rename_count",
+        "extension_pattern",
+        "affected_paths",
+        "process_name",
+        "shadow_copy_deletion_indicator",
+        "service_stop_event",
+        "encryption_behavior",
+        "impacted_host_count"
+      ],
+      "github_acceptance_not_runtime_activation": true,
+      "implementation_status": "content_added",
+      "mitre_metadata": {
+        "candidates": [
+          "T1486"
+        ],
+        "role": "metadata_not_evidence"
+      },
+      "proposed_display_name": "endpoint ransomware impact review",
+      "proposed_domain": "ransomware-defense",
+      "proposed_live_execution_skill": "attack_discovery",
+      "proposed_planning_skill": "ransomware_impact_review",
+      "proposed_subdomain": "impact-assessment",
+      "proposed_use_case_id": "endpoint_ransomware_impact_review",
+      "rag_sop_need": true,
+      "required_sources": [],
+      "runtime_support_status": "metadata_only",
+      "safety_notes": "Derived from curated enrichment metadata only; not catalog-promoted.",
+      "soc_approval_status": "needs_soc_review",
+      "source_github_skill_id": "analyzing-ransomware-encryption-mechanisms",
+      "spl_template_need": "planned"
+    },
+    {
+      "catalog_promotion_required": true,
+      "evidence_requirements": [
+        "alert_type",
+        "affected_asset",
+        "user",
+        "severity_policy_inputs",
+        "current_status",
+        "prior_related_alerts",
+        "containment_state"
+      ],
+      "github_acceptance_not_runtime_activation": true,
+      "implementation_status": "content_added",
+      "mitre_metadata": {
+        "candidates": [],
+        "role": "metadata_not_evidence"
+      },
+      "proposed_display_name": "soc incident triage",
+      "proposed_domain": "incident-response",
+      "proposed_live_execution_skill": "alert_summary",
+      "proposed_planning_skill": "incident_triage_playbook",
+      "proposed_subdomain": "incident-triage",
+      "proposed_use_case_id": "soc_incident_triage",
+      "rag_sop_need": true,
+      "required_sources": [],
+      "runtime_support_status": "metadata_only",
+      "safety_notes": "Derived from curated enrichment metadata only; not catalog-promoted.",
+      "soc_approval_status": "needs_soc_review",
+      "source_github_skill_id": "triaging-security-incident-with-ir-playbook",
+      "spl_template_need": "unavailable"
+    }
+  ],
   "question_rows": [
     {
       "answer_rules_status": "missing",
@@ -2949,13 +3149,16 @@
   ],
   "row_counts": {
     "catalog_use_cases": 46,
+    "discovery_skills": 754,
     "enrichment_only_use_cases": 3,
     "enrichment_records": 7,
     "github_skill_rows": 7,
+    "proposed_use_case_rows": 3,
     "question_rows": 105,
+    "triage_scores": 754,
     "use_case_rows": 49
   },
-  "schema_version": "2026-06-07-phase0-v1",
+  "schema_version": "2026-06-07-phase0b-v1",
   "use_case_rows": [
     {
       "answer_rules_status": "missing",

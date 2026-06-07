@@ -17,6 +17,11 @@ fail() {
   exit 1
 }
 
+section "github skill factory generators"
+python3 scripts/build_github_skill_discovery_index.py --check || fail "github discovery index stale"
+python3 scripts/score_github_skill_triage.py --check || fail "github triage scores stale"
+python3 scripts/build_github_skill_factory_artifacts.py --check || fail "github factory artifacts stale"
+
 section "soc capability crosswalk generator"
 python3 scripts/build_soc_capability_crosswalk.py --check || fail "soc capability crosswalk stale"
 

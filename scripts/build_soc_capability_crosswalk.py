@@ -24,11 +24,14 @@ RUNTIME_MAP_PATH = REPO_ROOT / "backend" / "app" / "coverage" / "question_runtim
 CATALOG_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "catalog.json"
 CONTENT_ENRICHMENT_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "content_enrichment.json"
 INTAKE_REGISTER_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_intake_register.json"
+DISCOVERY_INDEX_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_discovery_index.json"
+TRIAGE_SCORES_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_triage_scores.json"
+PROPOSED_USE_CASES_PATH = REPO_ROOT / "docs" / "skills" / "proposed_use_cases_from_github.json"
 SPL_TEMPLATES_PATH = REPO_ROOT / "backend" / "app" / "spl" / "templates.json"
 MATRIX_GENERATOR_PATH = REPO_ROOT / "scripts" / "build_skill_coverage_matrix.py"
 OUTPUT_PATH = REPO_ROOT / "docs" / "evals" / "soc_capability_crosswalk.json"
 
-SCHEMA_VERSION = "2026-06-07-phase0-v1"
+SCHEMA_VERSION = "2026-06-07-phase0b-v1"
 MITRE_METADATA_ROLE = "metadata_not_evidence"
 
 ALLOWED_LIVE_SKILLS = frozenset(
@@ -45,6 +48,11 @@ CATALOG_SKILL_COLLAPSE: dict[str, str] = {
 GITHUB_NOT_RUNTIME_NOTE = (
     "GitHub-derived skills are provenance/enrichment reference only; "
     "never runtime skills and never loaded as raw SKILL.md into prompts or RAG."
+)
+
+GITHUB_ACCEPTANCE_NOTE = (
+    "GitHub decision=accept means accepted_for_enrichment only — not runtime_active "
+    "and not a live execution skill."
 )
 
 
@@ -510,9 +518,46 @@ def _build_use_case_rows(
     return rows
 
 
+def _index_discovery(discovery: Any) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    if not isinstance(discovery, dict):
+        return index
+    for row in discovery.get("skills") or []:
+        if isinstance(row, dict) and row.get("github_skill_id"):
+            index[str(row["github_skill_id"])] = row
+    return index
+
+
+def _index_triage(triage: Any) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    if not isinstance(triage, dict):
+        return index
+    for row in triage.get("scores") or []:
+        if isinstance(row, dict) and row.get("github_skill_id"):
+            index[str(row["github_skill_id"])] = row
+    return index
+
+
+def _index_proposed_by_github_skill(proposed: Any) -> dict[str, list[str]]:
+    index: dict[str, list[str]] = {}
+    if not isinstance(proposed, dict):
+        return index
+    for row in proposed.get("proposed_use_cases") or []:
+        if not isinstance(row, dict):
+            continue
+        skill_id = row.get("source_github_skill_id")
+        proposed_id = row.get("proposed_use_case_id")
+        if isinstance(skill_id, str) and isinstance(proposed_id, str):
+            index.setdefault(skill_id, []).append(proposed_id)
+    return index
+
+
 def _build_github_skill_rows(
     register: dict[str, Any],
     enrichment_index: dict[str, dict[str, Any]],
+    discovery_index: dict[str, dict[str, Any]],
+    triage_index: dict[str, dict[str, Any]],
+    proposed_by_skill: dict[str, list[str]],
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for record in register.get("records") or []:
@@ -531,14 +576,23 @@ def _build_github_skill_rows(
         enrichment = enrichment_index.get(mapped_use_case_id) if mapped_use_case_id else None
         impl = record.get("implementation_status") if isinstance(record.get("implementation_status"), dict) else {}
         safety = record.get("safety_review") if isinstance(record.get("safety_review"), dict) else {}
+        discovery = discovery_index.get(str(github_skill_id)) if github_skill_id else None
+        triage = triage_index.get(str(github_skill_id)) if github_skill_id else None
+        proposed_ids = proposed_by_skill.get(str(github_skill_id), [])
         rows.append(
             {
                 "github_skill_id": github_skill_id,
                 "decision": record.get("decision"),
                 "review_status": record.get("review_status"),
+                "acceptance_means": (
+                    "accepted_for_enrichment_only"
+                    if record.get("decision") == "accept"
+                    else None
+                ),
                 "mapping_state": mapping_state,
                 "mapped_use_case_id": mapped_use_case_id,
                 "mapped_use_case_ids": internal_use_cases,
+                "proposed_use_case_ids": proposed_ids,
                 "runtime_skill": False,
                 "runtime_support_status": "metadata_only",
                 "validation_status": (
@@ -550,6 +604,15 @@ def _build_github_skill_rows(
                 "github_reuse_type": record.get("reuse_type"),
                 "no_runtime_markdown_loading": safety.get("no_runtime_markdown_loading", True),
                 "usage_note": GITHUB_NOT_RUNTIME_NOTE,
+                "acceptance_not_runtime_activation": GITHUB_ACCEPTANCE_NOTE,
+                "factory_visibility": {
+                    "discovery_present": discovery is not None,
+                    "discovery_review_status": discovery.get("review_status") if discovery else None,
+                    "triage_recommended_decision": triage.get("recommended_decision") if triage else None,
+                    "triage_priority": triage.get("priority") if triage else None,
+                    "triage_soc_relevance": triage.get("soc_relevance") if triage else None,
+                    "proposed_use_case_ids": proposed_ids,
+                },
                 "enrichment_linkage": {
                     "use_case_id": mapped_use_case_id,
                     "enrichment_present": enrichment is not None,
@@ -569,16 +632,33 @@ def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
     catalog = _load_json(CATALOG_PATH, warnings)
     enrichment = _load_json(CONTENT_ENRICHMENT_PATH, warnings)
     register = _load_json(INTAKE_REGISTER_PATH, warnings) or {}
+    discovery = _load_json(DISCOVERY_INDEX_PATH, warnings)
+    triage = _load_json(TRIAGE_SCORES_PATH, warnings)
+    proposed = _load_json(PROPOSED_USE_CASES_PATH, warnings)
+    if discovery is None:
+        warnings.append("Phase 0B discovery index missing; github factory_visibility will be partial")
+    if triage is None:
+        warnings.append("Phase 0B triage scores missing; github factory_visibility will be partial")
 
     catalog_index = _index_catalog(catalog, warnings)
     enrichment_index = _index_enrichment(enrichment, warnings)
     intake_by_use_case = _index_intake_by_use_case(register, warnings)
+    discovery_index = _index_discovery(discovery)
+    triage_index = _index_triage(triage)
+    proposed_by_skill = _index_proposed_by_github_skill(proposed)
 
     question_rows = _build_question_rows(
         matrix_rows, runtime_map, catalog_index, enrichment_index, intake_by_use_case
     )
     use_case_rows = _build_use_case_rows(catalog_index, enrichment_index, intake_by_use_case)
-    github_skill_rows = _build_github_skill_rows(register, enrichment_index)
+    github_skill_rows = _build_github_skill_rows(
+        register,
+        enrichment_index,
+        discovery_index,
+        triage_index,
+        proposed_by_skill,
+    )
+    proposed_use_case_rows = proposed.get("proposed_use_cases") if isinstance(proposed, dict) else []
 
     expected_questions = 105
     expected_use_cases = 49
@@ -606,15 +686,25 @@ def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
             "question_rows": len(question_rows),
             "use_case_rows": len(use_case_rows),
             "github_skill_rows": len(github_skill_rows),
+            "proposed_use_case_rows": len(proposed_use_case_rows or []),
             "catalog_use_cases": len(catalog_index),
             "enrichment_records": len(enrichment_index),
             "enrichment_only_use_cases": len(enrichment_index) - len(
                 set(enrichment_index) & set(catalog_index)
             ),
+            "discovery_skills": len(discovery_index),
+            "triage_scores": len(triage_index),
+        },
+        "factory_visibility": {
+            "discovery_index_present": discovery is not None,
+            "triage_scores_present": triage is not None,
+            "proposed_use_cases_present": proposed is not None,
+            "github_acceptance_not_runtime_activation": GITHUB_ACCEPTANCE_NOTE,
         },
         "question_rows": question_rows,
         "use_case_rows": use_case_rows,
         "github_skill_rows": github_skill_rows,
+        "proposed_use_case_rows": proposed_use_case_rows or [],
         "warnings": warnings,
     }
 

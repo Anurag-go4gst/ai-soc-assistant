@@ -31,7 +31,10 @@ const EXPORT_FILENAMES: Record<KnowledgeExportArtifact, string> = {
   use_case_catalog: 'ai_soc_use_case_catalog',
   soc_capability_crosswalk: 'ai_soc_soc_capability_crosswalk',
   skill_coverage_matrix: 'ai_soc_skill_coverage_matrix_105',
+  github_skill_discovery_index: 'ai_soc_github_skill_discovery_index',
+  github_skill_triage_scores: 'ai_soc_github_skill_triage_scores',
   github_skill_intake_register: 'ai_soc_github_skill_intake_register',
+  proposed_use_cases_from_github: 'ai_soc_proposed_use_cases_from_github',
   skill_enrichment_status_matrix: 'ai_soc_skill_enrichment_status_matrix',
   rejected_github_skills: 'ai_soc_rejected_github_skills',
   pending_skill_enrichment_backlog: 'ai_soc_pending_skill_enrichment_backlog',
@@ -170,6 +173,10 @@ export function KnowledgePage() {
                 <li>MITRE evidence status is a runtime decision from live /chat, not a static export claim.</li>
                 <li>GitHub references are provenance only and are not runtime authority.</li>
                 <li>GitHub SKILL.md files are not loaded into prompts or governed retrieval.</li>
+                <li>
+                  GitHub <span className="text-amber-200">accept</span> means accepted for curated enrichment
+                  only — not runtime_active and not a live execution skill.
+                </li>
                 <li>Skill enrichment metadata does not automatically enable live routing or execution.</li>
               </ul>
             </div>
@@ -200,16 +207,36 @@ export function KnowledgePage() {
                 onCsv={() => downloadExport('use_case_catalog', 'csv')}
               />
               <ExportBlock
+                title="GitHub Skill Discovery Index"
+                description="Phase 0B factory scan of local reference clone metadata (no raw SKILL.md bodies). Merges intake-register decisions."
+                badge="factory"
+                onJson={() => downloadExport('github_skill_discovery_index', 'json')}
+                onCsv={() => downloadExport('github_skill_discovery_index', 'csv')}
+              />
+              <ExportBlock
+                title="GitHub Skill Triage Scores"
+                description="Advisory triage scores for discovered skills. Does not auto-accept skills or enable runtime activation."
+                badge="factory"
+                onJson={() => downloadExport('github_skill_triage_scores', 'json')}
+                onCsv={() => downloadExport('github_skill_triage_scores', 'csv')}
+              />
+              <ExportBlock
                 title="GitHub Skill Intake Register"
-                description="Tracks accepted, rejected, deferred, and pending external GitHub skills used as reference/provenance only."
+                description="Tracks accepted-for-enrichment, rejected, deferred, and pending external GitHub skills used as reference/provenance only."
                 onJson={() => downloadExport('github_skill_intake_register', 'json')}
                 onCsv={() => downloadExport('github_skill_intake_register', 'csv')}
               />
               <ExportBlock
+                title="Proposed Use Cases from GitHub"
+                description="Enrichment-only / proposed internal use cases derived from GitHub references. Never runtime_active until catalog promotion and SOC approval."
+                onJson={() => downloadExport('proposed_use_cases_from_github', 'json')}
+                onCsv={() => downloadExport('proposed_use_cases_from_github', 'csv')}
+              />
+              <ExportBlock
                 title="Skill Enrichment Status Matrix"
-                description="Tracks internal use-case enrichment progress: MITRE, evidence, workflow, SPL, answer rules, RAG, and tests."
-                jsonOnly
+                description="JSON-backed enrichment implementation status per internal use case (MITRE metadata, evidence, workflow, SPL, tests)."
                 onJson={() => downloadExport('skill_enrichment_status_matrix', 'json')}
+                onCsv={() => downloadExport('skill_enrichment_status_matrix', 'csv')}
               />
               <ExportBlock
                 title="Rejected GitHub Skills"
@@ -219,9 +246,9 @@ export function KnowledgePage() {
               />
               <ExportBlock
                 title="Pending Skill Enrichment Backlog"
-                description="Tracks pending SOC skill areas and GitHub references awaiting review or implementation."
-                jsonOnly
+                description="JSON-backed advisory backlog of discovered GitHub skills awaiting human review (bounded export)."
                 onJson={() => downloadExport('pending_skill_enrichment_backlog', 'json')}
+                onCsv={() => downloadExport('pending_skill_enrichment_backlog', 'csv')}
               />
             </div>
           </CardContent>
@@ -372,7 +399,7 @@ function ExportBlock({
 }: {
   title: string;
   description: string;
-  badge?: 'recommended';
+  badge?: 'recommended' | 'factory';
   jsonOnly?: boolean;
   onJson: () => void;
   onCsv?: () => void;
@@ -384,6 +411,11 @@ function ExportBlock({
         {badge === 'recommended' ? (
           <Badge variant="success" className="text-[0.65rem]">
             recommended
+          </Badge>
+        ) : null}
+        {badge === 'factory' ? (
+          <Badge variant="secondary" className="text-[0.65rem]">
+            factory
           </Badge>
         ) : null}
       </div>
