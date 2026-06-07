@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 from app.auth.session import require_auth
 from app.chat.pipeline import build_live_chat_response
 from app.quality.store import post_chat_response
+from app.chat.session_context import clear_session
 from app.chat.progress_events import (
     QueueProgressBridge,
     _STREAM_CLOSED,
@@ -160,6 +161,7 @@ async def _sse_event_stream(request: ChatRequest) -> AsyncIterator[str]:
 @router.post("/chat/stream", dependencies=[Depends(require_auth)])
 async def chat_stream(request: ChatRequest) -> StreamingResponse:
     if is_clear_chat_command(request.message):
+        clear_session(request.session_id)
         payload = _clear_response(request).model_dump(mode="json")
 
         async def clear_events() -> AsyncIterator[str]:

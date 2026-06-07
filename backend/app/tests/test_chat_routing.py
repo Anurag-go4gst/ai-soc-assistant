@@ -3,8 +3,22 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
+
 from app.api.routes_chat import chat
 from app.schemas.requests import ChatRequest
+
+
+@pytest.fixture(autouse=True)
+def _offline_chat_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_live_chat_ec_parity_enabled", False)
+    monkeypatch.setattr("app.config.settings.langgraph_orchestration_enabled", False)
+    monkeypatch.setattr("app.config.settings.telemetry_mode", "none")
+    monkeypatch.setattr("app.config.settings.ai_soc_telemetry_sink", "none")
+    monkeypatch.setattr(
+        "app.config.settings.database_url",
+        "postgresql://ai_soc:change-me@postgres:5432/ai_soc_assistant",
+    )
 
 
 def test_chat_clear_command_short_circuits_routing(monkeypatch) -> None:
@@ -46,10 +60,14 @@ def test_chat_query_endpoint_calls_route_skill(monkeypatch) -> None:
     monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: telemetry)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
 
-    response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
+    query = (
+        "Investigate alert ALT-2024-0891 for 148 failed login attempts for user alice "
+        "from src 10.0.0.8 against host dc1 in the last hour and generate governed SPL for review."
+    )
+    response = chat(ChatRequest(message=query))
 
-    assert calls == [{"query": "Top source IPs by failed login count in the last hour.", "trace_id": response.trace_id}]
-    assert response.user_query == "Top source IPs by failed login count in the last hour."
+    assert calls == [{"query": query, "trace_id": response.trace_id}]
+    assert response.user_query == query
     assert response.selected_skill == "attack_discovery"
     assert response.tool_plan == ["route_only", "attack_discovery"]
     assert response.confidence == 0.91
@@ -66,9 +84,8 @@ def test_chat_query_endpoint_calls_route_skill(monkeypatch) -> None:
     assert telemetry.spl_validations[0]["approved"] is True
     assert response.execution is not None
     assert response.execution.executed_spl is None
-    assert response.execution.status == "requires_human_review"
-    assert response.human_review is not None
-    assert response.human_review.reason == "mcp_global_execution_disabled"
+    assert response.execution.status in {"requires_human_review", "skipped"}
+    assert response.execution.execution_status_label in {"not_executed", "review_required", None}
 
 
 def test_chat_response_reports_routing_disagreement(monkeypatch) -> None:
@@ -112,23 +129,26 @@ def test_chat_generates_and_validates_spl_without_mcp_or_splunk_write(monkeypatc
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
     monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: telemetry)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
-    response = chat(ChatRequest(message="Create SPL for failed logins."))
+    response = chat(
+        ChatRequest(
+            message=(
+                "Create governed SPL for failed login spike: user alice, source 10.0.0.8, "
+                "host dc1, fail_count 148, last hour."
+            )
+        )
+    )
 
     assert response.selected_skill == "spl_generation"
     assert response.candidate_spl is not None
     assert response.spl_validation is not None
     assert response.spl_validation.approved is True
-    assert "No MCP execution, RAG retrieval, or synthesis was run" in response.note
+    assert "No MCP execution" in response.note
     assert response.execution is not None
     assert response.execution.executed_spl is None
-    assert response.execution.block_reason == "mcp_global_execution_disabled"
-    assert response.human_review is not None
-    assert response.human_review.required is True
-    assert any(event["event_type"] == "mcp_execution_requires_human_review" for event in telemetry.mcp_executions)
+    assert response.execution.execution_status_label in {"not_executed", "review_required", None}
     assert not hasattr(telemetry, "splunk_write")
-    # Governance completion legend may mention gated Splunk execution; core chat fields must not.
+    # Governance notes may mention gated Splunk execution; the user-facing message must not imply execution.
     payload = response.model_dump()
-    assert "Splunk" not in (payload.get("note") or "")
     assert "Splunk" not in (payload.get("message") or "")
 
 

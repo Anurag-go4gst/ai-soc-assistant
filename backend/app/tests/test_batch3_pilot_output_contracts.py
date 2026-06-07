@@ -52,6 +52,14 @@ UNSAFE_PHRASES = (
 @pytest.fixture(autouse=True)
 def _enable_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
+    monkeypatch.setattr("app.config.settings.ai_soc_live_chat_ec_parity_enabled", False)
+    monkeypatch.setattr("app.config.settings.langgraph_orchestration_enabled", False)
+    monkeypatch.setattr("app.config.settings.telemetry_mode", "none")
+    monkeypatch.setattr("app.config.settings.ai_soc_telemetry_sink", "none")
+    monkeypatch.setattr(
+        "app.config.settings.database_url",
+        "postgresql://ai_soc:change-me@postgres:5432/ai_soc_assistant",
+    )
 
 
 def _chat(query: str):

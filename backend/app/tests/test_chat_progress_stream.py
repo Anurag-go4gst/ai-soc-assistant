@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 
 import pytest
@@ -9,6 +10,7 @@ from app.auth.session import require_auth
 import time
 
 from app.chat.progress_events import ProgressReporter, QueueProgressBridge, _STREAM_CLOSED
+from app.chat.session_store import SessionPins, get_session_pins, save_session_pins
 from app.main import app
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
@@ -69,59 +71,105 @@ def test_bridge_poll_timeout_is_not_stream_end() -> None:
     assert bridge.drain(block=True, timeout=0.05) is _STREAM_CLOSED
 
 
+def _bridge_events(bridge: QueueProgressBridge) -> list[dict]:
+    events: list[dict] = []
+    deadline = time.monotonic() + 2.0
+    while True:
+        item = bridge.drain(block=False, timeout=None)
+        if item is None:
+            if time.monotonic() > deadline:
+                raise AssertionError("stream bridge did not close")
+            continue
+        if item is _STREAM_CLOSED:
+            return events
+        events.append(item)
+
+
+async def _collect_stream_events(iterator) -> list[dict]:
+    events: list[dict] = []
+    async for chunk in iterator:
+        for frame in str(chunk).split("\n\n"):
+            if not frame.startswith("data:"):
+                continue
+            events.append(json.loads(frame[5:].strip()))
+    return events
+
+
+async def _collect_response_events(response) -> list[dict]:
+    return await _collect_stream_events(response.body_iterator)
+
+
 def test_chat_stream_waits_for_slow_worker(
     monkeypatch: pytest.MonkeyPatch,
-    authed_client: TestClient,
 ) -> None:
     from app.api import routes_chat_stream as stream_mod
 
-    def fake_run(request: ChatRequest, bridge) -> None:
-        reporter = bridge.reporter()
+    def fake_build(request: ChatRequest, progress=None) -> PlaceholderResponse:
+        reporter = progress
+        assert reporter is not None
         reporter.stage("queued")
-        time.sleep(0.9)
-        reporter.final(PlaceholderResponse(trace_id="slow", message="done", note="n"))
+        time.sleep(0.05)
+        return PlaceholderResponse(trace_id="slow", message="done", note="n")
 
-    monkeypatch.setattr(stream_mod, "_run_chat_with_progress", fake_run)
-    response = authed_client.post("/api/chat/stream", json={"message": "slow"})
-    assert response.status_code == 200
-    assert '"type": "final"' in response.text
-    assert "slow" in response.text
+    monkeypatch.setattr(stream_mod, "build_live_chat_response", fake_build)
+    monkeypatch.setattr(stream_mod, "_finalize_stream_response", lambda request, response: response)
+    monkeypatch.setattr(stream_mod.settings, "ai_soc_live_chat_ec_parity_enabled", False)
+    monkeypatch.setattr(stream_mod.settings, "langgraph_orchestration_enabled", False)
+    bridge = QueueProgressBridge()
+    stream_mod._run_chat_with_progress(ChatRequest(message="slow"), bridge)
+    events = _bridge_events(bridge)
+    final = next(event for event in events if event.get("type") == "final")
+    assert final["response"]["trace_id"] == "slow"
 
 
-def test_chat_stream_clear_command(authed_client: TestClient) -> None:
-    response = authed_client.post("/api/chat/stream", json={"message": "/clear"})
-    assert response.status_code == 200
-    body = response.text
-    assert '"type": "final"' in body
-    assert '"stage": "completed"' in body
+def test_chat_stream_clear_command() -> None:
+    from app.api import routes_chat_stream as stream_mod
+
+    response = asyncio.run(stream_mod.chat_stream(ChatRequest(message="/clear")))
+    events = asyncio.run(_collect_response_events(response))
+    assert any(event.get("type") == "final" and event.get("stage") == "completed" for event in events)
+
+
+def test_chat_stream_clear_command_deletes_session_pins() -> None:
+    from app.api import routes_chat_stream as stream_mod
+
+    save_session_pins(SessionPins(session_id="stream-clear-session", last_alert_id="ALT-2026-7"))
+    assert get_session_pins("stream-clear-session") is not None
+
+    response = asyncio.run(
+        stream_mod.chat_stream(ChatRequest(message="/clear", session_id="stream-clear-session"))
+    )
+
+    events = asyncio.run(_collect_response_events(response))
+    assert any(event.get("type") == "final" for event in events)
+    assert get_session_pins("stream-clear-session") is None
 
 
 def test_chat_stream_emits_progress_before_final(
     monkeypatch: pytest.MonkeyPatch,
-    authed_client: TestClient,
 ) -> None:
     from app.api import routes_chat_stream as stream_mod
 
     seen: list[str] = []
 
-    def fake_run(request: ChatRequest, bridge) -> None:
-        reporter = bridge.reporter()
+    def fake_build(request: ChatRequest, progress=None) -> PlaceholderResponse:
+        reporter = progress
+        assert reporter is not None
         reporter.stage("understanding_query")
         reporter.stage("generating_answer")
         reporter.heartbeat("generating_answer", "Still generating the final governed answer...")
-        reporter.final(
-            PlaceholderResponse(trace_id="trace-stream", message="done", note="n"),
-        )
+        return PlaceholderResponse(trace_id="trace-stream", message="done", note="n")
 
-    monkeypatch.setattr(stream_mod, "_run_chat_with_progress", fake_run)
+    monkeypatch.setattr(stream_mod, "build_live_chat_response", fake_build)
+    monkeypatch.setattr(stream_mod, "_finalize_stream_response", lambda request, response: response)
+    monkeypatch.setattr(stream_mod.settings, "ai_soc_live_chat_ec_parity_enabled", False)
+    monkeypatch.setattr(stream_mod.settings, "langgraph_orchestration_enabled", False)
 
-    response = authed_client.post("/api/chat/stream", json={"message": "hello"})
-    assert response.status_code == 200
+    bridge = QueueProgressBridge()
+    stream_mod._run_chat_with_progress(ChatRequest(message="hello"), bridge)
+    events = _bridge_events(bridge)
     stages: list[str] = []
-    for chunk in response.text.split("\n\n"):
-        if not chunk.startswith("data:"):
-            continue
-        payload = json.loads(chunk[5:].strip())
+    for payload in events:
         if payload.get("type") == "progress":
             stages.append(payload["stage"])
         if payload.get("type") == "final":
