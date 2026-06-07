@@ -16,6 +16,7 @@ _REPO_ROOT_CANDIDATES = (
 )
 
 _SKILL_COVERAGE_PATH = "docs/evals/skill_coverage_matrix.json"
+_SOC_CAPABILITY_CROSSWALK_PATH = "docs/evals/soc_capability_crosswalk.json"
 _GITHUB_INTAKE_PATH = "docs/skills/github_skill_intake_register.json"
 _ENRICHMENT_STATUS_MD = "docs/skills/skill_enrichment_status_matrix.md"
 _REJECTED_SKILLS_MD = "docs/skills/rejected_github_skills.md"
@@ -50,6 +51,77 @@ def build_skill_coverage_export_payload() -> dict[str, Any]:
         "mitre_metadata_role": MITRE_METADATA_ROLE,
         "row_count": len(rows),
         "rows": rows,
+    }
+
+
+def load_soc_capability_crosswalk() -> dict[str, Any]:
+    path = repo_root() / _SOC_CAPABILITY_CROSSWALK_PATH
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
+def build_soc_capability_crosswalk_export_payload() -> dict[str, Any]:
+    crosswalk = load_soc_capability_crosswalk()
+    row_counts = crosswalk.get("row_counts") if isinstance(crosswalk.get("row_counts"), dict) else {}
+    return {
+        "artifact": "soc_capability_crosswalk",
+        "source_file": _SOC_CAPABILITY_CROSSWALK_PATH,
+        "schema_version": crosswalk.get("schema_version"),
+        "generated_at": crosswalk.get("generated_at"),
+        "mitre_metadata_role": crosswalk.get("mitre_metadata_role", MITRE_METADATA_ROLE),
+        "allowed_live_execution_skills": crosswalk.get("allowed_live_execution_skills") or [],
+        "row_counts": row_counts,
+        "question_rows": crosswalk.get("question_rows") or [],
+        "use_case_rows": crosswalk.get("use_case_rows") or [],
+        "github_skill_rows": crosswalk.get("github_skill_rows") or [],
+        "warnings": crosswalk.get("warnings") or [],
+    }
+
+
+def soc_capability_crosswalk_csv_rows() -> list[dict[str, Any]]:
+    crosswalk = load_soc_capability_crosswalk()
+    rows: list[dict[str, Any]] = []
+    for kind, items in (
+        ("question", crosswalk.get("question_rows") or []),
+        ("use_case", crosswalk.get("use_case_rows") or []),
+        ("github_skill", crosswalk.get("github_skill_rows") or []),
+    ):
+        for item in items:
+            if isinstance(item, dict):
+                rows.append({"row_kind": kind, **_soc_capability_crosswalk_csv_row(item)})
+    return rows
+
+
+def _soc_capability_crosswalk_csv_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "question_id": row.get("question_id"),
+        "question": row.get("question"),
+        "question_match_status": row.get("question_match_status"),
+        "use_case_id": row.get("use_case_id"),
+        "catalog_present": row.get("catalog_present"),
+        "enrichment_present": row.get("enrichment_present"),
+        "mapping_status": row.get("mapping_status"),
+        "mapping_confidence": row.get("mapping_confidence"),
+        "live_execution_skill": row.get("live_execution_skill"),
+        "planning_or_analytic_skill": row.get("planning_or_analytic_skill"),
+        "github_reference_skills": _join(row.get("github_reference_skills")),
+        "github_reuse_type": _join(row.get("github_reuse_type")),
+        "spl_template_id": row.get("spl_template_id"),
+        "spl_template_status": row.get("spl_template_status"),
+        "mitre_metadata_role": row.get("mitre_metadata_role") or MITRE_METADATA_ROLE,
+        "mitre_candidates": _join(row.get("mitre_candidates")),
+        "mitre_blocked": _join(row.get("mitre_blocked")),
+        "evidence_requirements": _json_cell(row.get("evidence_requirements")),
+        "investigation_workflow_status": row.get("investigation_workflow_status"),
+        "answer_rules_status": row.get("answer_rules_status"),
+        "rag_status": row.get("rag_status"),
+        "runtime_support_status": row.get("runtime_support_status"),
+        "validation_status": row.get("validation_status"),
+        "tests_added": row.get("tests_added"),
+        "github_skill_id": row.get("github_skill_id"),
+        "decision": row.get("decision"),
+        "mapping_state": row.get("mapping_state"),
+        "runtime_skill": row.get("runtime_skill"),
     }
 
 

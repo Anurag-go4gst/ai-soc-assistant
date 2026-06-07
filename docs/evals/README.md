@@ -22,6 +22,22 @@ Expected green counts: [`regression_baseline.md`](regression_baseline.md).
 |--------|---------|
 | [`scripts/run_stage3_governance_regression.sh`](../../scripts/run_stage3_governance_regression.sh) | CI/local regression bundle |
 | [`scripts/eval_stage3l_105_question_shadow_routes.py`](../../scripts/eval_stage3l_105_question_shadow_routes.py) | 105-Q shadow governance eval |
+| [`scripts/build_soc_capability_crosswalk.py`](../../scripts/build_soc_capability_crosswalk.py) | Phase 0 offline SOC Capability Crosswalk generator |
+| [`scripts/build_skill_coverage_matrix.py`](../../scripts/build_skill_coverage_matrix.py) | Legacy 105-question skill coverage matrix generator |
+
+## Phase 0 artifacts
+
+| Artifact | Rows | Role |
+|----------|------|------|
+| [`soc_capability_crosswalk.json`](soc_capability_crosswalk.json) | 105 + 49 + 7 | Canonical mapping spine for SOC review, Knowledge export, and later planner phases |
+| [`skill_coverage_matrix.json`](skill_coverage_matrix.json) | 105 | Legacy question-centric coverage view (retained for backward compatibility) |
+
+Regenerate crosswalk after source JSON changes:
+
+```bash
+python3 scripts/build_soc_capability_crosswalk.py
+python3 scripts/build_soc_capability_crosswalk.py --check
+```
 
 ## Inputs
 

@@ -76,6 +76,17 @@ def test_use_case_catalog_includes_enrichment_only_pilots() -> None:
     assert pilot.get("enrichment_present") is True
 
 
+def test_soc_capability_crosswalk_json_export_contains_expected_rows() -> None:
+    response = export_mapping_artifact("soc_capability_crosswalk", file_format="json")
+    payload = json.loads(response.body)
+
+    assert payload["artifact"] == "soc_capability_crosswalk"
+    assert payload["row_counts"]["question_rows"] == 105
+    assert payload["row_counts"]["use_case_rows"] == 49
+    assert payload["row_counts"]["github_skill_rows"] == 7
+    assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
+
+
 def test_skill_coverage_matrix_json_export_contains_105_rows() -> None:
     response = export_mapping_artifact("skill_coverage_matrix", file_format="json")
     payload = json.loads(response.body)

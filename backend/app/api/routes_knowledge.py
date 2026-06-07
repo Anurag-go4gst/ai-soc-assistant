@@ -18,12 +18,14 @@ from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.knowledge.validation import llm_import_contract, parse_import_payload, validate_import_batch
 from app.knowledge.mapping_exports import (
     MITRE_METADATA_ROLE,
+    build_soc_capability_crosswalk_export_payload,
     build_skill_coverage_export_payload,
     github_intake_csv_rows,
     load_github_intake_register,
     load_markdown_export,
     load_use_case_catalog_export_rows,
     skill_coverage_csv_rows,
+    soc_capability_crosswalk_csv_rows,
     use_case_catalog_csv_row,
 )
 
@@ -196,6 +198,10 @@ def export_mapping_artifact(
         }
         csv_rows = [use_case_catalog_csv_row(row) for row in rows]
         filename = f"ai_soc_use_case_catalog.{file_format}"
+    elif normalized in {"soc_capability_crosswalk", "capability_crosswalk", "crosswalk"}:
+        payload = build_soc_capability_crosswalk_export_payload()
+        csv_rows = soc_capability_crosswalk_csv_rows()
+        filename = f"ai_soc_soc_capability_crosswalk.{file_format}"
     elif normalized in {"skill_coverage_matrix", "coverage_matrix", "105_coverage"}:
         payload = build_skill_coverage_export_payload()
         csv_rows = skill_coverage_csv_rows()

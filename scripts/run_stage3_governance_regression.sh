@@ -17,6 +17,9 @@ fail() {
   exit 1
 }
 
+section "soc capability crosswalk generator"
+python3 scripts/build_soc_capability_crosswalk.py --check || fail "soc capability crosswalk stale"
+
 section "backend pytest"
 (cd backend && python3 -m pytest -q) || fail "backend pytest"
 

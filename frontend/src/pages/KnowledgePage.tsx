@@ -29,6 +29,7 @@ import type {
 const EXPORT_FILENAMES: Record<KnowledgeExportArtifact, string> = {
   question_runtime_map: 'ai_soc_question_runtime_map_105',
   use_case_catalog: 'ai_soc_use_case_catalog',
+  soc_capability_crosswalk: 'ai_soc_soc_capability_crosswalk',
   skill_coverage_matrix: 'ai_soc_skill_coverage_matrix_105',
   github_skill_intake_register: 'ai_soc_github_skill_intake_register',
   skill_enrichment_status_matrix: 'ai_soc_skill_enrichment_status_matrix',
@@ -174,9 +175,15 @@ export function KnowledgePage() {
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
               <ExportBlock
-                title="105 Question Coverage Matrix"
-                description="Maps 105 questions to live skill, planning skill, mapping status, SPL template status, GitHub references, enrichment status, and MITRE metadata."
+                title="SOC Capability Crosswalk"
+                description="Canonical Phase 0 mapping spine: 105 questions, 49 use-case export rows, 7 GitHub enrichments, runtime_support_status, validation_status, and MITRE metadata role."
                 badge="recommended"
+                onJson={() => downloadExport('soc_capability_crosswalk', 'json')}
+                onCsv={() => downloadExport('soc_capability_crosswalk', 'csv')}
+              />
+              <ExportBlock
+                title="105 Question Coverage Matrix"
+                description="Legacy 105-question coverage view: live skill, planning skill, mapping status, SPL template status, GitHub references, enrichment status, and MITRE metadata."
                 onJson={() => downloadExport('skill_coverage_matrix', 'json')}
                 onCsv={() => downloadExport('skill_coverage_matrix', 'csv')}
               />

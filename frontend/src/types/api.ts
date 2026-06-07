@@ -1172,6 +1172,7 @@ export interface ProviderDraftCheckResult {
 export type KnowledgeExportArtifact =
   | 'question_runtime_map'
   | 'use_case_catalog'
+  | 'soc_capability_crosswalk'
   | 'skill_coverage_matrix'
   | 'github_skill_intake_register'
   | 'skill_enrichment_status_matrix'
