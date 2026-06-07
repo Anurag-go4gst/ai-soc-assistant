@@ -1169,6 +1169,15 @@ export interface ProviderDraftCheckResult {
   safe_message: string;
 }
 
+export type KnowledgeExportArtifact =
+  | 'question_runtime_map'
+  | 'use_case_catalog'
+  | 'skill_coverage_matrix'
+  | 'github_skill_intake_register'
+  | 'skill_enrichment_status_matrix'
+  | 'rejected_github_skills'
+  | 'pending_skill_enrichment_backlog';
+
 export interface KnowledgeCollection {
   collection_id: string;
   name: string;

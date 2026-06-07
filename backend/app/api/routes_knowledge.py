@@ -16,7 +16,16 @@ from app.knowledge.soc_kb_intake_template import build_soc_kb_intake_template, s
 from app.knowledge.repository import get_knowledge_repository
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.knowledge.validation import llm_import_contract, parse_import_payload, validate_import_batch
-from app.use_cases.registry import load_use_case_catalog
+from app.knowledge.mapping_exports import (
+    MITRE_METADATA_ROLE,
+    build_skill_coverage_export_payload,
+    github_intake_csv_rows,
+    load_github_intake_register,
+    load_markdown_export,
+    load_use_case_catalog_export_rows,
+    skill_coverage_csv_rows,
+    use_case_catalog_csv_row,
+)
 
 router = APIRouter(dependencies=[Depends(require_auth)])
 
@@ -160,29 +169,70 @@ def export_mapping_artifact(
 ) -> Response:
     """Download governed mapping/catalog artifacts for analyst review."""
     normalized = artifact.strip().lower().replace("-", "_")
+    csv_rows: list[dict[str, Any]] | None = None
+    payload: dict[str, Any]
+    filename: str
+
     if normalized in {"question_runtime_map", "105_questions", "questions"}:
         rows = list_question_runtime_entries()
         payload = {
             "artifact": "question_runtime_map",
+            "export_kind": "legacy_base",
             "format_version": load_question_runtime_map().get("map_version"),
+            "mitre_metadata_role": MITRE_METADATA_ROLE,
             "row_count": len(rows),
             "rows": rows,
         }
         csv_rows = [_question_export_row(row) for row in rows]
         filename = f"ai_soc_question_runtime_map_105.{file_format}"
     elif normalized in {"use_case_catalog", "use_cases", "catalog"}:
-        rows = [item.model_dump() for item in load_use_case_catalog()]
+        rows = load_use_case_catalog_export_rows()
         payload = {
             "artifact": "use_case_catalog",
+            "export_kind": "catalog_with_enrichment_join",
+            "mitre_metadata_role": MITRE_METADATA_ROLE,
             "row_count": len(rows),
             "rows": rows,
         }
-        csv_rows = [_use_case_export_row(row) for row in rows]
+        csv_rows = [use_case_catalog_csv_row(row) for row in rows]
         filename = f"ai_soc_use_case_catalog.{file_format}"
+    elif normalized in {"skill_coverage_matrix", "coverage_matrix", "105_coverage"}:
+        payload = build_skill_coverage_export_payload()
+        csv_rows = skill_coverage_csv_rows()
+        filename = f"ai_soc_skill_coverage_matrix_105.{file_format}"
+    elif normalized in {"github_skill_intake_register", "github_intake", "skill_intake_register"}:
+        register = load_github_intake_register()
+        records = register.get("records") or []
+        payload = {
+            "artifact": "github_skill_intake_register",
+            "source_file": "docs/skills/github_skill_intake_register.json",
+            "usage_rule": register.get("usage_rule"),
+            "row_count": len(records) if isinstance(records, list) else 0,
+            "records": records,
+        }
+        csv_rows = github_intake_csv_rows()
+        filename = f"ai_soc_github_skill_intake_register.{file_format}"
+    elif normalized in {"skill_enrichment_status_matrix", "enrichment_status_matrix"}:
+        payload = load_markdown_export("docs/skills/skill_enrichment_status_matrix.md")
+        filename = "ai_soc_skill_enrichment_status_matrix.json"
+        if file_format == "csv":
+            raise HTTPException(status_code=400, detail="markdown_artifact_json_only")
+    elif normalized in {"rejected_github_skills", "rejected_skills"}:
+        payload = load_markdown_export("docs/skills/rejected_github_skills.md")
+        filename = "ai_soc_rejected_github_skills.json"
+        if file_format == "csv":
+            raise HTTPException(status_code=400, detail="markdown_artifact_json_only")
+    elif normalized in {"pending_skill_enrichment_backlog", "pending_backlog", "skill_backlog"}:
+        payload = load_markdown_export("docs/skills/pending_skill_enrichment_backlog.md")
+        filename = "ai_soc_pending_skill_enrichment_backlog.json"
+        if file_format == "csv":
+            raise HTTPException(status_code=400, detail="markdown_artifact_json_only")
     else:
         raise HTTPException(status_code=404, detail="unknown_export_artifact")
 
     if file_format == "csv":
+        if csv_rows is None:
+            raise HTTPException(status_code=400, detail="csv_not_supported_for_artifact")
         return _csv_response(csv_rows, filename)
     return Response(
         content=json.dumps(payload, indent=2, sort_keys=True),
@@ -271,34 +321,7 @@ def _question_export_row(row: dict[str, Any]) -> dict[str, Any]:
         "mitre_requires_alert_context": row.get("mitre_requires_alert_context"),
         "mitre_visibility_policy": row.get("mitre_visibility_policy"),
         "mitre_blocked_rationale": _json_cell(registry.get("blocked_rationale")),
-    }
-
-
-def _use_case_export_row(row: dict[str, Any]) -> dict[str, Any]:
-    registry = row.get("mitre_registry") if isinstance(row.get("mitre_registry"), dict) else {}
-    return {
-        "use_case_id": row.get("use_case_id"),
-        "display_name": row.get("display_name"),
-        "category": row.get("category"),
-        "primary_skill": row.get("primary_skill"),
-        "secondary_skills": _join(row.get("secondary_skills")),
-        "intent_patterns": _join(row.get("intent_patterns")),
-        "example_queries": _join(row.get("example_queries")),
-        "required_sources": _join(row.get("required_sources")),
-        "optional_sources": _join(row.get("optional_sources")),
-        "default_spl_template": row.get("default_spl_template"),
-        "rag_collections": _join(row.get("rag_collections")),
-        "mitre_candidates": _join(row.get("mitre_candidates")),
-        "mitre_registry_permitted": _join(registry.get("permitted")),
-        "mitre_registry_candidate": _join(registry.get("candidate")),
-        "mitre_registry_blocked": _join(registry.get("blocked") or row.get("mitre_blocked")),
-        "mitre_requires_evidence": row.get("mitre_requires_evidence"),
-        "mitre_requires_alert_context": row.get("mitre_requires_alert_context"),
-        "mitre_visibility_policy": row.get("mitre_visibility_policy"),
-        "mitre_blocked_rationale": _json_cell(registry.get("blocked_rationale")),
-        "severity_policy": _json_cell(row.get("severity_policy")),
-        "action_capability_tier": row.get("action_capability_tier"),
-        "output_template": row.get("output_template"),
+        "mitre_metadata_role": MITRE_METADATA_ROLE,
     }
 
 

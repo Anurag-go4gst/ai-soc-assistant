@@ -18,6 +18,7 @@ import type {
   ProviderSettingsStatus,
   QualityFlaggedTurnsResponse,
   SettingsStatus,
+  KnowledgeExportArtifact,
 } from '../types/api';
 
 const API_BASE_URL = getApiBaseUrl();
@@ -296,7 +297,7 @@ export async function publishKnowledgeImport(payload: Record<string, unknown>): 
 }
 
 export async function downloadKnowledgeExport(
-  artifact: 'question_runtime_map' | 'use_case_catalog',
+  artifact: KnowledgeExportArtifact,
   fileFormat: 'json' | 'csv',
 ): Promise<Blob> {
   const response = await fetch(`${API_BASE_URL}/knowledge/exports/${artifact}?file_format=${fileFormat}`, {

@@ -18,7 +18,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import type { KnowledgeCollection, KnowledgeDocument, KnowledgeEntry, SettingsStatus } from '@/types/api';
+import type {
+  KnowledgeCollection,
+  KnowledgeDocument,
+  KnowledgeEntry,
+  KnowledgeExportArtifact,
+  SettingsStatus,
+} from '@/types/api';
+
+const EXPORT_FILENAMES: Record<KnowledgeExportArtifact, string> = {
+  question_runtime_map: 'ai_soc_question_runtime_map_105',
+  use_case_catalog: 'ai_soc_use_case_catalog',
+  skill_coverage_matrix: 'ai_soc_skill_coverage_matrix_105',
+  github_skill_intake_register: 'ai_soc_github_skill_intake_register',
+  skill_enrichment_status_matrix: 'ai_soc_skill_enrichment_status_matrix',
+  rejected_github_skills: 'ai_soc_rejected_github_skills',
+  pending_skill_enrichment_backlog: 'ai_soc_pending_skill_enrichment_backlog',
+};
 
 export function KnowledgePage() {
   const [collections, setCollections] = useState<KnowledgeCollection[]>([]);
@@ -101,16 +117,13 @@ export function KnowledgePage() {
     }
   };
 
-  const downloadExport = async (
-    artifact: 'question_runtime_map' | 'use_case_catalog',
-    fileFormat: 'json' | 'csv',
-  ) => {
+  const downloadExport = async (artifact: KnowledgeExportArtifact, fileFormat: 'json' | 'csv') => {
     try {
       const blob = await downloadKnowledgeExport(artifact, fileFormat);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${artifact === 'question_runtime_map' ? 'ai_soc_question_runtime_map_105' : 'ai_soc_use_case_catalog'}.${fileFormat}`;
+      link.download = `${EXPORT_FILENAMES[artifact]}.${fileFormat}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -145,19 +158,65 @@ export function KnowledgePage() {
               <Download className="h-4 w-4 text-cyan-400" /> Mapping Exports
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 lg:grid-cols-2">
-            <ExportBlock
-              title="105 question runtime map"
-              description="Question, runtime operation, routing status, and governed MITRE metadata."
-              onJson={() => downloadExport('question_runtime_map', 'json')}
-              onCsv={() => downloadExport('question_runtime_map', 'csv')}
-            />
-            <ExportBlock
-              title="Use-case catalog"
-              description="Use-case routing patterns, source requirements, templates, and MITRE candidates."
-              onJson={() => downloadExport('use_case_catalog', 'json')}
-              onCsv={() => downloadExport('use_case_catalog', 'csv')}
-            />
+          <CardContent className="space-y-4">
+            <div className="rounded border border-amber-900/50 bg-amber-950/20 p-3 text-xs text-amber-100/90">
+              <p className="font-medium text-amber-200">Export governance notes</p>
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                <li>
+                  <span className="text-amber-200">mitre_permitted</span> and registry fields are metadata only — not
+                  observed evidence.
+                </li>
+                <li>MITRE evidence status is a runtime decision from live /chat, not a static export claim.</li>
+                <li>GitHub references are provenance only and are not runtime authority.</li>
+                <li>GitHub SKILL.md files are not loaded into prompts or governed retrieval.</li>
+                <li>Skill enrichment metadata does not automatically enable live routing or execution.</li>
+              </ul>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <ExportBlock
+                title="105 Question Coverage Matrix"
+                description="Maps 105 questions to live skill, planning skill, mapping status, SPL template status, GitHub references, enrichment status, and MITRE metadata."
+                badge="recommended"
+                onJson={() => downloadExport('skill_coverage_matrix', 'json')}
+                onCsv={() => downloadExport('skill_coverage_matrix', 'csv')}
+              />
+              <ExportBlock
+                title="105 question runtime map (legacy base)"
+                description="Stage 3L runtime operation map: question, routing status, and governed MITRE registry metadata. Use the coverage matrix for enrichment joins."
+                onJson={() => downloadExport('question_runtime_map', 'json')}
+                onCsv={() => downloadExport('question_runtime_map', 'csv')}
+              />
+              <ExportBlock
+                title="Use-case catalog (with enrichment join)"
+                description="Catalog rows joined with content_enrichment metadata: domain, GitHub refs, evidence, workflow, SPL status, and preserved mitre_registry."
+                onJson={() => downloadExport('use_case_catalog', 'json')}
+                onCsv={() => downloadExport('use_case_catalog', 'csv')}
+              />
+              <ExportBlock
+                title="GitHub Skill Intake Register"
+                description="Tracks accepted, rejected, deferred, and pending external GitHub skills used as reference/provenance only."
+                onJson={() => downloadExport('github_skill_intake_register', 'json')}
+                onCsv={() => downloadExport('github_skill_intake_register', 'csv')}
+              />
+              <ExportBlock
+                title="Skill Enrichment Status Matrix"
+                description="Tracks internal use-case enrichment progress: MITRE, evidence, workflow, SPL, answer rules, RAG, and tests."
+                jsonOnly
+                onJson={() => downloadExport('skill_enrichment_status_matrix', 'json')}
+              />
+              <ExportBlock
+                title="Rejected GitHub Skills"
+                description="Documents skills or sections rejected for safety, offensive content, unsupported execution, or non-demo suitability."
+                jsonOnly
+                onJson={() => downloadExport('rejected_github_skills', 'json')}
+              />
+              <ExportBlock
+                title="Pending Skill Enrichment Backlog"
+                description="Tracks pending SOC skill areas and GitHub references awaiting review or implementation."
+                jsonOnly
+                onJson={() => downloadExport('pending_skill_enrichment_backlog', 'json')}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -299,22 +358,35 @@ function Meta({ label, value }: { label: string; value: string }) {
 function ExportBlock({
   title,
   description,
+  badge,
+  jsonOnly = false,
   onJson,
   onCsv,
 }: {
   title: string;
   description: string;
+  badge?: 'recommended';
+  jsonOnly?: boolean;
   onJson: () => void;
-  onCsv: () => void;
+  onCsv?: () => void;
 }) {
   return (
     <div className="rounded border border-slate-800 bg-slate-950 p-3 text-xs">
-      <p className="font-medium text-slate-100">{title}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="font-medium text-slate-100">{title}</p>
+        {badge === 'recommended' ? (
+          <Badge variant="success" className="text-[0.65rem]">
+            recommended
+          </Badge>
+        ) : null}
+      </div>
       <p className="mt-1 text-slate-400">{description}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="outline" onClick={onCsv}>
-          <Download className="mr-1 h-3 w-3" /> CSV
-        </Button>
+        {!jsonOnly && onCsv ? (
+          <Button type="button" size="sm" variant="outline" onClick={onCsv}>
+            <Download className="mr-1 h-3 w-3" /> CSV
+          </Button>
+        ) : null}
         <Button type="button" size="sm" variant="outline" onClick={onJson}>
           <Download className="mr-1 h-3 w-3" /> JSON
         </Button>

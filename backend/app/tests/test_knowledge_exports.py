@@ -6,7 +6,11 @@ import csv
 import io
 import json
 
+import pytest
+from fastapi import HTTPException
+
 from app.api.routes_knowledge import export_mapping_artifact
+from app.knowledge.mapping_exports import MITRE_METADATA_ROLE
 
 
 def test_question_runtime_map_json_export_contains_105_rows() -> None:
@@ -14,6 +18,8 @@ def test_question_runtime_map_json_export_contains_105_rows() -> None:
     payload = json.loads(response.body)
 
     assert payload["artifact"] == "question_runtime_map"
+    assert payload["export_kind"] == "legacy_base"
+    assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
     assert payload["row_count"] == 105
     assert len(payload["rows"]) == 105
     assert "attachment" in response.headers["content-disposition"]
@@ -26,6 +32,7 @@ def test_question_runtime_map_csv_export_is_excel_friendly() -> None:
     assert len(rows) == 105
     assert rows[0]["question_ref"].startswith("q0.q")
     assert "mitre_registry_permitted" in rows[0]
+    assert rows[0]["mitre_metadata_role"] == MITRE_METADATA_ROLE
     assert response.media_type == "text/csv"
 
 
@@ -34,6 +41,106 @@ def test_use_case_catalog_exports_current_catalog_rows() -> None:
     payload = json.loads(response.body)
 
     assert payload["artifact"] == "use_case_catalog"
+    assert payload["export_kind"] == "catalog_with_enrichment_join"
+    assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
     assert payload["row_count"] >= 42
-    assert any(row["use_case_id"] == "auth_failed_login_spike" for row in payload["rows"])
+    auth = next(row for row in payload["rows"] if row["use_case_id"] == "auth_failed_login_spike")
+    assert auth.get("enrichment_present") is True
+    assert auth.get("domain")
+    assert auth.get("spl_template_status") == "active"
+    registry = auth.get("mitre_registry")
+    assert isinstance(registry, dict)
+    assert registry.get("candidate") or registry.get("permitted") or registry.get("blocked")
 
+
+def test_use_case_catalog_csv_preserves_mitre_registry() -> None:
+    response = export_mapping_artifact("use_case_catalog", file_format="csv")
+    rows = list(csv.DictReader(io.StringIO(response.body.decode("utf-8"))))
+    auth = next(row for row in rows if row["use_case_id"] == "auth_failed_login_spike")
+
+    assert auth["mitre_registry_candidate"] or auth["mitre_registry_permitted"] or auth["mitre_registry_blocked"]
+    assert auth["domain"] == "identity-access-management"
+    assert auth["spl_template_status"] == "active"
+    assert auth["enrichment_present"] == "True"
+    assert auth["mitre_metadata_role"] == MITRE_METADATA_ROLE
+
+
+def test_use_case_catalog_includes_enrichment_only_pilots() -> None:
+    response = export_mapping_artifact("use_case_catalog", file_format="json")
+    payload = json.loads(response.body)
+    ids = {row["use_case_id"] for row in payload["rows"]}
+
+    assert "email_phishing_header_review" in ids
+    pilot = next(row for row in payload["rows"] if row["use_case_id"] == "email_phishing_header_review")
+    assert pilot.get("catalog_present") is False
+    assert pilot.get("enrichment_present") is True
+
+
+def test_skill_coverage_matrix_json_export_contains_105_rows() -> None:
+    response = export_mapping_artifact("skill_coverage_matrix", file_format="json")
+    payload = json.loads(response.body)
+
+    assert payload["artifact"] == "skill_coverage_matrix"
+    assert payload["row_count"] == 105
+    assert len(payload["rows"]) == 105
+    assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
+
+
+def test_skill_coverage_matrix_csv_includes_mapping_and_metadata_role() -> None:
+    response = export_mapping_artifact("coverage_matrix", file_format="csv")
+    rows = list(csv.DictReader(io.StringIO(response.body.decode("utf-8"))))
+
+    assert len(rows) == 105
+    assert "mapping_status" in rows[0]
+    assert rows[0]["mitre_metadata_role"] == MITRE_METADATA_ROLE
+    q062 = next(row for row in rows if row["question_id"] == "q0.q062")
+    assert q062["mapping_status"] == "curated_manual"
+    assert q062["use_case_id"] == "auth_failed_login_spike"
+
+
+def test_github_intake_register_export_works() -> None:
+    response = export_mapping_artifact("github_skill_intake_register", file_format="json")
+    payload = json.loads(response.body)
+
+    assert payload["artifact"] == "github_skill_intake_register"
+    assert payload["row_count"] == 7
+    assert payload["records"][0]["github_skill_id"]
+
+
+def test_github_intake_register_csv_export_works() -> None:
+    response = export_mapping_artifact("github_intake", file_format="csv")
+    rows = list(csv.DictReader(io.StringIO(response.body.decode("utf-8"))))
+
+    assert len(rows) == 7
+    assert rows[0]["github_skill_id"]
+
+
+def test_skill_enrichment_status_matrix_markdown_export_works() -> None:
+    response = export_mapping_artifact("skill_enrichment_status_matrix", file_format="json")
+    payload = json.loads(response.body)
+
+    assert payload["artifact"] == "skill_enrichment_status_matrix"
+    assert payload["format"] == "markdown"
+    assert "Skill Enrichment Status Matrix" in payload["content"]
+
+
+def test_rejected_github_skills_markdown_export_works() -> None:
+    response = export_mapping_artifact("rejected_github_skills", file_format="json")
+    payload = json.loads(response.body)
+
+    assert payload["artifact"] == "rejected_github_skills"
+    assert "Rejected GitHub Skills" in payload["content"]
+
+
+def test_pending_skill_enrichment_backlog_markdown_export_works() -> None:
+    response = export_mapping_artifact("pending_backlog", file_format="json")
+    payload = json.loads(response.body)
+
+    assert payload["artifact"] == "pending_skill_enrichment_backlog"
+    assert "Pending Skill Enrichment Backlog" in payload["content"]
+
+
+def test_markdown_exports_reject_csv() -> None:
+    with pytest.raises(HTTPException) as exc:
+        export_mapping_artifact("rejected_github_skills", file_format="csv")
+    assert exc.value.status_code == 400
