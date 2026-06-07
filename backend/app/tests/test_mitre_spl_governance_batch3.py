@@ -4,6 +4,9 @@ import pytest
 
 from app.chat import pipeline as chat_pipeline
 from app.spl.llm_fallback import LlmSplFallbackResult
+from app.spl.template_registry import get_spl_template
+from app.spl.template_renderer import render_template
+from app.threat import mitre_kb
 from app.threat.mitre_decision import resolve_mitre_decision
 from app.threat.mitre_registry_schema import MitreRegistryMetadata
 from app.use_cases.content_enrichment import enrichment_spl_governance
@@ -147,6 +150,14 @@ class _Profile:
         return {}
 
 
+@pytest.fixture(autouse=True)
+def _batch8_template_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.config.settings.spl_allowed_sourcetypes",
+        "pgcil:auth,aws:cloudtrail,pgcil:edr,pgcil:dns",
+    )
+
+
 def test_active_enriched_template_status_is_visible() -> None:
     out = chat_pipeline._candidate_from_default_template(
         trace_id="t",
@@ -166,11 +177,11 @@ def test_active_enriched_template_status_is_visible() -> None:
 
 
 def test_planned_enriched_template_status_blocks_free_spl_fallback() -> None:
-    governance = enrichment_spl_governance("dns_beaconing_candidate")
+    governance = enrichment_spl_governance("email_phishing_header_review")
     candidate, validation = chat_pipeline._candidate_clarification(
         trace_id="t",
         skill="attack_discovery",
-        user_query="investigate periodic DNS beaconing with jitter",
+        user_query="investigate suspicious email headers",
         telemetry=_Telemetry(),
         profile=_Profile(),
         reason=str(governance["governed_limitation"]),
@@ -184,6 +195,72 @@ def test_planned_enriched_template_status_blocks_free_spl_fallback() -> None:
     assert validation["approved"] is False
     assert validation["normalized_spl"] is None
     assert validation["governed_limitation"] == "spl_template_planned_no_free_spl_fallback"
+
+
+@pytest.mark.parametrize(
+    ("use_case_id", "template_id", "required_fields"),
+    [
+        (
+            "edr_powershell_suspicious_command",
+            "edr_powershell_suspicious_command",
+            {
+                "host",
+                "user",
+                "command_line",
+                "script_block_text",
+                "event_id",
+                "parent_process",
+                "encoded_command_flag",
+                "network_connection",
+            },
+        ),
+        (
+            "dns_beaconing_candidate",
+            "dns_beaconing_candidate",
+            {
+                "src",
+                "dest",
+                "domain",
+                "periodicity",
+                "jitter",
+                "bytes_out",
+                "DNS_query_count",
+                "rare_domain_indicator",
+                "user_host_association",
+            },
+        ),
+    ],
+)
+def test_demo_critical_templates_are_active_validated_and_evidence_aligned(
+    use_case_id: str,
+    template_id: str,
+    required_fields: set[str],
+) -> None:
+    governance = enrichment_spl_governance(use_case_id)
+    assert governance["spl_template_status"] == "active"
+    assert template_id in governance["allowed_spl_templates"]
+
+    template = get_spl_template(template_id)
+    assert template is not None
+    assert template.status == "active"
+    assert required_fields.issubset(set(template.returned_fields))
+
+    rendered = render_template(template)
+    assert rendered.render_ok is True
+    assert rendered.validator_approved is True
+    assert rendered.rendered_spl is not None
+    assert rendered.execution_eligible is False
+
+
+def test_pilot_mitre_kb_mapping_does_not_use_legacy_status_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mitre_kb, "_status_for", lambda *_args: "confirmed")
+
+    decisions = mitre_kb.map_mitre_for_use_case("auth_success_after_failure", source_refs=["test"])
+    statuses = {decision.technique_id: decision.evidence_status for decision in decisions}
+
+    assert statuses["T1110.001"] == "candidate"
+    assert statuses["T1078"] == "not_claimed"
+    assert all(decision.status != "confirmed" for decision in decisions)
 
 
 def test_llm_fallback_cannot_bypass_validation(monkeypatch: pytest.MonkeyPatch) -> None:

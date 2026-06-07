@@ -500,6 +500,7 @@ export interface CandidateSplEnvelope {
   saia_usable?: boolean | null;
   fallback_required?: boolean | null;
   capability_profile?: Record<string, unknown> | null;
+  spl_template_status?: string | null;
 }
 
 export interface SplValidationEnvelope {
@@ -518,6 +519,7 @@ export interface SplValidationEnvelope {
   spl_guidance_provider?: string | null;
   optimization_applied?: boolean | null;
   capability_profile?: Record<string, unknown> | null;
+  spl_template_status?: string | null;
 }
 
 export interface ExecutionEnvelope {

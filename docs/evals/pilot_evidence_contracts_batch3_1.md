@@ -46,29 +46,29 @@
 
 ---
 
-## P4 — `edr_powershell_suspicious_command` (active catalog, SPL planned)
+## P4 — `edr_powershell_suspicious_command` (active catalog, SPL active)
 
 | Field | Contract |
 |-------|----------|
 | **Required evidence** | host, user, command_line, script_block_text, event_id, parent_process, encoded_command_flag, network_connection |
 | **MITRE status rules** | T1059.001 `candidate` without command evidence; `evidence_supported` with `powershell_command_evidence` / `encoded_command` / script-block signals |
-| **SPL template** | `planned` — governed limitation `spl_template_planned_no_free_spl_fallback` |
+| **SPL template** | `active` — `edr_powershell_suspicious_command`; normalized SPL remains validation/HIL gated |
 | **Answer limitations** | Do not call malware without malware evidence |
 
-**Output verification:** `test_powershell_status_requires_command_or_script_evidence`; chat path `test_powershell_planned_spl_emits_governed_limitation_in_chat`.
+**Output verification:** `test_powershell_status_requires_command_or_script_evidence`; chat path `test_powershell_active_spl_is_validated_and_review_gated_in_chat`.
 
 ---
 
-## P5 — `dns_beaconing_candidate` (active catalog, SPL planned)
+## P5 — `dns_beaconing_candidate` (active catalog, SPL active)
 
 | Field | Contract |
 |-------|----------|
 | **Required evidence** | src, dest, domain, periodicity, jitter, bytes_out, DNS_query_count, rare_domain_indicator, user_host_association |
 | **MITRE status rules** | T1071 `candidate` with periodicity alone; `evidence_supported` requires periodicity + jitter + network telemetry |
-| **SPL template** | `planned` — template id exists in registry but `spl_text` null |
+| **SPL template** | `active` — `dns_beaconing_candidate`; normalized SPL remains validation/HIL gated |
 | **Answer limitations** | Do not claim C2 confirmed from periodicity alone |
 
-**Output verification:** `test_c2_requires_multiple_beaconing_signals`; chat path `test_beaconing_planned_spl_emits_governed_limitation_in_chat`.
+**Output verification:** `test_c2_requires_multiple_beaconing_signals`; chat path `test_beaconing_active_spl_is_validated_and_review_gated_in_chat`.
 
 ---
 
@@ -116,8 +116,8 @@
 |----------|----------------------|-------------------------------------|
 | auth_failed_login_spike | active | Normalized SPL + `spl_template_status=active` |
 | auth_success_after_failure | active | Normalized SPL + `spl_template_status=active` |
-| edr_powershell_suspicious_command | planned | Clarification + `governed_limitation` |
-| dns_beaconing_candidate | planned | Clarification + `governed_limitation` |
+| edr_powershell_suspicious_command | active | Normalized SPL + `spl_template_status=active`; execution remains review-gated |
+| dns_beaconing_candidate | active | Normalized SPL + `spl_template_status=active`; execution remains review-gated |
 | email_phishing_header_review | planned | Clarification + `governed_limitation` |
 | soc_incident_triage | unavailable | Clarification + unavailable limitation |
 | endpoint_ransomware_impact_review | planned | Clarification + `governed_limitation` |

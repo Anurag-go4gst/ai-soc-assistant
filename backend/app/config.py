@@ -259,7 +259,7 @@ class Settings(BaseSettings):
     telemetry_mode: str = "db"
     spl_validation_enabled: bool = True
     spl_allowed_indexes: str = "pgcil_soc"
-    spl_allowed_sourcetypes: str = "pgcil:auth,aws:cloudtrail"
+    spl_allowed_sourcetypes: str = "pgcil:auth,aws:cloudtrail,pgcil:edr,pgcil:dns"
     spl_default_earliest: str = "-24h"
     spl_default_latest: str = "now"
     spl_max_result_limit: int = 100

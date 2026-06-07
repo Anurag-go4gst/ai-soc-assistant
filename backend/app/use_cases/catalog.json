@@ -1719,7 +1719,7 @@
       "optional_sources": [
         "edr"
       ],
-      "default_spl_template": null,
+      "default_spl_template": "edr_powershell_suspicious_command",
       "rag_collections": [
         "edr_sop"
       ],

@@ -1,4 +1,4 @@
-import { Activity, ShieldCheck, Database, Gauge, ArrowRight, Cpu } from 'lucide-react';
+import { Activity, ShieldCheck, Database, Gauge, ArrowRight, Cpu, FileSearch, ListChecks, Route, ShieldAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/CopyButton';
 import { cn } from '@/lib/utils';
@@ -68,6 +68,52 @@ function evidenceState(trace: PlaceholderResponse): { label: string; variant: Va
   return { label: 'No evidence collected', variant: 'secondary' };
 }
 
+function splTemplateState(trace: PlaceholderResponse): { label: string; variant: Variant } {
+  const status =
+    trace.spl_template_status ??
+    trace.spl_validation?.spl_template_status ??
+    trace.candidate_spl?.spl_template_status ??
+    'unavailable';
+  if (status === 'active') return { label: 'Active template', variant: 'success' };
+  if (status === 'planned') return { label: 'Template planned', variant: 'warning' };
+  if (status === 'unavailable') return { label: 'Template unavailable', variant: 'secondary' };
+  return { label: status.replace(/_/g, ' '), variant: 'secondary' };
+}
+
+function mitreState(trace: PlaceholderResponse): { label: string; variant: Variant } {
+  const statuses = Object.values(trace.mitre_evidence_status ?? {});
+  if (!statuses.length) return { label: 'No MITRE status', variant: 'secondary' };
+  if (statuses.includes('evidence_supported')) return { label: 'Evidence supported', variant: 'success' };
+  if (statuses.includes('requires_validation')) return { label: 'Requires validation', variant: 'warning' };
+  if (statuses.includes('candidate')) return { label: 'Candidate', variant: 'warning' };
+  if (statuses.includes('ruled_out')) return { label: 'Ruled out', variant: 'secondary' };
+  if (statuses.includes('not_claimed')) return { label: 'Not claimed', variant: 'secondary' };
+  return { label: statuses[0].replace(/_/g, ' '), variant: 'secondary' };
+}
+
+function reviewState(trace: PlaceholderResponse): { label: string; variant: Variant } {
+  if (trace.human_review?.required) return { label: 'Human review required', variant: 'warning' };
+  return { label: 'No approval to execute', variant: 'secondary' };
+}
+
+function sessionState(trace: PlaceholderResponse): { label: string; variant: Variant } {
+  const session = trace.session_context_status;
+  if (!session) return { label: 'No session context', variant: 'secondary' };
+  if (session.clarification_required) return { label: 'Needs clarification', variant: 'warning' };
+  if (session.used_previous_context) return { label: `Context ${session.staleness ?? 'used'}`, variant: 'success' };
+  return { label: `Context ${session.staleness ?? 'current'}`, variant: 'secondary' };
+}
+
+function nodeTraceState(trace: PlaceholderResponse): { label: string; variant: Variant } {
+  const nodes = trace.node_trace ?? [];
+  if (!nodes.length) return { label: 'No node trace', variant: 'secondary' };
+  const reviewNodes = nodes.filter((node) => node.human_review_required === true).length;
+  const failedNodes = nodes.filter((node) => String(node.status ?? '').toLowerCase().includes('fail')).length;
+  if (failedNodes) return { label: `${failedNodes}/${nodes.length} failed`, variant: 'destructive' };
+  if (reviewNodes) return { label: `${reviewNodes}/${nodes.length} need review`, variant: 'warning' };
+  return { label: `${nodes.length} nodes traced`, variant: 'success' };
+}
+
 function nextAction(trace: PlaceholderResponse): string {
   if (trace.human_review?.required) {
     if (trace.human_review.review_type === 'intent_clarification') return 'Provide the requested alert context, then resend.';
@@ -123,6 +169,11 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
   const status = sufficiency(trace.context_sufficiency?.status);
   const exec = executionState(trace);
   const evidence = evidenceState(trace);
+  const splTemplate = splTemplateState(trace);
+  const mitre = mitreState(trace);
+  const review = reviewState(trace);
+  const session = sessionState(trace);
+  const nodes = nodeTraceState(trace);
   const ready = trace.context_sufficiency?.synthesis_readiness ?? false;
   const reviewPending = trace.human_review?.required === true;
 
@@ -150,6 +201,13 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
           value={ready ? 'Synthesis-ready' : 'Not ready'}
           variant={ready ? 'success' : 'secondary'}
         />
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <Stat icon={<FileSearch className="h-3 w-3" />} label="SPL Template" value={splTemplate.label} variant={splTemplate.variant} />
+        <Stat icon={<ShieldAlert className="h-3 w-3" />} label="MITRE" value={mitre.label} variant={mitre.variant} />
+        <Stat icon={<ListChecks className="h-3 w-3" />} label="HIL" value={review.label} variant={review.variant} />
+        <Stat icon={<Database className="h-3 w-3" />} label="Session" value={session.label} variant={session.variant} />
+        <Stat icon={<Route className="h-3 w-3" />} label="Node Trace" value={nodes.label} variant={nodes.variant} />
       </div>
       {reviewPending ? (
         <p className="mt-3 text-xs text-slate-400">Action needed — see the review notice below.</p>

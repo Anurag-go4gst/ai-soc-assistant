@@ -33,8 +33,6 @@ PILOT_USE_CASES = (
 )
 
 PLANNED_SPL_USE_CASES = (
-    "edr_powershell_suspicious_command",
-    "dns_beaconing_candidate",
     "email_phishing_header_review",
     "endpoint_ransomware_impact_review",
 )
@@ -56,6 +54,10 @@ def _enable_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.config.settings.langgraph_orchestration_enabled", False)
     monkeypatch.setattr("app.config.settings.telemetry_mode", "none")
     monkeypatch.setattr("app.config.settings.ai_soc_telemetry_sink", "none")
+    monkeypatch.setattr(
+        "app.config.settings.spl_allowed_sourcetypes",
+        "pgcil:auth,aws:cloudtrail,pgcil:edr,pgcil:dns",
+    )
     monkeypatch.setattr(
         "app.config.settings.database_url",
         "postgresql://ai_soc:change-me@postgres:5432/ai_soc_assistant",
@@ -120,6 +122,36 @@ def test_planned_use_case_spl_governance(use_case_id: str) -> None:
     assert validation["governed_limitation"] == "spl_template_planned_no_free_spl_fallback"
 
 
+@pytest.mark.parametrize(
+    ("use_case_id", "template_id"),
+    (
+        ("edr_powershell_suspicious_command", "edr_powershell_suspicious_command"),
+        ("dns_beaconing_candidate", "dns_beaconing_candidate"),
+    ),
+)
+def test_active_demo_use_case_spl_governance(use_case_id: str, template_id: str) -> None:
+    governance = enrichment_spl_governance(use_case_id)
+    assert governance is not None
+    assert governance["spl_template_status"] == "active"
+    assert governance["llm_fallback_allowed"] is False
+    assert governance["governed_limitation"] is None
+
+    candidate, validation = chat_pipeline._candidate_spl_stage(
+        trace_id="batch8",
+        skill="attack_discovery",
+        user_query=f"investigate {use_case_id}",
+        template_id=template_id,
+        use_case_id=use_case_id,
+    )
+    assert candidate is not None
+    assert validation is not None
+    assert candidate["candidate_spl"]
+    assert validation["approved"] is True
+    assert validation["normalized_spl"]
+    assert validation["spl_template_status"] == "active"
+    assert validation.get("governed_limitation") is None
+
+
 def test_ir_triage_unavailable_spl_governance() -> None:
     governance = enrichment_spl_governance("soc_incident_triage")
     assert governance is not None
@@ -169,7 +201,7 @@ def test_success_after_failure_chat_wording_and_mitre_status(
     assert "account compromised" not in combined
 
 
-def test_powershell_planned_spl_emits_governed_limitation_in_chat(
+def test_powershell_active_spl_is_validated_and_review_gated_in_chat(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.config.settings.mcp_global_execution_enabled", False)
@@ -180,16 +212,17 @@ def test_powershell_planned_spl_emits_governed_limitation_in_chat(
     assert response.selected_use_case is not None
     assert response.selected_use_case.use_case_id == "edr_powershell_suspicious_command"
     assert response.spl_validation is not None
-    assert response.spl_validation.approved is False
-    assert response.spl_validation.normalized_spl is None
-    reject_reasons = response.spl_validation.reject_reasons or []
-    assert any("spl_template_planned" in reason or "llm_spl_fallback" in reason for reason in reject_reasons)
+    assert response.spl_template_status == "active"
+    assert response.spl_validation.approved is True
+    assert response.spl_validation.normalized_spl is not None
+    assert response.execution is not None
+    assert response.execution.status in {"blocked", "requires_human_review"}
 
     analyst_json = (response.analyst_response.model_dump_json() if response.analyst_response else "").lower()
     assert "malware confirmed" not in analyst_json
 
 
-def test_beaconing_planned_spl_emits_governed_limitation_in_chat(
+def test_beaconing_active_spl_is_validated_and_review_gated_in_chat(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.config.settings.mcp_global_execution_enabled", False)
@@ -200,8 +233,11 @@ def test_beaconing_planned_spl_emits_governed_limitation_in_chat(
     assert response.selected_use_case is not None
     assert response.selected_use_case.use_case_id == "dns_beaconing_candidate"
     assert response.spl_validation is not None
-    assert response.spl_validation.approved is False
-    assert response.spl_validation.normalized_spl is None
+    assert response.spl_template_status == "active"
+    assert response.spl_validation.approved is True
+    assert response.spl_validation.normalized_spl is not None
+    assert response.execution is not None
+    assert response.execution.status in {"blocked", "requires_human_review"}
 
     analyst_json = (response.analyst_response.model_dump_json() if response.analyst_response else "").lower()
     assert "c2 confirmed" not in analyst_json

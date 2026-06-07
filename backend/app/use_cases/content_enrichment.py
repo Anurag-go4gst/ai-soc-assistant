@@ -52,7 +52,7 @@ def enrichment_spl_governance(use_case_id: str | None) -> dict[str, Any] | None:
         "evidence_requirements": evidence_requirements,
         "limitations": limitations,
         "governed_limitation": _spl_limitation(status, allowed_templates),
-        "llm_fallback_allowed": status == "active",
+        "llm_fallback_allowed": False,
     }
 
 

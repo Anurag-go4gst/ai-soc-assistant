@@ -33,6 +33,10 @@ def _enable_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.config.settings.telemetry_mode", "none")
     monkeypatch.setattr("app.config.settings.ai_soc_telemetry_sink", "none")
     monkeypatch.setattr(
+        "app.config.settings.spl_allowed_sourcetypes",
+        "pgcil:auth,aws:cloudtrail,pgcil:edr,pgcil:dns",
+    )
+    monkeypatch.setattr(
         "app.config.settings.database_url",
         "postgresql://ai_soc:change-me@postgres:5432/ai_soc_assistant",
     )
@@ -119,7 +123,11 @@ def test_powershell_does_not_claim_malware_without_evidence(monkeypatch: pytest.
         "For alert ALT-PS-001 investigate PowerShell suspicious command on WORKSTATION-12 "
         "with encoded base64 command line"
     )
-    assert response.spl_template_status == "planned"
+    assert response.spl_template_status == "active"
+    assert response.spl_validation is not None
+    assert response.spl_validation.approved is True
+    assert response.execution is not None
+    assert response.execution.status in {"blocked", "requires_human_review"}
     analyst_json = (response.analyst_response.model_dump_json() if response.analyst_response else "").lower()
     assert "malware confirmed" not in analyst_json
 
@@ -130,7 +138,11 @@ def test_beaconing_does_not_claim_confirmed_c2(monkeypatch: pytest.MonkeyPatch) 
         "For alert ALT-DNS-001 investigate beaconing pattern candidate with periodic DNS "
         "queries every 300 seconds from HOST-22"
     )
-    assert response.spl_template_status == "planned"
+    assert response.spl_template_status == "active"
+    assert response.spl_validation is not None
+    assert response.spl_validation.approved is True
+    assert response.execution is not None
+    assert response.execution.status in {"blocked", "requires_human_review"}
     analyst_json = (response.analyst_response.model_dump_json() if response.analyst_response else "").lower()
     assert "c2 confirmed" not in analyst_json
     assert "confirmed c2" not in analyst_json

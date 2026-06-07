@@ -6,6 +6,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from app.threat.mitre_evidence_preconditions import evaluate_pilot_mitre_evidence_status
+
 MITRE_PATH = Path(__file__).with_name("mitre_attack_subset.json")
 MITRE_EVIDENCE_STATUSES = (
     "candidate",
@@ -22,6 +24,14 @@ MITRE_MAPPING_STATUSES = (
     "analyst_review",
     *MITRE_EVIDENCE_STATUSES,
 )
+PILOT_EVIDENCE_STATUS_USE_CASES = {
+    "auth_failed_login_spike",
+    "auth_success_after_failure",
+    "edr_powershell_suspicious_command",
+    "email_phishing_header_review",
+    "dns_beaconing_candidate",
+    "endpoint_ransomware_impact_review",
+}
 
 
 class MitreTechnique(BaseModel):
@@ -70,23 +80,53 @@ def map_mitre_for_use_case(use_case_id: str | None, source_refs: list[str]) -> l
     for technique in load_mitre_techniques():
         if use_case_id not in technique.related_use_cases:
             continue
-        status = _status_for(use_case_id, technique.technique_id)
-        evidence_status = _legacy_evidence_status_for(status)
+        status, evidence_status, why, evidence_keys = _status_for_mapping(use_case_id, technique.technique_id)
         decisions.append(
             MitreMappingDecision(
                 technique_id=technique.technique_id,
                 name=technique.name,
                 tactic=technique.tactic,
                 status=status,
-                why=_why(status, technique.technique_id),
+                why=why,
                 evidence_status=evidence_status,
                 status_reason=_why(evidence_status, technique.technique_id),
+                evidence_keys=evidence_keys,
                 evidence_requirements=technique.evidence_requirements,
                 source_refs=source_refs,
                 recommended_pivots=technique.recommended_pivots,
             )
         )
     return decisions
+
+
+def _status_for_mapping(use_case_id: str, technique_id: str) -> tuple[str, str, str, list[str]]:
+    if use_case_id in PILOT_EVIDENCE_STATUS_USE_CASES:
+        detail = evaluate_pilot_mitre_evidence_status(
+            use_case_id=use_case_id,
+            technique_id=technique_id,
+            present_evidence=_legacy_present_evidence_for_mapping(use_case_id),
+        )
+        evidence_status = str(detail["status"])
+        status = _legacy_mapping_status_from_evidence_status(evidence_status)
+        if evidence_status == "evidence_supported" and use_case_id == "auth_failed_login_spike":
+            status = "supported"
+            return status, evidence_status, _why(status, technique_id), list(detail.get("evidence_keys") or [])
+        return status, evidence_status, str(detail["reason"]), list(detail.get("evidence_keys") or [])
+
+    status = _status_for(use_case_id, technique_id)
+    return status, _legacy_evidence_status_for(status), _why(status, technique_id), []
+
+
+def _legacy_present_evidence_for_mapping(use_case_id: str) -> set[str]:
+    if use_case_id == "auth_failed_login_spike":
+        return {"failed_login_pattern"}
+    return set()
+
+
+def _legacy_mapping_status_from_evidence_status(evidence_status: str) -> str:
+    if evidence_status == "evidence_supported":
+        return "supported"
+    return evidence_status
 
 
 def _status_for(use_case_id: str, technique_id: str) -> str:

@@ -300,8 +300,8 @@
         "Identify encoded-command usage.",
         "Look for related network connections or child processes."
       ],
-      "allowed_spl_templates": [],
-      "spl_template_status": "planned",
+      "allowed_spl_templates": ["edr_powershell_suspicious_command"],
+      "spl_template_status": "active",
       "answer_rules": [
         "Do not classify as malware unless malware evidence exists.",
         "State suspicious command execution evidence and required pivots."
@@ -372,7 +372,7 @@
         "Tie traffic to a host or user before impact language."
       ],
       "allowed_spl_templates": ["dns_beaconing_candidate"],
-      "spl_template_status": "planned",
+      "spl_template_status": "active",
       "answer_rules": [
         "Do not claim C2 confirmed from periodicity alone.",
         "Use candidate/evidence-supported wording based on multiple signals."
