@@ -1,4 +1,4 @@
-import { ClipboardCopy, DatabaseZap, FileCheck2, GitBranch, Search, Sparkles } from 'lucide-react';
+import { ClipboardCopy, DatabaseZap, Download, FileCheck2, GitBranch, Search, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   getKnowledgeCollections,
@@ -6,6 +6,7 @@ import {
   getKnowledgeEntries,
   getKnowledgeImportPrompt,
   getSettingsStatus,
+  downloadKnowledgeExport,
   publishKnowledgeImport,
   saveKnowledgeDraft,
   testKnowledgeRetrieval,
@@ -100,6 +101,26 @@ export function KnowledgePage() {
     }
   };
 
+  const downloadExport = async (
+    artifact: 'question_runtime_map' | 'use_case_catalog',
+    fileFormat: 'json' | 'csv',
+  ) => {
+    try {
+      const blob = await downloadKnowledgeExport(artifact, fileFormat);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${artifact === 'question_runtime_map' ? 'ai_soc_question_runtime_map_105' : 'ai_soc_use_case_catalog'}.${fileFormat}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setActionNote(`Downloaded ${artifact.replace(/_/g, ' ')} as ${fileFormat.toUpperCase()}.`);
+    } catch (err) {
+      setActionNote(`Download failed: ${(err as Error).message}`);
+    }
+  };
+
   const reranker = ragStatus?.reranker;
   const assist = ragStatus?.ambiguity_assist;
 
@@ -117,6 +138,28 @@ export function KnowledgePage() {
           </p>
         </header>
         {error ? <Badge variant="destructive">{error}</Badge> : null}
+
+        <Card className="soc-panel">
+          <CardHeader className="py-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Download className="h-4 w-4 text-cyan-400" /> Mapping Exports
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 lg:grid-cols-2">
+            <ExportBlock
+              title="105 question runtime map"
+              description="Question, runtime operation, routing status, and governed MITRE metadata."
+              onJson={() => downloadExport('question_runtime_map', 'json')}
+              onCsv={() => downloadExport('question_runtime_map', 'csv')}
+            />
+            <ExportBlock
+              title="Use-case catalog"
+              description="Use-case routing patterns, source requirements, templates, and MITRE candidates."
+              onJson={() => downloadExport('use_case_catalog', 'json')}
+              onCsv={() => downloadExport('use_case_catalog', 'csv')}
+            />
+          </CardContent>
+        </Card>
 
         <Card className="soc-panel">
           <CardHeader className="py-3">
@@ -249,6 +292,33 @@ function Meta({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-[0.65rem] uppercase text-slate-500">{label}</p>
       <p className="break-words font-mono text-slate-300">{value}</p>
+    </div>
+  );
+}
+
+function ExportBlock({
+  title,
+  description,
+  onJson,
+  onCsv,
+}: {
+  title: string;
+  description: string;
+  onJson: () => void;
+  onCsv: () => void;
+}) {
+  return (
+    <div className="rounded border border-slate-800 bg-slate-950 p-3 text-xs">
+      <p className="font-medium text-slate-100">{title}</p>
+      <p className="mt-1 text-slate-400">{description}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={onCsv}>
+          <Download className="mr-1 h-3 w-3" /> CSV
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={onJson}>
+          <Download className="mr-1 h-3 w-3" /> JSON
+        </Button>
+      </div>
     </div>
   );
 }

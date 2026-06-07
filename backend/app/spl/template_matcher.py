@@ -113,6 +113,7 @@ class TemplateMatchResult:
 
 @dataclass(frozen=True)
 class _RoutePlanMatchContext:
+    template_id: str | None
     runtime_skill: str
     operation_type: str | None
     source_class: str | None
@@ -205,7 +206,7 @@ def dry_run_matches(
                 validator_profile=template.validator_profile,
                 datamodel=template.datamodel,
             )
-            for template in _cim_templates_for_context(ctx, catalog)
+            for template in _templates_for_context(ctx, catalog)
         ] or [
             TemplateCandidateScore(
                 template_id="",
@@ -215,7 +216,7 @@ def dry_run_matches(
         ]
 
     scored: list[TemplateCandidateScore] = []
-    for template in _cim_templates_for_context(ctx, catalog):
+    for template in _templates_for_context(ctx, catalog):
         score, reasons, mismatches = _score_template(template, ctx)
         scored.append(
             TemplateCandidateScore(
@@ -260,6 +261,7 @@ def _extract_match_context(plan: dict[str, Any]) -> _RoutePlanMatchContext:
         resolved_shape = expected_shapes[0]
 
     return _RoutePlanMatchContext(
+        template_id=evidence.get("template_id") if isinstance(evidence.get("template_id"), str) else None,
         runtime_skill=runtime_skill,
         operation_type=operation_type,
         source_class=source_class,
@@ -333,14 +335,14 @@ def _collect_global_mismatches(ctx: _RoutePlanMatchContext, catalog: Sequence[Sp
     if not ctx.expected_aggregation_shapes:
         mismatches.append(MISMATCH_NO_TEMPLATE_FOR_SKILL)
         return mismatches
-    if not ctx.datamodel and _needs_resolved_datamodel(ctx):
+    if not ctx.datamodel and _needs_resolved_datamodel(ctx) and not _raw_templates_for_context(ctx, catalog):
         mismatches.append(MISMATCH_CANNOT_RESOLVE_DATAMODEL)
     if ctx.datamodel and ctx.datamodel not in APPROVED_DATAMODELS:
         mismatches.append(MISMATCH_UNKNOWN_DATAMODEL)
         return mismatches
     if ctx.runtime_skill in {"aggregate_and_rank", "threshold_anomaly"} and not ctx.group_by_fields:
         mismatches.append(MISMATCH_UNSUPPORTED_GROUP_BY)
-    if ctx.datamodel and not _cim_templates_for_context(ctx, catalog):
+    if ctx.datamodel and not (_cim_templates_for_context(ctx, catalog) or _raw_templates_for_context(ctx, catalog)):
         mismatches.append(MISMATCH_NO_TEMPLATE_FOR_SKILL)
     return mismatches
 
@@ -381,6 +383,33 @@ def _cim_templates_for_context(
     ]
 
 
+def _templates_for_context(
+    ctx: _RoutePlanMatchContext,
+    catalog: Sequence[SplTemplateDefinition],
+) -> list[SplTemplateDefinition]:
+    raw = _raw_templates_for_context(ctx, catalog)
+    cim = _cim_templates_for_context(ctx, catalog)
+    by_id: dict[str, SplTemplateDefinition] = {}
+    for template in [*raw, *cim]:
+        by_id[template.template_id] = template
+    return list(by_id.values())
+
+
+def _raw_templates_for_context(
+    ctx: _RoutePlanMatchContext,
+    catalog: Sequence[SplTemplateDefinition],
+) -> list[SplTemplateDefinition]:
+    return [
+        template
+        for template in catalog
+        if template.query_shape == QUERY_SHAPE_RAW_SEARCH
+        and (
+            (ctx.template_id and template.template_id == ctx.template_id)
+            or (ctx.template_id and template.use_case_id == ctx.template_id)
+        )
+    ]
+
+
 def _score_template(
     template: SplTemplateDefinition,
     ctx: _RoutePlanMatchContext,
@@ -389,6 +418,11 @@ def _score_template(
     mismatches: list[str] = []
 
     if template.query_shape == QUERY_SHAPE_RAW_SEARCH:
+        if ctx.template_id and template.template_id == ctx.template_id:
+            reasons.extend(["explicit_template_id_match", "raw_search_template"])
+            if template.is_production_executable():
+                reasons.append("production_executable_preferred")
+            return 0.96 if template.is_production_executable() else 0.76, reasons, mismatches
         mismatches.append(MISMATCH_NO_TEMPLATE_FOR_SKILL)
         return 0.0, reasons, mismatches
 

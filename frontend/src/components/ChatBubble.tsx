@@ -1,6 +1,7 @@
 import { Bot, ChevronRight, User } from 'lucide-react';
 import { AnalystResponseCard } from '@/components/AnalystResponseCard';
 import { AnalystSummaryCard } from '@/components/AnalystSummaryCard';
+import { AnswerFeedbackControls } from '@/components/AnswerFeedbackControls';
 import { HumanReviewCard } from '@/components/HumanReviewCard';
 import { InvestigationLineagePanel } from '@/components/InvestigationLineagePanel';
 import { InvestigationProgressPanel } from '@/components/InvestigationProgressPanel';
@@ -26,6 +27,7 @@ export interface SocChatMessage {
   content: string;
   displayStage?: AssistantDisplayStage;
   investigationProgress?: InvestigationProgressState | null;
+  progressDemoMode?: boolean;
   traceId?: string;
   note?: string;
   routing?: {
@@ -45,9 +47,10 @@ export interface SocChatMessage {
 
 interface ChatBubbleProps {
   message: SocChatMessage;
+  onRetryFinalSynthesis?: () => void;
 }
 
-export function ChatBubble({ message }: ChatBubbleProps) {
+export function ChatBubble({ message, onRetryFinalSynthesis }: ChatBubbleProps) {
   const isUser = message.role === 'user';
   const showProgress = !isUser && message.displayStage === 'progress' && message.investigationProgress;
   const showSummaryOnly = !isUser && message.displayStage === 'summary' && message.trace;
@@ -73,7 +76,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             aria-hidden
           />
         ) : null}
-        {showProgress ? null : (
+        {showProgress ? null : showFullAnswer && message.trace?.analyst_response ? null : (
           <div
             className={cn(
               'rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm',
@@ -88,7 +91,8 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         {showProgress && message.investigationProgress ? (
           <InvestigationProgressPanel
             state={message.investigationProgress}
-            demoMode={message.trace?.demo_mode ?? true}
+            demoMode={message.progressDemoMode ?? message.trace?.demo_mode ?? false}
+            onRetryFinalSynthesis={onRetryFinalSynthesis}
           />
         ) : null}
         {showSummaryOnly ? <AnalystSummaryCard trace={message.trace!} /> : null}
@@ -101,6 +105,9 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         {showFullAnswer && message.trace && !message.trace.analyst_response ? <AnalystSummaryCard trace={message.trace} /> : null}
         {showFullAnswer && message.trace?.human_review?.required && !message.trace.analyst_response ? (
           <HumanReviewCard review={message.trace.human_review} />
+        ) : null}
+        {showFullAnswer && message.trace ? (
+          <AnswerFeedbackControls turnId={message.trace.turn_id} traceId={message.trace.trace_id} />
         ) : null}
         {!isUser && !message.trace && message.note ? (
           <div className="flex flex-wrap gap-2">

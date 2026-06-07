@@ -4,7 +4,15 @@
     "version": "curated-subset-v2",
     "release_date": "2026-06-01",
     "checksum": "local-curated-subset",
-    "curated_use_case_mappings": ["auth_failed_login_spike", "auth_success_after_failure", "auth_new_source_ip_login"]
+    "curated_use_case_mappings": [
+      "auth_failed_login_spike",
+      "auth_success_after_failure",
+      "auth_new_source_ip_login",
+      "edr_powershell_suspicious_command",
+      "dns_beaconing_candidate",
+      "email_phishing_header_review",
+      "endpoint_ransomware_impact_review"
+    ]
   },
   "techniques": [
     {
@@ -66,6 +74,141 @@
       },
       "related_use_cases": ["auth_success_after_failure", "auth_new_source_ip_login"],
       "recommended_pivots": ["identity_context", "mfa_status", "session_activity"]
+    },
+    {
+      "technique_id": "T1059",
+      "name": "Command and Scripting Interpreter",
+      "tactic": "Execution",
+      "description": "Adversaries may abuse command and script interpreters to execute commands, scripts, or binaries.",
+      "detection_patterns": ["suspicious_process_command_line", "script_interpreter_execution"],
+      "evidence_requirements": ["process_name", "command_line", "parent_process", "user", "host"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["interpreter_alert_context"],
+        "supported": ["command_or_script_evidence_present"],
+        "confirmed": ["benign_admin_activity_cleared"]
+      },
+      "related_use_cases": ["edr_powershell_suspicious_command"],
+      "recommended_pivots": ["review_parent_process", "check_script_block_logging", "check_network_connections"]
+    },
+    {
+      "technique_id": "T1059.001",
+      "name": "PowerShell",
+      "tactic": "Execution",
+      "description": "Adversaries may abuse PowerShell commands and scripts for execution.",
+      "detection_patterns": ["powershell_command_line", "encoded_command", "script_block_event"],
+      "evidence_requirements": ["command_line", "script_block_text", "event_id", "parent_process", "encoded_command_flag"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["powershell_alert_context"],
+        "supported": ["command_or_script_block_evidence_present"],
+        "confirmed": ["benign_admin_activity_cleared"]
+      },
+      "related_use_cases": ["edr_powershell_suspicious_command"],
+      "recommended_pivots": ["decode_command_if_available", "review_parent_process", "check_child_processes"]
+    },
+    {
+      "technique_id": "T1566",
+      "name": "Phishing",
+      "tactic": "Initial Access",
+      "description": "Adversaries may send phishing messages to gain access or deliver payloads.",
+      "detection_patterns": ["phishing_alert_context", "mail_gateway_verdict", "malicious_url_or_attachment"],
+      "evidence_requirements": ["sender", "return_path", "reply_to", "email_authentication_results", "urls_or_attachments", "gateway_verdict"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["phishing_alert_context"],
+        "supported": ["multiple_email_indicators_or_gateway_verdict"],
+        "confirmed": ["malicious_verdict_and_scope_validated"]
+      },
+      "related_use_cases": ["email_phishing_header_review"],
+      "recommended_pivots": ["review_spf_dkim_dmarc", "collect_urls_domains", "check_attachment_hashes"]
+    },
+    {
+      "technique_id": "T1566.001",
+      "name": "Spearphishing Attachment",
+      "tactic": "Initial Access",
+      "description": "Adversaries may send spearphishing emails with malicious attachments.",
+      "detection_patterns": ["attachment_hash_verdict", "mail_gateway_attachment_verdict"],
+      "evidence_requirements": ["attachment_name", "attachment_hash", "gateway_verdict", "recipient_scope"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["phishing_attachment_context"],
+        "supported": ["attachment_hash_or_gateway_verdict_present"],
+        "confirmed": ["malicious_attachment_verdict_validated"]
+      },
+      "related_use_cases": ["email_phishing_header_review"],
+      "recommended_pivots": ["hash_reputation", "recipient_scope", "sandbox_verdict_if_available"]
+    },
+    {
+      "technique_id": "T1566.002",
+      "name": "Spearphishing Link",
+      "tactic": "Initial Access",
+      "description": "Adversaries may send spearphishing emails containing links.",
+      "detection_patterns": ["malicious_url", "suspicious_domain", "mail_gateway_url_verdict"],
+      "evidence_requirements": ["url", "domain", "gateway_verdict", "recipient_scope"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["phishing_link_context"],
+        "supported": ["malicious_url_or_gateway_verdict_present"],
+        "confirmed": ["malicious_url_verdict_validated"]
+      },
+      "related_use_cases": ["email_phishing_header_review"],
+      "recommended_pivots": ["url_reputation", "domain_age", "recipient_clicks_if_available"]
+    },
+    {
+      "technique_id": "T1071",
+      "name": "Application Layer Protocol",
+      "tactic": "Command and Control",
+      "description": "Adversaries may communicate using application layer protocols to avoid detection.",
+      "detection_patterns": ["periodic_network_traffic", "rare_domain", "jitter_profile"],
+      "evidence_requirements": ["src", "dest", "domain", "periodicity", "jitter", "bytes_out", "host_association"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["beaconing_alert_context"],
+        "supported": ["multiple_beaconing_signals_present"],
+        "confirmed": ["benign_polling_cleared_and_c2_indicators_validated"]
+      },
+      "related_use_cases": ["dns_beaconing_candidate"],
+      "recommended_pivots": ["measure_periodicity", "review_domain_rarity", "check_host_process_context"]
+    },
+    {
+      "technique_id": "T1486",
+      "name": "Data Encrypted for Impact",
+      "tactic": "Impact",
+      "description": "Adversaries may encrypt data on target systems to interrupt availability.",
+      "detection_patterns": ["file_rename_volume", "extension_pattern", "encryption_behavior"],
+      "evidence_requirements": ["file_rename_count", "extension_pattern", "affected_paths", "process_name", "encryption_behavior"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["ransomware_or_impact_context"],
+        "supported": ["multiple_encryption_or_impact_signals_present"],
+        "confirmed": ["malware_or_ransom_note_and_scope_validated"]
+      },
+      "related_use_cases": ["endpoint_ransomware_impact_review"],
+      "recommended_pivots": ["review_process_context", "check_shadow_copy_activity", "assess_host_spread"]
+    },
+    {
+      "technique_id": "T1490",
+      "name": "Inhibit System Recovery",
+      "tactic": "Impact",
+      "description": "Adversaries may delete or remove recovery artifacts to prevent restoration.",
+      "detection_patterns": ["shadow_copy_deletion", "recovery_artifact_removal"],
+      "evidence_requirements": ["shadow_copy_deletion_indicator", "process_name", "command_line"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["recovery_inhibition_context"],
+        "supported": ["shadow_copy_or_recovery_deletion_evidence_present"],
+        "confirmed": ["recovery_inhibition_scope_validated"]
+      },
+      "related_use_cases": ["endpoint_ransomware_impact_review"],
+      "recommended_pivots": ["review_vssadmin_or_wbadmin_activity", "check_parent_process", "review_backup_alerts"]
+    },
+    {
+      "technique_id": "T1489",
+      "name": "Service Stop",
+      "tactic": "Impact",
+      "description": "Adversaries may stop services to inhibit response or maximize impact.",
+      "detection_patterns": ["service_stop_event", "security_service_stopped"],
+      "evidence_requirements": ["service_stop_event", "service_name", "process_name", "user"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["service_stop_context"],
+        "supported": ["service_stop_evidence_present"],
+        "confirmed": ["service_stop_scope_validated"]
+      },
+      "related_use_cases": ["endpoint_ransomware_impact_review"],
+      "recommended_pivots": ["review_service_name", "check_user_context", "correlate_with_file_impact"]
     }
   ]
 }

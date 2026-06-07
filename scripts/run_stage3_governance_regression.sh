@@ -78,6 +78,10 @@ fi
 grep -q 'capture_blocked:live_capture_flag_missing' /tmp/stage3m_s5_capture.err \
   || fail "expected live_capture_flag_missing"
 
+section "golden answer Tier 0 (control plane)"
+(cd backend && PYTHONPATH=../backend:.. python3 -m app.evals.golden_answer_runner --tier 0 --json --no-write) \
+  || fail "golden answer Tier 0"
+
 section "105-question shadow route eval"
 ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED=false \
 LEGACY_SELECTED_SKILL_AUTHORITY_ENABLED=true \

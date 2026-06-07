@@ -75,10 +75,39 @@ def _canonical_term_boost(matched: list[str], intent_patterns: list[str]) -> flo
 
 
 def _intent_boost(normalized_query: str, use_case_id: str) -> float:
+    if use_case_id == "aws_security_group_modifications" and all(
+        term in normalized_query for term in ("aws", "security group")
+    ):
+        return 0.24
+    if use_case_id == "aws_console_success_logins_by_user" and all(
+        term in normalized_query for term in ("aws", "console")
+    ):
+        return 0.28
+    if use_case_id == "aws_iam_policy_modifications" and all(
+        term in normalized_query for term in ("aws", "iam")
+    ):
+        return 0.28
+    if use_case_id == "auth_failed_login_top_users_exclude_service_accounts" and (
+        "exclude service account" in normalized_query or "excluding service account" in normalized_query
+    ):
+        return 0.30
     if use_case_id == "soc_show_sop" and any(term in normalized_query for term in ("sop", "playbook", "runbook")):
         return 0.18
     if use_case_id == "soc_generate_spl" and "spl" in normalized_query:
         return 0.18
     if use_case_id == "soc_map_alert_mitre" and any(term in normalized_query for term in ("mitre", "att&ck")):
         return 0.18
+    if use_case_id == "auth_success_after_failure" and (
+        ("successful login" in normalized_query and any(term in normalized_query for term in ("followed", "after failure", "after failures", "after failed")))
+        or any(
+            term in normalized_query
+            for term in (
+                "successful login after",
+                "success after",
+                "followed by a successful login",
+                "failures followed by",
+            )
+        )
+    ):
+        return 0.34
     return 0.0

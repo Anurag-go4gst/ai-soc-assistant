@@ -40,8 +40,8 @@
 
 | Question | Answer |
 |----------|--------|
-| What is done? | **0–11** — full in-repo chat control plane through docs and rollout gates |
-| What is next? | COE rollout review; do not flip `CONTROL_PLANE_ENABLED` default without approval |
+| What is done? | **0–11** — full in-repo chat control plane through docs and rollout gates; **Phase 12** — general SOC reasoning & answer-contract validation ([`2026-06-04_0703_general-soc-reasoning-answer-contract.md`](2026-06-04_0703_general-soc-reasoning-answer-contract.md), Done on `feat/deterministic-spl-llm-fallback`) |
+| What is next? | COE rollout review; do not flip `CONTROL_PLANE_ENABLED` default without approval; optional deferred items in Phase 12 plan header |
 | What flag gates rollout? | `CONTROL_PLANE_ENABLED` (Commit 1, default `false`; stay off until Phase 10 golden) |
 | Where is MITRE data? | Runtime [`question_runtime_map_v1.json`](../backend/app/coverage/question_runtime_map_v1.json) + [`catalog.json`](../backend/app/use_cases/catalog.json) (promoted); DRAFT JSONs remain under [`docs/input/mitre_enrichment/`](../docs/input/mitre_enrichment/) as fallback |
 | What must never happen? | Live MCP, live Foundation-Sec synthesis, execute `candidate_spl`, LLM→MCP, keyword intent overrides after 1A |
@@ -49,8 +49,8 @@
 **Execution order (mandatory):**
 
 ```text
-DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6  →  7  →  8  →  9  →  10  →  11
-NEXT:  COE rollout review
+DONE:  0  →  1  →  1A  →  1A-fix  →  1B-a  →  1B-b  →  2  →  3  →  4  →  5  →  6  →  7  →  8  →  9  →  10  →  11  →  12 (general SOC reasoning / answer contract)
+NEXT:  COE rollout review; Agent B answer-quality plan (0720) if not merged
 ```
 
 **Recent commits on `master`:** `816cdf8` (0) · `0cc1242` (1) · `8a83929` (1A) · `56b48d9` (1B-b) · `8a7e52a` (1A MITRE gate + intent HIL/procedural fixes) · `bfe4d91` (2/3 evidence planner + RAG-only path) · `1106dd3` (route bridge and MITRE registry tooling)

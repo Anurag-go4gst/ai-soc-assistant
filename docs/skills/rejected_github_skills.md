@@ -33,6 +33,8 @@ Skills listed here should not be re-reviewed without cause. **Partial accepts** 
 | ------------ | ---- | -------- | ---------------- | -------------- | --------------- | ----- |
 | `analyzing-ransomware-encryption-mechanisms` | `skills/analyzing-ransomware-encryption-mechanisms/SKILL.md` | `partial_reject` | `offensive_only`, `unsafe_execution_steps` | Malware RE / decryptor tooling | No | Parent skill **accepted** for defensive impact evidence (P7). Do not import Ghidra, reverse-engineering, or decryptor workflow steps. |
 
+Batch 2 keeps this as the only rejected/deferred content from the seven mandatory GitHub references. The parent skill is represented only as defensive impact-review metadata in `content_enrichment.json`.
+
 ## Policy (summary)
 
 Rejected:

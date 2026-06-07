@@ -75,6 +75,18 @@ def _mock_rows(spl: str) -> list[dict[str, Any]]:
         return [{"src": "10.1.2.55", "fail_count": 327, "spl_hash": spl_hash}]
     if "timechart" in lowered:
         return [{"_time": "2026-05-24T00:00:00Z", "count": 7, "spl_hash": spl_hash}]
-    if "action=success" in lowered:
-        return [{"src": "203.0.113.42", "count": 3, "spl_hash": spl_hash}]
+    if "success_count" in lowered or 'action="success"' in lowered or "action=success" in lowered:
+        return [
+            {
+                "user": "svc_grid_ops",
+                "host": "APP-01",
+                "src": "10.10.4.21",
+                "fail_count": 58,
+                "success_count": 1,
+                "first_failure": "2026-05-24T13:42:10Z",
+                "last_event": "2026-05-24T14:37:22Z",
+                "risk": "P1 validation - successful login after repeated failures",
+                "spl_hash": spl_hash,
+            }
+        ]
     return [{"user": "svc_app", "fail_count": 184, "spl_hash": spl_hash}]

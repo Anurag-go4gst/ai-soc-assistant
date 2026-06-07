@@ -71,6 +71,16 @@ class Settings(BaseSettings):
     debug_trace_enabled: bool = True
     routing_deterministic_threshold: float = 0.70
     routing_llm_shadow_enabled: bool = True
+
+    # Batch 1 — mock-MCP execution HIL hardening. A valid SPL and a successful
+    # mock execution must never imply autonomous execution: by default a mock
+    # success surfaces an analyst-review requirement. The without-HIL relaxation
+    # applies ONLY when the deployment is explicitly flagged as demo/lab AND the
+    # allow flag is set — two independent axes, so enabling a demo cannot
+    # silently disable HIL on a non-demo deployment.
+    ai_soc_require_hil_for_mock_execution: bool = True
+    ai_soc_allow_mock_execution_without_hil_in_demo: bool = True
+    ai_soc_demo_or_lab_execution_mode: bool = False
     ai_soc_llm_shadow_narration_enabled: bool = False
     ioc_registry_enabled: bool = False
     ioc_registry_path: str = ""
@@ -89,6 +99,9 @@ class Settings(BaseSettings):
     route_plan_supporters_runtime_enabled: bool = True
     # P2-audit: persist operation audit rows to in-process store + telemetry.
     operation_audit_persistence_enabled: bool = True
+    quality_review_enabled: bool = False
+    quality_review_user_allowlist: str = ""
+    quality_review_allow_any_authenticated: bool = False
     mcp_mode: str = "mock"
     mcp_servers: str = ""
     mcp_default_server: str = "splunk_soc"
@@ -179,6 +192,7 @@ class Settings(BaseSettings):
     ai_soc_llm_synthesis_model: str = ""
     ai_soc_llm_spl_advisory_provider: str = ""
     ai_soc_llm_spl_advisory_model: str = ""
+    ai_soc_llm_spl_fallback_enabled: bool = False
     ai_soc_llm_template_match_provider: str = ""
     ai_soc_llm_template_match_model: str = ""
     ai_soc_llm_template_render_provider: str = ""
@@ -213,6 +227,12 @@ class Settings(BaseSettings):
     # Hard kill-switches. Default false; no synthesis or answer guard exists yet.
     ai_soc_llm_final_synthesis_enabled: bool = False
     ai_soc_llm_answer_guard_enabled: bool = False
+    # When true (and final synthesis is on, mode is not mock/disabled, and a
+    # local/openai-compatible endpoint is configured), the live-chat synthesis
+    # narrates the analyst summary with the real model instead of the
+    # deterministic lab draft. Defaults false so the test suite and the
+    # Experience Center fixture path never make a live model call.
+    ai_soc_llm_live_synthesis_enabled: bool = False
 
     # Stage 3M-S4: Experience Center demo-only LLM shadow (lineage/trace; no final synthesis).
     demo_llm_shadow_enabled: bool = False
@@ -223,6 +243,10 @@ class Settings(BaseSettings):
     # P0-9 documentation/readiness: proposed profile name for COE system-check demos.
     # Empty = unset. Does not orchestrate env vars until a later stage wires it.
     ai_soc_flow_check_mode: str = ""
+    # When true, /chat returns the same governed payload as Experience Center when the
+    # user message exactly matches a demo scenario query (normalized). Does not enable
+    # real Splunk MCP or live Foundation-sec calls.
+    ai_soc_live_chat_ec_parity_enabled: bool = False
     # P1: LangGraph orchestration parity with imperative /chat (default off).
     langgraph_orchestration_enabled: bool = False
     # Chat control plane rollout gate. Default false until golden tests pass.
@@ -232,7 +256,7 @@ class Settings(BaseSettings):
     telemetry_mode: str = "db"
     spl_validation_enabled: bool = True
     spl_allowed_indexes: str = "pgcil_soc"
-    spl_allowed_sourcetypes: str = "pgcil:auth"
+    spl_allowed_sourcetypes: str = "pgcil:auth,aws:cloudtrail"
     spl_default_earliest: str = "-24h"
     spl_default_latest: str = "now"
     spl_max_result_limit: int = 100

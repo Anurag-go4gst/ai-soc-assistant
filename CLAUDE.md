@@ -33,8 +33,10 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - Guarded LLM adapter (Stage 3J-I): `app/llm/adapter/` extracts the first balanced JSON object, validates role-specific schemas, and applies active authority overrides (forces SPL `execution_eligible=false`, forces deterministic clarification/severity/MITRE-status/SOP-citation/allowed-actions on conflict, records `warnings`/`disagreements`). Dormant semantic guards live in `app/answer_guard/rules.py` (13 stable `guard.*` ids, unit-tested only). Adapter and guard rules are NOT imported by any `/chat` or demo response path; they never run on a live answer yet.
 - Experience Center calibration (Stage 3J-J): demo golden answers in `app/demo/scenarios.py` are calibrated to governed Foundation-sec behavior — valid template SPL, per-source "Distinct users by source" (no summed global count), explicit MITRE `Status`, P1–P4 action priorities, `execution_eligible=false`. Each answer carries an investigation-lineage reveal ("How this answer was produced") collapsed by default in the chat UI. Answers are deterministic/`coe_synthetic_fixture`, not produced by a live model.
 - LLM-assisted routing governance (Stage 3J-K0): routing modes `deterministic_only`, `llm_shadow_only`, `llm_assisted_semantic`, `llm_primary_lab`. LLM route suggestions are advisory only, normalized through deterministic registries and clarification policy; final route selection stays deterministic. Evidence-need→MCP-tool mapping is a deterministic record only (no execution). The SPL optimizer field `execution_eligible` is renamed `revalidation_approved`; candidate SPL remains non-executable.
-- Do not add final LLM synthesis, the answer guard, real LLM calls, Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless a later stage explicitly asks for it.
+- Live LLM synthesis (live chat only): the live `/chat` path may narrate the analyst-summary prose with a real on-prem model (llama.cpp Foundation-Sec) when `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED` are both true and a `local`/`openai_compatible` endpoint is configured. All facts (severity, MITRE+status, actions, SPL, `execution_eligible=false`) stay deterministic authority; the model only rewrites prose; any failure falls back to the deterministic draft. The Answer Guard (`AI_SOC_LLM_ANSWER_GUARD_ENABLED`) runs on the resulting draft. The Experience Center fixture path (`coe_synthetic_fixture`) is isolated by the demo-scenario early-return in `routes_chat.py` and never calls a live model. The model never calls MCP; no raw events reach the prompt.
+- Do not add Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless a later stage explicitly asks for it. Do not route live synthesis through the Experience Center path.
 - Do not execute raw `candidate_spl`; never pass prompts, reasoning, credentials, RAG chunks, or raw workflow internals to MCP.
+- Chat control plane (phases 0–11) is implemented: query-to-intent, evidence planning, RAG-only branching, route adjudication, SPL slot binding, flag-gated MITRE decision, `control_plane_trace`. Gated by `CONTROL_PLANE_ENABLED` (default `false`). See `plans/2026-06-02_chat-control-plane-master.md`. Forward work: `plans/AI_SOC_MASTER_PLAN.md`.
 
 ## Run / Build
 
@@ -156,6 +158,16 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 
 ## Plans
 
+**Canonical plans (read these first):**
+
+| Plan | Role |
+|------|------|
+| `plans/2026-06-02_chat-control-plane-master.md` | **Done** — chat control plane implementation (phases 0–11 on `master`). `CONTROL_PLANE_ENABLED=false` remains rollout default until COE approves. |
+| `plans/AI_SOC_MASTER_PLAN.md` | **Active roadmap** — hardening, skill enrichment, pipeline/LangGraph, GitHub skill intake (Tracks A–D); P1–P7 pilots; **planning only** (no implementation yet). |
+| `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Logic hierarchy, rules, status tables — agents read for Q1C→Q4 spine context. |
+
+**All plans:**
+
 | Plan | Status |
 |------|--------|
 | `plans/2026-05-24_1045_stage-3g1-governed-rag-completion.md` | Done |
@@ -167,8 +179,8 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-26_1849_stage-3j-i-3-prompt-contracts-role-suitability.md` | Done |
 | `plans/2026-05-26_1924_stage-3j-j-experience-center-llm-calibration.md` | Superseded — lighter calibration shipped in `2fefd10`; lineage reveal in `91f7b0e` |
 | `plans/2026-05-26_1955_stage-3j-k0-llm-assisted-routing-governance.md` | In Progress — routing backend landed (`05c95bc`); governance settings UI uncommitted |
-| `plans/2026-06-02_chat-control-plane-master.md` | **Canonical — chat control plane; phases 0, 1, 1A, 1B-b, 2, and 3 done; next phase 4 route adjudication** |
-| `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Canonical — agents read this first; logic hierarchy, rules, status tables |
+| `plans/2026-06-02_chat-control-plane-master.md` | **Done** — phases 0–11 (intent → evidence plan → route adjudication → SPL/MITRE/trace/golden). Rollout gated by `CONTROL_PLANE_ENABLED` (default `false`). Next: COE rollout review. |
+| `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Canonical — logic hierarchy, rules, status tables |
 | `plans/2026-05-28_0523_stage-3k-q1c-q4-roadmap.md` | Proposed — Q1C→Q4 roadmap index |
 | `plans/2026-05-28_0523_stage-3k-q1c-route-plan-template-match.md` | Proposed |
 | `plans/2026-05-28_0523_stage-3k-q1d-sample-template-spl-render.md` | Proposed |
@@ -179,6 +191,10 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Proposed |
 | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Proposed |
 | `plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md` | Proposed — COE review: live MCP adapter + synthesis enablement, query→answer |
+| `plans/2026-06-03_1609_local-llama-instruct-synthesis-client.md` | In Progress — live-chat narration (P2/P3) landed: real client + summary narration, EC isolated, guard on, deterministic fallback. P4 latency UX + P5 live-MCP-into-prompt pending |
+| `plans/2026-06-04_0703_general-soc-reasoning-answer-contract.md` | Done — general SOC reasoning layer (Agent A): data-driven MITRE evidence-preconditions (replaces per-use-case not-claimed hardcoding), AnswerContract read-model wired into finalize, contract-driven builder, fail-closed final-answer validator, 32-case behavior matrix. Flag-gated; suite + governance regression green |
+| `plans/2026-06-04_0720_answer-quality-golden-regression-and-feedback-ledger.md` | Done — answer-quality ledger, feedback API, review queue, promote-golden, expectation matrix (105+46), Tier 0–2 golden JSONL + runner (Tier 0 in governance regression), Quality page summary |
+| `plans/AI_SOC_MASTER_PLAN.md` | **Active** — single master plan for Tracks A–D (hardening, enrichment, pipeline, GitHub intake register). Supersedes `2026-06-06_*` drafts. Tracking: §P + `docs/skills/*` (proposed, not created yet). |
 
 ## Git Notes
 

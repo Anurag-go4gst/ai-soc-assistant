@@ -126,8 +126,18 @@ def _select_approved(approved: list[DetectionRecord], parameters: dict[str, Any]
 
 def _resolve_registry_path(registry_path: str | Path | None) -> Path:
     if registry_path:
-        return Path(registry_path)
+        return _resolve_existing_or_package_relative(Path(registry_path))
     configured = settings.detection_registry_path.strip()
     if configured:
-        return Path(configured)
+        return _resolve_existing_or_package_relative(Path(configured))
     return _DEFAULT_DETECTION_REGISTRY_PATH
+
+
+def _resolve_existing_or_package_relative(path: Path) -> Path:
+    if path.exists() or path.is_absolute():
+        return path
+    parts = path.parts
+    suffix = ("app", "detections", "fixtures", "detection_registry.sample.json")
+    if len(parts) >= len(suffix) and parts[-len(suffix) :] == suffix:
+        return _DEFAULT_DETECTION_REGISTRY_PATH
+    return path

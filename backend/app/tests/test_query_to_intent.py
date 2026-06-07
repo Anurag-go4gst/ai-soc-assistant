@@ -32,6 +32,26 @@ def test_generate_spl_for_failed_logins_is_spl_generation_only() -> None:
     intent = result.intent_classification
     assert intent.intent_family == "spl_generation_only"
     assert "spl_artifact" in intent.answer_goal
+    assert result.query_signals["projected_needs_mcp"] is False
+
+
+def test_generate_spl_and_run_without_scope_is_generation_and_execution() -> None:
+    result = _result("Generate SPL for successful login after failures and run")
+    intent = result.intent_classification
+    assert intent.intent_family == "spl_generation_and_run"
+    assert result.query_signals["projected_needs_mcp"] is True
+
+
+def test_generate_spl_and_run_with_scope_is_generation_and_execution() -> None:
+    result = _result(
+        "Generate SPL for successful login after failures and run on host APP-01 "
+        "in index pgcil_soc sourcetype pgcil:auth for the last 60 minutes"
+    )
+    intent = result.intent_classification
+    assert intent.intent_family == "spl_generation_and_run"
+    assert "spl_artifact" in intent.answer_goal
+    assert "live_results" in intent.answer_goal
+    assert result.query_signals["projected_needs_mcp"] is True
 
 
 def test_failed_login_plus_analyst_action_is_hybrid() -> None:
@@ -50,6 +70,22 @@ def test_map_this_to_mitre_requires_clarification() -> None:
     intent = result.intent_classification
     assert intent.intent_family == "mitre_mapping"
     assert intent.requires_clarification is True
+
+
+def test_alt_alert_success_after_failure_is_hybrid_alert_review() -> None:
+    result = _result(
+        "For alert ALT-2024-0891 (failed logins followed by a successful login from the same user "
+        "in the last hour), what's the severity, MITRE mapping with status, and a governed SPL "
+        "I can review—but not execute"
+    )
+    intent = result.intent_classification
+    assert intent.intent_family == "hybrid_alert_review"
+    assert intent.action_mode == "recommend_only"
+    assert "severity_assessment" in intent.answer_goal
+    assert "mitre_mapping" in intent.answer_goal
+    assert "spl_artifact" in intent.answer_goal
+    assert result.query_signals["success_after_failure"] is True
+    assert result.query_signals["review_only_spl"] is True
 
 
 def test_explain_mitre_technique_is_mitre_explanation() -> None:

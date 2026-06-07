@@ -162,18 +162,17 @@ FOUNDATION_SEC_GOVERNANCE_FIXTURES: dict[str, dict[str, Any]] = {
             ],
         },
     ),
-    "successful_login_after_failures": _base(
+    "successful_login_after_failures_run": _base(
         captured_outputs=[
             {
                 "model_role": "pattern_reasoner",
                 "model_family": "Foundation-sec",
                 "model_name": "Foundation-sec-8B-Reasoning",
                 "captured_prompt_type": "success_after_failure_reasoning",
-                "captured_summary": "Identified a successful login for svc_grid_ops from 10.10.4.21 after 58 failures within 17 minutes as materially higher risk.",
+                "captured_summary": "Interpreted the executed preview row as password guessing followed by one success for svc_grid_ops on APP-01.",
                 "useful_contribution": [
-                    "Kept T1110.001 Password Guessing supported.",
-                    "Kept T1078 Valid Accounts dependent on post-login validation.",
-                    "Identified EDR, firewall, IAM, CMDB, and session/MFA evidence as missing.",
+                    "Kept T1110.001 Password Guessing supported from the returned row.",
+                    "Kept T1078 Valid Accounts at requires_validation pending session and post-login evidence.",
                 ],
                 "observed_limitations": [
                     "Added prose before JSON and drifted from schema.",
@@ -182,21 +181,19 @@ FOUNDATION_SEC_GOVERNANCE_FIXTURES: dict[str, dict[str, Any]] = {
             }
         ],
         governed_analysis={
-            "model_signal": "Foundation-sec identified the successful login after 58 failures as a materially higher-risk credential-access signal.",
-            "vai_soc_decision": "V.AI SOC accepts the password-guessing pattern and keeps T1078 Valid Accounts at requires_validation because post-login, MFA/session, privilege, and APP-01 criticality evidence are not available.",
+            "model_signal": "Foundation-sec treated the executed preview row as a success-after-failure sequence for svc_grid_ops on APP-01.",
+            "vai_soc_decision": "V.AI SOC accepts T1110.001 as supported from the returned row and keeps T1078 at requires_validation until MFA, session, and post-login evidence are collected.",
             "evidence_used": [
-                "User svc_grid_ops had 58 failures before a successful login.",
-                "Source IP 10.10.4.21 and host APP-01 are in scope.",
-                "The success occurred 17 minutes after the first failure.",
+                "Splunk MCP preview returned 58 failures and 1 success for svc_grid_ops from 10.10.4.21 on APP-01.",
+                "Validated normalized SPL was the only query submitted to the MCP gate.",
             ],
-            "evidence_refs": ["ev-splunk-success-after-fail"],
+            "evidence_refs": ["ev-splunk-success-after-fail-run"],
             "missing_evidence": [
                 "Post-login process execution or command activity.",
                 "EDR telemetry for APP-01.",
                 "MFA/session context for the successful login.",
                 "Privilege/service-account status for svc_grid_ops.",
                 "APP-01 CMDB criticality.",
-                "Firewall and VPN pivots for 10.10.4.21.",
             ],
             "governance_overrides": [
                 {
@@ -207,8 +204,7 @@ FOUNDATION_SEC_GOVERNANCE_FIXTURES: dict[str, dict[str, Any]] = {
                 }
             ],
             "guardrail_notes": [
-                "Privilege for svc_grid_ops is not asserted.",
-                "APP-01 criticality is not asserted.",
+                "Analysis is grounded on the executed preview row only.",
                 "No malicious post-login activity is asserted.",
             ],
         },

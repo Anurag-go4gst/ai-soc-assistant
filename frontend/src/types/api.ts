@@ -10,6 +10,7 @@ export interface AuthResponse {
 }
 
 export interface PlaceholderResponse {
+  turn_id?: string | null;
   trace_id: string;
   message: string;
   note: string;
@@ -63,6 +64,8 @@ export interface PlaceholderResponse {
   llm_plan_validation?: Record<string, unknown> | null;
   query_to_intent?: Record<string, unknown> | null;
   control_plane_trace?: Record<string, unknown> | null;
+  answer_contract?: Record<string, unknown> | null;
+  final_answer_validation?: Record<string, unknown> | null;
   mitre_decision?: Record<string, unknown> | null;
   mitre_mappings?: MitreMappingDecision[] | null;
   severity_decision?: SeverityDecision | null;
@@ -72,6 +75,51 @@ export interface PlaceholderResponse {
   action_capability?: ActionCapability | null;
   experience_center_governance?: ExperienceCenterGovernance | null;
   governance_trace?: ExperienceCenterGovernance | null;
+}
+
+export type ChatAnswerFeedbackRating = 'up' | 'down' | 'neutral';
+
+export interface ChatAnswerFeedbackRequest {
+  turn_id: string;
+  trace_id?: string | null;
+  rating: ChatAnswerFeedbackRating;
+  remark?: string | null;
+  category?: string | null;
+}
+
+export interface ChatAnswerFeedbackResponse {
+  feedback_id?: string | null;
+  turn_id: string;
+  trace_id?: string | null;
+  rating: ChatAnswerFeedbackRating;
+  remark?: string | null;
+  category?: string | null;
+  review_status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  quality_status?: string | null;
+}
+
+export interface QualityFlaggedTurn {
+  turn_id: string;
+  trace_id?: string | null;
+  created_at?: string | null;
+  user_query?: string | null;
+  final_message?: string | null;
+  analyst_summary?: string | null;
+  selected_skill?: string | null;
+  selected_use_case_id?: string | null;
+  answer_mode?: string | null;
+  response_mode?: string | null;
+  quality_status?: string | null;
+  golden_candidate?: boolean | null;
+  latest_feedback?: ChatAnswerFeedbackResponse | null;
+  feedback?: ChatAnswerFeedbackResponse[] | null;
+}
+
+export interface QualityFlaggedTurnsResponse {
+  turns: QualityFlaggedTurn[];
+  count: number;
 }
 
 export interface McpEnvelopeGovernancePanel {
@@ -295,21 +343,34 @@ export interface ActionCapability {
 export interface AnalystResponseEnvelope {
   scenario_label?: string | null;
   severity_label?: string | null;
+  severity_confidence?: string | null;
+  severity_rationale?: string | null;
+  severity_safety_note?: string | null;
   finding_title?: string | null;
   one_sentence_finding?: string | null;
   status_badge?: string | null;
   splunk_status_line?: string | null;
   splunk_results_table?: Record<string, unknown>[];
   mitre_mappings?: Record<string, unknown>[];
+  not_claimed?: Record<string, unknown>[];
   retrieved_playbook?: Record<string, unknown> | null;
   sop_guidance?: Record<string, unknown> | null;
   foundation_sec_analysis?: string | null;
   recommended_actions?: string[];
   spl_code?: string | null;
+  executed_spl?: string | null;
+  execution_status?: string | null;
+  response_profile?: string | null;
   key_fields?: string[];
   escalation_criteria?: string[];
   closure_conditions?: string[];
   review_notice?: string | null;
+  evidence_summary?: string | null;
+  execution_status_label?: string | null;
+  direct_answer_summary?: string | null;
+  limitations?: string[];
+  section_order?: string[];
+  render_sections?: Record<string, boolean>;
 }
 
 export interface FoundationSecCapturedOutput {

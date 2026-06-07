@@ -108,7 +108,9 @@ def missing_slot_bindings(
             missing.append("failure_event_type")
 
     if constraints.get("group_by") == "user":
-        if not re.search(r"\bby\s+(?:authentication\.)?user\b", lowered):
+        if not re.search(r"\bby\s+(?:authentication\.)?user\b", lowered) and not re.search(
+            r"\bby\s+useridentity\.(?:arn|username)\b", lowered
+        ):
             missing.append("group_by_user")
 
     if not _has_index_or_datamodel(lowered):
@@ -127,6 +129,8 @@ def _template_can_bind(template: SplTemplateDefinition, parameter: str) -> bool:
 
 def _has_service_account_exclusion(lowered_spl: str) -> bool:
     if "service account" in lowered_spl and any(token in lowered_spl for token in ("not ", "!=", "not like", "not match")):
+        return True
+    if re.search(r"\bnot\s*\([^)]*\buser\s*=\s*\"[^\"]*(svc|service)[^\"]*\"", lowered_spl):
         return True
     return bool(
         re.search(r"\bnot\s+(?:like|match)\s*\(\s*(?:authentication\.)?user\s*,\s*\"[^\"]*(svc|service)[^\"]*\"", lowered_spl)

@@ -9,6 +9,7 @@ import { DebugPage } from './pages/DebugPage';
 import { InvestigationsPage } from './pages/InvestigationsPage';
 import { KnowledgePage } from './pages/KnowledgePage';
 import { LoginPage } from './pages/LoginPage';
+import { QualityPage } from './pages/QualityPage';
 import { ScenariosPage } from './pages/ScenariosPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SocCockpit } from './pages/SocCockpit';
@@ -91,6 +92,7 @@ export default function App() {
             <Route path="/investigations" element={<InvestigationsPage />} />
             <Route path="/scenarios" element={<ScenariosPage />} />
             <Route path="/knowledge" element={<KnowledgePage />} />
+            <Route path="/quality" element={<QualityPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/providers" element={<SettingsPage />} />
             <Route path="/debug" element={<DebugPage />} />

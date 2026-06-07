@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from app.actions.capability_policy import action_capability_for
 from app.answer_guard.models import AnswerGuardStatus
+from app.chat.analyst_response_builder import attach_evidence_summary
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.evidence_planner import plan_evidence
 from app.chat.intent_classifier import build_query_to_intent
@@ -74,6 +75,21 @@ def list_demo_scenarios() -> list[dict[str, Any]]:
     return [_scenario_summary(item) for item in SCENARIOS.values()]
 
 
+def resolve_demo_scenario_id_for_query(message: str) -> str | None:
+    """Match live /chat text to an Experience Center scenario query (exact, normalized)."""
+    from app.chat.query_signals import extract_query_signals
+
+    normalized = extract_query_signals(message)["normalized_query"]
+    matches: list[str] = []
+    for scenario in SCENARIOS.values():
+        scenario_norm = extract_query_signals(scenario.query)["normalized_query"]
+        if normalized == scenario_norm:
+            matches.append(scenario.scenario_id)
+    if not matches:
+        return None
+    return matches[0]
+
+
 def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     scenario = SCENARIOS[scenario_id]
     trace_id = f"demo-{scenario.scenario_id}-{uuid4().hex[:8]}"
@@ -97,6 +113,8 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     review = _human_review(scenario, execution)
     analyst_response = _analyst_response(scenario)
     foundation_sec_governance = foundation_sec_governance_for(scenario.scenario_id)
+    if isinstance(analyst_response, dict) and analyst_response.get("response_profile") == "spl_only":
+        foundation_sec_governance = None
     query_understanding = _query_understanding_for_scenario(scenario)
     query_to_intent = build_query_to_intent(
         query=scenario.query,
@@ -355,16 +373,17 @@ def _experience_center_evidence_plan(
             }
         )
     elif scenario.expected_skill == "spl_generation":
+        mcp_enabled = scenario.mcp_execution_mode == "mock_success"
         plan.update(
             {
                 "answer_mode": "live_investigation",
                 "rag_phase": "post_mcp",
-                "needs_rag": scenario.rag_available,
+                "needs_rag": False if scenario.scenario_id.startswith("successful_login_after_failures") else scenario.rag_available,
                 "needs_spl": bool(scenario.candidate_spl),
-                "needs_mcp": False,
-                "needs_mitre": False,
+                "needs_mcp": mcp_enabled,
+                "needs_mitre": mcp_enabled,
                 "spl_allowed": bool(scenario.candidate_spl),
-                "mcp_allowed": False,
+                "mcp_allowed": mcp_enabled,
             }
         )
     else:
@@ -527,7 +546,7 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
             "duration_ms": 0,
         }
     if scenario.mcp_execution_mode == "mock_success" and spl_validation and spl_validation.get("approved"):
-        rows = _mock_rows_for(trace_id)
+        rows = _mock_rows_for(trace_id, scenario.scenario_id)
         envelope = demo_envelope_from_rows(
             rows,
             trace_id=trace_id,
@@ -694,6 +713,16 @@ def _playbook_payload() -> dict[str, object]:
     }
 
 
+def _enriched_playbook_payload() -> dict[str, object]:
+    return {
+        **_playbook_payload(),
+        "citation": "SOC-SOP-AUTH-001#triage",
+        "retrieval_mode": "governed_soc_kb",
+        "confidence": 0.91,
+        "source_evidence_id": "ev-rag-bruteforce-sop",
+    }
+
+
 def _sop_guidance_payload() -> dict[str, object]:
     return {
         "triage_steps": [
@@ -713,7 +742,7 @@ def _sop_guidance_payload() -> dict[str, object]:
 
 
 def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
-    playbook = _playbook_payload()
+    playbook = _enriched_playbook_payload()
     sop_guidance = _sop_guidance_payload()
     base = {
         "scenario_label": scenario.label,
@@ -730,7 +759,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     }
 
     if scenario.scenario_id == "failed_login_spike_app01":
-        return {
+        return attach_evidence_summary({
             **base,
             "severity_label": "P2 High",
             "finding_title": "Brute-force authentication spike detected on APP-01",
@@ -756,7 +785,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "P2 - Check APP-01 CMDB criticality and business owner. Escalate scope if APP-01 supports critical or OT-adjacent operations.",
                 "P3 - Document findings after success-after-failure, account privilege, source ownership, and asset criticality checks are complete.",
             ],
-        }
+        })
     if scenario.scenario_id == "new_source_ip_logins":
         return {
             **base,
@@ -828,12 +857,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     if scenario.scenario_id in {"brute_force_sop_guidance", "failed_login_playbook"}:
         return {
             **base,
-            "retrieved_playbook": {
-                "title": "Brute-force Authentication Investigation",
-                "id": "SOC-SOP-AUTH-001",
-                "version": "v2026.04",
-                "purpose": playbook["purpose"],
-            },
+            "retrieved_playbook": playbook,
             "finding_title": "Brute-force Authentication Investigation - SOC-SOP-AUTH-001 v2026.04",
             "one_sentence_finding": "Guide the SOC analyst through triage, confirmation, escalation, and closure of brute-force authentication activity.",
             "sop_guidance": {
@@ -868,13 +892,16 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "SOC lead accepts closure with linked evidence.",
             ],
         }
-    if scenario.scenario_id in {"successful_login_after_failures", "airgapped_no_saia_success_after_failures"}:
+    if scenario.scenario_id == "successful_login_after_failures":
         return {
             **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
             "finding_title": "Success-after-failure correlation SPL",
             "status_badge": "Template-generated SPL - validator-ready",
-            "one_sentence_finding": "Foundation-sec flagged a successful login after repeated failures as a higher-risk credential-access signal; V.AI SOC uses deterministic template SPL and keeps T1078 Valid Accounts at requires_validation.",
+            "one_sentence_finding": "Correlates failed and successful authentication events by user, source, and host. This is a governed candidate SPL artifact and has not been executed.",
             "spl_code": SUCCESS_AFTER_FAILURES_VISIBLE_SPL,
+            "response_profile": "spl_only",
             "key_fields": [
                 "user - account with failures followed by success",
                 "host - target authentication host",
@@ -884,11 +911,46 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "first_failure / last_event - time window of the full chain",
                 "risk - validation priority for the returned sequence",
             ],
+            "review_notice": "Candidate SPL only. Review and validate scope before operational execution.",
+        }
+    if scenario.scenario_id == "successful_login_after_failures_run":
+        return {
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "finding_title": "Success-after-failure correlation executed on APP-01",
+            "status_badge": "Splunk MCP preview execution",
+            "one_sentence_finding": "Splunk MCP preview returned one success-after-failure sequence for APP-01 using governed COE evidence.",
+            "splunk_status_line": "Splunk MCP executed (COE preview) · 1 row(s)",
+            "splunk_results_table": [
+                {
+                    "User": "svc_grid_ops",
+                    "Host": "APP-01",
+                    "Source IP": "10.10.4.21",
+                    "Failed logins": 58,
+                    "Successful logins": 1,
+                    "First failure": "2026-05-24T13:42:10Z",
+                    "Last event": "2026-05-24T14:37:22Z",
+                    "Risk": "P1 validation - successful login after repeated failures",
+                }
+            ],
+            "spl_code": SUCCESS_AFTER_FAILURES_VISIBLE_SPL,
+            "executed_spl": SUCCESS_AFTER_FAILURES_SPL,
+            "execution_status": "executed",
+            "response_profile": "spl_executed",
+            "key_fields": [
+                "user - account with failures followed by success",
+                "host - target authentication host",
+                "src/source_ips - source IPs involved in the sequence",
+                "fail_count - number of failed attempts before success",
+                "success_count - number of successful logins after failures",
+                "first_failure / last_event - time window of the full chain",
+                "risk - validation priority for the returned sequence",
+            ],
             "mitre_mappings": [
-                {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Status": "Supported", "Evidence": "Repeated failures before a success event", "Validation needed": "Validate benign causes and account ownership."},
+                {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Status": "Supported", "Evidence": "58 failures before one success for the same user, source, and host", "Validation needed": "Validate benign causes and account ownership."},
                 {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Status": "Requires validation", "Evidence": "Successful login after repeated failures", "Validation needed": "Confirm MFA, session legitimacy, and post-login activity."},
             ],
-            "foundation_sec_analysis": "Foundation-sec identified the successful login after 58 failures as materially higher risk. V.AI SOC accepts T1110.001 as supported, but T1078 remains requires_validation until post-login activity, MFA/session context, EDR evidence, account privilege, APP-01 criticality, and firewall pivots are available.",
             "recommended_actions": [
                 "P1 - Validate the successful session: source IP, MFA result, session duration, and first post-login activity.",
                 "P1 - Review EDR/process telemetry for APP-01 immediately after login.",
@@ -896,7 +958,28 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "P2 - Pivot firewall, VPN, and identity logs for 10.10.4.21 around the same window.",
                 "P2 - Check CMDB criticality for APP-01.",
             ],
-            "review_notice": "Review required before using this SPL in an operational search.",
+            "review_notice": "Preview execution used validated normalized_spl only. Real MCP execution remains blocked until COE configuration and approvals are supplied.",
+        }
+    if scenario.scenario_id == "airgapped_no_saia_success_after_failures":
+        return {
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "finding_title": "Air-gapped success-after-failure correlation SPL",
+            "status_badge": "Template-generated SPL - validator-ready",
+            "one_sentence_finding": "SAIA is unavailable in air-gapped mode, so V.AI SOC returns deterministic template SPL for analyst review only.",
+            "spl_code": SUCCESS_AFTER_FAILURES_VISIBLE_SPL,
+            "response_profile": "spl_only",
+            "key_fields": [
+                "user - account with failures followed by success",
+                "host - target authentication host",
+                "source_ips - source IPs involved in the sequence",
+                "fail_count - number of failed attempts before success",
+                "success_count - number of successful logins after failures",
+                "first_failure / last_event - time window of the full chain",
+                "risk - validation priority for the returned sequence",
+            ],
+            "review_notice": "Candidate SPL only. In live air-gapped mode, MCP preview execution still requires explicit global and server execution approval flags.",
         }
     if scenario.scenario_id == "account_lockouts_over_time_spl":
         return {
@@ -1073,7 +1156,21 @@ def _fact(fact_id: str, statement: str, refs: list[str], confidence: float = 0.9
     return {"fact_id": fact_id, "statement": statement, "source_refs": refs, "derivation": "demo_fixture", "confidence": confidence}
 
 
-def _mock_rows_for(trace_id: str) -> list[dict[str, Any]]:
+def _mock_rows_for(trace_id: str, scenario_id: str | None = None) -> list[dict[str, Any]]:
+    if scenario_id == "successful_login_after_failures_run":
+        return [
+            {
+                "user": "svc_grid_ops",
+                "host": "APP-01",
+                "src": "10.10.4.21",
+                "fail_count": 58,
+                "success_count": 1,
+                "first_failure": "2026-05-24T13:42:10Z",
+                "last_event": "2026-05-24T14:37:22Z",
+                "risk": "P1 validation - successful login after repeated failures",
+                "trace_id": trace_id,
+            }
+        ]
     return [
         {"_time": "2026-05-24T09:00:00Z", "action": "lockout", "count": 4, "trace_id": trace_id},
         {"_time": "2026-05-24T09:10:00Z", "action": "lockout", "count": 9, "trace_id": trace_id},
@@ -1222,7 +1319,7 @@ SCENARIOS: dict[str, DemoScenario] = {
     "successful_login_after_failures": DemoScenario(
         scenario_id="successful_login_after_failures",
         label="Successful login after failures",
-        category="Investigate",
+        category="Generate SPL",
         query="Generate SPL for successful login after failures",
         environment_mode="connected_coe_demo",
         expected_skill="spl_generation",
@@ -1239,16 +1336,69 @@ SCENARIOS: dict[str, DemoScenario] = {
             "Does not reuse the failed-login-spike-only SPL.",
             "MCP execution gate leaves the query unexecuted for analyst review.",
         ],
-        source_evidence=[
-            _evidence("ev-splunk-success-after-fail", "splunk_mcp", "Splunk auth fixture", 2, ["user", "src", "host", "fail_count", "success_count"], [{"user": "svc_grid_ops", "src": "10.10.4.21", "host": "APP-01", "fail_count": 58, "success_count": 1, "minutes_to_success": 17}], tool_name="search", provider_used="splunk_mcp_fixture"),
-        ],
+        source_evidence=[],
         structured_context=_context(
             "successful_login_after_failures",
             "spl_generation",
-            [_fact("fact-success-correlation", "The candidate SPL explicitly correlates failed and successful logins.", ["ev-splunk-success-after-fail"])],
-            metrics={"successful_logins": 1, "failed_logins": 58, "correlation_keys": ["user", "src", "host"]},
-            mitre=[{"technique_id": "T1078", "name": "Valid Accounts", "support": "analyst_review", "source_refs": ["ev-splunk-success-after-fail"]}],
-            refs=["ev-splunk-success-after-fail"],
+            [
+                _fact(
+                    "fact-success-correlation",
+                    "Governed template SPL correlates failure and success counts by user, source, and host.",
+                    [],
+                )
+            ],
+            metrics={"correlation_keys": ["user", "src", "host"]},
+            mitre=[],
+            refs=[],
+            quality="partial",
+        ),
+    ),
+    "successful_login_after_failures_run": DemoScenario(
+        scenario_id="successful_login_after_failures_run",
+        label="Successful login after failures - run",
+        category="Generate + Run",
+        query="Generate SPL for successful login after failures and run on host APP-01 in index pgcil_soc sourcetype pgcil:auth for the last 60 minutes",
+        environment_mode="connected_coe_demo",
+        expected_skill="spl_generation",
+        expected_sources=["spl_policy", "mcp:splunk"],
+        expected_sufficiency_mode="partial_answer",
+        mcp_execution_mode="mock_success",
+        saia_available=True,
+        rag_available=False,
+        candidate_spl=SUCCESS_AFTER_FAILURES_SPL,
+        selected_use_case_id="auth_success_after_failure",
+        analyst_summary="Validated success-after-failure SPL was mock-executed through the MCP gate and returned one fixture row for APP-01.",
+        trace_explanation=[
+            "Generates success-after-failure SPL from the governed template.",
+            "Binds the scoped request to APP-01 in pgcil_soc/pgcil:auth for the fixture window.",
+            "Mock MCP execution uses approved normalized_spl only and returns fixture evidence.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-splunk-success-after-fail-run",
+                "splunk_mcp",
+                "Splunk auth fixture",
+                1,
+                ["user", "src", "host", "fail_count", "success_count", "first_failure", "last_event", "risk"],
+                _mock_rows_for("fixture", "successful_login_after_failures_run"),
+                tool_name="search",
+                executed_spl=SUCCESS_AFTER_FAILURES_SPL,
+                provider_used="mock_mcp_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "successful_login_after_failures_run",
+            "spl_generation",
+            [
+                _fact(
+                    "fact-success-correlation-run",
+                    "Mock MCP fixture returned one APP-01 success-after-failure sequence from validated normalized SPL.",
+                    ["ev-splunk-success-after-fail-run"],
+                )
+            ],
+            metrics={"successful_logins": 1, "failed_logins": 58, "mock_result_rows": 1},
+            mitre=[{"technique_id": "T1078", "name": "Valid Accounts", "support": "analyst_review", "source_refs": ["ev-splunk-success-after-fail-run"]}],
+            refs=["ev-splunk-success-after-fail-run"],
             quality="partial",
         ),
     ),

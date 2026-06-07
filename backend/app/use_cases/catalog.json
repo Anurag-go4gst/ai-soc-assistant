@@ -102,7 +102,9 @@
         "successful login after",
         "success after",
         "success following",
-        "after failures"
+        "after failures",
+        "followed by a successful login",
+        "failures followed by"
       ],
       "example_queries": [
         "Generate SPL for successful login after failures"
@@ -2290,6 +2292,246 @@
       "mitre_blocked": [
         "T1562.001"
       ]
+    },
+    {
+      "use_case_id": "aws_security_group_modifications",
+      "display_name": "AWS security group modifications",
+      "category": "Cloud / AWS",
+      "intent_patterns": [
+        "aws security group",
+        "security group modifications",
+        "security groups",
+        "cloudtrail security group",
+        "security group ingress",
+        "security group egress"
+      ],
+      "example_queries": [
+        "Write SPL to determine who made modifications to any AWS security groups"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "user",
+        "aws_region",
+        "security_group_id",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "spl_generation",
+      "secondary_skills": [
+        "spl_validation",
+        "evidence_collection",
+        "context_sufficiency"
+      ],
+      "required_sources": [
+        "mcp:splunk",
+        "splunk:aws_cloudtrail"
+      ],
+      "optional_sources": [
+        "rag:spl_examples"
+      ],
+      "default_spl_template": "aws_security_group_modifications",
+      "rag_collections": [
+        "spl_examples"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": null,
+      "action_capability_tier": 1,
+      "output_template": "spl_response",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Security-group changes are cloud configuration changes; do not claim Impair Defenses without evidence that defensive tooling or logging was disabled.",
+          "T1003": "CloudTrail security-group changes do not imply credential dumping.",
+          "T1078": "Security-group modification events identify actor fields but do not prove valid-account compromise without supporting evidence."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": false,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "No registry-level MITRE technique is asserted for AWS security-group modification SPL generation. Runtime evidence may support later mapping, but SPL generation alone is not evidence.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": true,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003",
+        "T1078"
+      ]
+    },
+    {
+      "use_case_id": "aws_console_success_logins_by_user",
+      "display_name": "AWS Console successful logins by user",
+      "category": "Cloud / AWS",
+      "intent_patterns": [
+        "aws console logins",
+        "aws console login",
+        "successful aws console",
+        "console logins by user",
+        "signin.amazonaws.com",
+        "consolelogin"
+      ],
+      "example_queries": [
+        "Write SPL to find successful AWS Console logins by user in the last 24 hours"
+      ],
+      "required_entities": [],
+      "optional_entities": ["user", "aws_region", "source_ip", "time_window"],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "spl_generation",
+      "secondary_skills": ["spl_validation", "evidence_collection", "context_sufficiency"],
+      "required_sources": ["mcp:splunk", "splunk:aws_cloudtrail"],
+      "optional_sources": ["rag:spl_examples"],
+      "default_spl_template": "aws_console_success_logins_by_user",
+      "rag_collections": ["spl_examples"],
+      "mitre_candidates": [],
+      "severity_policy": null,
+      "action_capability_tier": 1,
+      "output_template": "spl_response",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": ["T1562.001", "T1003", "T1078"],
+        "blocked_rationale": {
+          "T1562.001": "ConsoleLogin events do not prove defensive tooling was impaired.",
+          "T1003": "ConsoleLogin events do not imply credential dumping.",
+          "T1078": "Successful console login is account-use telemetry but not compromise evidence without supporting context."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": false,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "SPL generation for ConsoleLogin does not assert MITRE mapping.",
+        "source_fields": {"mitre_permitted": [], "mitre_candidates": [], "tactics": []},
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": true,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": ["T1562.001", "T1003", "T1078"]
+    },
+    {
+      "use_case_id": "aws_iam_policy_modifications",
+      "display_name": "AWS IAM policy modifications",
+      "category": "Cloud / AWS",
+      "intent_patterns": [
+        "aws iam policies",
+        "iam policies",
+        "iam policy modifications",
+        "attached policies",
+        "attach policies",
+        "changed aws iam policies",
+        "iam policy changes"
+      ],
+      "example_queries": [
+        "Write SPL to determine who changed AWS IAM policies or attached policies to users or roles"
+      ],
+      "required_entities": [],
+      "optional_entities": ["user", "role", "policy_arn", "aws_region", "time_window"],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "spl_generation",
+      "secondary_skills": ["spl_validation", "evidence_collection", "context_sufficiency"],
+      "required_sources": ["mcp:splunk", "splunk:aws_cloudtrail"],
+      "optional_sources": ["rag:spl_examples"],
+      "default_spl_template": "aws_iam_policy_modifications",
+      "rag_collections": ["spl_examples"],
+      "mitre_candidates": [],
+      "severity_policy": null,
+      "action_capability_tier": 1,
+      "output_template": "spl_response",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": ["T1562.001", "T1003", "T1078"],
+        "blocked_rationale": {
+          "T1562.001": "IAM policy changes are authorization changes; do not claim defense impairment without direct evidence.",
+          "T1003": "IAM policy events do not imply credential dumping.",
+          "T1078": "Actor fields identify account use but do not prove compromised valid accounts without supporting evidence."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": false,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "SPL generation for IAM policy changes does not assert MITRE mapping.",
+        "source_fields": {"mitre_permitted": [], "mitre_candidates": [], "tactics": []},
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": true,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": ["T1562.001", "T1003", "T1078"]
+    },
+    {
+      "use_case_id": "auth_failed_login_top_users_exclude_service_accounts",
+      "display_name": "Top failed-login users excluding service accounts",
+      "category": "Authentication / Identity",
+      "intent_patterns": [
+        "top users with failed login count",
+        "failed login count",
+        "exclude service accounts",
+        "excluding service accounts",
+        "top failed-login users"
+      ],
+      "example_queries": [
+        "Show top users with failed login count in the last 24 hours and exclude service accounts"
+      ],
+      "required_entities": [],
+      "optional_entities": ["user", "source_ip", "time_window"],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": ["spl_generation", "spl_validation", "evidence_collection", "context_sufficiency"],
+      "required_sources": ["mcp:splunk"],
+      "optional_sources": ["rag:sop", "asset_inventory"],
+      "default_spl_template": "auth_failed_login_top_users_exclude_service_accounts",
+      "rag_collections": ["auth_sop", "splunk_context"],
+      "mitre_candidates": ["T1110.001"],
+      "severity_policy": "auth_failed_login_spike",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": ["T1110.001"],
+        "blocked": ["T1562.001", "T1003", "T1078"],
+        "blocked_rationale": {
+          "T1562.001": "Failed-login counts do not prove defensive tooling was impaired.",
+          "T1003": "Failed-login counts do not imply credential dumping.",
+          "T1078": "Failed attempts alone do not prove valid-account compromise."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "answer_if_requested",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level candidate mapping for failed-login volume only.",
+        "source_fields": {"mitre_permitted": [], "mitre_candidates": ["T1110.001"], "tactics": ["Credential Access"]},
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": true,
+      "mitre_requires_alert_context": true,
+      "mitre_visibility_policy": "answer_if_requested",
+      "mitre_blocked": ["T1562.001", "T1003", "T1078"]
     },
     {
       "use_case_id": "soc_generate_spl",

@@ -18,10 +18,12 @@ def build_control_plane_trace(
     context_sufficiency: dict[str, Any] | None = None,
     synthesis_mode: str | None = None,
     answer_guard: dict[str, Any] | None = None,
+    node_trace: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     route_shadow = state.get("route_plan_shadow") if isinstance(state.get("route_plan_shadow"), dict) else {}
     rag = state.get("soc_kb_retrieval") if isinstance(state.get("soc_kb_retrieval"), dict) else None
     spl_validation = state.get("spl_validation") if isinstance(state.get("spl_validation"), dict) else None
+    candidate_spl = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else None
     execution = state.get("execution") if isinstance(state.get("execution"), dict) else None
 
     trace = {
@@ -33,10 +35,13 @@ def build_control_plane_trace(
         "mitre_registry_metadata": _mitre_registry_metadata(state.get("mitre_decision")),
         "mitre_decision": state.get("mitre_decision"),
         "rag_trace": _rag_trace(rag),
+        "candidate_spl_generation": _candidate_spl_generation_trace(candidate_spl, spl_validation),
         "spl_slot_binding": _spl_slot_binding_trace(spl_validation),
         "mcp_execution": _mcp_trace(execution),
         "sufficiency": context_sufficiency,
         "synthesis_mode": {"mode": synthesis_mode},
+        "answer_contract": state.get("answer_contract"),
+        "final_answer_validation": state.get("final_answer_validation"),
         "answer_guard": answer_guard,
         "source_evidence_refs": [
             str(item.get("evidence_id"))
@@ -45,7 +50,36 @@ def build_control_plane_trace(
         ],
         "precondition_evaluation": route_shadow.get("precondition_evaluation"),
     }
+    if node_trace:
+        trace["node_trace"] = node_trace
     return _redact(trace)
+
+
+def _candidate_spl_generation_trace(
+    candidate_spl: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not candidate_spl and not spl_validation:
+        return None
+    validation = spl_validation or {}
+    candidate = candidate_spl or {}
+    return {
+        "generation_mode": candidate.get("generation_mode"),
+        "selected_candidate_spl_provider": validation.get("selected_candidate_spl_provider")
+        or candidate.get("selected_candidate_spl_provider"),
+        "fallback_required": validation.get("fallback_required") or candidate.get("fallback_required"),
+        "candidate_spl_generated": candidate.get("candidate_spl_generated"),
+        "validation_required": candidate.get("validation_required"),
+        "execution_eligible": candidate.get("execution_eligible"),
+        "llm_supported": validation.get("llm_supported") or candidate.get("llm_supported"),
+        "llm_fallback_used": validation.get("llm_fallback_used") or candidate.get("llm_fallback_used"),
+        "llm_fallback_status": validation.get("llm_fallback_status") or candidate.get("llm_fallback_status"),
+        "llm_fallback_reason": validation.get("llm_fallback_reason") or candidate.get("llm_fallback_reason"),
+        "llm_model": validation.get("llm_model") or candidate.get("llm_model"),
+        "llm_latency_ms": validation.get("llm_latency_ms") or candidate.get("llm_latency_ms"),
+        "approved": validation.get("approved"),
+        "normalized_spl_available": bool(validation.get("normalized_spl")),
+    }
 
 
 def _tool_plan(state: dict[str, Any]) -> dict[str, Any] | None:

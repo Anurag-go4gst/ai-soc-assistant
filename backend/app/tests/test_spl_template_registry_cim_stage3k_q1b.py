@@ -286,3 +286,22 @@ def test_template_summary_exposes_q1b_metadata() -> None:
     assert legacy_summary is not None
     assert legacy_summary["query_shape"] == QUERY_SHAPE_RAW_SEARCH
     assert legacy_summary["datamodel"] is None
+
+
+def test_aws_security_group_modifications_template_is_raw_pgcil_and_validates(monkeypatch) -> None:
+    monkeypatch.setattr("app.config.settings.spl_allowed_sourcetypes", "pgcil:auth,aws:cloudtrail")
+    template = get_spl_template("aws_security_group_modifications")
+
+    assert template is not None
+    assert template.query_shape == QUERY_SHAPE_RAW_SEARCH
+    assert template.is_production_executable() is True
+    assert template.spl_text is not None
+    assert "index=pgcil_soc" in template.spl_text
+    assert "sourcetype=aws:cloudtrail" in template.spl_text
+    assert "datamodel=" not in template.spl_text
+    assert "tstats" not in template.spl_text
+    assert "AuthorizeSecurityGroupIngress" in template.spl_text
+    assert "RevokeSecurityGroupEgress" in template.spl_text
+
+    result = validate_spl(template.spl_text)
+    assert result["approved"] is True, result["reject_reasons"]

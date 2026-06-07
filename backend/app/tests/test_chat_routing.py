@@ -54,7 +54,7 @@ def test_chat_query_endpoint_calls_route_skill(monkeypatch) -> None:
     assert response.tool_plan == ["route_only", "attack_discovery"]
     assert response.confidence == 0.91
     assert response.disagreement is False
-    assert response.message == "SPL validation complete. MCP execution is disabled."
+    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
     assert response.workflow_plan is not None
     assert response.workflow_plan.status == "not_started"
     assert response.workflow_plan.execution_enabled is False

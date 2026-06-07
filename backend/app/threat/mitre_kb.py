@@ -7,7 +7,21 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 MITRE_PATH = Path(__file__).with_name("mitre_attack_subset.json")
-MITRE_MAPPING_STATUSES = ("candidate", "supported", "requires_validation", "confirmed", "analyst_review")
+MITRE_EVIDENCE_STATUSES = (
+    "candidate",
+    "evidence_supported",
+    "requires_validation",
+    "not_claimed",
+    "ruled_out",
+)
+MITRE_MAPPING_STATUSES = (
+    "candidate",
+    "supported",
+    "requires_validation",
+    "confirmed",
+    "analyst_review",
+    *MITRE_EVIDENCE_STATUSES,
+)
 
 
 class MitreTechnique(BaseModel):
@@ -28,6 +42,9 @@ class MitreMappingDecision(BaseModel):
     tactic: str
     status: str
     why: str
+    evidence_status: str | None = None
+    status_reason: str | None = None
+    evidence_keys: list[str] = Field(default_factory=list)
     evidence_requirements: list[str] = Field(default_factory=list)
     source_refs: list[str] = Field(default_factory=list)
     recommended_pivots: list[str] = Field(default_factory=list)
@@ -54,6 +71,7 @@ def map_mitre_for_use_case(use_case_id: str | None, source_refs: list[str]) -> l
         if use_case_id not in technique.related_use_cases:
             continue
         status = _status_for(use_case_id, technique.technique_id)
+        evidence_status = _legacy_evidence_status_for(status)
         decisions.append(
             MitreMappingDecision(
                 technique_id=technique.technique_id,
@@ -61,6 +79,8 @@ def map_mitre_for_use_case(use_case_id: str | None, source_refs: list[str]) -> l
                 tactic=technique.tactic,
                 status=status,
                 why=_why(status, technique.technique_id),
+                evidence_status=evidence_status,
+                status_reason=_why(evidence_status, technique.technique_id),
                 evidence_requirements=technique.evidence_requirements,
                 source_refs=source_refs,
                 recommended_pivots=technique.recommended_pivots,
@@ -78,8 +98,24 @@ def _status_for(use_case_id: str, technique_id: str) -> str:
 
 
 def _why(status: str, technique_id: str) -> str:
+    if status == "evidence_supported":
+        return f"{technique_id} is evidence-supported by the observed use-case pattern; analyst validation is still required before stronger claims."
+    if status == "not_claimed":
+        return f"{technique_id} is not claimed because required supporting evidence is absent."
+    if status == "ruled_out":
+        return f"{technique_id} is ruled out by the deterministic MITRE registry or supplied negative evidence."
     if status == "supported":
         return f"{technique_id} is supported by the use-case pattern, but confirmation requires benign-cause validation."
     if status == "candidate":
         return f"{technique_id} is a candidate until success/account legitimacy evidence is reviewed."
     return f"{technique_id} requires additional validation evidence."
+
+
+def _legacy_evidence_status_for(status: str) -> str:
+    if status == "supported":
+        return "evidence_supported"
+    if status in MITRE_EVIDENCE_STATUSES:
+        return status
+    if status in {"confirmed", "analyst_review"}:
+        return "requires_validation"
+    return "candidate" if status == "candidate" else "requires_validation"

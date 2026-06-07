@@ -1149,7 +1149,9 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 |-------|-----|-------------|
 | 0 | **D1, D7** | `docs/skills/github_skill_intake_register.json` + 7 batch-1 records — **Done** |
 | 0b | **D2–D4** | Rejection log, pending backlog, enrichment status matrix — **Done** (docs stubs) |
-| 1 | C1, C9 | State field spec + `node_trace` schema in docs; no runtime change |
+| **3.1** | **Batch 3.1** | Pilot evidence contracts doc + output verification tests — **Done** |
+| **4** | **Batch 4** | Pipeline trace + guarded answer visibility — **Done** |
+| 1 | C1, C9 | State field spec + `node_trace` schema in docs — **Done** (Batch 4 runtime) |
 | 2 | A1 | HIL for mock MCP + response labels |
 | 3 | B9, **D5** | `skill_coverage_matrix.json` (≥105 monotonic `question_id`s) linked to intake register |
 | 4 | B1 | Pydantic model + 2 pilot enrichments (P1, P2); update D4 status |

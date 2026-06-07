@@ -64,9 +64,11 @@ def test_explicit_mitre_mapping_without_context_requires_clarification() -> None
     )
     assert decision.mitre_status == "requires_alert_context"
     assert decision.answer_visible is False
-    assert "T1003" in decision.not_claimed
-    assert "T1078" in decision.not_claimed
-    assert "T1562.001" in decision.rejected_techniques
+    # MITRE is deferred pending alert context: no technique is claimed or
+    # not-claimed yet. Registry-blocked techniques still surface via rejected,
+    # not via a blanket _DEFAULT_NOT_CLAIMED list (removed in Commit 1).
+    assert decision.not_claimed == []
+    assert {"T1003", "T1562.001"}.issubset(set(decision.rejected_techniques))
 
 
 def test_flag_off_finalize_keeps_legacy_use_case_mapping(monkeypatch) -> None:

@@ -102,14 +102,16 @@ def test_undeclared_binding_rejects() -> None:
     assert RENDER_UNDECLARED_BINDING in result.render_errors
 
 
-def test_raw_search_template_not_supported() -> None:
+def test_raw_search_template_renders_static_spl_and_validates() -> None:
     template = get_spl_template("auth_failed_login_spike")
     assert template is not None
     assert template.query_shape == QUERY_SHAPE_RAW_SEARCH
     result = render_template(template, {}, route_window=_route_window())
 
-    assert result.render_ok is False
-    assert RENDER_NOT_SUPPORTED in result.render_errors
+    assert result.render_ok is True
+    assert result.rendered_spl == template.spl_text
+    assert result.validator_approved is True
+    assert result.execution_eligible is False
 
 
 def test_missing_render_pattern_rejects() -> None:

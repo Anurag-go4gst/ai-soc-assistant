@@ -54,6 +54,18 @@ class CandidateSplEnvelope(BaseModel):
     validation_required: bool | None = None
     execution_eligible: bool | None = None
     capability_profile: dict[str, object] | None = None
+    template_id: str | None = None
+    llm_supported: bool | None = None
+    llm_fallback_used: bool | None = None
+    llm_fallback_status: str | None = None
+    llm_fallback_reason: str | None = None
+    llm_model: str | None = None
+    llm_latency_ms: int | None = None
+    spl_template_status: str | None = None
+    template_production_executable: bool | None = None
+    governed_limitation: str | None = None
+    allowed_spl_templates: list[str] | None = None
+    enrichment_evidence_requirements: list[str] | None = None
 
 
 class SplValidationEnvelope(BaseModel):
@@ -74,6 +86,19 @@ class SplValidationEnvelope(BaseModel):
     optimization_revalidation_status: dict[str, object] | None = None
     optimization_revalidation_approved: bool | None = None
     capability_profile: dict[str, object] | None = None
+    template_id: str | None = None
+    llm_supported: bool | None = None
+    llm_fallback_used: bool | None = None
+    llm_fallback_status: str | None = None
+    llm_fallback_reason: str | None = None
+    llm_model: str | None = None
+    llm_latency_ms: int | None = None
+    llm_fallback: dict[str, object] | None = None
+    spl_template_status: str | None = None
+    template_production_executable: bool | None = None
+    governed_limitation: str | None = None
+    allowed_spl_templates: list[str] | None = None
+    enrichment_evidence_requirements: list[str] | None = None
 
 
 class ExecutionEnvelope(BaseModel):
@@ -89,6 +114,11 @@ class ExecutionEnvelope(BaseModel):
     block_reason: str | None = None
     duration_ms: int
     precondition_evaluation: dict[str, object] | None = None
+    # Batch 1 HIL hardening — explicit, always-present execution semantics.
+    # evidence_source: mock | live | unavailable
+    # execution_status_label: not_executed | review_required | mock_executed | live_executed
+    evidence_source: str | None = None
+    execution_status_label: str | None = None
 
 
 class HumanReviewEnvelope(BaseModel):
@@ -252,21 +282,34 @@ class RoutePlanShadowEnvelope(BaseModel):
 class AnalystResponseEnvelope(BaseModel):
     scenario_label: str | None = None
     severity_label: str | None = None
+    severity_confidence: str | None = None
+    severity_rationale: str | None = None
+    severity_safety_note: str | None = None
     finding_title: str | None = None
     one_sentence_finding: str | None = None
     status_badge: str | None = None
     splunk_status_line: str | None = None
     splunk_results_table: list[dict[str, object]] = []
     mitre_mappings: list[dict[str, object]] = []
+    not_claimed: list[dict[str, object]] = []
     retrieved_playbook: dict[str, object] | None = None
     sop_guidance: dict[str, object] | None = None
     foundation_sec_analysis: str | None = None
     recommended_actions: list[str] = []
     spl_code: str | None = None
+    executed_spl: str | None = None
+    execution_status: str | None = None
+    response_profile: str | None = None
     key_fields: list[str] = []
     escalation_criteria: list[str] = []
     closure_conditions: list[str] = []
     review_notice: str | None = None
+    evidence_summary: str | None = None
+    execution_status_label: str | None = None
+    direct_answer_summary: str | None = None
+    limitations: list[str] = []
+    section_order: list[str] = []
+    render_sections: dict[str, bool] = {}
 
 
 class FoundationSecCapturedOutput(BaseModel):
@@ -308,6 +351,7 @@ class FoundationSecGovernance(BaseModel):
 
 class PlaceholderResponse(BaseModel):
     trace_id: str
+    turn_id: str | None = None
     message: str
     note: str
     demo_mode: bool = False
@@ -360,6 +404,8 @@ class PlaceholderResponse(BaseModel):
     tool_plan_structured: dict[str, object] | None = None
     query_to_intent: dict[str, object] | None = None
     control_plane_trace: dict[str, object] | None = None
+    answer_contract: dict[str, object] | None = None
+    final_answer_validation: dict[str, object] | None = None
     mitre_decision: dict[str, object] | None = None
     mitre_mappings: list[MitreMappingDecision] | None = None
     severity_decision: SeverityDecision | None = None
@@ -369,3 +415,9 @@ class PlaceholderResponse(BaseModel):
     action_capability: ActionCapability | None = None
     experience_center_governance: ExperienceCenterGovernance | None = None
     governance_trace: GovernanceTrace | None = None
+    # Batch 4 — additive visibility (control-plane gated; None when flag off).
+    mitre_evidence_status: dict[str, str] | None = None
+    spl_template_status: str | None = None
+    node_trace: list[dict[str, object]] | None = None
+    answer_guard_status: str | None = None
+    final_answer_safety_status: str | None = None

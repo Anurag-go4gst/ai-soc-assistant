@@ -4,7 +4,7 @@ import { getDemoScenarios } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import type { DemoScenarioSummary } from '@/types/api';
 
-const CATEGORY_ORDER = ['Investigate', 'Knowledge / SOP', 'Generate SPL', 'MITRE Mapping', 'Air-gapped Mode'];
+const CATEGORY_ORDER = ['Investigate', 'Knowledge / SOP', 'Generate SPL', 'Generate + Run', 'MITRE Mapping', 'Air-gapped Mode'];
 
 interface DemoScenarioPickerProps {
   disabled?: boolean;
@@ -97,6 +97,8 @@ function ScenarioCapabilityChips({ category }: { category: DemoScenarioSummary['
       ? ['Knowledge']
       : category === 'Generate SPL' || category === 'Air-gapped Mode'
         ? ['SPL', 'Knowledge']
+        : category === 'Generate + Run'
+          ? ['SPL', 'MCP preview']
         : category === 'MITRE Mapping'
           ? ['MITRE', 'Investigation']
           : ['Investigation', 'Knowledge', 'MITRE'];

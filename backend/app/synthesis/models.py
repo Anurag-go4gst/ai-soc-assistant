@@ -13,6 +13,7 @@ class SynthesisStatus(BaseModel):
     status: str = "disabled"
     provider: str | None = None
     model: str | None = None
+    latency_ms: int | None = None
     reason: str = "Stage 3K evidence-based synthesis is not enabled."
     allowed_inputs: list[str] = Field(default_factory=lambda: ["StructuredContext", "SourceEvidence summaries", "approved RAG excerpts"])
 
@@ -204,9 +205,9 @@ def _has_success_or_session_evidence(structured_context: dict[str, Any]) -> bool
 
 
 def _confidence_for_status(status: str) -> float:
-    if status == "supported":
+    if status in {"supported", "evidence_supported"}:
         return 0.8
-    if status in {"candidate", "analyst_review", "requires_validation"}:
+    if status in {"candidate", "analyst_review", "requires_validation", "not_claimed", "ruled_out"}:
         return 0.5
     if status == "confirmed":
         return 0.95

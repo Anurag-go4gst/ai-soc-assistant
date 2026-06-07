@@ -213,7 +213,7 @@ def test_chat_llm_shadow_candidate_does_not_change_analyst_answer(monkeypatch: p
 
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
-    assert response.message == "SPL validation complete. MCP execution is disabled."
+    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
     assert response.route_plan_shadow is not None
     assert response.route_plan_shadow.llm_called is True
     assert response.route_plan_shadow.llm_candidate_route_plan_available is True

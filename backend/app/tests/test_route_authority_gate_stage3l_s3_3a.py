@@ -180,7 +180,7 @@ def test_d_global_kill_switch_preserves_selected_skill(monkeypatch: pytest.Monke
     response = chat(ChatRequest(message="Find top 10 users with failed Okta logins in 24h."))
 
     assert response.selected_skill == "attack_discovery"
-    assert response.message == "SPL validation complete. MCP execution is disabled."
+    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
     compare = response.route_plan_shadow.route_authority_compare
     assert compare["authority_fallback_reason"] == FALLBACK_GLOBAL_KILL_SWITCH_DISABLED
     assert compare["operation_authoritative_applied"] is False

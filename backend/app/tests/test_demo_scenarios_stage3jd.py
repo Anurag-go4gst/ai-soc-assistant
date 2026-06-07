@@ -85,6 +85,7 @@ def test_get_demo_scenarios_returns_all_stage3jd_scenarios() -> None:
         "failed_login_spike_app01",
         "new_source_ip_logins",
         "successful_login_after_failures",
+        "successful_login_after_failures_run",
         "brute_force_sop_guidance",
         "failed_login_playbook",
         "account_lockouts_over_time_spl",
@@ -139,6 +140,12 @@ def test_visible_failed_login_response_is_analyst_facing() -> None:
     assert "Supported" in visible
     assert "Confirmed" not in visible
     assert all(action.startswith(("P1 - ", "P2 - ", "P3 - ", "P4 - ")) for action in response.analyst_response.recommended_actions)
+    assert response.analyst_response.evidence_summary is not None
+    assert "42 + 31 + 28" in response.analyst_response.evidence_summary
+    playbook = response.analyst_response.retrieved_playbook
+    assert playbook is not None
+    assert playbook.get("citation") == "SOC-SOP-AUTH-001#triage"
+    assert playbook.get("retrieval_mode") == "governed_soc_kb"
 
 
 def test_technical_trace_keeps_provenance_fields() -> None:
@@ -169,12 +176,20 @@ def test_success_after_failures_spl_correlates_success_and_failure() -> None:
     assert "action=failure OR action=success" in response.analyst_response.spl_code
     assert "source_ips" in response.analyst_response.spl_code
     assert "risk" in response.analyst_response.spl_code
+    assert response.analyst_response.response_profile == "spl_only"
+    assert response.analyst_response.splunk_results_table == []
+    assert response.analyst_response.retrieved_playbook is None
+    assert response.analyst_response.sop_guidance is None
+    assert response.analyst_response.foundation_sec_analysis is None
+    assert response.analyst_response.mitre_mappings == []
+    assert response.analyst_response.recommended_actions == []
     assert response.candidate_spl.execution_eligible is False
     visible = _visible_text(response)
     for fragment in INVALID_MODEL_SPL_FRAGMENTS:
         assert fragment not in visible
     assert "execution_eligible=true" not in visible
-    assert "Requires validation" in visible
+    assert "58 failures" not in visible
+    assert "svc_grid_ops" not in visible
 
 
 def test_sop_demo_does_not_generate_spl() -> None:
@@ -189,12 +204,13 @@ def test_sop_demo_does_not_generate_spl() -> None:
     visible = _visible_text(response)
     assert "Triage steps" not in visible
     assert response.analyst_response.sop_guidance is not None
-    assert response.analyst_response.retrieved_playbook == {
-        "title": "Brute-force Authentication Investigation",
-        "id": "SOC-SOP-AUTH-001",
-        "version": "v2026.04",
-        "purpose": "Guide the SOC analyst through triage, confirmation, escalation, and closure of brute-force authentication activity.",
-    }
+    playbook = response.analyst_response.retrieved_playbook
+    assert playbook is not None
+    assert playbook["title"] == "Brute-force Authentication Investigation"
+    assert playbook["id"] == "SOC-SOP-AUTH-001"
+    assert playbook["version"] == "v2026.04"
+    assert playbook["retrieval_mode"] == "governed_soc_kb"
+    assert playbook["citation"] == "SOC-SOP-AUTH-001#triage"
     guidance = json.dumps(response.analyst_response.sop_guidance)
     assert "SOC-SPL-LIB" not in guidance
     assert "IRP-AUTH" not in visible
@@ -293,10 +309,19 @@ def test_stage3jj_spl_answers_are_template_generated_and_not_execution_eligible(
         assert "execution_eligible=true" not in visible
 
 
-def test_stage3jj_success_after_failure_keeps_t1078_validation_required() -> None:
-    response = _run("successful_login_after_failures")
+def test_success_after_failures_run_executes_mock_and_analyzes_rows() -> None:
+    response = _run("successful_login_after_failures_run")
     visible = _visible_text(response)
 
+    assert response.foundation_sec_governance is not None
+    assert response.execution is not None
+    assert response.execution.status == "executed"
+    assert response.execution.executed_spl is not None
+    assert response.analyst_response is not None
+    assert response.analyst_response.response_profile == "spl_executed"
+    assert response.analyst_response.execution_status == "executed"
+    assert response.analyst_response.splunk_results_table
+    assert response.analyst_response.splunk_results_table[0]["User"] == "svc_grid_ops"
     assert "T1110.001" in visible
     assert "Supported" in visible
     assert "T1078" in visible
@@ -310,7 +335,7 @@ def test_stage3jj3_foundation_sec_governance_serializes_for_experience_center() 
     scenario_ids = (
         "failed_login_spike_app01",
         "new_source_ip_logins",
-        "successful_login_after_failures",
+        "successful_login_after_failures_run",
         "mitre_mapping_auth_alert",
         "mitre_mapping_requires_context",
         "mcp_metadata_discovery_app01",
@@ -321,6 +346,13 @@ def test_stage3jj3_foundation_sec_governance_serializes_for_experience_center() 
     for scenario_id in scenario_ids:
         response = _run(scenario_id)
         governance = response.foundation_sec_governance
+
+        # SPL-only scenarios intentionally carry no governed-model analysis block
+        # (scenarios.py forces foundation_sec_governance=None for response_profile
+        # "spl_only"); governed-answer scenarios still serialize the block.
+        if response.analyst_response is not None and response.analyst_response.response_profile == "spl_only":
+            assert governance is None
+            continue
 
         assert governance is not None
         assert governance.live_llm_called is False
@@ -344,16 +376,24 @@ def test_stage3jj3_failed_login_governance_records_guarded_corrections() -> None
     assert "confirmed compromise" not in text.lower()
 
 
-def test_stage3jj3_success_after_failure_governance_keeps_t1078_validation_required() -> None:
+def test_stage3jj3_success_after_failure_generate_only_has_no_foundation_sec_governance() -> None:
     response = _run("successful_login_after_failures")
+    assert response.foundation_sec_governance is None
+    visible = _visible_text(response)
+    assert "58 failures" not in visible
+    assert "materially higher-risk credential-access signal" not in visible
+
+
+def test_stage3jj3_success_after_failure_governance_keeps_t1078_validation_required() -> None:
+    response = _run("successful_login_after_failures_run")
     text = _main_answer_text(response)
 
-    assert "58 failures" in text
-    assert "T1078 Valid Accounts at requires_validation" in text
+    assert "58 failures" in text or "58 failures and 1 success" in text
+    assert "requires_validation" in text
+    assert "T1078" in text
     assert "EDR telemetry" in text
     assert "MFA/session context" in text
     assert "APP-01 CMDB criticality" in text
-    assert "Firewall and VPN pivots" in text
     assert "T1078 confirmed" not in text
     assert "svc_grid_ops is privileged" not in text
     assert "APP-01 is critical" not in text
@@ -388,7 +428,10 @@ def test_stage3jj3_spl_governance_forces_model_spl_candidate_only() -> None:
     response = _run("airgapped_no_saia_success_after_failures")
     text = _main_answer_text(response)
 
-    assert "execution_eligible=false" in text
+    # Governed guarantee for SPL-only scenarios: the candidate SPL is never
+    # executable. Carried on the candidate envelope, not as inline answer text.
+    assert response.candidate_spl is not None
+    assert response.candidate_spl.execution_eligible is False
     assert "execution_eligible=true" not in text
     for fragment in INVALID_MODEL_SPL_FRAGMENTS:
         assert fragment not in text

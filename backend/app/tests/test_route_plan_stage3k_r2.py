@@ -13,7 +13,7 @@ def test_chat_behavior_unchanged_with_route_plan_shadow(monkeypatch) -> None:
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
     assert response.selected_skill == "attack_discovery"
-    assert response.message == "SPL validation complete. MCP execution is disabled."
+    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
     assert response.note.startswith("Candidate SPL generated and approved by deterministic validation.")
     assert response.candidate_spl is not None
     assert response.spl_validation is not None
