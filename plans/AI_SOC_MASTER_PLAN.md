@@ -2,7 +2,7 @@
 
 **Document:** `plans/AI_SOC_MASTER_PLAN.md` — **single canonical plan** for hardening, skill enrichment, pipeline/LangGraph, and GitHub skill intake tracking.  
 **Date:** 2026-06-06  
-**Status:** Proposed — planning only; **no code implementation**  
+**Status:** Active implementation roadmap — Batches 2 through 5 completed on `master`; next batch requires explicit scope approval.  
 **Canonical for:** Tracks A–D, pilot enrichments P1–P7, execution order, tracking table (§P)
 
 > **Single plan only.** Do not use `plans/2026-06-06_*.md` drafts (removed). All amendments live here.
@@ -72,7 +72,13 @@
 - [x] A2 MITRE vocabulary + compatibility mapping locked (additive, not breaking)
 - [x] P3/P6/P7 enrichment-without-new-105-rows policy locked
 - [x] Slice 0 (D1/D7 docs) complete — see `docs/skills/`
-- [x] No runtime code implementation performed
+- [x] Initial planning completed
+- [x] Batch 2 skill enrichment baseline completed
+- [x] Batch 2.1 defensible offline mappings completed
+- [x] Batch 3 MITRE evidence status + SPL governance completed
+- [x] Batch 3.1 pilot output contracts completed
+- [x] Batch 4 pipeline trace + guarded answer visibility completed
+- [x] Batch 5 lightweight backend session context completed
 
 ---
 
@@ -1154,9 +1160,13 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 |-------|-----|-------------|
 | 0 | **D1, D7** | `docs/skills/github_skill_intake_register.json` + 7 batch-1 records — **Done** |
 | 0b | **D2–D4** | Rejection log, pending backlog, enrichment status matrix — **Done** (docs stubs) |
+| **2** | **Batch 2** | Tracked SOC skill enrichment baseline from GitHub references — **Done** |
+| **2.1** | **Batch 2.1** | Defensible offline question-to-use-case mappings — **Done** |
+| **3** | **Batch 3** | MITRE evidence status + SPL template governance — **Done** |
 | **3.1** | **Batch 3.1** | Pilot evidence contracts doc + output verification tests — **Done** |
 | **4** | **Batch 4** | Pipeline trace + guarded answer visibility — **Done** |
 | **5** | **Batch 5** | Lightweight backend session memory (structured pins, TTL, follow-ups) — **Done** |
+| **5.x** | **Post-Batch 5 review** | Streamed `/clear` now clears backend session pins; governance regression PASS — **Done** |
 | 1 | C1, C9 | State field spec + `node_trace` schema in docs — **Done** (Batch 4 runtime) |
 | 2 | A1 | HIL for mock MCP + response labels |
 | 3 | B9, **D5** | `skill_coverage_matrix.json` (≥105 monotonic `question_id`s) linked to intake register |

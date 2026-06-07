@@ -163,7 +163,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | Plan | Role |
 |------|------|
 | `plans/2026-06-02_chat-control-plane-master.md` | **Done** — chat control plane implementation (phases 0–11 on `master`). `CONTROL_PLANE_ENABLED=false` remains rollout default until COE approves. |
-| `plans/AI_SOC_MASTER_PLAN.md` | **Active roadmap** — hardening, skill enrichment, pipeline/LangGraph, GitHub skill intake (Tracks A–D); P1–P7 pilots; **planning only** (no implementation yet). |
+| `plans/AI_SOC_MASTER_PLAN.md` | **Active implementation roadmap** — hardening, skill enrichment, pipeline/LangGraph, GitHub skill intake (Tracks A–D); Batches 2–5 completed, next batch requires explicit scope approval. |
 | `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Logic hierarchy, rules, status tables — agents read for Q1C→Q4 spine context. |
 
 **All plans:**
