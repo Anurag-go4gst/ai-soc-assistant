@@ -67,14 +67,17 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function sendChatMessage(message: string): Promise<PlaceholderResponse> {
+export async function sendChatMessage(message: string, sessionId?: string | null): Promise<PlaceholderResponse> {
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: 'POST',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({
+      message,
+      ...(sessionId ? { session_id: sessionId } : {}),
+    }),
   });
   if (!response.ok) {
     throw new Error(`Chat request failed: ${response.status}`);

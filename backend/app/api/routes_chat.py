@@ -10,6 +10,7 @@ from app.chat.pipeline import (
     _route_plan_shadow_stage,
     build_live_chat_response,
 )
+from app.chat.session_context import clear_session
 from app.chat_commands import is_clear_chat_command
 from app.config import settings
 from app.demo.scenarios import resolve_demo_scenario_id_for_query, run_demo_scenario
@@ -27,6 +28,7 @@ router = APIRouter()
 @router.post("/chat", response_model=PlaceholderResponse)
 def chat(request: ChatRequest, user: object = Depends(require_auth)) -> PlaceholderResponse:
     if is_clear_chat_command(request.message):
+        clear_session(request.session_id)
         return PlaceholderResponse(
             trace_id=str(uuid4()),
             message="Chat cleared. Ask your next question when ready.",

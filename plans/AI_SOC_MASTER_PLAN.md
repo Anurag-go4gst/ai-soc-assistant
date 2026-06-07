@@ -368,24 +368,29 @@ A2 = reconciliation + additive hardening, **not** a breaking schema replacement.
 
 ---
 
-### A5 — Lightweight backend session memory
+### A5 — Lightweight backend session memory — **Done (Batch 5)**
 
 **Objective:** SOC follow-ups without full chat history storage.
 
-**Files:** `backend/app/schemas/requests.py`, `backend/app/api/routes_chat.py`, `backend/app/chat/session_store.py` (**new** — ephemeral pins; do **not** use `backend/app/quality/store.py`, which is the durable answer-quality ledger), `backend/app/chat/pipeline.py`, `frontend/src/api/client.ts`, `frontend/src/components/ChatPanel.tsx`, `frontend/src/lib/chatProgressStream.ts`
+**Files:** `backend/app/schemas/requests.py`, `backend/app/schemas/responses.py`, `backend/app/chat/session_store.py`, `backend/app/chat/session_context.py`, `backend/app/chat/pipeline.py`, `backend/app/chat/pipeline_visibility.py`, `frontend/src/api/client.ts`, `frontend/src/components/ChatPanel.tsx`, `frontend/src/lib/chatProgressStream.ts`
 
-**Request additions:** `session_id` (optional), `prior_trace_id` (optional)
+**Request:** optional `session_id` on `ChatRequest`.
 
-**Server session store (structured pins only, TTL ~30 min, max 5 turns):**
+**Response:** additive `session_context_status` (`used_previous_context`, `staleness`, `used_fields`, `clarification_required`).
 
-- `last_alert_id`, `last_use_case_id`, `last_live_execution_skill`, `last_planning_or_analytic_skill`
-- `last_entities`, `last_candidate_spl`, `last_spl_validation`, `last_mitre_decision`, `last_evidence_status`, `timestamp`
+**Server session store (structured pins only, TTL default 30 min, no transcript):**
 
-**Follow-ups supported:** “map to MITRE”, “refine SPL”, “same alert”, “show evidence”, “severity?”, “analyst summary”
+- `last_trace_id`, `last_alert_id`, `last_use_case_id`, `last_selected_live_execution_skill`, `last_planning_or_analytic_skill`
+- `last_entities`, `last_candidate_spl`, `last_spl_validation_status`, `last_spl_template_status`
+- `last_mitre_decision`, `last_mitre_evidence_status`, `last_context_sufficiency`, `last_execution_status`, `last_human_review_status`
 
-**Safety:** Re-check evidence sufficiency each turn; no MITRE/severity bypass; no SPL/MCP bypass.
+**Follow-ups supported:** “now map it to MITRE”, “refine that SPL”, “same alert”, “show evidence”, “severity?”, “analyst summary”
 
-**Tests:** MITRE follow-up uses pins; SPL refine re-validates; stale session clarifies.
+**Safety:** Fresh pins only; stale/missing context triggers clarification; SPL refine re-runs `validate_spl()`; MITRE/HIL/SPL gates re-run each turn; `node_trace` includes `session_context` stage.
+
+**Tests:** `backend/app/tests/test_batch5_session_context.py`
+
+**Stacked PR:** `feat/ai-soc-session-context` targets PR #6 head (`feat/ai-soc-mitre-spl-governance`), not mixed into PR #6.
 
 ---
 
@@ -1151,6 +1156,7 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 | 0b | **D2–D4** | Rejection log, pending backlog, enrichment status matrix — **Done** (docs stubs) |
 | **3.1** | **Batch 3.1** | Pilot evidence contracts doc + output verification tests — **Done** |
 | **4** | **Batch 4** | Pipeline trace + guarded answer visibility — **Done** |
+| **5** | **Batch 5** | Lightweight backend session memory (structured pins, TTL, follow-ups) — **Done** |
 | 1 | C1, C9 | State field spec + `node_trace` schema in docs — **Done** (Batch 4 runtime) |
 | 2 | A1 | HIL for mock MCP + response labels |
 | 3 | B9, **D5** | `skill_coverage_matrix.json` (≥105 monotonic `question_id`s) linked to intake register |

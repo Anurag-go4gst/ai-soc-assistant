@@ -91,7 +91,7 @@ def record_chat_turn(
         "trace_id": response.trace_id,
         "created_at": datetime.now(UTC).isoformat(),
         "user_id": user_id,
-        "session_id": None,
+        "session_id": request.session_id,
         "entrypoint": entrypoint,
         "user_query": request.message,
         "normalized_query": _normalize_query(request.message),

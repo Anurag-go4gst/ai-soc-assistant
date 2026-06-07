@@ -9,6 +9,16 @@ export interface AuthResponse {
   role?: string | null;
 }
 
+export interface SessionContextStatusEnvelope {
+  session_id: string;
+  used_previous_context?: boolean;
+  context_source_trace_id?: string | null;
+  staleness?: string;
+  used_fields?: string[];
+  ignored_fields?: string[];
+  clarification_required?: boolean;
+}
+
 export interface PlaceholderResponse {
   turn_id?: string | null;
   trace_id: string;
@@ -75,6 +85,12 @@ export interface PlaceholderResponse {
   action_capability?: ActionCapability | null;
   experience_center_governance?: ExperienceCenterGovernance | null;
   governance_trace?: ExperienceCenterGovernance | null;
+  mitre_evidence_status?: Record<string, string> | null;
+  spl_template_status?: string | null;
+  node_trace?: Array<Record<string, unknown>> | null;
+  answer_guard_status?: string | null;
+  final_answer_safety_status?: string | null;
+  session_context_status?: SessionContextStatusEnvelope | null;
 }
 
 export type ChatAnswerFeedbackRating = 'up' | 'down' | 'neutral';

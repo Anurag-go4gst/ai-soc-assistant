@@ -349,6 +349,16 @@ class FoundationSecGovernance(BaseModel):
     governed_analysis: FoundationSecGovernedAnalysis | None = None
 
 
+class SessionContextStatusEnvelope(BaseModel):
+    session_id: str
+    used_previous_context: bool = False
+    context_source_trace_id: str | None = None
+    staleness: str = "missing"
+    used_fields: list[str] = []
+    ignored_fields: list[str] = []
+    clarification_required: bool = False
+
+
 class PlaceholderResponse(BaseModel):
     trace_id: str
     turn_id: str | None = None
@@ -421,3 +431,4 @@ class PlaceholderResponse(BaseModel):
     node_trace: list[dict[str, object]] | None = None
     answer_guard_status: str | None = None
     final_answer_safety_status: str | None = None
+    session_context_status: SessionContextStatusEnvelope | None = None

@@ -47,7 +47,7 @@ from app.risk.severity_policy import decide_severity
 from app.safeguards.spl_validator import validate_spl
 from app.safeguards.spl_slot_binding_validator import validate_spl_slot_bindings
 from app.schemas.requests import ChatRequest
-from app.schemas.responses import PlaceholderResponse
+from app.schemas.responses import PlaceholderResponse, SessionContextStatusEnvelope
 from app.skills.selector import select_skill_chain
 from app.spl.template_registry import QUERY_SHAPE_RAW_SEARCH, get_spl_template, template_summary
 from app.splunk.capabilities import build_splunk_capability_profile
@@ -68,6 +68,14 @@ from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.pipeline_visibility import build_pipeline_visibility
+from app.chat.session_context import (
+    SessionContextResolution,
+    clear_session,
+    persist_session_pins,
+    pins_from_pipeline_state,
+    resolve_session_context,
+    use_case_from_session,
+)
 from app.chat.progress_context import (
     bind_progress_reporter,
     emit_mcp_status_from_execution,
@@ -126,6 +134,10 @@ class ChatPipelineState(TypedDict, total=False):
     mitre_decision: dict[str, Any] | None
     answer_contract: dict[str, Any] | None
     soc_kb_retrieval: dict[str, Any] | None
+    session_id: str | None
+    session_pins: Any
+    session_context_resolution: SessionContextResolution | None
+    effective_query: str | None
     response: PlaceholderResponse
 
 
@@ -144,7 +156,14 @@ def build_live_chat_response(
 
 def _build_live_chat_response_inner(request: ChatRequest) -> PlaceholderResponse:
     emit_stage("queued")
-    state: ChatPipelineState = {"request": request}
+    session_resolution = resolve_session_context(request)
+    state: ChatPipelineState = {
+        "request": request,
+        "session_id": session_resolution.session_id,
+        "session_pins": session_resolution.pins,
+        "session_context_resolution": session_resolution,
+        "effective_query": session_resolution.effective_query,
+    }
     state = graph_node_init_routing(state)
     state = graph_node_query_to_intent(state)
     state = graph_node_evidence_planning(state)
@@ -167,17 +186,28 @@ def _build_live_chat_response_inner(request: ChatRequest) -> PlaceholderResponse
 def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("understanding_query")
     request = state["request"]
+    query_text = state.get("effective_query") or request.message
     trace_id = str(uuid4())
     qu_failed = False
     try:
-        query_understanding = understand_query(request.message)
+        query_understanding = understand_query(query_text)
     except Exception:
         query_understanding = None
         qu_failed = True
-    selected_use_case = _selected_use_case(request.message)
+    selected_use_case = _selected_use_case(query_text)
+    session_resolution = state.get("session_context_resolution")
+    if isinstance(session_resolution, SessionContextResolution):
+        if (
+            session_resolution.apply_use_case_id
+            and session_resolution.status.staleness == "fresh"
+            and not session_resolution.status.clarification_required
+        ):
+            session_use_case = use_case_from_session(session_resolution.apply_use_case_id)
+            if session_use_case is not None:
+                selected_use_case = session_use_case
     rc = _routes_chat()
     routed = rc.route_skill(
-        request.message,
+        query_text,
         trace_id=trace_id,
         query_understanding=query_understanding,
         qu_failed=qu_failed,
@@ -188,7 +218,7 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
             routed.get("routing_provenance") or {},
         )
     route_plan_shadow = _route_plan_shadow_stage(
-        request.message,
+        query_text,
         deterministic_primary_skill=str(routed["skill"]),
         selected_use_case=selected_use_case,
         query_understanding=query_understanding,
@@ -210,8 +240,9 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     query_understanding = state.get("query_understanding")
     routed = state.get("routed") or {}
     routed_skill = str(routed.get("skill")) if routed.get("skill") else None
+    query_text = state.get("effective_query") or request.message
     result = build_query_to_intent(
-        query=request.message,
+        query=query_text,
         query_understanding=query_understanding,
         routed_skill=routed_skill,
     )
@@ -335,7 +366,15 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     request = state["request"]
     routed = state["routed"]
     trace_id = state["trace_id"]
-    effective_skill = _effective_routing_skill(state)
+    session_resolution = state.get("session_context_resolution")
+    if isinstance(session_resolution, SessionContextResolution) and session_resolution.spl_refine_from_session:
+        effective_skill = (
+            session_resolution.pins.last_selected_live_execution_skill
+            if session_resolution.pins and session_resolution.pins.last_selected_live_execution_skill
+            else "attack_discovery"
+        )
+    else:
+        effective_skill = _effective_routing_skill(state)
     rc = _routes_chat()
     workflow_plan = rc.plan_workflow(
         selected_skill=effective_skill,
@@ -343,24 +382,34 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         query=request.message,
         trace_id=trace_id,
     )
-    candidate_spl, spl_validation = _candidate_spl_stage(
+    query_text = state.get("effective_query") or request.message
+    session_refined = _session_spl_refine_stage(
+        state=state,
         trace_id=trace_id,
         skill=effective_skill,
-        user_query=request.message,
-        spl_allowed=_spl_allowed(state),
-        query_signals=_query_signals_from_state(state),
-        template_id=(
-            state["selected_use_case"].default_spl_template
-            if state.get("selected_use_case") is not None
-            else None
-        ),
-        use_case_id=(
-            state["selected_use_case"].use_case_id
-            if state.get("selected_use_case") is not None
-            else None
-        ),
-        slot_binding_enabled=settings.control_plane_enabled,
+        user_query=query_text,
     )
+    if session_refined is not None:
+        candidate_spl, spl_validation = session_refined
+    else:
+        candidate_spl, spl_validation = _candidate_spl_stage(
+            trace_id=trace_id,
+            skill=effective_skill,
+            user_query=query_text,
+            spl_allowed=_spl_allowed(state),
+            query_signals=_query_signals_from_state(state),
+            template_id=(
+                state["selected_use_case"].default_spl_template
+                if state.get("selected_use_case") is not None
+                else None
+            ),
+            use_case_id=(
+                state["selected_use_case"].use_case_id
+                if state.get("selected_use_case") is not None
+                else None
+            ),
+            slot_binding_enabled=settings.control_plane_enabled,
+        )
     return {
         **state,
         "workflow_plan": workflow_plan,
@@ -465,8 +514,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     mapped_refs = provenance.get("mapped_use_case_ids") if isinstance(provenance.get("mapped_use_case_ids"), list) else []
     use_case_id = selected_use_case.use_case_id if selected_use_case else (str(mapped_refs[0]) if mapped_refs else None)
     question_ref = provenance.get("mapped_question_ref") if isinstance(provenance.get("mapped_question_ref"), str) else None
+    session_resolution = state.get("session_context_resolution")
+    session_alert_context = bool(
+        isinstance(session_resolution, SessionContextResolution) and session_resolution.session_alert_context
+    )
     mitre_mappings, mitre_decision = _mitre_outputs_for_finalize(
-        query=request.message,
+        query=state.get("effective_query") or request.message,
         question_ref=question_ref,
         use_case_id=use_case_id,
         source_refs=source_refs,
@@ -475,6 +528,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         query_signals=_query_signals_from_state(state),
         source_evidence=source_evidence,
         structured_context=structured_context,
+        session_alert_context=session_alert_context,
     )
     severity_decision = decide_severity(
         selected_use_case.use_case_id if selected_use_case else None,
@@ -580,7 +634,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         message = _PARTIAL_SYNTHESIS_MESSAGE
         note = _PARTIAL_SYNTHESIS_MESSAGE
     candidate_spl = state.get("candidate_spl")
-    if _needs_mitre_clarification(request.message, candidate_spl):
+    if _session_stale_clarification_required(state):
+        human_review = _session_stale_clarification_review()
+        message = human_review["safe_message_for_user"]
+        note = "Session context was stale or insufficient; clarification is required."
+    elif _needs_mitre_clarification(request.message, candidate_spl, session_alert_context=session_alert_context):
         human_review = _mitre_clarification_review()
         message = (
             "I need alert context before mapping to MITRE ATT&CK. Share the alert title, "
@@ -720,6 +778,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             final_answer_validation=final_answer_validation,
             answer_contract=answer_contract_payload,
             severity_decision=severity_decision,
+            session_context_resolution=session_resolution if isinstance(session_resolution, SessionContextResolution) else None,
         )
         trace_state = {
             **state,
@@ -735,6 +794,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_guard=answer_guard.model_dump(),
             node_trace=visibility.get("node_trace"),
         )
+
+    session_context_status = None
+    if settings.ai_soc_session_context_enabled and isinstance(session_resolution, SessionContextResolution):
+        session_context_status = SessionContextStatusEnvelope(**session_resolution.status.model_dump())
 
     partial_fallback = synthesis_status.status == "partial_timeout"
     response = PlaceholderResponse(
@@ -797,7 +860,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         node_trace=visibility.get("node_trace"),
         answer_guard_status=visibility.get("answer_guard_status"),
         final_answer_safety_status=visibility.get("final_answer_safety_status"),
+        session_context_status=session_context_status,
     )
+    if settings.ai_soc_session_context_enabled and state.get("session_id"):
+        persist_session_pins(
+            pins_from_pipeline_state(
+                session_id=str(state["session_id"]),
+                trace_id=trace_id,
+                response=response,
+                state=state,
+            )
+        )
     return {
         **state,
         "response": response,
@@ -861,6 +934,15 @@ def _uses_pre_mcp_rag(state: ChatPipelineState) -> bool:
 def _spl_allowed(state: ChatPipelineState) -> bool:
     if not settings.control_plane_enabled:
         return True
+    resolution = state.get("session_context_resolution")
+    if (
+        isinstance(resolution, SessionContextResolution)
+        and resolution.spl_refine_from_session
+        and resolution.status.staleness == "fresh"
+        and resolution.pins is not None
+        and resolution.pins.last_candidate_spl
+    ):
+        return True
     return bool(_evidence_plan(state).get("spl_allowed", True))
 
 
@@ -915,6 +997,7 @@ def _mitre_outputs_for_finalize(
     query_signals: dict[str, Any] | None = None,
     source_evidence: list[dict[str, Any]] | None = None,
     structured_context: dict[str, Any] | None = None,
+    session_alert_context: bool = False,
 ) -> tuple[list[Any], dict[str, Any] | None]:
     """Legacy mapping by default; Phase 7 decision only when control plane is on."""
     if not settings.control_plane_enabled:
@@ -931,7 +1014,7 @@ def _mitre_outputs_for_finalize(
         source_refs=source_refs,
         intent_classification=intent_classification,
         evidence_plan=evidence_plan,
-        alert_context_present=_mitre_alert_context_present(query or ""),
+        alert_context_present=_mitre_alert_context_present(query or "", session_alert_context=session_alert_context),
         negative_evidence=negative_evidence,
     )
     if not decision.answer_visible:
@@ -985,7 +1068,9 @@ def _success_after_failure_context(normalized: str) -> bool:
     )
 
 
-def _mitre_alert_context_present(query: str) -> bool:
+def _mitre_alert_context_present(query: str, *, session_alert_context: bool = False) -> bool:
+    if session_alert_context:
+        return True
     normalized = " ".join(query.lower().split())
     if re.search(r"\balt-\d{4}-\d+\b", normalized):
         return True
@@ -1019,7 +1104,12 @@ _MITRE_INTENT_KEYWORDS = ("mitre", "att&ck", "attack technique", "map this alert
 _ALERT_CONTEXT_MARKERS = ("index=", "sourcetype=", "rule:", "rule ", "alert:", "notable", "signature=", "event id", "eventid")
 
 
-def _needs_mitre_clarification(query: str, candidate_spl: dict | None) -> bool:
+def _needs_mitre_clarification(
+    query: str,
+    candidate_spl: dict | None,
+    *,
+    session_alert_context: bool = False,
+) -> bool:
     """Conservative heuristic: a MITRE mapping ask with no alert context yet.
 
     False positives (asking for detail when context was present) are worse than
@@ -1032,6 +1122,8 @@ def _needs_mitre_clarification(query: str, candidate_spl: dict | None) -> bool:
     if candidate_spl and candidate_spl.get("candidate_spl"):
         return False
     if len(normalized) > 160:
+        return False
+    if session_alert_context:
         return False
     return not any(marker in normalized for marker in _ALERT_CONTEXT_MARKERS)
 
@@ -1332,6 +1424,84 @@ def _query_signals_from_state(state: ChatPipelineState) -> dict[str, Any] | None
 
 def _route_plan_shadow_candidate(query: str) -> dict | None:
     return None
+
+
+def _session_stale_clarification_required(state: ChatPipelineState) -> bool:
+    resolution = state.get("session_context_resolution")
+    return isinstance(resolution, SessionContextResolution) and resolution.status.clarification_required
+
+
+def _session_stale_clarification_review() -> dict[str, Any]:
+    return human_review(
+        "session_context_stale",
+        "session_context_stale_or_missing",
+        "soc_analyst",
+        ["repeat_alert_context", "cancel"],
+        "The prior investigation context is stale or missing. Repeat the alert context or start a fresh question.",
+    )
+
+
+def _session_spl_refine_stage(
+    *,
+    state: ChatPipelineState,
+    trace_id: str,
+    skill: str,
+    user_query: str,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    resolution = state.get("session_context_resolution")
+    if not isinstance(resolution, SessionContextResolution) or not resolution.spl_refine_from_session:
+        return None
+    if resolution.pins is None or not resolution.pins.last_candidate_spl:
+        return None
+    if not _spl_allowed(state):
+        return None
+    spl_text = resolution.pins.last_candidate_spl
+    validation = validate_spl(spl_text)
+    profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
+    candidate_payload = {
+        "trace_id": trace_id,
+        "skill": skill,
+        "user_query": user_query,
+        "candidate_spl": spl_text,
+        "generation_mode": "session_refine",
+        "confidence": 0.72,
+        "assumptions": ["session_context_refine"],
+        "warnings": ["session_context_refine_revalidated"],
+        "selected_candidate_spl_provider": "session_context",
+        "reason": "session_context_refine",
+        "validation_required": True,
+        "execution_eligible": False,
+        "spl_template_status": resolution.pins.last_spl_template_status,
+    }
+    validation_payload = {
+        **validation,
+        "selected_candidate_spl_provider": "session_context",
+        "candidate_provider_reason": "session_context_refine",
+        "spl_template_status": resolution.pins.last_spl_template_status,
+        "template_production_executable": False,
+    }
+    if settings.control_plane_enabled:
+        template_id = (
+            state["selected_use_case"].default_spl_template
+            if state.get("selected_use_case") is not None
+            else None
+        )
+        validation_payload = validate_spl_slot_bindings(
+            validation_payload,
+            user_query=user_query,
+            query_signals=_query_signals_from_state(state),
+            template_id=template_id,
+        )
+    telemetry = _routes_chat().get_telemetry_connector()
+    telemetry.record_spl_validation(
+        trace_id,
+        stage="spl_validation_result",
+        approved=validation_payload["approved"],
+        reject_reasons=validation_payload["reject_reasons"],
+        warnings=validation_payload["warnings"],
+        policy_version=validation_payload["policy_version"],
+    )
+    return candidate_payload, validation_payload
 
 
 def _candidate_spl_stage(
