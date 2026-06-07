@@ -2,7 +2,7 @@
 
 **Document:** `plans/AI_SOC_MASTER_PLAN.md` — **single canonical plan** for hardening, skill enrichment, pipeline/LangGraph, and GitHub skill intake tracking.  
 **Date:** 2026-06-06  
-**Status:** Active implementation roadmap — Batches 2 through 5 completed on `master`; next batch requires explicit scope approval.  
+**Status:** Active implementation roadmap — Batches 1 through 6 completed on `master`; Batch 7 plan-status review documented; next implementation phase requires explicit scope approval (see [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md)).  
 **Canonical for:** Tracks A–D, pilot enrichments P1–P7, execution order, tracking table (§P)
 
 > **Single plan only.** Do not use `plans/2026-06-06_*.md` drafts (removed). All amendments live here.
@@ -79,6 +79,24 @@
 - [x] Batch 3.1 pilot output contracts completed
 - [x] Batch 4 pipeline trace + guarded answer visibility completed
 - [x] Batch 5 lightweight backend session context completed
+- [x] Batch 6 real Splunk MCP safety contract (docs only) completed
+- [x] Batch 7 plan status review and gap audit completed
+
+### Batch implementation status (Batches 1–6)
+
+| Batch | Status | Merged/PR | Runtime Change | Key Outcome | Remaining Gap |
+| ----- | ------ | --------- | -------------- | ----------- | ------------- |
+| **1** — HIL mock MCP hardening | **Done** | PR #4 (`7222937`) | Yes | HIL labels + mock execution gates hardened | Durable approval store for real MCP |
+| **2** — 7 SOC skill enrichment baseline | **Done** | PR #5 (`4e1a2f3`) | Metadata only | `content_enrichment.json` + intake register linked | Runtime enrichment load (C3) not wired |
+| **2.1** — Offline question→use-case mapping | **Done** | PR #5 / `b164cb2` | Tooling | `question_use_case_map.json` + matrix generator | **1 / 105** authoritative mappings |
+| **3** — MITRE evidence + SPL governance | **Done** | PR #6 (`9faac7c`) | Yes | Evidence-status vocabulary + template governance | `_status_for()` still in `mitre_kb.py` (A2) |
+| **3.1** — Pilot output contracts | **Done** | PR #6 | Yes | Contract tests + `pilot_evidence_contracts_batch3_1.md` | More pilots need golden cases |
+| **4** — Pipeline visibility + answer guard | **Done** | PR #6 | Yes | Top-level visibility + finalize-time `node_trace` + final validator | Incremental streaming trace; UI polish |
+| **5** — Session context | **Done** | PR #7 (`84b77f8`) | Yes | Structured pins, TTL, follow-ups, `session_context_status` | In-process only; not multi-worker durable |
+| **6** — Real Splunk MCP safety contract | **Done** | `d1a7b24` on `master` | **Docs only** | `real_splunk_mcp_safety_contract.md` — 15+ activation gates | COE adapter, audit, approval workflow |
+| **7** — Plan status review | **Done** | This doc commit | Docs only | Gap audit + recommended next phase | Implementation of backlog items |
+
+Full audit: [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md).
 
 ---
 
@@ -1171,6 +1189,8 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 | **4** | **Batch 4** | Pipeline trace + guarded answer visibility — **Done** |
 | **5** | **Batch 5** | Lightweight backend session memory (structured pins, TTL, follow-ups) — **Done** |
 | **5.x** | **Post-Batch 5 review** | Streamed `/clear` now clears backend session pins; governance regression PASS — **Done** |
+| **6** | **Batch 6** | Real Splunk MCP safety contract (docs only) — **Done** |
+| **7** | **Batch 7** | Plan status review and gap audit — **Done** |
 | 1 | C1, C9 | State field spec + `node_trace` schema in docs — **Done** (Batch 4 runtime) |
 | 2 | A1 | HIL for mock MCP + response labels |
 | 3 | B9, **D5** | `skill_coverage_matrix.json` (≥105 monotonic `question_id`s) linked to intake register |
