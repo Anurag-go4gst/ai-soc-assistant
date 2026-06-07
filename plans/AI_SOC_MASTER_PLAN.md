@@ -364,13 +364,17 @@ A2 = reconciliation + additive hardening, **not** a breaking schema replacement.
 
 ---
 
-### A4 — Splunk MCP execution safety (plan only)
+### A4 — Splunk MCP execution safety — **Done (Batch 6 planning contract)**
 
 **Objective:** Document COE requirements; defer implementation.
 
 **Files:** `connectors/mcp/splunk_mcp.py`, `mcp_execution_gate.py`, `splunk_result_adapter.py`, `splunk/capabilities.py`
 
+**Contract:** `docs/architecture/real_splunk_mcp_safety_contract.md`
+
 **COE checklist (document only):** server URL, auth, allowed tools (read-only search), timeouts, result caps, audit trail, approval workflow, air-gap policy.
+
+**Batch 6 result:** Real Splunk MCP remains disabled/not implemented. The contract requires `validate_spl()` approval, active allowed template, read-only SPL, HIL approval bound to normalized SPL hash/trace, global + per-server execution flags, allowlisted `spl_search` tool, confirmed real result schema, and audit readiness before live execution.
 
 ---
 
