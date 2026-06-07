@@ -27,7 +27,9 @@ def build_control_plane_trace(
     execution = state.get("execution") if isinstance(state.get("execution"), dict) else None
 
     trace = {
+        "planning_decision": state.get("planning_decision"),
         "query_to_intent": state.get("query_to_intent"),
+        "llm_intent_advisory": state.get("llm_intent_advisory"),
         "evidence_plan": state.get("evidence_plan"),
         "route_adjudication": state.get("route_adjudication"),
         "llm_plan_validation": state.get("llm_plan_validation"),

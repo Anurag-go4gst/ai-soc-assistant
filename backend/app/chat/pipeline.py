@@ -66,6 +66,8 @@ from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.chat.intent_classifier import build_query_to_intent
+from app.chat.llm_intent_advisor import generate_llm_intent_advisory
+from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.pipeline_visibility import build_pipeline_visibility
 from app.chat.session_context import (
@@ -127,8 +129,10 @@ class ChatPipelineState(TypedDict, total=False):
     note: str
     governance_trace: Any
     query_to_intent: dict[str, Any] | None
+    llm_intent_advisory: dict[str, Any] | None
     intent_classification: dict[str, Any] | None
     evidence_plan: dict[str, Any] | None
+    planning_decision: dict[str, Any] | None
     route_adjudication: dict[str, Any] | None
     llm_plan_validation: dict[str, Any] | None
     mitre_decision: dict[str, Any] | None
@@ -241,15 +245,21 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     routed = state.get("routed") or {}
     routed_skill = str(routed.get("skill")) if routed.get("skill") else None
     query_text = state.get("effective_query") or request.message
+    llm_advisory = generate_llm_intent_advisory(
+        query_text,
+        query_understanding=query_understanding,
+    )
     result = build_query_to_intent(
         query=query_text,
         query_understanding=query_understanding,
         routed_skill=routed_skill,
+        llm_intent_advisory=llm_advisory,
     )
     payload = result.model_dump()
     return {
         **state,
         "query_to_intent": payload,
+        "llm_intent_advisory": payload.get("llm_intent_advisory"),
         "intent_classification": payload.get("intent_classification"),
     }
 
@@ -257,16 +267,41 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("planning_evidence")
     if not settings.control_plane_enabled:
-        return {**state, "evidence_plan": None}
+        planning = plan_path_and_tools(
+            intent_classification=state.get("intent_classification"),
+            evidence_plan=None,
+            routed=state.get("routed"),
+            query_understanding=state.get("query_understanding"),
+            selected_use_case=state.get("selected_use_case"),
+            llm_intent_advisory=state.get("llm_intent_advisory"),
+        )
+        return {**state, "evidence_plan": None, "planning_decision": planning.model_dump()}
     intent = state.get("intent_classification")
     if not isinstance(intent, dict):
-        return {**state, "evidence_plan": None}
+        planning = plan_path_and_tools(
+            intent_classification=None,
+            evidence_plan=None,
+            routed=state.get("routed"),
+            query_understanding=state.get("query_understanding"),
+            selected_use_case=state.get("selected_use_case"),
+            llm_intent_advisory=state.get("llm_intent_advisory"),
+        )
+        return {**state, "evidence_plan": None, "planning_decision": planning.model_dump()}
     plan = plan_evidence(
         intent,
         query_to_intent=state.get("query_to_intent"),
         routed=state.get("routed"),
     )
-    return {**state, "evidence_plan": plan.model_dump()}
+    evidence_payload = plan.model_dump()
+    planning = plan_path_and_tools(
+        intent_classification=intent,
+        evidence_plan=evidence_payload,
+        routed=state.get("routed"),
+        query_understanding=state.get("query_understanding"),
+        selected_use_case=state.get("selected_use_case"),
+        llm_intent_advisory=state.get("llm_intent_advisory"),
+    )
+    return {**state, "evidence_plan": evidence_payload, "planning_decision": planning.model_dump()}
 
 
 def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
@@ -848,6 +883,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         action_capability=action_capability,
         governance_trace=governance_trace,
         query_to_intent=state.get("query_to_intent"),
+        planning_decision=state.get("planning_decision"),
+        llm_intent_advisory=state.get("llm_intent_advisory"),
         evidence_plan=state.get("evidence_plan"),
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,

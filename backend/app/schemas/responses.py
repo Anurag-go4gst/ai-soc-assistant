@@ -409,6 +409,8 @@ class PlaceholderResponse(BaseModel):
     foundation_sec_governance: FoundationSecGovernance | None = None
     spl_template: dict[str, object] | None = None
     evidence_plan: dict[str, object] | None = None
+    planning_decision: dict[str, object] | None = None
+    llm_intent_advisory: dict[str, object] | None = None
     route_adjudication: dict[str, object] | None = None
     llm_plan_validation: dict[str, object] | None = None
     tool_plan_structured: dict[str, object] | None = None

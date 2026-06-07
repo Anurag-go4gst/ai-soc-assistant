@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
+
 
 IntentFamily = Literal[
     "policy_knowledge",
@@ -66,3 +68,4 @@ class QueryToIntentResult(BaseModel):
     intent_classification: IntentClassification
     intent_conflicts: list[dict[str, Any]] = Field(default_factory=list)
     llm_intent_assist_status: LlmIntentAssistStatus = "skipped"
+    llm_intent_advisory: LLMIntentAdvisory | None = None

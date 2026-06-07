@@ -12,6 +12,8 @@ from app.chat.contracts.intent_classification import (
     LlmIntentAssistStatus,
     QueryToIntentResult,
 )
+from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
+from app.chat.llm_intent_advisor import adjudicate_llm_intent_advisory
 from app.chat.query_signals import extract_query_signals
 from app.query_understanding.models import QueryUnderstandingResult
 
@@ -234,6 +236,7 @@ def build_query_to_intent(
     query: str,
     query_understanding: QueryUnderstandingResult | None = None,
     routed_skill: str | None = None,
+    llm_intent_advisory: LLMIntentAdvisory | None = None,
 ) -> QueryToIntentResult:
     signals = extract_query_signals(query, query_understanding)
     candidate_mappings = build_candidate_mappings(query_understanding, routed_skill=routed_skill)
@@ -244,13 +247,23 @@ def build_query_to_intent(
         query_understanding=query_understanding,
     )
     conflicts = _intent_conflicts(intent, candidate_mappings, query_understanding)
-    llm_status = _llm_intent_assist_status(query_understanding, candidate_mappings)
+    adjudicated_advisory = adjudicate_llm_intent_advisory(
+        llm_intent_advisory,
+        query_understanding=query_understanding,
+        candidate_mappings=candidate_mappings,
+    )
+    llm_status = _llm_intent_assist_status(
+        query_understanding,
+        candidate_mappings,
+        adjudicated_advisory,
+    )
     return QueryToIntentResult(
         query_signals=signals,
         candidate_mappings=candidate_mappings,
         intent_classification=intent,
         intent_conflicts=conflicts,
         llm_intent_assist_status=llm_status,
+        llm_intent_advisory=adjudicated_advisory,
     )
 
 
@@ -324,7 +337,10 @@ def _intent_conflicts(
 def _llm_intent_assist_status(
     query_understanding: QueryUnderstandingResult | None,
     candidate_mappings: dict[str, Any],
+    llm_intent_advisory: LLMIntentAdvisory | None = None,
 ) -> LlmIntentAssistStatus:
+    if llm_intent_advisory is not None and llm_intent_advisory.adjudication_status != "skipped":
+        return llm_intent_advisory.adjudication_status
     if query_understanding is None:
         return "skipped"
     match_path = candidate_mappings.get("match_path")

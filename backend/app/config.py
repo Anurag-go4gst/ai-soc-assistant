@@ -186,6 +186,10 @@ class Settings(BaseSettings):
     ai_soc_llm_role_router_model: str = ""
     ai_soc_llm_intent_provider: str = ""
     ai_soc_llm_intent_model: str = ""
+    # Planner-led Phase 2: early intent advisor. Advisory only, default off.
+    ai_soc_llm_intent_advisor_enabled: bool = False
+    # Planner-led Phase 3: path/tool selection node. Schedules branches only; default off.
+    ai_soc_planner_path_selection_enabled: bool = False
     ai_soc_llm_reasoning_provider: str = ""
     ai_soc_llm_reasoning_model: str = ""
     ai_soc_llm_synthesis_provider: str = ""
