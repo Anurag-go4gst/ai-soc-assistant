@@ -247,6 +247,13 @@ def test_powershell_answer_shows_required_evidence_and_checklist(monkeypatch) ->
         detail = analyst.spl_status_detail
         if detail.get("template_status") == "active":
             assert "no active governed spl template" not in str(analyst.model_dump()).lower()
+        if detail.get("block_reason") == "spl_template_active_source_profile_missing":
+            assert analyst.spl_code is None
+            assert "Candidate SPL" not in str(analyst.model_dump())
+            assert str(analyst.model_dump()).lower().count("source profile missing") == 1
+    contract = response.answer_contract or {}
+    assert not contract.get("ruled_out_mitre")
+    assert "ruled out" not in str(analyst.direct_answer_summary or "").lower()
 
 
 def test_powershell_answer_uses_endpoint_limitations_not_auth(monkeypatch) -> None:
@@ -314,6 +321,13 @@ def test_dns_answer_shows_required_evidence_and_checklist(monkeypatch) -> None:
         assert phrase not in joined
     if analyst.spl_status_detail is not None and analyst.spl_status_detail.get("template_status") == "active":
         assert "no active governed spl template" not in str(analyst.model_dump()).lower()
+        if analyst.spl_status_detail.get("block_reason") == "spl_template_active_source_profile_missing":
+            assert analyst.spl_code is None
+            assert "Candidate SPL" not in str(analyst.model_dump())
+            assert str(analyst.model_dump()).lower().count("source profile missing") == 1
+    contract = response.answer_contract or {}
+    assert not contract.get("ruled_out_mitre")
+    assert "ruled out" not in str(analyst.direct_answer_summary or "").lower()
 
 
 def test_dns_answer_uses_network_limitations_not_auth(monkeypatch) -> None:

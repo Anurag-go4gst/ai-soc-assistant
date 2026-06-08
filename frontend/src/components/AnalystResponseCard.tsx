@@ -71,7 +71,7 @@ export function AnalystResponseCard({
   const showLiveResults =
     (renderSections.live_results ?? true) &&
     Boolean(response.splunk_status_line || hasInvestigationTable);
-  const showFooterReviewNotice = Boolean(response.review_notice && !response.spl_code);
+  const showFooterReviewNotice = Boolean(response.review_notice && !response.spl_code && !response.spl_status_detail);
   const showInvestigationPlan =
     !splOnly && !isKnowledgeRecall && priorityActions.length > 0 && (hasPriorityInvestigation || !response.spl_code);
   const showPolicyBridge = !isKnowledgeRecall && policyChecks.length > 0 && showInvestigationPlan && hasPriorityInvestigation;
@@ -200,7 +200,7 @@ export function AnalystResponseCard({
       label: wasExecuted ? 'Executed detection' : 'SPL status',
       icon: <Terminal className="h-3.5 w-3.5" />,
       accent: 'cyan',
-      chips: [{ text: response.spl_status === 'not_required' ? 'SPL skipped' : 'Candidate SPL', variant: 'secondary' }],
+      chips: [{ text: splStatusChip(response), variant: 'secondary' }],
       content: (
         <>
           {response.spl_status_detail ? <SplStatusDetail detail={response.spl_status_detail} /> : null}
@@ -666,11 +666,6 @@ function SplStatusDetail({
             <span className="text-slate-400">Reason:</span> {detail.reason_display ?? detail.reason}
           </li>
         ) : null}
-        {detail.block_reason ? (
-          <li>
-            <span className="text-slate-400">Block reason:</span> {detail.block_reason}
-          </li>
-        ) : null}
         {detail.required_fields?.length ? (
           <li>
             <span className="text-slate-400">Required fields:</span> {detail.required_fields.join(', ')}
@@ -679,6 +674,24 @@ function SplStatusDetail({
       </ul>
     </div>
   );
+}
+
+function splStatusChip(response: AnalystResponseEnvelope): string {
+  const detail = response.spl_status_detail;
+  if (response.spl_status === 'not_required') {
+    return 'SPL skipped';
+  }
+  if (
+    detail?.template_status === 'active' &&
+    detail.generation_status === 'blocked' &&
+    detail.block_reason === 'spl_template_active_source_profile_missing'
+  ) {
+    return 'SPL blocked — source profile missing';
+  }
+  if (!response.spl_code && detail?.generation_status === 'blocked') {
+    return 'SPL blocked';
+  }
+  return 'Candidate SPL';
 }
 
 function formatMissingEvidence(response: AnalystResponseEnvelope): string[] {

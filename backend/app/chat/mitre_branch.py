@@ -136,11 +136,12 @@ def _branch_result(
         "not_claimed": [],
         "ruled_out": [],
     }
+    rejected_ids = {str(item) for item in decision.rejected_techniques}
     for technique_id in decision.registry_candidates:
         detail = details.get(technique_id) or {}
         technique_status = str(detail.get("status") or "candidate")
-        if technique_id in set(decision.rejected_techniques):
-            technique_status = "ruled_out"
+        if technique_id in rejected_ids:
+            technique_status = _status_for_rejected_technique(detail)
         if technique_status not in buckets:
             technique_status = "candidate"
         statuses.append(
@@ -155,8 +156,11 @@ def _branch_result(
 
     for technique_id in decision.rejected_techniques:
         tid = str(technique_id)
-        if tid and tid not in buckets["ruled_out"]:
-            buckets["ruled_out"].append(tid)
+        if not tid:
+            continue
+        bucket = _status_for_rejected_technique(details.get(tid) or {})
+        if tid not in buckets[bucket]:
+            buckets[bucket].append(tid)
     visible_ids = {str(item.get("technique_id") or "") for item in decision.techniques}
     for technique_id in decision.not_claimed:
         tid = str(technique_id)
@@ -178,3 +182,13 @@ def _branch_result(
         ruled_out_mitre=buckets["ruled_out"],
         metadata_only_candidates=list(decision.registry_candidates),
     )
+
+
+def _status_for_rejected_technique(detail: dict[str, Any]) -> str:
+    status = str(detail.get("status") or "").lower()
+    reason = str(detail.get("reason") or "").lower()
+    if status == "ruled_out":
+        return "ruled_out"
+    if any(term in reason for term in ("disprov", "ruled out", "policy blocks", "registry-blocked")):
+        return "ruled_out"
+    return "not_claimed"

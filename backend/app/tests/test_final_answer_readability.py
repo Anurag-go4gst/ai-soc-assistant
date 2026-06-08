@@ -363,7 +363,10 @@ def test_powershell_contract_uses_endpoint_limitations_not_auth() -> None:
         human_review={"required": False},
         use_case_id="edr_powershell_suspicious_command",
     )
-    envelope = AnalystResponseEnvelope(response_profile="hybrid_alert_review")
+    envelope = AnalystResponseEnvelope(
+        response_profile="hybrid_alert_review",
+        review_notice="Template active but source profile missing: index/sourcetype/key fields required.",
+    )
     result = apply_final_answer_readability(envelope, contract)
     joined = " ".join(result.limitations).lower()
     assert "mfa" not in joined
@@ -378,6 +381,8 @@ def test_powershell_contract_uses_endpoint_limitations_not_auth() -> None:
     assert result.spl_status_detail["block_reason"] == "spl_template_active_source_profile_missing"
     assert "index" in (result.spl_status_detail.get("required_fields") or [])
     assert "no active governed spl template" not in str(result.model_dump()).lower()
+    assert result.review_notice is None
+    assert str(result.model_dump()).lower().count("source profile missing") == 1
 
 
 def test_dns_contract_uses_network_limitations_not_auth() -> None:

@@ -239,6 +239,15 @@ def _natural_hybrid_alert_summary(envelope: AnalystResponseEnvelope, contract: A
 def _dedupe_labels(payload: dict[str, Any], contract: AnswerContract) -> dict[str, Any]:
     exec_label = contract.execution_status_display or ""
     review_notice = str(payload.get("review_notice") or "")
+    spl_detail = contract.spl_status_detail or {}
+    if (
+        not payload.get("spl_code")
+        and spl_detail.get("template_status") == "active"
+        and spl_detail.get("generation_status") == "blocked"
+        and spl_detail.get("block_reason") == "spl_template_active_source_profile_missing"
+    ):
+        payload["review_notice"] = None
+        review_notice = ""
     if exec_label and review_notice:
         if "review only" in review_notice.lower() or "not executed" in review_notice.lower():
             payload["review_notice"] = exec_label
