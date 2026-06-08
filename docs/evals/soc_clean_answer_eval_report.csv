@@ -1,0 +1,9 @@
+row_id,source,query,clean_response_status,path_type,use_case_id,spl_status,execution_status,violations
+demo.failed_login_spike,demo_scenario,Investigate a spike of failed logins for a user/source,pass,spl_review,auth_failed_login_spike,approved,requires_human_review,
+demo.successful_login_after_failures,demo_scenario,Failed logins followed by a successful login from same user,pass,clarification_required,auth_success_after_failure,none,skipped,
+demo.dns_beaconing_candidate,demo_scenario,Possible periodic DNS beaconing to a rare domain,pass,clarification_required,dns_beaconing_candidate,none,skipped,
+demo.suspicious_powershell,demo_scenario,Suspicious encoded PowerShell command on an endpoint,pass,clarification_required,,none,skipped,
+demo.sop-only_query,demo_scenario,Show the SOP/runbook for brute-force handling (no SPL),pass,rag_only,soc_show_sop,none,skipped,
+demo.mitre-only_without_alert_context,demo_scenario,Map this to MITRE (no alert/evidence provided),pass,mitre_context_required,soc_map_alert_mitre,none,skipped,
+demo.enrichment-only_pilot,demo_scenario,Review phishing email headers (design-only pilot),pass,clarification_required,,none,skipped,
+demo.unsafe_containment/execution_request,demo_scenario,Contain/isolate the host or run the query now,pass,unsafe_blocked,,none,skipped,

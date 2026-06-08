@@ -22,6 +22,8 @@ Canonical command:
 | SOC validation sheets `--check` | exit 0 (staleness gate) |
 | SOC validation package pytest | `test_soc_validation_package_phase10.py` all pass |
 | LangGraph dual-run parity `--check` | exit 0 (Phase 13) |
+| SOC clean-answer eval `--check` | exit 0 (120 rows: 105 + 8 demo + 7 manual) |
+| SOC clean-answer eval pytest | `test_soc_clean_answer_eval.py` all pass |
 | SKILL_ENUM contract test | backend == harness |
 
 ## Recorded counts (2026-06-03)
@@ -83,11 +85,12 @@ python3 scripts/run_langgraph_dual_parity_eval.py --check
 
 Recorded baseline (2026-06-08): **120** rows, **120** exact matches, **0** critical mismatches.
 
-## Phase 11 demo readiness (documentation)
+## Phase 11–13 demo / LangGraph parity (documentation)
 
 - Flag profiles: `docs/demo/flag_cutover_matrix.md`
 - Manual demo checklist: `docs/demo/demo_scenarios_readiness.md`
 - Phase 12 planner-led shadow graph: `test_langgraph_shadow_phase12.py` (requires `AI_SOC_LANGGRAPH_SHADOW_ENABLED=true` in test harness only)
+- Phase 13 dual-run parity: `plans/2026-06-08_langgraph-shadow-dual-parity-phases12-13.md`
 - Live demo path: imperative `/chat` — keep `LANGGRAPH_ORCHESTRATION_ENABLED=false`
 - Default production runtime: legacy/parity (`CONTROL_PLANE_ENABLED=false`)
 
