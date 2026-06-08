@@ -195,6 +195,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-06-04_0703_general-soc-reasoning-answer-contract.md` | Done — general SOC reasoning layer (Agent A): data-driven MITRE evidence-preconditions (replaces per-use-case not-claimed hardcoding), AnswerContract read-model wired into finalize, contract-driven builder, fail-closed final-answer validator, 32-case behavior matrix. Flag-gated; suite + governance regression green |
 | `plans/2026-06-04_0720_answer-quality-golden-regression-and-feedback-ledger.md` | Done — answer-quality ledger, feedback API, review queue, promote-golden, expectation matrix (105+46), Tier 0–2 golden JSONL + runner (Tier 0 in governance regression), Quality page summary |
 | `plans/AI_SOC_MASTER_PLAN.md` | **Active** — single master plan for Tracks A–D (hardening, enrichment, pipeline, GitHub intake register). Supersedes `2026-06-06_*` drafts. Tracking: §P + `docs/skills/*` (proposed, not created yet). |
+| `plans/2026-06-08_0717_planner-led-plan-completion-review.md` | **Review** — completion review of the `.cursor` planner-led plan. Phases 0–9 done (commits recorded) and governance-green behind default-off flags; legacy/parity runtime remains default; planner-led LangGraph fan-out/fan-in topology not yet built; Phases 10–11 + Knowledge-surfaces-sync pending. |
 
 ## Git Notes
 
