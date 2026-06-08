@@ -15,10 +15,18 @@ from app.evals.spl_draft_preview_eval import (
 )
 from app.schemas.requests import ChatRequest
 from app.spl.draft_preview import (
+    DETECTION_FAMILIES,
     DRAFT_STATUS,
     DRAFT_WARNING,
     build_draft_preview,
     match_detection_family,
+)
+from app.spl.draft_preview_lint import (
+    lint_draft_spl,
+    lint_prohibited_claims,
+    lint_quoted_string_newlines,
+    lint_strftime_for_time_fields,
+    lint_windows_path_escaping,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -69,6 +77,15 @@ def _blocked_validation(reason: str) -> dict:
     }
 
 
+def _preview(monkeypatch: pytest.MonkeyPatch, query: str, family_id: str | None = None) -> dict:
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(query, spl_validation=_blocked_validation("spl_template_missing"))
+    assert preview is not None
+    if family_id:
+        assert preview["detection_family"] == family_id
+    return preview
+
+
 def test_flag_off_preserves_blocked_behavior(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", False)
     preview = build_draft_preview(PRIVILEGED_GROUP_QUERY, spl_validation=_blocked_validation("spl_template_missing"))
@@ -103,26 +120,107 @@ def test_flag_on_builds_draft_preview_for_families(
     query: str,
     family: str,
 ) -> None:
-    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
-    assert match_detection_family(query) == family
-    preview = build_draft_preview(query, spl_validation=_blocked_validation("spl_template_missing"))
-    assert preview is not None
+    preview = _preview(monkeypatch, query, family)
     assert preview["draft_status"] == DRAFT_STATUS
     assert preview["draft_source"] == "deterministic_pattern"
-    assert preview["detection_family"] == family
     assert preview["review_required"] is True
     assert preview["execution_enabled"] is False
     assert preview["governed"] is False
     assert preview["catalog_approved"] is False
     assert preview["warning"] == DRAFT_WARNING
     assert "<" in preview["draft_spl"]
+    assert preview["draft_lint_status"] == "passed"
     assert preview["validator_status"] in {"approved", "blocked"}
 
 
+def test_all_registered_drafts_pass_lint() -> None:
+    for family in DETECTION_FAMILIES:
+        violations = lint_draft_spl(family.draft_spl, extra_text=" ".join(family.assumptions))
+        assert violations == [], f"{family.family_id}: {violations}"
+
+
+def test_lint_rejects_newline_inside_quoted_string() -> None:
+    bad = 'search index=foo sourcetype=bar earliest=-1h latest=now "line1\nline2" | stats count'
+    assert lint_quoted_string_newlines(bad) == ["quoted_string_contains_newline"]
+
+
+def test_lint_rejects_unescaped_windows_path_backslash() -> None:
+    bad = 'search index=foo | where ParentImage="*\\w3wp.exe"'
+    assert lint_windows_path_escaping(bad)
+
+
+def test_lint_requires_strftime_when_earliest_latest_used() -> None:
+    bad = "| stats count earliest(_time) as first_seen latest(_time) as last_seen by user"
+    assert lint_strftime_for_time_fields(bad) == ["earliest_or_latest_time_without_strftime"]
+    good = "| stats min(_time) as t | eval first_seen=strftime(t, \"%F %T\")"
+    assert lint_strftime_for_time_fields(good) == []
+
+
+def test_lint_rejects_prohibited_claims() -> None:
+    assert lint_prohibited_claims("results were found in Splunk")
+    assert lint_prohibited_claims("this SPL is catalog-approved")
+    assert lint_prohibited_claims("approved for execution")
+
+
+def test_privileged_group_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
+    preview = _preview(monkeypatch, PRIVILEGED_GROUP_QUERY, "windows_privileged_group_changes")
+    spl = preview["draft_spl"]
+    assert "like(lower(coalesce(TargetUserName" in spl
+    assert "match(" not in spl
+    assert "strftime" in spl
+    assert "coalesce(SubjectUserName" in spl
+
+
+def test_4740_lockout_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
+    preview = _preview(monkeypatch, LOCKOUT_QUERY, "windows_account_lockout")
+    spl = preview["draft_spl"]
+    assert "Caller_Computer_Name" in spl
+    assert "caller_host" in spl
+    assert "lockout_source" in spl
+    assert "strftime" in spl
+    assert "ComputerName" in spl
+    assert spl.index("Caller_Computer_Name") < spl.index("ComputerName")
+
+
+def test_sysmon_web_shell_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
+    preview = _preview(monkeypatch, SYSMON_QUERY, "sysmon_web_shell_spawn")
+    spl = preview["draft_spl"]
+    assert "pwsh.exe" in spl
+    assert "tomcat.exe" in spl
+    assert "like(parent_image" in spl
+    assert "like(child_image" in spl
+    assert "*\\w3wp.exe" not in spl
+    assert "%\\\\w3wp.exe" in spl or '%\\w3wp.exe' in spl
+
+
+def test_scada_dnp3_modbus_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
+    preview = _preview(monkeypatch, SCADA_QUERY, "scada_dnp3_modbus_write")
+    spl = preview["draft_spl"]
+    assert "coalesce(protocol" in spl
+    assert "like(protocol_name" in spl
+    assert "match(" not in spl
+    assert "strftime" in spl
+
+
+def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
+    preview = _preview(monkeypatch, ESP_QUERY, "esp_it_to_ot_connection")
+    spl = preview["draft_spl"]
+    assert "coalesce(src_ip" in spl
+    assert "strftime" in spl
+    assert "first_seen" in spl
+
+
+def test_substation_hmi_brute_force_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
+    preview = _preview(monkeypatch, HMI_QUERY, "substation_hmi_brute_force")
+    spl = preview["draft_spl"]
+    assert "like(app_name" in spl
+    assert "match(" not in spl
+    assert "window_start=strftime" in spl
+    assert "coalesce(user" in spl
+
+
 def test_draft_is_never_marked_governed_or_executable(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
-    preview = build_draft_preview(LOCKOUT_QUERY, spl_validation=_blocked_validation("spl_template_missing"))
-    assert preview is not None
+    preview = _preview(monkeypatch, LOCKOUT_QUERY)
     assert preview["governed"] is False
     assert preview["execution_enabled"] is False
     assert preview["execution_eligible"] is False

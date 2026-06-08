@@ -14,6 +14,11 @@ from app.chat.pipeline import build_live_chat_response
 from app.config import settings
 from app.schemas.requests import ChatRequest
 from app.spl.draft_preview import build_draft_preview, match_detection_family
+from app.spl.draft_preview_lint import _scrub_lab_disclaimers, lint_draft_spl
+
+
+def _scrub_disclaimer_text(text: str) -> str:
+    return _scrub_lab_disclaimers(text)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 QUESTIONS_PATH = REPO_ROOT / "docs" / "evals" / "known_spl_draft_questions.json"
@@ -44,6 +49,7 @@ _APPROVED_CLAIM = re.compile(
     r"\b(catalog[\s-]?approved|governed\s+spl\s+draft\s+ready|approved\s+for\s+execution|execution\s+eligible)\b",
     re.IGNORECASE,
 )
+_EXECUTED_CLAIM = re.compile(r"\b(was\s+executed|executed\s+successfully)\b", re.IGNORECASE)
 
 
 @dataclass
@@ -133,6 +139,9 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool) -> DraftEval
     text = _text_blob(response)
     violations: list[str] = []
 
+    draft_spl = str((draft or {}).get("draft_spl") or "")
+    assumptions_text = " ".join((draft or {}).get("assumptions") or [])
+    lint_violations = lint_draft_spl(draft_spl, extra_text=assumptions_text) if draft else []
     checks = {
         "draft_only_when_flag_on": (draft is None) if not draft_enabled else (draft is not None),
         "family_match": match_detection_family(query) == family,
@@ -142,11 +151,18 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool) -> DraftEval
         "execution_disabled": (draft or {}).get("execution_enabled") is False if draft else True,
         "review_required": (draft or {}).get("review_required") is True if draft else True,
         "warning_present": bool((draft or {}).get("warning")) if draft else True,
-        "placeholder_index": "<" in str((draft or {}).get("draft_spl") or "") if draft else True,
+        "placeholder_index": "<" in draft_spl if draft else True,
         "validator_ran": bool((draft or {}).get("validator_status")) if draft else True,
+        "draft_lint_clean": not lint_violations if draft else True,
+        "no_newline_in_quoted_strings": "quoted_string_contains_newline" not in lint_violations if draft else True,
+        "windows_paths_escaped": not any(v.startswith("unescaped_windows_path_backslash") for v in lint_violations)
+        if draft
+        else True,
+        "strftime_for_time_fields": "earliest_or_latest_time_without_strftime" not in lint_violations if draft else True,
         "no_execution": execution_status != "executed",
         "no_results_found_claim": _RESULTS_FOUND.search(text) is None,
-        "no_approved_claim": _APPROVED_CLAIM.search(text) is None or draft_enabled,
+        "no_approved_claim": _APPROVED_CLAIM.search(_scrub_disclaimer_text(text)) is None,
+        "no_executed_claim": _EXECUTED_CLAIM.search(_scrub_disclaimer_text(text)) is None,
     }
 
     if draft_enabled and draft is None:
@@ -163,6 +179,18 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool) -> DraftEval
         violations.append("results_found_claim")
     if draft and not draft.get("warning"):
         violations.append("warning_missing")
+    if draft and lint_violations:
+        violations.extend(lint_violations)
+    if family == "windows_account_lockout" and draft:
+        if "caller_host" not in draft_spl or "Caller_Computer_Name" not in draft_spl:
+            violations.append("lockout_missing_caller_host_fields")
+            checks["lockout_caller_host_fields"] = False
+        else:
+            checks["lockout_caller_host_fields"] = True
+    if family == "sysmon_web_shell_spawn" and draft:
+        checks["sysmon_pwsh_parent_variants"] = "pwsh.exe" in draft_spl and "tomcat.exe" in draft_spl
+        if not checks["sysmon_pwsh_parent_variants"]:
+            violations.append("sysmon_missing_pwsh_or_web_parents")
 
     return DraftEvalRow(
         question_id=question_id,
