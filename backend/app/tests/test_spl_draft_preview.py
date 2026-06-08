@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -184,7 +185,15 @@ def test_draft_preview_runs_quality_lint_before_return(monkeypatch: pytest.Monke
 
 
 def test_all_registered_drafts_pass_lint() -> None:
+    from app.spl.draft_quality import evaluate_draft_quality
+
     for family in DETECTION_FAMILIES:
+        report = evaluate_draft_quality(
+            family.draft_spl,
+            extra_text=" ".join(family.assumptions),
+            detection_family=family.family_id,
+        )
+        assert report.hard_fail_count == 0, f"{family.family_id}: {report.findings}"
         violations = lint_draft_spl(family.draft_spl, extra_text=" ".join(family.assumptions))
         assert violations == [], f"{family.family_id}: {violations}"
 
@@ -217,21 +226,21 @@ def test_lint_rejects_prohibited_claims() -> None:
 def test_privileged_group_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     preview = _preview(monkeypatch, PRIVILEGED_GROUP_QUERY, "windows_privileged_group_changes")
     spl = preview["draft_spl"]
-    assert "like(lower(coalesce(TargetUserName" in spl
-    assert "match(" not in spl
+    assert "group_norm=lower(coalesce" in spl
+    assert "actor_norm=lower(coalesce" in spl
+    assert 'NOT like(actor_norm, "%$")' in spl
+    assert "earliest(_time)" in spl
     assert "strftime" in spl
-    assert "coalesce(SubjectUserName" in spl
 
 
 def test_4740_lockout_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     preview = _preview(monkeypatch, LOCKOUT_QUERY, "windows_account_lockout")
     spl = preview["draft_spl"]
     assert "Caller_Computer_Name" in spl
-    assert "caller_host" in spl
-    assert "lockout_source" in spl
-    assert "strftime" in spl
-    assert "ComputerName" in spl
-    assert spl.index("Caller_Computer_Name") < spl.index("ComputerName")
+    assert "caller_host_norm" in spl
+    assert "values(caller_host_norm)" in spl
+    assert re.search(r"\bComputerName\b", spl.replace("CallerComputerName", "")) is None
+    assert "earliest(_time)" in spl
 
 
 def test_sysmon_web_shell_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -239,38 +248,38 @@ def test_sysmon_web_shell_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     spl = preview["draft_spl"]
     assert "pwsh.exe" in spl
     assert "tomcat.exe" in spl
-    assert "like(parent_image" in spl
-    assert "like(child_image" in spl
+    assert "parent_image_norm" in spl
+    assert "child_image_norm" in spl
+    assert "sort 0 - _time" in spl
+    assert 'spawn_time=strftime(_time, "%Y-%m-%d %H:%M:%S")' in spl
     assert "*\\w3wp.exe" not in spl
-    assert "%\\\\w3wp.exe" in spl or '%\\w3wp.exe' in spl
 
 
 def test_scada_dnp3_modbus_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     preview = _preview(monkeypatch, SCADA_QUERY, "scada_dnp3_modbus_write")
     spl = preview["draft_spl"]
-    assert 'protocol="DNP3"' in spl or 'protocol="dnp3"' in spl
-    assert "coalesce(protocol" in spl
+    assert "(*dnp3* OR *modbus*)" in spl
+    assert "protocol_norm=lower(coalesce" in spl
     assert "cidrmatch(" in spl
-    assert "| match " not in spl.lower()
-    assert " match(" not in spl.lower().replace("cidrmatch(", "")
     assert "strftime" in spl
 
 
 def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     preview = _preview(monkeypatch, ESP_QUERY, "esp_it_to_ot_connection")
     spl = preview["draft_spl"]
-    assert "coalesce(src_ip" in spl
-    assert "strftime" in spl
-    assert "first_seen" in spl
+    assert "action=allowed" in spl.split("|")[0]
+    assert "src_zone_norm" in spl
+    assert "values(app_norm)" in spl
+    assert "cidrmatch(" in spl
 
 
 def test_substation_hmi_brute_force_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     preview = _preview(monkeypatch, HMI_QUERY, "substation_hmi_brute_force")
     spl = preview["draft_spl"]
-    assert "like(app_name" in spl
-    assert "match(" not in spl
-    assert "window_start=strftime" in spl
-    assert "coalesce(user" in spl
+    assert "like(app_norm" in spl
+    assert "streamstats time_window=5m" in spl
+    assert "sort 0 + _time" in spl
+    assert "user_norm" in spl
 
 
 def test_draft_is_never_marked_governed_or_executable(monkeypatch: pytest.MonkeyPatch) -> None:

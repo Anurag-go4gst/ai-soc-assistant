@@ -13,7 +13,17 @@ _QUOTED_STRING = re.compile(r'"(?:\\.|[^"\\])*"', re.DOTALL)
 _UNESCAPED_WINDOWS_PATH = re.compile(
     r'"[^"]*(?<![\\])[\\](?![\\/"%])[A-Za-z0-9_.-]+',
 )
-_AGG_COMMAND = re.compile(r"\b(?:stats|bin|timechart)\b", re.IGNORECASE)
+_AGG_COMMAND = re.compile(r"\b(?:stats|bin|timechart|streamstats)\b", re.IGNORECASE)
+_EVENTCODE_4740 = re.compile(r"\bEventCode\s*=\s*4740\b", re.IGNORECASE)
+_CALLER_HOST_NORM = re.compile(r"\bcaller_host_norm\b", re.IGNORECASE)
+_CALLER_COMPUTER_FIELD = re.compile(r"\bCaller_Computer_Name\b|\bCallerComputerName\b", re.IGNORECASE)
+_COMPUTER_NAME_IN_CALLER_COALESCE = re.compile(
+    r"caller[_\w]*\s*=\s*lower\s*\(\s*coalesce\s*\([^)]*(?<![\w])ComputerName(?![\w])",
+    re.IGNORECASE,
+)
+_STREAMSTATS = re.compile(r"\bstreamstats\b", re.IGNORECASE)
+_SORT_BEFORE_STREAMSTATS = re.compile(r"\bsort\s+0\s*\+\s*_time\b", re.IGNORECASE)
+_BROKEN_HMI_REGEX = re.compile(r"\(\?i\)hmi\\n\s*\|\s*portal", re.IGNORECASE)
 _STRFTIME = re.compile(r"\bstrftime\s*\(", re.IGNORECASE)
 _STRFTIME_ON_TIME = re.compile(r"\bstrftime\s*\(\s*(?:_time|event_time|lockout_time)\s*,", re.IGNORECASE)
 _EARLIEST_LATEST_RAW = re.compile(r"\b(?:earliest|latest)\s*\(\s*_time\s*\)", re.IGNORECASE)
@@ -118,7 +128,12 @@ def _first_agg_index(stages: list[str]) -> int | None:
     return None
 
 
-def evaluate_draft_quality(spl: str, *, extra_text: str = "") -> DraftQualityReport:
+def evaluate_draft_quality(
+    spl: str,
+    *,
+    extra_text: str = "",
+    detection_family: str | None = None,
+) -> DraftQualityReport:
     """Evaluate draft SPL against SOC-STD-SPL-001."""
     report = DraftQualityReport()
     stages = _pipeline_stages(spl)
@@ -205,6 +220,48 @@ def evaluate_draft_quality(spl: str, *, extra_text: str = "") -> DraftQualityRep
             "SOC-STD-SPL-001-Q08",
             "warning",
             "Draft does not start with a search command.",
+        )
+
+    if _EVENTCODE_4740.search(spl):
+        if not _CALLER_COMPUTER_FIELD.search(spl) or not _CALLER_HOST_NORM.search(spl):
+            report.add(
+                "SOC-STD-SPL-001-Q10",
+                "hard_fail",
+                "Event 4740 draft must use caller_host_norm with Caller_Computer_Name/CallerComputerName coalesce.",
+            )
+        if _COMPUTER_NAME_IN_CALLER_COALESCE.search(spl):
+            report.add(
+                "SOC-STD-SPL-001-Q10",
+                "hard_fail",
+                "Event 4740 draft must not use ComputerName in caller_host coalesce (DC/collector field).",
+            )
+
+    if _STREAMSTATS.search(spl):
+        stream_index = next(
+            (index for index, stage in enumerate(stages) if _STREAMSTATS.search(stage)),
+            None,
+        )
+        if stream_index is not None and not any(
+            _SORT_BEFORE_STREAMSTATS.search(stage) for stage in stages[:stream_index]
+        ):
+            report.add(
+                "SOC-STD-SPL-001-Q11",
+                "hard_fail",
+                "streamstats rolling window requires explicit `sort 0 + _time` before streamstats.",
+            )
+
+    if _BROKEN_HMI_REGEX.search(spl):
+        report.add(
+            "SOC-STD-SPL-001-Q01",
+            "hard_fail",
+            "Broken multiline regex in quoted string (HMI/portal pattern).",
+        )
+
+    if detection_family == "substation_hmi_brute_force" and not _STREAMSTATS.search(spl):
+        report.add(
+            "SOC-STD-SPL-001-Q11",
+            "hard_fail",
+            "HMI brute-force family must use streamstats time_window=5m rolling window.",
         )
 
     return report.finalize()

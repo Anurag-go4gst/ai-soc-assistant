@@ -1,15 +1,16 @@
 # SPL Draft Preview Eval Summary
 
-- Generated: 2026-06-08T13:37:03.089412+00:00
+- Generated: 2026-06-08T14:25:39.816366+00:00
 - Rows: 12
 - Passed: 12
 - Failed: 0
+- LLM fallback comparison rows: 0
 
 ## Quality lint (SOC-STD-SPL-001)
 
 - hard_fail_count: 0
 - warning_count: 0
-- advisory_count: 0
+- advisory_count: 2
 - quality_passed_rows: 6
 - quality_warning_rows: 0
 - quality_failed_rows: 0
@@ -22,6 +23,7 @@
 - draft_only_when_flag_on: 12/12
 - execution_disabled: 12/12
 - family_match: 12/12
+- hmi_streamstats_window: 1/12
 - lockout_caller_host_fields: 1/12
 - no_approved_claim: 12/12
 - no_executed_claim: 12/12

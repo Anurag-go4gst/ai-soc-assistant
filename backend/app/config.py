@@ -277,7 +277,9 @@ class Settings(BaseSettings):
     spl_default_earliest: str = "-24h"
     spl_default_latest: str = "now"
     spl_max_result_limit: int = 100
-    spl_allowed_commands: str = "search,stats,where,table,fields,sort,dedup,rename,eval,timechart,bin,head"
+    spl_allowed_commands: str = (
+        "search,stats,where,table,fields,sort,dedup,rename,eval,timechart,bin,head,streamstats"
+    )
     spl_blocked_commands: str = "delete,collect,outputlookup,sendemail,script,map,rest,loadjob,inputlookup"
 
     # ``ai_soc_telemetry_sink`` is the AI-SOC product's own telemetry sink

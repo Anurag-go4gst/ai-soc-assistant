@@ -214,11 +214,24 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool, llm_fallback
     if draft and lint_violations:
         violations.extend(lint_violations)
     if family == "windows_account_lockout" and draft:
-        if "caller_host" not in draft_spl or "Caller_Computer_Name" not in draft_spl:
+        standalone_computer = re.search(
+            r"\bComputerName\b",
+            draft_spl.replace("CallerComputerName", ""),
+        )
+        lockout_ok = (
+            "caller_host_norm" in draft_spl
+            and "Caller_Computer_Name" in draft_spl
+            and standalone_computer is None
+        )
+        checks["lockout_caller_host_fields"] = lockout_ok
+        if not lockout_ok:
             violations.append("lockout_missing_caller_host_fields")
-            checks["lockout_caller_host_fields"] = False
-        else:
-            checks["lockout_caller_host_fields"] = True
+    if family == "substation_hmi_brute_force" and draft:
+        checks["hmi_streamstats_window"] = (
+            "streamstats time_window=5m" in draft_spl and "sort 0 + _time" in draft_spl
+        )
+        if not checks["hmi_streamstats_window"]:
+            violations.append("hmi_missing_streamstats_window")
     if family == "sysmon_web_shell_spawn" and draft:
         checks["sysmon_pwsh_parent_variants"] = "pwsh.exe" in draft_spl and "tomcat.exe" in draft_spl
         if not checks["sysmon_pwsh_parent_variants"]:

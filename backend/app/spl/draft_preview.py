@@ -57,29 +57,31 @@ DETECTION_FAMILIES: tuple[DetectionFamily, ...] = (
         ),
         draft_spl="""
 search index=<windows_index> sourcetype=<windows_security_sourcetype> earliest=-7d latest=now
-  (EventCode=4728 OR EventCode=4732 OR EventCode=4756)
-  (
-    like(lower(coalesce(TargetUserName, target_user_name, group_name, "")), "%domain admins%")
-    OR like(lower(coalesce(TargetUserName, target_user_name, group_name, "")), "%enterprise admins%")
-    OR like(lower(coalesce(TargetUserName, target_user_name, group_name, "")), "%administrators%")
+  (EventCode=4728 OR EventCode=4732 OR EventCode=4756) *admin*
+| eval group_norm=lower(coalesce(TargetUserName, group_name, group, Group_Name, ""))
+| eval actor_norm=lower(coalesce(SubjectUserName, user, Account_Name, ""))
+| eval added_user_norm=lower(coalesce(MemberName, member, Target_Account_Name, ""))
+| where (
+    like(group_norm, "%domain admins%")
+    OR like(group_norm, "%enterprise admins%")
+    OR like(group_norm, "%administrators%")
+    OR like(group_norm, "%privileged%")
+    OR like(group_norm, "%admin%")
   )
-| eval actor=coalesce(SubjectUserName, subject_user_name, user, "")
-| eval added_user=coalesce(MemberName, member_name, MemberSid, "")
-| eval group_name=coalesce(TargetUserName, target_user_name, group, "")
-| eval event_time=_time
-| stats count as add_count values(added_user) as added_users min(event_time) as first_seen_epoch max(event_time) as last_seen_epoch by actor group_name
-| eval first_seen=strftime(first_seen_epoch, "%F %T")
-| eval last_seen=strftime(last_seen_epoch, "%F %T")
+  AND NOT like(actor_norm, "%$")
+| stats count as add_count values(added_user_norm) as added_users earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by actor_norm added_user_norm group_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
 | fields - first_seen_epoch last_seen_epoch
 | where add_count>3
-| table actor group_name add_count added_users first_seen last_seen
+| table actor_norm added_user_norm group_norm add_count added_users first_seen last_seen
 | sort - add_count
 | head 100
 """,
         assumptions=(
             "Windows Security EventCodes 4728/4732/4756 represent global/universal/local group member additions.",
-            "Privileged groups include Domain Admins, Enterprise Admins, and Administrators (substring match via like()).",
-            "Actor/added user/group fields use coalesce() across common Windows Security aliases.",
+            "Shift-left EventCode filter in base search; optional *admin* keyword is broad only.",
+            "Privileged groups matched after group_norm coalesce(); machine accounts suppressed via NOT like(actor_norm, \"%$\").",
             "Threshold of more than 3 additions in 7 days is illustrative; tune per environment.",
             "Index and sourcetype are placeholders — confirm against your Windows security log source profile.",
         ),
@@ -102,22 +104,20 @@ search index=<windows_index> sourcetype=<windows_security_sourcetype> earliest=-
         ),
         draft_spl="""
 search index=<windows_index> sourcetype=<windows_security_sourcetype> earliest=-24h latest=now EventCode=4740
-| eval target_user=coalesce(TargetUserName, target_user_name, user, "")
-| eval caller_host=coalesce(Caller_Computer_Name, CallerComputerName, caller_computer_name, src_nt_host, Workstation_Name, ComputerName, "")
-| eval lockout_source=caller_host
-| eval lockout_time=_time
-| stats count as lockout_count values(caller_host) as caller_hosts min(lockout_time) as first_seen_epoch max(lockout_time) as last_seen_epoch by target_user
-| eval first_seen=strftime(first_seen_epoch, "%F %T")
-| eval last_seen=strftime(last_seen_epoch, "%F %T")
+| eval target_user_norm=lower(coalesce(TargetUserName, user, target_user_name, Account_Name, "unknown"))
+| eval caller_host_norm=lower(coalesce(Caller_Computer_Name, CallerComputerName, caller_computer_name, src_nt_host, Workstation_Name, "unknown"))
+| stats count as lockout_count values(caller_host_norm) as caller_hosts earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by target_user_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
 | fields - first_seen_epoch last_seen_epoch
-| table target_user lockout_count caller_hosts lockout_source first_seen last_seen
+| table target_user_norm lockout_count caller_hosts first_seen last_seen
 | sort - lockout_count
 | head 100
 """,
         assumptions=(
             "EventCode 4740 indicates a user account was locked out.",
-            "Caller/source host uses coalesce(Caller_Computer_Name, CallerComputerName, caller_computer_name, src_nt_host, Workstation_Name, ComputerName).",
-            "lockout_source reflects the forensic caller host, not only the reporting computer field.",
+            "caller_host_norm uses Caller_Computer_Name/CallerComputerName forensic fields — not ComputerName alone (may be DC/collector).",
+            "earliest(_time)/latest(_time) preserved in stats; readable strftime only at presentation.",
             "Index and sourcetype are placeholders — confirm against your Windows security log source profile.",
         ),
         required_source_fields=(
@@ -143,34 +143,33 @@ search index=<windows_index> sourcetype=<windows_security_sourcetype> earliest=-
         ),
         draft_spl="""
 search index=<endpoint_index> sourcetype=XmlWinEventLog:Microsoft-Windows-Sysmon/Operational earliest=-24h latest=now EventCode=1
-| eval parent_image=lower(coalesce(ParentImage, parent_image, ParentProcessName, ""))
-| eval child_image=lower(coalesce(Image, image, ProcessName, ""))
-| eval command_line=coalesce(CommandLine, command_line, "")
+| eval parent_image_norm=lower(coalesce(ParentImage, ParentProcessName, parent_process_path, ""))
+| eval child_image_norm=lower(coalesce(Image, ProcessName, process_path, ""))
+| eval command_line_norm=coalesce(CommandLine, process_command_line, cmdline, "")
 | eval host=coalesce(Computer, host, dest, "")
 | eval user=coalesce(User, user, user_name, "")
 | where (
-    like(parent_image, "%\\\\w3wp.exe")
-    OR like(parent_image, "%\\\\apache.exe")
-    OR like(parent_image, "%\\\\httpd.exe")
-    OR like(parent_image, "%\\\\tomcat.exe")
-    OR like(parent_image, "%\\\\nginx.exe")
+    like(parent_image_norm, "%\\\\w3wp.exe")
+    OR like(parent_image_norm, "%\\\\apache.exe")
+    OR like(parent_image_norm, "%\\\\httpd.exe")
+    OR like(parent_image_norm, "%\\\\tomcat.exe")
+    OR like(parent_image_norm, "%\\\\nginx.exe")
   )
   AND (
-    like(child_image, "%\\\\cmd.exe")
-    OR like(child_image, "%\\\\powershell.exe")
-    OR like(child_image, "%\\\\pwsh.exe")
+    like(child_image_norm, "%\\\\cmd.exe")
+    OR like(child_image_norm, "%\\\\powershell.exe")
+    OR like(child_image_norm, "%\\\\pwsh.exe")
   )
-| eval event_epoch=_time
-| table event_epoch host user parent_image child_image command_line
-| eval spawn_time=strftime(event_epoch, "%F %T")
-| sort - spawn_time
+| sort 0 - _time
+| eval spawn_time=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table spawn_time host user parent_image_norm child_image_norm command_line_norm
 | head 100
 """,
         assumptions=(
             "Sysmon EventCode 1 (Process Create) is used for parent/child process lineage.",
             "Web server parents include w3wp.exe, apache.exe, httpd.exe, tomcat.exe, and nginx.exe.",
             "Shell children include cmd.exe, powershell.exe, and pwsh.exe; paths use escaped backslashes with like().",
-            "Process image fields use coalesce() across ParentImage/Image aliases.",
+            "Sorted by native _time; spawn_time strftime added before table presentation only.",
             "Index and sourcetype are placeholders — confirm Sysmon collection in your environment.",
         ),
         required_source_fields=(
@@ -196,31 +195,30 @@ search index=<endpoint_index> sourcetype=XmlWinEventLog:Microsoft-Windows-Sysmon
             r"write|modify",
         ),
         draft_spl="""
-search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earliest=-24h latest=now
-  (protocol="DNP3" OR protocol="Modbus" OR protocol="dnp3" OR protocol="modbus")
-| eval protocol_name=lower(coalesce(protocol, proto, protocol_name, ""))
-| eval dnp3_fn=lower(coalesce(dnp3_function, dnp3_func, ""))
-| eval modbus_fn=lower(coalesce(modbus_function, modbus_func, ""))
-| eval command_action=lower(coalesce(action, command, event_action, ""))
-| eval source_ip=coalesce(src_ip, src, source, "")
-| eval destination_ip=coalesce(dest_ip, dest, destination, "")
+search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earliest=-24h latest=now (*dnp3* OR *modbus*)
+| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, ""))
+| eval command_norm=lower(coalesce(action, command, event_action, function, function_code, ""))
+| eval src_ip_norm=coalesce(src_ip, src, source, source_ip, "")
+| eval dest_ip_norm=coalesce(dest_ip, dest, destination, dest_ip, "")
 | where (
-    like(dnp3_fn, "%write%")
-    OR like(modbus_fn, "%write%")
-    OR like(command_action, "%write%")
-    OR like(command_action, "%modify%")
+    like(protocol_norm, "%dnp3%")
+    OR like(protocol_norm, "%modbus%")
   )
-  AND NOT cidrmatch("<engineering_workstation_cidr>", source_ip)
-| eval event_epoch=_time
-| eval event_time_readable=strftime(event_epoch, "%F %T")
-| table event_time_readable source_ip destination_ip protocol_name command_action dest_port payload_summary
-| sort - event_time_readable
+  AND (
+    like(command_norm, "%write%")
+    OR like(command_norm, "%modify%")
+    OR like(command_norm, "%control%")
+  )
+  AND NOT cidrmatch("<engineering_workstation_cidr>", src_ip_norm)
+| sort 0 - _time
+| eval event_time_readable=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table event_time_readable src_ip_norm dest_ip_norm protocol_norm command_norm dest_port payload_summary
 | head 100
 """,
         assumptions=(
             "SCADA firewall logs expose protocol, action/function, and source/destination IPs.",
-            "Shift-left protocol filter in base search; write/modify narrowed after coalesce().",
-            "Engineering workstation allowlist uses cidrmatch() with placeholder CIDR.",
+            "Shift-left (*dnp3* OR *modbus*) in base search; write/modify/control narrowed after coalesce().",
+            "Engineering workstation allowlist uses cidrmatch() with placeholder CIDR — do not invent real CIDRs.",
             "Field names vary by firewall vendor — map DNP3/Modbus write/modify semantics during review.",
         ),
         required_source_fields=(
@@ -243,28 +241,35 @@ search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earli
             r"control\s+center",
         ),
         draft_spl="""
-search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now
-  src_zone=<corporate_it_zone> dest_zone=<ot_control_center_zone> action=allowed
-| eval source_ip=coalesce(src_ip, src, source, "")
-| eval destination_ip=coalesce(dest_ip, dest, destination, "")
-| eval source_zone=coalesce(src_zone, source_zone, "")
-| eval destination_zone=coalesce(dest_zone, destination_zone, "")
-| eval destination_port=coalesce(dest_port, destination_port, "")
-| eval application=coalesce(app, application, "")
-| eval event_time=_time
-| stats count as connection_count values(destination_port) as ports min(event_time) as first_seen_epoch max(event_time) as last_seen_epoch by source_ip destination_ip application
-| eval first_seen=strftime(first_seen_epoch, "%F %T")
-| eval last_seen=strftime(last_seen_epoch, "%F %T")
+search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now action=allowed
+| eval src_zone_norm=lower(coalesce(src_zone, source_zone, zone_src, ""))
+| eval dest_zone_norm=lower(coalesce(dest_zone, destination_zone, zone_dest, ""))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
+| eval app_norm=lower(coalesce(app, application, service, protocol, ""))
+| where (
+    like(src_zone_norm, "%it%")
+    OR like(src_zone_norm, "%corporate%")
+    OR cidrmatch("<corporate_it_cidr>", src_ip_norm)
+  )
+  AND (
+    like(dest_zone_norm, "%ot%")
+    OR like(dest_zone_norm, "%control%")
+    OR cidrmatch("<ot_control_center_cidr>", dest_ip_norm)
+  )
+| stats count as connection_count values(src_zone_norm) as src_zones values(dest_zone_norm) as dest_zones values(rule) as firewall_rules values(app_norm) as applications earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip_norm dest_ip_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
 | fields - first_seen_epoch last_seen_epoch
-| table source_ip destination_ip application connection_count ports first_seen last_seen
+| table src_ip_norm dest_ip_norm src_zones dest_zones firewall_rules applications connection_count first_seen last_seen
 | sort - connection_count
 | head 100
 """,
         assumptions=(
             "ESP firewall zones label corporate IT and OT control center segments.",
-            "Source/destination IPs and zones use coalesce() across common firewall aliases.",
-            "Only successful/allowed connections are surfaced; denied flows may need a separate query.",
-            "Zone names and field extractions are placeholders — confirm against your ESP source profile.",
+            "Shift-left action=allowed; IT→OT confirmed via zone_norm and/or cidrmatch() placeholders.",
+            "values(src_zone_norm), values(dest_zone_norm), values(rule), values(app_norm) preserved in stats.",
+            "Zone/CIDR placeholders must be confirmed against your ESP source profile.",
         ),
         required_source_fields=(
             "index",
@@ -287,33 +292,35 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
             r"failed\s+login",
         ),
         draft_spl="""
-search index=<substation_index> sourcetype=<hmi_or_os_auth_sourcetype> earliest=-24h latest=now action=failure
-| eval action_norm=lower(coalesce(action, status, result, ""))
-| eval user_name=coalesce(user, username, src_user, "")
-| eval source_ip=coalesce(src_ip, src, source, "")
-| eval app_name=lower(coalesce(app, application, service, ""))
-| eval dest_category_norm=upper(coalesce(dest_category, category, ""))
-| where action_norm="failure"
-  AND (
-    like(app_name, "%hmi%")
-    OR like(app_name, "%portal%")
-    OR dest_category_norm="HMI"
-    OR dest_category_norm="OT"
+search index=<substation_index> sourcetype=<hmi_or_os_auth_sourcetype> earliest=-24h latest=now (failure OR fail OR denied)
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval user_norm=lower(coalesce(user, username, src_user, "unknown"))
+| eval dest_norm=lower(coalesce(dest, host, asset, target, "unknown"))
+| eval app_norm=lower(coalesce(app, application, portal, service, ""))
+| eval action_norm=lower(coalesce(action, status, result, event_action, ""))
+| where (
+    like(action_norm, "%fail%")
+    OR like(action_norm, "%denied%")
   )
-| bin _time span=5m
-| stats count as failed_attempts dc(user_name) as distinct_users values(user_name) as attempted_users min(_time) as window_start_epoch by _time source_ip
-| eval window_start=strftime(window_start_epoch, "%F %T")
-| fields - window_start_epoch
-| where failed_attempts>10
-| table window_start source_ip failed_attempts distinct_users attempted_users
-| sort - failed_attempts
+  AND (
+    like(app_norm, "%hmi%")
+    OR like(app_norm, "%portal%")
+    OR like(dest_norm, "%hmi%")
+    OR like(dest_norm, "%ot%")
+  )
+| sort 0 + _time
+| streamstats time_window=5m count as fail_count dc(user_norm) as distinct_users values(user_norm) as targeted_users by src_ip_norm
+| where fail_count>10
+| eval window_end=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table window_end src_ip_norm fail_count distinct_users targeted_users
+| sort - fail_count
 | head 100
 """,
         assumptions=(
-            "Authentication failure events are bucketed in 5-minute windows; readable time appears after bin/stats.",
+            "Shift-left (failure OR fail OR denied) in base search; HMI/portal targeting via like() on app_norm/dest_norm.",
+            "Rolling 5-minute window uses sort 0 + _time then streamstats time_window=5m — not bin/stats.",
             "Threshold of more than 10 failures per window is illustrative; tune per environment.",
-            "User, source, and app fields use coalesce(); HMI/portal matching uses like() on app name.",
-            "HMI/OS portal field names vary — confirm dest_category/app mappings for substation assets.",
+            "HMI/OS portal field names vary — confirm app/dest mappings for substation assets.",
         ),
         required_source_fields=(
             "index",
@@ -426,7 +433,11 @@ def build_draft_preview(
 
     draft_spl = family.draft_spl
     assumptions_text = " ".join(family.assumptions)
-    quality = evaluate_draft_quality(draft_spl, extra_text=assumptions_text)
+    quality = evaluate_draft_quality(
+        draft_spl,
+        extra_text=assumptions_text,
+        detection_family=family.family_id,
+    )
     quality_payload = quality.to_dict()
     validation = validate_spl(draft_spl)
     validator_status = "approved" if validation.get("approved") else "blocked"

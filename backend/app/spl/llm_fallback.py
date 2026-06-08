@@ -9,6 +9,7 @@ from app.llm.adapter import adapt_llm_output
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
 from app.safeguards.spl_validator import validate_spl
 from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
+from app.spl.family_engineering import family_engineering_prompt
 
 SPL_ADVISORY_ROLE = "spl_advisory_generator"
 
@@ -190,6 +191,7 @@ def generate_llm_spl_fallback(
     quality = evaluate_draft_quality(
         candidate_spl,
         extra_text=" ".join([*assumptions, *validation_notes, *risk_notes]),
+        detection_family=detection_family or None,
     )
     quality_payload = quality.to_dict()
     quality_findings = list(quality_payload.get("findings") or [])
@@ -357,29 +359,7 @@ def _soc_std_spl_001_prompt_rules() -> str:
 
 
 def _detection_family_prompt() -> str:
-    return (
-        "Known detection-family reference:\n"
-        "- Windows privileged group changes: events 4728, 4732, 4756; groups Domain Admins, Enterprise "
-        "Admins, Administrators, privileged admin groups; fields actor/admin user, added user/member, "
-        "group name, target domain, time; aggregate by actor, added user, and group; threshold example "
-        "more than 3 additions in 7 days.\n"
-        "- Windows account lockout: Event ID 4740; fields target user, caller computer/source host, "
-        "domain controller/collector as recorder not true source; prefer Caller_Computer_Name, "
-        "CallerComputerName, caller_computer_name, src_nt_host, Workstation_Name; do not rely only on "
-        "ComputerName.\n"
-        "- Sysmon web server spawning shell: parent examples w3wp.exe, apache.exe, httpd.exe, tomcat.exe, "
-        "nginx.exe; child examples cmd.exe, powershell.exe, pwsh.exe; fields Image, ParentImage, "
-        "CommandLine, ParentCommandLine, User, host, EventCode/EventID.\n"
-        "- SCADA firewall DNP3/Modbus write/modify: protocols DNP3 and Modbus; focus write/modify/control "
-        "commands, non-engineering workstation source, destination PLC/substation assets; fields src, dest, "
-        "protocol, function_code, action, direction, allowed engineering workstation list placeholder.\n"
-        "- ESP corporate IT to OT control center: successful connections from corporate IT network to OT "
-        "control center network; use cidrmatch for zones; fields src, dest, action, zone, src_zone, "
-        "dest_zone, firewall rule, port/protocol.\n"
-        "- Substation OS/HMI brute-force: failed logins to HMI/portal/substation OS, more than 10 failures "
-        "within 5 minutes; fields src, user, host, app, action, status, portal/HMI field; avoid regex like "
-        "\"(?i)hmi\\n| portal\"; prefer like(lower(app), \"%hmi%\") OR like(lower(app), \"%portal%\").\n"
-    )
+    return family_engineering_prompt()
 
 
 def _system_prompt() -> str:
@@ -400,7 +380,7 @@ def _system_prompt() -> str:
         "placeholders (do not hardcode environment-specific index or sourcetype values);\n"
         "- include `earliest=-<N>[mhd]` and `latest=now`;\n"
         "- use only: search, stats, where, table, fields, sort, dedup, rename, eval, "
-        "timechart, bin, head;\n"
+        "timechart, bin, head, streamstats;\n"
         "- end with `head 100`;\n"
         "- NOT use: from, tstats, datamodel, subsearches, macros, delete, collect, "
         "outputlookup, sendemail, rest, or any write command.\n"

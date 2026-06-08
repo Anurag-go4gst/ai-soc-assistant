@@ -47,6 +47,16 @@ This standard does not change Phase 6 governed SPL approval logic, MCP execution
 | Q07 | warning | CIDR logic should use `cidrmatch()`, not `IN()` |
 | Q08 | advisory | Base `search` should include `index=` and `sourcetype=` placeholders |
 | Q09 | advisory | Base `search` should include static `EventCode` / `action` / `protocol` filters where available |
+| Q10 | hard_fail | Event 4740 must use `caller_host_norm` with caller computer fields — not `ComputerName` alone |
+| Q11 | hard_fail | HMI brute-force must use `sort 0 + _time` before `streamstats time_window=5m` |
+
+## Family-specific engineering
+
+Detailed per-family shift-left, `coalesce()`, path escaping, `cidrmatch()`, and aggregation rules live in:
+
+- `backend/app/spl/family_engineering.py` — shared blocks for draft + LLM fallback prompt
+- `backend/app/spl/draft_preview.py` — deterministic lab drafts
+- `backend/app/spl/llm_fallback.py` — LLM SPL advisory fallback prompt
 
 ## Implementation
 

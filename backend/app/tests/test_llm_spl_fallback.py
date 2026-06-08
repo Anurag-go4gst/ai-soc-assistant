@@ -83,12 +83,13 @@ def test_system_prompt_includes_soc_std_spl_001_rules() -> None:
 
 def test_system_prompt_includes_detection_family_context_and_schema() -> None:
     prompt = _system_prompt()
-    assert "Windows privileged group changes" in prompt
-    assert "Windows account lockout" in prompt
-    assert "Sysmon web server spawning shell" in prompt
-    assert "SCADA firewall DNP3/Modbus" in prompt
-    assert "ESP corporate IT to OT control center" in prompt
-    assert "Substation OS/HMI brute-force" in prompt
+    assert "Privileged Group Changes / Active Directory" in prompt
+    assert "Windows Account Lockout / Event 4740" in prompt
+    assert "Sysmon Web Server Spawning Shell" in prompt
+    assert "SCADA DNP3/Modbus Write/Modify" in prompt
+    assert "ESP IT to OT Boundary" in prompt
+    assert "Substation OS/HMI Brute Force" in prompt
+    assert "streamstats" in prompt
     assert "confidence_score" in prompt
     assert "clarifying_questions" in prompt
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from app.spl.draft_preview import DETECTION_FAMILIES, DRAFT_STATUS, build_draft_preview
@@ -52,7 +54,11 @@ def test_cidrmatch_passes_cidr_rule() -> None:
 @pytest.mark.parametrize("family_id", [family.family_id for family in DETECTION_FAMILIES])
 def test_all_draft_families_pass_quality_lint(family_id: str) -> None:
     family = next(item for item in DETECTION_FAMILIES if item.family_id == family_id)
-    report = evaluate_draft_quality(family.draft_spl, extra_text=" ".join(family.assumptions))
+    report = evaluate_draft_quality(
+        family.draft_spl,
+        extra_text=" ".join(family.assumptions),
+        detection_family=family_id,
+    )
     assert report.hard_fail_count == 0, f"{family_id}: {[item.message for item in report.findings if item.severity == 'hard_fail']}"
 
 
@@ -66,8 +72,35 @@ def test_4740_draft_uses_caller_computer_fields(monkeypatch: pytest.MonkeyPatch)
     assert preview is not None
     spl = preview["draft_spl"]
     assert "Caller_Computer_Name" in spl
-    assert "caller_host" in spl
+    assert "caller_host_norm" in spl
+    assert re.search(r"\bComputerName\b", spl.replace("CallerComputerName", "")) is None
     assert preview["quality_status"] == "passed"
+
+
+def test_4740_computer_name_only_is_hard_fail() -> None:
+    bad = """
+search index=win sourcetype=wineventlog EventCode=4740
+| eval caller_host_norm=lower(coalesce(ComputerName, ""))
+| stats count by target_user_norm
+"""
+    report = evaluate_draft_quality(bad, detection_family="windows_account_lockout")
+    assert any(item.rule_id.endswith("Q10") for item in report.findings)
+
+
+def test_hmi_requires_streamstats_sort_order() -> None:
+    bad = """
+search index=sub sourcetype=hmi (failure OR fail)
+| streamstats time_window=5m count as fail_count by src_ip_norm
+"""
+    report = evaluate_draft_quality(bad, detection_family="substation_hmi_brute_force")
+    assert any(item.rule_id.endswith("Q11") for item in report.findings)
+    good = """
+search index=sub sourcetype=hmi (failure OR fail)
+| sort 0 + _time
+| streamstats time_window=5m count as fail_count by src_ip_norm
+"""
+    report_good = evaluate_draft_quality(good, detection_family="substation_hmi_brute_force")
+    assert report_good.hard_fail_count == 0
 
 
 def test_sysmon_draft_has_escaped_paths_and_pwsh(monkeypatch: pytest.MonkeyPatch) -> None:
