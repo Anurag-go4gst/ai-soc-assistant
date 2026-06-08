@@ -197,6 +197,39 @@ def test_planner_selecting_spl_branch_does_not_imply_execution() -> None:
     assert validation["review_required"] is True
 
 
+def test_active_template_source_profile_missing_message_is_explicit() -> None:
+    candidate, validation = chat_pipeline._candidate_clarification(
+        trace_id="t",
+        skill="attack_discovery",
+        user_query="generate SPL for DNS beaconing",
+        telemetry=_Telemetry(),
+        profile=_Profile(),
+        reason="spl_template_active_source_profile_missing",
+        spl_governance={
+            "spl_template_status": "active",
+            "allowed_spl_templates": ["dns_beaconing_candidate"],
+            "evidence_requirements": [],
+            "governed_limitation": None,
+        },
+    )
+
+    message = chat_pipeline._spl_clarification_user_message(validation)
+    assert "Template active but source profile missing" in message
+    assert "index/sourcetype/key fields required" in message
+    assert candidate["assumptions"][0] == message
+
+
+def test_runtime_governance_block_uses_activation_message_not_generic_template_match() -> None:
+    message = chat_pipeline._spl_clarification_user_message(
+        {
+            "review_required_reason": "runtime_spl_governance_not_allowed",
+            "reject_reasons": ["runtime_spl_governance_not_allowed"],
+        }
+    )
+    assert "curated enrichment activation" in message.lower()
+    assert "no template match" not in message.lower()
+
+
 def test_enrichment_only_pilot_cannot_provide_runtime_spl_governance() -> None:
     assert enrichment_spl_governance_for_runtime("email_phishing_header_review") is None
 

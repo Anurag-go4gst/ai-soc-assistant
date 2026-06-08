@@ -524,6 +524,7 @@ def _preview_row(item: dict[str, Any]) -> dict[str, Any]:
         "collection_id",
         "doc_id",
         "doc_title",
+        "title",
         "doc_version",
         "canonical_doc_id",
         "is_current_version",

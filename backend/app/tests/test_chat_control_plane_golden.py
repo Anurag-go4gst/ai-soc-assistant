@@ -399,7 +399,8 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
     assert 'alert_id="ALT-2024-0891"' in (response.analyst_response.spl_code or "")
     assert "\n" in (response.analyst_response.spl_code or "")
     assert response.analyst_response.direct_answer_summary
-    assert "candidate MITRE mapping" in response.analyst_response.direct_answer_summary
+    assert "evidence-supported MITRE technique" in response.analyst_response.direct_answer_summary
+    assert "candidate technique" in response.analyst_response.direct_answer_summary
     assert "not claimed" in response.analyst_response.direct_answer_summary
     assert "governed SPL draft" in response.analyst_response.direct_answer_summary
     assert "Severity:" not in (response.analyst_response.direct_answer_summary or "")

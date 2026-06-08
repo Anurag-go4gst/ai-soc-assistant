@@ -73,6 +73,10 @@ def apply_final_answer_readability(
 
 
 def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
+    if contract.intent_family in {"sop_or_playbook", "policy_knowledge"} or (
+        contract.answer_mode == "rag_only" and contract.spl_status == "not_required"
+    ):
+        return _sop_knowledge_summary(envelope, contract)
     if contract.intent_family == "hybrid_alert_review":
         return _natural_hybrid_alert_summary(envelope, contract)
 
@@ -104,23 +108,84 @@ def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerCo
     return " ".join(lines)
 
 
+def _sop_knowledge_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
+    parts = ["Governed knowledge path selected."]
+    if contract.spl_status == "not_required":
+        parts.append("SPL was skipped as requested.")
+    playbook = envelope.retrieved_playbook if isinstance(envelope.retrieved_playbook, dict) else {}
+    title = str(playbook.get("title") or "").strip()
+    purpose = str(playbook.get("purpose") or "").strip()
+    if title:
+        parts.append(f"SOP: {title}.")
+    if purpose:
+        parts.append(purpose if purpose.endswith(".") else f"{purpose}.")
+    checklist = list(contract.analyst_checklist_safe or [])
+    if checklist:
+        preview = "; ".join(checklist[:3])
+        parts.append(f"Checklist: {preview}.")
+    return " ".join(parts)
+
+
+def _hybrid_mitre_bucket_counts(
+    envelope: AnalystResponseEnvelope,
+    contract: AnswerContract,
+) -> tuple[int, int, int, int]:
+    evidence_supported = len(contract.evidence_supported_mitre)
+    candidate = len(contract.candidate_mitre)
+    requires_validation = len(contract.requires_validation_mitre)
+    not_claimed = len(contract.not_claimed_mitre) + len(contract.ruled_out_mitre)
+
+    if not any((evidence_supported, candidate, requires_validation)) and envelope.mitre_mappings:
+        for row in envelope.mitre_mappings:
+            if not isinstance(row, dict):
+                continue
+            status = str(row.get("Status") or "").lower()
+            if "evidence supported" in status or status == "supported":
+                evidence_supported += 1
+            elif "candidate" in status:
+                candidate += 1
+            elif "validation" in status:
+                requires_validation += 1
+
+    if not_claimed == 0 and envelope.not_claimed:
+        not_claimed = len(
+            [
+                row
+                for row in envelope.not_claimed
+                if isinstance(row, dict) and str(row.get("Technique") or "")
+            ]
+        )
+    return evidence_supported, candidate, requires_validation, not_claimed
+
+
 def _natural_hybrid_alert_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
-    mapped = len(envelope.mitre_mappings or [])
-    blocked = len(envelope.not_claimed or [])
     parts: list[str] = []
-    if mapped and blocked:
-        parts.append(
-            f"The alert has {mapped} candidate MITRE mapping{'s' if mapped != 1 else ''} "
-            f"and {blocked} technique{'s' if blocked != 1 else ''} explicitly not claimed."
+    summary_bits: list[str] = []
+    evidence_supported, candidate, requires_validation, not_claimed = _hybrid_mitre_bucket_counts(
+        envelope,
+        contract,
+    )
+
+    if evidence_supported:
+        summary_bits.append(
+            f"{evidence_supported} evidence-supported MITRE technique{'s' if evidence_supported != 1 else ''}"
         )
-    elif mapped:
-        parts.append(
-            f"The alert has {mapped} candidate MITRE mapping{'s' if mapped != 1 else ''}."
+    if candidate:
+        summary_bits.append(f"{candidate} candidate technique{'s' if candidate != 1 else ''}")
+    if requires_validation:
+        summary_bits.append(
+            f"{requires_validation} technique{'s' if requires_validation != 1 else ''} requiring validation"
         )
-    elif blocked:
-        parts.append(
-            f"The alert has {blocked} technique{'s' if blocked != 1 else ''} explicitly not claimed."
+    if not_claimed:
+        summary_bits.append(
+            f"{not_claimed} technique{'s' if not_claimed != 1 else ''} explicitly not claimed"
         )
+
+    if summary_bits:
+        if len(summary_bits) == 1:
+            parts.append(f"The alert has {summary_bits[0]}.")
+        else:
+            parts.append(f"The alert has {', '.join(summary_bits[:-1])}, and {summary_bits[-1]}.")
     if envelope.spl_code and contract.execution_status_display:
         if contract.execution_status_display.startswith("Review only"):
             parts.append(
@@ -176,12 +241,22 @@ def _limitations_display(contract: AnswerContract) -> list[str]:
     if contract.limitations:
         return list(contract.limitations)
 
+    if contract.answer_mode == "rag_only" or contract.intent_family in {
+        "sop_or_playbook",
+        "policy_knowledge",
+        "knowledge_only",
+    }:
+        return []
+
     if contract.success_after_failure_context:
         return list(_ALERT_REVIEW_LIMITATIONS)
 
     items: list[str] = []
+    auth_only_keys = set(_LIMITATION_LABELS) - _EXCLUDED_LIMITATIONS_WHEN_SUCCESS_STATED
     for key in contract.missing_evidence:
         if key in _EXCLUDED_LIMITATIONS_WHEN_SUCCESS_STATED:
+            continue
+        if contract.intent_family != "hybrid_alert_review" and str(key) in auth_only_keys:
             continue
         normalized = str(key).replace("_", " ").lower()
         items.append(
@@ -190,7 +265,11 @@ def _limitations_display(contract: AnswerContract) -> list[str]:
                 normalized if "missing" in normalized else f"{normalized} missing",
             )
         )
-    if not items and contract.render_sections.get("limitations"):
+    if (
+        not items
+        and contract.render_sections.get("limitations")
+        and contract.intent_family == "hybrid_alert_review"
+    ):
         items = list(_ALERT_REVIEW_LIMITATIONS)
     deduped: list[str] = []
     for item in items:

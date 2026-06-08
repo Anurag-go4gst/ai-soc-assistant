@@ -42,6 +42,13 @@ def test_no_duplicate_section_labels_and_standard_execution_status() -> None:
         execution={"status": "skipped", "block_reason": "mcp_not_allowed_by_evidence_plan"},
         human_review={"required": False},
         mitre_mappings=[{"technique_id": "T1110.001"}, {"technique_id": "T1078"}],
+        mitre_branch_result={
+            "candidate_mitre": ["T1078"],
+            "evidence_supported_mitre": ["T1110.001"],
+            "requires_validation_mitre": [],
+            "not_claimed_mitre": ["T1003", "T1562.001"],
+            "ruled_out_mitre": [],
+        },
     )
     result = apply_final_answer_readability(_hybrid_envelope(), contract)
     assert result.execution_status_label == "Review only — not executed"
@@ -49,8 +56,9 @@ def test_no_duplicate_section_labels_and_standard_execution_status() -> None:
     assert result.severity_label == "P2 High — Review required"
     assert result.direct_answer_summary
     assert "Severity:" not in result.direct_answer_summary
-    assert "candidate MITRE mapping" in result.direct_answer_summary
-    assert "not claimed" in result.direct_answer_summary
+    assert "1 evidence-supported MITRE technique" in result.direct_answer_summary
+    assert "1 candidate technique" in result.direct_answer_summary
+    assert "2 techniques explicitly not claimed" in result.direct_answer_summary
     assert "governed SPL draft" in result.direct_answer_summary
     assert result.retrieved_playbook is None
     assert result.recommended_actions == []

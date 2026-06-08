@@ -153,6 +153,16 @@ def _branch_result(
         )
         buckets[technique_status].append(technique_id)
 
+    for technique_id in decision.rejected_techniques:
+        tid = str(technique_id)
+        if tid and tid not in buckets["ruled_out"]:
+            buckets["ruled_out"].append(tid)
+    visible_ids = {str(item.get("technique_id") or "") for item in decision.techniques}
+    for technique_id in decision.not_claimed:
+        tid = str(technique_id)
+        if tid and tid not in visible_ids and tid not in buckets["not_claimed"]:
+            buckets["not_claimed"].append(tid)
+
     return MitreBranchResult(
         status=status,  # type: ignore[arg-type]
         ran=True,

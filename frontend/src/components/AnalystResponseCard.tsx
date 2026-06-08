@@ -334,11 +334,12 @@ function PhaseTimeline({ phases }: { phases: Phase[] }) {
             ) : null}
             <span
               className={cn(
-                'absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border text-sm font-bold tabular-nums',
+                'absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border',
                 accent.node,
+                phases.length > 1 ? 'text-sm font-bold tabular-nums' : 'text-base',
               )}
             >
-              {index + 1}
+              {phases.length > 1 ? index + 1 : phase.icon}
             </span>
             <div className="flex min-h-[2.5rem] flex-wrap items-center gap-2 pt-1.5">
               <span

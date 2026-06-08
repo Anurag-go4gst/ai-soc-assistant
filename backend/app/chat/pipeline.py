@@ -1346,11 +1346,86 @@ def _mitre_clarification_review() -> dict:
     )
 
 
+_SPL_GOVERNANCE_CLARIFICATION_REASONS = frozenset(
+    {
+        "spl_template_missing",
+        "spl_template_not_allowed_by_enrichment",
+        "spl_template_not_active",
+        "spl_template_not_production_executable",
+        "spl_template_sop_only_no_active_investigation_support",
+        "spl_template_planned_no_free_spl_fallback",
+        "spl_template_unavailable_no_free_spl_fallback",
+        "spl_template_unknown_no_free_spl_fallback",
+        "spl_template_governance_blocked",
+        "runtime_spl_governance_not_allowed",
+        "active_enrichment_without_allowed_template",
+        "spl_template_active_source_profile_missing",
+        "missing_index",
+        "missing_sourcetype",
+        "index_or_datamodel",
+    }
+)
+
+
+def _spl_clarification_user_message(spl_validation: dict[str, Any] | None) -> str:
+    reason = "spl_generation_requires_source_clarification"
+    if isinstance(spl_validation, dict):
+        reason = str(
+            spl_validation.get("review_required_reason")
+            or spl_validation.get("llm_fallback_reason")
+            or spl_validation.get("candidate_provider_reason")
+            or reason
+        )
+        reject_reasons = {str(item) for item in spl_validation.get("reject_reasons") or []}
+        if "missing_index" in reject_reasons or "missing_sourcetype" in reject_reasons:
+            reason = "spl_template_active_source_profile_missing"
+        elif "index_or_datamodel" in reject_reasons:
+            reason = "spl_template_active_source_profile_missing"
+    messages = {
+        "spl_template_active_source_profile_missing": (
+            "Template active but source profile missing: index/sourcetype/key fields required."
+        ),
+        "spl_template_missing": (
+            "Governed use case is active but no default SPL template was bound for this request."
+        ),
+        "spl_template_not_allowed_by_enrichment": (
+            "The selected SPL template is not allowed for this governed use case."
+        ),
+        "runtime_spl_governance_not_allowed": (
+            "SPL template governance is blocked until curated enrichment activation is complete for this use case."
+        ),
+        "active_enrichment_without_allowed_template": (
+            "Curated enrichment is active but no allowed SPL template is configured for this use case."
+        ),
+        "spl_template_sop_only_no_active_investigation_support": (
+            "This use case is SOP-only; active investigation SPL templates are not available."
+        ),
+        "spl_template_planned_no_free_spl_fallback": (
+            "SPL template for this use case is planned but not yet active."
+        ),
+        "spl_template_unavailable_no_free_spl_fallback": (
+            "No active governed SPL template is available for this use case."
+        ),
+    }
+    if reason in messages:
+        return messages[reason]
+    if reason in _SPL_GOVERNANCE_CLARIFICATION_REASONS:
+        return (
+            "Governed SPL drafting is blocked for this request. "
+            f"Reason: {reason.replace('_', ' ')}."
+        )
+    return (
+        "I need a governed template match or supported source details before drafting SPL. "
+        "Confirm the index, sourcetype, key fields, and time range for this request."
+    )
+
+
 def _spl_clarification_review(spl_validation: dict[str, Any] | None) -> dict:
     reason = "spl_generation_requires_source_clarification"
     if isinstance(spl_validation, dict):
         reason = str(
-            spl_validation.get("llm_fallback_reason")
+            spl_validation.get("review_required_reason")
+            or spl_validation.get("llm_fallback_reason")
             or spl_validation.get("candidate_provider_reason")
             or reason
         )
@@ -1359,8 +1434,7 @@ def _spl_clarification_review(spl_validation: dict[str, Any] | None) -> dict:
         reason,
         "soc_analyst",
         ["provide_source_profile", "enable_governed_llm_fallback", "add_catalog_template", "cancel"],
-        "I need a governed template match or supported source details before drafting SPL. "
-        "Confirm the index, sourcetype, key fields, and time range for this request.",
+        _spl_clarification_user_message(spl_validation),
     )
 
 
@@ -1963,7 +2037,9 @@ def _candidate_clarification(
         "generation_mode": "clarification_required",
         "confidence": 0.0,
         "assumptions": [
-            "No governed raw-search SPL template matched this request.",
+            _spl_clarification_user_message(
+                {"review_required_reason": reason, "reject_reasons": [reason]}
+            ),
             "No candidate SPL was generated; analyst clarification is required.",
         ],
         "warnings": ["spl_generation_requires_clarification"],
@@ -2332,10 +2408,7 @@ def _chat_message(
             return "Governed knowledge path selected. SPL and MCP are skipped for this request."
         return "Routing complete. SPL is not required at this stage."
     if _is_spl_clarification_required(spl_validation):
-        return (
-            "I need a governed template match or supported source details before drafting SPL. "
-            "Confirm the index, sourcetype, key fields, and time range for this request."
-        )
+        return _spl_clarification_user_message(spl_validation)
     if spl_validation.get("approved") is True and (
         not execution or execution.get("status") != "executed"
     ):
@@ -2352,7 +2425,12 @@ def _is_spl_clarification_required(spl_validation: dict[str, Any] | None) -> boo
         return False
     if spl_validation.get("llm_fallback_status") == "clarification_required":
         return True
+    review_reason = str(spl_validation.get("review_required_reason") or "")
+    if review_reason in _SPL_GOVERNANCE_CLARIFICATION_REASONS:
+        return True
     reasons = {str(item) for item in spl_validation.get("reject_reasons") or []}
+    if reasons & _SPL_GOVERNANCE_CLARIFICATION_REASONS:
+        return True
     return any(
         reason
         in {

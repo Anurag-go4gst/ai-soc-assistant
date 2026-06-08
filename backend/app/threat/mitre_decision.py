@@ -170,10 +170,15 @@ def resolve_mitre_decision(
         if detail.get("status") in {"candidate", "evidence_supported", "requires_validation"}
         and (use_case_review_guidance or not precondition_negated(tid, present_evidence))
     ]
+    visible_set = set(visible_ids)
     demoted_ids = [
         tid
         for tid, detail in status_details.items()
-        if detail.get("status") == "not_claimed" or precondition_negated(tid, present_evidence)
+        if tid not in visible_set
+        and (
+            detail.get("status") == "not_claimed"
+            or (not use_case_review_guidance and precondition_negated(tid, present_evidence))
+        )
     ]
     evidence_statuses = {tid: str(detail.get("status") or "candidate") for tid, detail in status_details.items()}
     aggregate_status = "evidence_supported" if "evidence_supported" in set(evidence_statuses.values()) else "candidate"

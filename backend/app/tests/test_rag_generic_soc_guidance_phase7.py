@@ -160,6 +160,148 @@ def test_dns_beaconing_candidate_returns_guidance_without_alert_context(monkeypa
         assert response.candidate_spl.template_id == "dns_beaconing_candidate"
 
 
+def test_brute_force_sop_answer_is_knowledge_only_without_alert_analysis_wording(monkeypatch) -> None:
+    _enable_phase7(monkeypatch)
+    monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", _fake_retrieve_collected)
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "Show me the SOP for brute-force login investigation. "
+                "Do not generate SPL unless required."
+            )
+        )
+    )
+
+    assert response.analyst_response is not None
+    summary = (response.analyst_response.direct_answer_summary or "").lower()
+    assert "governed knowledge path selected" in summary
+    assert "spl was skipped" in summary
+    assert "security pipeline" not in summary
+    assert "incident was detected" not in summary
+    assert "candidate authentication security event" not in summary
+    assert response.candidate_spl is None
+    assert response.spl_validation is None
+    title = (response.analyst_response.finding_title or "").lower()
+    assert "failed login" in title or "sop" in title
+
+
+def test_powershell_answer_uses_endpoint_limitations_not_auth(monkeypatch) -> None:
+    _enable_phase7(monkeypatch)
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "For suspicious PowerShell command execution on an endpoint, give me the analyst "
+                "checklist, required evidence, MITRE status, and governed SPL for review."
+            )
+        )
+    )
+
+    limitations = " ".join((response.analyst_response.limitations if response.analyst_response else []) or []).lower()
+    assert "mfa" not in limitations
+    assert "post-login" not in limitations
+    assert "privilege status" not in limitations
+    assert "powershell" in limitations or "encoded command" in limitations
+    spl = (response.candidate_spl.candidate_spl if response.candidate_spl else "") or ""
+    assert "pgcil:auth" not in spl
+    assert response.candidate_spl is not None
+    assert response.candidate_spl.template_id == "edr_powershell_suspicious_command"
+
+
+def test_dns_answer_uses_network_limitations_not_auth(monkeypatch) -> None:
+    _enable_phase7(monkeypatch)
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "For a DNS beaconing candidate, give me the investigation steps, evidence required, "
+                "MITRE mapping, limitations, and review-only SPL."
+            )
+        )
+    )
+
+    limitations = " ".join((response.analyst_response.limitations if response.analyst_response else []) or []).lower()
+    assert "mfa" not in limitations
+    assert "post-login" not in limitations
+    assert "privilege status" not in limitations
+    assert "periodic" in limitations or "beaconing" in limitations or "c2" in limitations
+
+
+def test_failed_login_mitre_summary_bucket_counts_from_contract(monkeypatch) -> None:
+    from app.chat.contracts.answer_contract import build_answer_contract
+    from app.chat.final_answer_readability import apply_final_answer_readability
+    from app.schemas.responses import AnalystResponseEnvelope
+
+    _enable_phase7(monkeypatch)
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "hybrid_alert_review",
+            "answer_goal": ["mitre_mapping", "spl_artifact"],
+        },
+        evidence_plan={"answer_mode": "hybrid", "spl_allowed": True, "mcp_allowed": False},
+        mitre_decision={"answer_visible": True, "not_claimed": ["T1562.001", "T1003"]},
+        severity_decision=None,
+        spl_validation={"approved": True, "normalized_spl": "search index=pgcil_soc | stats count | head 10"},
+        execution={"status": "skipped"},
+        human_review={"required": False},
+        mitre_mappings=[
+            {"technique_id": "T1110.001", "status": "evidence_supported"},
+            {"technique_id": "T1078", "status": "candidate"},
+        ],
+        mitre_branch_result={
+            "evidence_supported_mitre": ["T1110.001"],
+            "candidate_mitre": ["T1078"],
+            "requires_validation_mitre": [],
+            "not_claimed_mitre": ["T1562.001", "T1003"],
+            "ruled_out_mitre": [],
+        },
+    )
+    envelope = AnalystResponseEnvelope(
+        mitre_mappings=[
+            {"Technique": "T1110.001", "Status": "Evidence Supported"},
+            {"Technique": "T1078", "Status": "Candidate"},
+        ],
+        not_claimed=[
+            {"Technique": "T1562.001", "Status": "Not Claimed"},
+            {"Technique": "T1003", "Status": "Not Claimed"},
+        ],
+        spl_code="search index=pgcil_soc | stats count | head 10",
+        response_profile="hybrid_alert_review",
+    )
+    summary = apply_final_answer_readability(envelope, contract).direct_answer_summary or ""
+    assert "1 evidence-supported MITRE technique" in summary
+    assert "1 candidate technique" in summary
+    assert "2 techniques explicitly not claimed" in summary
+
+
+def test_dns_t1071_candidate_does_not_trigger_blocked_finding_guard(monkeypatch) -> None:
+    from app.chat.final_answer_validator import validate_final_answer
+    from app.schemas.responses import AnalystResponseEnvelope
+
+    _enable_phase7(monkeypatch)
+    response = chat(
+        ChatRequest(
+            message=(
+                "For a DNS beaconing candidate, give me the investigation steps, evidence required, "
+                "MITRE mapping, limitations, and review-only SPL."
+            )
+        )
+    )
+    assert response.answer_contract is not None
+    assert "T1071" not in (response.answer_contract.get("not_claimed_technique_ids") or [])
+    analyst = response.analyst_response or AnalystResponseEnvelope(
+        mitre_mappings=[{"Technique": "T1071", "Status": "Candidate"}],
+    )
+    guard = validate_final_answer(
+        analyst_response=analyst,
+        answer_contract=response.answer_contract,
+        evidence_plan=response.evidence_plan,
+        mitre_decision=response.mitre_decision,
+    )
+    assert "final.blocked_finding_claimed" not in (guard.failed_checks or [])
+
+
 def test_pure_sop_question_does_not_select_spl_branch(monkeypatch) -> None:
     _enable_phase7(monkeypatch)
     monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", _fake_retrieve_collected)
@@ -180,6 +322,7 @@ def _fake_retrieve_collected(**kwargs: Any) -> dict[str, Any]:
                 "entry_id": "kb-sop-auth-1",
                 "doc_id": "coe-auth-sop-v1",
                 "document_type": "sop",
+                "doc_title": "Failed login investigation SOP",
                 "title": "Failed login investigation SOP",
                 "source_excerpt": "Review scope, source distribution, affected users, and escalation criteria.",
                 "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-001",

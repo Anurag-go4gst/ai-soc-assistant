@@ -46,6 +46,10 @@ def build_analyst_response_for_live(
     table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(draft.get("splunk_results_table"))
     decision_payload = mitre_decision if isinstance(mitre_decision, dict) else None
     mitre_rows = _mitre_display_rows(mitre_mappings, user_query=user_query)
+    if not mitre_rows and decision_payload and decision_payload.get("answer_visible"):
+        techniques = decision_payload.get("techniques") or []
+        if isinstance(techniques, list) and techniques:
+            mitre_rows = _mitre_display_rows(techniques, user_query=user_query)
     if not mitre_rows and not decision_payload:
         mitre_rows = _as_table_rows(draft.get("mitre_mappings"))
     not_claimed = _not_claimed_rows(decision_payload)
@@ -66,10 +70,28 @@ def build_analyst_response_for_live(
             mitre_mappings=mitre_mappings,
             user_query=user_query,
         )
-    summary = _governed_summary(analyst_summary, mitre_rows, not_claimed, contract)
+    plan = evidence_plan if isinstance(evidence_plan, dict) else {}
+    intent = intent_classification if isinstance(intent_classification, dict) else {}
+    summary = _governed_summary(
+        analyst_summary,
+        mitre_rows,
+        not_claimed,
+        contract,
+        intent_family=str(intent.get("intent_family") or "") or None,
+        answer_mode=str(plan.get("answer_mode") or "") or None,
+        playbook=playbook,
+        sop_guidance=sop_guidance,
+    )
     if not any([table, mitre_rows, not_claimed, playbook, summary, recommended, spl_code]):
         return None
-    finding = _finding_title(message, user_query, selected_use_case_label)
+    finding = _finding_title(
+        message,
+        user_query,
+        selected_use_case_label,
+        intent_family=str(intent.get("intent_family") or "") or None,
+        answer_mode=str(plan.get("answer_mode") or "") or None,
+        playbook=playbook,
+    )
     execution_status = str(execution_payload.get("status") or "") or None
     executed_spl = str(execution_payload.get("executed_spl") or "") or None
     if execution_status == "executed":
@@ -78,6 +100,8 @@ def build_analyst_response_for_live(
         response_profile = "hybrid_alert_review"
     elif spl_code:
         response_profile = "spl_only"
+    elif plan.get("answer_mode") == "rag_only" or intent.get("intent_family") in {"sop_or_playbook", "policy_knowledge"}:
+        response_profile = "knowledge_recall"
     else:
         response_profile = None
 
@@ -87,7 +111,12 @@ def build_analyst_response_for_live(
     elif spl_code and execution_status != "executed":
         review_notice = "Candidate SPL — review only, not executed."
 
-    severity_confidence, severity_rationale = _severity_confidence(user_query, execution_payload)
+    severity_confidence, severity_rationale = _severity_confidence(
+        user_query,
+        execution_payload,
+        intent_family=str(intent.get("intent_family") or "") or None,
+        answer_mode=str(plan.get("answer_mode") or "") or None,
+    )
     severity_safety_note = _severity_safety_note(user_query, response_profile)
     display_severity = severity_label
     if review_notice and severity_label and "review required" not in severity_label.lower():
@@ -275,12 +304,19 @@ def _governed_summary(
     mitre_rows: list[dict[str, Any]],
     not_claimed: list[dict[str, Any]],
     contract: Any | None,
+    *,
+    intent_family: str | None = None,
+    answer_mode: str | None = None,
+    playbook: dict[str, Any] | None = None,
+    sop_guidance: dict[str, Any] | None = None,
 ) -> str | None:
     """One-sentence finding, driven by the AnswerContract — not query re-parsing.
 
     The success-after-failure framing keys on `contract.success_after_failure_context`
     (a deterministic projection), not literal substrings in the user query.
     """
+    if intent_family in {"sop_or_playbook", "policy_knowledge"} or answer_mode == "rag_only":
+        return None
     summary = (analyst_summary or "").strip() or None
     has_t1110_candidate = any(
         row.get("Technique") == "T1110.001" and str(row.get("Status") or "").lower() == "candidate"
@@ -321,7 +357,9 @@ def _playbook_from_rag(
         row = next((_rag_playbook_row(item) for item in preview if isinstance(item, dict) and _rag_playbook_row(item)), None)
         if row is None:
             continue
-        doc_title = str(row.get("doc_title") or row.get("entry_title") or "SOC knowledge document")
+        doc_title = str(
+            row.get("doc_title") or row.get("title") or row.get("entry_title") or "SOC knowledge document"
+        )
         doc_id = str(row.get("citation") or row.get("entry_id") or "soc_kb").split("#")[0]
         version = str(row.get("doc_version") or "")
         playbook = {
@@ -424,7 +462,19 @@ def _candidate_spl_text(
     return None
 
 
-def _finding_title(message: str, user_query: str, use_case_label: str | None) -> str | None:
+def _finding_title(
+    message: str,
+    user_query: str,
+    use_case_label: str | None,
+    *,
+    intent_family: str | None = None,
+    answer_mode: str | None = None,
+    playbook: dict[str, Any] | None = None,
+) -> str | None:
+    if intent_family in {"sop_or_playbook", "policy_knowledge"} or answer_mode == "rag_only":
+        if isinstance(playbook, dict) and playbook.get("title"):
+            return str(playbook["title"])
+        return "Governed SOC knowledge"
     alert_match = re.search(r"\b(?:alert|alt)[\s:=]+([A-Za-z0-9][\w.-]*)", user_query, re.IGNORECASE)
     if alert_match:
         return f"Alert {alert_match.group(1)} review"
@@ -442,7 +492,12 @@ def _finding_title(message: str, user_query: str, use_case_label: str | None) ->
 def _severity_confidence(
     user_query: str,
     execution: dict[str, Any],
+    *,
+    intent_family: str | None = None,
+    answer_mode: str | None = None,
 ) -> tuple[str | None, str | None]:
+    if intent_family in {"sop_or_playbook", "policy_knowledge"} or answer_mode == "rag_only":
+        return None, None
     if execution.get("status") == "executed":
         return "High", None
     query_l = user_query.lower()
@@ -479,6 +534,8 @@ def _is_generic_pipeline_message(text: str) -> bool:
         or lowered.startswith("i need alert context")
         or lowered.startswith("a governed draft answer")
         or lowered.startswith("novel operation proposals stop")
+        or lowered.startswith("governed knowledge path selected")
+        or lowered.startswith("no governed kb/sop match")
     )
 
 

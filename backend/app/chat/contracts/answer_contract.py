@@ -112,10 +112,27 @@ def build_answer_contract(
         for item in (mitre_mappings or [])
     ]
     mitre_ids = [item for item in mitre_ids if item]
-    not_claimed = [str(item) for item in (decision.get("not_claimed") or [])]
+    positive_mitre = set(mitre_ids)
+    candidate_mitre = _branch_bucket(branch, "candidate_mitre")
+    evidence_supported_mitre = _branch_bucket(branch, "evidence_supported_mitre")
+    requires_validation_mitre = _branch_bucket(branch, "requires_validation_mitre")
+    not_claimed_mitre = _branch_bucket(branch, "not_claimed_mitre")
+    ruled_out_mitre = _branch_bucket(branch, "ruled_out_mitre")
+    positive_mitre.update(candidate_mitre)
+    positive_mitre.update(evidence_supported_mitre)
+    positive_mitre.update(requires_validation_mitre)
+
+    not_claimed = list(not_claimed_mitre)
+    for item in decision.get("not_claimed") or []:
+        tid = str(item)
+        if tid and tid not in not_claimed and tid not in positive_mitre:
+            not_claimed.append(tid)
+    for item in ruled_out_mitre:
+        if item not in not_claimed and item not in positive_mitre:
+            not_claimed.append(item)
     for item in decision.get("rejected_techniques") or []:
         tid = str(item)
-        if tid and tid not in not_claimed:
+        if tid and tid not in not_claimed and tid not in positive_mitre:
             not_claimed.append(tid)
 
     spl_approved = bool(isinstance(spl_validation, dict) and spl_validation.get("approved"))
@@ -134,8 +151,16 @@ def build_answer_contract(
     missing: list[str] = [str(item) for item in plan.get("missing_required_evidence") or [] if item]
     if severity_decision is not None:
         missing.extend(str(item) for item in getattr(severity_decision, "missing_evidence", None) or [])
+    intent_family = str(intent.get("intent_family") or "") or None
     if not missing:
-        missing = _default_limitations(goals, spl_present, exec_status)
+        missing = _default_limitations(
+            goals,
+            spl_present,
+            exec_status,
+            intent_family=intent_family,
+            answer_mode=str(plan.get("answer_mode") or "") or None,
+            use_case_id=str(plan.get("use_case_id") or "") or None,
+        )
     missing = _dedupe(missing)
 
     limitations = _dedupe([str(item) for item in plan.get("limitations") or [] if item])
@@ -145,12 +170,6 @@ def build_answer_contract(
     answer_rules = _safe_display_list(plan.get("answer_rules") or [])
     spl_status = _spl_status(spl_validation)
     hil_status = _hil_status(review, plan, missing)
-    candidate_mitre = _branch_bucket(branch, "candidate_mitre")
-    evidence_supported_mitre = _branch_bucket(branch, "evidence_supported_mitre")
-    requires_validation_mitre = _branch_bucket(branch, "requires_validation_mitre")
-    not_claimed_mitre = _branch_bucket(branch, "not_claimed_mitre")
-    ruled_out_mitre = _branch_bucket(branch, "ruled_out_mitre")
-
     section_order = _section_order(goals)
     render = _render_sections(
         goals=goals,
@@ -170,7 +189,7 @@ def build_answer_contract(
 
     return AnswerContract(
         answer_goal=goals,
-        intent_family=str(intent.get("intent_family") or "") or None,
+        intent_family=intent_family,
         answer_mode=str(plan.get("answer_mode") or "") or None,
         spl_allowed=bool(plan.get("spl_allowed")),
         mcp_allowed=bool(plan.get("mcp_allowed")),
@@ -209,7 +228,10 @@ def build_answer_contract(
 
 
 def _branch_bucket(branch: dict[str, Any], key: str) -> list[str]:
-    if not isinstance(branch, dict) or branch.get("branch_authority") != "planner_mitre_branch":
+    if not isinstance(branch, dict) or key not in branch:
+        return []
+    authority = branch.get("branch_authority")
+    if authority is not None and authority != "planner_mitre_branch":
         return []
     return _dedupe([str(item) for item in branch.get(key) or [] if item])
 
@@ -320,18 +342,44 @@ def _render_sections(
     }
 
 
-def _default_limitations(goals: list[str], spl_present: bool, exec_status: str | None) -> list[str]:
+_AUTH_LIMITATION_KEYS = (
+    "privileged_account_impacted",
+    "critical_asset",
+    "source_ownership",
+    "mfa_status",
+    "post_login_activity",
+)
+
+_NON_AUTH_USE_CASES = frozenset(
+    {
+        "edr_powershell_suspicious_command",
+        "dns_beaconing_candidate",
+        "soc_show_sop",
+        "email_phishing_header_review",
+    }
+)
+
+
+def _default_limitations(
+    goals: list[str],
+    spl_present: bool,
+    exec_status: str | None,
+    *,
+    intent_family: str | None = None,
+    answer_mode: str | None = None,
+    use_case_id: str | None = None,
+) -> list[str]:
     if exec_status == "executed":
+        return []
+    if answer_mode == "rag_only" or intent_family in {"sop_or_playbook", "policy_knowledge", "knowledge_only"}:
+        return []
+    if use_case_id in _NON_AUTH_USE_CASES:
+        return []
+    if intent_family != "hybrid_alert_review":
         return []
     if not spl_present and "severity_assessment" not in goals:
         return []
-    return [
-        "privileged_account_impacted",
-        "critical_asset",
-        "source_ownership",
-        "mfa_status",
-        "post_login_activity",
-    ]
+    return list(_AUTH_LIMITATION_KEYS)
 
 
 def _success_after_failure_context(query_signals: dict[str, Any] | None, intent_family: str) -> bool:
