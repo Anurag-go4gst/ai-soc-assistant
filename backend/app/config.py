@@ -194,6 +194,8 @@ class Settings(BaseSettings):
     ai_soc_planner_mitre_branch_enabled: bool = False
     # Planner-led Phase 6: runtime SPL template governance. Default off.
     ai_soc_spl_template_governance_enabled: bool = False
+    # Lab-only SPL draft preview when governed template/source profile is unavailable. Default off.
+    ai_soc_spl_draft_preview_enabled: bool = False
     # Phase 4/5: curated enrichment activation for runtime evidence/planner paths. Default off.
     ai_soc_curated_enrichment_activation_enabled: bool = False
     ai_soc_llm_reasoning_provider: str = ""

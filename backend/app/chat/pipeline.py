@@ -51,6 +51,7 @@ from app.schemas.responses import PlaceholderResponse, SessionContextStatusEnvel
 from app.skills.selector import select_skill_chain
 from app.spl.template_registry import QUERY_SHAPE_RAW_SEARCH, get_spl_template, template_summary
 from app.splunk.capabilities import build_splunk_capability_profile
+from app.spl.draft_preview import build_draft_preview, maybe_attach_draft_preview_message
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
 from app.answer_guard.runner import run_answer_guard_lab
@@ -122,6 +123,7 @@ class ChatPipelineState(TypedDict, total=False):
     workflow_plan: dict[str, Any]
     candidate_spl: dict[str, Any] | None
     spl_validation: dict[str, Any] | None
+    spl_draft_preview: dict[str, Any] | None
     execution: dict[str, Any]
     human_review: dict[str, Any]
     source_evidence: list[dict[str, Any]]
@@ -460,11 +462,16 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             ),
             slot_binding_enabled=settings.control_plane_enabled,
         )
+    spl_draft_preview = build_draft_preview(
+        query_text,
+        spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+    )
     return {
         **state,
         "workflow_plan": workflow_plan,
         "candidate_spl": candidate_spl,
         "spl_validation": spl_validation,
+        "spl_draft_preview": spl_draft_preview,
     }
 
 
@@ -733,6 +740,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         message = _PARTIAL_SYNTHESIS_MESSAGE
         note = _PARTIAL_SYNTHESIS_MESSAGE
     candidate_spl = state.get("candidate_spl")
+    spl_draft_preview = state.get("spl_draft_preview")
     if _session_stale_clarification_required(state):
         human_review = _session_stale_clarification_review()
         message = human_review["safe_message_for_user"]
@@ -759,6 +767,18 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             human_review = audit_review
             message = audit_review["safe_message_for_user"]
             note = "Novel operation proposals stop at audit/HIL; no MCP or SPL execution is authorized."
+
+    if (
+        spl_draft_preview
+        and synthesis_status.status != "partial_timeout"
+        and not _is_governed_spl_ready_for_response(spl_validation)
+    ):
+        message = maybe_attach_draft_preview_message(message, spl_draft_preview)
+        draft_note = (
+            "Lab-only draft SPL preview attached (not catalog-approved, not governed, not executable)."
+        )
+        if draft_note.lower() not in (note or "").lower():
+            note = f"{note} {draft_note}".strip()
 
     evidence_origin = resolve_response_evidence_origin(
         source_evidence=source_evidence,
@@ -851,6 +871,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         evidence_plan=evidence_plan_for_analyst,
         severity_decision=severity_decision,
         answer_contract=answer_contract,
+        spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
     )
     composer_trace: dict[str, Any] = build_composer_runtime_status()
     if answer_contract is not None and analyst_response is not None:
@@ -977,6 +998,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         workflow_plan=state["workflow_plan"],
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
+        spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
         execution=execution,
         human_review=human_review,
         source_evidence=source_evidence,
@@ -2433,6 +2455,12 @@ def _chat_message(
             return "Mock MCP execution complete. Live Foundation-Sec synthesis is disabled; deterministic lab summary was generated from governed evidence."
         return "Mock MCP execution complete. Final synthesis is disabled."
     return "SPL validation complete. MCP execution is disabled."
+
+
+def _is_governed_spl_ready_for_response(spl_validation: dict[str, Any] | None) -> bool:
+    if not isinstance(spl_validation, dict):
+        return False
+    return bool(spl_validation.get("approved") and spl_validation.get("normalized_spl"))
 
 
 def _is_spl_clarification_required(spl_validation: dict[str, Any] | None) -> bool:

@@ -48,10 +48,13 @@ def build_analyst_response_for_live(
     evidence_plan: dict[str, Any] | None = None,
     severity_decision: Any | None = None,
     answer_contract: Any | None = None,
+    spl_draft_preview: dict[str, Any] | None = None,
 ) -> AnalystResponseEnvelope | None:
     """Assemble analyst card payload from governed live pipeline outputs."""
     draft = synthesis_draft if isinstance(synthesis_draft, dict) else {}
     execution_payload = execution if isinstance(execution, dict) else {}
+    draft_preview = spl_draft_preview if isinstance(spl_draft_preview, dict) else None
+    draft_spl_code = str(draft_preview.get("draft_spl") or "") or None if draft_preview else None
     spl_code = _candidate_spl_text(candidate_spl, spl_validation, draft)
     table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(draft.get("splunk_results_table"))
     decision_payload = mitre_decision if isinstance(mitre_decision, dict) else None
@@ -98,7 +101,7 @@ def build_analyst_response_for_live(
         playbook=playbook,
         sop_guidance=sop_guidance,
     )
-    if not any([table, mitre_rows, not_claimed, playbook, summary, recommended, spl_code]):
+    if not any([table, mitre_rows, not_claimed, playbook, summary, recommended, spl_code, draft_spl_code]):
         return None
     finding = _finding_title(
         message,
@@ -124,7 +127,9 @@ def build_analyst_response_for_live(
         response_profile = None
 
     review_notice = None
-    if isinstance(human_review, dict) and human_review.get("required"):
+    if draft_preview:
+        review_notice = str(draft_preview.get("warning") or "")
+    elif isinstance(human_review, dict) and human_review.get("required"):
         review_type = str(human_review.get("review_type") or "")
         if review_type != "intent_clarification":
             review_notice = str(
@@ -169,6 +174,8 @@ def build_analyst_response_for_live(
         sop_guidance=sop_guidance,
         recommended_actions=recommended,
         spl_code=spl_code,
+        spl_draft_preview=draft_preview,
+        draft_spl_code=draft_spl_code,
         executed_spl=executed_spl,
         execution_status=execution_status,
         response_profile=response_profile,

@@ -68,6 +68,26 @@ class CandidateSplEnvelope(BaseModel):
     enrichment_evidence_requirements: list[str] | None = None
 
 
+class SplDraftPreviewEnvelope(BaseModel):
+    draft_spl: str
+    draft_status: str
+    draft_source: str
+    detection_family: str
+    assumptions: list[str]
+    required_source_fields: list[str]
+    source_profile_missing: bool
+    governed_template_missing: bool
+    validator_status: str
+    validator_reject_reasons: list[str] = []
+    review_required: bool
+    execution_enabled: bool
+    execution_eligible: bool = False
+    governed: bool = False
+    catalog_approved: bool = False
+    warning: str
+    not_catalog_approved_notice: str
+
+
 class SplValidationEnvelope(BaseModel):
     approved: bool
     normalized_spl: str | None = None
@@ -297,6 +317,8 @@ class AnalystResponseEnvelope(BaseModel):
     foundation_sec_analysis: str | None = None
     recommended_actions: list[str] = []
     spl_code: str | None = None
+    spl_draft_preview: dict[str, object] | None = None
+    draft_spl_code: str | None = None
     executed_spl: str | None = None
     execution_status: str | None = None
     response_profile: str | None = None
@@ -408,6 +430,7 @@ class PlaceholderResponse(BaseModel):
     workflow_plan: WorkflowPlan | None = None
     candidate_spl: CandidateSplEnvelope | None = None
     spl_validation: SplValidationEnvelope | None = None
+    spl_draft_preview: SplDraftPreviewEnvelope | None = None
     execution: ExecutionEnvelope | None = None
     human_review: HumanReviewEnvelope | None = None
     source_evidence: list[SourceEvidenceEnvelope] = []

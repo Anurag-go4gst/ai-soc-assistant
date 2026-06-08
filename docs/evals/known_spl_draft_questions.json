@@ -1,0 +1,41 @@
+{
+  "schema_version": "2026-06-08-spl-draft-preview-v1",
+  "questions": [
+    {
+      "id": "privileged_group_additions",
+      "family": "windows_privileged_group_changes",
+      "skill": "spl_generation",
+      "query": "find any user who has added someone to a privileged group like Domain Admins more than 3 times in the past week, and show me who was added"
+    },
+    {
+      "id": "windows_4740_lockouts",
+      "family": "windows_account_lockout",
+      "skill": "spl_generation",
+      "query": "Show me a list of all Windows Event ID 4740 account lockout events from the last 24 hours, including the target user, the computer where the lockout happened, and the total count per user."
+    },
+    {
+      "id": "sysmon_web_shell_spawn",
+      "family": "sysmon_web_shell_spawn",
+      "skill": "spl_generation",
+      "query": "Search Sysmon logs for any instance where cmd.exe or powershell.exe was spawned directly by a web server process like w3wp.exe or apache.exe."
+    },
+    {
+      "id": "scada_dnp3_modbus_write",
+      "family": "scada_dnp3_modbus_write",
+      "skill": "spl_generation",
+      "query": "Search our SCADA firewall logs for any DNP3 or Modbus write/modify commands sent to our substation PLCs from an IP address that is not our engineering workstation."
+    },
+    {
+      "id": "esp_it_to_ot_connection",
+      "family": "esp_it_to_ot_connection",
+      "skill": "spl_generation",
+      "query": "Look at our electronic security perimeter firewall logs and find any successful connections originating from the corporate IT network directly to the OT control center network."
+    },
+    {
+      "id": "substation_hmi_brute_force",
+      "family": "substation_hmi_brute_force",
+      "skill": "spl_generation",
+      "query": "Find any IP address that has failed to log into our substation OS or HMI portals more than 10 times within a 5-minute window."
+    }
+  ]
+}
