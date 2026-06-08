@@ -1,0 +1,93 @@
+# SOC Assistant — Flag Cutover Matrix (Phase 11)
+
+Documentation only. **Does not change runtime defaults.** Production and `.env.example` keep safe legacy/parity posture until operators explicitly flip flags in a target environment.
+
+## Architecture posture
+
+| Topic | Status |
+|-------|--------|
+| Phases 0–10 | Implemented and tested (crosswalk → validation package) |
+| Adopted test/demo path | Governed **imperative** `/chat` pipeline with explicit flags |
+| LangGraph fan-out/fan-in | **Not implemented** — do not enable for demos expecting planner graph topology |
+| Default production runtime | Legacy/parity (`CONTROL_PLANE_ENABLED=false`, MCP execution off) |
+| SPL/MCP execution | Remains **disabled** in all documented profiles below |
+
+LangGraph (`LANGGRAPH_ORCHESTRATION_ENABLED`) may exist as a parity shadow of the imperative pipeline; it does **not** implement the planner-led fan-out/fan-in graph described in the master plan. Keep it **off** for manual demo and answer-quality testing unless explicitly running LangGraph parity experiments.
+
+---
+
+## Profile 1 — Default-safe (production / CI / `.env.example`)
+
+| Flag | Value |
+|------|-------|
+| `CONTROL_PLANE_ENABLED` | `false` |
+| `AI_SOC_PLANNER_PATH_SELECTION_ENABLED` | `false` |
+| `AI_SOC_LLM_INTENT_ADVISOR_ENABLED` | `false` |
+| `AI_SOC_CURATED_ENRICHMENT_ACTIVATION_ENABLED` | `false` |
+| `AI_SOC_PLANNER_MITRE_BRANCH_ENABLED` | `false` |
+| `AI_SOC_SPL_TEMPLATE_GOVERNANCE_ENABLED` | `false` |
+| `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` | `false` |
+| `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED` | `false` |
+| `MCP_GLOBAL_EXECUTION_ENABLED` | `false` |
+| `MCP_SERVER_MOCK_EXECUTION_ENABLED` | `false` |
+| `LANGGRAPH_ORCHESTRATION_ENABLED` | `false` |
+| `AI_SOC_LLM_SPL_FALLBACK_ENABLED` | `false` |
+
+**Behavior:** Legacy backward-compatible `/chat` path. No mock or real Splunk MCP execution. No live LLM composer narration. Governance regression and harness run against this baseline.
+
+---
+
+## Profile 2 — Safe manual demo / answer-quality (recommended local COE)
+
+Enable governed control plane + planner track + LLM composer **without** execution:
+
+| Flag | Value |
+|------|-------|
+| `CONTROL_PLANE_ENABLED` | `true` |
+| `AI_SOC_PLANNER_PATH_SELECTION_ENABLED` | `true` |
+| `AI_SOC_LLM_INTENT_ADVISOR_ENABLED` | `true` |
+| `AI_SOC_CURATED_ENRICHMENT_ACTIVATION_ENABLED` | `true` |
+| `AI_SOC_PLANNER_MITRE_BRANCH_ENABLED` | `true` |
+| `AI_SOC_SPL_TEMPLATE_GOVERNANCE_ENABLED` | `true` |
+| `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` | `true` |
+| `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED` | `true` |
+| `MCP_GLOBAL_EXECUTION_ENABLED` | `false` |
+| `MCP_SERVER_MOCK_EXECUTION_ENABLED` | `false` |
+| `LANGGRAPH_ORCHESTRATION_ENABLED` | `false` |
+| `AI_SOC_LLM_SPL_FALLBACK_ENABLED` | `false` |
+
+Also configure a local/openai-compatible endpoint (`AI_SOC_LLM_LOCAL_BASE_URL`) for live synthesis narration. Facts (severity, MITRE status, SPL, `execution_eligible=false`) remain deterministic authority.
+
+**No-execution guarantee:** With both MCP execution flags `false`, candidate SPL is never executed via MCP (mock or real). SPL stays review-only; only approved `normalized_spl` could enter an execution gate, and the gate remains closed.
+
+---
+
+## Profile 3 — Not approved for Phase 11 demos
+
+| Flag | Why off |
+|------|---------|
+| `MCP_GLOBAL_EXECUTION_ENABLED=true` | Enables MCP execution gate; violates no-execution demo contract |
+| `MCP_SERVER_MOCK_EXECUTION_ENABLED=true` | Requires global flag; runs bounded mock rows |
+| `LANGGRAPH_ORCHESTRATION_ENABLED=true` | Parity shadow only; planner fan-out/fan-in graph not built |
+| `AI_SOC_LLM_SPL_FALLBACK_ENABLED=true` | LLM SPL advisory bypass risk; keep off outside controlled lab |
+
+---
+
+## Cutover sequence (post SOC validation sign-off)
+
+1. SOC reviews `docs/validation/*` sheets and promotes rows in the crosswalk (`validation_status=soc_approved`).
+2. Run `./scripts/run_stage3_governance_regression.sh` green in target environment.
+3. Flip flags incrementally per environment, re-running golden + governance regression after each step:
+   - `CONTROL_PLANE_ENABLED=true`
+   - Planner flags (`PATH_SELECTION`, `CURATED_ENRICHMENT`, `MITRE_BRANCH`, `SPL_TEMPLATE_GOVERNANCE`)
+   - Optional: `AI_SOC_LLM_INTENT_ADVISOR_ENABLED`, synthesis flags (with configured local endpoint)
+4. Keep `MCP_GLOBAL_EXECUTION_ENABLED=false` until COE supplies real Splunk MCP contract and approval workflow.
+5. Do **not** enable LangGraph for production cutover until fan-out/fan-in topology is implemented and parity-tested.
+
+---
+
+## Related artifacts
+
+- Validation sheets: `docs/validation/README.md`
+- Demo scenario checklist: `docs/demo/demo_scenarios_readiness.md`
+- Real Splunk MCP gates: `docs/architecture/real_splunk_mcp_safety_contract.md`

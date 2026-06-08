@@ -29,6 +29,9 @@ python3 scripts/build_soc_validation_sheets.py --check   # CI staleness gate
 | `combination_matrix_sheet.json` | `soc_validation_combination_matrix` | no |
 | `demo_scenario_sheet.json` | `soc_validation_demo_scenarios` | no |
 
+All ten sheets are exposed via `GET /knowledge/exports/{artifact}` using the keys above.
+Phase 11 demo/flag guidance: `docs/demo/flag_cutover_matrix.md`, `docs/demo/demo_scenarios_readiness.md`.
+
 ## Combination cases A–H
 
 See `combination_matrix_sheet.json` for the planner runtime behavior per case (A happy-path → H unsafe_blocked).

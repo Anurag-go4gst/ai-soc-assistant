@@ -590,7 +590,10 @@ SOC_VALIDATION_ARTIFACTS: dict[str, dict[str, Any]] = {
     "soc_validation_mitre": {"file": "mitre_validation_sheet.json", "csv": True},
     "soc_validation_questions": {"file": "question_validation_sheet.json", "csv": True},
     "soc_validation_github_enrichment": {"file": "github_enrichment_review_sheet.json", "csv": True},
+    "soc_validation_github_batch_intake": {"file": "github_batch_intake_sheet.json", "csv": False},
     "soc_validation_rag_sop": {"file": "rag_sop_validation_sheet.json", "csv": True},
+    "soc_validation_pending_backlog": {"file": "pending_skill_enrichment_backlog_sheet.json", "csv": False},
+    "soc_validation_combination_matrix": {"file": "combination_matrix_sheet.json", "csv": False},
     "soc_validation_demo_scenarios": {"file": "demo_scenario_sheet.json", "csv": False},
 }
 

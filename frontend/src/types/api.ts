@@ -1199,7 +1199,17 @@ export type KnowledgeExportArtifact =
   | 'proposed_use_cases_from_github'
   | 'skill_enrichment_status_matrix'
   | 'rejected_github_skills'
-  | 'pending_skill_enrichment_backlog';
+  | 'pending_skill_enrichment_backlog'
+  | 'soc_validation_use_cases'
+  | 'soc_validation_spl_templates'
+  | 'soc_validation_mitre'
+  | 'soc_validation_questions'
+  | 'soc_validation_github_enrichment'
+  | 'soc_validation_github_batch_intake'
+  | 'soc_validation_rag_sop'
+  | 'soc_validation_pending_backlog'
+  | 'soc_validation_combination_matrix'
+  | 'soc_validation_demo_scenarios';
 
 export interface KnowledgeCollection {
   collection_id: string;

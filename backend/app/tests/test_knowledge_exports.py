@@ -10,7 +10,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.routes_knowledge import export_mapping_artifact
-from app.knowledge.mapping_exports import MITRE_METADATA_ROLE
+from app.knowledge.mapping_exports import MITRE_METADATA_ROLE, SOC_VALIDATION_ARTIFACTS
 
 
 def test_question_runtime_map_json_export_contains_105_rows() -> None:
@@ -180,3 +180,49 @@ def test_markdown_exports_reject_csv() -> None:
     with pytest.raises(HTTPException) as exc:
         export_mapping_artifact("rejected_github_skills", file_format="csv")
     assert exc.value.status_code == 400
+
+
+def test_soc_validation_exports_cover_all_phase10_artifacts() -> None:
+    expected = {
+        "soc_validation_use_cases",
+        "soc_validation_spl_templates",
+        "soc_validation_mitre",
+        "soc_validation_questions",
+        "soc_validation_github_enrichment",
+        "soc_validation_github_batch_intake",
+        "soc_validation_rag_sop",
+        "soc_validation_pending_backlog",
+        "soc_validation_combination_matrix",
+        "soc_validation_demo_scenarios",
+    }
+    assert set(SOC_VALIDATION_ARTIFACTS) == expected
+
+
+@pytest.mark.parametrize("artifact", sorted(SOC_VALIDATION_ARTIFACTS))
+def test_soc_validation_json_exports(artifact: str) -> None:
+    response = export_mapping_artifact(artifact, file_format="json")
+    payload = json.loads(response.body)
+    assert payload["artifact"] == artifact
+    assert payload["export_kind"] == "json_backed"
+    assert len(payload["rows"]) >= 1
+
+
+def test_soc_validation_github_batch_intake_export() -> None:
+    response = export_mapping_artifact("soc_validation_github_batch_intake", file_format="json")
+    payload = json.loads(response.body)
+    assert payload["row_counts"]["batches"] == 1
+
+
+def test_soc_validation_combination_matrix_has_eight_cases() -> None:
+    response = export_mapping_artifact("soc_validation_combination_matrix", file_format="json")
+    payload = json.loads(response.body)
+    assert payload["row_counts"]["cases"] == 8
+    codes = {row["case"] for row in payload["rows"]}
+    assert codes == {"A", "B", "C", "D", "E", "F", "G", "H"}
+
+
+def test_soc_validation_pending_backlog_phase10_export() -> None:
+    response = export_mapping_artifact("soc_validation_pending_backlog", file_format="json")
+    payload = json.loads(response.body)
+    assert payload["artifact"] == "soc_validation_pending_backlog"
+    assert payload["row_counts"]["backlog_items"] >= 1

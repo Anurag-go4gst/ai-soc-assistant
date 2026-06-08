@@ -567,6 +567,11 @@ def _readme(sheets: dict[str, dict[str, Any]]) -> str:
     lines.extend(
         [
             "",
+            "All ten sheets are exposed via `GET /knowledge/exports/{artifact}` "
+            "using the keys above.",
+            "Phase 11 demo/flag guidance: `docs/demo/flag_cutover_matrix.md`, "
+            "`docs/demo/demo_scenarios_readiness.md`.",
+            "",
             "## Combination cases A–H",
             "",
             "See `combination_matrix_sheet.json` for the planner runtime behavior "

@@ -38,6 +38,16 @@ const EXPORT_FILENAMES: Record<KnowledgeExportArtifact, string> = {
   skill_enrichment_status_matrix: 'ai_soc_skill_enrichment_status_matrix',
   rejected_github_skills: 'ai_soc_rejected_github_skills',
   pending_skill_enrichment_backlog: 'ai_soc_pending_skill_enrichment_backlog',
+  soc_validation_use_cases: 'ai_soc_soc_validation_use_cases',
+  soc_validation_spl_templates: 'ai_soc_soc_validation_spl_templates',
+  soc_validation_mitre: 'ai_soc_soc_validation_mitre',
+  soc_validation_questions: 'ai_soc_soc_validation_questions',
+  soc_validation_github_enrichment: 'ai_soc_soc_validation_github_enrichment',
+  soc_validation_github_batch_intake: 'ai_soc_soc_validation_github_batch_intake',
+  soc_validation_rag_sop: 'ai_soc_soc_validation_rag_sop',
+  soc_validation_pending_backlog: 'ai_soc_soc_validation_pending_backlog',
+  soc_validation_combination_matrix: 'ai_soc_soc_validation_combination_matrix',
+  soc_validation_demo_scenarios: 'ai_soc_soc_validation_demo_scenarios',
 };
 
 export function KnowledgePage() {
@@ -249,6 +259,76 @@ export function KnowledgePage() {
                 description="JSON-backed advisory backlog of discovered GitHub skills awaiting human review (bounded export)."
                 onJson={() => downloadExport('pending_skill_enrichment_backlog', 'json')}
                 onCsv={() => downloadExport('pending_skill_enrichment_backlog', 'csv')}
+              />
+            </div>
+            <div className="rounded border border-cyan-900/40 bg-cyan-950/10 p-3 text-xs text-cyan-100/90">
+              <p className="font-medium text-cyan-200">SOC validation package (Phase 10/11)</p>
+              <p className="mt-1 text-slate-400">
+                Crosswalk-derived review sheets for SOC/COE sign-off. Validation only — not runtime activation.
+                Demo flags: docs/demo/flag_cutover_matrix.md
+              </p>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <ExportBlock
+                title="Validation — Use Cases (49)"
+                description="runtime_support_status, validation_status, SPL/RAG/enrichment joins. review_decision blank for SOC."
+                badge="recommended"
+                onJson={() => downloadExport('soc_validation_use_cases', 'json')}
+                onCsv={() => downloadExport('soc_validation_use_cases', 'csv')}
+              />
+              <ExportBlock
+                title="Validation — 105 Questions"
+                description="Question rows with crosswalk authority fields for coverage and routing review."
+                onJson={() => downloadExport('soc_validation_questions', 'json')}
+                onCsv={() => downloadExport('soc_validation_questions', 'csv')}
+              />
+              <ExportBlock
+                title="Validation — SPL Templates"
+                description="Review-only SPL template sheet. no_execution=true on every row."
+                onJson={() => downloadExport('soc_validation_spl_templates', 'json')}
+                onCsv={() => downloadExport('soc_validation_spl_templates', 'csv')}
+              />
+              <ExportBlock
+                title="Validation — MITRE"
+                description="MITRE metadata_not_evidence labels. SOC review notes blank."
+                onJson={() => downloadExport('soc_validation_mitre', 'json')}
+                onCsv={() => downloadExport('soc_validation_mitre', 'csv')}
+              />
+              <ExportBlock
+                title="Validation — GitHub Enrichment (7)"
+                description="GitHub skills as enrichment/provenance only — never runtime_active."
+                onJson={() => downloadExport('soc_validation_github_enrichment', 'json')}
+                onCsv={() => downloadExport('soc_validation_github_enrichment', 'csv')}
+              />
+              <ExportBlock
+                title="Validation — RAG / SOP"
+                description="RAG and SOP coverage status per use case for KB gap review."
+                onJson={() => downloadExport('soc_validation_rag_sop', 'json')}
+                onCsv={() => downloadExport('soc_validation_rag_sop', 'csv')}
+              />
+              <ExportBlock
+                title="Validation — GitHub Batch Intake"
+                description="Batch 1 factory intake summary. JSON only (nested row)."
+                jsonOnly
+                onJson={() => downloadExport('soc_validation_github_batch_intake', 'json')}
+              />
+              <ExportBlock
+                title="Validation — Pending Backlog (Phase 10)"
+                description="Crosswalk-derived backlog review sheet (distinct from legacy skills backlog export)."
+                jsonOnly
+                onJson={() => downloadExport('soc_validation_pending_backlog', 'json')}
+              />
+              <ExportBlock
+                title="Validation — Combination Matrix A–H"
+                description="Planner runtime behavior per crosswalk combination case."
+                jsonOnly
+                onJson={() => downloadExport('soc_validation_combination_matrix', 'json')}
+              />
+              <ExportBlock
+                title="Validation — Demo Scenarios"
+                description="Demo-safe flags per scenario. See docs/demo/demo_scenarios_readiness.md."
+                jsonOnly
+                onJson={() => downloadExport('soc_validation_demo_scenarios', 'json')}
               />
             </div>
           </CardContent>

@@ -3,7 +3,7 @@
 **Reviewed plan:** `/root/.cursor/plans/planner-led_soc_assistant_91c3d272.plan.md`
 **Date:** 2026-06-08
 **Reviewer:** Claude (Opus 4.8)
-**Repo state:** branch `master`, working tree clean except `.claude/settings.local.json`. Read as **complete through Phase 9** (Phases 0–9 committed). Phases 10–11 and the cross-phase Knowledge-surfaces-sync are **not** complete.
+**Repo state:** branch `master`. **Phases 0–11 implementation complete** (see commit hashes below). LangGraph fan-out/fan-in topology is **not** implemented. Default production runtime remains legacy/parity; adopted test/demo path is the governed imperative `/chat` pipeline with explicit flags.
 
 ---
 
@@ -11,11 +11,11 @@
 
 | Claim | Verdict | Basis |
 |-------|---------|-------|
-| "All the points are followed" | **No — through Phase 9 only.** | Phases 0–9 landed with tests. Phase 10 (SOC validation sheets, `docs/validation/`) and Phase 11 (consolidated regression additions, cutover flag matrix, demo doc) and the cross-phase Knowledge-surfaces-sync (Section M) are not done. One deviation in delivered work (graph topology — see §3). |
+| "All the points are followed" | **Yes — through Phase 11, except graph topology.** | Phases 0–11 landed with tests and docs. Phase 10 (`124966a`) SOC validation package; Phase 11 demo readiness (Knowledge sync, regression, cutover matrix, demo scenarios). LangGraph fan-out/fan-in (L.6) remains deferred — see §3. |
 | "All bugs are now removed" | **Unprovable as stated; what is true is strong.** | Full backend suite **1258 passed, 1 skipped, 6 xfailed**. Canonical governance regression `run_stage3_governance_regression.sh` = **PASS** (harness green, 105-question shadow eval all buckets pass). Crosswalk Freeze-gate-2 invariants hold against the actual data (0 violations). "Green tests" ≠ "no bugs" — it means the asserted invariants hold. |
 | "We will be using the architecture as defined" | **Not by default — by design.** | Every new capability is gated **off** (`control_plane_enabled`, `langgraph_orchestration_enabled`, `ai_soc_planner_mitre_branch_enabled`, `ai_soc_spl_template_governance_enabled`, `ai_soc_llm_final_synthesis_enabled`, `ai_soc_llm_live_synthesis_enabled`, `ai_soc_llm_intent_advisor_enabled` all default `False`). This matches the plan's L.10 rollout posture. The architecture is **implemented-and-shadowed, not adopted.** Going live requires Phase 10 → Phase 11 cutover → flag flips → SOC-approved `runtime_active` promotions. |
 
-**Bottom line:** Solid, governed, test-backed delivery of Phases 0–9. But you **cannot** yet say "all points followed" (10–11 + Section M remain) and you **cannot** say "we are using this architecture" (it's behind default-off flags and the planner-led *graph* itself was not built — see §3).
+**Bottom line:** Phases 0–11 are implemented, tested, and documented for SOC review and manual demo. You **still cannot** say "we are using this architecture in production" without flag flips and SOC crosswalk sign-off — defaults remain legacy/parity, and the planner-led *LangGraph* fan-out/fan-in was not built (see §3).
 
 ---
 
@@ -34,10 +34,10 @@
 | 6 — SPL template governance | ✅ Done | `test_spl_template_governance_phase6.py` |
 | 7 — RAG-only / generic SOC guidance | ✅ Done | `test_rag_generic_soc_guidance_phase7.py` |
 | 8 — Answer contract V2 | ✅ Done | additive fields on `answer_contract.py`, `test_answer_contract_enrichment_phase8.py` |
-| 9 — Governed LLM composer | ✅ Done | `governed_answer_composer.py`, `test_governed_llm_answer_composer_phase9.py` |
-| 10 — SOC validation sheets | ❌ Not done | `scripts/build_soc_validation_sheets.py` absent; `docs/validation/` absent |
-| 11 — Consolidated regression + demo + cutover matrix | ❌ Not done | no cutover flag-matrix doc; Section M sync incomplete |
-| Cross-phase — Knowledge surfaces sync (Section M) | ⚠️ Partial | backend crosswalk/discovery/proposed exports exist; frontend `KnowledgePage.tsx` cards, `KnowledgeExportArtifact` union, docs not verified complete |
+| 9 — Governed LLM composer | ✅ `d6bbefc` | `governed_answer_composer.py`, `test_governed_llm_answer_composer_phase9.py` |
+| 10 — SOC validation sheets | ✅ `124966a` | `scripts/build_soc_validation_sheets.py`, `docs/validation/*`, `test_soc_validation_package_phase10.py` |
+| 11 — Consolidated regression + demo + cutover | ✅ (this commit) | governance regression + validation `--check`; `docs/demo/flag_cutover_matrix.md`; `docs/demo/demo_scenarios_readiness.md`; Knowledge UI sync for all 10 validation exports; `test_soc_demo_readiness_phase11.py` |
+| Cross-phase — Knowledge surfaces sync (Section M) | ✅ Phase 10/11 scope | All `soc_validation_*` exports + `KnowledgePage.tsx` cards; legacy mapping exports unchanged |
 
 ---
 
@@ -79,7 +79,7 @@ Direct inspection of `soc_capability_crosswalk.json`:
 
 | # | Element | Status | Note |
 |---|---------|--------|------|
-| 1 | Planner-led graph | **Gap/Partial** | Planner fn exists; LangGraph still linear parity wrapper, not L.6 fan-out/fan-in. Deferred to Phase 11. |
+| 1 | Planner-led graph | **Gap/Partial** | Planner fn + imperative pipeline complete; LangGraph still linear parity wrapper, not L.6 fan-out/fan-in. **Not rebuilt in Phase 11** (documented). |
 | 2 | Crosswalk spine | **Match** | 105+49+7 connected; generator + export + baseline test. |
 | 3 | `use_case_id` activation gate | **Match** | Phase 4; enrichment-only inactive. |
 | 4 | LLM intent advisor early | **Match (off)** | Phase 2; advisory only, flag-gated. |
@@ -94,32 +94,30 @@ Direct inspection of `soc_capability_crosswalk.json`:
 | 13 | Generic guidance | **Match** | Phase 7; no fake use case. |
 | 14 | Skill Expansion Factory | **Match** | Discovery/triage/intake; Batch 1 validated. |
 | 15 | Factory invariants (no graph change) | **Match** | Enrichment/crosswalk grow only. |
-| 16 / 16b | Knowledge exports + UI | **Partial** | Backend exports exist; frontend cards/types/docs (Section M.3–M.4) unverified/incomplete. |
+| 16 / 16b | Knowledge exports + UI | **Match** | All 10 `soc_validation_*` exports + Knowledge page cards (Phase 11). |
 | 17 | MCP deferred | **Match** | Execution flags false. |
 | 18 | Governance regression | **Match** | Script PASS. |
 | 19 | Demo isolation | **Match** | EC fixture path isolated. |
 | 20 | Response compat | **Match** | Additive fields only; suite green. |
-| 21–25 | Knowledge API/UI/docs sync | **Partial/Gap** | Section M not fully delivered (Phase 10/11 work). |
+| 21–25 | Knowledge API/UI/docs sync | **Match** | Phase 10/11 validation + demo docs delivered. |
 
 ---
 
-## 6. Gaps and deviations to close before claiming "done" / "adopted"
+## 6. Remaining gaps before production "adopted"
 
-1. **Phase 10 — SOC validation package** (not started): `scripts/build_soc_validation_sheets.py`, `docs/validation/*` sheets derived from the crosswalk. Required for any SOC sign-off and for promoting `runtime_active`.
-2. **Phase 11 — consolidated regression + cutover** (not started): expand governance regression with planner/factory/MITRE-branch/Case A–H spot checks; **cutover flag matrix doc**; demo scenario doc; frontend optional `planning_decision`/trace fields.
-3. **Section M — Knowledge surfaces sync** (partial): finish `KnowledgePage.tsx` export cards (crosswalk, discovery, proposed, triage), extend `KnowledgeExportArtifact` union, update `docs/evals/README.md` + `docs/skills/README.md`, run `npm run build`.
-4. **Deviation — missing `PLANNER_AUTHORITY_ENABLED` flag.** L.10 specifies it as a new flag distinct from `control_plane_enabled`. It does not exist; planner authority is folded under `control_plane_enabled`. Either add the flag or update the L.10 cutover matrix to reflect the consolidated flag — otherwise the documented cutover sequence is wrong.
-5. **Deviation — planner-led graph deferred** (§3). Either build the L.6 graph in Phase 11 or explicitly amend the plan to state the imperative pipeline is the permanent home and the LangGraph remains a parity shadow.
-6. **Plan file is internally stale.** Frontmatter `todos` list phases 6–11 as `pending`, while the body marks Phases 6–8 "✅ Complete" and git shows 6–9 committed. Fix the tracking so the plan is trustworthy.
+1. **SOC sign-off** — review `docs/validation/*`; set `validation_status=soc_approved` on intended `runtime_active` rows in the crosswalk (human process, not automated).
+2. **Flag cutover** — follow `docs/demo/flag_cutover_matrix.md` incrementally per environment; keep `MCP_GLOBAL_EXECUTION_ENABLED=false` until COE real MCP contract.
+3. **Deviation — missing `PLANNER_AUTHORITY_ENABLED` flag.** Planner authority is folded under `control_plane_enabled`. Cutover matrix documents consolidated flags.
+4. **Deviation — planner-led LangGraph fan-out/fan-in** (§3). Phase 11 explicitly did **not** rebuild L.6 graph. Imperative `pipeline.py` is the adopted test/demo path; LangGraph remains optional parity shadow only.
+5. **Optional follow-up** — frontend `planning_decision`/trace fields in chat UI; Case A–H live spot-check automation beyond golden suite.
 
 ---
 
 ## 7. To actually "use the architecture as defined" — required sequence
 
-1. Complete **Phase 10**: build SOC validation sheets from crosswalk; SOC reviews and sets `validation_status=soc_approved` on intended `runtime_active` rows.
-2. Complete **Phase 11**: consolidated regression, cutover flag matrix, demo doc, Section M Knowledge sync, frontend build.
-3. Resolve the **flag-matrix deviation** (`PLANNER_AUTHORITY_ENABLED`) and decide the **graph deviation** (build L.6 graph vs amend plan).
-4. **Flip flags** per a documented cutover, with parity tests green at each step: `control_plane_enabled` → `ai_soc_planner_mitre_branch_enabled` → `ai_soc_spl_template_governance_enabled` → enrichment-aware plan → (optional) intent advisor / synthesis. `MCP_GLOBAL_EXECUTION_ENABLED` stays **false**.
-5. Re-run `run_stage3_governance_regression.sh` + full suite after each flip.
+1. SOC reviews validation sheets (`124966a` artifacts) and promotes crosswalk rows.
+2. Use **Profile 2** in `docs/demo/flag_cutover_matrix.md` for manual demos; run checklists in `docs/demo/demo_scenarios_readiness.md`.
+3. **Flip flags** per environment with `./scripts/run_stage3_governance_regression.sh` green after each step. `MCP_GLOBAL_EXECUTION_ENABLED` stays **false**.
+4. Build L.6 LangGraph fan-out/fan-in only as a **future** phase if parity with imperative pipeline is required.
 
-Until steps 1–4 are done, the honest statement is: **"Phases 0–9 are implemented, tested, and governance-green, behind default-off flags. The system still runs the legacy backward-compatible path by default. Phases 10–11 and the cutover remain."**
+Current honest statement: **"Phases 0–11 are implemented and governance-green. Default runtime is legacy/parity. Governed imperative `/chat` with flags is the demo/test path. LangGraph fan-out/fan-in is not built. Production adoption requires SOC sign-off + flag cutover."**

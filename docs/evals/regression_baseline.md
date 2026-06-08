@@ -19,6 +19,8 @@ Canonical command:
 | cov.q046 observation summary | `status=closed`, `unexpected_disagreement_count=0` |
 | Stage 3M-S5 live MCP capture | blocked without flag |
 | 105-Q shadow eval | `overall_pass=True` |
+| SOC validation sheets `--check` | exit 0 (staleness gate) |
+| SOC validation package pytest | `test_soc_validation_package_phase10.py` all pass |
 | SKILL_ENUM contract test | backend == harness |
 
 ## Recorded counts (2026-06-03)
@@ -61,6 +63,15 @@ Phase-specific modules added by the control plane:
 - `test_response_synthesis_honesty.py`
 - `test_control_plane_trace.py`
 - `test_chat_control_plane_golden.py`
+- `test_soc_validation_package_phase10.py`
+- `test_soc_demo_readiness_phase11.py`
+
+## Phase 11 demo readiness (documentation)
+
+- Flag profiles: `docs/demo/flag_cutover_matrix.md`
+- Manual demo checklist: `docs/demo/demo_scenarios_readiness.md`
+- LangGraph fan-out/fan-in graph: **not implemented** — keep `LANGGRAPH_ORCHESTRATION_ENABLED=false` for demos
+- Default production runtime: legacy/parity (`CONTROL_PLANE_ENABLED=false`)
 
 ## Boundaries enforced
 
