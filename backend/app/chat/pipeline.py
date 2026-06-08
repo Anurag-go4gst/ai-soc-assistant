@@ -781,12 +781,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         and synthesis_status.status != "partial_timeout"
         and not _is_governed_spl_ready_for_response(spl_validation)
     ):
+        from app.spl.draft_preview import DRAFT_PREVIEW_STATUS_MESSAGE
+
+        message = DRAFT_PREVIEW_STATUS_MESSAGE
         message = maybe_attach_draft_preview_message(message, spl_draft_preview)
-        draft_note = (
-            "Lab-only draft SPL preview attached (not catalog-approved, not governed, not executable)."
+        note = (
+            "Governed template SPL was not produced. Lab-only draft SPL preview shown for SOC review. "
+            "No MCP execution was run."
         )
-        if draft_note.lower() not in (note or "").lower():
-            note = f"{note} {draft_note}".strip()
 
     evidence_origin = resolve_response_evidence_origin(
         source_evidence=source_evidence,

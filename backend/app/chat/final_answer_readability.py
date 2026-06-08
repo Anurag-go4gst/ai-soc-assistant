@@ -7,6 +7,7 @@ from typing import Any
 
 from app.chat.contracts.answer_contract import AnswerContract
 from app.schemas.responses import AnalystResponseEnvelope
+from app.spl.draft_preview import DRAFT_PREVIEW_STATUS_MESSAGE
 
 _EXECUTION_LABELS = {
     "review_only_not_executed": "Review only — not executed",
@@ -90,6 +91,19 @@ def apply_final_answer_readability(
         payload["render_sections"]["draft_spl_preview"] = True
         if "draft_spl_preview" not in payload["section_order"]:
             payload["section_order"] = ["draft_spl_preview", *list(payload["section_order"])]
+        payload["spl_status"] = "review_required"
+        draft_preview = payload.get("spl_draft_preview") if isinstance(payload.get("spl_draft_preview"), dict) else {}
+        required_fields = list(draft_preview.get("required_source_fields") or [])
+        payload["spl_status_detail"] = {
+            "template_status": "unavailable",
+            "generation_status": "draft_preview",
+            "generation": "draft_preview_lab",
+            "review_required": True,
+            "block_reason": "governed_spl_not_ready",
+            "reason": "draft_preview_lab",
+            "reason_display": DRAFT_PREVIEW_STATUS_MESSAGE,
+            "required_fields": required_fields,
+        }
     payload["direct_answer_summary"] = _direct_answer_summary(envelope, contract)
     payload = _apply_knowledge_profile_cleanup(payload, contract)
     payload = _dedupe_labels(payload, contract)
@@ -99,6 +113,8 @@ def apply_final_answer_readability(
 
 
 def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
+    if envelope.draft_spl_code:
+        return DRAFT_PREVIEW_STATUS_MESSAGE
     if contract.intent_family in {"sop_or_playbook", "policy_knowledge"} or (
         contract.answer_mode == "rag_only" and contract.spl_status == "not_required"
     ):
@@ -244,10 +260,7 @@ def _natural_hybrid_alert_summary(envelope: AnalystResponseEnvelope, contract: A
         else:
             parts.append(f"A governed SPL draft is available ({contract.execution_status_display.lower()}).")
     elif envelope.draft_spl_code:
-        parts.append(
-            "A lab-only draft SPL preview is available for analyst review; it is not catalog-approved, "
-            "not governed, and has not been executed."
-        )
+        parts.append(DRAFT_PREVIEW_STATUS_MESSAGE)
     return " ".join(parts) if parts else str(envelope.one_sentence_finding or "")
 
 

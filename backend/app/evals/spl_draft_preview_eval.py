@@ -236,6 +236,31 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool, llm_fallback
         checks["sysmon_pwsh_parent_variants"] = "pwsh.exe" in draft_spl and "tomcat.exe" in draft_spl
         if not checks["sysmon_pwsh_parent_variants"]:
             violations.append("sysmon_missing_pwsh_or_web_parents")
+    if family == "esp_it_to_ot_connection" and draft:
+        checks["esp_session_state_norm"] = "session_state_norm" in draft_spl
+        checks["esp_established_filter"] = "%establish%" in draft_spl or "%connected%" in draft_spl
+        checks["esp_stats_preservation"] = all(
+            token in draft_spl
+            for token in (
+                "values(protocol_norm)",
+                "values(dest_port_norm)",
+                "values(action_norm)",
+                "values(session_state_norm)",
+            )
+        )
+        checks["esp_shift_left_hints"] = "*it*" in draft_spl.split("|")[0]
+        if not checks["esp_session_state_norm"]:
+            violations.append("esp_missing_session_state_norm")
+        if not checks["esp_established_filter"]:
+            violations.append("esp_missing_established_filter")
+        if not checks["esp_stats_preservation"]:
+            violations.append("esp_missing_stats_preservation")
+        if not checks["esp_shift_left_hints"]:
+            violations.append("esp_missing_shift_left_hints")
+    if draft_enabled and draft and family == "esp_it_to_ot_connection":
+        checks["esp_no_spl_not_required_wording"] = "spl is not required" not in text.lower()
+        if not checks["esp_no_spl_not_required_wording"]:
+            violations.append("esp_spl_not_required_wording")
 
     return DraftEvalRow(
         question_id=question_id,

@@ -80,18 +80,16 @@ FAMILY_ENGINEERING_BLOCKS: dict[str, str] = {
     "esp_it_to_ot_connection": """
 5. ESP IT to OT Boundary
 - Base search:
-  index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> action=allowed
+  index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> action=allowed (*it* OR *corporate* OR *ot* OR *control*)
 - Normalize:
-  src_zone_norm = lower(coalesce(src_zone, source_zone, zone_src, ""))
-  dest_zone_norm = lower(coalesce(dest_zone, destination_zone, zone_dest, ""))
-  src_ip_norm = coalesce(src_ip, src, source, "")
-  dest_ip_norm = coalesce(dest_ip, dest, destination, "")
-  app_norm = lower(coalesce(app, application, service, protocol, ""))
-- Confirm corporate IT to OT with exact zone labels (no fuzzy like("%it%") / like("%ot%") substring matching):
-  src_zone_norm IN ("<corporate_it_zone>", "<corporate_it_zone_alt>") OR cidrmatch("<corporate_it_cidr>", src_ip_norm)
-  dest_zone_norm IN ("<ot_control_center_zone>", "<ot_control_center_zone_alt>") OR cidrmatch("<ot_control_center_cidr>", dest_ip_norm)
-- COE replaces placeholders with lowercase exact zone names from the ESP source profile; drop or replace _alt tokens.
-- Preserve values(src_zone_norm), values(dest_zone_norm), values(rule), values(app_norm) in stats.
+  src_zone_norm, dest_zone_norm, src_ip_norm, dest_ip_norm, app_norm
+  protocol_norm = lower(coalesce(protocol, proto, protocol_name, transport, ""))
+  dest_port_norm = coalesce(dest_port, destination_port, dport, "")
+  action_norm = lower(coalesce(action, status, result, disposition, ""))
+  session_state_norm = lower(coalesce(session_state, connection_state, state, session_status, tcp_state, ""))
+- Confirm corporate IT to OT with exact zone IN() labels and/or cidrmatch() CIDR placeholders (no fuzzy like("%it%") zone matching).
+- Filter established/successful connections when session_state_norm is present; note missing session_state in assumptions if unmapped.
+- Preserve values(src_zone_norm), values(dest_zone_norm), values(rule), values(app_norm), values(protocol_norm), values(dest_port_norm), values(action_norm), values(session_state_norm) in stats.
 """.strip(),
     "substation_hmi_brute_force": """
 6. Substation OS/HMI Brute Force

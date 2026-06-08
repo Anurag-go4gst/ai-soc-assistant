@@ -13,6 +13,9 @@ from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
 DRAFT_WARNING = (
     "Draft SPL preview only. Not governed. Not approved. Do not execute without SOC review."
 )
+DRAFT_PREVIEW_STATUS_MESSAGE = (
+    "Governed SPL is not available/ready; lab-only draft SPL preview is shown for SOC review."
+)
 DRAFT_STATUS = "draft_preview_not_governed"
 DRAFT_SOURCE = "deterministic_pattern"
 
@@ -241,12 +244,16 @@ search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earli
             r"control\s+center",
         ),
         draft_spl="""
-search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now action=allowed
+search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now action=allowed (*it* OR *corporate* OR *ot* OR *control*)
 | eval src_zone_norm=lower(coalesce(src_zone, source_zone, zone_src, ""))
 | eval dest_zone_norm=lower(coalesce(dest_zone, destination_zone, zone_dest, ""))
 | eval src_ip_norm=coalesce(src_ip, src, source, "")
 | eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
-| eval app_norm=lower(coalesce(app, application, service, protocol, ""))
+| eval app_norm=lower(coalesce(app, application, service, ""))
+| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, transport, ""))
+| eval dest_port_norm=coalesce(dest_port, destination_port, dport, "")
+| eval action_norm=lower(coalesce(action, status, result, disposition, ""))
+| eval session_state_norm=lower(coalesce(session_state, connection_state, state, session_status, tcp_state, ""))
 | where (
     src_zone_norm IN ("<corporate_it_zone>", "<corporate_it_zone_alt>")
     OR cidrmatch("<corporate_it_cidr>", src_ip_norm)
@@ -255,20 +262,44 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
     dest_zone_norm IN ("<ot_control_center_zone>", "<ot_control_center_zone_alt>")
     OR cidrmatch("<ot_control_center_cidr>", dest_ip_norm)
   )
-| stats count as connection_count values(src_zone_norm) as src_zones values(dest_zone_norm) as dest_zones values(rule) as firewall_rules values(app_norm) as applications earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip_norm dest_ip_norm
+  AND (
+    action_norm IN ("allowed", "accept", "permit", "success")
+    OR like(action_norm, "%allow%")
+  )
+  AND (
+    session_state_norm=""
+    OR like(session_state_norm, "%establish%")
+    OR like(session_state_norm, "%built%")
+    OR like(session_state_norm, "%connected%")
+    OR like(session_state_norm, "%success%")
+  )
+| stats
+    count as connection_count
+    values(src_zone_norm) as src_zones
+    values(dest_zone_norm) as dest_zones
+    values(rule) as firewall_rules
+    values(app_norm) as applications
+    values(protocol_norm) as protocols
+    values(dest_port_norm) as dest_ports
+    values(action_norm) as actions
+    values(session_state_norm) as session_states
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by src_ip_norm dest_ip_norm
 | eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
 | eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
 | fields - first_seen_epoch last_seen_epoch
-| table src_ip_norm dest_ip_norm src_zones dest_zones firewall_rules applications connection_count first_seen last_seen
+| table src_ip_norm dest_ip_norm src_zones dest_zones firewall_rules applications protocols dest_ports actions session_states connection_count first_seen last_seen
 | sort - connection_count
 | head 100
 """,
         assumptions=(
             "ESP firewall zones label corporate IT and OT control center segments.",
-            "Shift-left action=allowed; IT→OT confirmed via exact zone labels (lowercase) and/or cidrmatch() placeholders — avoid fuzzy substring zone matching.",
-            "Replace <corporate_it_zone> / <ot_control_center_zone> (and _alt variants) with exact zone names from your ESP log schema; remove unused _alt tokens or duplicate with real alternates.",
-            "values(src_zone_norm), values(dest_zone_norm), values(rule), values(app_norm) preserved in stats.",
-            "Zone and CIDR placeholders must be confirmed against your ESP source profile.",
+            "Shift-left action=allowed plus broad (*it* OR *corporate* OR *ot* OR *control*) raw hints; final IT→OT boundary uses exact zone IN() labels and/or cidrmatch() CIDR placeholders.",
+            "Replace <corporate_it_zone>, <ot_control_center_zone>, <corporate_it_cidr>, and <ot_control_center_cidr> from your ESP source profile; remove unused _alt zone tokens or replace with real alternates.",
+            "Established/successful connections: action_norm allow/permit plus session_state_norm establish/built/connected when the field exists.",
+            "If session_state/connection_state is absent in your sourcetype, confirm mapping during source-profile review — events with empty session_state_norm still pass until the field is mapped.",
+            "values() preserves src_zone, dest_zone, rule, app, protocol, dest_port, action, and session_state through stats.",
         ),
         required_source_fields=(
             "index",
@@ -278,6 +309,13 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
             "src_ip",
             "dest_ip",
             "action",
+            "session_state",
+            "connection_state",
+            "protocol",
+            "dest_port",
+            "rule",
+            "corporate_it_cidr",
+            "ot_control_center_cidr",
             "_time",
         ),
     ),

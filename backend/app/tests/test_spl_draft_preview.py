@@ -267,7 +267,19 @@ def test_scada_dnp3_modbus_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     preview = _preview(monkeypatch, ESP_QUERY, "esp_it_to_ot_connection")
     spl = preview["draft_spl"]
-    assert "action=allowed" in spl.split("|")[0]
+    base_search = spl.split("|")[0]
+    assert "action=allowed" in base_search
+    assert "*it*" in base_search and "*corporate*" in base_search
+    assert "session_state_norm" in spl
+    assert "connection_state" in spl
+    assert "protocol_norm" in spl
+    assert "dest_port_norm" in spl
+    assert "action_norm" in spl
+    assert "values(protocol_norm)" in spl
+    assert "values(dest_port_norm)" in spl
+    assert "values(action_norm)" in spl
+    assert "values(session_state_norm)" in spl
+    assert "%establish%" in spl or "%connected%" in spl
     assert "src_zone_norm" in spl
     assert 'src_zone_norm IN ("<corporate_it_zone>"' in spl
     assert 'dest_zone_norm IN ("<ot_control_center_zone>"' in spl
@@ -275,6 +287,33 @@ def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'like(dest_zone_norm, "%ot%")' not in spl
     assert "values(app_norm)" in spl
     assert "cidrmatch(" in spl
+    assert "corporate_it_cidr" in preview["required_source_fields"]
+    assert "session_state" in preview["required_source_fields"]
+    assert preview["governed"] is False
+    assert preview["catalog_approved"] is False
+    assert preview["execution_enabled"] is False
+
+
+def test_esp_draft_preview_does_not_claim_spl_not_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    response = build_live_chat_response(ChatRequest(message=ESP_QUERY))
+    assert response.spl_draft_preview is not None
+    blob = " ".join(
+        filter(
+            None,
+            [
+                response.message,
+                response.note,
+                (response.analyst_response.direct_answer_summary if response.analyst_response else None),
+                (response.analyst_response.spl_status_detail or {}).get("reason_display")
+                if response.analyst_response and response.analyst_response.spl_status_detail
+                else None,
+            ],
+        )
+    ).lower()
+    assert "spl is not required" not in blob
+    assert "no spl analysis" not in blob
+    assert "governed spl is not available" in blob or "lab-only draft spl preview" in blob
 
 
 def test_substation_hmi_brute_force_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:

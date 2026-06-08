@@ -78,7 +78,7 @@ Detailed per-family shift-left, `coalesce()`, path escaping, `cidrmatch()`, and 
 2. `windows_account_lockout` — EventCode 4740 with caller host fields
 3. `sysmon_web_shell_spawn` — web server parent → shell child (incl. `pwsh.exe`)
 4. `scada_dnp3_modbus_write` — DNP3/Modbus write/modify with `cidrmatch()` allowlist
-5. `esp_it_to_ot_connection` — ESP zone-to-zone allowed connections
+5. `esp_it_to_ot_connection` — ESP IT→OT allowed/established connections with exact zone/CIDR placeholders, session_state_norm, and operational field preservation through stats
 6. `substation_hmi_brute_force` — HMI/OS portal brute-force windows
 
 ## Verification

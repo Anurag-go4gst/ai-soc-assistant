@@ -85,6 +85,18 @@ _CRITICAL_TABLE_FIELDS = frozenset(
         "added_users",
         "group_name",
         "group_norm",
+        "protocol",
+        "protocol_norm",
+        "protocols",
+        "dest_port",
+        "dest_port_norm",
+        "dest_ports",
+        "action",
+        "action_norm",
+        "actions",
+        "session_state",
+        "session_state_norm",
+        "session_states",
     }
 )
 _EARLIEST_LATEST_RAW = re.compile(r"\b(?:earliest|latest)\s*\(\s*_time\s*\)", re.IGNORECASE)

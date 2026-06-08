@@ -1,6 +1,6 @@
 # SPL Draft Preview Eval Summary
 
-- Generated: 2026-06-08T14:53:23.015601+00:00
+- Generated: 2026-06-08T18:50:03.552014+00:00
 - Rows: 12
 - Passed: 12
 - Failed: 0
@@ -21,6 +21,11 @@
 - draft_not_catalog_approved: 12/12
 - draft_not_governed_flag: 12/12
 - draft_only_when_flag_on: 12/12
+- esp_established_filter: 1/12
+- esp_no_spl_not_required_wording: 1/12
+- esp_session_state_norm: 1/12
+- esp_shift_left_hints: 1/12
+- esp_stats_preservation: 1/12
 - execution_disabled: 12/12
 - family_match: 12/12
 - hmi_streamstats_window: 1/12
