@@ -9,6 +9,7 @@ Documentation only. **Does not change runtime defaults.** Production and `.env.e
 | Phases 0–10 | Implemented and tested (crosswalk → validation package) |
 | Adopted test/demo path | Governed **imperative** `/chat` pipeline with explicit flags |
 | LangGraph fan-out/fan-in | **Shadow graph exists (Phase 12)** — `AI_SOC_LANGGRAPH_SHADOW_ENABLED` for tests/trace only; not default runtime |
+| LangGraph dual-run parity | **Phase 13 evaluation only** — `scripts/run_langgraph_dual_parity_eval.py`; does not cut over `/chat` |
 | Default production runtime | Legacy/parity (`CONTROL_PLANE_ENABLED=false`, MCP execution off) |
 | SPL/MCP execution | Remains **disabled** in all documented profiles below |
 
@@ -86,6 +87,7 @@ Also configure a local/openai-compatible endpoint (`AI_SOC_LLM_LOCAL_BASE_URL`) 
    - Optional: `AI_SOC_LLM_INTENT_ADVISOR_ENABLED`, synthesis flags (with configured local endpoint)
 4. Keep `MCP_GLOBAL_EXECUTION_ENABLED=false` until COE supplies real Splunk MCP contract and approval workflow.
 5. Phase 12 shadow graph parity must be accepted in CI before considering LangGraph as runtime; production cutover still uses imperative `/chat` with flags until explicitly approved.
+6. Phase 13 dual-run parity (`python3 scripts/run_langgraph_dual_parity_eval.py --check`) must report **zero critical mismatches** before any LangGraph runtime cutover. Evaluation harness enables shadow graph in-process only; production defaults keep `LANGGRAPH_ORCHESTRATION_ENABLED=false` and `AI_SOC_LANGGRAPH_SHADOW_ENABLED=false`.
 
 ---
 
@@ -93,4 +95,5 @@ Also configure a local/openai-compatible endpoint (`AI_SOC_LLM_LOCAL_BASE_URL`) 
 
 - Validation sheets: `docs/validation/README.md`
 - Demo scenario checklist: `docs/demo/demo_scenarios_readiness.md`
+- LangGraph dual-run parity report: `docs/evals/langgraph_dual_parity_summary.md`
 - Real Splunk MCP gates: `docs/architecture/real_splunk_mcp_safety_contract.md`

@@ -105,5 +105,11 @@ python3 scripts/eval_stage3l_105_question_shadow_routes.py \
   --out-dir docs/evals/out \
   || fail "105-question shadow eval"
 
+section "LangGraph dual-run parity (Phase 13)"
+python3 scripts/run_langgraph_dual_parity_eval.py --check \
+  || fail "langgraph dual-run parity --check"
+(cd backend && python3 -m pytest app/tests/test_langgraph_dual_parity_phase13.py -q) \
+  || fail "langgraph dual parity phase13 pytest"
+
 section "done"
 echo "stage3_governance_regression: PASS"

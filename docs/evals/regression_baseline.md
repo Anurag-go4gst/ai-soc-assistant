@@ -21,6 +21,7 @@ Canonical command:
 | 105-Q shadow eval | `overall_pass=True` |
 | SOC validation sheets `--check` | exit 0 (staleness gate) |
 | SOC validation package pytest | `test_soc_validation_package_phase10.py` all pass |
+| LangGraph dual-run parity `--check` | exit 0 (Phase 13) |
 | SKILL_ENUM contract test | backend == harness |
 
 ## Recorded counts (2026-06-03)
@@ -65,6 +66,22 @@ Phase-specific modules added by the control plane:
 - `test_chat_control_plane_golden.py`
 - `test_soc_validation_package_phase10.py`
 - `test_soc_demo_readiness_phase11.py`
+- `test_langgraph_shadow_phase12.py`
+- `test_langgraph_dual_parity_phase13.py`
+
+## Phase 13 LangGraph dual-run parity (evaluation only)
+
+```bash
+python3 scripts/run_langgraph_dual_parity_eval.py
+python3 scripts/run_langgraph_dual_parity_eval.py --check
+```
+
+- Compares imperative `/chat` pipeline vs planner-led shadow graph (`planner_led_shadow_graph.py`) on 105-map + demo + manual rows.
+- Reports: `docs/evals/langgraph_dual_parity_report.json`, `langgraph_dual_parity_summary.md`, `langgraph_dual_parity_report.csv`
+- `--check` fails on critical safety mismatches (execution enabled, MITRE upgrade, SPL mismatch, runtime_active upgrade, unsafe/HIL drift, path_type drift on runtime-active rows, total below expected).
+- **Does not** replace `/chat` runtime; `LANGGRAPH_ORCHESTRATION_ENABLED` remains `false` by default.
+
+Recorded baseline (2026-06-08): **120** rows, **120** exact matches, **0** critical mismatches.
 
 ## Phase 11 demo readiness (documentation)
 
