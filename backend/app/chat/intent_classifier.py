@@ -132,6 +132,23 @@ def classify_intent(
             requested_output_type="MITRE_MAPPING",
         )
 
+    normalized_query = str(signals.get("normalized_query") or query.lower())
+    explicit_sop_only = normalized_query.startswith(("show sop", "show runbook", "what is the playbook", "what is the sop"))
+    if signals.get("playbook_procedure") and explicit_sop_only and not any(
+        signals.get(key)
+        for key in ("spl_generation", "run_execution", "analyst_action", "time_window_24h")
+    ):
+        return _build_classification(
+            intent_family="sop_or_playbook",
+            primary_intent="knowledge_recall",
+            query_type="sop_or_playbook",
+            answer_goal=["procedural_steps", "policy_citation"],
+            confidence=0.86,
+            requires_clarification=False,
+            reason="User asked for SOP/playbook/runbook guidance.",
+            requested_output_type="SOP",
+        )
+
     if signals.get("procedural_investigation") and not signals.get("live_investigation_verbs"):
         return _build_classification(
             intent_family="knowledge_only",

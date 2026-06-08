@@ -593,13 +593,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         session_alert_context=session_alert_context,
         )
     mitre_branch_payload = mitre_branch.model_dump()
+    response_use_case = _response_use_case(state)
     severity_decision = decide_severity(
-        selected_use_case.use_case_id if selected_use_case else None,
+        response_use_case.use_case_id if response_use_case else None,
         structured_context,
         source_refs,
     )
     action_capability = action_capability_for(
-        selected_use_case.use_case_id if selected_use_case else None,
+        response_use_case.use_case_id if response_use_case else None,
         severity_decision.severity_label,
     )
     emit_stage("generating_answer")
@@ -674,7 +675,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         trace_id=trace_id,
         mode_source="live",
         query_understanding=state["query_understanding"],
-        selected_use_case=selected_use_case,
+        selected_use_case=response_use_case,
         selected_skill_chain=state["selected_skill_chain"],
         workflow_plan=state["workflow_plan"],
         spl_validation=spl_validation,
@@ -691,8 +692,21 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         action_capability=action_capability,
     )
 
-    message = _chat_message(spl_validation, execution, analyst_summary_from_lab)
-    note = _chat_note(spl_validation, execution)
+    message = _chat_message(
+        spl_validation,
+        execution,
+        analyst_summary_from_lab,
+        evidence_plan=state.get("evidence_plan"),
+        planning_decision=state.get("planning_decision"),
+        soc_kb_retrieval=state.get("soc_kb_retrieval"),
+    )
+    note = _chat_note(
+        spl_validation,
+        execution,
+        evidence_plan=state.get("evidence_plan"),
+        planning_decision=state.get("planning_decision"),
+        soc_kb_retrieval=state.get("soc_kb_retrieval"),
+    )
     if synthesis_status.status == "partial_timeout":
         message = _PARTIAL_SYNTHESIS_MESSAGE
         note = _PARTIAL_SYNTHESIS_MESSAGE
@@ -738,7 +752,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     comparison = state.get("comparison") or {}
     governance_trace = build_governance_trace(
         demo_mode=False,
-        use_case_id=selected_use_case.use_case_id if selected_use_case else None,
+        use_case_id=response_use_case.use_case_id if response_use_case else None,
         selected_skill=str(routed["skill"]),
         severity_decision=severity_decision,
         investigation_lineage=investigation_lineage,
@@ -747,7 +761,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         route_plan_shadow=route_plan_shadow,
         question_runtime_map=route_plan_shadow.get("question_runtime_map") if route_plan_shadow else None,
         precondition_evaluation=route_plan_shadow.get("precondition_evaluation") if route_plan_shadow else None,
-        selected_use_case=selected_use_case.model_dump() if selected_use_case else None,
+        selected_use_case=response_use_case.model_dump() if response_use_case else None,
     )
 
     routing_skill_resolution = state.get("routing_skill_resolution") or route_plan_shadow.get(
@@ -756,9 +770,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     response_mode = _response_mode(context_sufficiency, human_review, spl_validation)
     synthesis_mode = _synthesis_mode(synthesis_status, analyst_summary_from_lab)
     use_case_label = None
-    if selected_use_case is not None:
-        use_case_label = getattr(selected_use_case, "display_name", None) or getattr(
-            selected_use_case, "use_case_id", None
+    if response_use_case is not None:
+        use_case_label = getattr(response_use_case, "display_name", None) or getattr(
+            response_use_case, "use_case_id", None
         )
     answer_contract = None
     if settings.control_plane_enabled:
@@ -794,6 +808,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision=severity_decision,
         answer_contract=answer_contract,
     )
+    if _rag_no_match(state.get("soc_kb_retrieval")) and spl_validation is None:
+        analyst_response = None
     final_answer_validation = None
     if settings.control_plane_enabled:
         validation = validate_final_answer(
@@ -827,7 +843,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     control_plane_trace = None
     if settings.control_plane_enabled:
         use_case_id_for_visibility = (
-            selected_use_case.use_case_id if selected_use_case is not None else use_case_id
+            response_use_case.use_case_id if response_use_case is not None else use_case_id
         )
         visibility = build_pipeline_visibility(
             state=state,
@@ -886,7 +902,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         disagreement=state["disagreement"],
         disagreement_reason=_disagreement_reason(comparison) if state["disagreement"] else None,
         query_understanding=state["query_understanding"],
-        selected_use_case=selected_use_case,
+        selected_use_case=response_use_case,
         selected_skill_chain=state["selected_skill_chain"],
         skill_selection=state["skill_selection"],
         message=message,
@@ -987,7 +1003,9 @@ def _evidence_plan(state: ChatPipelineState) -> dict[str, Any]:
 def _uses_rag_only_path(state: ChatPipelineState) -> bool:
     if not settings.control_plane_enabled:
         return False
-    return _evidence_plan(state).get("answer_mode") == "rag_only"
+    planning = state.get("planning_decision")
+    path_type = planning.get("path_type") if isinstance(planning, dict) else None
+    return _evidence_plan(state).get("answer_mode") == "rag_only" or path_type == "generic_soc_guidance"
 
 
 def _uses_pre_mcp_rag(state: ChatPipelineState) -> bool:
@@ -995,6 +1013,31 @@ def _uses_pre_mcp_rag(state: ChatPipelineState) -> bool:
         return False
     plan = _evidence_plan(state)
     return bool(plan.get("needs_rag")) and plan.get("rag_phase") == "pre_mcp"
+
+
+def _path_type(state: ChatPipelineState) -> str | None:
+    planning = state.get("planning_decision")
+    if isinstance(planning, dict):
+        value = planning.get("path_type")
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _response_use_case(state: ChatPipelineState) -> UseCaseSelection | None:
+    if _path_type(state) == "generic_soc_guidance":
+        return None
+    return state.get("selected_use_case")
+
+
+def _rag_no_match(soc_kb_retrieval: dict[str, Any] | None) -> bool:
+    if not isinstance(soc_kb_retrieval, dict):
+        return False
+    return str(soc_kb_retrieval.get("retrieval_status") or "") in {"no_match", "disabled", "failed"}
+
+
+def _generic_soc_guidance_path(planning_decision: dict[str, Any] | None) -> bool:
+    return isinstance(planning_decision, dict) and planning_decision.get("path_type") == "generic_soc_guidance"
 
 
 def _spl_allowed(state: ChatPipelineState) -> bool:
@@ -2186,8 +2229,17 @@ def _chat_message(
     spl_validation: dict | None,
     execution: dict | None = None,
     analyst_summary: str | None = None,
+    evidence_plan: dict[str, Any] | None = None,
+    planning_decision: dict[str, Any] | None = None,
+    soc_kb_retrieval: dict[str, Any] | None = None,
 ) -> str:
     if spl_validation is None:
+        if _rag_no_match(soc_kb_retrieval):
+            return "No governed KB/SOP match was found for this request. I did not generate SPL, call MCP, or infer MITRE evidence."
+        if _generic_soc_guidance_path(planning_decision):
+            return "Generic SOC guidance path selected. Governed KB was checked when enabled; no catalog use case, SPL, MCP, or MITRE evidence claim was created."
+        if isinstance(evidence_plan, dict) and evidence_plan.get("answer_mode") == "rag_only":
+            return "Governed knowledge path selected. SPL and MCP are skipped for this request."
         return "Routing complete. SPL is not required at this stage."
     if _is_spl_clarification_required(spl_validation):
         return (
@@ -2266,11 +2318,23 @@ def _synthesis_mode(
     return "deterministic_no_final_llm"
 
 
-def _chat_note(spl_validation: dict | None, execution: dict | None = None) -> str:
+def _chat_note(
+    spl_validation: dict | None,
+    execution: dict | None = None,
+    evidence_plan: dict[str, Any] | None = None,
+    planning_decision: dict[str, Any] | None = None,
+    soc_kb_retrieval: dict[str, Any] | None = None,
+) -> str:
     rag_note = "Governed SOC KB retrieval may contribute source evidence when enabled."
     if not settings.soc_kb_retrieval_enabled:
         rag_note = "No RAG retrieval"
     if spl_validation is None:
+        if _rag_no_match(soc_kb_retrieval):
+            return "No governed KB/SOP match found. SPL and MCP were skipped; final synthesis remains disabled."
+        if _generic_soc_guidance_path(planning_decision):
+            return "Generic SOC guidance uses governed KB only when available and does not assign a runtime use_case_id. SPL, MCP, and final synthesis were skipped."
+        if isinstance(evidence_plan, dict) and evidence_plan.get("answer_mode") == "rag_only":
+            return "RAG-only evidence plan: SPL and MCP were skipped; final synthesis remains disabled."
         if not settings.soc_kb_retrieval_enabled:
             return "Routing and workflow planning only; SPL is not required at this stage. No MCP execution, RAG retrieval, or synthesis was run."
         return "Routing and workflow planning only; SPL is not required at this stage. Governed SOC KB retrieval may contribute source evidence when enabled. No MCP execution, final synthesis, or Splunk telemetry write was run."

@@ -236,13 +236,13 @@ def _resolve_path_type(
     if family == "mitre_mapping" and bool(intent.get("requires_clarification")):
         return "mitre_context_required"
 
-    if plan.get("answer_mode") == "rag_only":
-        return "rag_only"
-
     if family == "knowledge_only":
         return "generic_soc_guidance"
 
     if family in {"policy_knowledge", "sop_or_playbook"}:
+        return "rag_only"
+
+    if plan.get("answer_mode") == "rag_only":
         return "rag_only"
 
     if plan.get("needs_spl") and plan.get("needs_rag"):
