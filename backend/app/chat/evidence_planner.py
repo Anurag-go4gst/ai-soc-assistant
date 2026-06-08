@@ -260,6 +260,15 @@ def _apply_curated_enrichment(
 
     activation = resolve_use_case_activation(use_case_id)
     if not activation.governed_enrichment_load_allowed:
+        if _should_catalog_project_when_enrichment_blocked(use_case_id, activation):
+            return _apply_catalog_projection(
+                plan,
+                use_case_id=use_case_id,
+                query_to_intent=query_to_intent,
+                query_understanding=query_understanding,
+                runtime_support_status=activation.runtime_support_status,
+                evidence_plan_reason="curated_enrichment_not_runtime_active",
+            )
         return plan.model_copy(
             update={
                 "use_case_id": use_case_id,
@@ -313,6 +322,83 @@ def _apply_curated_enrichment(
             "reasons": list(dict.fromkeys(reasons)),
         }
     )
+
+
+def _should_catalog_project_when_enrichment_blocked(use_case_id: str, activation: Any) -> bool:
+    if use_case_id not in _CATALOG_PROJECTION_WHEN_INACTIVE:
+        return False
+    if get_content_enrichment(use_case_id) is None:
+        return False
+    if activation.runtime_support_status in {"metadata_only", "unsupported"}:
+        return False
+    return True
+
+
+def _evidence_plan_has_guidance(plan: dict[str, Any] | None) -> bool:
+    if not isinstance(plan, dict):
+        return False
+    return bool(
+        plan.get("checklist")
+        or plan.get("investigation_workflow")
+        or plan.get("required_evidence_keys")
+        or plan.get("limitations")
+    )
+
+
+def _merge_catalog_evidence_plan(base: dict[str, Any], catalog: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key in (
+        "required_evidence_keys",
+        "optional_evidence_keys",
+        "present_evidence_keys",
+        "missing_required_evidence",
+        "checklist",
+        "investigation_workflow",
+        "answer_rules",
+        "limitations",
+        "unsupported_claims_avoid",
+        "mitre_candidates_metadata_only",
+        "required_sources",
+        "optional_sources",
+        "recommended_pivots",
+    ):
+        if not merged.get(key) and catalog.get(key):
+            merged[key] = catalog[key]
+    if _evidence_plan_has_guidance(catalog) and merged.get("evidence_plan_reason") in {
+        "curated_enrichment_not_runtime_active",
+        "curated_enrichment_context_unavailable",
+    }:
+        merged["evidence_plan_reason"] = catalog.get("evidence_plan_reason") or merged.get(
+            "evidence_plan_reason"
+        )
+    return merged
+
+
+def resolve_analyst_evidence_plan(
+    evidence_plan: dict[str, Any] | EvidencePlan | None,
+    *,
+    use_case_id: str | None,
+    intent_classification: dict[str, Any] | None = None,
+    query_to_intent: dict[str, Any] | None = None,
+    query_understanding: Any = None,
+) -> dict[str, Any] | None:
+    """Ensure analyst-facing evidence plans include catalog guidance when enrichment is blocked."""
+    plan_dict = (
+        evidence_plan.model_dump()
+        if isinstance(evidence_plan, EvidencePlan)
+        else (evidence_plan if isinstance(evidence_plan, dict) else None)
+    )
+    if plan_dict and _evidence_plan_has_guidance(plan_dict):
+        return plan_dict
+    catalog = build_catalog_display_evidence_plan(
+        use_case_id=use_case_id,
+        intent_classification=intent_classification,
+        query_to_intent=query_to_intent,
+        query_understanding=query_understanding,
+    )
+    if catalog and plan_dict:
+        return _merge_catalog_evidence_plan(plan_dict, catalog)
+    return catalog or plan_dict
 
 
 def build_catalog_display_evidence_plan(

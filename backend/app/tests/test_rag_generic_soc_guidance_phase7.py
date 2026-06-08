@@ -345,6 +345,51 @@ def test_dns_answer_shows_required_evidence_and_checklist(monkeypatch) -> None:
         )
 
 
+def test_dns_docker_env_surfaces_guidance_when_enrichment_load_blocked(monkeypatch) -> None:
+    """Match production Docker: CP on, enrichment activation on, runtime load gate off."""
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", True)
+    monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
+
+    class _BlockedActivation:
+        governed_enrichment_load_allowed = False
+        runtime_support_status = None
+
+    monkeypatch.setattr(
+        "app.chat.evidence_planner.resolve_use_case_activation",
+        lambda _use_case_id: _BlockedActivation(),
+    )
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "For a DNS beaconing candidate, give me the investigation steps, evidence required, "
+                "MITRE mapping, limitations, and review-only SPL."
+            )
+        )
+    )
+
+    analyst = response.analyst_response
+    assert analyst is not None
+    assert analyst.required_evidence
+    assert analyst.analyst_checklist
+    assert analyst.investigation_steps or analyst.analyst_checklist
+    assert analyst.limitations
+    assert analyst.missing_evidence
+    assert (analyst.render_sections or {}).get("investigation_guidance") is True
+    contract = response.answer_contract or {}
+    section_order = contract.get("section_order") or analyst.section_order or []
+    if section_order:
+        guidance_idx = section_order.index("investigation_guidance")
+        mitre_idx = section_order.index("mitre_mapping")
+        spl_idx = section_order.index("spl_artifact") if "spl_artifact" in section_order else len(section_order)
+        assert guidance_idx < mitre_idx
+        assert guidance_idx < spl_idx
+    phase_keys = _analyst_guidance_phase_keys(analyst)
+    assert phase_keys.index("required-evidence") < phase_keys.index("mitre")
+    assert phase_keys.index("steps") < phase_keys.index("spl")
+
+
 def test_dns_legacy_path_surfaces_guidance_when_control_plane_off(monkeypatch) -> None:
     monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
@@ -378,6 +423,24 @@ def test_dns_legacy_path_surfaces_guidance_when_control_plane_off(monkeypatch) -
     assert payload.count("template active but source profile missing") <= 1
     if analyst.spl_status_detail:
         assert (analyst.review_notice or "").lower().count("source profile missing") == 0
+
+
+def _analyst_guidance_phase_keys(analyst: Any) -> list[str]:
+    """Mirror AnalystResponseCard phase keys for ordering regression checks."""
+    keys: list[str] = []
+    if analyst.investigation_steps or analyst.analyst_checklist:
+        keys.append("steps")
+    if analyst.required_evidence:
+        keys.append("required-evidence")
+    if analyst.missing_evidence:
+        keys.append("missing-evidence")
+    if analyst.limitations and (analyst.render_sections or {}).get("investigation_guidance", True):
+        keys.append("limitations")
+    if analyst.mitre_mappings:
+        keys.append("mitre")
+    if analyst.spl_code or analyst.spl_status_detail:
+        keys.append("spl")
+    return keys
 
 
 def _render_analyst_guidance_text(analyst: Any) -> str:
