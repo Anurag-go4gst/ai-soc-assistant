@@ -12,7 +12,10 @@ from app.threat.mitre_registry_schema import (
     MitreRegistryMetadata,
     MitreVisibilityPolicy,
 )
-from app.use_cases.content_enrichment import get_content_enrichment
+from app.use_cases.content_enrichment import (
+    get_content_enrichment,
+    runtime_enrichment_activation_allowed,
+)
 
 def _find_repo_root() -> Path:
     """Resolve the repo root in both the host checkout and the container.
@@ -267,6 +270,22 @@ def registry_mitre_metadata(
         if isinstance(item, dict):
             return normalize_legacy_mitre_fields(item, question_ref=None, use_case_id=use_case_id)
     return None
+
+
+def registry_mitre_metadata_for_runtime(
+    *,
+    question_ref: str | None = None,
+    use_case_id: str | None = None,
+) -> MitreRegistryMetadata | None:
+    """Runtime-safe MITRE registry lookup (flag + activation gate for enrichment paths)."""
+    if use_case_id and not runtime_enrichment_activation_allowed(use_case_id):
+        return None
+    if not use_case_id and question_ref:
+        from app.config import settings
+
+        if not settings.ai_soc_curated_enrichment_activation_enabled:
+            return None
+    return registry_mitre_metadata(question_ref=question_ref, use_case_id=use_case_id)
 
 
 def _merge_enrichment_mitre_candidates(

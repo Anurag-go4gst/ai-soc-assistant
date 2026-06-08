@@ -7,7 +7,7 @@ from app.chat.contracts.intent_classification import IntentClassification
 from app.config import settings
 from app.use_cases.content_enrichment import (
     CuratedEnrichmentContext,
-    load_curated_enrichment_context,
+    get_runtime_curated_enrichment,
     resolve_use_case_activation,
 )
 
@@ -232,7 +232,7 @@ def _apply_curated_enrichment(
     query_to_intent: dict[str, Any] | None,
     query_understanding: Any,
 ) -> EvidencePlan:
-    if not settings.ai_soc_planner_path_selection_enabled:
+    if not settings.ai_soc_curated_enrichment_activation_enabled:
         return plan
 
     activation = resolve_use_case_activation(use_case_id)
@@ -247,7 +247,7 @@ def _apply_curated_enrichment(
             )
         return plan
 
-    context = load_curated_enrichment_context(use_case_id)
+    context = get_runtime_curated_enrichment(use_case_id)
     if context is None:
         return plan
 

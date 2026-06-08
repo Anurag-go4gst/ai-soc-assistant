@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.config import settings
+
 CONTENT_ENRICHMENT_PATH = Path(__file__).with_name("content_enrichment.json")
 CATALOG_PATH = Path(__file__).with_name("catalog.json")
 CROSSWALK_PATH = Path(__file__).resolve().parents[3] / "docs" / "evals" / "soc_capability_crosswalk.json"
@@ -217,6 +219,20 @@ def resolve_use_case_activation(use_case_id: str | None) -> UseCaseActivationDec
     )
 
 
+def runtime_enrichment_activation_allowed(use_case_id: str | None) -> bool:
+    """Return True when curated enrichment may be used on runtime/evidence paths."""
+    if not use_case_id or not settings.ai_soc_curated_enrichment_activation_enabled:
+        return False
+    return resolve_use_case_activation(use_case_id).governed_enrichment_load_allowed
+
+
+def get_runtime_curated_enrichment(use_case_id: str | None) -> CuratedEnrichmentContext | None:
+    """Runtime-safe curated enrichment loader (flag + activation gate)."""
+    if not runtime_enrichment_activation_allowed(use_case_id):
+        return None
+    return load_curated_enrichment_context(use_case_id)
+
+
 def load_curated_enrichment_context(use_case_id: str | None) -> CuratedEnrichmentContext | None:
     activation = resolve_use_case_activation(use_case_id)
     if not activation.governed_enrichment_load_allowed:
@@ -281,6 +297,13 @@ def llm_facing_curated_enrichment_projection(context: CuratedEnrichmentContext |
         "activation_lifecycle_stage": context.activation_lifecycle_stage,
         "runtime_support_status": context.runtime_support_status,
     }
+
+
+def enrichment_spl_governance_for_runtime(use_case_id: str | None) -> dict[str, Any] | None:
+    """Runtime-safe SPL governance (flag + activation gate)."""
+    if not runtime_enrichment_activation_allowed(use_case_id):
+        return None
+    return enrichment_spl_governance(use_case_id)
 
 
 def enrichment_spl_governance(use_case_id: str | None) -> dict[str, Any] | None:

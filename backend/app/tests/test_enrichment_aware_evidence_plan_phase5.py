@@ -10,7 +10,7 @@ from app.query_understanding.parser import understand_query
 
 
 def _enriched_plan(query: str, use_case_id: str, monkeypatch):
-    monkeypatch.setattr(settings, "ai_soc_planner_path_selection_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", True)
     qu = understand_query(query)
     q2i = build_query_to_intent(query=query, query_understanding=qu, routed_skill="attack_discovery")
     return plan_evidence(
@@ -129,7 +129,7 @@ def test_mitre_candidates_remain_metadata_only_and_no_evidence_status_emitted(mo
 
 
 def test_flag_off_preserves_current_evidence_plan_behavior(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "ai_soc_planner_path_selection_enabled", False)
+    monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", False)
     query = "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours"
     qu = understand_query(query)
     q2i = build_query_to_intent(query=query, query_understanding=qu, routed_skill="attack_discovery")

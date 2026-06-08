@@ -10,7 +10,7 @@ from app.chat.contracts.planning_decision import BranchName, PlanningDecision
 from app.chat.query_signals import extract_query_signals
 from app.config import settings
 from app.use_cases.content_enrichment import (
-    load_curated_enrichment_context,
+    get_runtime_curated_enrichment,
     resolve_use_case_activation,
 )
 
@@ -124,7 +124,7 @@ def _build_planning_decision(
     blocked_tools = _blocked_tools(path_type, plan)
     live_skill = _live_execution_skill(routed_payload)
     activation = resolve_use_case_activation(use_case_id)
-    curated_context = load_curated_enrichment_context(use_case_id) if planner_path_selection_enabled else None
+    curated_context = get_runtime_curated_enrichment(use_case_id)
 
     runtime_status = crosswalk.get("runtime_support_status")
     planner_runtime_activation_allowed = (
