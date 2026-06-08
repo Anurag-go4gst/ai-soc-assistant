@@ -5,11 +5,13 @@ from __future__ import annotations
 import csv
 import json
 import re
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.pipeline import build_live_chat_response
@@ -24,7 +26,10 @@ DEMO_SCENARIO_PATH = REPO_ROOT / "docs" / "validation" / "demo_scenario_sheet.js
 CROSSWALK_PATH = REPO_ROOT / "docs" / "evals" / "soc_capability_crosswalk.json"
 
 SCHEMA_VERSION = "2026-06-08-clean-answer-v1"
+ANSWERS_SCHEMA_VERSION = "2026-06-08-clean-answer-answers-v1"
 EXPECTED_105_COUNT = 105
+DEFAULT_TIMEOUT_SECONDS = 0.0
+LIVE_COMPOSER_DEFAULT_TIMEOUT_SECONDS = 120.0
 
 _PROFILE_FLAGS: dict[str, bool] = {
     "control_plane_enabled": True,
@@ -326,6 +331,9 @@ def response_record_from_chat(response: Any) -> dict[str, Any]:
         ),
         "hil_status": hil_status,
         "hil_required": base.get("hil_required"),
+        "missing_evidence": [str(item) for item in missing],
+        "required_evidence": [str(item) for item in required],
+        "limitations": [str(item) for item in limitations],
         "missing_evidence_count": len(missing),
         "required_evidence_count": len(required),
         "limitations_count": len(limitations),
@@ -545,6 +553,151 @@ def classify_clean_response(
     return "pass", violations
 
 
+def final_verdict(
+    clean_status: str,
+    *,
+    source: str,
+    timed_out: bool = False,
+) -> str:
+    if timed_out:
+        return "REVIEW"
+    if clean_status == "pass":
+        return "PASS"
+    if clean_status == "display":
+        return "REVIEW"
+    if clean_status == "major" and source == "105_map":
+        return "REVIEW"
+    return "FAIL"
+
+
+def llm_provider_configured() -> bool:
+    candidates = (
+        settings.ai_soc_llm_local_base_url,
+        settings.ai_soc_llm_foundation_sec_instruct_base_url,
+        settings.foundation_sec_instruct_url,
+    )
+    return any(isinstance(value, str) and value.strip() for value in candidates)
+
+
+def _filter_eval_rows(
+    rows: list[dict[str, Any]],
+    *,
+    question_id: str | None,
+    resume_ids: set[str] | None,
+) -> list[dict[str, Any]]:
+    filtered = rows
+    if question_id:
+        filtered = [row for row in filtered if row.get("row_id") == question_id]
+    if resume_ids:
+        filtered = [row for row in filtered if row.get("row_id") not in resume_ids]
+    return filtered
+
+
+def _load_resume_ids(path: Path | None) -> set[str]:
+    if path is None or not path.is_file():
+        return set()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    return {str(row.get("row_id")) for row in payload.get("rows") or [] if row.get("row_id")}
+
+
+def _run_chat_eval_callable(query: str) -> tuple[Any, Any]:
+    response = build_live_chat_response(ChatRequest(message=query))
+    final_guard = validate_final_answer(
+        analyst_response=response.analyst_response,
+        answer_contract=response.answer_contract if isinstance(response.answer_contract, dict) else None,
+        evidence_plan=response.evidence_plan if isinstance(response.evidence_plan, dict) else None,
+        mitre_decision=response.mitre_decision if isinstance(response.mitre_decision, dict) else None,
+        human_review=(
+            response.human_review.model_dump() if response.human_review is not None else None
+        ),
+    )
+    return response, final_guard
+
+
+def _evaluate_row(
+    meta: dict[str, Any],
+    *,
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    query = meta["query"]
+    started = time.perf_counter()
+    exception_text: str | None = None
+    record: dict[str, Any] | None = None
+    final_guard = None
+    timed_out = False
+    try:
+        if timeout_seconds > 0:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_run_chat_eval_callable, query)
+                try:
+                    response, final_guard = future.result(timeout=timeout_seconds)
+                except FuturesTimeoutError:
+                    timed_out = True
+                    exception_text = f"TimeoutError:exceeded_{timeout_seconds}s"
+        else:
+            response, final_guard = _run_chat_eval_callable(query)
+        if not timed_out:
+            record = response_record_from_chat(response)
+    except Exception as exc:  # noqa: BLE001 — eval must capture pipeline failures
+        exception_text = f"{type(exc).__name__}:{exc}"
+
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    if timed_out:
+        status, violations = "critical", [
+            _violation("critical", "eval_timeout", f"Question exceeded {timeout_seconds}s timeout.")
+        ]
+    else:
+        status, violations = classify_clean_response(
+            meta,
+            record,
+            exception=exception_text,
+            final_guard=final_guard,
+        )
+    verdict = final_verdict(status, source=str(meta.get("source") or ""), timed_out=timed_out)
+    return {
+        "row_id": meta["row_id"],
+        "source": meta["source"],
+        "query": query,
+        "expected_use_case_id": meta.get("expected_use_case_id"),
+        "expected_path_type": meta.get("expected_path_type"),
+        "actual_use_case_id": record.get("use_case_id") if record else None,
+        "path_type": record.get("path_type") if record else None,
+        "branches": record.get("branches") if record else [],
+        "response_profile": record.get("response_profile") if record else None,
+        "runtime_support_status": record.get("runtime_support_status") if record else None,
+        "severity_label": record.get("severity_label") if record else None,
+        "mitre_candidate_techniques": record.get("mitre_candidate_techniques") if record else [],
+        "mitre_evidence_supported_techniques": record.get("mitre_evidence_supported_techniques") if record else [],
+        "mitre_not_claimed_techniques": record.get("mitre_not_claimed_techniques") if record else [],
+        "spl_status": record.get("spl_status") if record else None,
+        "execution_status": record.get("execution_status") if record else None,
+        "hil_status": record.get("hil_status") if record else None,
+        "missing_evidence": record.get("missing_evidence") if record else [],
+        "required_evidence": record.get("required_evidence") if record else [],
+        "limitations": record.get("limitations") if record else [],
+        "missing_evidence_count": record.get("missing_evidence_count") if record else 0,
+        "required_evidence_count": record.get("required_evidence_count") if record else 0,
+        "limitations_count": record.get("limitations_count") if record else 0,
+        "answer_text": record.get("answer_text") if record else None,
+        "clean_response_status": status,
+        "violations": violations,
+        "final_verdict": verdict,
+        "duration_ms": duration_ms,
+        "timed_out": timed_out,
+        "parity": None,
+    }
+
+
+def _attach_parity_rows(rows: list[dict[str, Any]], parity_index: dict[str, dict[str, Any]]) -> None:
+    for row in rows:
+        parity = parity_index.get(str(row.get("row_id")))
+        if parity is not None:
+            row["parity"] = parity
+
+
 def validate_check_report(report: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     summary = report.get("summary") or {}
@@ -553,6 +706,8 @@ def validate_check_report(report: dict[str, Any]) -> list[str]:
     if summary.get("unsafe_execution_flags_enforced") is False:
         failures.append("unsafe_execution_flags_not_enforced")
     for row in report.get("rows") or []:
+        if row.get("timed_out"):
+            failures.append(f"{row.get('row_id')}:eval_timeout")
         status = row.get("clean_response_status")
         source = row.get("source")
         for violation in row.get("violations") or []:
@@ -570,6 +725,8 @@ class CleanAnswerEvalResult:
     report: dict[str, Any]
     markdown: str
     failures: list[str]
+    answers_report: dict[str, Any] | None = None
+    answers_markdown: str | None = None
 
 
 def _fake_retrieve_soc_kb(**kwargs: Any) -> dict[str, Any]:
@@ -603,6 +760,15 @@ def run_clean_answer_eval(
     include_manual: bool = True,
     live_composer: bool = False,
     rag_retriever: Any = _fake_retrieve_soc_kb,
+    timeout_seconds: float | None = None,
+    question_id: str | None = None,
+    resume: bool = False,
+    resume_path: Path | None = None,
+    max_concurrency: int = 1,
+    include_parity: bool = False,
+    parity_index: dict[str, dict[str, Any]] | None = None,
+    emit_answers: bool = False,
+    on_row_complete: Callable[[dict[str, Any]], None] | None = None,
 ) -> CleanAnswerEvalResult:
     eval_rows = load_eval_rows(
         include_105=include_105,
@@ -613,82 +779,60 @@ def run_clean_answer_eval(
     if include_105 and len(base_105) != EXPECTED_105_COUNT:
         raise RuntimeError("105_question_load_failed")
 
+    resume_ids = _load_resume_ids(resume_path) if resume else set()
+    prior_rows: list[dict[str, Any]] = []
+    if resume and resume_path and resume_path.is_file():
+        try:
+            prior_payload = json.loads(resume_path.read_text(encoding="utf-8"))
+            prior_rows = list(prior_payload.get("rows") or [])
+        except (OSError, json.JSONDecodeError):
+            prior_rows = []
+
+    eval_rows = _filter_eval_rows(eval_rows, question_id=question_id, resume_ids=resume_ids if resume else None)
     if limit is not None:
         eval_rows = eval_rows[:limit]
+
+    effective_timeout = DEFAULT_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+    if live_composer and effective_timeout <= 0:
+        effective_timeout = LIVE_COMPOSER_DEFAULT_TIMEOUT_SECONDS
 
     import app.chat.pipeline as pipeline_mod
 
     original_retriever = pipeline_mod.retrieve_soc_kb
     pipeline_mod.retrieve_soc_kb = rag_retriever
-    result_rows: list[dict[str, Any]] = []
+    result_rows: list[dict[str, Any]] = list(prior_rows)
     try:
         with clean_answer_profile(live_composer=live_composer):
-            for meta in eval_rows:
-                query = meta["query"]
-                exception_text: str | None = None
-                record: dict[str, Any] | None = None
-                final_guard = None
-                try:
-                    response = build_live_chat_response(ChatRequest(message=query))
-                    record = response_record_from_chat(response)
-                    final_guard = validate_final_answer(
-                        analyst_response=response.analyst_response,
-                        answer_contract=response.answer_contract if isinstance(response.answer_contract, dict) else None,
-                        evidence_plan=response.evidence_plan if isinstance(response.evidence_plan, dict) else None,
-                        mitre_decision=response.mitre_decision if isinstance(response.mitre_decision, dict) else None,
-                        human_review=(
-                            response.human_review.model_dump()
-                            if response.human_review is not None
-                            else None
-                        ),
-                    )
-                except Exception as exc:  # noqa: BLE001 — eval must capture pipeline failures
-                    exception_text = f"{type(exc).__name__}:{exc}"
-
-                status, violations = classify_clean_response(
-                    meta,
-                    record,
-                    exception=exception_text,
-                    final_guard=final_guard,
-                )
-                result_rows.append(
-                    {
-                        "row_id": meta["row_id"],
-                        "source": meta["source"],
-                        "query": query,
-                        "expected_use_case_id": meta.get("expected_use_case_id"),
-                        "actual_use_case_id": record.get("use_case_id") if record else None,
-                        "path_type": record.get("path_type") if record else None,
-                        "branches": record.get("branches") if record else [],
-                        "response_profile": record.get("response_profile") if record else None,
-                        "runtime_support_status": record.get("runtime_support_status") if record else None,
-                        "severity_label": record.get("severity_label") if record else None,
-                        "mitre_candidate_techniques": record.get("mitre_candidate_techniques") if record else [],
-                        "mitre_evidence_supported_techniques": record.get("mitre_evidence_supported_techniques") if record else [],
-                        "mitre_not_claimed_techniques": record.get("mitre_not_claimed_techniques") if record else [],
-                        "spl_status": record.get("spl_status") if record else None,
-                        "execution_status": record.get("execution_status") if record else None,
-                        "hil_status": record.get("hil_status") if record else None,
-                        "missing_evidence_count": record.get("missing_evidence_count") if record else 0,
-                        "required_evidence_count": record.get("required_evidence_count") if record else 0,
-                        "limitations_count": record.get("limitations_count") if record else 0,
-                        "answer_text": record.get("answer_text") if record else None,
-                        "clean_response_status": status,
-                        "violations": violations,
-                    }
-                )
+            if max_concurrency > 1:
+                with ThreadPoolExecutor(max_workers=max_concurrency) as pool:
+                    futures = [pool.submit(_evaluate_row, meta, timeout_seconds=effective_timeout) for meta in eval_rows]
+                    for future in futures:
+                        row = future.result()
+                        result_rows.append(row)
+                        if on_row_complete is not None:
+                            on_row_complete(row)
+            else:
+                for meta in eval_rows:
+                    row = _evaluate_row(meta, timeout_seconds=effective_timeout)
+                    result_rows.append(row)
+                    if on_row_complete is not None:
+                        on_row_complete(row)
     finally:
         pipeline_mod.retrieve_soc_kb = original_retriever
+
+    if include_parity and parity_index:
+        _attach_parity_rows(result_rows, parity_index)
 
     profile = {**_PROFILE_FLAGS, **(_LIVE_COMPOSER_FLAGS if live_composer else {})}
     summary = _build_summary(
         result_rows,
         base_105_loaded=len(base_105),
-        manual_loaded=len([r for r in eval_rows if r["source"] == "manual"]),
-        demo_loaded=len([r for r in eval_rows if r["source"] == "demo_scenario"]),
+        manual_loaded=len([r for r in load_eval_rows(include_105=False, include_demo=False, include_manual=True) if r["source"] == "manual"]),
+        demo_loaded=len([r for r in load_eval_rows(include_105=False, include_demo=True, include_manual=False) if r["source"] == "demo_scenario"]),
         live_composer=live_composer,
         include_105=include_105,
         profile=profile,
+        timeout_seconds=effective_timeout,
     )
     report = {
         "schema_version": SCHEMA_VERSION,
@@ -699,7 +843,15 @@ def run_clean_answer_eval(
     }
     markdown = render_summary_markdown(report)
     failures = validate_check_report(report)
-    return CleanAnswerEvalResult(report=report, markdown=markdown, failures=failures)
+    answers_report = build_answers_report(report) if emit_answers else None
+    answers_markdown = render_answers_markdown(answers_report) if answers_report else None
+    return CleanAnswerEvalResult(
+        report=report,
+        markdown=markdown,
+        failures=failures,
+        answers_report=answers_report,
+        answers_markdown=answers_markdown,
+    )
 
 
 def _build_summary(
@@ -711,14 +863,21 @@ def _build_summary(
     live_composer: bool,
     include_105: bool,
     profile: dict[str, bool],
+    timeout_seconds: float = 0.0,
 ) -> dict[str, Any]:
     status_counts: dict[str, int] = {"pass": 0, "display": 0, "major": 0, "critical": 0}
+    verdict_counts: dict[str, int] = {"PASS": 0, "REVIEW": 0, "FAIL": 0}
     category_counts: dict[str, int] = {}
     top_failures: list[dict[str, Any]] = []
+    durations: list[int] = []
 
     for row in rows:
         status = str(row.get("clean_response_status") or "critical")
         status_counts[status] = status_counts.get(status, 0) + 1
+        verdict = str(row.get("final_verdict") or final_verdict(status, source=str(row.get("source") or "")))
+        verdict_counts[verdict] = verdict_counts.get(verdict, 0) + 1
+        if isinstance(row.get("duration_ms"), int):
+            durations.append(int(row["duration_ms"]))
         for violation in row.get("violations") or []:
             category = str(violation.get("category") or "unknown")
             category_counts[category] = category_counts.get(category, 0) + 1
@@ -729,9 +888,12 @@ def _build_summary(
                     "source": row.get("source"),
                     "query": row.get("query"),
                     "status": status,
+                    "final_verdict": verdict,
                     "violations": [v.get("category") for v in row.get("violations") or []],
                 }
             )
+
+    avg_runtime_ms = int(sum(durations) / len(durations)) if durations else 0
 
     return {
         "total_evaluated": len(rows),
@@ -739,18 +901,30 @@ def _build_summary(
         "manual_loaded": manual_loaded,
         "demo_loaded": demo_loaded,
         "clean_pass_count": status_counts.get("pass", 0),
+        "pass_count": verdict_counts.get("PASS", 0),
+        "review_count": verdict_counts.get("REVIEW", 0),
+        "fail_count": verdict_counts.get("FAIL", 0),
         "critical_failures": status_counts.get("critical", 0),
         "major_failures": status_counts.get("major", 0),
         "display_failures": status_counts.get("display", 0),
         "failure_categories": category_counts,
         "top_failing_questions": top_failures[:20],
+        "average_runtime_ms": avg_runtime_ms,
+        "timeout_seconds": timeout_seconds,
         "include_105": include_105,
         "unsafe_execution_flags_enforced": not (
             profile.get("mcp_global_execution_enabled") or profile.get("mcp_server_mock_execution_enabled")
         ),
+        "spl_mcp_execution_enabled": bool(
+            profile.get("mcp_global_execution_enabled") or profile.get("mcp_server_mock_execution_enabled")
+        ),
         "langgraph_orchestration_enabled": bool(profile.get("langgraph_orchestration_enabled")),
         "live_composer": live_composer,
+        "llm_provider_configured": llm_provider_configured(),
         "evaluation_only": True,
+        "human_review_answers_json": "docs/evals/soc_clean_answer_eval_answers.json",
+        "human_review_answers_md": "docs/evals/soc_clean_answer_eval_answers.md",
+        "langgraph_parity_answers_md": "docs/evals/langgraph_dual_parity_answers.md",
     }
 
 
@@ -768,15 +942,25 @@ def render_summary_markdown(report: dict[str, Any]) -> str:
         f"- Manual questions loaded: **{summary.get('manual_loaded')}**",
         f"- Demo scenarios loaded: **{summary.get('demo_loaded')}**",
         f"- Clean pass: **{summary.get('clean_pass_count')}**",
+        f"- Verdict PASS / REVIEW / FAIL: **{summary.get('pass_count')}** / **{summary.get('review_count')}** / **{summary.get('fail_count')}**",
         f"- Critical failures: **{summary.get('critical_failures')}**",
         f"- Major failures: **{summary.get('major_failures')}**",
         f"- Display failures: **{summary.get('display_failures')}**",
+        f"- Average runtime: **{summary.get('average_runtime_ms')}** ms",
+        "",
+        "## Human-review evidence",
+        "",
+        f"- Answers JSON: `{summary.get('human_review_answers_json')}`",
+        f"- Answers Markdown: `{summary.get('human_review_answers_md')}`",
+        f"- LangGraph parity details: `{summary.get('langgraph_parity_answers_md')}`",
         "",
         "## Safety enforcement",
         "",
         f"- MCP execution flags enforced (disabled): **{summary.get('unsafe_execution_flags_enforced')}**",
         f"- LangGraph orchestration enabled: **{summary.get('langgraph_orchestration_enabled')}**",
         f"- Live composer mode: **{summary.get('live_composer')}**",
+        f"- LLM provider configured: **{summary.get('llm_provider_configured')}**",
+        f"- SPL/MCP execution enabled: **{summary.get('spl_mcp_execution_enabled')}** (must be false)",
         "",
         "## Failure categories",
         "",
@@ -800,18 +984,140 @@ def render_summary_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def build_answers_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": ANSWERS_SCHEMA_VERSION,
+        "generated_at": report.get("generated_at"),
+        "profile": report.get("profile"),
+        "summary": report.get("summary"),
+        "rows": report.get("rows") or [],
+    }
+
+
+def render_answers_markdown(answers_report: dict[str, Any] | None) -> str:
+    if not answers_report:
+        return ""
+    summary = answers_report.get("summary") or {}
+    lines = [
+        "# SOC clean-answer human-review evidence pack",
+        "",
+        "Full question, answer, evaluation fields, and LangGraph parity comparison per row.",
+        "",
+        f"- Generated: `{answers_report.get('generated_at')}`",
+        f"- Schema: `{answers_report.get('schema_version')}`",
+        f"- Total evaluated: **{summary.get('total_evaluated')}**",
+        f"- PASS / REVIEW / FAIL: **{summary.get('pass_count')}** / **{summary.get('review_count')}** / **{summary.get('fail_count')}**",
+        f"- Average runtime: **{summary.get('average_runtime_ms')}** ms",
+        f"- Live composer: **{summary.get('live_composer')}**",
+        f"- LLM provider configured: **{summary.get('llm_provider_configured')}**",
+        f"- SPL/MCP execution enabled: **{summary.get('spl_mcp_execution_enabled')}**",
+        "",
+    ]
+    for index, row in enumerate(answers_report.get("rows") or [], start=1):
+        lines.extend(_render_answer_row_markdown(row, index=index))
+    return "\n".join(lines) + "\n"
+
+
+def _render_answer_row_markdown(row: dict[str, Any], *, index: int) -> list[str]:
+    lines = [
+        f"## {index}. `{row.get('row_id')}` — {row.get('final_verdict')}",
+        "",
+        f"- **Source:** {row.get('source')}",
+        f"- **Clean status:** {row.get('clean_response_status')}",
+        f"- **Duration:** {row.get('duration_ms')} ms",
+        f"- **Timed out:** {row.get('timed_out')}",
+        "",
+        "### Question",
+        "",
+        str(row.get("query") or ""),
+        "",
+        "### Expected",
+        "",
+        f"- use_case_id: `{row.get('expected_use_case_id')}`",
+        f"- path_type: `{row.get('expected_path_type')}`",
+        "",
+        "### Actual structured fields",
+        "",
+        f"- use_case_id: `{row.get('actual_use_case_id')}`",
+        f"- path_type: `{row.get('path_type')}`",
+        f"- branches: `{row.get('branches')}`",
+        f"- response_profile: `{row.get('response_profile')}`",
+        f"- runtime_support_status: `{row.get('runtime_support_status')}`",
+        f"- severity: `{row.get('severity_label')}`",
+        f"- MITRE candidate: `{row.get('mitre_candidate_techniques')}`",
+        f"- MITRE evidence-supported: `{row.get('mitre_evidence_supported_techniques')}`",
+        f"- MITRE not-claimed: `{row.get('mitre_not_claimed_techniques')}`",
+        f"- SPL status: `{row.get('spl_status')}`",
+        f"- execution status: `{row.get('execution_status')}`",
+        f"- HIL status: `{row.get('hil_status')}`",
+        f"- missing evidence: `{row.get('missing_evidence')}`",
+        f"- required evidence: `{row.get('required_evidence')}`",
+        f"- limitations: `{row.get('limitations')}`",
+        "",
+        "### Full answer text",
+        "",
+        str(row.get("answer_text") or "_(none)_"),
+        "",
+        "### Violations",
+        "",
+    ]
+    violations = row.get("violations") or []
+    if violations:
+        for violation in violations:
+            lines.append(
+                f"- `{violation.get('severity')}` / `{violation.get('category')}` — {violation.get('message')}"
+            )
+    else:
+        lines.append("- _(none)_")
+    parity = row.get("parity")
+    lines.extend(["", "### LangGraph parity", ""])
+    if isinstance(parity, dict):
+        lines.extend(
+            [
+                f"- imperative path_type: `{parity.get('imperative_path_type')}`",
+                f"- graph path_type: `{parity.get('graph_path_type')}`",
+                f"- imperative branches: `{parity.get('imperative_branches')}`",
+                f"- graph branches: `{parity.get('graph_branches')}`",
+                f"- severity match: `{parity.get('severity_match')}`",
+                f"- MITRE bucket match: `{parity.get('mitre_bucket_match')}`",
+                f"- SPL status match: `{parity.get('spl_status_match')}`",
+                f"- execution status match: `{parity.get('execution_status_match')}`",
+                f"- HIL status match: `{parity.get('hil_status_match')}`",
+                f"- parity verdict: `{parity.get('parity_verdict')}`",
+                f"- diff details: `{parity.get('diff_details')}`",
+                f"- graph nodes visited: `{parity.get('graph_nodes_visited')}`",
+            ]
+        )
+        branch_results = parity.get("graph_branch_results")
+        if branch_results:
+            lines.extend(["", "```json", json.dumps(branch_results, indent=2), "```"])
+    else:
+        lines.append("- _(not evaluated)_")
+    lines.append("")
+    return lines
+
+
 def write_clean_answer_outputs(
     result: CleanAnswerEvalResult,
     *,
     json_path: Path,
     markdown_path: Path,
     csv_path: Path | None = None,
+    answers_json_path: Path | None = None,
+    answers_markdown_path: Path | None = None,
 ) -> None:
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(result.report, indent=2, sort_keys=True), encoding="utf-8")
     markdown_path.write_text(result.markdown, encoding="utf-8")
     if csv_path is not None:
         _write_csv(result.report.get("rows") or [], csv_path)
+    if result.answers_report is not None and answers_json_path is not None:
+        answers_json_path.write_text(
+            json.dumps(result.answers_report, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    if result.answers_markdown and answers_markdown_path is not None:
+        answers_markdown_path.write_text(result.answers_markdown, encoding="utf-8")
 
 
 def _write_csv(rows: list[dict[str, Any]], path: Path) -> None:

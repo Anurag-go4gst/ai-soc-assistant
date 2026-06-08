@@ -24,6 +24,8 @@ Canonical command:
 | LangGraph dual-run parity `--check` | exit 0 (Phase 13) |
 | SOC clean-answer eval `--check` | exit 0 (120 rows: 105 + 8 demo + 7 manual) |
 | SOC clean-answer eval pytest | `test_soc_clean_answer_eval.py` all pass |
+| SOC clean-answer `--emit-answers` | optional human-review JSON/MD (not in CI gate) |
+| LangGraph parity `--emit-details` | optional parity details MD (not in CI gate) |
 | SKILL_ENUM contract test | backend == harness |
 
 ## Recorded counts (2026-06-03)

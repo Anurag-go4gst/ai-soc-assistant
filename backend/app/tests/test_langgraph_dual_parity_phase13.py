@@ -10,14 +10,19 @@ from pathlib import Path
 import pytest
 
 from app.evals.langgraph_dual_parity import (
+    DETAILS_SCHEMA_VERSION,
     EXPECTED_105_COUNT,
     MANUAL_PARITY_SCENARIOS,
     SCHEMA_VERSION,
+    build_parity_index,
     classify_parity_row,
     load_eval_rows,
+    parity_comparison_for_human_review,
     parity_side_record,
+    render_details_markdown,
     run_dual_parity_eval,
     validate_check_report,
+    write_dual_parity_outputs,
 )
 from app.graph.planner_led_shadow_graph import governance_snapshot_from_response
 from app.schemas.requests import ChatRequest
@@ -170,6 +175,41 @@ def test_cli_check_passes_on_subset() -> None:
         check=False,
     )
     assert proc.returncode == 0, proc.stderr
+
+
+def test_emit_details_markdown_contains_graph_trace(tmp_path: Path) -> None:
+    result = run_dual_parity_eval(limit=2, include_demo=False, include_manual=False)
+    row = result.report["rows"][0]
+    assert row.get("graph_nodes_visited")
+    assert row.get("parity")
+    details_md = tmp_path / "details.md"
+    write_dual_parity_outputs(
+        result,
+        json_path=tmp_path / "report.json",
+        markdown_path=tmp_path / "summary.md",
+        details_markdown_path=details_md,
+    )
+    text = details_md.read_text(encoding="utf-8")
+    assert "nodes visited" in text
+    assert str(row.get("query")) in text
+
+
+def test_parity_index_links_clean_answer_rows() -> None:
+    result = run_dual_parity_eval(limit=4, include_demo=True, include_manual=False)
+    index = build_parity_index(result.report)
+    assert index
+    sample = next(iter(index.values()))
+    assert "parity_verdict" in sample
+    assert "imperative_path_type" in sample
+    comparison = parity_comparison_for_human_review(result.report["rows"][0])
+    assert comparison["parity_verdict"] in {"exact_match", "acceptable_diff", "mismatch"}
+
+
+def test_render_details_markdown_schema_banner() -> None:
+    result = run_dual_parity_eval(limit=1, include_demo=False, include_manual=False)
+    md = render_details_markdown(result.report)
+    assert DETAILS_SCHEMA_VERSION in md
+    assert "prose differences are not failures" in md
 
 
 def test_parity_side_record_shape() -> None:

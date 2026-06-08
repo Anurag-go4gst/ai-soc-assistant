@@ -21,11 +21,13 @@ from app.evals.langgraph_dual_parity import (  # noqa: E402
 DEFAULT_JSON = REPO_ROOT / "docs" / "evals" / "langgraph_dual_parity_report.json"
 DEFAULT_MD = REPO_ROOT / "docs" / "evals" / "langgraph_dual_parity_summary.md"
 DEFAULT_CSV = REPO_ROOT / "docs" / "evals" / "langgraph_dual_parity_report.csv"
+DEFAULT_DETAILS_MD = REPO_ROOT / "docs" / "evals" / "langgraph_dual_parity_answers.md"
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Fail on critical parity mismatches")
+    parser.add_argument("--emit-details", action="store_true", help="Write human-review parity details Markdown")
     parser.add_argument("--limit", type=int, default=None, help="Limit rows (dev/test only)")
     parser.add_argument("--skip-105", action="store_true", help="Skip 105-question map rows")
     parser.add_argument("--skip-demo", action="store_true", help="Skip demo scenario rows")
@@ -33,6 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON)
     parser.add_argument("--md-out", type=Path, default=DEFAULT_MD)
     parser.add_argument("--csv-out", type=Path, default=DEFAULT_CSV)
+    parser.add_argument("--output-md", type=Path, default=DEFAULT_DETAILS_MD)
     parser.add_argument("--no-csv", action="store_true")
     args = parser.parse_args(argv)
 
@@ -47,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
         json_path=args.json_out,
         markdown_path=args.md_out,
         csv_path=None if args.no_csv else args.csv_out,
+        details_markdown_path=args.output_md if args.emit_details else None,
     )
     summary = result.report.get("summary") or {}
     print(
@@ -56,6 +60,8 @@ def main(argv: list[str] | None = None) -> int:
         f"acceptable={summary.get('acceptable_differences')}",
         f"mismatch={summary.get('mismatches')}",
     )
+    if args.emit_details:
+        print(f"details_md={args.output_md}")
     if args.check and result.failures:
         for failure in result.failures:
             print(f"CHECK_FAIL:{failure}", file=sys.stderr)

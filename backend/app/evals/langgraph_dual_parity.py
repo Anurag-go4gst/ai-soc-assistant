@@ -26,6 +26,7 @@ DEMO_SCENARIO_PATH = REPO_ROOT / "docs" / "validation" / "demo_scenario_sheet.js
 CROSSWALK_PATH = REPO_ROOT / "docs" / "evals" / "soc_capability_crosswalk.json"
 
 SCHEMA_VERSION = "2026-06-08-phase13-v1"
+DETAILS_SCHEMA_VERSION = "2026-06-08-phase13-details-v1"
 EXPECTED_105_COUNT = 105
 
 MANUAL_PARITY_SCENARIOS: list[dict[str, str]] = [
@@ -367,11 +368,49 @@ def validate_check_report(report: dict[str, Any]) -> list[str]:
     return failures
 
 
+def parity_comparison_for_human_review(row: dict[str, Any]) -> dict[str, Any]:
+    imperative = row.get("imperative") if isinstance(row.get("imperative"), dict) else {}
+    shadow = row.get("shadow") if isinstance(row.get("shadow"), dict) else {}
+    category = row.get("response_category")
+    parity_verdict = "exact_match" if category == "match" else category
+    return {
+        "imperative_path_type": row.get("imperative_path_type"),
+        "graph_path_type": row.get("shadow_path_type"),
+        "imperative_branches": row.get("imperative_branches"),
+        "graph_branches": row.get("shadow_branches"),
+        "severity_match": imperative.get("severity_label") == shadow.get("severity_label"),
+        "mitre_bucket_match": (
+            imperative.get("mitre_candidate_techniques") == shadow.get("mitre_candidate_techniques")
+            and imperative.get("mitre_evidence_supported_techniques")
+            == shadow.get("mitre_evidence_supported_techniques")
+            and imperative.get("mitre_not_claimed_techniques") == shadow.get("mitre_not_claimed_techniques")
+        ),
+        "spl_status_match": imperative.get("spl_generation_status") == shadow.get("spl_generation_status"),
+        "execution_status_match": imperative.get("execution_status") == shadow.get("execution_status"),
+        "hil_status_match": imperative.get("hil_required") == shadow.get("hil_required"),
+        "parity_verdict": parity_verdict,
+        "diff_details": row.get("diff_reasons") or [],
+        "critical_mismatch_categories": row.get("critical_mismatch_categories") or [],
+        "graph_nodes_visited": row.get("graph_nodes_visited") or [],
+        "graph_branch_results": row.get("graph_branch_results"),
+    }
+
+
+def build_parity_index(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for row in report.get("rows") or []:
+        row_id = row.get("row_id")
+        if row_id:
+            index[str(row_id)] = parity_comparison_for_human_review(row)
+    return index
+
+
 @dataclass
 class DualParityEvalResult:
     report: dict[str, Any]
     markdown: str
     failures: list[str]
+    details_markdown: str | None = None
 
 
 def _fake_retrieve_soc_kb(**kwargs: Any) -> dict[str, Any]:
@@ -424,7 +463,8 @@ def run_dual_parity_eval(
                 query = meta["query"]
                 request = ChatRequest(message=query)
                 imperative_response = build_live_chat_response(request)
-                shadow_response = shadow_graph_response(run_planner_led_shadow_graph(request))
+                graph_state = run_planner_led_shadow_graph(request)
+                shadow_response = shadow_graph_response(graph_state)
                 imperative = parity_side_record(imperative_response, side="imperative")
                 shadow = parity_side_record(shadow_response, side="shadow")
                 category, diff_reasons, critical = classify_parity_row(
@@ -432,6 +472,8 @@ def run_dual_parity_eval(
                     shadow,
                     runtime_active=bool(meta.get("runtime_active")),
                 )
+                graph_trace = graph_state.get("shadow_graph_trace") if isinstance(graph_state, dict) else {}
+                branch_results = graph_state.get("branch_results") if isinstance(graph_state, dict) else {}
                 result_rows.append(
                     {
                         "row_id": meta["row_id"],
@@ -448,6 +490,23 @@ def run_dual_parity_eval(
                         "response_category": category,
                         "diff_reasons": diff_reasons,
                         "critical_mismatch_categories": critical,
+                        "graph_nodes_visited": list((graph_trace or {}).get("visited_nodes") or []),
+                        "graph_branch_results": branch_results if isinstance(branch_results, dict) else None,
+                        "parity": parity_comparison_for_human_review(
+                            {
+                                "imperative_path_type": imperative.get("path_type"),
+                                "shadow_path_type": shadow.get("path_type"),
+                                "imperative_branches": imperative.get("branches"),
+                                "shadow_branches": shadow.get("branches"),
+                                "imperative": imperative,
+                                "shadow": shadow,
+                                "response_category": category,
+                                "diff_reasons": diff_reasons,
+                                "critical_mismatch_categories": critical,
+                                "graph_nodes_visited": list((graph_trace or {}).get("visited_nodes") or []),
+                                "graph_branch_results": branch_results if isinstance(branch_results, dict) else None,
+                            }
+                        ),
                     }
                 )
     finally:
@@ -467,7 +526,8 @@ def run_dual_parity_eval(
     }
     markdown = render_summary_markdown(report)
     failures = validate_check_report(report)
-    return DualParityEvalResult(report=report, markdown=markdown, failures=failures)
+    details_markdown = render_details_markdown(report)
+    return DualParityEvalResult(report=report, markdown=markdown, failures=failures, details_markdown=details_markdown)
 
 
 def _build_summary(rows: list[dict[str, Any]], *, expected_minimum_total: int) -> dict[str, Any]:
@@ -560,18 +620,77 @@ def render_summary_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_details_markdown(report: dict[str, Any]) -> str:
+    summary = report.get("summary") or {}
+    lines = [
+        "# LangGraph dual-run parity human-review details",
+        "",
+        "Imperative vs shadow graph structured comparison — prose differences are not failures.",
+        "",
+        f"- Generated: `{report.get('generated_at')}`",
+        f"- Schema: `{DETAILS_SCHEMA_VERSION}`",
+        f"- Total evaluated: **{summary.get('total')}**",
+        f"- Exact matches: **{summary.get('exact_matches')}**",
+        f"- Acceptable differences: **{summary.get('acceptable_differences')}**",
+        f"- Mismatches: **{summary.get('mismatches')}**",
+        "",
+    ]
+    for index, row in enumerate(report.get("rows") or [], start=1):
+        parity = row.get("parity") if isinstance(row.get("parity"), dict) else parity_comparison_for_human_review(row)
+        lines.extend(
+            [
+                f"## {index}. `{row.get('row_id')}` — {parity.get('parity_verdict')}",
+                "",
+                f"- **Source:** {row.get('source')}",
+                "",
+                "### Question",
+                "",
+                str(row.get("query") or ""),
+                "",
+                "### Path comparison",
+                "",
+                f"- imperative path_type: `{parity.get('imperative_path_type')}`",
+                f"- graph path_type: `{parity.get('graph_path_type')}`",
+                f"- imperative branches: `{parity.get('imperative_branches')}`",
+                f"- graph branches: `{parity.get('graph_branches')}`",
+                "",
+                "### Field matches",
+                "",
+                f"- severity match: `{parity.get('severity_match')}`",
+                f"- MITRE bucket match: `{parity.get('mitre_bucket_match')}`",
+                f"- SPL status match: `{parity.get('spl_status_match')}`",
+                f"- execution status match: `{parity.get('execution_status_match')}`",
+                f"- HIL status match: `{parity.get('hil_status_match')}`",
+                f"- diff details: `{parity.get('diff_details')}`",
+                f"- critical mismatches: `{parity.get('critical_mismatch_categories')}`",
+                "",
+                "### Graph trace",
+                "",
+                f"- nodes visited: `{parity.get('graph_nodes_visited')}`",
+            ]
+        )
+        branch_results = parity.get("graph_branch_results")
+        if branch_results:
+            lines.extend(["", "```json", json.dumps(branch_results, indent=2), "```"])
+        lines.append("")
+    return "\n".join(lines) + "\n"
+
+
 def write_dual_parity_outputs(
     result: DualParityEvalResult,
     *,
     json_path: Path,
     markdown_path: Path,
     csv_path: Path | None = None,
+    details_markdown_path: Path | None = None,
 ) -> None:
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(result.report, indent=2, sort_keys=True), encoding="utf-8")
     markdown_path.write_text(result.markdown, encoding="utf-8")
     if csv_path is not None:
         _write_csv(result.report.get("rows") or [], csv_path)
+    if details_markdown_path is not None and result.details_markdown:
+        details_markdown_path.write_text(result.details_markdown, encoding="utf-8")
 
 
 def _write_csv(rows: list[dict[str, Any]], path: Path) -> None:
