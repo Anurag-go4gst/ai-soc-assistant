@@ -387,6 +387,7 @@ export interface AnalystResponseEnvelope {
   hil_status?: string | null;
   missing_evidence?: string[];
   analyst_checklist?: string[];
+  investigation_steps?: string[];
   unsupported_claims_avoid?: string[];
   mitre_status_summary?: Record<string, string[]>;
   direct_answer_summary?: string | null;

@@ -50,6 +50,7 @@ class AnswerContract(BaseModel):
     answer_rules_applied: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     analyst_checklist_safe: list[str] = Field(default_factory=list)
+    investigation_steps: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     unsupported_claims_avoid: list[str] = Field(default_factory=list)
     spl_status: SplStatus = "not_required"
@@ -184,6 +185,9 @@ def build_answer_contract(
 
     limitations = _dedupe([str(item) for item in plan.get("limitations") or [] if item])
     checklist = _safe_display_list(plan.get("checklist") or [])
+    investigation_steps = _safe_display_list(plan.get("investigation_workflow") or [])
+    if not investigation_steps:
+        investigation_steps = list(checklist)
     unsupported = _dedupe([str(item) for item in plan.get("unsupported_claims_avoid") or [] if item])
     assumptions = _safe_display_list((candidate_spl or {}).get("assumptions") or [])
     answer_rules = _safe_display_list(plan.get("answer_rules") or [])
@@ -194,7 +198,9 @@ def build_answer_contract(
         goals,
         answer_mode=answer_mode,
         intent_family=intent_family,
-        has_investigation_guidance=bool(required_evidence or checklist or limitations),
+        has_investigation_guidance=bool(
+            required_evidence or checklist or investigation_steps or limitations
+        ),
     )
     render = _render_sections(
         goals=goals,
@@ -204,7 +210,9 @@ def build_answer_contract(
         not_claimed=not_claimed,
         spl_present=spl_present,
         playbook_eligible="policy_citation" in goals or "procedural_steps" in goals or "analyst_action_guidance" in goals,
-        has_investigation_guidance=bool(required_evidence or checklist or limitations),
+        has_investigation_guidance=bool(
+            required_evidence or checklist or investigation_steps or limitations
+        ),
     )
 
     severity_label = None
@@ -230,6 +238,7 @@ def build_answer_contract(
         answer_rules_applied=answer_rules,
         limitations=limitations,
         analyst_checklist_safe=checklist,
+        investigation_steps=investigation_steps,
         assumptions=assumptions,
         unsupported_claims_avoid=unsupported,
         spl_status=spl_status,

@@ -71,6 +71,7 @@ def apply_final_answer_readability(
     payload["hil_status"] = contract.hil_status
     payload["missing_evidence"] = list(contract.missing_evidence)
     payload["analyst_checklist"] = list(contract.analyst_checklist_safe)
+    payload["investigation_steps"] = list(contract.investigation_steps)
     payload["unsupported_claims_avoid"] = list(contract.unsupported_claims_avoid)
     payload["mitre_status_summary"] = {
         "candidate": list(contract.candidate_mitre),
@@ -149,6 +150,10 @@ def _apply_knowledge_profile_cleanup(payload: dict[str, Any], contract: AnswerCo
         "ruled_out": [],
     }
     payload["limitations"] = []
+    payload["investigation_steps"] = []
+    payload["analyst_checklist"] = []
+    payload["required_evidence"] = []
+    payload["missing_evidence"] = []
     payload["spl_code"] = None
     payload["executed_spl"] = None
     payload["review_notice"] = None
@@ -240,7 +245,10 @@ def _dedupe_labels(payload: dict[str, Any], contract: AnswerContract) -> dict[st
     exec_label = contract.execution_status_display or ""
     review_notice = str(payload.get("review_notice") or "")
     spl_detail = contract.spl_status_detail or {}
-    if (
+    if spl_detail and not payload.get("spl_code"):
+        payload["review_notice"] = None
+        review_notice = ""
+    elif (
         not payload.get("spl_code")
         and spl_detail.get("template_status") == "active"
         and spl_detail.get("generation_status") == "blocked"

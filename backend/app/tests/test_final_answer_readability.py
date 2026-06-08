@@ -398,6 +398,9 @@ def test_dns_contract_uses_network_limitations_not_auth() -> None:
             "use_case_id": "dns_beaconing_candidate",
             "limitations": ["Beaconing requires periodicity, jitter, and destination reputation validation."],
             "checklist": ["Review DNS query cadence and rare destination context."],
+            "investigation_workflow": [
+                "Review periodicity, jitter, outbound volume, and domain rarity together.",
+            ],
             "required_evidence_keys": ["domain", "periodicity", "jitter"],
             "missing_required_evidence": ["domain", "periodicity", "jitter", "mfa_status"],
         },
@@ -414,6 +417,9 @@ def test_dns_contract_uses_network_limitations_not_auth() -> None:
         use_case_id="dns_beaconing_candidate",
     )
     result = apply_final_answer_readability(AnalystResponseEnvelope(response_profile="hybrid_alert_review"), contract)
+    assert result.investigation_steps == [
+        "Review periodicity, jitter, outbound volume, and domain rarity together.",
+    ]
     joined = " ".join(result.limitations).lower()
     assert "beaconing" in joined
     assert "mfa" not in joined

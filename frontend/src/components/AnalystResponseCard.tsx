@@ -1,6 +1,16 @@
 import { Badge } from '@/components/ui/badge';
 import type React from 'react';
-import { BookOpen, ChevronRight, Cpu, Crosshair, Database, ListChecks, Terminal } from 'lucide-react';
+import {
+  BookOpen,
+  ChevronRight,
+  Cpu,
+  Crosshair,
+  Database,
+  FileSearch,
+  ListChecks,
+  ShieldAlert,
+  Terminal,
+} from 'lucide-react';
 import type { AnalystResponseEnvelope, FoundationSecGovernance } from '@/types/api';
 import { cn } from '@/lib/utils';
 
@@ -44,7 +54,7 @@ export function AnalystResponseCard({
   const isHybridAlertReview = response.response_profile === 'hybrid_alert_review';
   const wasExecuted = response.execution_status === 'executed';
   const splReviewNotice =
-    response.spl_code && !wasExecuted
+    response.spl_code && !wasExecuted && !response.spl_status_detail
       ? response.execution_status_label ?? response.review_notice ?? 'Review only — not executed'
       : null;
   const summaryText = response.direct_answer_summary ?? response.one_sentence_finding;
@@ -52,13 +62,19 @@ export function AnalystResponseCard({
     summaryText && (response.direct_answer_summary || isHybridAlertReview || !response.spl_code),
   );
   const missingEvidence = formatMissingEvidence(response);
-  const showInvestigationGuidance = Boolean(
-    (renderSections.investigation_guidance || isHybridAlertReview) &&
-      (response.required_evidence?.length ||
-        missingEvidence.length ||
-        response.analyst_checklist?.length ||
-        response.limitations?.length),
+  const investigationSteps = response.investigation_steps?.length
+    ? response.investigation_steps
+    : response.analyst_checklist ?? [];
+  const showInvestigationSteps = Boolean(!isKnowledgeRecall && investigationSteps.length);
+  const showRequiredEvidence = Boolean(!isKnowledgeRecall && response.required_evidence?.length);
+  const showMissingEvidence = Boolean(!isKnowledgeRecall && missingEvidence.length);
+  const showGuidanceLimitations = Boolean(
+    !isKnowledgeRecall &&
+      response.limitations?.length &&
+      (renderSections.investigation_guidance ?? renderSections.limitations ?? true),
   );
+  const showInvestigationGuidance =
+    showInvestigationSteps || showRequiredEvidence || showMissingEvidence || showGuidanceLimitations;
   const showLimitations = Boolean(
     response.limitations?.length &&
       (renderSections.limitations ?? true) &&
@@ -66,7 +82,9 @@ export function AnalystResponseCard({
       !isKnowledgeRecall,
   );
   const severityShowsReviewRequired = /review required/i.test(response.severity_label ?? '');
-  const showReviewRequiredBadge = Boolean(response.review_notice && !severityShowsReviewRequired);
+  const showReviewRequiredBadge = Boolean(
+    response.review_notice && !severityShowsReviewRequired && !response.spl_status_detail,
+  );
   const showSpl = Boolean(response.spl_code && (renderSections.spl_artifact ?? true));
   const showLiveResults =
     (renderSections.live_results ?? true) &&
@@ -94,47 +112,47 @@ export function AnalystResponseCard({
   // assigned by render order, never hardcoded.
   const phases: Phase[] = [];
 
-  if (showInvestigationGuidance) {
+  if (showInvestigationSteps) {
     phases.push({
-      key: 'guidance',
-      label: 'Investigation guidance',
+      key: 'steps',
+      label: 'Investigation steps',
       icon: <ListChecks className="h-3.5 w-3.5" />,
       accent: 'amber',
-      chips: [{ text: 'Required evidence & checklist', variant: 'outline' }],
-      content: (
-        <>
-          {response.required_evidence?.length ? (
-            <div>
-              <SectionTitle>Required evidence</SectionTitle>
-              <BulletList items={response.required_evidence} />
-            </div>
-          ) : null}
-          {missingEvidence.length ? (
-            <div className={response.required_evidence?.length ? 'mt-4' : ''}>
-              <SectionTitle>Missing evidence</SectionTitle>
-              <BulletList items={missingEvidence} />
-            </div>
-          ) : null}
-          {response.analyst_checklist?.length ? (
-            <div className={response.required_evidence?.length || missingEvidence.length ? 'mt-4' : ''}>
-              <SectionTitle>Analyst checklist</SectionTitle>
-              <StepList items={response.analyst_checklist} />
-            </div>
-          ) : null}
-          {response.limitations?.length ? (
-            <div
-              className={
-                response.required_evidence?.length || missingEvidence.length || response.analyst_checklist?.length
-                  ? 'mt-4'
-                  : ''
-              }
-            >
-              <SectionTitle>Limitations</SectionTitle>
-              <BulletList items={response.limitations} />
-            </div>
-          ) : null}
-        </>
-      ),
+      chips: [{ text: 'Analyst workflow', variant: 'outline' }],
+      content: <StepList items={investigationSteps} />,
+    });
+  }
+
+  if (showRequiredEvidence) {
+    phases.push({
+      key: 'required-evidence',
+      label: 'Evidence required',
+      icon: <Database className="h-3.5 w-3.5" />,
+      accent: 'amber',
+      chips: [{ text: `${response.required_evidence?.length ?? 0} item(s)`, variant: 'outline' }],
+      content: <BulletList items={response.required_evidence ?? []} />,
+    });
+  }
+
+  if (showMissingEvidence) {
+    phases.push({
+      key: 'missing-evidence',
+      label: 'Missing evidence',
+      icon: <FileSearch className="h-3.5 w-3.5" />,
+      accent: 'amber',
+      chips: [{ text: `${missingEvidence.length} gap(s)`, variant: 'outline' }],
+      content: <BulletList items={missingEvidence} />,
+    });
+  }
+
+  if (showGuidanceLimitations) {
+    phases.push({
+      key: 'limitations',
+      label: 'Limitations',
+      icon: <ShieldAlert className="h-3.5 w-3.5" />,
+      accent: 'amber',
+      chips: [{ text: 'Governed caveats', variant: 'outline' }],
+      content: <BulletList items={response.limitations ?? []} />,
     });
   }
 

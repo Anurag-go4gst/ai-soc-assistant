@@ -218,8 +218,10 @@ def test_powershell_answer_shows_required_evidence_and_checklist(monkeypatch) ->
 
     analyst = response.analyst_response
     assert analyst is not None
+    assert analyst.investigation_steps or analyst.analyst_checklist
     assert analyst.required_evidence
     assert analyst.analyst_checklist
+    assert (analyst.render_sections or {}).get("investigation_guidance") is True
     assert response.evidence_plan.get("checklist")
     for key in (
         "host",
@@ -294,8 +296,10 @@ def test_dns_answer_shows_required_evidence_and_checklist(monkeypatch) -> None:
 
     analyst = response.analyst_response
     assert analyst is not None
+    assert analyst.investigation_steps or analyst.analyst_checklist
     assert analyst.required_evidence
     assert analyst.analyst_checklist
+    assert (analyst.render_sections or {}).get("investigation_guidance") is True
     for key in (
         "src",
         "dest",
@@ -328,6 +332,39 @@ def test_dns_answer_shows_required_evidence_and_checklist(monkeypatch) -> None:
     contract = response.answer_contract or {}
     assert not contract.get("ruled_out_mitre")
     assert "ruled out" not in str(analyst.direct_answer_summary or "").lower()
+    steps = " ".join(analyst.investigation_steps or analyst.analyst_checklist or []).lower()
+    assert "periodicity" in steps or "jitter" in steps
+    limitations = " ".join(analyst.limitations or []).lower()
+    assert "periodic" in limitations or "beaconing" in limitations or "benign" in limitations
+    if analyst.not_claimed:
+        reasons = " ".join(str(row.get("Reason") or "") for row in analyst.not_claimed).lower()
+        assert (
+            "insufficient" in reasons
+            or "not claimed" in reasons
+            or "required supporting evidence was not present" in reasons
+        )
+
+
+def test_dns_answer_surfaces_guidance_without_duplicate_spl_source_profile_message(monkeypatch) -> None:
+    _enable_phase7(monkeypatch)
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "For a DNS beaconing candidate, give me the investigation steps, evidence required, "
+                "MITRE mapping, limitations, and review-only SPL."
+            )
+        )
+    )
+
+    analyst = response.analyst_response
+    assert analyst is not None
+    payload = str(analyst.model_dump()).lower()
+    if analyst.spl_status_detail and analyst.spl_status_detail.get("block_reason"):
+        assert (analyst.review_notice or "").lower().count("source profile missing") == 0
+        assert payload.count("template active but source profile missing") == 0
+    if analyst.spl_status_detail:
+        assert payload.count("source profile missing") <= 1
 
 
 def test_dns_answer_uses_network_limitations_not_auth(monkeypatch) -> None:

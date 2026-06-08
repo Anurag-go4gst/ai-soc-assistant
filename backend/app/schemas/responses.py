@@ -310,6 +310,7 @@ class AnalystResponseEnvelope(BaseModel):
     hil_status: str | None = None
     missing_evidence: list[str] = []
     analyst_checklist: list[str] = []
+    investigation_steps: list[str] = []
     unsupported_claims_avoid: list[str] = []
     mitre_status_summary: dict[str, list[str]] = {}
     direct_answer_summary: str | None = None

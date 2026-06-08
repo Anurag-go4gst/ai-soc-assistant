@@ -11,6 +11,16 @@ from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.final_answer_readability import apply_final_answer_readability
 from app.threat.mitre_evidence_preconditions import PRECONDITION_BY_ID, not_claimed_reason
 
+_INVESTIGATION_GUIDANCE_USE_CASES = frozenset(
+    {
+        "edr_powershell_suspicious_command",
+        "dns_beaconing_candidate",
+        "dns_tunneling_candidate",
+        "dns_unusual_query_volume",
+        "edr_suspicious_process",
+    }
+)
+
 _FAILED_LOGIN_NUMERIC_COLUMNS = (
     "Failed logins",
     "fail_count",
@@ -102,12 +112,18 @@ def build_analyst_response_for_live(
         response_profile = "spl_only"
     elif plan.get("answer_mode") == "rag_only" or intent.get("intent_family") in {"sop_or_playbook", "policy_knowledge"}:
         response_profile = "knowledge_recall"
+    elif mitre_rows or str(plan.get("use_case_id") or "") in _INVESTIGATION_GUIDANCE_USE_CASES:
+        response_profile = "hybrid_alert_review"
     else:
         response_profile = None
 
     review_notice = None
     if isinstance(human_review, dict) and human_review.get("required"):
-        review_notice = str(human_review.get("safe_message_for_user") or "Analyst review is required before execution.")
+        review_type = str(human_review.get("review_type") or "")
+        if review_type != "intent_clarification":
+            review_notice = str(
+                human_review.get("safe_message_for_user") or "Analyst review is required before execution."
+            )
     elif spl_code and execution_status != "executed":
         review_notice = "Candidate SPL — review only, not executed."
 
