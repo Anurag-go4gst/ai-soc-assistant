@@ -430,6 +430,39 @@ def test_dns_contract_uses_network_limitations_not_auth() -> None:
     assert "jitter — Jitter measurement" in result.required_evidence
 
 
+def test_spl_status_detail_suppresses_redundant_review_notice_when_spl_present() -> None:
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "hybrid_alert_review",
+            "answer_goal": ["spl_artifact", "mitre_mapping"],
+        },
+        evidence_plan={
+            "answer_mode": "live_investigation",
+            "spl_allowed": True,
+            "use_case_id": "dns_beaconing_candidate",
+        },
+        mitre_decision={"answer_visible": True},
+        severity_decision=None,
+        spl_validation={
+            "approved": False,
+            "review_required": True,
+            "review_required_reason": "spl_validation_failed",
+            "spl_template_status": "active",
+        },
+        execution={"status": "skipped"},
+        human_review={"required": False},
+        use_case_id="dns_beaconing_candidate",
+    )
+    envelope = AnalystResponseEnvelope(
+        response_profile="hybrid_alert_review",
+        spl_code="search index=pgcil_soc sourcetype=pgcil:dns | head 10",
+        review_notice="Candidate SPL — review only, not executed.",
+    )
+    result = apply_final_answer_readability(envelope, contract)
+    assert result.spl_status_detail is not None
+    assert result.review_notice is None
+
+
 def test_investigation_actions_unglue_p2review_concatenation() -> None:
     contract = build_answer_contract(
         intent_classification={"answer_goal": ["analyst_action_guidance"]},

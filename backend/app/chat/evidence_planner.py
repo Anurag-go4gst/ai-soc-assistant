@@ -315,6 +315,73 @@ def _apply_curated_enrichment(
     )
 
 
+def build_catalog_display_evidence_plan(
+    *,
+    use_case_id: str | None,
+    intent_classification: dict[str, Any] | None = None,
+    query_to_intent: dict[str, Any] | None = None,
+    query_understanding: Any = None,
+) -> dict[str, Any] | None:
+    """Project catalog enrichment for analyst-card display when control plane is off."""
+    if not use_case_id or use_case_id not in _CATALOG_PROJECTION_WHEN_INACTIVE:
+        return None
+    if get_content_enrichment(use_case_id) is None:
+        return None
+
+    intent = intent_classification if isinstance(intent_classification, dict) else {}
+    if not intent and isinstance(query_to_intent, dict):
+        nested = query_to_intent.get("intent_classification")
+        intent = nested if isinstance(nested, dict) else {}
+    family = str(intent.get("intent_family") or "hybrid_alert_review")
+    if family in {"policy_knowledge", "sop_or_playbook", "knowledge_only", "mitre_explanation"}:
+        answer_mode = "rag_only"
+        rag_phase = "rag_only"
+        needs_rag = True
+        needs_spl = False
+        needs_mitre = family != "knowledge_only"
+    elif family == "hybrid_investigation_plus_policy":
+        answer_mode = "hybrid"
+        rag_phase = "pre_mcp"
+        needs_rag = True
+        needs_spl = True
+        needs_mitre = "mitre_mapping" in (intent.get("answer_goal") or [])
+    else:
+        answer_mode = "live_investigation"
+        rag_phase = "post_mcp"
+        needs_rag = False
+        needs_spl = True
+        needs_mitre = True
+
+    base = EvidencePlan(
+        answer_mode=answer_mode,
+        rag_phase=rag_phase,
+        needs_rag=needs_rag,
+        needs_spl=needs_spl,
+        needs_mcp=False,
+        needs_mitre=needs_mitre,
+        spl_allowed=answer_mode != "rag_only",
+        mcp_allowed=False,
+        policy_context_required=family in {"policy_knowledge", "sop_or_playbook"},
+        policy_context_recommended=family in {"knowledge_only", "mitre_explanation"},
+        reasons=["legacy_display_catalog_projection"],
+    )
+    plan = _apply_catalog_projection(
+        base,
+        use_case_id=use_case_id,
+        query_to_intent=query_to_intent,
+        query_understanding=query_understanding,
+        evidence_plan_reason="legacy_display_catalog_projection",
+    )
+    if not (
+        plan.checklist
+        or plan.investigation_workflow
+        or plan.required_evidence_keys
+        or plan.limitations
+    ):
+        return None
+    return plan.model_dump()
+
+
 def _apply_catalog_projection(
     plan: EvidencePlan,
     *,

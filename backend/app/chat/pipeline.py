@@ -69,7 +69,7 @@ from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
 from app.use_cases.content_enrichment import enrichment_spl_governance, enrichment_spl_governance_for_runtime
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
-from app.chat.evidence_planner import plan_evidence
+from app.chat.evidence_planner import build_catalog_display_evidence_plan, plan_evidence
 from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.negative_evidence_extractor import extract_negative_evidence
@@ -801,11 +801,28 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         use_case_label = getattr(response_use_case, "display_name", None) or getattr(
             response_use_case, "use_case_id", None
         )
+    intent_classification = state.get("intent_classification")
+    if intent_classification is None and isinstance(state.get("query_to_intent"), dict):
+        intent_classification = state.get("query_to_intent", {}).get("intent_classification")
+    resolved_use_case_id = (
+        response_use_case.use_case_id if response_use_case is not None else use_case_id
+    )
+    evidence_plan_for_analyst = state.get("evidence_plan")
+    if evidence_plan_for_analyst is None and resolved_use_case_id:
+        evidence_plan_for_analyst = build_catalog_display_evidence_plan(
+            use_case_id=resolved_use_case_id,
+            intent_classification=intent_classification,
+            query_to_intent=state.get("query_to_intent"),
+            query_understanding=state.get("query_understanding"),
+        )
     answer_contract = None
-    if settings.control_plane_enabled:
+    contract_evidence_plan = (
+        state.get("evidence_plan") if settings.control_plane_enabled else evidence_plan_for_analyst
+    )
+    if settings.control_plane_enabled or contract_evidence_plan:
         answer_contract = build_answer_contract(
-            intent_classification=state.get("intent_classification"),
-            evidence_plan=state.get("evidence_plan"),
+            intent_classification=intent_classification,
+            evidence_plan=contract_evidence_plan,
             mitre_decision=mitre_decision,
             severity_decision=severity_decision,
             spl_validation=spl_validation,
@@ -816,7 +833,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
             user_query=request.message,
             query_signals=_query_signals_from_state(state),
-            use_case_id=response_use_case.use_case_id if response_use_case is not None else use_case_id,
+            use_case_id=resolved_use_case_id,
         )
     answer_contract_payload = answer_contract.model_dump() if answer_contract is not None else None
     analyst_response = build_analyst_response_for_live(
@@ -833,8 +850,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
         execution=execution,
-        intent_classification=state.get("intent_classification"),
-        evidence_plan=state.get("evidence_plan"),
+        intent_classification=intent_classification,
+        evidence_plan=evidence_plan_for_analyst,
         severity_decision=severity_decision,
         answer_contract=answer_contract,
     )

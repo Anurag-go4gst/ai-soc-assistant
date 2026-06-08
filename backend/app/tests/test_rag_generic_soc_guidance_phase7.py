@@ -345,6 +345,56 @@ def test_dns_answer_shows_required_evidence_and_checklist(monkeypatch) -> None:
         )
 
 
+def test_dns_legacy_path_surfaces_guidance_when_control_plane_off(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", False)
+    monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "For a DNS beaconing candidate, give me the investigation steps, evidence required, "
+                "MITRE mapping, limitations, and review-only SPL."
+            )
+        )
+    )
+
+    analyst = response.analyst_response
+    assert analyst is not None
+    assert response.selected_use_case is not None
+    assert response.selected_use_case.use_case_id == "dns_beaconing_candidate"
+    assert analyst.required_evidence
+    assert analyst.analyst_checklist
+    assert analyst.investigation_steps or analyst.analyst_checklist
+    assert analyst.limitations
+    assert analyst.missing_evidence
+    assert (analyst.render_sections or {}).get("investigation_guidance") is True
+    rendered = _render_analyst_guidance_text(analyst)
+    assert "evidence" in rendered.lower()
+    steps = " ".join(analyst.investigation_steps or analyst.analyst_checklist or []).lower()
+    assert "periodicity" in steps or "jitter" in steps or "dns" in steps
+    limitation_text = " ".join(analyst.limitations or []).lower()
+    assert "periodic" in limitation_text or "beaconing" in limitation_text or "benign" in limitation_text
+    payload = str(analyst.model_dump()).lower()
+    assert payload.count("template active but source profile missing") <= 1
+    if analyst.spl_status_detail:
+        assert (analyst.review_notice or "").lower().count("source profile missing") == 0
+
+
+def _render_analyst_guidance_text(analyst: Any) -> str:
+    """Approximate AnalystResponseCard guidance phases for regression checks."""
+    parts = [
+        *(analyst.investigation_steps or []),
+        *(analyst.analyst_checklist or []),
+        *(analyst.required_evidence or []),
+        *(analyst.limitations or []),
+        *(analyst.missing_evidence or []),
+        analyst.direct_answer_summary or "",
+        analyst.one_sentence_finding or "",
+        analyst.review_notice or "",
+    ]
+    return " ".join(str(part) for part in parts if part)
+
+
 def test_dns_answer_surfaces_guidance_without_duplicate_spl_source_profile_message(monkeypatch) -> None:
     _enable_phase7(monkeypatch)
 

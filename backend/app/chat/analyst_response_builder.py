@@ -68,7 +68,14 @@ def build_analyst_response_for_live(
     # Single AnswerContract: prefer the pipeline-built projection; build only as
     # a fallback so the builder never makes a second, divergent contract.
     contract = answer_contract
-    if contract is None and settings.control_plane_enabled:
+    plan = evidence_plan if isinstance(evidence_plan, dict) else {}
+    has_display_plan = bool(
+        plan.get("checklist")
+        or plan.get("investigation_workflow")
+        or plan.get("required_evidence_keys")
+        or plan.get("limitations")
+    )
+    if contract is None and (settings.control_plane_enabled or has_display_plan):
         contract = build_answer_contract(
             intent_classification=intent_classification,
             evidence_plan=evidence_plan,
@@ -80,7 +87,6 @@ def build_analyst_response_for_live(
             mitre_mappings=mitre_mappings,
             user_query=user_query,
         )
-    plan = evidence_plan if isinstance(evidence_plan, dict) else {}
     intent = intent_classification if isinstance(intent_classification, dict) else {}
     summary = _governed_summary(
         analyst_summary,
