@@ -50,6 +50,18 @@ def apply_final_answer_readability(
     payload["spl_code"] = _format_spl_multiline(payload.get("spl_code"))
     payload["executed_spl"] = _format_spl_multiline(payload.get("executed_spl"))
     payload["execution_status_label"] = contract.execution_status_display
+    payload["spl_status"] = contract.spl_status
+    payload["hil_status"] = contract.hil_status
+    payload["missing_evidence"] = list(contract.missing_evidence)
+    payload["analyst_checklist"] = list(contract.analyst_checklist_safe)
+    payload["unsupported_claims_avoid"] = list(contract.unsupported_claims_avoid)
+    payload["mitre_status_summary"] = {
+        "candidate": list(contract.candidate_mitre),
+        "evidence_supported": list(contract.evidence_supported_mitre),
+        "requires_validation": list(contract.requires_validation_mitre),
+        "not_claimed": list(contract.not_claimed_mitre),
+        "ruled_out": list(contract.ruled_out_mitre),
+    }
     payload["limitations"] = _limitations_display(contract)
     payload["section_order"] = list(contract.section_order)
     payload["render_sections"] = dict(contract.render_sections)
@@ -161,6 +173,9 @@ def _apply_section_visibility(payload: dict[str, Any], contract: AnswerContract)
 
 
 def _limitations_display(contract: AnswerContract) -> list[str]:
+    if contract.limitations:
+        return list(contract.limitations)
+
     if contract.success_after_failure_context:
         return list(_ALERT_REVIEW_LIMITATIONS)
 

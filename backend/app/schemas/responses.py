@@ -306,6 +306,12 @@ class AnalystResponseEnvelope(BaseModel):
     review_notice: str | None = None
     evidence_summary: str | None = None
     execution_status_label: str | None = None
+    spl_status: str | None = None
+    hil_status: str | None = None
+    missing_evidence: list[str] = []
+    analyst_checklist: list[str] = []
+    unsupported_claims_avoid: list[str] = []
+    mitre_status_summary: dict[str, list[str]] = {}
     direct_answer_summary: str | None = None
     limitations: list[str] = []
     section_order: list[str] = []

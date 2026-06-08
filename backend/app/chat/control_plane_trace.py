@@ -44,6 +44,7 @@ def build_control_plane_trace(
         "sufficiency": context_sufficiency,
         "synthesis_mode": {"mode": synthesis_mode},
         "answer_contract": state.get("answer_contract"),
+        "answer_contract_v2": state.get("answer_contract"),
         "final_answer_validation": state.get("final_answer_validation"),
         "answer_guard": answer_guard,
         "source_evidence_refs": [

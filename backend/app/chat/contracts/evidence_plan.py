@@ -32,6 +32,7 @@ class EvidencePlan(BaseModel):
     missing_required_evidence: list[str] = Field(default_factory=list)
     enrichment_driven: bool = False
     checklist: list[str] = Field(default_factory=list)
+    answer_rules: list[str] = Field(default_factory=list)
     required_sources: list[str] = Field(default_factory=list)
     optional_sources: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)

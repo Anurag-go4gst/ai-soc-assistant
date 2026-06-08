@@ -27,6 +27,9 @@ ExecutionStatusLabel = Literal[
     "blocked_approval_required",
 ]
 
+SplStatus = Literal["not_required", "ready_for_review", "blocked", "review_required"]
+HilStatus = Literal["not_required", "required", "missing_evidence_review", "clarification_required"]
+
 
 class AnswerContract(BaseModel):
     """Read-only projection; makes no new authority decisions."""
@@ -43,6 +46,18 @@ class AnswerContract(BaseModel):
     severity_label: str | None = None
     severity_confidence: str | None = None
     missing_evidence: list[str] = Field(default_factory=list)
+    answer_rules_applied: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    analyst_checklist_safe: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    unsupported_claims_avoid: list[str] = Field(default_factory=list)
+    spl_status: SplStatus = "not_required"
+    hil_status: HilStatus = "not_required"
+    candidate_mitre: list[str] = Field(default_factory=list)
+    evidence_supported_mitre: list[str] = Field(default_factory=list)
+    requires_validation_mitre: list[str] = Field(default_factory=list)
+    not_claimed_mitre: list[str] = Field(default_factory=list)
+    ruled_out_mitre: list[str] = Field(default_factory=list)
     spl_present: bool = False
     spl_approved: bool = False
     execution_status: str | None = None
@@ -79,6 +94,8 @@ def build_answer_contract(
     execution: dict[str, Any] | None,
     human_review: dict[str, Any] | None,
     mitre_mappings: list[Any] | None = None,
+    mitre_branch_result: dict[str, Any] | None = None,
+    candidate_spl: dict[str, Any] | None = None,
     user_query: str | None = None,
     query_signals: dict[str, Any] | None = None,
 ) -> AnswerContract:
@@ -87,6 +104,7 @@ def build_answer_contract(
     decision = mitre_decision or {}
     execution_payload = execution or {}
     review = human_review or {}
+    branch = mitre_branch_result or {}
     goals = [str(item) for item in intent.get("answer_goal") or [] if item]
 
     mitre_ids = [
@@ -113,11 +131,25 @@ def build_answer_contract(
         human_review_required=bool(review.get("required")),
     )
 
-    missing: list[str] = []
+    missing: list[str] = [str(item) for item in plan.get("missing_required_evidence") or [] if item]
     if severity_decision is not None:
-        missing = [str(item) for item in getattr(severity_decision, "missing_evidence", None) or []]
+        missing.extend(str(item) for item in getattr(severity_decision, "missing_evidence", None) or [])
     if not missing:
         missing = _default_limitations(goals, spl_present, exec_status)
+    missing = _dedupe(missing)
+
+    limitations = _dedupe([str(item) for item in plan.get("limitations") or [] if item])
+    checklist = _safe_display_list(plan.get("checklist") or [])
+    unsupported = _dedupe([str(item) for item in plan.get("unsupported_claims_avoid") or [] if item])
+    assumptions = _safe_display_list((candidate_spl or {}).get("assumptions") or [])
+    answer_rules = _safe_display_list(plan.get("answer_rules") or [])
+    spl_status = _spl_status(spl_validation)
+    hil_status = _hil_status(review, plan, missing)
+    candidate_mitre = _branch_bucket(branch, "candidate_mitre")
+    evidence_supported_mitre = _branch_bucket(branch, "evidence_supported_mitre")
+    requires_validation_mitre = _branch_bucket(branch, "requires_validation_mitre")
+    not_claimed_mitre = _branch_bucket(branch, "not_claimed_mitre")
+    ruled_out_mitre = _branch_bucket(branch, "ruled_out_mitre")
 
     section_order = _section_order(goals)
     render = _render_sections(
@@ -149,6 +181,18 @@ def build_answer_contract(
         severity_label=str(severity_label) if severity_label else None,
         severity_confidence=severity_confidence,
         missing_evidence=missing,
+        answer_rules_applied=answer_rules,
+        limitations=limitations,
+        analyst_checklist_safe=checklist,
+        assumptions=assumptions,
+        unsupported_claims_avoid=unsupported,
+        spl_status=spl_status,
+        hil_status=hil_status,
+        candidate_mitre=candidate_mitre,
+        evidence_supported_mitre=evidence_supported_mitre,
+        requires_validation_mitre=requires_validation_mitre,
+        not_claimed_mitre=not_claimed_mitre,
+        ruled_out_mitre=ruled_out_mitre,
         spl_present=spl_present,
         spl_approved=spl_approved,
         execution_status=exec_status,
@@ -162,6 +206,57 @@ def build_answer_contract(
             query_signals, str(intent.get("intent_family") or "")
         ),
     )
+
+
+def _branch_bucket(branch: dict[str, Any], key: str) -> list[str]:
+    if not isinstance(branch, dict) or branch.get("branch_authority") != "planner_mitre_branch":
+        return []
+    return _dedupe([str(item) for item in branch.get(key) or [] if item])
+
+
+def _safe_display_list(values: Any) -> list[str]:
+    safe: list[str] = []
+    source = values if isinstance(values, list) else []
+    for value in source:
+        text = " ".join(str(value).split())
+        lowered = text.lower()
+        if not text or "skill.md" in lowered or "github.com" in lowered or "/skills/" in lowered:
+            continue
+        safe.append(text[:240])
+    return _dedupe(safe)
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    deduped: list[str] = []
+    for value in values:
+        if value and value not in deduped:
+            deduped.append(value)
+    return deduped
+
+
+def _spl_status(spl_validation: dict[str, Any] | None) -> SplStatus:
+    if not isinstance(spl_validation, dict):
+        return "not_required"
+    if spl_validation.get("approved") and spl_validation.get("normalized_spl"):
+        return "ready_for_review"
+    if spl_validation.get("review_required"):
+        return "review_required"
+    return "blocked"
+
+
+def _hil_status(
+    review: dict[str, Any],
+    plan: dict[str, Any],
+    missing_evidence: list[str],
+) -> HilStatus:
+    if review.get("required"):
+        review_type = str(review.get("review_type") or "")
+        if "clarification" in review_type:
+            return "clarification_required"
+        return "required"
+    if missing_evidence and (plan.get("requires_hil") or plan.get("needs_hil")):
+        return "missing_evidence_review"
+    return "not_required"
 
 
 def _execution_label(

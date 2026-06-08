@@ -264,6 +264,10 @@ def build_pipeline_node_trace(
                 input_summary={"answer_mode": answer_contract.get("answer_mode")},
                 output_summary={
                     "mitre_answer_visible": answer_contract.get("mitre_answer_visible"),
+                    "candidate_mitre_count": len(answer_contract.get("candidate_mitre") or []),
+                    "evidence_supported_mitre_count": len(answer_contract.get("evidence_supported_mitre") or []),
+                    "spl_status": answer_contract.get("spl_status"),
+                    "hil_status": answer_contract.get("hil_status"),
                     "execution_status_label": answer_contract.get("execution_status_label"),
                     "human_review_required": answer_contract.get("human_review_required"),
                 },

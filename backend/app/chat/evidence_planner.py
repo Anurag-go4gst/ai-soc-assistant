@@ -268,6 +268,7 @@ def _apply_curated_enrichment(
             "missing_required_evidence": missing,
             "enrichment_driven": True,
             "checklist": list(context.analyst_checklist),
+            "answer_rules": list(context.answer_rules),
             "required_sources": list(context.required_sources),
             "optional_sources": list(context.optional_sources),
             "limitations": list(context.limitations),

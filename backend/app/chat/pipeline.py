@@ -796,6 +796,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             execution=execution,
             human_review=human_review,
             mitre_mappings=mitre_mappings or [],
+            mitre_branch_result=mitre_branch_payload,
+            candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
             user_query=request.message,
             query_signals=_query_signals_from_state(state),
         )
