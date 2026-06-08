@@ -573,3 +573,73 @@ def _json_cell(value: Any) -> str:
     if value is None:
         return ""
     return json.dumps(value, sort_keys=True)
+
+
+# --------------------------------------------------------------------------- #
+# SOC validation package (Phase 10) — read-only, artifact-backed exports.
+# Source artifacts are generated offline by
+# ``scripts/build_soc_validation_sheets.py`` from the governed crosswalk.
+# --------------------------------------------------------------------------- #
+_VALIDATION_DIR = "docs/validation"
+
+# Knowledge export key -> generated artifact filename. CSV is offered only for
+# the flat row sheets; nested sheets stay JSON-only.
+SOC_VALIDATION_ARTIFACTS: dict[str, dict[str, Any]] = {
+    "soc_validation_use_cases": {"file": "use_case_validation_sheet.json", "csv": True},
+    "soc_validation_spl_templates": {"file": "spl_template_review_sheet.json", "csv": True},
+    "soc_validation_mitre": {"file": "mitre_validation_sheet.json", "csv": True},
+    "soc_validation_questions": {"file": "question_validation_sheet.json", "csv": True},
+    "soc_validation_github_enrichment": {"file": "github_enrichment_review_sheet.json", "csv": True},
+    "soc_validation_rag_sop": {"file": "rag_sop_validation_sheet.json", "csv": True},
+    "soc_validation_demo_scenarios": {"file": "demo_scenario_sheet.json", "csv": False},
+}
+
+
+def load_soc_validation_sheet(artifact: str) -> dict[str, Any]:
+    spec = SOC_VALIDATION_ARTIFACTS.get(artifact)
+    if spec is None:
+        return {}
+    path = repo_root() / _VALIDATION_DIR / spec["file"]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def build_soc_validation_export_payload(artifact: str) -> dict[str, Any]:
+    sheet = load_soc_validation_sheet(artifact)
+    rows = sheet.get("rows") if isinstance(sheet.get("rows"), list) else []
+    return {
+        "artifact": artifact,
+        "export_kind": "json_backed",
+        "source_file": f"{_VALIDATION_DIR}/{SOC_VALIDATION_ARTIFACTS[artifact]['file']}",
+        "schema_version": sheet.get("schema_version"),
+        "generated_at": sheet.get("generated_at"),
+        "usage_note": sheet.get("usage_note"),
+        "mitre_metadata_role": sheet.get("mitre_metadata_role", MITRE_METADATA_ROLE),
+        "row_counts": sheet.get("row_counts") or {"rows": len(rows)},
+        "rows": rows,
+        "warnings": sheet.get("warnings") or [],
+    }
+
+
+def _flatten_validation_cell(value: Any) -> Any:
+    if isinstance(value, list):
+        return _json_cell(value) if value and isinstance(value[0], (dict, list)) else _join(value)
+    if isinstance(value, dict):
+        return _json_cell(value)
+    return value
+
+
+def soc_validation_csv_rows(artifact: str) -> list[dict[str, Any]] | None:
+    spec = SOC_VALIDATION_ARTIFACTS.get(artifact)
+    if spec is None or not spec.get("csv"):
+        return None
+    sheet = load_soc_validation_sheet(artifact)
+    rows = sheet.get("rows") if isinstance(sheet.get("rows"), list) else []
+    flattened: list[dict[str, Any]] = []
+    for row in rows:
+        if isinstance(row, dict):
+            flattened.append({k: _flatten_validation_cell(v) for k, v in row.items()})
+    return flattened

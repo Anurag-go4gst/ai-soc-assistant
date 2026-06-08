@@ -18,6 +18,9 @@ from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.knowledge.validation import llm_import_contract, parse_import_payload, validate_import_batch
 from app.knowledge.mapping_exports import (
     MITRE_METADATA_ROLE,
+    SOC_VALIDATION_ARTIFACTS,
+    build_soc_validation_export_payload,
+    soc_validation_csv_rows,
     build_github_skill_discovery_export_payload,
     build_github_skill_triage_export_payload,
     build_pending_backlog_export_payload,
@@ -258,6 +261,14 @@ def export_mapping_artifact(
         filename = f"ai_soc_pending_skill_enrichment_backlog.{file_format}"
         if file_format == "csv" and not csv_rows:
             raise HTTPException(status_code=400, detail="markdown_artifact_json_only")
+    elif normalized in SOC_VALIDATION_ARTIFACTS:
+        payload = build_soc_validation_export_payload(normalized)
+        if not payload.get("rows") and payload.get("row_counts", {}) in ({}, None):
+            raise HTTPException(status_code=404, detail="validation_artifact_not_generated")
+        csv_rows = soc_validation_csv_rows(normalized)
+        filename = f"ai_soc_{normalized}.{file_format}"
+        if file_format == "csv" and csv_rows is None:
+            raise HTTPException(status_code=400, detail="nested_artifact_json_only")
     else:
         raise HTTPException(status_code=404, detail="unknown_export_artifact")
 
