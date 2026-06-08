@@ -67,7 +67,7 @@ from app.chat.final_answer_validator import validate_final_answer
 from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
-from app.chat.mitre_branch import run_mitre_evidence_branch
+from app.chat.mitre_branch import planner_mitre_branch_suppressed_decision, run_mitre_evidence_branch
 from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.pipeline_visibility import build_pipeline_visibility
@@ -547,7 +547,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     if selected_use_case is not None:
         spl_template = _attach_spl_governance(
             spl_template,
-            enrichment_spl_governance(selected_use_case.use_case_id),
+            _runtime_spl_governance(selected_use_case.use_case_id)
+            or enrichment_spl_governance(selected_use_case.use_case_id),
         )
     provenance = routed.get("routing_provenance") if isinstance(routed.get("routing_provenance"), dict) else {}
     mapped_refs = provenance.get("mapped_use_case_ids") if isinstance(provenance.get("mapped_use_case_ids"), list) else []
@@ -579,18 +580,28 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     if mitre_branch.ran:
         mitre_mappings, mitre_decision = branch_mappings, branch_decision
+    elif (
+        settings.ai_soc_planner_mitre_branch_enabled
+        and mitre_branch.status == "not_applicable"
+    ):
+        mitre_mappings, mitre_decision = [], planner_mitre_branch_suppressed_decision(
+            use_case_id=use_case_id,
+            question_ref=question_ref,
+            reason=str(mitre_branch.reason),
+        )
     else:
         mitre_mappings, mitre_decision = _mitre_outputs_for_finalize(
-        query=state.get("effective_query") or request.message,
-        question_ref=question_ref,
-        use_case_id=use_case_id,
-        source_refs=source_refs,
-        intent_classification=state.get("intent_classification"),
-        evidence_plan=state.get("evidence_plan"),
-        query_signals=_query_signals_from_state(state),
-        source_evidence=source_evidence,
-        structured_context=structured_context,
-        session_alert_context=session_alert_context,
+            query=state.get("effective_query") or request.message,
+            question_ref=question_ref,
+            use_case_id=use_case_id,
+            source_refs=source_refs,
+            intent_classification=state.get("intent_classification"),
+            evidence_plan=state.get("evidence_plan"),
+            planning_decision=state.get("planning_decision"),
+            query_signals=_query_signals_from_state(state),
+            source_evidence=source_evidence,
+            structured_context=structured_context,
+            session_alert_context=session_alert_context,
         )
     mitre_branch_payload = mitre_branch.model_dump()
     response_use_case = _response_use_case(state)
@@ -1128,6 +1139,12 @@ def _mitre_outputs_for_finalize(
     )
     if branch.ran:
         return branch_mappings, branch_decision
+    if settings.ai_soc_planner_mitre_branch_enabled and branch.status == "not_applicable":
+        return [], planner_mitre_branch_suppressed_decision(
+            use_case_id=effective_use_case_id,
+            question_ref=question_ref,
+            reason=str(branch.reason),
+        )
     negative_evidence = extract_negative_evidence(
         query_signals=query_signals,
         source_evidence=source_evidence,
@@ -1720,14 +1737,21 @@ def _candidate_spl_stage(
     if fallback_candidate is not None:
         return fallback_candidate
 
-    if settings.control_plane_enabled:
+    if settings.control_plane_enabled or settings.ai_soc_spl_template_governance_enabled:
+        block_reason = _spl_governance_block_reason(template_id, template, spl_governance)
+        if block_reason is None and spl_governance and not spl_governance.get("runtime_spl_governance_allowed", True):
+            block_reason = str(
+                spl_governance.get("governed_limitation") or "runtime_spl_governance_not_allowed"
+            )
+        if block_reason is None and settings.ai_soc_spl_template_governance_enabled:
+            block_reason = "spl_template_missing" if not template_id else "spl_template_governance_blocked"
         return _candidate_clarification(
             trace_id=trace_id,
             skill=skill,
             user_query=user_query,
             telemetry=telemetry,
             profile=profile,
-            reason="llm_spl_fallback_disabled",
+            reason=block_reason or "llm_spl_fallback_disabled",
             spl_governance=spl_governance,
         )
 
@@ -2113,6 +2137,8 @@ def _spl_governance_block_reason(
     status = str(governance.get("spl_template_status") or "unknown")
     allowed_templates = {str(item) for item in governance.get("allowed_spl_templates") or []}
     if status == "active":
+        if not governance.get("runtime_spl_governance_allowed", True):
+            return str(governance.get("governed_limitation") or "runtime_spl_governance_not_allowed")
         if allowed_templates and not template_id:
             return "spl_template_missing"
         if template_id and allowed_templates and template_id not in allowed_templates:

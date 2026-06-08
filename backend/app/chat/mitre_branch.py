@@ -11,6 +11,32 @@ from app.threat.mitre_registry_enrichment import registry_mitre_metadata
 from app.use_cases.content_enrichment import resolve_use_case_activation
 
 
+def planner_mitre_branch_suppressed_decision(
+    *,
+    use_case_id: str | None,
+    question_ref: str | None,
+    reason: str = "planner_did_not_select_mitre_branch",
+) -> dict[str, Any]:
+    """Fail-closed MITRE decision when planner branch authority blocks visible mapping."""
+    return MitreDecision(
+        mitre_status="not_applicable",
+        techniques=[],
+        rejected_techniques=[],
+        registry_candidates=[],
+        not_claimed=[],
+        evidence_statuses={},
+        evidence_status_details={},
+        answer_visible=False,
+        requires_alert_context=False,
+        requires_more_context_for_supported_mapping=False,
+        reason=(
+            "Planner did not schedule MITRE branch; analyst-visible evidence-supported "
+            "mapping is suppressed."
+        ),
+        registry_metadata=None,
+    ).model_dump()
+
+
 def run_mitre_evidence_branch(
     *,
     query: str,

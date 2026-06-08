@@ -277,15 +277,41 @@ def registry_mitre_metadata_for_runtime(
     question_ref: str | None = None,
     use_case_id: str | None = None,
 ) -> MitreRegistryMetadata | None:
-    """Runtime-safe MITRE registry lookup (flag + activation gate for enrichment paths)."""
-    if use_case_id and not runtime_enrichment_activation_allowed(use_case_id):
-        return None
-    if not use_case_id and question_ref:
-        from app.config import settings
+    """Runtime-safe MITRE registry lookup.
 
-        if not settings.ai_soc_curated_enrichment_activation_enabled:
-            return None
-    return registry_mitre_metadata(question_ref=question_ref, use_case_id=use_case_id)
+    Authoritative runtime knowledge rows and drafts remain available. Enrichment-json
+    fallback and enrichment merges require governed runtime activation.
+    """
+    if question_ref:
+        runtime_row = _load_runtime_question_entries_by_ref().get(question_ref)
+        if isinstance(runtime_row, dict) and isinstance(runtime_row.get("mitre_registry"), dict):
+            item = _synthetic_draft_item_from_runtime_row(runtime_row)
+            return normalize_legacy_mitre_fields(item, question_ref=question_ref, use_case_id=None)
+
+    if use_case_id:
+        runtime_row = _load_runtime_use_case_entries_by_id().get(use_case_id)
+        if isinstance(runtime_row, dict) and isinstance(runtime_row.get("mitre_registry"), dict):
+            item = _synthetic_draft_item_from_runtime_row(runtime_row)
+            meta = normalize_legacy_mitre_fields(item, question_ref=None, use_case_id=use_case_id)
+            if runtime_enrichment_activation_allowed(use_case_id):
+                return _merge_enrichment_mitre_candidates(meta, use_case_id)
+            return meta
+
+        if runtime_enrichment_activation_allowed(use_case_id):
+            return registry_mitre_metadata(question_ref=question_ref, use_case_id=use_case_id)
+
+        drafts = load_mitre_enrichment_drafts()
+        item = drafts["use_cases_by_id"].get(use_case_id)
+        if isinstance(item, dict):
+            return normalize_legacy_mitre_fields(item, question_ref=None, use_case_id=use_case_id)
+        return None
+
+    if question_ref:
+        drafts = load_mitre_enrichment_drafts()
+        item = drafts["questions_by_id"].get(question_ref)
+        if isinstance(item, dict):
+            return normalize_legacy_mitre_fields(item, question_ref=question_ref, use_case_id=None)
+    return None
 
 
 def _merge_enrichment_mitre_candidates(

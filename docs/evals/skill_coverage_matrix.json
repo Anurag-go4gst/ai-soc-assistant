@@ -1423,7 +1423,9 @@
     "mapping_source_file": "docs/evals/question_use_case_map.json",
     "mapping_status": "curated_manual",
     "mitre_candidates": [
-      "T1110.001"
+      "T1110",
+      "T1110.001",
+      "T1110.003"
     ],
     "mitre_permitted": [
       "T1110.001"

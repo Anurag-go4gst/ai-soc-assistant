@@ -55,11 +55,16 @@ def resolve_mitre_decision(
     evidence precondition is absent is demoted from visible to Not Claimed.
     """
     from app.chat.negative_evidence_extractor import present_evidence_keys
-    from app.threat.mitre_registry_enrichment import registry_mitre_metadata
+    from app.threat.mitre_registry_enrichment import (
+        registry_mitre_metadata,
+        registry_mitre_metadata_for_runtime,
+    )
 
     meta = registry_metadata
     if meta is None:
-        meta = registry_mitre_metadata(question_ref=question_ref, use_case_id=use_case_id)
+        meta = registry_mitre_metadata_for_runtime(question_ref=question_ref, use_case_id=use_case_id)
+        if meta is None and not use_case_id:
+            meta = registry_mitre_metadata(question_ref=question_ref, use_case_id=None)
 
     candidates = meta.all_mapped_technique_ids() if meta is not None else []
     blocked = list(meta.mitre_blocked) if meta is not None else []

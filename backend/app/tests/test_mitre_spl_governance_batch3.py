@@ -8,6 +8,7 @@ from app.spl.template_registry import get_spl_template
 from app.spl.template_renderer import render_template
 from app.threat import mitre_kb
 from app.threat.mitre_decision import resolve_mitre_decision
+from app.threat.mitre_registry_enrichment import registry_mitre_metadata
 from app.threat.mitre_registry_schema import MitreRegistryMetadata
 from app.use_cases.content_enrichment import enrichment_spl_governance
 
@@ -25,16 +26,18 @@ def _plan() -> dict:
 
 
 def _decision(use_case_id: str, present: list[str], candidates: list[str] | None = None):
-    return resolve_mitre_decision(
-        use_case_id=use_case_id,
-        registry_metadata=MitreRegistryMetadata(
-            mitre_candidate=candidates or [],
+    if candidates is not None:
+        registry_metadata: MitreRegistryMetadata | None = MitreRegistryMetadata(
+            mitre_candidate=candidates,
             mitre_requires_evidence=True,
             mitre_requires_alert_context=False,
             mapping_rationale="test",
         )
-        if candidates is not None
-        else None,
+    else:
+        registry_metadata = registry_mitre_metadata(use_case_id=use_case_id)
+    return resolve_mitre_decision(
+        use_case_id=use_case_id,
+        registry_metadata=registry_metadata,
         intent_classification=_intent(),
         evidence_plan=_plan(),
         source_refs=["ev-1"],

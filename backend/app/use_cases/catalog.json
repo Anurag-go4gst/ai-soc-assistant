@@ -46,7 +46,9 @@
         "splunk_context"
       ],
       "mitre_candidates": [
-        "T1110.001"
+        "T1110",
+        "T1110.001",
+        "T1110.003"
       ],
       "severity_policy": "auth_failed_login_spike",
       "action_capability_tier": 1,
@@ -54,7 +56,9 @@
       "mitre_registry": {
         "permitted": [],
         "candidate": [
-          "T1110.001"
+          "T1110",
+          "T1110.001",
+          "T1110.003"
         ],
         "blocked": [
           "T1562.001",
@@ -75,7 +79,9 @@
         "source_fields": {
           "mitre_permitted": [],
           "mitre_candidates": [
-            "T1110.001"
+            "T1110",
+            "T1110.001",
+            "T1110.003"
           ],
           "tactics": [
             "Credential Access"
