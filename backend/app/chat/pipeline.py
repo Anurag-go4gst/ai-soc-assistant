@@ -816,6 +816,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
             user_query=request.message,
             query_signals=_query_signals_from_state(state),
+            use_case_id=response_use_case.use_case_id if response_use_case is not None else use_case_id,
         )
     answer_contract_payload = answer_contract.model_dump() if answer_contract is not None else None
     analyst_response = build_analyst_response_for_live(

@@ -314,6 +314,8 @@ class AnalystResponseEnvelope(BaseModel):
     mitre_status_summary: dict[str, list[str]] = {}
     direct_answer_summary: str | None = None
     limitations: list[str] = []
+    required_evidence: list[str] = []
+    spl_status_detail: dict[str, object] | None = None
     section_order: list[str] = []
     render_sections: dict[str, bool] = {}
 

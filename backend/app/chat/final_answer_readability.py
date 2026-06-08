@@ -33,6 +33,23 @@ _LIMITATION_LABELS = {
     "source_ownership": "Source IP ownership missing",
     "mfa_status": "MFA result missing",
     "post_login_activity": "Post-login activity missing",
+    "host": "Host context missing",
+    "user": "User context missing",
+    "command_line": "Command line missing",
+    "script_block_text": "Script block logs missing",
+    "event_id": "Event ID missing",
+    "parent_process": "Parent process missing",
+    "encoded_command_flag": "Encoded-command indicator missing",
+    "network_connection": "Network connection context missing",
+    "src": "Source host/IP missing",
+    "dest": "Destination missing",
+    "domain": "DNS domain missing",
+    "periodicity": "Periodicity measurement missing",
+    "jitter": "Jitter measurement missing",
+    "bytes_out": "Outbound bytes missing",
+    "DNS_query_count": "DNS query volume missing",
+    "rare_domain_indicator": "Domain rarity assessment missing",
+    "user_host_association": "User/host association missing",
 }
 
 _EXCLUDED_LIMITATIONS_WHEN_SUCCESS_STATED = {"confirmed_success", "success_after_failure"}
@@ -63,9 +80,12 @@ def apply_final_answer_readability(
         "ruled_out": list(contract.ruled_out_mitre),
     }
     payload["limitations"] = _limitations_display(contract)
+    payload["required_evidence"] = _required_evidence_display(contract)
+    payload["spl_status_detail"] = contract.spl_status_detail
     payload["section_order"] = list(contract.section_order)
     payload["render_sections"] = dict(contract.render_sections)
     payload["direct_answer_summary"] = _direct_answer_summary(envelope, contract)
+    payload = _apply_knowledge_profile_cleanup(payload, contract)
     payload = _dedupe_labels(payload, contract)
     payload = _apply_section_visibility(payload, contract)
     payload["recommended_actions"] = _format_investigation_actions(payload.get("recommended_actions") or [])
@@ -108,10 +128,39 @@ def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerCo
     return " ".join(lines)
 
 
+def _apply_knowledge_profile_cleanup(payload: dict[str, Any], contract: AnswerContract) -> dict[str, Any]:
+    if contract.answer_mode != "rag_only" and contract.intent_family not in {
+        "sop_or_playbook",
+        "policy_knowledge",
+        "knowledge_only",
+    }:
+        return payload
+    payload["severity_label"] = None
+    payload["severity_confidence"] = None
+    payload["severity_rationale"] = None
+    payload["severity_safety_note"] = None
+    payload["mitre_mappings"] = []
+    payload["not_claimed"] = []
+    payload["mitre_status_summary"] = {
+        "candidate": [],
+        "evidence_supported": [],
+        "requires_validation": [],
+        "not_claimed": [],
+        "ruled_out": [],
+    }
+    payload["limitations"] = []
+    payload["spl_code"] = None
+    payload["executed_spl"] = None
+    payload["review_notice"] = None
+    payload["spl_status"] = "not_required"
+    payload["spl_status_detail"] = None
+    return payload
+
+
 def _sop_knowledge_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
-    parts = ["Governed knowledge path selected."]
+    parts = ["Governed SOP retrieved."]
     if contract.spl_status == "not_required":
-        parts.append("SPL was skipped as requested.")
+        parts.append("SPL and MCP were skipped as requested.")
     playbook = envelope.retrieved_playbook if isinstance(envelope.retrieved_playbook, dict) else {}
     title = str(playbook.get("title") or "").strip()
     purpose = str(playbook.get("purpose") or "").strip()
@@ -224,6 +273,7 @@ def _apply_section_visibility(payload: dict[str, Any], contract: AnswerContract)
         render.get("analyst_action_guidance")
         or render.get("policy_citation")
         or render.get("procedural_steps")
+        or render.get("investigation_guidance")
     ):
         payload["recommended_actions"] = []
     if not render.get("live_results"):
@@ -237,10 +287,49 @@ def _apply_section_visibility(payload: dict[str, Any], contract: AnswerContract)
     return payload
 
 
-def _limitations_display(contract: AnswerContract) -> list[str]:
-    if contract.limitations:
-        return list(contract.limitations)
+_EVIDENCE_LABELS = {
+    "host": "Host context",
+    "user": "User context",
+    "command_line": "Command line",
+    "script_block_text": "Script block logs",
+    "event_id": "Event ID",
+    "parent_process": "Parent process",
+    "encoded_command_flag": "Encoded-command indicator",
+    "network_connection": "Network connection context",
+    "src": "Source host/IP",
+    "dest": "Destination",
+    "domain": "DNS domain",
+    "periodicity": "Periodicity measurement",
+    "jitter": "Jitter measurement",
+    "bytes_out": "Outbound bytes",
+    "DNS_query_count": "DNS query volume",
+    "rare_domain_indicator": "Domain rarity assessment",
+    "user_host_association": "User/host association",
+    "privileged_account_impacted": "Privilege status",
+    "critical_asset": "Asset criticality",
+    "source_ownership": "Source IP ownership",
+    "mfa_status": "MFA result",
+    "post_login_activity": "Post-login activity",
+}
 
+
+def _required_evidence_display(contract: AnswerContract) -> list[str]:
+    labels: list[str] = []
+    for key in contract.required_evidence:
+        text = _EVIDENCE_LABELS.get(str(key), str(key).replace("_", " "))
+        if text not in labels:
+            labels.append(text)
+    return labels
+
+
+def _is_auth_hybrid_contract(contract: AnswerContract) -> bool:
+    use_case_id = str(contract.use_case_id or "")
+    if use_case_id:
+        return use_case_id.startswith("auth_")
+    return contract.intent_family == "hybrid_alert_review"
+
+
+def _limitations_display(contract: AnswerContract) -> list[str]:
     if contract.answer_mode == "rag_only" or contract.intent_family in {
         "sop_or_playbook",
         "policy_knowledge",
@@ -251,12 +340,35 @@ def _limitations_display(contract: AnswerContract) -> list[str]:
     if contract.success_after_failure_context:
         return list(_ALERT_REVIEW_LIMITATIONS)
 
+    if (
+        contract.intent_family == "hybrid_alert_review"
+        and _is_auth_hybrid_contract(contract)
+        and contract.missing_evidence
+    ):
+        items = []
+        for key in contract.missing_evidence:
+            if key in _EXCLUDED_LIMITATIONS_WHEN_SUCCESS_STATED:
+                continue
+            normalized = str(key).replace("_", " ").lower()
+            items.append(
+                _LIMITATION_LABELS.get(
+                    str(key),
+                    normalized if "missing" in normalized else f"{normalized} missing",
+                )
+            )
+        if items:
+            return items
+
+    if contract.limitations:
+        return list(contract.limitations)
+
     items: list[str] = []
-    auth_only_keys = set(_LIMITATION_LABELS) - _EXCLUDED_LIMITATIONS_WHEN_SUCCESS_STATED
+    auth_only_keys = set(_AUTH_LIMITATION_KEYS)
+    use_case_id = str(contract.use_case_id or "")
     for key in contract.missing_evidence:
         if key in _EXCLUDED_LIMITATIONS_WHEN_SUCCESS_STATED:
             continue
-        if contract.intent_family != "hybrid_alert_review" and str(key) in auth_only_keys:
+        if str(key) in auth_only_keys and not use_case_id.startswith("auth_"):
             continue
         normalized = str(key).replace("_", " ").lower()
         items.append(
@@ -322,8 +434,25 @@ def _format_investigation_actions(actions: list[Any]) -> list[str]:
     formatted: list[str] = []
     for item in actions:
         text = str(item).strip()
+        glued = re.match(r"^(P[1-4])([A-Za-z])", text)
+        if glued:
+            text = f"{glued.group(1)} — {text[len(glued.group(1)):].lstrip(' -—')}"
         if re.match(r"^P[1-4]\s*[—-]\s*", text):
             formatted.append(re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", text))
             continue
-        formatted.append(f"P2 — {text}")
+        human = text.replace("_", " ")
+        formatted.append(f"P2 — {human}")
     return formatted
+
+
+_AUTH_LIMITATION_KEYS = frozenset(
+    {
+        "privileged_account_impacted",
+        "critical_asset",
+        "source_ownership",
+        "mfa_status",
+        "post_login_activity",
+        "success_after_failure",
+        "confirmed_success",
+    }
+)

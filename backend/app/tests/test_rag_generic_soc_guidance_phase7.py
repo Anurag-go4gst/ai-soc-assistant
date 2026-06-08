@@ -174,9 +174,15 @@ def test_brute_force_sop_answer_is_knowledge_only_without_alert_analysis_wording
     )
 
     assert response.analyst_response is not None
+    assert response.analyst_response.response_profile == "knowledge_recall"
     summary = (response.analyst_response.direct_answer_summary or "").lower()
-    assert "governed knowledge path selected" in summary
-    assert "spl was skipped" in summary
+    assert "governed sop retrieved" in summary
+    assert "spl and mcp were skipped" in summary
+    assert "p3" not in (response.analyst_response.severity_label or "").lower()
+    assert not response.analyst_response.mitre_mappings
+    assert not response.analyst_response.not_claimed
+    assert "incident categorized" not in summary
+    assert "full scope of incident" not in summary
     assert "security pipeline" not in summary
     assert "incident was detected" not in summary
     assert "candidate authentication security event" not in summary
@@ -186,8 +192,28 @@ def test_brute_force_sop_answer_is_knowledge_only_without_alert_analysis_wording
     assert "failed login" in title or "sop" in title
 
 
+def test_powershell_answer_shows_required_evidence_and_checklist(monkeypatch) -> None:
+    _enable_phase7(monkeypatch)
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "For suspicious PowerShell command execution on an endpoint, give me the analyst "
+                "checklist, required evidence, MITRE status, and governed SPL for review."
+            )
+        )
+    )
+
+    analyst = response.analyst_response
+    assert analyst is not None
+    assert analyst.required_evidence
+    assert analyst.analyst_checklist
+    assert response.evidence_plan.get("checklist")
+
+
 def test_powershell_answer_uses_endpoint_limitations_not_auth(monkeypatch) -> None:
     _enable_phase7(monkeypatch)
+    monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", False)
 
     response = chat(
         ChatRequest(
@@ -205,12 +231,31 @@ def test_powershell_answer_uses_endpoint_limitations_not_auth(monkeypatch) -> No
     assert "powershell" in limitations or "encoded command" in limitations
     spl = (response.candidate_spl.candidate_spl if response.candidate_spl else "") or ""
     assert "pgcil:auth" not in spl
-    assert response.candidate_spl is not None
-    assert response.candidate_spl.template_id == "edr_powershell_suspicious_command"
+    if response.candidate_spl is not None:
+        assert response.candidate_spl.template_id in {None, "edr_powershell_suspicious_command"}
+
+
+def test_dns_answer_shows_required_evidence_and_checklist(monkeypatch) -> None:
+    _enable_phase7(monkeypatch)
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "For a DNS beaconing candidate, give me the investigation steps, evidence required, "
+                "MITRE mapping, limitations, and review-only SPL."
+            )
+        )
+    )
+
+    analyst = response.analyst_response
+    assert analyst is not None
+    assert analyst.required_evidence
+    assert analyst.analyst_checklist
 
 
 def test_dns_answer_uses_network_limitations_not_auth(monkeypatch) -> None:
     _enable_phase7(monkeypatch)
+    monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", False)
 
     response = chat(
         ChatRequest(

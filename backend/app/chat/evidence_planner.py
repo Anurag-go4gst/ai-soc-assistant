@@ -7,8 +7,20 @@ from app.chat.contracts.intent_classification import IntentClassification
 from app.config import settings
 from app.use_cases.content_enrichment import (
     CuratedEnrichmentContext,
+    get_content_enrichment,
     get_runtime_curated_enrichment,
     resolve_use_case_activation,
+)
+
+_CATALOG_PROJECTION_WHEN_INACTIVE = frozenset(
+    {
+        "edr_powershell_suspicious_command",
+        "dns_beaconing_candidate",
+        "dns_tunneling_candidate",
+        "dns_unusual_query_volume",
+        "edr_suspicious_process",
+        "email_phishing_header_review",
+    }
 )
 
 
@@ -232,24 +244,38 @@ def _apply_curated_enrichment(
     query_to_intent: dict[str, Any] | None,
     query_understanding: Any,
 ) -> EvidencePlan:
+    if not use_case_id:
+        return plan
+
     if not settings.ai_soc_curated_enrichment_activation_enabled:
+        if use_case_id in _CATALOG_PROJECTION_WHEN_INACTIVE:
+            return _apply_catalog_projection(
+                plan,
+                use_case_id=use_case_id,
+                query_to_intent=query_to_intent,
+                query_understanding=query_understanding,
+                evidence_plan_reason="curated_enrichment_activation_disabled",
+            )
         return plan
 
     activation = resolve_use_case_activation(use_case_id)
     if not activation.governed_enrichment_load_allowed:
-        if activation.trace_metadata_allowed and use_case_id:
-            return plan.model_copy(
-                update={
-                    "use_case_id": use_case_id,
-                    "runtime_support_status": activation.runtime_support_status,
-                    "evidence_plan_reason": "curated_enrichment_not_runtime_active",
-                }
-            )
-        return plan
+        return plan.model_copy(
+            update={
+                "use_case_id": use_case_id,
+                "runtime_support_status": activation.runtime_support_status,
+                "evidence_plan_reason": "curated_enrichment_not_runtime_active",
+            }
+        )
 
     context = get_runtime_curated_enrichment(use_case_id)
     if context is None:
-        return plan
+        return plan.model_copy(
+            update={
+                "use_case_id": use_case_id,
+                "evidence_plan_reason": "curated_enrichment_context_unavailable",
+            }
+        )
 
     present = _present_evidence_keys(query_to_intent=query_to_intent, query_understanding=query_understanding)
     required = list(dict.fromkeys(context.evidence_requirements))
@@ -284,6 +310,49 @@ def _apply_curated_enrichment(
             "runtime_support_status": context.runtime_support_status,
             "mitre_candidates_metadata_only": list(context.mitre_candidates),
             "reasons": list(dict.fromkeys(reasons)),
+        }
+    )
+
+
+def _apply_catalog_projection(
+    plan: EvidencePlan,
+    *,
+    use_case_id: str,
+    query_to_intent: dict[str, Any] | None,
+    query_understanding: Any,
+    runtime_support_status: str | None = None,
+    evidence_plan_reason: str = "catalog_enrichment_projection",
+) -> EvidencePlan:
+    """Attach catalog enrichment metadata without runtime activation gates."""
+    record = get_content_enrichment(use_case_id)
+    if record is None:
+        update: dict[str, Any] = {"use_case_id": use_case_id, "evidence_plan_reason": evidence_plan_reason}
+        if runtime_support_status:
+            update["runtime_support_status"] = runtime_support_status
+        return plan.model_copy(update=update)
+
+    present = _present_evidence_keys(query_to_intent=query_to_intent, query_understanding=query_understanding)
+    required = [str(item) for item in record.get("evidence_requirements") or [] if item]
+    missing = [key for key in required if key not in present]
+    reasons = list(dict.fromkeys([*plan.reasons, evidence_plan_reason, "catalog_enrichment_projection"]))
+    if missing:
+        reasons.append("missing_required_catalog_evidence")
+
+    return plan.model_copy(
+        update={
+            "use_case_id": use_case_id,
+            "required_evidence_keys": required,
+            "optional_evidence_keys": [str(item) for item in record.get("optional_sources") or [] if item],
+            "present_evidence_keys": sorted(present),
+            "missing_required_evidence": missing,
+            "checklist": [str(item) for item in record.get("analyst_checklist") or [] if item],
+            "answer_rules": [str(item) for item in record.get("answer_rules") or [] if item],
+            "limitations": [str(item) for item in record.get("limitations") or [] if item],
+            "unsupported_claims_avoid": [str(item) for item in record.get("not_claimed_defaults") or [] if item],
+            "mitre_candidates_metadata_only": [str(item) for item in record.get("mitre_candidates") or [] if item],
+            "runtime_support_status": runtime_support_status,
+            "evidence_plan_reason": evidence_plan_reason,
+            "reasons": reasons,
         }
     )
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -68,10 +69,14 @@ class AnswerContract(BaseModel):
     section_order: list[str] = Field(default_factory=list)
     render_sections: dict[str, bool] = Field(default_factory=dict)
     success_after_failure_context: bool = False
+    use_case_id: str | None = None
+    required_evidence: list[str] = Field(default_factory=list)
+    spl_status_detail: dict[str, Any] | None = None
 
 
 _SECTION_PRIORITY: dict[str, int] = {
     "severity_assessment": 10,
+    "investigation_guidance": 15,
     "mitre_mapping": 20,
     "mitre_explanation": 25,
     "spl_artifact": 30,
@@ -98,6 +103,7 @@ def build_answer_contract(
     candidate_spl: dict[str, Any] | None = None,
     user_query: str | None = None,
     query_signals: dict[str, Any] | None = None,
+    use_case_id: str | None = None,
 ) -> AnswerContract:
     intent = intent_classification or {}
     plan = evidence_plan or {}
@@ -148,19 +154,32 @@ def build_answer_contract(
         human_review_required=bool(review.get("required")),
     )
 
-    missing: list[str] = [str(item) for item in plan.get("missing_required_evidence") or [] if item]
-    if severity_decision is not None:
-        missing.extend(str(item) for item in getattr(severity_decision, "missing_evidence", None) or [])
+    resolved_use_case_id = (
+        str(use_case_id or plan.get("use_case_id") or "") or None
+    )
     intent_family = str(intent.get("intent_family") or "") or None
+    answer_mode = str(plan.get("answer_mode") or "") or None
+    required_evidence = _dedupe(
+        [str(item) for item in plan.get("required_evidence_keys") or [] if item]
+    )
+
+    missing: list[str] = [str(item) for item in plan.get("missing_required_evidence") or [] if item]
+    if severity_decision is not None and _is_auth_use_case(resolved_use_case_id, intent_family):
+        missing.extend(
+            str(item)
+            for item in getattr(severity_decision, "missing_evidence", None) or []
+            if str(item) in _AUTH_LIMITATION_KEYS
+        )
     if not missing:
         missing = _default_limitations(
             goals,
             spl_present,
             exec_status,
             intent_family=intent_family,
-            answer_mode=str(plan.get("answer_mode") or "") or None,
-            use_case_id=str(plan.get("use_case_id") or "") or None,
+            answer_mode=answer_mode,
+            use_case_id=resolved_use_case_id,
         )
+    missing = _filter_missing_evidence_for_use_case(missing, resolved_use_case_id, intent_family)
     missing = _dedupe(missing)
 
     limitations = _dedupe([str(item) for item in plan.get("limitations") or [] if item])
@@ -168,21 +187,29 @@ def build_answer_contract(
     unsupported = _dedupe([str(item) for item in plan.get("unsupported_claims_avoid") or [] if item])
     assumptions = _safe_display_list((candidate_spl or {}).get("assumptions") or [])
     answer_rules = _safe_display_list(plan.get("answer_rules") or [])
-    spl_status = _spl_status(spl_validation)
+    spl_status = _spl_status(spl_validation, spl_allowed=bool(plan.get("spl_allowed")))
+    spl_status_detail = _spl_status_detail(spl_validation, candidate_spl)
     hil_status = _hil_status(review, plan, missing)
-    section_order = _section_order(goals)
+    section_order = _section_order(
+        goals,
+        answer_mode=answer_mode,
+        intent_family=intent_family,
+        has_investigation_guidance=bool(required_evidence or checklist or limitations),
+    )
     render = _render_sections(
         goals=goals,
-        answer_mode=str(plan.get("answer_mode") or ""),
+        answer_mode=answer_mode or "",
+        intent_family=intent_family,
         mitre_visible=bool(decision.get("answer_visible")) and bool(mitre_ids),
         not_claimed=not_claimed,
         spl_present=spl_present,
         playbook_eligible="policy_citation" in goals or "procedural_steps" in goals or "analyst_action_guidance" in goals,
+        has_investigation_guidance=bool(required_evidence or checklist or limitations),
     )
 
     severity_label = None
     severity_confidence = None
-    if severity_decision is not None:
+    if severity_decision is not None and not _is_knowledge_profile(intent_family, answer_mode, user_query):
         severity_label = getattr(severity_decision, "severity_label", None)
         if exec_label in {"review_only_not_executed", "validated_not_executed", "blocked_approval_required"}:
             severity_confidence = "Medium" if exec_status != "executed" else "High"
@@ -224,6 +251,9 @@ def build_answer_contract(
         success_after_failure_context=_success_after_failure_context(
             query_signals, str(intent.get("intent_family") or "")
         ),
+        use_case_id=resolved_use_case_id,
+        required_evidence=required_evidence,
+        spl_status_detail=spl_status_detail,
     )
 
 
@@ -256,7 +286,9 @@ def _dedupe(values: list[str]) -> list[str]:
     return deduped
 
 
-def _spl_status(spl_validation: dict[str, Any] | None) -> SplStatus:
+def _spl_status(spl_validation: dict[str, Any] | None, *, spl_allowed: bool = True) -> SplStatus:
+    if not spl_allowed:
+        return "not_required"
     if not isinstance(spl_validation, dict):
         return "not_required"
     if spl_validation.get("approved") and spl_validation.get("normalized_spl"):
@@ -264,6 +296,48 @@ def _spl_status(spl_validation: dict[str, Any] | None) -> SplStatus:
     if spl_validation.get("review_required"):
         return "review_required"
     return "blocked"
+
+
+def _spl_status_detail(
+    spl_validation: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not isinstance(spl_validation, dict):
+        return None
+    reason = str(
+        spl_validation.get("review_required_reason")
+        or spl_validation.get("llm_fallback_reason")
+        or spl_validation.get("candidate_provider_reason")
+        or ""
+    )
+    template_status = str(spl_validation.get("spl_template_status") or "unknown")
+    if spl_validation.get("approved") and spl_validation.get("normalized_spl"):
+        return {
+            "template_status": template_status,
+            "generation": "review_required",
+            "reason": "candidate_spl_review_only",
+            "reason_display": "Governed SPL draft ready for analyst review (not executed).",
+            "required_fields": [],
+            "template_id": spl_validation.get("template_id") or (candidate_spl or {}).get("template_id"),
+        }
+    if not reason and spl_validation.get("llm_fallback_status") != "clarification_required":
+        return None
+    generation = "blocked" if reason else "review_required"
+    reason_key = reason or "spl_generation_requires_source_clarification"
+    required_fields = ["index", "sourcetype", "key fields", "time range"]
+    reason_display = {
+        "spl_template_active_source_profile_missing": "Source profile missing",
+        "spl_template_missing": "No default template bound",
+        "runtime_spl_governance_not_allowed": "Curated enrichment activation incomplete",
+    }.get(reason_key, reason_key.replace("_", " "))
+    return {
+        "template_status": template_status,
+        "generation": generation,
+        "reason": reason_key,
+        "reason_display": reason_display,
+        "required_fields": required_fields,
+        "template_id": spl_validation.get("template_id") or (candidate_spl or {}).get("template_id"),
+    }
 
 
 def _hil_status(
@@ -310,8 +384,19 @@ def _execution_label(
     return None, None
 
 
-def _section_order(goals: list[str]) -> list[str]:
+def _section_order(
+    goals: list[str],
+    *,
+    answer_mode: str | None = None,
+    intent_family: str | None = None,
+    has_investigation_guidance: bool = False,
+) -> list[str]:
+    if _is_knowledge_profile(intent_family, answer_mode):
+        ordered = [goal for goal in ("policy_citation", "procedural_steps") if goal in goals]
+        return ordered
     ordered = sorted({goal for goal in goals if goal in _SECTION_PRIORITY}, key=lambda g: _SECTION_PRIORITY[g])
+    if has_investigation_guidance and "investigation_guidance" not in ordered:
+        ordered.insert(0, "investigation_guidance")
     if ordered and "limitations" not in ordered:
         ordered.append("limitations")
     return ordered
@@ -321,24 +406,30 @@ def _render_sections(
     *,
     goals: list[str],
     answer_mode: str,
+    intent_family: str | None,
     mitre_visible: bool,
     not_claimed: list[str],
     spl_present: bool,
     playbook_eligible: bool,
+    has_investigation_guidance: bool = False,
 ) -> dict[str, bool]:
-    show_mitre = mitre_visible and ("mitre_mapping" in goals or "mitre_explanation" in goals or answer_mode == "live_investigation")
-    if answer_mode == "rag_only":
-        show_mitre = False
+    knowledge_profile = _is_knowledge_profile(intent_family, answer_mode)
+    show_mitre = (
+        not knowledge_profile
+        and mitre_visible
+        and ("mitre_mapping" in goals or "mitre_explanation" in goals or answer_mode == "live_investigation")
+    )
     return {
-        "severity_assessment": "severity_assessment" in goals or bool(spl_present),
+        "severity_assessment": not knowledge_profile and ("severity_assessment" in goals or bool(spl_present)),
         "mitre_mapping": show_mitre,
         "not_claimed": show_mitre and bool(not_claimed),
         "spl_artifact": spl_present and ("spl_artifact" in goals or answer_mode in {"live_investigation", "hybrid"}),
         "live_results": "live_results" in goals,
-        "analyst_action_guidance": "analyst_action_guidance" in goals,
+        "analyst_action_guidance": has_investigation_guidance or "analyst_action_guidance" in goals,
         "policy_citation": playbook_eligible and answer_mode in {"rag_only", "hybrid"},
-        "procedural_steps": "procedural_steps" in goals,
-        "limitations": True,
+        "procedural_steps": "procedural_steps" in goals or has_investigation_guidance,
+        "limitations": not knowledge_profile,
+        "investigation_guidance": has_investigation_guidance and not knowledge_profile,
     }
 
 
@@ -358,6 +449,39 @@ _NON_AUTH_USE_CASES = frozenset(
         "email_phishing_header_review",
     }
 )
+
+_AUTH_USE_CASE_PREFIXES = ("auth_",)
+
+
+def _is_auth_use_case(use_case_id: str | None, intent_family: str | None) -> bool:
+    if use_case_id:
+        if use_case_id in _NON_AUTH_USE_CASES:
+            return False
+        return use_case_id.startswith(_AUTH_USE_CASE_PREFIXES)
+    return intent_family == "hybrid_alert_review"
+
+
+def _is_knowledge_profile(
+    intent_family: str | None,
+    answer_mode: str | None,
+    user_query: str | None = None,
+) -> bool:
+    if answer_mode == "rag_only" or intent_family in {"sop_or_playbook", "policy_knowledge", "knowledge_only"}:
+        return True
+    if user_query and intent_family in {"sop_or_playbook", "policy_knowledge", "knowledge_only"}:
+        return not bool(re.search(r"\b(?:alert|alt)[\s:=]+[A-Za-z0-9]", user_query, re.IGNORECASE))
+    return False
+
+
+def _filter_missing_evidence_for_use_case(
+    missing: list[str],
+    use_case_id: str | None,
+    intent_family: str | None,
+) -> list[str]:
+    if _is_auth_use_case(use_case_id, intent_family):
+        return missing
+    auth_keys = set(_AUTH_LIMITATION_KEYS)
+    return [item for item in missing if str(item) not in auth_keys]
 
 
 def _default_limitations(

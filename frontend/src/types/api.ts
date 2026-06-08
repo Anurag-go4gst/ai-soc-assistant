@@ -383,8 +383,23 @@ export interface AnalystResponseEnvelope {
   review_notice?: string | null;
   evidence_summary?: string | null;
   execution_status_label?: string | null;
+  spl_status?: string | null;
+  hil_status?: string | null;
+  missing_evidence?: string[];
+  analyst_checklist?: string[];
+  unsupported_claims_avoid?: string[];
+  mitre_status_summary?: Record<string, string[]>;
   direct_answer_summary?: string | null;
   limitations?: string[];
+  required_evidence?: string[];
+  spl_status_detail?: {
+    template_status?: string;
+    generation?: string;
+    reason?: string;
+    reason_display?: string;
+    required_fields?: string[];
+    template_id?: string;
+  } | null;
   section_order?: string[];
   render_sections?: Record<string, boolean>;
 }

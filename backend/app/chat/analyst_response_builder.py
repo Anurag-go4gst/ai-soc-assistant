@@ -118,8 +118,17 @@ def build_analyst_response_for_live(
         answer_mode=str(plan.get("answer_mode") or "") or None,
     )
     severity_safety_note = _severity_safety_note(user_query, response_profile)
-    display_severity = severity_label
-    if review_notice and severity_label and "review required" not in severity_label.lower():
+    knowledge_profile = (
+        plan.get("answer_mode") == "rag_only"
+        or intent.get("intent_family") in {"sop_or_playbook", "policy_knowledge", "knowledge_only"}
+    )
+    display_severity = None if knowledge_profile else severity_label
+    if (
+        not knowledge_profile
+        and review_notice
+        and severity_label
+        and "review required" not in severity_label.lower()
+    ):
         display_severity = f"{severity_label} — Review required"
 
     envelope = AnalystResponseEnvelope(
@@ -430,8 +439,18 @@ def _recommended_from_rag(source_evidence: list[dict[str, Any]]) -> list[str]:
                 continue
             actions = row.get("recommended_actions")
             if isinstance(actions, list) and actions:
-                return [f"P2 — {str(item)}" for item in actions[:6]]
+                return [_format_rag_action(str(item)) for item in actions[:6]]
     return []
+
+
+def _format_rag_action(text: str) -> str:
+    cleaned = text.strip()
+    glued = re.match(r"^(P[1-4])([A-Za-z])", cleaned)
+    if glued:
+        cleaned = f"{glued.group(1)} — {cleaned[len(glued.group(1)):].lstrip(' -—')}"
+    if re.match(r"^P[1-4]\s*[—-]\s*", cleaned):
+        return re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", cleaned)
+    return f"P2 — {cleaned.replace('_', ' ')}"
 
 
 def _splunk_status_line(table: list[dict[str, Any]], execution: dict[str, Any] | None = None) -> str | None:

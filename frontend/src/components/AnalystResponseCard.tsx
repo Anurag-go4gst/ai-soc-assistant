@@ -40,6 +40,7 @@ export function AnalystResponseCard({
   const hasPriorityInvestigation = hasPriorityActions(priorityActions);
   const renderSections = response.render_sections ?? {};
   const splOnly = response.response_profile === 'spl_only';
+  const isKnowledgeRecall = response.response_profile === 'knowledge_recall';
   const isHybridAlertReview = response.response_profile === 'hybrid_alert_review';
   const wasExecuted = response.execution_status === 'executed';
   const splReviewNotice =
@@ -50,7 +51,20 @@ export function AnalystResponseCard({
   const showSummaryInHeader = Boolean(
     summaryText && (response.direct_answer_summary || isHybridAlertReview || !response.spl_code),
   );
-  const showLimitations = Boolean(response.limitations?.length && (renderSections.limitations ?? true));
+  const missingEvidence = formatMissingEvidence(response);
+  const showInvestigationGuidance = Boolean(
+    renderSections.investigation_guidance &&
+      (response.required_evidence?.length ||
+        missingEvidence.length ||
+        response.analyst_checklist?.length ||
+        response.limitations?.length),
+  );
+  const showLimitations = Boolean(
+    response.limitations?.length &&
+      (renderSections.limitations ?? true) &&
+      !showInvestigationGuidance &&
+      !isKnowledgeRecall,
+  );
   const severityShowsReviewRequired = /review required/i.test(response.severity_label ?? '');
   const showReviewRequiredBadge = Boolean(response.review_notice && !severityShowsReviewRequired);
   const showSpl = Boolean(response.spl_code && (renderSections.spl_artifact ?? true));
@@ -80,6 +94,152 @@ export function AnalystResponseCard({
   // assigned by render order, never hardcoded.
   const phases: Phase[] = [];
 
+  if (showInvestigationGuidance) {
+    phases.push({
+      key: 'guidance',
+      label: 'Investigation guidance',
+      icon: <ListChecks className="h-3.5 w-3.5" />,
+      accent: 'amber',
+      chips: [{ text: 'Required evidence & checklist', variant: 'outline' }],
+      content: (
+        <>
+          {response.required_evidence?.length ? (
+            <div>
+              <SectionTitle>Required evidence</SectionTitle>
+              <BulletList items={response.required_evidence} />
+            </div>
+          ) : null}
+          {missingEvidence.length ? (
+            <div className={response.required_evidence?.length ? 'mt-4' : ''}>
+              <SectionTitle>Missing evidence</SectionTitle>
+              <BulletList items={missingEvidence} />
+            </div>
+          ) : null}
+          {response.analyst_checklist?.length ? (
+            <div className={response.required_evidence?.length || missingEvidence.length ? 'mt-4' : ''}>
+              <SectionTitle>Analyst checklist</SectionTitle>
+              <StepList items={response.analyst_checklist} />
+            </div>
+          ) : null}
+          {response.limitations?.length ? (
+            <div
+              className={
+                response.required_evidence?.length || missingEvidence.length || response.analyst_checklist?.length
+                  ? 'mt-4'
+                  : ''
+              }
+            >
+              <SectionTitle>Limitations</SectionTitle>
+              <BulletList items={response.limitations} />
+            </div>
+          ) : null}
+        </>
+      ),
+    });
+  }
+
+  if (showPlaybook) {
+    phases.push({
+      key: 'knowledge',
+      label: 'SOC knowledge',
+      icon: <BookOpen className="h-3.5 w-3.5" />,
+      accent: 'emerald',
+      chips: [
+        { text: 'Governed RAG', variant: 'secondary' },
+        ...(playbookVersion ? [{ text: playbookVersion, variant: 'outline' as const }] : []),
+      ],
+      content: (
+        <>
+          {playbookTitle ? (
+            <>
+              <p className="font-medium text-cyan-100">{playbookTitle}</p>
+              <PlaybookProvenance playbook={response.retrieved_playbook} />
+              {typeof response.retrieved_playbook?.purpose === 'string' ? (
+                <div className="mt-3">
+                  <SectionTitle>Purpose</SectionTitle>
+                  <p className="mt-1 leading-6 text-slate-200">{response.retrieved_playbook.purpose}</p>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+          {policyChecks.length ? (
+            <div className={playbookTitle ? 'mt-3' : ''}>
+              <SectionTitle>Policy checks required by SOP</SectionTitle>
+              <StepList items={policyChecks} />
+            </div>
+          ) : null}
+        </>
+      ),
+    });
+  }
+
+  if ((hasMitre || hasNotClaimed) && !hasReasoning) {
+    phases.push({
+      key: 'mitre',
+      label: 'MITRE status',
+      icon: <Crosshair className="h-3.5 w-3.5" />,
+      accent: 'violet',
+      chips: [{ text: 'local MITRE KB', variant: 'outline' }],
+      content: (
+        <>
+          {hasMitre ? <DataTable rows={response.mitre_mappings ?? []} /> : null}
+          {hasNotClaimed ? (
+            <div className={hasMitre ? 'mt-4' : ''}>
+              <SectionTitle>Not claimed</SectionTitle>
+              <DataTable rows={response.not_claimed ?? []} />
+            </div>
+          ) : null}
+        </>
+      ),
+    });
+  }
+
+  if (showSpl || response.spl_status_detail) {
+    phases.push({
+      key: 'spl',
+      label: wasExecuted ? 'Executed detection' : 'SPL status',
+      icon: <Terminal className="h-3.5 w-3.5" />,
+      accent: 'cyan',
+      chips: [{ text: response.spl_status === 'not_required' ? 'SPL skipped' : 'Candidate SPL', variant: 'secondary' }],
+      content: (
+        <>
+          {response.spl_status_detail ? <SplStatusDetail detail={response.spl_status_detail} /> : null}
+          {showSpl ? (
+            <>
+              {!wasExecuted && splReviewNotice ? (
+                <p className={response.spl_status_detail ? 'mt-3 text-sm leading-6 text-amber-100/95' : 'text-sm leading-6 text-amber-100/95'}>
+                  {splReviewNotice}
+                </p>
+              ) : null}
+              <pre
+                className={cn(
+                  'max-h-96 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-6 text-cyan-100',
+                  splReviewNotice || response.spl_status_detail ? 'mt-3' : '',
+                )}
+              >
+                <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(response.spl_code ?? '')}</code>
+              </pre>
+            </>
+          ) : null}
+          {wasExecuted && response.executed_spl && response.executed_spl !== response.spl_code ? (
+            <div className="mt-3">
+              <SectionTitle>Executed normalized SPL</SectionTitle>
+              <pre className="mt-2 max-h-96 overflow-auto rounded-lg border border-emerald-400/20 bg-slate-950 p-3 text-xs leading-6 text-emerald-100">
+                <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(response.executed_spl)}</code>
+              </pre>
+            </div>
+          ) : null}
+          {response.key_fields?.length ? (
+            <div className="mt-3">
+              <SectionTitle>Key returned fields</SectionTitle>
+              <BulletList items={response.key_fields} />
+            </div>
+          ) : null}
+        </>
+      ),
+    });
+  }
+
   if (showLiveResults) {
     phases.push({
       key: 'evidence',
@@ -100,45 +260,6 @@ export function AnalystResponseCard({
             <p className="mt-3 rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-xs leading-5 text-slate-300">
               {response.evidence_summary}
             </p>
-          ) : null}
-        </>
-      ),
-    });
-  }
-
-  if (showSpl) {
-    phases.push({
-      key: 'spl',
-      label: wasExecuted ? 'Executed detection' : 'Generated SPL',
-      icon: <Terminal className="h-3.5 w-3.5" />,
-      accent: 'cyan',
-      chips: [{ text: 'Candidate SPL', variant: 'secondary' }],
-      content: (
-        <>
-          {!wasExecuted && splReviewNotice ? (
-            <p className="text-sm leading-6 text-amber-100/95">{splReviewNotice}</p>
-          ) : null}
-          <pre
-            className={cn(
-              'max-h-96 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-6 text-cyan-100',
-              splReviewNotice ? 'mt-3' : '',
-            )}
-          >
-            <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(response.spl_code ?? '')}</code>
-          </pre>
-          {wasExecuted && response.executed_spl && response.executed_spl !== response.spl_code ? (
-            <div className="mt-3">
-              <SectionTitle>Executed normalized SPL</SectionTitle>
-              <pre className="mt-2 max-h-96 overflow-auto rounded-lg border border-emerald-400/20 bg-slate-950 p-3 text-xs leading-6 text-emerald-100">
-                <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(response.executed_spl)}</code>
-              </pre>
-            </div>
-          ) : null}
-          {response.key_fields?.length ? (
-            <div className="mt-3">
-              <SectionTitle>Key returned fields</SectionTitle>
-              <BulletList items={response.key_fields} />
-            </div>
           ) : null}
         </>
       ),
@@ -176,61 +297,6 @@ export function AnalystResponseCard({
             <div className="mt-4">
               <SectionTitle>Not claimed</SectionTitle>
               <DataTable rows={response.not_claimed ?? []} />
-            </div>
-          ) : null}
-        </>
-      ),
-    });
-  } else if (hasMitre || hasNotClaimed) {
-    // MITRE without a captured model signal is a local-KB mapping, not model output.
-    phases.push({
-      key: 'mitre',
-      label: 'Threat mapping',
-      icon: <Crosshair className="h-3.5 w-3.5" />,
-      accent: 'violet',
-      chips: [{ text: 'local MITRE KB', variant: 'outline' }],
-      content: (
-        <>
-          {hasMitre ? <DataTable rows={response.mitre_mappings ?? []} /> : null}
-          {hasNotClaimed ? (
-            <div className={hasMitre ? 'mt-4' : ''}>
-              <SectionTitle>Not claimed</SectionTitle>
-              <DataTable rows={response.not_claimed ?? []} />
-            </div>
-          ) : null}
-        </>
-      ),
-    });
-  }
-
-  if (showPlaybook) {
-    phases.push({
-      key: 'knowledge',
-      label: 'SOC knowledge',
-      icon: <BookOpen className="h-3.5 w-3.5" />,
-      accent: 'emerald',
-      chips: [
-        { text: 'Governed RAG', variant: 'secondary' },
-        ...(playbookVersion ? [{ text: playbookVersion, variant: 'outline' as const }] : []),
-      ],
-      content: (
-        <>
-          {playbookTitle ? (
-            <>
-              <p className="font-medium text-cyan-100">{playbookTitle}</p>
-              <PlaybookProvenance playbook={response.retrieved_playbook} />
-              {typeof response.retrieved_playbook?.purpose === 'string' ? (
-                <div className="mt-3">
-                  <SectionTitle>Purpose</SectionTitle>
-                  <p className="mt-1 leading-6 text-slate-200">{response.retrieved_playbook.purpose}</p>
-                </div>
-              ) : null}
-            </>
-          ) : null}
-          {policyChecks.length ? (
-            <div className={playbookTitle ? 'mt-3' : ''}>
-              <SectionTitle>Policy checks required by SOP</SectionTitle>
-              {hasSopSections ? <NumberedList items={policyChecks} /> : <BulletList items={policyChecks} />}
             </div>
           ) : null}
         </>
@@ -279,7 +345,7 @@ export function AnalystResponseCard({
   return (
     <div className="max-w-[1120px] rounded-xl border border-cyan-500/20 bg-slate-950/70 px-6 py-5 text-[15px] text-slate-100 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
-        {response.severity_label ? <SeverityBadge label={response.severity_label} /> : null}
+        {response.severity_label && !isKnowledgeRecall ? <SeverityBadge label={response.severity_label} /> : null}
         {response.severity_confidence ? (
           <Badge variant="outline">Confidence: {response.severity_confidence}</Badge>
         ) : null}
@@ -334,12 +400,11 @@ function PhaseTimeline({ phases }: { phases: Phase[] }) {
             ) : null}
             <span
               className={cn(
-                'absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border',
+                'absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border text-base',
                 accent.node,
-                phases.length > 1 ? 'text-sm font-bold tabular-nums' : 'text-base',
               )}
             >
-              {phases.length > 1 ? index + 1 : phase.icon}
+              {phase.icon}
             </span>
             <div className="flex min-h-[2.5rem] flex-wrap items-center gap-2 pt-1.5">
               <span
@@ -507,12 +572,14 @@ function RecommendationList({ items }: { items: string[] }) {
   return (
     <div className="mt-3 space-y-2">
       {items.map((item) => {
-        const priority = item.match(/^(P[1-4])\s*[—-]\s*/)?.[1] ?? 'P3';
-        const text = item.replace(/^(P[1-4])\s*[—-]\s*/, '');
+        const normalized = normalizePriorityAction(item);
         return (
-          <div key={item} className={cn('rounded-lg border py-3 pl-4 pr-3 leading-6', recommendationTone(priority))}>
-            <span className="mr-2 text-xs font-bold uppercase tracking-[0.05em]">{priority}</span>
-            <span className="text-slate-100">{text}</span>
+          <div
+            key={item}
+            className={cn('rounded-lg border py-3 pl-4 pr-3 leading-6', recommendationTone(normalized.priority))}
+          >
+            <span className="mr-2 text-xs font-bold uppercase tracking-[0.05em]">{normalized.priority}</span>
+            <span className="text-slate-100">{normalized.text}</span>
           </div>
         );
       })}
@@ -570,12 +637,85 @@ function hasPriorityActions(items: string[]) {
   return items.some((item) => /^P[1-4]\s*[—-]\s*/.test(item));
 }
 
-function NumberedList({ items }: { items: string[] }) {
+function StepList({ items }: { items: string[] }) {
   return (
-    <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-slate-200">
-      {items.map((item) => <li key={item}>{item}</li>)}
-    </ol>
+    <ul className="mt-2 space-y-1.5 text-slate-200">
+      {items.map((item, index) => (
+        <li key={`${index}-${item}`}>
+          <span className="font-medium text-slate-300">Step {index + 1}:</span> {humanizeStep(item)}
+        </li>
+      ))}
+    </ul>
   );
+}
+
+function SplStatusDetail({
+  detail,
+}: {
+  detail: NonNullable<AnalystResponseEnvelope['spl_status_detail']>;
+}) {
+  const generationLabel =
+    detail.generation === 'blocked'
+      ? 'blocked / review required'
+      : detail.generation === 'review_required'
+        ? 'review required'
+        : detail.generation ?? 'unknown';
+  return (
+    <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-sm leading-6 text-amber-50">
+      <SectionTitle>SPL status</SectionTitle>
+      <ul className="mt-2 space-y-1 text-slate-100">
+        <li>
+          <span className="text-slate-400">SPL template status:</span> {detail.template_status ?? 'unknown'}
+        </li>
+        <li>
+          <span className="text-slate-400">SPL generation:</span> {generationLabel}
+        </li>
+        {detail.reason_display || detail.reason ? (
+          <li>
+            <span className="text-slate-400">Reason:</span> {detail.reason_display ?? detail.reason}
+          </li>
+        ) : null}
+        {detail.required_fields?.length ? (
+          <li>
+            <span className="text-slate-400">Required fields:</span> {detail.required_fields.join(', ')}
+          </li>
+        ) : null}
+      </ul>
+    </div>
+  );
+}
+
+function formatMissingEvidence(response: AnalystResponseEnvelope): string[] {
+  const raw = response.missing_evidence ?? [];
+  const limitationLabels = new Set(response.limitations ?? []);
+  return raw.map((item) => {
+    const normalized = item.replace(/_/g, ' ');
+    if (/missing/i.test(item)) {
+      return item;
+    }
+    const candidate = `${normalized} missing`;
+    if (limitationLabels.has(candidate)) {
+      return candidate;
+    }
+    return candidate;
+  });
+}
+
+function humanizeStep(value: string): string {
+  return value.replace(/_/g, ' ');
+}
+
+function normalizePriorityAction(item: string): { priority: string; text: string } {
+  let cleaned = item.trim();
+  const glued = cleaned.match(/^(P[1-4])([A-Za-z])/);
+  if (glued) {
+    cleaned = `${glued[1]} — ${cleaned.slice(glued[1].length).replace(/^[\s-—]+/, '')}`;
+  }
+  const matched = cleaned.match(/^(P[1-4])\s*[—-]\s*(.*)$/);
+  if (matched) {
+    return { priority: matched[1], text: humanizeStep(matched[2]) };
+  }
+  return { priority: 'P3', text: humanizeStep(cleaned) };
 }
 
 function stringList(value: unknown): string[] {

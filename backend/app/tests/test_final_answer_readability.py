@@ -269,6 +269,91 @@ def test_hybrid_includes_spl_status_and_playbook_when_requested() -> None:
     assert result.recommended_actions[0].startswith("P2 —")
 
 
+def test_sop_knowledge_profile_suppresses_alert_analysis_fields() -> None:
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "sop_or_playbook",
+            "answer_goal": ["policy_citation", "procedural_steps"],
+        },
+        evidence_plan={"answer_mode": "rag_only", "mcp_allowed": False, "spl_allowed": False},
+        mitre_decision={"answer_visible": True, "not_claimed": ["T1110.001"]},
+        severity_decision=type("Severity", (), {"severity_label": "P3 Medium", "missing_evidence": []})(),
+        spl_validation=None,
+        execution={"status": "skipped"},
+        human_review={"required": False},
+        mitre_mappings=[{"technique_id": "T1110.001"}],
+    )
+    envelope = AnalystResponseEnvelope(
+        severity_label="P3 Medium",
+        mitre_mappings=[{"Technique": "T1110.001", "Status": "Candidate"}],
+        retrieved_playbook={"title": "Brute-force login SOP", "purpose": "Scope and escalation checks."},
+        spl_code="index=x",
+    )
+    result = apply_final_answer_readability(envelope, contract)
+    summary = (result.direct_answer_summary or "").lower()
+    assert "governed sop retrieved" in summary
+    assert "spl and mcp were skipped" in summary
+    assert result.severity_label is None
+    assert result.mitre_mappings == []
+    assert result.spl_code is None
+
+
+def test_powershell_contract_uses_endpoint_limitations_not_auth() -> None:
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "hybrid_alert_review",
+            "answer_goal": ["spl_artifact", "mitre_mapping", "analyst_action_guidance"],
+        },
+        evidence_plan={
+            "answer_mode": "hybrid",
+            "spl_allowed": True,
+            "mcp_allowed": False,
+            "use_case_id": "edr_powershell_suspicious_command",
+            "limitations": ["Encoded command is a suspicious indicator, not a standalone malware verdict."],
+            "checklist": ["Review event ID and script block text."],
+            "required_evidence_keys": ["command_line", "parent_process"],
+            "missing_required_evidence": ["command_line", "parent_process"],
+        },
+        mitre_decision={"answer_visible": True},
+        severity_decision=None,
+        spl_validation={
+            "approved": False,
+            "review_required": True,
+            "review_required_reason": "spl_template_active_source_profile_missing",
+            "spl_template_status": "active",
+        },
+        execution={"status": "skipped"},
+        human_review={"required": False},
+        use_case_id="edr_powershell_suspicious_command",
+    )
+    envelope = AnalystResponseEnvelope(response_profile="hybrid_alert_review")
+    result = apply_final_answer_readability(envelope, contract)
+    joined = " ".join(result.limitations).lower()
+    assert "mfa" not in joined
+    assert "post-login" not in joined
+    assert result.required_evidence
+    assert result.analyst_checklist
+    assert result.spl_status_detail is not None
+    assert result.spl_status_detail["template_status"] == "active"
+    assert result.spl_status_detail["generation"] == "blocked"
+    assert "index" in (result.spl_status_detail.get("required_fields") or [])
+
+
+def test_investigation_actions_unglue_p2review_concatenation() -> None:
+    contract = build_answer_contract(
+        intent_classification={"answer_goal": ["analyst_action_guidance"]},
+        evidence_plan={"answer_mode": "hybrid", "mcp_allowed": True},
+        mitre_decision={},
+        severity_decision=None,
+        spl_validation=None,
+        execution={"status": "skipped"},
+        human_review={"required": False},
+    )
+    envelope = AnalystResponseEnvelope(recommended_actions=["P2Review failed-login volume and source distribution."])
+    result = apply_final_answer_readability(envelope, contract)
+    assert result.recommended_actions[0] == "P2 — Review failed-login volume and source distribution."
+
+
 def test_investigation_actions_use_priority_prefix() -> None:
     contract = build_answer_contract(
         intent_classification={"answer_goal": ["analyst_action_guidance"]},
