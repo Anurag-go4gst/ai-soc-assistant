@@ -1,6 +1,6 @@
 # SPL Draft Preview Eval Summary
 
-- Generated: 2026-06-08T14:25:39.816366+00:00
+- Generated: 2026-06-08T14:42:15.754917+00:00
 - Rows: 12
 - Passed: 12
 - Failed: 0

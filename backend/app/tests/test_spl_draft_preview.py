@@ -212,7 +212,7 @@ def test_lint_rejects_unescaped_windows_path_backslash() -> None:
 def test_lint_requires_strftime_when_earliest_latest_used() -> None:
     bad = "| stats count earliest(_time) as first_seen latest(_time) as last_seen by user"
     violations = lint_strftime_for_time_fields(bad)
-    assert violations and any(item.endswith("Q04") for item in violations)
+    assert violations and any(item.endswith("U02") for item in violations)
     good = "| stats min(_time) as t | eval first_seen=strftime(t, \"%F %T\")"
     assert lint_strftime_for_time_fields(good) == []
 

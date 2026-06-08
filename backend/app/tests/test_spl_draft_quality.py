@@ -36,7 +36,82 @@ search index=foo sourcetype=bar
 """
     report = evaluate_draft_quality(bad)
     assert report.hard_fail_count >= 1
-    assert any(item.rule_id.endswith("Q03") for item in report.findings)
+    assert any(item.rule_id.endswith("U02") for item in report.findings)
+
+
+def test_strftime_on_time_before_streamstats_is_hard_fail() -> None:
+    bad = """
+search index=foo sourcetype=bar
+| eval t=strftime(_time, "%F")
+| streamstats count as fail_count by src_ip_norm
+"""
+    report = evaluate_draft_quality(bad)
+    assert any(
+        item.rule_id.endswith("U02") and item.severity == "hard_fail" for item in report.findings
+    )
+
+
+def test_earliest_latest_without_strftime_after_stats_is_hard_fail() -> None:
+    bad = """
+search index=foo sourcetype=bar EventCode=4740
+| stats count earliest(_time) as first_seen latest(_time) as last_seen by user
+| table user count first_seen last_seen
+"""
+    report = evaluate_draft_quality(bad)
+    assert any(item.rule_id.endswith("U02") for item in report.findings)
+
+
+def test_shift_left_eventcode_must_be_in_base_search() -> None:
+    bad = """
+search index=win sourcetype=wineventlog earliest=-24h latest=now
+| search EventCode=4740
+| stats count by user
+"""
+    report = evaluate_draft_quality(bad, detection_family="windows_account_lockout")
+    assert any(item.rule_id.endswith("U01") for item in report.findings)
+
+
+def test_delayed_static_filter_emits_shift_left_warning() -> None:
+    bad = """
+search index=fw sourcetype=pan earliest=-24h latest=now
+| search action=allowed
+| stats count by src_ip
+"""
+    report = evaluate_draft_quality(bad)
+    assert any(
+        item.rule_id.endswith("U01") and item.severity == "warning" for item in report.findings
+    )
+
+
+def test_stats_inclusion_critical_field_is_hard_fail() -> None:
+    bad = """
+search index=fw sourcetype=pan action=allowed earliest=-24h latest=now
+| eval src_zone_norm=lower(coalesce(src_zone, ""))
+| eval app_norm=lower(coalesce(app, ""))
+| stats count by src_ip_norm
+| table src_ip_norm src_zones applications
+"""
+    report = evaluate_draft_quality(bad, detection_family="esp_it_to_ot_connection")
+    assert any(
+        item.rule_id.endswith("U03") and item.severity == "hard_fail" for item in report.findings
+    )
+
+
+@pytest.mark.parametrize(
+    ("family_id", "needle"),
+    [
+        ("windows_account_lockout", "EventCode=4740"),
+        ("sysmon_web_shell_spawn", "EventCode=1"),
+        ("windows_privileged_group_changes", "EventCode=4728"),
+        ("esp_it_to_ot_connection", "action=allowed"),
+        ("substation_hmi_brute_force", "failure"),
+        ("scada_dnp3_modbus_write", "*dnp3*"),
+    ],
+)
+def test_draft_families_shift_left_static_filters(family_id: str, needle: str) -> None:
+    family = next(item for item in DETECTION_FAMILIES if item.family_id == family_id)
+    base_search = family.draft_spl.split("|")[0]
+    assert needle.lower() in base_search.lower()
 
 
 def test_cidr_in_without_cidrmatch_is_warning() -> None:

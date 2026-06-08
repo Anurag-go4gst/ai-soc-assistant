@@ -2,6 +2,29 @@
 
 from __future__ import annotations
 
+UNIVERSAL_ENGINEERING_BLOCK = """
+Universal SPL engineering standards (SOC-STD-SPL-001 — all families):
+
+U1. Line-1 index-filter / shift-left
+- Static filters known from the request must appear in the base search before the first pipe when possible:
+  EventCode, action, status, protocol, sourcetype, known raw keywords.
+- Examples: EventCode=4740; EventCode=1; EventCode=4728 OR 4732 OR 4756; action=allowed; (failure OR fail OR denied).
+- Do not force normalized coalesce() conditions onto line 1.
+- Delaying obvious static filters until after the first pipe is a lint finding.
+
+U2. Native _time rule
+- Do not use strftime(_time, ...) before bin/stats/streamstats/timechart.
+- Keep _time numeric for aggregation and windowing.
+- Apply strftime only at final presentation (after aggregation or on epoch aliases).
+- If earliest(_time) or latest(_time) is used in stats, add readable first_seen/last_seen via strftime after stats.
+
+U3. Stats inclusion rule
+- Any field required in the final table after stats/streamstats must be:
+  (a) in the by clause, or (b) preserved via values(), latest(), earliest(), count(), dc(), list(), etc.
+- Especially preserve: src_zone, dest_zone, rule, app, caller_host, command_line, parent_image, child_image,
+  target_user, added_user, group_name (or their *_norm aliases).
+""".strip()
+
 FAMILY_ENGINEERING_BLOCKS: dict[str, str] = {
     "windows_privileged_group_changes": """
 1. Privileged Group Changes / Active Directory
@@ -89,8 +112,18 @@ FAMILY_ENGINEERING_BLOCKS: dict[str, str] = {
 }
 
 
+def universal_engineering_prompt() -> str:
+    """Universal SOC-STD-SPL-001 engineering rules for LLM SPL fallback."""
+    return UNIVERSAL_ENGINEERING_BLOCK
+
+
 def family_engineering_prompt() -> str:
     """Concatenated family-specific engineering blocks for LLM SPL fallback."""
     return "Family-specific SPL engineering (apply when detection_family matches):\n\n" + "\n\n".join(
         FAMILY_ENGINEERING_BLOCKS.values()
     )
+
+
+def full_engineering_prompt() -> str:
+    """Universal + family-specific engineering instructions."""
+    return f"{UNIVERSAL_ENGINEERING_BLOCK}\n\n{family_engineering_prompt()}"

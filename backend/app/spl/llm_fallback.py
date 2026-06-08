@@ -9,7 +9,7 @@ from app.llm.adapter import adapt_llm_output
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
 from app.safeguards.spl_validator import validate_spl
 from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
-from app.spl.family_engineering import family_engineering_prompt
+from app.spl.family_engineering import full_engineering_prompt, universal_engineering_prompt
 
 SPL_ADVISORY_ROLE = "spl_advisory_generator"
 
@@ -326,12 +326,8 @@ def _confidence_score(value: Any) -> float:
 
 def _soc_std_spl_001_prompt_rules() -> str:
     return (
-        "SOC-STD-SPL-001 quality rules (candidate_spl must comply):\n"
-        "A. Shift-left filtering: put index, sourcetype, EventCode/action/protocol/static keywords "
-        "in the first search line wherever known. Do not push static filters into late where if they "
-        "can be placed in the base search. Granular normalized-field conditions may follow coalesce().\n"
-        "B. Keep _time numeric until aggregation: do not run strftime(_time, ...) before bin, stats, "
-        "chart, or timechart. Use _time for aggregation first and strftime only at final presentation.\n"
+        f"{universal_engineering_prompt()}\n\n"
+        "SOC-STD-SPL-001 additional quality rules (candidate_spl must comply):\n"
         "C. Normalize fields early with coalesce(), for example user_norm=lower(coalesce(user, username, "
         "src_user, Account_Name, TargetUserName, \"unknown\")); src_ip_norm=coalesce(src_ip, src, source, "
         "source_ip, Source_Network_Address, \"unknown\"); dest_ip_norm=coalesce(dest_ip, dest, destination, "
@@ -359,7 +355,7 @@ def _soc_std_spl_001_prompt_rules() -> str:
 
 
 def _detection_family_prompt() -> str:
-    return family_engineering_prompt()
+    return full_engineering_prompt()
 
 
 def _system_prompt() -> str:

@@ -24,11 +24,7 @@ def lint_windows_path_escaping(spl: str) -> list[str]:
 
 def lint_strftime_for_time_fields(spl: str) -> list[str]:
     report = evaluate_draft_quality(spl)
-    return [
-        item.rule_id
-        for item in report.findings
-        if item.rule_id.endswith("Q03") or item.rule_id.endswith("Q04")
-    ]
+    return [item.rule_id for item in report.findings if item.rule_id.endswith("U02")]
 
 
 def lint_prohibited_claims(text: str) -> list[str]:

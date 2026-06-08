@@ -70,6 +70,11 @@ def _enable(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_system_prompt_includes_soc_std_spl_001_rules() -> None:
     prompt = _system_prompt()
     assert STANDARD_ID in prompt
+    assert "U1." in prompt or "shift-left" in prompt.lower()
+    assert "U2." in prompt or "native _time" in prompt.lower()
+    assert "U3." in prompt or "stats inclusion" in prompt.lower()
+    assert "streamstats" in prompt.lower()
+    assert "values()" in prompt
     assert "shift-left" in prompt.lower() or "base search" in prompt.lower()
     assert "coalesce" in prompt.lower()
     assert "cidrmatch" in prompt.lower()

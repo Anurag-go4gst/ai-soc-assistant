@@ -19,11 +19,16 @@ This standard does not change Phase 6 governed SPL approval logic, MCP execution
 
 ## Engineering principles
 
-1. **Shift-left filtering** — static `index`, `sourcetype`, `EventCode`, `action`, `protocol`, and zone filters in the base `search` line where available.
-2. **Keep `_time` numeric until aggregation** — avoid formatting raw event time before `stats` / `bin` / `timechart`.
-3. **Normalize fields early with `coalesce()`** — alias multi-vendor field names before filters and aggregations.
-4. **Escape Windows paths** — use doubled backslashes in quoted path literals (`%\\\\w3wp.exe` with `like()`).
-5. **Readable timestamps after aggregation** — `strftime()` on epoch fields produced by `stats` / `bin`, not on pre-aggregate `_time`.
+### Universal standards (U01–U03)
+
+1. **U01 — Line-1 index-filter / shift-left** — static filters known from the request (`EventCode`, `action`, `status`, `protocol`, `sourcetype`, raw keywords) must appear in the base `search` before the first pipe when possible. Do not force normalized `coalesce()` conditions onto line 1. Delaying obvious static filters after the first pipe is a lint finding.
+2. **U02 — Native `_time` rule** — do not use `strftime(_time, ...)` before `bin` / `stats` / `streamstats` / `timechart`. Keep `_time` numeric for aggregation and windowing; apply `strftime` only at final presentation. If `earliest(_time)` / `latest(_time)` is used, require readable `first_seen` / `last_seen` formatting after stats.
+3. **U03 — Stats inclusion rule** — any field required in the final `table` after `stats` / `streamstats` must be in the `by` clause or preserved via `values()`, `latest()`, `earliest()`, `count()`, `dc()`, `list()`, etc. Critical fields (`src_zone`, `dest_zone`, `rule`, `app`, `caller_host`, `command_line`, `parent_image`, `child_image`, `target_user`, `added_user`, `group_name`, and their `*_norm` / plural aliases) hard-fail when dropped.
+
+### Additional principles
+
+4. **Normalize fields early with `coalesce()`** — alias multi-vendor field names before filters and aggregations.
+5. **Escape Windows paths** — use doubled backslashes in quoted path literals (`%\\\\w3wp.exe` with `like()`).
 6. **Use `cidrmatch()` for CIDR ranges** — prefer `cidrmatch("<cidr>", ip_field)` over `ip IN (...)`.
 
 ## Rule severity
@@ -40,8 +45,9 @@ This standard does not change Phase 6 governed SPL approval logic, MCP execution
 |---------|----------|-------|
 | Q01 | hard_fail | No newline inside quoted SPL strings |
 | Q02 | hard_fail | No unescaped Windows path backslashes in quoted strings |
-| Q03 | hard_fail | No `strftime(_time|event_time|lockout_time, ...)` before first `stats` / `bin` / `timechart` |
-| Q04 | hard_fail | If `earliest(_time)` / `latest(_time)` is used, readable `strftime()` output must appear |
+| U01 | hard_fail / warning | Shift-left static filters (`EventCode`, `action`, protocol keywords) into base `search`; warn when delayed |
+| U02 | hard_fail | No `strftime(_time|event_time|lockout_time, ...)` before `bin` / `stats` / `streamstats` / `timechart`; `earliest`/`latest` require readable output after stats |
+| U03 | hard_fail / warning | Final `table` columns must survive `stats` / `streamstats` (critical fields hard-fail) |
 | Q05 | hard_fail | Draft text must not imply executed, approved, or governed SPL |
 | Q06 | advisory | Prefer `coalesce()` for common multi-vendor field aliases |
 | Q07 | warning | CIDR logic should use `cidrmatch()`, not `IN()` |

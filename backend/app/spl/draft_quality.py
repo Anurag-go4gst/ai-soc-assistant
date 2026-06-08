@@ -25,7 +25,64 @@ _STREAMSTATS = re.compile(r"\bstreamstats\b", re.IGNORECASE)
 _SORT_BEFORE_STREAMSTATS = re.compile(r"\bsort\s+0\s*\+\s*_time\b", re.IGNORECASE)
 _BROKEN_HMI_REGEX = re.compile(r"\(\?i\)hmi\\n\s*\|\s*portal", re.IGNORECASE)
 _STRFTIME = re.compile(r"\bstrftime\s*\(", re.IGNORECASE)
-_STRFTIME_ON_TIME = re.compile(r"\bstrftime\s*\(\s*(?:_time|event_time|lockout_time)\s*,", re.IGNORECASE)
+_STRFTIME_ON_TIME = re.compile(
+    r"\bstrftime\s*\(\s*(?:_time|event_time|lockout_time)\s*,",
+    re.IGNORECASE,
+)
+_EVAL_ASSIGN = re.compile(r"\b(\w+)\s*=", re.IGNORECASE)
+_TABLE_STAGE = re.compile(r"^\s*table\s+(.+)$", re.IGNORECASE)
+_FIELDS_DROP = re.compile(r"^\s*fields\s+-\s+(.+)$", re.IGNORECASE)
+_STATS_BY = re.compile(r"\bby\s+(.+)$", re.IGNORECASE | re.DOTALL)
+_STATS_AS = re.compile(r"\bas\s+(\w+)\b", re.IGNORECASE)
+
+_FAMILY_SHIFT_LEFT: dict[str, tuple[tuple[re.Pattern[str], str], ...]] = {
+    "windows_account_lockout": ((re.compile(r"EventCode\s*=\s*4740", re.I), "EventCode=4740"),),
+    "sysmon_web_shell_spawn": ((re.compile(r"EventCode\s*=\s*1\b", re.I), "EventCode=1"),),
+    "windows_privileged_group_changes": (
+        (re.compile(r"EventCode\s*=\s*4728", re.I), "EventCode=4728/4732/4756"),
+    ),
+    "esp_it_to_ot_connection": ((re.compile(r"action\s*=\s*allowed", re.I), "action=allowed"),),
+    "substation_hmi_brute_force": (
+        (re.compile(r"\b(?:failure|fail|denied)\b", re.I), "(failure OR fail OR denied)"),
+    ),
+    "scada_dnp3_modbus_write": (
+        (re.compile(r"\*dnp3\*|\*modbus\*", re.I), "(*dnp3* OR *modbus*)"),
+    ),
+}
+
+_DELAYABLE_STATIC: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bEventCode\s*=\s*4740\b", re.I), "EventCode=4740"),
+    (re.compile(r"\bEventCode\s*=\s*1\b", re.I), "EventCode=1"),
+    (re.compile(r"\bEventCode\s*=\s*4728\b", re.I), "EventCode 4728/4732/4756"),
+    (re.compile(r"\baction\s*=\s*allowed\b", re.I), "action=allowed"),
+    (re.compile(r"\b(?:failure|fail|denied)\b", re.I), "failure/fail/denied"),
+)
+_CRITICAL_TABLE_FIELDS = frozenset(
+    {
+        "src_zone",
+        "dest_zone",
+        "src_zones",
+        "dest_zones",
+        "rule",
+        "firewall_rules",
+        "app",
+        "applications",
+        "caller_host",
+        "caller_hosts",
+        "command_line",
+        "command_line_norm",
+        "parent_image",
+        "parent_image_norm",
+        "child_image",
+        "child_image_norm",
+        "target_user",
+        "target_user_norm",
+        "added_user",
+        "added_users",
+        "group_name",
+        "group_norm",
+    }
+)
 _EARLIEST_LATEST_RAW = re.compile(r"\b(?:earliest|latest)\s*\(\s*_time\s*\)", re.IGNORECASE)
 _CIDR_IN = re.compile(r"\b(?:src_ip|dest_ip|source_ip|destination_ip)\s+IN\s*\(", re.IGNORECASE)
 _COALESCE = re.compile(r"\bcoalesce\s*\(", re.IGNORECASE)
@@ -128,6 +185,126 @@ def _first_agg_index(stages: list[str]) -> int | None:
     return None
 
 
+def _table_columns(table_stage: str) -> list[str]:
+    match = _TABLE_STAGE.match(table_stage.strip())
+    if not match:
+        return []
+    return [token for token in match.group(1).split() if token and token != "-"]
+
+
+def _eval_assignments(stage: str) -> set[str]:
+    if not stage.lower().startswith("eval "):
+        return set()
+    return set(_EVAL_ASSIGN.findall(stage))
+
+
+def _stats_outputs(stage: str) -> set[str]:
+    outputs: set[str] = set()
+    by_match = _STATS_BY.search(stage)
+    if by_match:
+        outputs.update(token for token in re.findall(r"\b\w+\b", by_match.group(1)) if token.lower() != "by")
+    outputs.update(_STATS_AS.findall(stage))
+    return outputs
+
+
+def _available_fields_at_table(stages: list[str]) -> set[str] | None:
+    agg_index = _first_agg_index(stages)
+    if agg_index is None:
+        return None
+    available: set[str] = set()
+    for index, stage in enumerate(stages):
+        lowered = stage.lower()
+        if lowered.startswith("table "):
+            return available
+        if index < agg_index and lowered.startswith("eval "):
+            available.update(_eval_assignments(stage))
+        elif _AGG_COMMAND.search(stage):
+            available = _stats_outputs(stage)
+        elif index > agg_index and lowered.startswith("eval "):
+            available.update(_eval_assignments(stage))
+        elif lowered.startswith("fields -"):
+            drop_match = _FIELDS_DROP.match(stage.strip())
+            if drop_match:
+                available -= set(drop_match.group(1).split())
+    return available
+
+
+def _check_shift_left(
+    report: DraftQualityReport,
+    stages: list[str],
+    *,
+    detection_family: str | None,
+) -> None:
+    if not stages or not _SEARCH_BASE.search(stages[0]):
+        return
+    search_line = stages[0]
+
+    if detection_family:
+        for pattern, label in _FAMILY_SHIFT_LEFT.get(detection_family, ()):
+            if pattern.search(search_line):
+                continue
+            if any(pattern.search(stage) for stage in stages):
+                report.add(
+                    "SOC-STD-SPL-001-U01",
+                    "hard_fail",
+                    f"Shift-left: {label} must appear in base search before the first pipe.",
+                )
+
+    for pattern, label in _DELAYABLE_STATIC:
+        if pattern.search(search_line):
+            continue
+        if any(pattern.search(stage) for stage in stages[1:4]):
+            report.add(
+                "SOC-STD-SPL-001-U01",
+                "warning",
+                f"Static filter {label} should shift-left into base search when known.",
+            )
+
+
+def _check_native_time(report: DraftQualityReport, stages: list[str]) -> None:
+    agg_index = _first_agg_index(stages)
+    for index, stage in enumerate(stages):
+        if not _STRFTIME.search(stage):
+            continue
+        if agg_index is not None and index < agg_index and _STRFTIME_ON_TIME.search(stage):
+            report.add(
+                "SOC-STD-SPL-001-U02",
+                "hard_fail",
+                "strftime(_time, ...) appears before bin/stats/streamstats/timechart.",
+            )
+            break
+        if agg_index is None and _STRFTIME_ON_TIME.search(stage):
+            # Event-level presentation after sort is allowed (no aggregation pipeline).
+            if not any(stage.lower().startswith("sort") for stage in stages[:index]):
+                report.add(
+                    "SOC-STD-SPL-001-U02",
+                    "warning",
+                    "strftime(_time, ...) without prior sort/aggregation — prefer epoch alias after stats.",
+                )
+
+
+def _check_stats_inclusion(report: DraftQualityReport, stages: list[str]) -> None:
+    table_index = next(
+        (index for index, stage in enumerate(stages) if stage.lower().startswith("table ")),
+        None,
+    )
+    if table_index is None:
+        return
+    available = _available_fields_at_table(stages)
+    if available is None:
+        return
+    table_cols = _table_columns(stages[table_index])
+    for column in table_cols:
+        if column in available:
+            continue
+        severity: Severity = "hard_fail" if column in _CRITICAL_TABLE_FIELDS else "warning"
+        report.add(
+            "SOC-STD-SPL-001-U03",
+            severity,
+            f"Final table references `{column}` not preserved through stats/streamstats.",
+        )
+
+
 def evaluate_draft_quality(
     spl: str,
     *,
@@ -155,24 +332,17 @@ def evaluate_draft_quality(
             f"Unescaped Windows path backslash in {match.group(0)[:48]!r}.",
         )
 
-    agg_index = _first_agg_index(stages)
-    for index, stage in enumerate(stages):
-        if not _STRFTIME.search(stage):
-            continue
-        if agg_index is not None and index < agg_index and _STRFTIME_ON_TIME.search(stage):
-            report.add(
-                "SOC-STD-SPL-001-Q03",
-                "hard_fail",
-                "strftime() on event time appears before stats/bin/timechart aggregation.",
-            )
-            break
+    _check_native_time(report, stages)
 
     if _EARLIEST_LATEST_RAW.search(spl) and not _STRFTIME.search(spl):
         report.add(
-            "SOC-STD-SPL-001-Q04",
+            "SOC-STD-SPL-001-U02",
             "hard_fail",
-            "earliest(_time)/latest(_time) used without readable strftime() output.",
+            "earliest(_time)/latest(_time) used without readable strftime() after stats.",
         )
+
+    _check_shift_left(report, stages, detection_family=detection_family)
+    _check_stats_inclusion(report, stages)
 
     if _PROHIBITED_CLAIMS.search(_scrub_lab_disclaimers(combined_text)):
         report.add(
