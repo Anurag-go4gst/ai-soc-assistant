@@ -9,6 +9,10 @@ from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.chat.contracts.planning_decision import BranchName, PlanningDecision
 from app.chat.query_signals import extract_query_signals
 from app.config import settings
+from app.use_cases.content_enrichment import (
+    load_curated_enrichment_context,
+    resolve_use_case_activation,
+)
 
 _CROSSWALK_PATH = Path(__file__).resolve().parents[3] / "docs" / "evals" / "soc_capability_crosswalk.json"
 
@@ -119,10 +123,13 @@ def _build_planning_decision(
     selected_tools = _selected_tools(path_type, plan, routed_payload)
     blocked_tools = _blocked_tools(path_type, plan)
     live_skill = _live_execution_skill(routed_payload)
+    activation = resolve_use_case_activation(use_case_id)
+    curated_context = load_curated_enrichment_context(use_case_id) if planner_path_selection_enabled else None
 
     runtime_status = crosswalk.get("runtime_support_status")
     planner_runtime_activation_allowed = (
         planner_path_selection_enabled
+        and activation.planner_runtime_activation_allowed
         and runtime_status == "runtime_active"
         and path_type in {"spl_review", "spl_review_plus_rag", "hybrid_investigation"}
     )
@@ -136,6 +143,22 @@ def _build_planning_decision(
         crosswalk_lookup_status=crosswalk.get("lookup_status", "not_available"),
         live_execution_skill=live_skill,
         planning_or_analytic_skill=_planning_skill(query_understanding),
+        activation_lifecycle_stage=activation.activation_lifecycle_stage,
+        activation_decision=activation.model_dump(),
+        curated_enrichment_context=(
+            {
+                "use_case_id": curated_context.use_case_id,
+                "activation_lifecycle_stage": curated_context.activation_lifecycle_stage,
+                "runtime_support_status": curated_context.runtime_support_status,
+                "spl_template_status": curated_context.spl_template_status,
+                "allowed_spl_templates": curated_context.allowed_spl_templates,
+                "rag_doc_ids": curated_context.rag_doc_ids,
+                "mitre_candidates": curated_context.mitre_candidates,
+                "provenance_ref_count": len(curated_context.provenance_ref_ids),
+            }
+            if curated_context is not None
+            else None
+        ),
         selected_tools=selected_tools,
         blocked_tools=blocked_tools,
         clarification_needed=bool(intent.get("requires_clarification")) or path_type in {
@@ -163,6 +186,8 @@ def _build_planning_decision(
                 crosswalk_lookup_status=crosswalk.get("lookup_status", "not_available"),
                 live_execution_skill=live_skill,
                 planning_or_analytic_skill=_planning_skill(query_understanding),
+                activation_lifecycle_stage=activation.activation_lifecycle_stage,
+                activation_decision=activation.model_dump(),
                 selected_tools=selected_tools,
                 blocked_tools=blocked_tools,
                 clarification_needed=bool(intent.get("requires_clarification")),

@@ -6,7 +6,7 @@ from typing import Any
 
 from app.chat.control_plane_trace import _redact
 from app.chat.session_context import SessionContextResolution
-from app.use_cases.content_enrichment import enrichment_spl_governance
+from app.use_cases.content_enrichment import curated_enrichment_trace, enrichment_spl_governance
 
 GuardrailStatus = str  # passed | review_required | blocked | not_applicable
 
@@ -124,20 +124,25 @@ def build_pipeline_node_trace(
             )
         )
 
-    enrichment = enrichment_spl_governance(selected_use_case_id) if selected_use_case_id else None
+    enrichment = curated_enrichment_trace(selected_use_case_id) if selected_use_case_id else None
     if enrichment:
+        activation = enrichment.get("activation") if isinstance(enrichment.get("activation"), dict) else {}
+        summary = enrichment.get("context_summary") if isinstance(enrichment.get("context_summary"), dict) else {}
         records.append(
             _trace_record(
                 node_name="enrichment_loading",
                 input_summary={"use_case_id": selected_use_case_id},
                 output_summary={
-                    "spl_template_status": enrichment.get("spl_template_status"),
-                    "governed_limitation": enrichment.get("governed_limitation"),
+                    "context_loaded": enrichment.get("context_loaded"),
+                    "activation_lifecycle_stage": activation.get("activation_lifecycle_stage"),
+                    "runtime_support_status": activation.get("runtime_support_status"),
+                    "planner_runtime_activation_allowed": activation.get("planner_runtime_activation_allowed"),
+                    "spl_template_status": summary.get("spl_template_status") or activation.get("spl_template_status"),
                 },
-                decision_reason="content_enrichment_metadata",
-                guardrail_status="passed",
+                decision_reason="curated_enrichment_activation_gate",
+                guardrail_status="passed" if enrichment.get("context_loaded") else "not_applicable",
                 human_review_required=False,
-                limitations=list(enrichment.get("limitations") or [])[:5],
+                limitations=list(activation.get("reasons") or [])[:5],
             )
         )
 
