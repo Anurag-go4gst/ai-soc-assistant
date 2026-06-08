@@ -146,7 +146,13 @@ def apply_final_answer_readability(
 
 def _scrub_draft_preview_contradictions(payload: dict[str, Any]) -> dict[str, Any]:
     """Remove narrative lines that contradict a visible lab draft SPL preview."""
-    for key in ("finding_title", "one_sentence_finding", "review_notice", "splunk_status_line"):
+    for key in (
+        "finding_title",
+        "one_sentence_finding",
+        "review_notice",
+        "splunk_status_line",
+        "foundation_sec_analysis",
+    ):
         value = payload.get(key)
         if isinstance(value, str) and _contains_draft_forbidden_phrase(value):
             payload[key] = None

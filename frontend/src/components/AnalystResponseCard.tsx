@@ -59,7 +59,8 @@ export function AnalystResponseCard({
       : null;
   const summaryText = response.direct_answer_summary ?? response.one_sentence_finding;
   const showSummaryInHeader = Boolean(
-    summaryText && (response.direct_answer_summary || isHybridAlertReview || !response.spl_code),
+    summaryText
+      && (response.direct_answer_summary || isHybridAlertReview || !response.spl_code || response.draft_spl_code),
   );
   const missingEvidence = formatMissingEvidence(response);
   const investigationSteps = response.investigation_steps?.length

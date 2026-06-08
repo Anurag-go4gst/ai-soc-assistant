@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.chat.contracts.answer_contract import AnswerContract
+from app.chat.final_answer_readability import apply_draft_preview_readability
 from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
 from app.schemas.responses import AnalystResponseEnvelope
@@ -335,6 +336,15 @@ def compose_governed_answer(
     client: LocalChatClient | None = None,
 ) -> GovernedComposerResult:
     """Compose governed prose or return the Phase 8 deterministic envelope."""
+    if fallback_envelope.draft_spl_code:
+        return GovernedComposerResult(
+            envelope=apply_draft_preview_readability(fallback_envelope),
+            llm_composer_enabled=composer_is_enabled(),
+            llm_composer_used=False,
+            llm_guard_status="skipped",
+            llm_fallback_used=False,
+            llm_blocked_reason="draft_spl_preview_active",
+        )
     if not composer_is_enabled():
         return GovernedComposerResult(
             envelope=fallback_envelope,

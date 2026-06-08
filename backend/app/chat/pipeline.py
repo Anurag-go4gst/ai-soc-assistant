@@ -51,7 +51,11 @@ from app.schemas.responses import PlaceholderResponse, SessionContextStatusEnvel
 from app.skills.selector import select_skill_chain
 from app.spl.template_registry import QUERY_SHAPE_RAW_SEARCH, get_spl_template, template_summary
 from app.splunk.capabilities import build_splunk_capability_profile
-from app.spl.draft_preview import build_draft_preview, maybe_attach_draft_preview_message
+from app.spl.draft_preview import (
+    DRAFT_PREVIEW_STATUS_MESSAGE,
+    build_draft_preview,
+    maybe_attach_draft_preview_message,
+)
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
 from app.answer_guard.runner import run_answer_guard_lab
@@ -781,8 +785,6 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         and synthesis_status.status != "partial_timeout"
         and not _is_governed_spl_ready_for_response(spl_validation)
     ):
-        from app.spl.draft_preview import DRAFT_PREVIEW_STATUS_MESSAGE
-
         message = DRAFT_PREVIEW_STATUS_MESSAGE
         message = maybe_attach_draft_preview_message(message, spl_draft_preview)
         note = (
@@ -896,6 +898,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         )
         composer_trace = {**composer_trace, **composer_result.trace_payload()}
         analyst_response = composer_result.envelope
+        if spl_draft_preview and isinstance(spl_draft_preview, dict) and analyst_response is not None:
+            from app.chat.final_answer_readability import apply_draft_preview_readability
+
+            analyst_response = apply_draft_preview_readability(analyst_response)
     elif answer_contract is not None:
         composer_trace["composer_attempted"] = False
         composer_trace["composer_skipped_reason"] = (
@@ -1003,7 +1009,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         skill_selection=state["skill_selection"],
         message=message,
         note=note,
-        analyst_summary=analyst_summary_from_lab,
+        analyst_summary=(
+            DRAFT_PREVIEW_STATUS_MESSAGE
+            if spl_draft_preview and isinstance(spl_draft_preview, dict)
+            else analyst_summary_from_lab
+        ),
         response_mode=response_mode,
         synthesis_mode=synthesis_mode,
         workflow_plan=state["workflow_plan"],

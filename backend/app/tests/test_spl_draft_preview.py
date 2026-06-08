@@ -18,6 +18,7 @@ from app.evals.spl_draft_preview_eval import (
 from app.schemas.requests import ChatRequest
 from app.spl.draft_preview import (
     DETECTION_FAMILIES,
+    DRAFT_PREVIEW_FORBIDDEN_PHRASES,
     DRAFT_STATUS,
     DRAFT_WARNING,
     build_draft_preview,
@@ -302,9 +303,7 @@ def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     assert preview["execution_enabled"] is False
 
 
-def test_esp_draft_preview_review_wording(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
-    response = build_live_chat_response(ChatRequest(message=ESP_QUERY))
+def _assert_draft_preview_narrative(response) -> None:
     assert response.spl_draft_preview is not None
     analyst = response.analyst_response
     assert analyst is not None
@@ -314,7 +313,9 @@ def test_esp_draft_preview_review_wording(monkeypatch: pytest.MonkeyPatch) -> No
             [
                 response.message,
                 response.note,
+                response.analyst_summary,
                 analyst.direct_answer_summary,
+                analyst.foundation_sec_analysis,
                 (analyst.spl_status_detail or {}).get("reason_display")
                 if analyst.spl_status_detail
                 else None,
@@ -322,15 +323,42 @@ def test_esp_draft_preview_review_wording(monkeypatch: pytest.MonkeyPatch) -> No
             ],
         )
     ).lower()
-    assert "spl does not require review" not in blob
-    assert "no spl analysis" not in blob
-    assert "hil is not required" not in blob
-    assert "spl is not required" not in blob
+    for phrase in DRAFT_PREVIEW_FORBIDDEN_PHRASES:
+        assert phrase not in blob, f"forbidden phrase in narrative: {phrase!r}"
     assert "governed spl is not available" in blob
     assert "lab-only draft spl preview" in blob
     assert "hil approval is required" in blob
     assert analyst.hil_status == "required"
     assert analyst.spl_status == "review_required"
+    assert analyst.direct_answer_summary
+    assert "hil approval is required" in analyst.direct_answer_summary.lower()
+
+
+def test_esp_draft_preview_review_wording(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    response = build_live_chat_response(ChatRequest(message=ESP_QUERY))
+    _assert_draft_preview_narrative(response)
+
+
+def test_esp_draft_preview_review_wording_with_live_composer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Composer must not overwrite draft-preview HIL/SOC review messaging."""
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", True)
+    bad_prose = (
+        "The Security Pipeline (SPL) does not require review at this time, "
+        "and no Human Intelligence (HIL) analysis is necessary."
+    )
+    with patch(
+        "app.synthesis.governed_answer_composer.build_synthesis_client_from_settings",
+        return_value=object(),
+    ), patch(
+        "app.synthesis.governed_answer_composer.LocalChatClient.generate",
+        return_value=type("R", (), {"text": bad_prose})(),
+    ):
+        response = build_live_chat_response(ChatRequest(message=ESP_QUERY))
+    _assert_draft_preview_narrative(response)
 
 
 def test_substation_hmi_brute_force_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:

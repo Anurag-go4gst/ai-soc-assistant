@@ -20,9 +20,13 @@ DRAFT_PREVIEW_STATUS_MESSAGE = (
 )
 DRAFT_PREVIEW_FORBIDDEN_PHRASES: tuple[str, ...] = (
     "spl does not require review",
+    "does not require review",
     "no spl analysis has been conducted",
     "no spl analysis",
     "hil is not required",
+    "hil analysis is not necessary",
+    "no human intelligence",
+    "analysis is not necessary",
     "spl is not required",
 )
 DRAFT_STATUS = "draft_preview_not_governed"

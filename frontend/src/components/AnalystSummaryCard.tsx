@@ -92,8 +92,19 @@ function mitreState(trace: PlaceholderResponse): { label: string; variant: Varia
 }
 
 function reviewState(trace: PlaceholderResponse): { label: string; variant: Variant } {
-  if (trace.human_review?.required) return { label: 'Human review required', variant: 'warning' };
+  if (
+    trace.spl_draft_preview ||
+    trace.analyst_response?.hil_status === 'required' ||
+    trace.human_review?.required
+  ) {
+    return { label: 'Human review required', variant: 'warning' };
+  }
   return { label: 'No approval to execute', variant: 'secondary' };
+}
+
+function draftPreviewSummary(trace: PlaceholderResponse): string | null {
+  if (!trace.spl_draft_preview) return null;
+  return trace.analyst_response?.direct_answer_summary ?? trace.message ?? null;
 }
 
 function sessionState(trace: PlaceholderResponse): { label: string; variant: Variant } {
@@ -214,6 +225,7 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
   const nodes = nodeTraceState(trace);
   const ready = trace.context_sufficiency?.synthesis_readiness ?? false;
   const reviewPending = trace.human_review?.required === true;
+  const summaryParagraph = draftPreviewSummary(trace) ?? trace.analyst_summary;
 
   return (
     <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.04] p-4 shadow-sm">
@@ -228,7 +240,9 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
         </div>
         {trace.trace_id ? <CopyButton value={trace.trace_id} label={`trace ${trace.trace_id.slice(0, 8)}`} /> : null}
       </div>
-      {trace.analyst_summary ? <p className="mb-3 text-sm leading-6 text-slate-100">{trace.analyst_summary}</p> : null}
+      {summaryParagraph ? (
+        <p className="mb-3 text-sm leading-6 text-slate-100">{summaryParagraph}</p>
+      ) : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat icon={<Activity className="h-3 w-3" />} label="Status" value={status.label} variant={status.variant} />
         <Stat icon={<Cpu className="h-3 w-3" />} label="Execution" value={exec.label} variant={exec.variant} />
