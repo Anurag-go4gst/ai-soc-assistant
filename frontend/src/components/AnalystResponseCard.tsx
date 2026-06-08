@@ -53,7 +53,7 @@ export function AnalystResponseCard({
   );
   const missingEvidence = formatMissingEvidence(response);
   const showInvestigationGuidance = Boolean(
-    renderSections.investigation_guidance &&
+    (renderSections.investigation_guidance || isHybridAlertReview) &&
       (response.required_evidence?.length ||
         missingEvidence.length ||
         response.analyst_checklist?.length ||
@@ -173,7 +173,7 @@ export function AnalystResponseCard({
     });
   }
 
-  if ((hasMitre || hasNotClaimed) && !hasReasoning) {
+  if (hasMitre || hasNotClaimed) {
     phases.push({
       key: 'mitre',
       label: 'MITRE status',
@@ -285,18 +285,6 @@ export function AnalystResponseCard({
               {splitParagraphs(response.foundation_sec_analysis).map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
-            </div>
-          ) : null}
-          {hasMitre ? (
-            <div className="mt-4">
-              <SectionTitle>MITRE ATT&amp;CK</SectionTitle>
-              <DataTable rows={response.mitre_mappings ?? []} />
-            </div>
-          ) : null}
-          {hasNotClaimed ? (
-            <div className="mt-4">
-              <SectionTitle>Not claimed</SectionTitle>
-              <DataTable rows={response.not_claimed ?? []} />
             </div>
           ) : null}
         </>

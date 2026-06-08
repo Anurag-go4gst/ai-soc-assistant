@@ -26,6 +26,11 @@ _SYSTEM_PROMPT = (
     "- Candidate MITRE techniques stay candidate; only evidence-supported "
     "techniques may be described as evidence-supported.\n"
     "- SPL is review-only unless the contract explicitly says it was executed.\n"
+    "- If SPL template_status is active but block_reason says source profile is missing, "
+    "say the governed SPL template is active but generation is blocked/review-required "
+    "until required fields are confirmed; never say no active governed SPL template exists.\n"
+    "- Not-claimed MITRE techniques are not claimed due to insufficient supporting evidence; "
+    "use ruled-out wording only for the ruled_out_mitre bucket.\n"
     "- Preserve missing-evidence and limitation caveats.\n"
     "- If human review is required, say review is required.\n"
     "- No SPL queries, no tool instructions, no GitHub references.\n"
@@ -156,6 +161,14 @@ def build_composer_prompt(
             f"block_reason={detail.get('block_reason')}; "
             f"required_fields={', '.join(str(item) for item in detail.get('required_fields') or [])}"
         )
+        if (
+            detail.get("template_status") == "active"
+            and detail.get("block_reason") == "spl_template_active_source_profile_missing"
+        ):
+            lines.append(
+                "- SPL wording: governed SPL template is active, but source profile is missing, "
+                "so SPL generation is blocked/review-required until required fields are confirmed."
+            )
     lines.append(f"- HIL status: {contract.hil_status}")
     if contract.execution_status_display:
         lines.append(f"- Execution status: {contract.execution_status_display}")
@@ -178,7 +191,11 @@ def build_composer_prompt(
     _append_mitre_bucket(lines, "Candidate MITRE (metadata only)", contract.candidate_mitre)
     _append_mitre_bucket(lines, "Evidence-supported MITRE", contract.evidence_supported_mitre)
     _append_mitre_bucket(lines, "Requires validation MITRE", contract.requires_validation_mitre)
-    _append_mitre_bucket(lines, "Not claimed MITRE", contract.not_claimed_mitre)
+    _append_mitre_bucket(
+        lines,
+        "Not claimed MITRE (insufficient supporting evidence)",
+        contract.not_claimed_mitre,
+    )
     _append_mitre_bucket(lines, "Ruled out MITRE", contract.ruled_out_mitre)
     if contract.mitre_technique_ids:
         lines.append("- Visible MITRE technique IDs: " + ", ".join(contract.mitre_technique_ids))
@@ -236,6 +253,13 @@ def validate_composed_prose(text: str, contract: AnswerContract) -> tuple[bool, 
     if _APPROVED_EXEC.search(lowered):
         return False, "Composed prose claims SPL approval or execution eligibility."
 
+    if _active_template_source_profile_missing(contract) and "no active governed spl template" in lowered:
+        return False, "Composed prose contradicts active SPL template status."
+
+    if _active_template_source_profile_missing(contract):
+        if "template" in lowered and "active" not in lowered:
+            return False, "Composed prose omitted active SPL template status."
+
     contract_severity = _severity_token(contract.severity_label)
     prose_severity = _severity_tokens_in_text(text)
     if contract_severity and prose_severity and contract_severity not in prose_severity:
@@ -250,6 +274,14 @@ def validate_composed_prose(text: str, contract: AnswerContract) -> tuple[bool, 
 
     if contract.limitations and not _mentions_limitations(lowered, contract.limitations):
         return False, "Composed prose removed required limitations."
+
+    for tid in contract.not_claimed_mitre:
+        if _technique_uses_ruled_out_wording(lowered, tid):
+            return False, f"Not-claimed MITRE {tid} was described as ruled out."
+
+    if contract.not_claimed_mitre:
+        if "not claimed" in lowered and "insufficient" not in lowered and "supporting evidence" not in lowered:
+            return False, "Composed prose omitted insufficient-evidence wording for not-claimed MITRE."
 
     return True, None
 
@@ -351,6 +383,24 @@ def _technique_claims_evidence_supported(text: str, technique_id: str) -> bool:
         return False
     window = text[max(0, text.index(tid) - 80) : text.index(tid) + 80]
     return bool(_EVIDENCE_SUPPORTED.search(window))
+
+
+def _technique_uses_ruled_out_wording(text: str, technique_id: str) -> bool:
+    tid = technique_id.lower()
+    if tid not in text:
+        return False
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
+        if tid in sentence and "ruled out" in sentence:
+            return True
+    return False
+
+
+def _active_template_source_profile_missing(contract: AnswerContract) -> bool:
+    detail = contract.spl_status_detail or {}
+    return (
+        detail.get("template_status") == "active"
+        and detail.get("block_reason") == "spl_template_active_source_profile_missing"
+    )
 
 
 def _severity_token(label: str | None) -> str | None:

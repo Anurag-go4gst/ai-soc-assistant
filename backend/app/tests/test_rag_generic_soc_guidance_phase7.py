@@ -221,6 +221,18 @@ def test_powershell_answer_shows_required_evidence_and_checklist(monkeypatch) ->
     assert analyst.required_evidence
     assert analyst.analyst_checklist
     assert response.evidence_plan.get("checklist")
+    for key in (
+        "host",
+        "user",
+        "command_line",
+        "script_block_text",
+        "event_id",
+        "parent_process",
+        "encoded_command_flag",
+        "network_connection",
+    ):
+        assert any(item.startswith(f"{key} —") for item in analyst.required_evidence)
+        assert key in analyst.missing_evidence
     joined = " ".join(
         [
             *analyst.limitations,
@@ -277,6 +289,19 @@ def test_dns_answer_shows_required_evidence_and_checklist(monkeypatch) -> None:
     assert analyst is not None
     assert analyst.required_evidence
     assert analyst.analyst_checklist
+    for key in (
+        "src",
+        "dest",
+        "domain",
+        "periodicity",
+        "jitter",
+        "bytes_out",
+        "DNS_query_count",
+        "rare_domain_indicator",
+        "user_host_association",
+    ):
+        assert any(item.startswith(f"{key} —") for item in analyst.required_evidence)
+        assert key in analyst.missing_evidence
     joined = " ".join(
         [
             *analyst.limitations,
@@ -355,7 +380,7 @@ def test_failed_login_mitre_summary_bucket_counts_from_contract(monkeypatch) -> 
     summary = apply_final_answer_readability(envelope, contract).direct_answer_summary or ""
     assert "1 evidence-supported MITRE technique" in summary
     assert "1 candidate technique" in summary
-    assert "2 techniques explicitly not claimed" in summary
+    assert "2 techniques not claimed due to insufficient supporting evidence" in summary
 
 
 def test_dns_t1071_candidate_does_not_trigger_blocked_finding_guard(monkeypatch) -> None:

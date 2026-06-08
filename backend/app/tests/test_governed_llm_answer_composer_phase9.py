@@ -273,6 +273,76 @@ def test_endpoint_and_dns_prompts_do_not_contain_auth_limitations() -> None:
             assert phrase not in prompt
 
 
+def test_active_template_missing_source_profile_wording_is_required() -> None:
+    contract = _contract(
+        spl_validation={
+            "approved": False,
+            "normalized_spl": None,
+            "review_required": True,
+            "review_required_reason": "spl_template_active_source_profile_missing",
+            "spl_template_status": "active",
+            "reject_reasons": ["missing_index"],
+        },
+        candidate_spl={"template_id": "edr_powershell_suspicious_command"},
+        execution={"status": "skipped"},
+    )
+
+    prompt = build_composer_prompt(contract, None)
+
+    assert "template_status=active" in prompt
+    assert "block_reason=spl_template_active_source_profile_missing" in prompt
+    assert "governed SPL template is active" in prompt
+
+    ok, reason = validate_composed_prose(
+        "No active governed SPL template is available for this use case. Missing evidence includes mfa_status. "
+        "Do not claim account compromise from failed logins alone.",
+        contract,
+    )
+    assert ok is False
+    assert "active SPL template" in (reason or "")
+
+    ok, reason = validate_composed_prose(
+        "The governed SPL template is active, but source profile is missing, so SPL generation is "
+        "blocked/review-required until index and sourcetype are confirmed. Missing evidence includes "
+        "mfa_status. Do not claim account compromise from failed logins alone.",
+        contract,
+    )
+    assert ok is True
+    assert reason is None
+
+
+def test_not_claimed_mitre_is_not_ruled_out_wording() -> None:
+    contract = _contract(
+        mitre_branch_result={
+            "branch_authority": "planner_mitre_branch",
+            "candidate_mitre": ["T1078"],
+            "evidence_supported_mitre": [],
+            "requires_validation_mitre": [],
+            "not_claimed_mitre": ["T1003"],
+            "ruled_out_mitre": ["T1562.001"],
+        },
+        mitre_mappings=[],
+    )
+
+    bad, bad_reason = validate_composed_prose(
+        "T1078 remains candidate. T1003 is ruled out. T1562.001 is ruled out. "
+        "Missing evidence includes mfa_status. Do not claim account compromise from failed logins alone. "
+        "Review only — not executed.",
+        contract,
+    )
+    assert bad is False
+    assert "T1003" in (bad_reason or "")
+
+    good, good_reason = validate_composed_prose(
+        "T1078 remains candidate. T1003 is not claimed due to insufficient supporting evidence. "
+        "T1562.001 is ruled out by available evidence. Missing evidence includes mfa_status. "
+        "Do not claim account compromise from failed logins alone. Review only — not executed.",
+        contract,
+    )
+    assert good is True
+    assert good_reason is None
+
+
 def test_candidate_mitre_remains_candidate_in_guard() -> None:
     contract = _contract()
     ok, reason = validate_composed_prose(

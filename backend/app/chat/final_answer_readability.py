@@ -164,11 +164,12 @@ def _sop_knowledge_summary(envelope: AnalystResponseEnvelope, contract: AnswerCo
 def _hybrid_mitre_bucket_counts(
     envelope: AnalystResponseEnvelope,
     contract: AnswerContract,
-) -> tuple[int, int, int, int]:
+) -> tuple[int, int, int, int, int]:
     evidence_supported = len(contract.evidence_supported_mitre)
     candidate = len(contract.candidate_mitre)
     requires_validation = len(contract.requires_validation_mitre)
-    not_claimed = len(contract.not_claimed_mitre) + len(contract.ruled_out_mitre)
+    not_claimed = len(contract.not_claimed_mitre)
+    ruled_out = len(contract.ruled_out_mitre)
 
     if not any((evidence_supported, candidate, requires_validation)) and envelope.mitre_mappings:
         for row in envelope.mitre_mappings:
@@ -182,7 +183,7 @@ def _hybrid_mitre_bucket_counts(
             elif "validation" in status:
                 requires_validation += 1
 
-    if not_claimed == 0 and envelope.not_claimed:
+    if not_claimed == 0 and ruled_out == 0 and envelope.not_claimed:
         not_claimed = len(
             [
                 row
@@ -190,13 +191,13 @@ def _hybrid_mitre_bucket_counts(
                 if isinstance(row, dict) and str(row.get("Technique") or "")
             ]
         )
-    return evidence_supported, candidate, requires_validation, not_claimed
+    return evidence_supported, candidate, requires_validation, not_claimed, ruled_out
 
 
 def _natural_hybrid_alert_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
     parts: list[str] = []
     summary_bits: list[str] = []
-    evidence_supported, candidate, requires_validation, not_claimed = _hybrid_mitre_bucket_counts(
+    evidence_supported, candidate, requires_validation, not_claimed, ruled_out = _hybrid_mitre_bucket_counts(
         envelope,
         contract,
     )
@@ -213,7 +214,11 @@ def _natural_hybrid_alert_summary(envelope: AnalystResponseEnvelope, contract: A
         )
     if not_claimed:
         summary_bits.append(
-            f"{not_claimed} technique{'s' if not_claimed != 1 else ''} explicitly not claimed"
+            f"{not_claimed} technique{'s' if not_claimed != 1 else ''} not claimed due to insufficient supporting evidence"
+        )
+    if ruled_out:
+        summary_bits.append(
+            f"{ruled_out} technique{'s' if ruled_out != 1 else ''} ruled out by available evidence"
         )
 
     if summary_bits:
@@ -302,7 +307,9 @@ _EVIDENCE_LABELS = {
 def _required_evidence_display(contract: AnswerContract) -> list[str]:
     labels: list[str] = []
     for key in contract.required_evidence:
-        text = _EVIDENCE_LABELS.get(str(key), str(key).replace("_", " "))
+        raw_key = str(key)
+        label = _EVIDENCE_LABELS.get(raw_key, raw_key.replace("_", " "))
+        text = f"{raw_key} — {label}"
         if text not in labels:
             labels.append(text)
     return labels

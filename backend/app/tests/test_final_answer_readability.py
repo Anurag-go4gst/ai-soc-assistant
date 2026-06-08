@@ -58,7 +58,7 @@ def test_no_duplicate_section_labels_and_standard_execution_status() -> None:
     assert "Severity:" not in result.direct_answer_summary
     assert "1 evidence-supported MITRE technique" in result.direct_answer_summary
     assert "1 candidate technique" in result.direct_answer_summary
-    assert "2 techniques explicitly not claimed" in result.direct_answer_summary
+    assert "2 techniques not claimed due to insufficient supporting evidence" in result.direct_answer_summary
     assert "governed SPL draft" in result.direct_answer_summary
     assert result.retrieved_playbook is None
     assert result.recommended_actions == []
@@ -269,6 +269,42 @@ def test_hybrid_includes_spl_status_and_playbook_when_requested() -> None:
     assert result.recommended_actions[0].startswith("P2 —")
 
 
+def test_not_claimed_and_ruled_out_summary_wording_are_separate() -> None:
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "hybrid_alert_review",
+            "answer_goal": ["mitre_mapping"],
+        },
+        evidence_plan={"answer_mode": "live_investigation", "mcp_allowed": False, "spl_allowed": False},
+        mitre_decision={"answer_visible": True},
+        severity_decision=None,
+        spl_validation=None,
+        execution={"status": "skipped"},
+        human_review={"required": False},
+        mitre_branch_result={
+            "branch_authority": "planner_mitre_branch",
+            "candidate_mitre": ["T1071"],
+            "evidence_supported_mitre": [],
+            "requires_validation_mitre": [],
+            "not_claimed_mitre": ["T1003"],
+            "ruled_out_mitre": ["T1562.001"],
+        },
+    )
+    envelope = AnalystResponseEnvelope(
+        response_profile="hybrid_alert_review",
+        mitre_mappings=[{"Technique": "T1071", "Status": "Candidate"}],
+        not_claimed=[
+            {"Technique": "T1003", "Status": "Not Claimed"},
+            {"Technique": "T1562.001", "Status": "Not Claimed"},
+        ],
+    )
+
+    summary = apply_final_answer_readability(envelope, contract).direct_answer_summary or ""
+
+    assert "1 technique not claimed due to insufficient supporting evidence" in summary
+    assert "1 technique ruled out by available evidence" in summary
+
+
 def test_sop_knowledge_profile_suppresses_alert_analysis_fields() -> None:
     contract = build_answer_contract(
         intent_classification={
@@ -332,7 +368,8 @@ def test_powershell_contract_uses_endpoint_limitations_not_auth() -> None:
     joined = " ".join(result.limitations).lower()
     assert "mfa" not in joined
     assert "post-login" not in joined
-    assert result.required_evidence
+    assert "command_line — Command line" in result.required_evidence
+    assert "parent_process — Parent process" in result.required_evidence
     assert result.analyst_checklist
     assert result.spl_status_detail is not None
     assert result.spl_status_detail["template_status"] == "active"
@@ -377,6 +414,9 @@ def test_dns_contract_uses_network_limitations_not_auth() -> None:
     assert "mfa" not in joined
     assert "post-login" not in joined
     assert "privilege status" not in joined
+    assert "domain — DNS domain" in result.required_evidence
+    assert "periodicity — Periodicity measurement" in result.required_evidence
+    assert "jitter — Jitter measurement" in result.required_evidence
 
 
 def test_investigation_actions_unglue_p2review_concatenation() -> None:
