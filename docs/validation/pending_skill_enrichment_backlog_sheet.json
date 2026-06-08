@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_pending_backlog",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-08T11:59:44+00:00",
+  "generated_at": "2026-06-08T12:26:51+00:00",
   "row_counts": {
     "backlog_items": 100
   },

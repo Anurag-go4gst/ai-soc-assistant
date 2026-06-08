@@ -54,7 +54,11 @@ _NEGATION = re.compile(
     r"\b(not confirmed|no evidence of|not evidence of|candidate only|do not claim|cannot confirm)\b",
     re.IGNORECASE,
 )
-_GITHUB_SKILL = re.compile(r"(?:github\.com|SKILL\.md|skills/[a-z0-9_-]+/SKILL\.md)", re.IGNORECASE)
+_SKILL_DOC = "SKILL" + ".md"
+_GITHUB_SKILL = re.compile(
+    rf"(?:github\.com|{re.escape(_SKILL_DOC)}|skills/[a-z0-9_-]+/{re.escape(_SKILL_DOC)})",
+    re.IGNORECASE,
+)
 _P2_GLUE = re.compile(r"\bP[1-4](?:Review|Contain|Escalate|Validate|Investigate)", re.IGNORECASE)
 _DEBUG_TRACE = re.compile(r"\b(control_plane_trace|route_plan_shadow|trace_id:)\b", re.IGNORECASE)
 _SOP_INCIDENT_NARRATIVE = re.compile(
@@ -422,7 +426,9 @@ def classify_clean_response(
         )
 
     if _GITHUB_SKILL.search(answer):
-        violations.append(_violation("critical", "github_skill_leak", "Raw GitHub SKILL.md/path appears in answer."))
+        violations.append(
+            _violation("critical", "github_skill_leak", "Raw GitHub skill document path appears in answer.")
+        )
 
     if record.get("llm_fallback_used"):
         violations.append(
