@@ -73,8 +73,8 @@ export function AnalystResponseCard({
     Boolean(response.splunk_status_line || hasInvestigationTable);
   const showFooterReviewNotice = Boolean(response.review_notice && !response.spl_code);
   const showInvestigationPlan =
-    !splOnly && priorityActions.length > 0 && (hasPriorityInvestigation || !response.spl_code);
-  const showPolicyBridge = policyChecks.length > 0 && showInvestigationPlan && hasPriorityInvestigation;
+    !splOnly && !isKnowledgeRecall && priorityActions.length > 0 && (hasPriorityInvestigation || !response.spl_code);
+  const showPolicyBridge = !isKnowledgeRecall && policyChecks.length > 0 && showInvestigationPlan && hasPriorityInvestigation;
   const governedAnalysis = splOnly ? null : foundationSecGovernance?.governed_analysis ?? null;
   const hasReasoning = !splOnly && Boolean(governedAnalysis || response.foundation_sec_analysis);
   const hasMitre =
