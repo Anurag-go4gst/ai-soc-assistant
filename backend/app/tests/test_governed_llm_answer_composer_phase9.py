@@ -180,6 +180,45 @@ def test_sop_prompt_omits_live_investigation_fields() -> None:
     assert "Human review" not in prompt
 
 
+def test_sop_profile_skips_live_composer_even_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_composer(monkeypatch)
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "sop_or_playbook",
+            "answer_goal": ["policy_citation", "procedural_steps"],
+        },
+        evidence_plan={"answer_mode": "rag_only", "spl_allowed": False, "mcp_allowed": False},
+        mitre_decision={"answer_visible": False},
+        severity_decision=None,
+        spl_validation=None,
+        execution={"status": "skipped"},
+        human_review={"required": False},
+    )
+    fallback = AnalystResponseEnvelope(
+        response_profile="knowledge_recall",
+        direct_answer_summary="Governed SOP retrieved. SPL and MCP were skipped as requested.",
+    )
+    client = _StubClient(
+        text=(
+            "The security event under review indicates that an unauthorized IP address attempted "
+            "to connect to a sensitive server."
+        )
+    )
+
+    result = compose_governed_answer(
+        contract=contract,
+        enrichment_projection=None,
+        fallback_envelope=fallback,
+        client=client,
+    )
+
+    assert client.calls == 0
+    assert result.llm_composer_enabled is True
+    assert result.llm_composer_used is False
+    assert result.llm_guard_status == "skipped"
+    assert result.envelope.direct_answer_summary == fallback.direct_answer_summary
+
+
 def test_endpoint_and_dns_prompts_do_not_contain_auth_limitations() -> None:
     auth_phrases = ("privilege status", "asset criticality", "source ip ownership", "mfa", "post-login")
     cases = [

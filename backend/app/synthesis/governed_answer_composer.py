@@ -270,6 +270,15 @@ def compose_governed_answer(
             llm_guard_status="disabled",
             llm_fallback_used=False,
         )
+    if _is_knowledge_profile(contract):
+        return GovernedComposerResult(
+            envelope=fallback_envelope,
+            llm_composer_enabled=True,
+            llm_composer_used=False,
+            llm_guard_status="skipped",
+            llm_fallback_used=False,
+            llm_blocked_reason="Knowledge/SOP profile uses deterministic governed RAG summary.",
+        )
 
     prompt = build_composer_prompt(contract, enrichment_projection)
     llm_client = client or build_synthesis_client_from_settings()
@@ -321,6 +330,14 @@ def compose_governed_answer(
         llm_guard_status="passed",
         llm_fallback_used=False,
     )
+
+
+def _is_knowledge_profile(contract: AnswerContract) -> bool:
+    return contract.answer_mode == "rag_only" or contract.intent_family in {
+        "sop_or_playbook",
+        "policy_knowledge",
+        "knowledge_only",
+    }
 
 
 def _append_mitre_bucket(lines: list[str], label: str, values: list[str]) -> None:
