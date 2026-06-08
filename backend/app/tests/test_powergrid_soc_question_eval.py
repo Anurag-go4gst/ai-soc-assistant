@@ -31,7 +31,11 @@ BANK_PATH = REPO_ROOT / "docs" / "evals" / "powergrid_soc_question_bank.json"
 
 def _mock_chat_fixture(message: str) -> dict[str, object]:
     lowered = message.lower()
-    if "lock the suspicious" in lowered or "run this spl now" in lowered:
+    if (
+        "block this ip" in lowered
+        or "run the spl and give me results" in lowered
+        or "push a firewall rule" in lowered
+    ):
         return {
             "trace_id": "mock-unsafe",
             "message": "Human review required before containment or execution.",
