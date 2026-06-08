@@ -130,6 +130,9 @@ def test_flag_on_builds_draft_preview_for_families(
     assert preview["warning"] == DRAFT_WARNING
     assert "<" in preview["draft_spl"]
     assert preview["draft_lint_status"] == "passed"
+    assert preview["quality_status"] == "passed"
+    assert preview["quality_standard"] == "SOC-STD-SPL-001"
+    assert preview["hard_fail_count"] == 0
     assert preview["validator_status"] in {"approved", "blocked"}
 
 
@@ -141,7 +144,8 @@ def test_all_registered_drafts_pass_lint() -> None:
 
 def test_lint_rejects_newline_inside_quoted_string() -> None:
     bad = 'search index=foo sourcetype=bar earliest=-1h latest=now "line1\nline2" | stats count'
-    assert lint_quoted_string_newlines(bad) == ["quoted_string_contains_newline"]
+    violations = lint_quoted_string_newlines(bad)
+    assert violations and violations[0].endswith("Q01")
 
 
 def test_lint_rejects_unescaped_windows_path_backslash() -> None:
@@ -151,7 +155,8 @@ def test_lint_rejects_unescaped_windows_path_backslash() -> None:
 
 def test_lint_requires_strftime_when_earliest_latest_used() -> None:
     bad = "| stats count earliest(_time) as first_seen latest(_time) as last_seen by user"
-    assert lint_strftime_for_time_fields(bad) == ["earliest_or_latest_time_without_strftime"]
+    violations = lint_strftime_for_time_fields(bad)
+    assert violations and any(item.endswith("Q04") for item in violations)
     good = "| stats min(_time) as t | eval first_seen=strftime(t, \"%F %T\")"
     assert lint_strftime_for_time_fields(good) == []
 
@@ -196,9 +201,11 @@ def test_sysmon_web_shell_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_scada_dnp3_modbus_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     preview = _preview(monkeypatch, SCADA_QUERY, "scada_dnp3_modbus_write")
     spl = preview["draft_spl"]
+    assert 'protocol="DNP3"' in spl or 'protocol="dnp3"' in spl
     assert "coalesce(protocol" in spl
-    assert "like(protocol_name" in spl
-    assert "match(" not in spl
+    assert "cidrmatch(" in spl
+    assert "| match " not in spl.lower()
+    assert " match(" not in spl.lower().replace("cidrmatch(", "")
     assert "strftime" in spl
 
 

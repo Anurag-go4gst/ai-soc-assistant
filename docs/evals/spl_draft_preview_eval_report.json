@@ -1,9 +1,18 @@
 {
   "failed_rows": 0,
-  "generated_at": "2026-06-08T13:19:25.896068+00:00",
+  "generated_at": "2026-06-08T13:37:03.089412+00:00",
   "passed_rows": 12,
+  "quality_summary": {
+    "advisory_count": 0,
+    "hard_fail_count": 0,
+    "quality_failed_rows": 0,
+    "quality_passed_rows": 6,
+    "quality_warning_rows": 0,
+    "warning_count": 0
+  },
   "rows": [
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -15,9 +24,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -29,11 +40,16 @@
       "draft_status": null,
       "execution_status": "skipped",
       "family": "windows_privileged_group_changes",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": null,
       "question_id": "privileged_group_additions",
       "validator_status": null,
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -45,9 +61,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -59,11 +77,16 @@
       "draft_status": "draft_preview_not_governed",
       "execution_status": "skipped",
       "family": "windows_privileged_group_changes",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": "passed",
       "question_id": "privileged_group_additions",
       "validator_status": "blocked",
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -75,9 +98,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -89,11 +114,16 @@
       "draft_status": null,
       "execution_status": "skipped",
       "family": "windows_account_lockout",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": null,
       "question_id": "windows_4740_lockouts",
       "validator_status": null,
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -106,9 +136,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -120,11 +152,16 @@
       "draft_status": "draft_preview_not_governed",
       "execution_status": "skipped",
       "family": "windows_account_lockout",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": "passed",
       "question_id": "windows_4740_lockouts",
       "validator_status": "blocked",
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -136,9 +173,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -150,11 +189,16 @@
       "draft_status": null,
       "execution_status": "skipped",
       "family": "sysmon_web_shell_spawn",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": null,
       "question_id": "sysmon_web_shell_spawn",
       "validator_status": null,
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -166,9 +210,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "sysmon_pwsh_parent_variants": true,
@@ -181,11 +227,16 @@
       "draft_status": "draft_preview_not_governed",
       "execution_status": "skipped",
       "family": "sysmon_web_shell_spawn",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": "passed",
       "question_id": "sysmon_web_shell_spawn",
       "validator_status": "blocked",
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -197,9 +248,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -211,11 +264,16 @@
       "draft_status": null,
       "execution_status": "skipped",
       "family": "scada_dnp3_modbus_write",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": null,
       "question_id": "scada_dnp3_modbus_write",
       "validator_status": null,
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -227,9 +285,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -241,11 +301,16 @@
       "draft_status": "draft_preview_not_governed",
       "execution_status": "skipped",
       "family": "scada_dnp3_modbus_write",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": "passed",
       "question_id": "scada_dnp3_modbus_write",
       "validator_status": "blocked",
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -257,9 +322,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -271,11 +338,16 @@
       "draft_status": null,
       "execution_status": "skipped",
       "family": "esp_it_to_ot_connection",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": null,
       "question_id": "esp_it_to_ot_connection",
       "validator_status": null,
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -287,9 +359,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -301,11 +375,16 @@
       "draft_status": "draft_preview_not_governed",
       "execution_status": "skipped",
       "family": "esp_it_to_ot_connection",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": "passed",
       "question_id": "esp_it_to_ot_connection",
       "validator_status": "blocked",
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -317,9 +396,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -331,11 +412,16 @@
       "draft_status": null,
       "execution_status": "requires_human_review",
       "family": "substation_hmi_brute_force",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": null,
       "question_id": "substation_hmi_brute_force",
       "validator_status": null,
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     },
     {
+      "advisory_count": 0,
       "checks": {
         "draft_lint_clean": true,
         "draft_not_catalog_approved": true,
@@ -347,9 +433,11 @@
         "no_executed_claim": true,
         "no_execution": true,
         "no_newline_in_quoted_strings": true,
+        "no_quality_hard_fail": true,
         "no_results_found_claim": true,
         "not_governed": true,
         "placeholder_index": true,
+        "quality_passed": true,
         "review_required": true,
         "strftime_for_time_fields": true,
         "validator_ran": true,
@@ -361,9 +449,13 @@
       "draft_status": "draft_preview_not_governed",
       "execution_status": "requires_human_review",
       "family": "substation_hmi_brute_force",
+      "hard_fail_count": 0,
+      "quality_findings": [],
+      "quality_status": "passed",
       "question_id": "substation_hmi_brute_force",
       "validator_status": "blocked",
-      "violations": []
+      "violations": [],
+      "warning_count": 0
     }
   ],
   "schema_version": "2026-06-08-spl-draft-preview-v1",
@@ -379,9 +471,11 @@
     "no_executed_claim": 12,
     "no_execution": 12,
     "no_newline_in_quoted_strings": 12,
+    "no_quality_hard_fail": 12,
     "no_results_found_claim": 12,
     "not_governed": 12,
     "placeholder_index": 12,
+    "quality_passed": 12,
     "review_required": 12,
     "strftime_for_time_fields": 12,
     "sysmon_pwsh_parent_variants": 1,

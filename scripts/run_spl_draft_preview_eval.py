@@ -35,6 +35,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Wrote {args.json_out}")
     print(f"Wrote {args.md_out}")
     print(f"Passed {result.passed_rows}/{result.total_rows}")
+    qs = result.quality_summary
+    print(
+        "Quality SOC-STD-SPL-001: "
+        f"hard_fail={qs.get('hard_fail_count', 0)} "
+        f"warning={qs.get('warning_count', 0)} "
+        f"advisory={qs.get('advisory_count', 0)}"
+    )
     if args.check and result.failed_rows:
         return 1
     return 0

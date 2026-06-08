@@ -14,6 +14,7 @@ from app.chat.pipeline import build_live_chat_response
 from app.config import settings
 from app.schemas.requests import ChatRequest
 from app.spl.draft_preview import build_draft_preview, match_detection_family
+from app.spl.draft_quality import evaluate_draft_quality
 from app.spl.draft_preview_lint import _scrub_lab_disclaimers, lint_draft_spl
 
 
@@ -63,6 +64,11 @@ class DraftEvalRow:
     violations: list[str]
     draft_preview: dict[str, Any] | None
     execution_status: str | None
+    quality_status: str | None = None
+    hard_fail_count: int = 0
+    warning_count: int = 0
+    advisory_count: int = 0
+    quality_findings: list[dict[str, str]] | None = None
 
 
 @dataclass
@@ -74,6 +80,7 @@ class DraftEvalResult:
     failed_rows: int
     rows: list[DraftEvalRow]
     summary_checks: dict[str, int]
+    quality_summary: dict[str, int]
 
 
 def load_questions(path: Path | None = None) -> list[dict[str, Any]]:
@@ -142,6 +149,14 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool) -> DraftEval
     draft_spl = str((draft or {}).get("draft_spl") or "")
     assumptions_text = " ".join((draft or {}).get("assumptions") or [])
     lint_violations = lint_draft_spl(draft_spl, extra_text=assumptions_text) if draft else []
+    quality_report = (
+        evaluate_draft_quality(draft_spl, extra_text=assumptions_text) if draft else None
+    )
+    quality_status = quality_report.quality_status if quality_report else None
+    hard_fail_count = quality_report.hard_fail_count if quality_report else 0
+    warning_count = quality_report.warning_count if quality_report else 0
+    advisory_count = quality_report.advisory_count if quality_report else 0
+    quality_findings = quality_report.to_dict()["findings"] if quality_report else None
     checks = {
         "draft_only_when_flag_on": (draft is None) if not draft_enabled else (draft is not None),
         "family_match": match_detection_family(query) == family,
@@ -154,11 +169,11 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool) -> DraftEval
         "placeholder_index": "<" in draft_spl if draft else True,
         "validator_ran": bool((draft or {}).get("validator_status")) if draft else True,
         "draft_lint_clean": not lint_violations if draft else True,
-        "no_newline_in_quoted_strings": "quoted_string_contains_newline" not in lint_violations if draft else True,
-        "windows_paths_escaped": not any(v.startswith("unescaped_windows_path_backslash") for v in lint_violations)
-        if draft
-        else True,
-        "strftime_for_time_fields": "earliest_or_latest_time_without_strftime" not in lint_violations if draft else True,
+        "quality_passed": quality_status in {None, "passed", "warning"} if draft else True,
+        "no_quality_hard_fail": hard_fail_count == 0 if draft else True,
+        "no_newline_in_quoted_strings": not any(v.endswith("Q01") for v in lint_violations) if draft else True,
+        "windows_paths_escaped": not any(v.endswith("Q02") for v in lint_violations) if draft else True,
+        "strftime_for_time_fields": not any(v.endswith("Q04") for v in lint_violations) if draft else True,
         "no_execution": execution_status != "executed",
         "no_results_found_claim": _RESULTS_FOUND.search(text) is None,
         "no_approved_claim": _APPROVED_CLAIM.search(_scrub_disclaimer_text(text)) is None,
@@ -179,6 +194,8 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool) -> DraftEval
         violations.append("results_found_claim")
     if draft and not draft.get("warning"):
         violations.append("warning_missing")
+    if draft and hard_fail_count:
+        violations.append(f"quality_hard_fail:{hard_fail_count}")
     if draft and lint_violations:
         violations.extend(lint_violations)
     if family == "windows_account_lockout" and draft:
@@ -202,6 +219,11 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool) -> DraftEval
         violations=violations,
         draft_preview=draft,
         execution_status=execution_status,
+        quality_status=quality_status,
+        hard_fail_count=hard_fail_count,
+        warning_count=warning_count,
+        advisory_count=advisory_count,
+        quality_findings=quality_findings,
     )
 
 
@@ -221,6 +243,15 @@ def run_spl_draft_preview_eval(
         for key, value in row.checks.items():
             summary_checks[key] = summary_checks.get(key, 0) + (1 if value else 0)
 
+    quality_summary = {
+        "hard_fail_count": sum(row.hard_fail_count for row in rows),
+        "warning_count": sum(row.warning_count for row in rows),
+        "advisory_count": sum(row.advisory_count for row in rows),
+        "quality_passed_rows": sum(1 for row in rows if row.quality_status == "passed"),
+        "quality_warning_rows": sum(1 for row in rows if row.quality_status == "warning"),
+        "quality_failed_rows": sum(1 for row in rows if row.quality_status == "failed"),
+    }
+
     return DraftEvalResult(
         schema_version=SCHEMA_VERSION,
         generated_at=datetime.now(timezone.utc).isoformat(),
@@ -229,6 +260,7 @@ def run_spl_draft_preview_eval(
         failed_rows=len(rows) - passed,
         rows=rows,
         summary_checks=summary_checks,
+        quality_summary=quality_summary,
     )
 
 
@@ -240,6 +272,7 @@ def result_to_report(result: DraftEvalResult) -> dict[str, Any]:
         "passed_rows": result.passed_rows,
         "failed_rows": result.failed_rows,
         "summary_checks": result.summary_checks,
+        "quality_summary": result.quality_summary,
         "rows": [
             {
                 "question_id": row.question_id,
@@ -251,6 +284,11 @@ def result_to_report(result: DraftEvalResult) -> dict[str, Any]:
                 "violations": row.violations,
                 "draft_status": (row.draft_preview or {}).get("draft_status"),
                 "validator_status": (row.draft_preview or {}).get("validator_status"),
+                "quality_status": row.quality_status,
+                "hard_fail_count": row.hard_fail_count,
+                "warning_count": row.warning_count,
+                "advisory_count": row.advisory_count,
+                "quality_findings": row.quality_findings or [],
             }
             for row in result.rows
         ],
@@ -265,6 +303,15 @@ def render_summary_markdown(result: DraftEvalResult) -> str:
         f"- Rows: {result.total_rows}",
         f"- Passed: {result.passed_rows}",
         f"- Failed: {result.failed_rows}",
+        "",
+        "## Quality lint (SOC-STD-SPL-001)",
+        "",
+        f"- hard_fail_count: {result.quality_summary.get('hard_fail_count', 0)}",
+        f"- warning_count: {result.quality_summary.get('warning_count', 0)}",
+        f"- advisory_count: {result.quality_summary.get('advisory_count', 0)}",
+        f"- quality_passed_rows: {result.quality_summary.get('quality_passed_rows', 0)}",
+        f"- quality_warning_rows: {result.quality_summary.get('quality_warning_rows', 0)}",
+        f"- quality_failed_rows: {result.quality_summary.get('quality_failed_rows', 0)}",
         "",
         "## Check counts",
         "",

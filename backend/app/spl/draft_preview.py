@@ -8,7 +8,7 @@ from typing import Any
 
 from app.config import settings
 from app.safeguards.spl_validator import validate_spl
-from app.spl.draft_preview_lint import lint_draft_spl
+from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
 
 DRAFT_WARNING = (
     "Draft SPL preview only. Not governed. Not approved. Do not execute without SOC review."
@@ -160,9 +160,9 @@ search index=<endpoint_index> sourcetype=XmlWinEventLog:Microsoft-Windows-Sysmon
     OR like(child_image, "%\\\\powershell.exe")
     OR like(child_image, "%\\\\pwsh.exe")
   )
-| eval event_time=_time
-| eval spawn_time=strftime(event_time, "%F %T")
-| table spawn_time host user parent_image child_image command_line
+| eval event_epoch=_time
+| table event_epoch host user parent_image child_image command_line
+| eval spawn_time=strftime(event_epoch, "%F %T")
 | sort - spawn_time
 | head 100
 """,
@@ -197,6 +197,7 @@ search index=<endpoint_index> sourcetype=XmlWinEventLog:Microsoft-Windows-Sysmon
         ),
         draft_spl="""
 search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earliest=-24h latest=now
+  (protocol="DNP3" OR protocol="Modbus" OR protocol="dnp3" OR protocol="modbus")
 | eval protocol_name=lower(coalesce(protocol, proto, protocol_name, ""))
 | eval dnp3_fn=lower(coalesce(dnp3_function, dnp3_func, ""))
 | eval modbus_fn=lower(coalesce(modbus_function, modbus_func, ""))
@@ -204,24 +205,22 @@ search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earli
 | eval source_ip=coalesce(src_ip, src, source, "")
 | eval destination_ip=coalesce(dest_ip, dest, destination, "")
 | where (
-    like(protocol_name, "%dnp3%")
-    OR like(protocol_name, "%modbus%")
-    OR like(dnp3_fn, "%write%")
+    like(dnp3_fn, "%write%")
     OR like(modbus_fn, "%write%")
     OR like(command_action, "%write%")
     OR like(command_action, "%modify%")
   )
-  AND NOT (source_ip="<engineering_workstation_ip>")
-| eval event_time=_time
-| eval event_time_readable=strftime(event_time, "%F %T")
+  AND NOT cidrmatch("<engineering_workstation_cidr>", source_ip)
+| eval event_epoch=_time
+| eval event_time_readable=strftime(event_epoch, "%F %T")
 | table event_time_readable source_ip destination_ip protocol_name command_action dest_port payload_summary
 | sort - event_time_readable
 | head 100
 """,
         assumptions=(
             "SCADA firewall logs expose protocol, action/function, and source/destination IPs.",
-            "Protocol and command fields use coalesce() and like() instead of multiline regex.",
-            "Engineering workstation IP is a placeholder allowlist entry.",
+            "Shift-left protocol filter in base search; write/modify narrowed after coalesce().",
+            "Engineering workstation allowlist uses cidrmatch() with placeholder CIDR.",
             "Field names vary by firewall vendor — map DNP3/Modbus write/modify semantics during review.",
         ),
         required_source_fields=(
@@ -288,7 +287,7 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
             r"failed\s+login",
         ),
         draft_spl="""
-search index=<substation_index> sourcetype=<hmi_or_os_auth_sourcetype> earliest=-24h latest=now
+search index=<substation_index> sourcetype=<hmi_or_os_auth_sourcetype> earliest=-24h latest=now action=failure
 | eval action_norm=lower(coalesce(action, status, result, ""))
 | eval user_name=coalesce(user, username, src_user, "")
 | eval source_ip=coalesce(src_ip, src, source, "")
@@ -302,15 +301,16 @@ search index=<substation_index> sourcetype=<hmi_or_os_auth_sourcetype> earliest=
     OR dest_category_norm="OT"
   )
 | bin _time span=5m
-| eval window_start=strftime(_time, "%F %T")
-| stats count as failed_attempts dc(user_name) as distinct_users values(user_name) as attempted_users by window_start source_ip
+| stats count as failed_attempts dc(user_name) as distinct_users values(user_name) as attempted_users min(_time) as window_start_epoch by _time source_ip
+| eval window_start=strftime(window_start_epoch, "%F %T")
+| fields - window_start_epoch
 | where failed_attempts>10
 | table window_start source_ip failed_attempts distinct_users attempted_users
 | sort - failed_attempts
 | head 100
 """,
         assumptions=(
-            "Authentication failure events are bucketed in 5-minute windows with readable window_start timestamps.",
+            "Authentication failure events are bucketed in 5-minute windows; readable time appears after bin/stats.",
             "Threshold of more than 10 failures per window is illustrative; tune per environment.",
             "User, source, and app fields use coalesce(); HMI/portal matching uses like() on app name.",
             "HMI/OS portal field names vary — confirm dest_category/app mappings for substation assets.",
@@ -426,13 +426,15 @@ def build_draft_preview(
 
     draft_spl = family.draft_spl
     assumptions_text = " ".join(family.assumptions)
-    lint_violations = lint_draft_spl(draft_spl, extra_text=assumptions_text)
+    quality = evaluate_draft_quality(draft_spl, extra_text=assumptions_text)
+    quality_payload = quality.to_dict()
     validation = validate_spl(draft_spl)
     validator_status = "approved" if validation.get("approved") else "blocked"
     return {
         "draft_spl": draft_spl,
         "draft_status": DRAFT_STATUS,
         "draft_source": DRAFT_SOURCE,
+        "quality_standard": STANDARD_ID,
         "detection_family": family.family_id,
         "assumptions": list(family.assumptions),
         "required_source_fields": list(family.required_source_fields),
@@ -440,8 +442,14 @@ def build_draft_preview(
         "governed_template_missing": _governed_template_missing(spl_validation),
         "validator_status": validator_status,
         "validator_reject_reasons": list(validation.get("reject_reasons") or []),
-        "draft_lint_status": "passed" if not lint_violations else "failed",
-        "draft_lint_violations": lint_violations,
+        "quality_status": quality_payload["quality_status"],
+        "hard_fail_count": quality_payload["hard_fail_count"],
+        "warning_count": quality_payload["warning_count"],
+        "advisory_count": quality_payload["advisory_count"],
+        "quality_findings": quality_payload["findings"],
+        "draft_lint_status": "passed" if quality.hard_fail_count == 0 else "failed",
+        "draft_lint_violations": quality.violation_ids(),
+        "draft_quality": quality_payload,
         "review_required": True,
         "execution_enabled": False,
         "execution_eligible": False,
