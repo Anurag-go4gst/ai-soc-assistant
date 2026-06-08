@@ -138,7 +138,7 @@ Current honest statement: **"Phases 0–13 are implemented and governance-green.
 | `8577cfd` | ESP IT→OT zone matching: exact `IN()` placeholders instead of fuzzy `like("%it%")` / `like("%ot%")` wildcards |
 | `38f6ad8` | ESP draft preview: `session_state_norm` filter, stats preservation, draft status messaging in pipeline/readability |
 | `1bd114d` | ESP draft SPL performance: remove noisy zone wildcards, strict established-session filter, improved draft narrative constants |
-| `f208255` | **Narrative fix:** Phase 9 governed LLM composer no longer overwrites `direct_answer_summary` when `draft_spl_code` is present; pipeline forces `analyst_summary` to draft-preview HIL-required message; frontend summary cards prefer draft messaging over stale lab narration |
+| `4f095a8` | **Narrative fix:** Phase 9 governed LLM composer no longer overwrites `direct_answer_summary` when `draft_spl_code` is present; pipeline forces `analyst_summary` to draft-preview HIL-required message; frontend summary cards prefer draft messaging over stale lab narration |
 
 **Problem observed:** With live synthesis enabled (`AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` + `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED`), the top analyst paragraph could falsely state that SPL/HIL review was *not* required while the SPL metadata block correctly showed governed-SPL-not-ready + HIL required.
 
