@@ -70,7 +70,8 @@ Phase-specific modules added by the control plane:
 
 - Flag profiles: `docs/demo/flag_cutover_matrix.md`
 - Manual demo checklist: `docs/demo/demo_scenarios_readiness.md`
-- LangGraph fan-out/fan-in graph: **not implemented** — keep `LANGGRAPH_ORCHESTRATION_ENABLED=false` for demos
+- Phase 12 planner-led shadow graph: `test_langgraph_shadow_phase12.py` (requires `AI_SOC_LANGGRAPH_SHADOW_ENABLED=true` in test harness only)
+- Live demo path: imperative `/chat` — keep `LANGGRAPH_ORCHESTRATION_ENABLED=false`
 - Default production runtime: legacy/parity (`CONTROL_PLANE_ENABLED=false`)
 
 ## Boundaries enforced

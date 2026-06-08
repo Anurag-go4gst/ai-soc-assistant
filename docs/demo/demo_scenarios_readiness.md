@@ -7,6 +7,7 @@ Machine-readable source: `docs/validation/demo_scenario_sheet.json` (`soc_valida
 **Prerequisites**
 
 - Profile 2 flags applied; backend restarted.
+- `LANGGRAPH_ORCHESTRATION_ENABLED=false` and `AI_SOC_LANGGRAPH_SHADOW_ENABLED=false` for live demos (Phase 12 shadow graph is CI/tests only).
 - `AI_SOC_LLM_LOCAL_BASE_URL` configured if testing live composer narration.
 - `MCP_GLOBAL_EXECUTION_ENABLED=false` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=false`.
 - Experience Center fixture path isolated — use live `/chat`, not EC scenario IDs.

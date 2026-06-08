@@ -8,11 +8,11 @@ Documentation only. **Does not change runtime defaults.** Production and `.env.e
 |-------|--------|
 | Phases 0–10 | Implemented and tested (crosswalk → validation package) |
 | Adopted test/demo path | Governed **imperative** `/chat` pipeline with explicit flags |
-| LangGraph fan-out/fan-in | **Not implemented** — do not enable for demos expecting planner graph topology |
+| LangGraph fan-out/fan-in | **Shadow graph exists (Phase 12)** — `AI_SOC_LANGGRAPH_SHADOW_ENABLED` for tests/trace only; not default runtime |
 | Default production runtime | Legacy/parity (`CONTROL_PLANE_ENABLED=false`, MCP execution off) |
 | SPL/MCP execution | Remains **disabled** in all documented profiles below |
 
-LangGraph (`LANGGRAPH_ORCHESTRATION_ENABLED`) may exist as a parity shadow of the imperative pipeline; it does **not** implement the planner-led fan-out/fan-in graph described in the master plan. Keep it **off** for manual demo and answer-quality testing unless explicitly running LangGraph parity experiments.
+`LANGGRAPH_ORCHESTRATION_ENABLED` runs the legacy P1 linear LangGraph parity wrapper when explicitly enabled. The **Phase 12 planner-led shadow graph** (`backend/app/graph/planner_led_shadow_graph.py`) implements fan-out/fan-in topology for parity tests only via `AI_SOC_LANGGRAPH_SHADOW_ENABLED=false` (default). It is **not** the live `/chat` runtime path. Keep both flags **off** for manual demo and answer-quality testing.
 
 ---
 
@@ -31,6 +31,7 @@ LangGraph (`LANGGRAPH_ORCHESTRATION_ENABLED`) may exist as a parity shadow of th
 | `MCP_GLOBAL_EXECUTION_ENABLED` | `false` |
 | `MCP_SERVER_MOCK_EXECUTION_ENABLED` | `false` |
 | `LANGGRAPH_ORCHESTRATION_ENABLED` | `false` |
+| `AI_SOC_LANGGRAPH_SHADOW_ENABLED` | `false` |
 | `AI_SOC_LLM_SPL_FALLBACK_ENABLED` | `false` |
 
 **Behavior:** Legacy backward-compatible `/chat` path. No mock or real Splunk MCP execution. No live LLM composer narration. Governance regression and harness run against this baseline.
@@ -54,6 +55,7 @@ Enable governed control plane + planner track + LLM composer **without** executi
 | `MCP_GLOBAL_EXECUTION_ENABLED` | `false` |
 | `MCP_SERVER_MOCK_EXECUTION_ENABLED` | `false` |
 | `LANGGRAPH_ORCHESTRATION_ENABLED` | `false` |
+| `AI_SOC_LANGGRAPH_SHADOW_ENABLED` | `false` |
 | `AI_SOC_LLM_SPL_FALLBACK_ENABLED` | `false` |
 
 Also configure a local/openai-compatible endpoint (`AI_SOC_LLM_LOCAL_BASE_URL`) for live synthesis narration. Facts (severity, MITRE status, SPL, `execution_eligible=false`) remain deterministic authority.
@@ -68,7 +70,8 @@ Also configure a local/openai-compatible endpoint (`AI_SOC_LLM_LOCAL_BASE_URL`) 
 |------|---------|
 | `MCP_GLOBAL_EXECUTION_ENABLED=true` | Enables MCP execution gate; violates no-execution demo contract |
 | `MCP_SERVER_MOCK_EXECUTION_ENABLED=true` | Requires global flag; runs bounded mock rows |
-| `LANGGRAPH_ORCHESTRATION_ENABLED=true` | Parity shadow only; planner fan-out/fan-in graph not built |
+| `LANGGRAPH_ORCHESTRATION_ENABLED=true` | Legacy P1 linear graph only — not the Phase 12 shadow topology |
+| `AI_SOC_LANGGRAPH_SHADOW_ENABLED=true` | Tests/trace only — does not replace `/chat` unless harness invokes shadow runner |
 | `AI_SOC_LLM_SPL_FALLBACK_ENABLED=true` | LLM SPL advisory bypass risk; keep off outside controlled lab |
 
 ---
@@ -82,7 +85,7 @@ Also configure a local/openai-compatible endpoint (`AI_SOC_LLM_LOCAL_BASE_URL`) 
    - Planner flags (`PATH_SELECTION`, `CURATED_ENRICHMENT`, `MITRE_BRANCH`, `SPL_TEMPLATE_GOVERNANCE`)
    - Optional: `AI_SOC_LLM_INTENT_ADVISOR_ENABLED`, synthesis flags (with configured local endpoint)
 4. Keep `MCP_GLOBAL_EXECUTION_ENABLED=false` until COE supplies real Splunk MCP contract and approval workflow.
-5. Do **not** enable LangGraph for production cutover until fan-out/fan-in topology is implemented and parity-tested.
+5. Phase 12 shadow graph parity must be accepted in CI before considering LangGraph as runtime; production cutover still uses imperative `/chat` with flags until explicitly approved.
 
 ---
 
