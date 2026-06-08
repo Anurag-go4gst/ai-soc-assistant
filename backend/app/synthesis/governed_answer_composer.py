@@ -15,6 +15,7 @@ from app.chat.contracts.answer_contract import AnswerContract
 from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
 from app.schemas.responses import AnalystResponseEnvelope
+from app.threat.mitre_permitted_builder import canonical_technique_name_tactic
 
 _SYSTEM_PROMPT = (
     "You are a SOC analyst assistant. You will receive a GOVERNED ANSWER CONTRACT "
@@ -52,6 +53,26 @@ _NEGATION = re.compile(
     re.IGNORECASE,
 )
 _EVIDENCE_SUPPORTED = re.compile(r"\b(evidence[- ]supported|evidence supported)\b", re.IGNORECASE)
+_SUPPORTING_EVIDENCE_CONTEXT = re.compile(
+    r"\b("
+    r"supporting evidence|"
+    r"evidence[- ]supported|"
+    r"evidence supported|"
+    r"confirmed technique|"
+    r"identified with supporting evidence|"
+    r"with supporting evidence"
+    r")\b",
+    re.IGNORECASE,
+)
+_MITRE_TECHNIQUE_ID = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
+_MITRE_NAME_IN_PROSE = re.compile(
+    r"\b(T\d{4}(?:\.\d{3})?)\b\s*(?:\(([^)]+)\)|[-–:]\s*([A-Za-z][A-Za-z0-9 /-]{2,}))",
+    re.IGNORECASE,
+)
+_MISSING_EVIDENCE_LIST = re.compile(
+    r"missing evidence includes\s+([^.;\n]+)",
+    re.IGNORECASE,
+)
 _SEVERITY_TOKEN = re.compile(r"\bP[1-4]\b", re.IGNORECASE)
 
 
@@ -188,8 +209,16 @@ def build_composer_prompt(
     if contract.assumptions:
         lines.append("- Assumptions: " + "; ".join(contract.assumptions))
 
-    _append_mitre_bucket(lines, "Candidate MITRE (metadata only)", contract.candidate_mitre)
-    _append_mitre_bucket(lines, "Evidence-supported MITRE", contract.evidence_supported_mitre)
+    _append_mitre_bucket(
+        lines,
+        "Candidate MITRE (metadata only; never evidence-supported)",
+        contract.candidate_mitre,
+    )
+    _append_mitre_bucket(
+        lines,
+        "Evidence-supported MITRE (only these may be called evidence-supported)",
+        contract.evidence_supported_mitre,
+    )
     _append_mitre_bucket(lines, "Requires validation MITRE", contract.requires_validation_mitre)
     _append_mitre_bucket(
         lines,
@@ -197,6 +226,10 @@ def build_composer_prompt(
         contract.not_claimed_mitre,
     )
     _append_mitre_bucket(lines, "Ruled out MITRE", contract.ruled_out_mitre)
+    name_lines = _contract_mitre_name_lines(contract)
+    if name_lines:
+        lines.append("- Authoritative MITRE names (use exactly; do not rename):")
+        lines.extend(name_lines)
     if contract.mitre_technique_ids:
         lines.append("- Visible MITRE technique IDs: " + ", ".join(contract.mitre_technique_ids))
 
@@ -226,16 +259,24 @@ def validate_composed_prose(text: str, contract: AnswerContract) -> tuple[bool, 
     allowed_techniques = supported | candidate | {tid.upper() for tid in contract.requires_validation_mitre}
     allowed_techniques |= {tid.upper() for tid in contract.mitre_technique_ids}
 
-    if _EVIDENCE_SUPPORTED.search(lowered):
-        for tid in candidate:
-            if tid.upper() not in supported and tid.lower() in lowered:
-                return False, f"Candidate MITRE {tid} was upgraded to evidence-supported in prose."
+    for tid in candidate:
+        if tid.upper() not in supported and _technique_claims_evidence_supported(lowered, tid):
+            return False, f"Candidate MITRE {tid} was upgraded to evidence-supported in prose."
 
-    for tid in allowed_techniques:
-        if tid and tid not in supported and _technique_claims_evidence_supported(lowered, tid):
-            return False, f"MITRE {tid} described as evidence-supported without contract support."
+    for tid in _MITRE_TECHNIQUE_ID.findall(text):
+        tid_upper = tid.upper()
+        if tid_upper not in supported and _technique_claims_evidence_supported(lowered, tid):
+            return False, f"MITRE {tid_upper} described as evidence-supported without contract support."
 
-    for tid in re.findall(r"\bT\d{4}(?:\.\d{3})?\b", text, flags=re.IGNORECASE):
+    name_mismatch = _mitre_name_mismatch(text, contract)
+    if name_mismatch:
+        return False, name_mismatch
+
+    extraneous_missing = _extraneous_missing_evidence_mention(text, contract)
+    if extraneous_missing:
+        return False, extraneous_missing
+
+    for tid in _MITRE_TECHNIQUE_ID.findall(text):
         if tid.upper() not in allowed_techniques and tid.upper() not in {
             x.upper() for x in contract.not_claimed_mitre
         } | {x.upper() for x in contract.ruled_out_mitre}:
@@ -374,15 +415,117 @@ def _is_knowledge_profile(contract: AnswerContract) -> bool:
 
 def _append_mitre_bucket(lines: list[str], label: str, values: list[str]) -> None:
     if values:
-        lines.append(f"- {label}: " + ", ".join(values))
+        rendered = []
+        for tid in values:
+            canonical = canonical_technique_name_tactic(tid)
+            if canonical:
+                rendered.append(f"{tid} ({canonical[0]})")
+            else:
+                rendered.append(tid)
+        lines.append(f"- {label}: " + ", ".join(rendered))
+
+
+def _contract_mitre_ids(contract: AnswerContract) -> set[str]:
+    buckets = (
+        contract.candidate_mitre,
+        contract.evidence_supported_mitre,
+        contract.requires_validation_mitre,
+        contract.not_claimed_mitre,
+        contract.ruled_out_mitre,
+        contract.mitre_technique_ids,
+    )
+    return {tid.upper() for bucket in buckets for tid in bucket if tid}
+
+
+def _contract_mitre_name_lines(contract: AnswerContract) -> list[str]:
+    lines: list[str] = []
+    for tid in sorted(_contract_mitre_ids(contract)):
+        canonical = canonical_technique_name_tactic(tid)
+        if canonical:
+            lines.append(f"  - {tid}: {canonical[0]}")
+    return lines
 
 
 def _technique_claims_evidence_supported(text: str, technique_id: str) -> bool:
     tid = technique_id.lower()
     if tid not in text:
         return False
-    window = text[max(0, text.index(tid) - 80) : text.index(tid) + 80]
-    return bool(_EVIDENCE_SUPPORTED.search(window))
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
+        sentence_l = sentence.lower()
+        if tid not in sentence_l:
+            continue
+        if any(
+            phrase in sentence_l
+            for phrase in (
+                "not claimed",
+                "remains candidate",
+                "stay candidate",
+                "stays candidate",
+                "candidate only",
+                "requires validation",
+            )
+        ):
+            continue
+        if _SUPPORTING_EVIDENCE_CONTEXT.search(sentence_l) or _EVIDENCE_SUPPORTED.search(sentence_l):
+            return True
+    window = text[max(0, text.index(tid) - 120) : text.index(tid) + 120]
+    if any(
+        phrase in window
+        for phrase in ("not claimed", "remains candidate", "stay candidate", "stays candidate")
+    ):
+        return False
+    return bool(_SUPPORTING_EVIDENCE_CONTEXT.search(window) or _EVIDENCE_SUPPORTED.search(window))
+
+
+def _mitre_name_mismatch(text: str, contract: AnswerContract) -> str | None:
+    for match in _MITRE_NAME_IN_PROSE.finditer(text):
+        tid = match.group(1).upper()
+        stated_name = (match.group(2) or match.group(3) or "").strip()
+        if not stated_name or tid not in _contract_mitre_ids(contract):
+            continue
+        canonical = canonical_technique_name_tactic(tid)
+        if canonical is None:
+            continue
+        if stated_name.lower() != canonical[0].lower():
+            return (
+                f"MITRE {tid} name '{stated_name}' does not match contract name '{canonical[0]}'."
+            )
+    return None
+
+
+def _extraneous_missing_evidence_mention(text: str, contract: AnswerContract) -> str | None:
+    allowed = {str(item).lower() for item in contract.missing_evidence}
+    allowed_tokens: set[str] = set()
+    for item in allowed:
+        allowed_tokens.update(part for part in re.split(r"[_\s]+", item) if len(part) >= 3)
+    for limitation in contract.limitations:
+        allowed_tokens.update(
+            part for part in re.split(r"[_\s\-]+", str(limitation).lower()) if len(part) >= 4
+        )
+
+    for match in _MISSING_EVIDENCE_LIST.finditer(text):
+        chunk = match.group(1).lower()
+        for marker, aliases in _MISSING_EVIDENCE_MARKERS.items():
+            if not any(alias in chunk for alias in aliases):
+                continue
+            if marker in allowed:
+                continue
+            if any(alias in allowed_tokens for alias in aliases):
+                continue
+            return (
+                f"Composed prose mentions missing evidence '{marker}' not present in contract."
+            )
+    return None
+
+
+_MISSING_EVIDENCE_MARKERS: dict[str, tuple[str, ...]] = {
+    "mfa_status": ("mfa_status", "mfa status", "mfa result"),
+    "post_login_activity": ("post_login_activity", "post-login activity", "post login activity"),
+    "privileged_account_impacted": ("privilege status", "privileged account"),
+    "critical_asset": ("asset criticality", "critical asset"),
+    "source_ownership": ("source ip ownership", "source ownership"),
+    "confirmed_success": ("confirmed success", "successful login confirmation"),
+}
 
 
 def _technique_uses_ruled_out_wording(text: str, technique_id: str) -> bool:

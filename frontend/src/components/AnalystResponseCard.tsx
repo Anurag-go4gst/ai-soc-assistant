@@ -671,8 +671,7 @@ function SplStatusDetail({
           : generationStatus ?? 'unknown';
   return (
     <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-sm leading-6 text-amber-50">
-      <SectionTitle>SPL status</SectionTitle>
-      <ul className="mt-2 space-y-1 text-slate-100">
+      <ul className="space-y-1 text-slate-100">
         <li>
           <span className="text-slate-400">SPL template status:</span> {detail.template_status ?? 'unknown'}
         </li>
