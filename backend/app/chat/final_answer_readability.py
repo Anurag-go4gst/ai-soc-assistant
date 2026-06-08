@@ -65,6 +65,7 @@ def apply_final_answer_readability(
         return envelope
     payload = envelope.model_dump()
     payload["spl_code"] = _format_spl_multiline(payload.get("spl_code"))
+    payload["draft_spl_code"] = _format_spl_multiline(payload.get("draft_spl_code"))
     payload["executed_spl"] = _format_spl_multiline(payload.get("executed_spl"))
     payload["execution_status_label"] = contract.execution_status_display
     payload["spl_status"] = contract.spl_status
@@ -85,6 +86,10 @@ def apply_final_answer_readability(
     payload["spl_status_detail"] = contract.spl_status_detail
     payload["section_order"] = list(contract.section_order)
     payload["render_sections"] = dict(contract.render_sections)
+    if payload.get("draft_spl_code"):
+        payload["render_sections"]["draft_spl_preview"] = True
+        if "draft_spl_preview" not in payload["section_order"]:
+            payload["section_order"] = ["draft_spl_preview", *list(payload["section_order"])]
     payload["direct_answer_summary"] = _direct_answer_summary(envelope, contract)
     payload = _apply_knowledge_profile_cleanup(payload, contract)
     payload = _dedupe_labels(payload, contract)
@@ -238,6 +243,11 @@ def _natural_hybrid_alert_summary(envelope: AnalystResponseEnvelope, contract: A
             )
         else:
             parts.append(f"A governed SPL draft is available ({contract.execution_status_display.lower()}).")
+    elif envelope.draft_spl_code:
+        parts.append(
+            "A lab-only draft SPL preview is available for analyst review; it is not catalog-approved, "
+            "not governed, and has not been executed."
+        )
     return " ".join(parts) if parts else str(envelope.one_sentence_finding or "")
 
 
