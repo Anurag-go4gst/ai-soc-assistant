@@ -5,6 +5,7 @@ import re
 import pytest
 
 from app.api.routes_chat import chat
+from app.chat import pipeline as chat_pipeline
 from app.schemas.requests import ChatRequest
 from app.spl.llm_fallback import LlmSplFallbackResult
 
@@ -212,7 +213,7 @@ def test_uncatalogued_spl_generation_requires_clarification_not_stage3c_stub() -
     assert generation["llm_fallback_status"] == "clarification_required"
 
 
-def test_uncatalogued_spl_generation_uses_governed_llm_fallback_metadata(
+def test_uncatalogued_spl_generation_uses_lab_only_llm_candidate_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     spl = (
@@ -220,6 +221,16 @@ def test_uncatalogued_spl_generation_uses_governed_llm_fallback_metadata(
         "action=failure | stats count as fail_count by src_ip | sort -fail_count | head 100"
     )
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+    class _Telemetry:
+        def record_step(self, *a, **k) -> None: ...
+
+        def record_spl_validation(self, *a, **k) -> None: ...
+
+    monkeypatch.setattr(
+        chat_pipeline,
+        "_routes_chat",
+        lambda: type("_Routes", (), {"get_telemetry_connector": staticmethod(lambda: _Telemetry())})(),
+    )
     monkeypatch.setattr(
         "app.chat.pipeline.generate_llm_spl_fallback",
         lambda *, user_query: LlmSplFallbackResult(
@@ -233,6 +244,10 @@ def test_uncatalogued_spl_generation_uses_governed_llm_fallback_metadata(
                 "enforced_limits": {},
                 "policy_version": "spl-validator-v1",
             },
+            status="candidate_generated",
+            confidence_score=0.76,
+            confidence_label="medium",
+            detection_family="vpn_impossible_travel",
             assumptions=["LLM mapped VPN impossible travel to allowed auth source fields."],
             required_fields=["src_ip"],
             model="foundation-sec-test",
@@ -240,31 +255,34 @@ def test_uncatalogued_spl_generation_uses_governed_llm_fallback_metadata(
         ),
     )
 
-    response = _chat("Write SPL to detect impossible travel from VPN logs")
+    governed_candidate, governed_validation = chat_pipeline._candidate_spl_stage(
+        trace_id="t",
+        skill="spl_generation",
+        user_query="Write SPL to detect impossible travel from VPN logs",
+        template_id=None,
+        use_case_id="soc_incident_triage",
+    )
+    assert governed_candidate is not None
+    assert governed_validation is not None
+    assert governed_candidate["generation_mode"] == "clarification_required"
+    assert governed_candidate["execution_eligible"] is False
+    assert governed_validation["approved"] is False
+    assert governed_validation["normalized_spl"] is None
+    assert governed_validation["selected_candidate_spl_provider"] == "none"
 
-    assert response.candidate_spl is not None
-    assert response.candidate_spl.generation_mode == "llm_spl_advisory_fallback"
-    assert response.candidate_spl.selected_candidate_spl_provider == "llm_spl_advisory_fallback"
-    assert response.candidate_spl.llm_supported is True
-    assert response.candidate_spl.llm_fallback_used is True
-    assert response.candidate_spl.llm_fallback_status == "candidate_ready"
-    assert response.candidate_spl.execution_eligible is False
-    assert response.candidate_spl.llm_model == "foundation-sec-test"
-    assert response.spl_validation is not None
-    assert response.spl_validation.approved is True
-    assert response.spl_validation.selected_candidate_spl_provider == "llm_spl_advisory_fallback"
-    assert response.spl_validation.llm_supported is True
-    assert response.spl_validation.llm_fallback_used is True
-    assert response.spl_validation.llm_fallback_status == "candidate_ready"
-    assert response.spl_validation.llm_model == "foundation-sec-test"
-    assert response.execution is not None
-    assert response.execution.executed_spl is None
-    generation = (response.control_plane_trace or {}).get("candidate_spl_generation") or {}
-    assert generation["selected_candidate_spl_provider"] == "llm_spl_advisory_fallback"
-    assert generation["llm_supported"] is True
-    assert generation["llm_fallback_used"] is True
-    assert generation["llm_fallback_status"] == "candidate_ready"
-    assert generation["execution_eligible"] is False
+    llm_candidate = chat_pipeline._llm_spl_candidate_stage(
+        skill="spl_generation",
+        user_query="Write SPL to detect impossible travel from VPN logs",
+        request_enabled=True,
+    )
+    assert llm_candidate is not None
+    assert llm_candidate["llm_spl_candidate"] == spl
+    assert llm_candidate["llm_spl_candidate_status"] == "candidate_generated"
+    assert llm_candidate["governed"] is False
+    assert llm_candidate["catalog_approved"] is False
+    assert llm_candidate["execution_enabled"] is False
+    assert llm_candidate["execution_eligible"] is False
+    assert llm_candidate["model"] == "foundation-sec-test"
 
 
 def test_dga_investigation_steps_are_knowledge_rag_only() -> None:

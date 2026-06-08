@@ -6,6 +6,7 @@ class ChatRequest(BaseModel):
     session_id: str | None = None
     requested_mcp_server: str | None = None
     requested_mcp_tool: str | None = None
+    llm_spl_draft_mode: bool = False
 
 
 class InvestigationRequest(BaseModel):

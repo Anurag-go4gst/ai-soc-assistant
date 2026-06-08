@@ -35,6 +35,10 @@ _QUALITY_FAIL_SPL = (
 def _raw(candidate_spl: str, *, assumptions: list[str] | None = None) -> str:
     return json.dumps(
         {
+            "status": "candidate_generated",
+            "confidence_score": 0.73,
+            "confidence_label": "medium",
+            "detection_family": "windows_account_lockout",
             "candidate_spl": candidate_spl,
             "assumptions": assumptions
             or [
@@ -42,8 +46,14 @@ def _raw(candidate_spl: str, *, assumptions: list[str] | None = None) -> str:
                 "src_ip holds the client address.",
             ],
             "required_fields": ["src_ip", "action", "index", "sourcetype"],
+            "missing_details": [],
+            "clarifying_questions": [],
             "validation_notes": ["Lab candidate only; execution_eligible forced false"],
+            "soc_std_rules_applied": ["shift_left_filtering"],
+            "risk_notes": ["Not governed; SOC review required"],
             "execution_eligible": True,
+            "governed": True,
+            "catalog_approved": True,
         }
     )
 
@@ -69,6 +79,18 @@ def test_system_prompt_includes_soc_std_spl_001_rules() -> None:
     assert "catalog-approved" in prompt.lower() or "catalog approved" in prompt.lower()
     assert "governed" in prompt.lower()
     assert "execution" in prompt.lower()
+
+
+def test_system_prompt_includes_detection_family_context_and_schema() -> None:
+    prompt = _system_prompt()
+    assert "Windows privileged group changes" in prompt
+    assert "Windows account lockout" in prompt
+    assert "Sysmon web server spawning shell" in prompt
+    assert "SCADA firewall DNP3/Modbus" in prompt
+    assert "ESP corporate IT to OT control center" in prompt
+    assert "Substation OS/HMI brute-force" in prompt
+    assert "confidence_score" in prompt
+    assert "clarifying_questions" in prompt
 
 
 def test_system_prompt_does_not_hardcode_pgcil_environment() -> None:
@@ -106,6 +128,9 @@ def test_fallback_approved_is_validated_quality_linted_and_non_executable(
     assert result.quality_standard == STANDARD_ID
     assert result.hard_fail_count == 0
     assert result.validation.get("execution_eligible") in (None, False)
+    assert result.status == "candidate_generated"
+    assert result.confidence_score == pytest.approx(0.73)
+    assert result.confidence_label == "medium"
 
 
 def test_fallback_quality_hard_fail_blocks_candidate_and_normalized_spl(
@@ -149,6 +174,45 @@ def test_fallback_schema_invalid_clarifies(monkeypatch: pytest.MonkeyPatch) -> N
     assert result.approved is False
     assert result.clarification_required is True
     assert result.clarification_reason == CLARIFICATION_INVALID_SCHEMA
+
+
+def test_fallback_rejects_json_with_surrounding_prose(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable(monkeypatch)
+    result = generate_llm_spl_fallback(
+        user_query="x",
+        llm_raw_output_provider=lambda: f"Here is JSON:\n{_raw(_APPROVED_SPL)}",
+    )
+    assert result is not None
+    assert result.approved is False
+    assert result.clarification_reason == CLARIFICATION_INVALID_SCHEMA
+
+
+def test_fallback_needs_clarification_surfaces_questions(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable(monkeypatch)
+    raw = json.dumps(
+        {
+            "status": "needs_clarification",
+            "confidence_score": 0.2,
+            "confidence_label": "low",
+            "detection_family": "scada_firewall_dnp3_modbus",
+            "candidate_spl": "",
+            "assumptions": ["Firewall source is required."],
+            "required_fields": ["src", "dest", "protocol", "function_code"],
+            "missing_details": ["engineering workstation allowlist"],
+            "clarifying_questions": ["Which CIDRs define engineering workstations?"],
+            "validation_notes": ["No SPL generated until required details are supplied."],
+            "soc_std_rules_applied": ["clarification_before_execution"],
+            "risk_notes": ["User did not supply allowlist."],
+            "execution_eligible": False,
+            "governed": False,
+            "catalog_approved": False,
+        }
+    )
+    result = generate_llm_spl_fallback(user_query="x", llm_raw_output_provider=lambda: raw)
+    assert result is not None
+    assert result.status == "needs_clarification"
+    assert result.clarifying_questions == ["Which CIDRs define engineering workstations?"]
+    assert result.approved is False
 
 
 def test_fallback_missing_assumptions_or_required_fields_clarifies(
@@ -201,6 +265,33 @@ def test_wiring_disabled_returns_none_for_legacy_non_control_plane(monkeypatch: 
     assert out is None
 
 
+def test_wiring_request_toggle_off_blocks_even_when_server_flag_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+    out = chat_pipeline._candidate_from_llm_fallback(
+        trace_id="t", skill="spl_generation", user_query="x", telemetry=_Telemetry(), profile=_Profile()
+    )
+    assert out is None
+
+
+def test_lab_stage_server_flag_false_blocks_even_when_request_toggle_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", False)
+    called = False
+
+    def _fail(*, user_query: str) -> LlmSplFallbackResult:
+        nonlocal called
+        called = True
+        raise AssertionError("LLM fallback should not run")
+
+    monkeypatch.setattr("app.chat.pipeline.generate_llm_spl_fallback", _fail)
+    out = chat_pipeline._llm_spl_candidate_stage(
+        skill="spl_generation",
+        user_query="x",
+        request_enabled=True,
+    )
+    assert out is None
+    assert called is False
+
+
 def test_wiring_enabled_maps_candidate_ready_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
     monkeypatch.setattr(
@@ -222,7 +313,7 @@ def test_wiring_enabled_maps_candidate_ready_payload(monkeypatch: pytest.MonkeyP
         ),
     )
     candidate_payload, validation_payload = chat_pipeline._candidate_from_llm_fallback(
-        trace_id="t", skill="spl_generation", user_query="x", telemetry=_Telemetry(), profile=_Profile()
+        trace_id="t", skill="spl_generation", user_query="x", telemetry=_Telemetry(), profile=_Profile(), request_enabled=True
     )
     assert candidate_payload["generation_mode"] == "llm_spl_advisory_fallback"
     assert validation_payload["approved"] is True
@@ -259,7 +350,7 @@ def test_wiring_enabled_approved_never_marks_governed_catalog_or_executable(
         ),
     )
     candidate_payload, validation_payload = chat_pipeline._candidate_from_llm_fallback(
-        trace_id="t", skill="spl_generation", user_query="failed logins", telemetry=_Telemetry(), profile=_Profile()
+        trace_id="t", skill="spl_generation", user_query="failed logins", telemetry=_Telemetry(), profile=_Profile(), request_enabled=True
     )
     assert candidate_payload.get("governed") is False
     assert validation_payload.get("catalog_approved") is False
@@ -291,7 +382,7 @@ def test_wiring_quality_hard_fail_blocks_spl_exposure(monkeypatch: pytest.Monkey
         ),
     )
     candidate_payload, validation_payload = chat_pipeline._candidate_from_llm_fallback(
-        trace_id="t", skill="spl_generation", user_query="x", telemetry=_Telemetry(), profile=_Profile()
+        trace_id="t", skill="spl_generation", user_query="x", telemetry=_Telemetry(), profile=_Profile(), request_enabled=True
     )
     assert candidate_payload["candidate_spl"] == ""
     assert validation_payload["normalized_spl"] is None
@@ -319,11 +410,51 @@ def test_wiring_enabled_propagates_clarification(monkeypatch: pytest.MonkeyPatch
         ),
     )
     candidate_payload, validation_payload = chat_pipeline._candidate_from_llm_fallback(
-        trace_id="t", skill="spl_generation", user_query="x", telemetry=_Telemetry(), profile=_Profile()
+        trace_id="t", skill="spl_generation", user_query="x", telemetry=_Telemetry(), profile=_Profile(), request_enabled=True
     )
     assert validation_payload["approved"] is False
     assert CLARIFICATION_VALIDATION_FAILED in validation_payload["reject_reasons"]
     assert candidate_payload["warnings"] == ["llm_spl_fallback_requires_clarification"]
+
+
+def test_lab_stage_both_flags_true_maps_separate_candidate(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+    monkeypatch.setattr(
+        "app.chat.pipeline.generate_llm_spl_fallback",
+        lambda *, user_query: LlmSplFallbackResult(
+            candidate_spl=_APPROVED_SPL,
+            approved=True,
+            validation={
+                "approved": True,
+                "normalized_spl": _APPROVED_SPL,
+                "reject_reasons": [],
+                "warnings": [],
+                "enforced_limits": {},
+                "policy_version": "v1",
+            },
+            status="candidate_generated",
+            confidence_score=0.8,
+            confidence_label="high",
+            detection_family="windows_account_lockout",
+            assumptions=["placeholder indexes required"],
+            required_fields=["src_ip"],
+            quality_standard=STANDARD_ID,
+            quality_status="passed",
+            hard_fail_count=0,
+        ),
+    )
+    payload = chat_pipeline._llm_spl_candidate_stage(
+        skill="spl_generation",
+        user_query="x",
+        request_enabled=True,
+    )
+    assert payload is not None
+    assert payload["llm_spl_candidate"] == _APPROVED_SPL
+    assert payload["llm_spl_candidate_status"] == "candidate_generated"
+    assert payload["governed"] is False
+    assert payload["catalog_approved"] is False
+    assert payload["execution_enabled"] is False
+    assert payload["execution_eligible"] is False
 
 
 def test_chat_message_for_llm_fallback_uses_lab_candidate_wording() -> None:

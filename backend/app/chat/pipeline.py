@@ -124,6 +124,7 @@ class ChatPipelineState(TypedDict, total=False):
     candidate_spl: dict[str, Any] | None
     spl_validation: dict[str, Any] | None
     spl_draft_preview: dict[str, Any] | None
+    llm_spl_candidate: dict[str, Any] | None
     execution: dict[str, Any]
     human_review: dict[str, Any]
     source_evidence: list[dict[str, Any]]
@@ -466,12 +467,18 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         query_text,
         spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
     )
+    llm_spl_candidate = _llm_spl_candidate_stage(
+        skill=effective_skill,
+        user_query=query_text,
+        request_enabled=bool(request.llm_spl_draft_mode),
+    )
     return {
         **state,
         "workflow_plan": workflow_plan,
         "candidate_spl": candidate_spl,
         "spl_validation": spl_validation,
         "spl_draft_preview": spl_draft_preview,
+        "llm_spl_candidate": llm_spl_candidate,
     }
 
 
@@ -741,6 +748,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         note = _PARTIAL_SYNTHESIS_MESSAGE
     candidate_spl = state.get("candidate_spl")
     spl_draft_preview = state.get("spl_draft_preview")
+    llm_spl_candidate = state.get("llm_spl_candidate")
     if _session_stale_clarification_required(state):
         human_review = _session_stale_clarification_review()
         message = human_review["safe_message_for_user"]
@@ -872,6 +880,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision=severity_decision,
         answer_contract=answer_contract,
         spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+        llm_spl_candidate=llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None,
     )
     composer_trace: dict[str, Any] = build_composer_runtime_status()
     if answer_contract is not None and analyst_response is not None:
@@ -999,6 +1008,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
         spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+        llm_spl_candidate=llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None,
         execution=execution,
         human_review=human_review,
         source_evidence=source_evidence,
@@ -2148,6 +2158,7 @@ def _candidate_from_llm_fallback(
     telemetry: Any,
     profile: Any,
     spl_governance: dict[str, Any] | None = None,
+    request_enabled: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     """Governed LLM SPL advisory used only when no deterministic template matched.
 
@@ -2157,6 +2168,8 @@ def _candidate_from_llm_fallback(
     re-validated deterministically; a failed/unsupported result surfaces as a
     clarification (non-approved, non-executable), never an executable query.
     """
+    if not request_enabled:
+        return None
     if settings.ai_soc_spl_template_governance_enabled and spl_governance:
         status = str(spl_governance.get("spl_template_status") or "unknown")
         allowed_templates = [str(item) for item in spl_governance.get("allowed_spl_templates") or []]
@@ -2291,6 +2304,69 @@ def _candidate_from_llm_fallback(
         policy_version=validation_payload["policy_version"],
     )
     return candidate_payload, validation_payload
+
+
+def _llm_spl_candidate_stage(
+    *,
+    skill: str,
+    user_query: str,
+    request_enabled: bool,
+) -> dict[str, Any] | None:
+    """Separate lab-only LLM SPL candidate lane.
+
+    This never populates governed candidate_spl or spl_validation. It exists
+    only for side-by-side local/demo review when both the server flag and the
+    request-level UI toggle are enabled.
+    """
+    if not request_enabled:
+        return None
+    if not settings.ai_soc_llm_spl_fallback_enabled:
+        return None
+    if skill not in {"attack_discovery", "spl_generation"}:
+        return None
+
+    result = generate_llm_spl_fallback(user_query=user_query)
+    if result is None:
+        return None
+
+    validation = result.validation if isinstance(result.validation, dict) else validate_spl("")
+    quality_findings = list(result.quality_findings)
+    validation_findings = list(validation.get("reject_reasons") or [])
+    status = result.status
+    validator_status = "passed" if validation.get("approved") else "failed"
+    if result.clarification_required and status == "candidate_generated":
+        status = "needs_clarification"
+    if result.hard_fail_count > 0:
+        status = "blocked"
+    if result.clarification_reason and result.clarification_reason not in validation_findings:
+        validation_findings.append(result.clarification_reason)
+
+    return {
+        "llm_spl_candidate": result.candidate_spl if result.approved else "",
+        "llm_spl_candidate_status": status,
+        "llm_spl_confidence_score": result.confidence_score,
+        "llm_spl_confidence_label": result.confidence_label,
+        "detection_family": result.detection_family,
+        "quality_status": result.quality_status,
+        "validator_status": validator_status,
+        "quality_findings": quality_findings,
+        "validation_findings": validation_findings,
+        "assumptions": list(result.assumptions),
+        "required_fields": list(result.required_fields),
+        "missing_details": list(result.missing_details),
+        "clarifying_questions": list(result.clarifying_questions),
+        "validation_notes": list(result.validation_notes),
+        "soc_std_rules_applied": list(result.soc_std_rules_applied),
+        "risk_notes": list(result.risk_notes),
+        "execution_eligible": False,
+        "governed": False,
+        "catalog_approved": False,
+        "execution_enabled": False,
+        "review_required": True,
+        "provider": result.provider,
+        "model": result.model,
+        "latency_ms": result.latency_ms,
+    }
 
 
 def _template_spl_governance(

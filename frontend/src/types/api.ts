@@ -60,6 +60,7 @@ export interface PlaceholderResponse {
   workflow_plan?: WorkflowPlan | null;
   candidate_spl?: CandidateSplEnvelope | null;
   spl_validation?: SplValidationEnvelope | null;
+  llm_spl_candidate?: LlmSplCandidateEnvelope | null;
   execution?: ExecutionEnvelope | null;
   human_review?: HumanReviewEnvelope | null;
   source_evidence?: SourceEvidenceEnvelope[];
@@ -356,6 +357,49 @@ export interface ActionCapability {
   reason: string;
 }
 
+export interface SplDraftPreviewEnvelope {
+  draft_spl: string;
+  draft_status: string;
+  draft_source: string;
+  detection_family: string;
+  assumptions: string[];
+  required_source_fields: string[];
+  source_profile_missing: boolean;
+  governed_template_missing: boolean;
+  validator_status: string;
+  review_required: boolean;
+  execution_enabled: boolean;
+  warning: string;
+  not_catalog_approved_notice: string;
+}
+
+export interface LlmSplCandidateEnvelope {
+  llm_spl_candidate: string;
+  llm_spl_candidate_status: string;
+  llm_spl_confidence_score: number;
+  llm_spl_confidence_label: string;
+  detection_family?: string | null;
+  quality_status?: string | null;
+  validator_status?: string | null;
+  quality_findings?: Array<Record<string, unknown>>;
+  validation_findings?: string[];
+  assumptions?: string[];
+  required_fields?: string[];
+  missing_details?: string[];
+  clarifying_questions?: string[];
+  validation_notes?: string[];
+  soc_std_rules_applied?: string[];
+  risk_notes?: string[];
+  execution_eligible?: boolean;
+  governed?: boolean;
+  catalog_approved?: boolean;
+  execution_enabled?: boolean;
+  review_required?: boolean;
+  provider?: string | null;
+  model?: string | null;
+  latency_ms?: number | null;
+}
+
 export interface AnalystResponseEnvelope {
   scenario_label?: string | null;
   severity_label?: string | null;
@@ -374,6 +418,9 @@ export interface AnalystResponseEnvelope {
   foundation_sec_analysis?: string | null;
   recommended_actions?: string[];
   spl_code?: string | null;
+  draft_spl_code?: string | null;
+  spl_draft_preview?: SplDraftPreviewEnvelope | null;
+  llm_spl_candidate?: LlmSplCandidateEnvelope | null;
   executed_spl?: string | null;
   execution_status?: string | null;
   response_profile?: string | null;

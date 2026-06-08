@@ -69,6 +69,7 @@ class DraftEvalRow:
     warning_count: int = 0
     advisory_count: int = 0
     quality_findings: list[dict[str, str]] | None = None
+    llm_spl_candidate: dict[str, Any] | None = None
 
 
 @dataclass
@@ -101,10 +102,11 @@ def _eval_settings(profile: dict[str, bool]) -> Iterator[None]:
             setattr(settings, key, value)
 
 
-def _chat_response(query: str, *, draft_enabled: bool) -> Any:
+def _chat_response(query: str, *, draft_enabled: bool, llm_fallback: bool = False) -> Any:
     profile = _PROFILE_FLAGS_ON if draft_enabled else _PROFILE_FLAGS_OFF
+    profile = {**profile, "ai_soc_llm_spl_fallback_enabled": bool(llm_fallback)}
     with _eval_settings(profile):
-        return build_live_chat_response(ChatRequest(message=query))
+        return build_live_chat_response(ChatRequest(message=query, llm_spl_draft_mode=llm_fallback))
 
 
 def _draft_from_response(response: Any) -> dict[str, Any] | None:
@@ -114,6 +116,18 @@ def _draft_from_response(response: Any) -> dict[str, Any] | None:
     if hasattr(preview, "model_dump"):
         return preview.model_dump()
     return preview if isinstance(preview, dict) else None
+
+
+def _llm_candidate_from_response(response: Any) -> dict[str, Any] | None:
+    candidate = getattr(response, "llm_spl_candidate", None)
+    if candidate is None:
+        analyst = getattr(response, "analyst_response", None)
+        candidate = getattr(analyst, "llm_spl_candidate", None) if analyst is not None else None
+    if candidate is None:
+        return None
+    if hasattr(candidate, "model_dump"):
+        return candidate.model_dump()
+    return candidate if isinstance(candidate, dict) else None
 
 
 def _text_blob(response: Any) -> str:
@@ -129,12 +143,13 @@ def _text_blob(response: Any) -> str:
     return "\n".join(parts)
 
 
-def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool) -> DraftEvalRow:
+def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool, llm_fallback: bool = False) -> DraftEvalRow:
     query = str(question.get("query") or "")
     question_id = str(question.get("id") or "")
     family = str(question.get("family") or match_detection_family(query) or "")
-    response = _chat_response(query, draft_enabled=draft_enabled)
+    response = _chat_response(query, draft_enabled=draft_enabled, llm_fallback=llm_fallback)
     draft = _draft_from_response(response)
+    llm_candidate = _llm_candidate_from_response(response)
     execution = getattr(response, "execution", None)
     execution_status = str(getattr(execution, "status", "") or "") if execution is not None else None
     spl_validation = getattr(response, "spl_validation", None)
@@ -224,18 +239,20 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool) -> DraftEval
         warning_count=warning_count,
         advisory_count=advisory_count,
         quality_findings=quality_findings,
+        llm_spl_candidate=llm_candidate,
     )
 
 
 def run_spl_draft_preview_eval(
     *,
     questions_path: Path | None = None,
+    llm_fallback: bool = False,
 ) -> DraftEvalResult:
     questions = load_questions(questions_path)
     rows: list[DraftEvalRow] = []
     for question in questions:
-        rows.append(_evaluate_row(question, draft_enabled=False))
-        rows.append(_evaluate_row(question, draft_enabled=True))
+        rows.append(_evaluate_row(question, draft_enabled=False, llm_fallback=llm_fallback))
+        rows.append(_evaluate_row(question, draft_enabled=True, llm_fallback=llm_fallback))
 
     passed = sum(1 for row in rows if not row.violations and all(row.checks.values()))
     summary_checks: dict[str, int] = {}
@@ -289,6 +306,11 @@ def result_to_report(result: DraftEvalResult) -> dict[str, Any]:
                 "warning_count": row.warning_count,
                 "advisory_count": row.advisory_count,
                 "quality_findings": row.quality_findings or [],
+                "llm_spl_candidate": row.llm_spl_candidate,
+                "llm_confidence": (row.llm_spl_candidate or {}).get("llm_spl_confidence_score"),
+                "llm_clarifying_questions": (row.llm_spl_candidate or {}).get("clarifying_questions"),
+                "llm_quality_findings": (row.llm_spl_candidate or {}).get("quality_findings"),
+                "llm_validator_findings": (row.llm_spl_candidate or {}).get("validation_findings"),
             }
             for row in result.rows
         ],
@@ -303,6 +325,7 @@ def render_summary_markdown(result: DraftEvalResult) -> str:
         f"- Rows: {result.total_rows}",
         f"- Passed: {result.passed_rows}",
         f"- Failed: {result.failed_rows}",
+        f"- LLM fallback comparison rows: {sum(1 for row in result.rows if row.llm_spl_candidate)}",
         "",
         "## Quality lint (SOC-STD-SPL-001)",
         "",

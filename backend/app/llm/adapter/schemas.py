@@ -105,11 +105,21 @@ class AnalystResponseDraft(AdapterPayload):
 
 
 class SplAdvisoryCandidate(AdapterPayload):
+    status: str = "candidate_generated"
+    confidence_score: float = 0.0
+    confidence_label: str = "low"
+    detection_family: str = ""
     candidate_spl: str
     assumptions: list[str] = Field(default_factory=list)
     required_fields: list[str] = Field(default_factory=list)
+    missing_details: list[str] = Field(default_factory=list)
+    clarifying_questions: list[str] = Field(default_factory=list)
     validation_notes: list[str] = Field(default_factory=list)
+    soc_std_rules_applied: list[str] = Field(default_factory=list)
+    risk_notes: list[str] = Field(default_factory=list)
     execution_eligible: bool = False
+    governed: bool = False
+    catalog_approved: bool = False
 
 
 class TemplateMatchSemanticHints(AdapterPayload):

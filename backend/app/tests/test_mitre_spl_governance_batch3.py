@@ -287,16 +287,16 @@ def test_llm_fallback_cannot_bypass_validation(monkeypatch: pytest.MonkeyPatch) 
         ),
     )
 
-    candidate, validation = chat_pipeline._candidate_from_llm_fallback(
-        trace_id="t",
+    candidate = chat_pipeline._llm_spl_candidate_stage(
         skill="spl_generation",
         user_query="x",
-        telemetry=_Telemetry(),
-        profile=_Profile(),
-        spl_governance=enrichment_spl_governance("auth_failed_login_spike"),
+        request_enabled=True,
     )
 
+    assert candidate is not None
     assert candidate["execution_eligible"] is False
-    assert validation["approved"] is False
-    assert validation["normalized_spl"] is None
-    assert "blocked_command:delete" in validation["reject_reasons"]
+    assert candidate["governed"] is False
+    assert candidate["catalog_approved"] is False
+    assert candidate["llm_spl_candidate"] == ""
+    assert candidate["validator_status"] == "failed"
+    assert "blocked_command:delete" in candidate["validation_findings"]

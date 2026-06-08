@@ -68,6 +68,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
   );
   const [messages, setMessages] = useState<SocChatMessage[]>([welcome]);
   const [loading, setLoading] = useState(false);
+  const [llmSplDraftMode, setLlmSplDraftMode] = useState(false);
   const investigationEpochRef = useRef(0);
   const lastUserMessageRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(
@@ -330,6 +331,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
           },
           undefined,
           sessionIdRef.current,
+          llmSplDraftMode,
         );
         clearFinalizationTimers?.();
         await finishInvestigation(progressId, epoch, response);
@@ -419,6 +421,21 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     >
       <CardHeader className={compactHeader ? 'border-b border-slate-800/70 py-3' : 'border-b border-slate-800/70'}>
         <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+        <label className="flex max-w-xl items-start gap-3 rounded-md border border-amber-400/25 bg-amber-500/5 px-3 py-2 text-xs text-slate-300">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-amber-400"
+            checked={llmSplDraftMode}
+            disabled={loading}
+            onChange={(event) => setLlmSplDraftMode(event.currentTarget.checked)}
+          />
+          <span>
+            <span className="block font-medium text-amber-100">LLM SPL Draft Mode</span>
+            <span className="block leading-5">
+              Lab-only. Uses LLM to generate non-governed SPL candidates for review. Never executed.
+            </span>
+          </span>
+        </label>
         {!conversationStarted ? (
           <>
             <StarterPrompts disabled={loading} onPick={handleSend} />

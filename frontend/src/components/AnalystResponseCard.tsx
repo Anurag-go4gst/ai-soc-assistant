@@ -85,11 +85,19 @@ export function AnalystResponseCard({
   const showReviewRequiredBadge = Boolean(
     response.review_notice && !severityShowsReviewRequired && !response.spl_status_detail,
   );
+  const draftSplCode = response.draft_spl_code?.trim() || null;
+  const draftPreview = response.spl_draft_preview;
+  const llmSplCandidate = response.llm_spl_candidate;
+  const showLlmSplCandidate = Boolean(llmSplCandidate);
   const showSpl = Boolean(response.spl_code && (renderSections.spl_artifact ?? true));
+  // Lab draft preview is independent of governed spl_artifact visibility.
+  const showDraftSpl = Boolean(draftSplCode);
   const showLiveResults =
     (renderSections.live_results ?? true) &&
     Boolean(response.splunk_status_line || hasInvestigationTable);
-  const showFooterReviewNotice = Boolean(response.review_notice && !response.spl_code && !response.spl_status_detail);
+  const showFooterReviewNotice = Boolean(
+    response.review_notice && !response.spl_code && !response.spl_status_detail && !showDraftSpl,
+  );
   const showInvestigationPlan =
     !splOnly && !isKnowledgeRecall && priorityActions.length > 0 && (hasPriorityInvestigation || !response.spl_code);
   const showPolicyBridge = !isKnowledgeRecall && policyChecks.length > 0 && showInvestigationPlan && hasPriorityInvestigation;
@@ -212,16 +220,48 @@ export function AnalystResponseCard({
     });
   }
 
-  if (showSpl || response.spl_status_detail) {
+  if (showSpl || showDraftSpl || response.spl_status_detail) {
     phases.push({
       key: 'spl',
-      label: wasExecuted ? 'Executed detection' : 'SPL status',
+      label: wasExecuted ? 'Executed detection' : showDraftSpl && !showSpl ? 'Draft SPL preview' : 'SPL status',
       icon: <Terminal className="h-3.5 w-3.5" />,
-      accent: 'cyan',
-      chips: [{ text: splStatusChip(response), variant: 'secondary' }],
+      accent: showDraftSpl && !showSpl ? 'amber' : 'cyan',
+      chips: showDraftSpl && !showSpl
+        ? [
+            { text: 'Lab only', variant: 'warning' as const },
+            { text: 'Not catalog-approved', variant: 'outline' as const },
+          ]
+        : [{ text: splStatusChip(response), variant: 'secondary' }],
       content: (
         <>
           {response.spl_status_detail ? <SplStatusDetail detail={response.spl_status_detail} /> : null}
+          {showDraftSpl ? (
+            <>
+              <p
+                className={cn(
+                  'text-sm leading-6 text-amber-100/95',
+                  response.spl_status_detail ? 'mt-3' : '',
+                )}
+              >
+                {draftPreview?.not_catalog_approved_notice ?? 'Not catalog-approved / review required.'}{' '}
+                {response.review_notice ?? draftPreview?.warning}
+              </p>
+              {draftPreview?.assumptions?.length ? (
+                <div className="mt-3">
+                  <SectionTitle>Assumptions and placeholders</SectionTitle>
+                  <BulletList items={draftPreview.assumptions} />
+                </div>
+              ) : null}
+              <pre
+                className={cn(
+                  'max-h-96 overflow-auto rounded-lg border border-amber-400/25 bg-slate-950 p-3 text-xs leading-6 text-amber-100',
+                  'mt-3',
+                )}
+              >
+                <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(draftSplCode ?? '')}</code>
+              </pre>
+            </>
+          ) : null}
           {showSpl ? (
             <>
               {!wasExecuted && splReviewNotice ? (
@@ -232,7 +272,7 @@ export function AnalystResponseCard({
               <pre
                 className={cn(
                   'max-h-96 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-6 text-cyan-100',
-                  splReviewNotice || response.spl_status_detail ? 'mt-3' : '',
+                  splReviewNotice || response.spl_status_detail || showDraftSpl ? 'mt-3' : '',
                 )}
               >
                 <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(response.spl_code ?? '')}</code>
@@ -255,6 +295,21 @@ export function AnalystResponseCard({
           ) : null}
         </>
       ),
+    });
+  }
+
+  if (showLlmSplCandidate && llmSplCandidate) {
+    phases.push({
+      key: 'llm-spl-candidate',
+      label: 'LLM SPL Candidate',
+      icon: <Terminal className="h-3.5 w-3.5" />,
+      accent: 'amber',
+      chips: [
+        { text: 'Lab only', variant: 'warning' },
+        { text: llmSplCandidate.llm_spl_candidate_status, variant: 'outline' },
+        { text: `confidence ${formatConfidence(llmSplCandidate.llm_spl_confidence_score)}`, variant: 'outline' },
+      ],
+      content: <LlmSplCandidatePanel candidate={llmSplCandidate} />,
     });
   }
 
@@ -533,6 +588,77 @@ function FoundationSecReasoning({ governance }: { governance: FoundationSecGover
   );
 }
 
+function LlmSplCandidatePanel({
+  candidate,
+}: {
+  candidate: NonNullable<AnalystResponseEnvelope['llm_spl_candidate']>;
+}) {
+  const spl = candidate.llm_spl_candidate?.trim();
+  const qualityFindings = (candidate.quality_findings ?? []).map(formatFinding);
+  const validationFindings = candidate.validation_findings ?? [];
+  const questions = candidate.clarifying_questions ?? [];
+  return (
+    <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-3">
+      <p className="text-sm font-medium text-amber-100">LLM SPL Candidate — lab only</p>
+      <p className="mt-1 text-xs leading-5 text-amber-100/90">
+        Not governed · Not approved · Not executed · SOC review required
+      </p>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <Badge variant="outline">status: {candidate.llm_spl_candidate_status}</Badge>
+        <Badge variant="outline">quality: {candidate.quality_status ?? 'not run'}</Badge>
+        <Badge variant="outline">validator: {candidate.validator_status ?? 'not run'}</Badge>
+        <Badge variant="outline">confidence: {formatConfidence(candidate.llm_spl_confidence_score)} {candidate.llm_spl_confidence_label}</Badge>
+      </div>
+      {candidate.detection_family ? (
+        <p className="mt-3 text-sm text-slate-200">
+          <span className="text-slate-400">Detection family:</span> {candidate.detection_family}
+        </p>
+      ) : null}
+      {questions.length ? (
+        <div className="mt-3">
+          <SectionTitle>Clarification questions</SectionTitle>
+          <BulletList items={questions} />
+        </div>
+      ) : null}
+      {candidate.missing_details?.length ? (
+        <div className="mt-3">
+          <SectionTitle>Missing details</SectionTitle>
+          <BulletList items={candidate.missing_details} />
+        </div>
+      ) : null}
+      {spl && candidate.llm_spl_candidate_status === 'candidate_generated' ? (
+        <pre className="mt-3 max-h-96 overflow-auto rounded-lg border border-amber-400/25 bg-slate-950 p-3 text-xs leading-6 text-amber-100">
+          <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(spl)}</code>
+        </pre>
+      ) : null}
+      {candidate.assumptions?.length ? (
+        <div className="mt-3">
+          <SectionTitle>Assumptions</SectionTitle>
+          <BulletList items={candidate.assumptions} />
+        </div>
+      ) : null}
+      {candidate.required_fields?.length ? (
+        <div className="mt-3">
+          <SectionTitle>Required fields</SectionTitle>
+          <BulletList items={candidate.required_fields} />
+        </div>
+      ) : null}
+      {qualityFindings.length ? (
+        <div className="mt-3">
+          <SectionTitle>Quality findings</SectionTitle>
+          <BulletList items={qualityFindings} />
+        </div>
+      ) : null}
+      {validationFindings.length ? (
+        <div className="mt-3">
+          <SectionTitle>Validator findings</SectionTitle>
+          <BulletList items={validationFindings} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h4 className="text-xs font-medium uppercase tracking-[0.05em] text-slate-400">{children}</h4>;
 }
@@ -746,6 +872,17 @@ function normalizePriorityAction(item: string): { priority: string; text: string
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : [];
+}
+
+function formatConfidence(value?: number | null): string {
+  return typeof value === 'number' ? value.toFixed(2) : '0.00';
+}
+
+function formatFinding(value: Record<string, unknown>): string {
+  const rule = typeof value.rule_id === 'string' ? value.rule_id : 'quality';
+  const severity = typeof value.severity === 'string' ? value.severity : 'finding';
+  const message = typeof value.message === 'string' ? value.message : '';
+  return [rule, severity, message].filter(Boolean).join(': ');
 }
 
 function formatPlaybook(playbook?: Record<string, unknown> | null): string | null {

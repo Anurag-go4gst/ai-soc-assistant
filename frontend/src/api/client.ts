@@ -68,7 +68,11 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function sendChatMessage(message: string, sessionId?: string | null): Promise<PlaceholderResponse> {
+export async function sendChatMessage(
+  message: string,
+  sessionId?: string | null,
+  llmSplDraftMode = false,
+): Promise<PlaceholderResponse> {
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: 'POST',
     credentials: 'include',
@@ -78,6 +82,7 @@ export async function sendChatMessage(message: string, sessionId?: string | null
     body: JSON.stringify({
       message,
       ...(sessionId ? { session_id: sessionId } : {}),
+      ...(llmSplDraftMode ? { llm_spl_draft_mode: true } : {}),
     }),
   });
   if (!response.ok) {

@@ -88,6 +88,33 @@ class SplDraftPreviewEnvelope(BaseModel):
     not_catalog_approved_notice: str
 
 
+class LlmSplCandidateEnvelope(BaseModel):
+    llm_spl_candidate: str = ""
+    llm_spl_candidate_status: str
+    llm_spl_confidence_score: float = 0.0
+    llm_spl_confidence_label: str = "low"
+    detection_family: str | None = None
+    quality_status: str | None = None
+    validator_status: str | None = None
+    quality_findings: list[dict[str, object]] = []
+    validation_findings: list[str] = []
+    assumptions: list[str] = []
+    required_fields: list[str] = []
+    missing_details: list[str] = []
+    clarifying_questions: list[str] = []
+    validation_notes: list[str] = []
+    soc_std_rules_applied: list[str] = []
+    risk_notes: list[str] = []
+    execution_eligible: bool = False
+    governed: bool = False
+    catalog_approved: bool = False
+    execution_enabled: bool = False
+    review_required: bool = True
+    provider: str | None = None
+    model: str | None = None
+    latency_ms: int | None = None
+
+
 class SplValidationEnvelope(BaseModel):
     approved: bool
     normalized_spl: str | None = None
@@ -319,6 +346,7 @@ class AnalystResponseEnvelope(BaseModel):
     spl_code: str | None = None
     spl_draft_preview: dict[str, object] | None = None
     draft_spl_code: str | None = None
+    llm_spl_candidate: LlmSplCandidateEnvelope | None = None
     executed_spl: str | None = None
     execution_status: str | None = None
     response_profile: str | None = None
@@ -431,6 +459,7 @@ class PlaceholderResponse(BaseModel):
     candidate_spl: CandidateSplEnvelope | None = None
     spl_validation: SplValidationEnvelope | None = None
     spl_draft_preview: SplDraftPreviewEnvelope | None = None
+    llm_spl_candidate: LlmSplCandidateEnvelope | None = None
     execution: ExecutionEnvelope | None = None
     human_review: HumanReviewEnvelope | None = None
     source_evidence: list[SourceEvidenceEnvelope] = []

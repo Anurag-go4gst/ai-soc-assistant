@@ -26,11 +26,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Exit non-zero on eval failures")
     parser.add_argument("--questions", type=Path, default=None, help="Override questions JSON path")
+    parser.add_argument("--llm-fallback", action="store_true", help="Also request lab-only LLM SPL candidate comparison")
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON)
     parser.add_argument("--md-out", type=Path, default=DEFAULT_MD)
     args = parser.parse_args(argv)
 
-    result = run_spl_draft_preview_eval(questions_path=args.questions)
+    result = run_spl_draft_preview_eval(questions_path=args.questions, llm_fallback=args.llm_fallback)
     write_spl_draft_preview_outputs(result, json_path=args.json_out, md_path=args.md_out)
     print(f"Wrote {args.json_out}")
     print(f"Wrote {args.md_out}")
