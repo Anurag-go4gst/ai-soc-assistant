@@ -67,6 +67,7 @@ from app.chat.final_answer_validator import validate_final_answer
 from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
+from app.chat.mitre_branch import run_mitre_evidence_branch
 from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.pipeline_visibility import build_pipeline_visibility
@@ -136,6 +137,7 @@ class ChatPipelineState(TypedDict, total=False):
     route_adjudication: dict[str, Any] | None
     llm_plan_validation: dict[str, Any] | None
     mitre_decision: dict[str, Any] | None
+    mitre_branch_result: dict[str, Any] | None
     answer_contract: dict[str, Any] | None
     soc_kb_retrieval: dict[str, Any] | None
     session_id: str | None
@@ -555,7 +557,30 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     session_alert_context = bool(
         isinstance(session_resolution, SessionContextResolution) and session_resolution.session_alert_context
     )
-    mitre_mappings, mitre_decision = _mitre_outputs_for_finalize(
+    branch_mappings, branch_decision, mitre_branch = run_mitre_evidence_branch(
+        query=state.get("effective_query") or request.message,
+        question_ref=question_ref,
+        use_case_id=_mitre_use_case_for_query(
+            state.get("effective_query") or request.message,
+            use_case_id,
+            state.get("intent_classification"),
+        ),
+        source_refs=source_refs,
+        intent_classification=state.get("intent_classification"),
+        evidence_plan=state.get("evidence_plan"),
+        planning_decision=state.get("planning_decision"),
+        query_signals=_query_signals_from_state(state),
+        source_evidence=source_evidence,
+        structured_context=structured_context,
+        alert_context_present=_mitre_alert_context_present(
+            state.get("effective_query") or request.message,
+            session_alert_context=session_alert_context,
+        ),
+    )
+    if mitre_branch.ran:
+        mitre_mappings, mitre_decision = branch_mappings, branch_decision
+    else:
+        mitre_mappings, mitre_decision = _mitre_outputs_for_finalize(
         query=state.get("effective_query") or request.message,
         question_ref=question_ref,
         use_case_id=use_case_id,
@@ -566,7 +591,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         source_evidence=source_evidence,
         structured_context=structured_context,
         session_alert_context=session_alert_context,
-    )
+        )
+    mitre_branch_payload = mitre_branch.model_dump()
     severity_decision = decide_severity(
         selected_use_case.use_case_id if selected_use_case else None,
         structured_context,
@@ -820,6 +846,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         trace_state = {
             **state,
             "mitre_decision": mitre_decision,
+            "mitre_branch_result": mitre_branch_payload,
             "answer_contract": answer_contract_payload,
             "final_answer_validation": final_answer_validation,
         }
@@ -1037,11 +1064,27 @@ def _mitre_outputs_for_finalize(
     source_evidence: list[dict[str, Any]] | None = None,
     structured_context: dict[str, Any] | None = None,
     session_alert_context: bool = False,
+    planning_decision: dict[str, Any] | None = None,
 ) -> tuple[list[Any], dict[str, Any] | None]:
     """Legacy mapping by default; Phase 7 decision only when control plane is on."""
     if not settings.control_plane_enabled:
         return map_mitre_for_use_case(use_case_id, source_refs), None
     effective_use_case_id = _mitre_use_case_for_query(query or "", use_case_id, intent_classification)
+    branch_mappings, branch_decision, branch = run_mitre_evidence_branch(
+        query=query or "",
+        question_ref=question_ref,
+        use_case_id=effective_use_case_id,
+        source_refs=source_refs,
+        intent_classification=intent_classification,
+        evidence_plan=evidence_plan,
+        planning_decision=planning_decision,
+        query_signals=query_signals,
+        source_evidence=source_evidence,
+        structured_context=structured_context,
+        alert_context_present=_mitre_alert_context_present(query or "", session_alert_context=session_alert_context),
+    )
+    if branch.ran:
+        return branch_mappings, branch_decision
     negative_evidence = extract_negative_evidence(
         query_signals=query_signals,
         source_evidence=source_evidence,

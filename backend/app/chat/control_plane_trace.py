@@ -35,6 +35,7 @@ def build_control_plane_trace(
         "llm_plan_validation": state.get("llm_plan_validation"),
         "tool_plan": _tool_plan(state),
         "mitre_registry_metadata": _mitre_registry_metadata(state.get("mitre_decision")),
+        "mitre_branch_result": state.get("mitre_branch_result"),
         "mitre_decision": state.get("mitre_decision"),
         "rag_trace": _rag_trace(rag),
         "candidate_spl_generation": _candidate_spl_generation_trace(candidate_spl, spl_validation),
