@@ -2179,40 +2179,57 @@ def _candidate_from_llm_fallback(
 
     validation = result.validation
     approved = bool(result.approved)
+    expose_spl = approved and bool(result.candidate_spl.strip())
     reject_reasons = list(validation.get("reject_reasons") or [])
     if result.clarification_reason and result.clarification_reason not in reject_reasons:
         reject_reasons = [*reject_reasons, result.clarification_reason]
+    if result.hard_fail_count > 0 and result.quality_findings:
+        for finding in result.quality_findings:
+            if finding.get("severity") == "hard_fail":
+                rule_id = str(finding.get("rule_id") or "quality")
+                if rule_id not in reject_reasons:
+                    reject_reasons.append(rule_id)
 
+    llm_lab_labels = {
+        "governed": False,
+        "catalog_approved": False,
+        "execution_enabled": False,
+        "execution_eligible": False,
+        "review_required": True,
+    }
     candidate_payload = {
         "trace_id": trace_id,
         "skill": skill,
         "user_query": user_query,
-        "candidate_spl": result.candidate_spl,
+        "candidate_spl": result.candidate_spl if expose_spl else "",
         "generation_mode": "llm_spl_advisory_fallback",
-        "confidence": 0.6 if approved else 0.0,
+        "confidence": 0.6 if expose_spl else 0.0,
         "assumptions": [
             *result.assumptions,
-            "LLM advisory fallback used because no governed template matched.",
-            "Output is candidate SPL only and requires validation/gated execution.",
+            "LLM lab SPL candidate — not governed, not catalog-approved, not executable.",
+            "Output requires analyst review before any validation or execution gate.",
         ],
-        "warnings": [] if approved else ["llm_spl_fallback_requires_clarification"],
+        "warnings": [] if expose_spl else ["llm_spl_fallback_requires_clarification"],
         "selected_candidate_spl_provider": "llm_spl_advisory_fallback",
         "fallback_required": True,
-        "candidate_spl_generated": bool(result.candidate_spl.strip()),
+        "candidate_spl_generated": expose_spl,
         "validation_required": True,
-        "execution_eligible": False,
         "capability_profile": profile.model_dump(),
         "template_id": None,
         "llm_supported": True,
         "llm_fallback_used": True,
-        "llm_fallback_status": "approved" if approved else "clarification_required",
+        "llm_fallback_status": "candidate_ready" if expose_spl else "clarification_required",
         "llm_fallback_reason": result.clarification_reason,
         "llm_model": result.model,
         "llm_latency_ms": result.latency_ms,
+        "quality_standard": result.quality_standard,
+        "quality_status": result.quality_status,
+        "quality_findings": list(result.quality_findings),
+        **llm_lab_labels,
     }
     validation_payload = {
-        "approved": approved,
-        "normalized_spl": validation.get("normalized_spl"),
+        "approved": expose_spl,
+        "normalized_spl": validation.get("normalized_spl") if expose_spl else None,
         "reject_reasons": reject_reasons,
         "warnings": list(validation.get("warnings") or []),
         "enforced_limits": validation.get("enforced_limits"),
@@ -2231,10 +2248,13 @@ def _candidate_from_llm_fallback(
         "template_id": None,
         "llm_supported": True,
         "llm_fallback_used": True,
-        "llm_fallback_status": "approved" if approved else "clarification_required",
+        "llm_fallback_status": "candidate_ready" if expose_spl else "clarification_required",
         "llm_fallback_reason": result.clarification_reason,
         "llm_model": result.model,
         "llm_latency_ms": result.latency_ms,
+        "quality_standard": result.quality_standard,
+        "quality_status": result.quality_status,
+        "quality_findings": list(result.quality_findings),
         "llm_fallback": {
             "provider": result.provider,
             "model": result.model,
@@ -2242,7 +2262,12 @@ def _candidate_from_llm_fallback(
             "clarification_required": result.clarification_required,
             "clarification_reason": result.clarification_reason,
             "adapter_errors": list(result.adapter_errors),
+            "quality_standard": result.quality_standard,
+            "quality_status": result.quality_status,
+            "quality_findings": list(result.quality_findings),
+            "hard_fail_count": result.hard_fail_count,
         },
+        **llm_lab_labels,
     }
     _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
     _mark_spl_review_status(candidate_payload, validation_payload)
@@ -2260,7 +2285,7 @@ def _candidate_from_llm_fallback(
     telemetry.record_spl_validation(
         trace_id,
         stage="spl_validation_result",
-        approved=approved,
+        approved=expose_spl,
         reject_reasons=reject_reasons,
         warnings=validation_payload["warnings"],
         policy_version=validation_payload["policy_version"],
@@ -2449,6 +2474,14 @@ def _chat_message(
     if spl_validation.get("approved") is True and (
         not execution or execution.get("status") != "executed"
     ):
+        if spl_validation.get("llm_fallback_used") or (
+            spl_validation.get("selected_candidate_spl_provider") == "llm_spl_advisory_fallback"
+        ):
+            return (
+                "LLM lab SPL candidate — not governed, not approved, review required. "
+                "It has passed deterministic validation and SOC-STD-SPL-001 quality lint "
+                "but has not been executed."
+            )
         return "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
     if execution and execution.get("status") == "executed":
         if analyst_summary:

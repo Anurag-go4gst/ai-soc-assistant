@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -134,6 +135,52 @@ def test_flag_on_builds_draft_preview_for_families(
     assert preview["quality_standard"] == "SOC-STD-SPL-001"
     assert preview["hard_fail_count"] == 0
     assert preview["validator_status"] in {"approved", "blocked"}
+
+
+@pytest.mark.parametrize(
+    ("query", "family"),
+    [
+        (PRIVILEGED_GROUP_QUERY, "windows_privileged_group_changes"),
+        (LOCKOUT_QUERY, "windows_account_lockout"),
+        (SYSMON_QUERY, "sysmon_web_shell_spawn"),
+        (SCADA_QUERY, "scada_dnp3_modbus_write"),
+        (ESP_QUERY, "esp_it_to_ot_connection"),
+        (HMI_QUERY, "substation_hmi_brute_force"),
+    ],
+)
+def test_draft_preview_never_calls_llm_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+    query: str,
+    family: str,
+) -> None:
+    """Lab draft preview is deterministic-only; LLM SPL fallback is a separate path."""
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_spl_fallback_enabled", True)
+    with patch("app.spl.llm_fallback.generate_llm_spl_fallback") as llm_fallback:
+        preview = build_draft_preview(query, spl_validation=_blocked_validation("spl_template_missing"))
+        assert preview is not None
+        assert preview["detection_family"] == family
+        assert preview["draft_source"] == "deterministic_pattern"
+        llm_fallback.assert_not_called()
+
+
+def test_draft_preview_runs_quality_lint_before_return(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    from app.spl.draft_quality import evaluate_draft_quality as real_evaluate_draft_quality
+
+    with patch(
+        "app.spl.draft_preview.evaluate_draft_quality",
+        wraps=real_evaluate_draft_quality,
+    ) as quality_lint:
+        preview = build_draft_preview(
+            LOCKOUT_QUERY,
+            spl_validation=_blocked_validation("spl_template_missing"),
+        )
+        assert preview is not None
+        quality_lint.assert_called_once()
+        assert preview["quality_standard"] == "SOC-STD-SPL-001"
+        assert "quality_status" in preview
+        assert "draft_lint_status" in preview
 
 
 def test_all_registered_drafts_pass_lint() -> None:

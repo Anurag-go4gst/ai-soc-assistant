@@ -247,7 +247,7 @@ def test_uncatalogued_spl_generation_uses_governed_llm_fallback_metadata(
     assert response.candidate_spl.selected_candidate_spl_provider == "llm_spl_advisory_fallback"
     assert response.candidate_spl.llm_supported is True
     assert response.candidate_spl.llm_fallback_used is True
-    assert response.candidate_spl.llm_fallback_status == "approved"
+    assert response.candidate_spl.llm_fallback_status == "candidate_ready"
     assert response.candidate_spl.execution_eligible is False
     assert response.candidate_spl.llm_model == "foundation-sec-test"
     assert response.spl_validation is not None
@@ -255,7 +255,7 @@ def test_uncatalogued_spl_generation_uses_governed_llm_fallback_metadata(
     assert response.spl_validation.selected_candidate_spl_provider == "llm_spl_advisory_fallback"
     assert response.spl_validation.llm_supported is True
     assert response.spl_validation.llm_fallback_used is True
-    assert response.spl_validation.llm_fallback_status == "approved"
+    assert response.spl_validation.llm_fallback_status == "candidate_ready"
     assert response.spl_validation.llm_model == "foundation-sec-test"
     assert response.execution is not None
     assert response.execution.executed_spl is None
@@ -263,7 +263,7 @@ def test_uncatalogued_spl_generation_uses_governed_llm_fallback_metadata(
     assert generation["selected_candidate_spl_provider"] == "llm_spl_advisory_fallback"
     assert generation["llm_supported"] is True
     assert generation["llm_fallback_used"] is True
-    assert generation["llm_fallback_status"] == "approved"
+    assert generation["llm_fallback_status"] == "candidate_ready"
     assert generation["execution_eligible"] is False
 
 
