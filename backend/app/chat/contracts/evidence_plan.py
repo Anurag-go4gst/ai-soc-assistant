@@ -26,3 +26,20 @@ class EvidencePlan(BaseModel):
     action_mode: ActionMode = "recommend_only"
     rag_no_match_behavior: RagNoMatchBehavior | None = None
     reasons: list[str] = Field(default_factory=list)
+    required_evidence_keys: list[str] = Field(default_factory=list)
+    optional_evidence_keys: list[str] = Field(default_factory=list)
+    present_evidence_keys: list[str] = Field(default_factory=list)
+    missing_required_evidence: list[str] = Field(default_factory=list)
+    enrichment_driven: bool = False
+    checklist: list[str] = Field(default_factory=list)
+    required_sources: list[str] = Field(default_factory=list)
+    optional_sources: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    recommended_pivots: list[str] = Field(default_factory=list)
+    unsupported_claims_avoid: list[str] = Field(default_factory=list)
+    needs_hil: bool = False
+    needs_clarification: bool = False
+    evidence_plan_reason: str | None = None
+    use_case_id: str | None = None
+    runtime_support_status: str | None = None
+    mitre_candidates_metadata_only: list[str] = Field(default_factory=list)

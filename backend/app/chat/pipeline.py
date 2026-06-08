@@ -291,6 +291,8 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         intent,
         query_to_intent=state.get("query_to_intent"),
         routed=state.get("routed"),
+        query_understanding=state.get("query_understanding"),
+        selected_use_case=state.get("selected_use_case"),
     )
     evidence_payload = plan.model_dump()
     planning = plan_path_and_tools(
