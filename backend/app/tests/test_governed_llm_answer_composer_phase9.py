@@ -1,0 +1,296 @@
+from __future__ import annotations
+
+import pytest
+
+from app.chat.contracts.answer_contract import AnswerContract, build_answer_contract
+from app.config import settings
+from app.llm.clients import ChatResult, LocalChatError
+from app.schemas.responses import AnalystResponseEnvelope
+from app.synthesis.governed_answer_composer import (
+    build_composer_prompt,
+    compose_governed_answer,
+    composer_is_enabled,
+    validate_composed_prose,
+)
+
+
+class _StubClient:
+    def __init__(self, *, text: str = "", raises: bool = False) -> None:
+        self._text = text
+        self._raises = raises
+        self.calls = 0
+        self.last_prompt = ""
+
+    def generate(self, *, system_prompt: str, user_prompt: str, max_tokens: int, temperature: float) -> ChatResult:
+        self.calls += 1
+        self.last_prompt = user_prompt
+        if self._raises:
+            raise LocalChatError("transport_error:Boom")
+        return ChatResult(text=self._text, model="stub-model", latency_ms=12, usage={"total_tokens": 5})
+
+
+def _contract(**overrides) -> AnswerContract:
+    payload = {
+        "intent_classification": {
+            "intent_family": "hybrid_alert_review",
+            "answer_goal": ["severity_assessment", "mitre_mapping", "spl_artifact"],
+        },
+        "evidence_plan": {
+            "answer_mode": "live_investigation",
+            "needs_mitre": True,
+            "spl_allowed": True,
+            "mcp_allowed": False,
+            "requires_hil": True,
+            "missing_required_evidence": ["mfa_status"],
+            "limitations": ["Do not claim account compromise from failed logins alone."],
+            "checklist": ["Confirm source IP ownership."],
+            "unsupported_claims_avoid": ["account_compromise"],
+            "answer_rules": ["Use candidate language until execution evidence exists."],
+        },
+        "mitre_decision": {"answer_visible": True, "not_claimed": ["T1003"]},
+        "severity_decision": type("Severity", (), {"severity_label": "P2 High", "missing_evidence": []})(),
+        "spl_validation": {
+            "approved": True,
+            "normalized_spl": "search index=pgcil_soc earliest=-1h latest=now | stats count | head 100",
+            "review_required": True,
+        },
+        "execution": {"status": "skipped", "block_reason": "mcp_not_allowed_by_evidence_plan"},
+        "human_review": {"required": False},
+        "mitre_mappings": [{"technique_id": "T1110.001"}],
+        "mitre_branch_result": {
+            "branch_authority": "planner_mitre_branch",
+            "candidate_mitre": ["T1078"],
+            "evidence_supported_mitre": ["T1110.001"],
+            "requires_validation_mitre": [],
+            "not_claimed_mitre": ["T1003"],
+            "ruled_out_mitre": [],
+        },
+        "candidate_spl": {"assumptions": ["Template output is review-only."]},
+    }
+    payload.update(overrides)
+    return build_answer_contract(**payload)
+
+
+def _envelope(**overrides) -> AnalystResponseEnvelope:
+    payload = {
+        "severity_label": "P2 High",
+        "one_sentence_finding": "Deterministic Phase 8 summary with missing evidence and limitations.",
+        "direct_answer_summary": "Deterministic Phase 8 summary with missing evidence and limitations.",
+        "limitations": ["Do not claim account compromise from failed logins alone."],
+        "missing_evidence": ["mfa_status"],
+        "mitre_mappings": [{"Technique": "T1110.001", "Status": "Evidence Supported"}],
+        "spl_code": "search index=pgcil_soc earliest=-1h latest=now | stats count | head 100",
+        "execution_status_label": "Review only — not executed",
+    }
+    payload.update(overrides)
+    return AnalystResponseEnvelope.model_validate(payload)
+
+
+def _projection() -> dict:
+    return {
+        "use_case_id": "auth_success_after_failure",
+        "analyst_checklist": ["Confirm source IP ownership."],
+        "answer_rules": ["Use candidate language until execution evidence exists."],
+        "limitations": ["Do not claim account compromise from failed logins alone."],
+        "mitre_candidates_metadata_only": ["T1110.001", "T1078"],
+    }
+
+
+def _enable_composer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", True)
+
+
+def test_flags_off_returns_deterministic_phase8_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", False)
+    monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", False)
+    monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", False)
+
+    fallback = _envelope()
+    result = compose_governed_answer(
+        contract=_contract(),
+        enrichment_projection=_projection(),
+        fallback_envelope=fallback,
+        client=_StubClient(text="Unsafe invented prose."),
+    )
+
+    assert result.envelope.direct_answer_summary == fallback.direct_answer_summary
+    assert result.llm_composer_enabled is False
+    assert result.llm_composer_used is False
+    assert result.llm_guard_status == "disabled"
+    assert result.llm_fallback_used is False
+    assert composer_is_enabled() is False
+
+
+def test_prompt_uses_answer_contract_and_projection_only() -> None:
+    contract = _contract()
+    prompt = build_composer_prompt(contract, _projection())
+
+    assert "Missing evidence: mfa_status" in prompt
+    assert "Do not claim account compromise" in prompt
+    assert "Candidate MITRE (metadata only): T1078" in prompt
+    assert "Evidence-supported MITRE: T1110.001" in prompt
+    assert "SPL status: ready_for_review" in prompt
+    assert "Review only" in prompt or "Execution status" in prompt
+    assert "skill.md" not in prompt.lower()
+    assert "github.com" not in prompt.lower()
+
+
+def test_candidate_mitre_remains_candidate_in_guard() -> None:
+    contract = _contract()
+    ok, reason = validate_composed_prose(
+        "T1078 is evidence-supported valid account abuse.",
+        contract,
+    )
+    assert ok is False
+    assert reason is not None
+    assert "T1078" in reason
+
+
+def test_evidence_supported_mitre_allowed_when_contract_has_it() -> None:
+    contract = _contract()
+    ok, reason = validate_composed_prose(
+        "T1110.001 is evidence-supported password guessing; missing evidence includes mfa_status. "
+        "Do not claim account compromise from failed logins alone.",
+        contract,
+    )
+    assert ok is True
+    assert reason is None
+
+
+def test_compromise_claim_without_support_is_blocked() -> None:
+    contract = _contract()
+    ok, reason = validate_composed_prose(
+        "This is confirmed account compromise.",
+        contract,
+    )
+    assert ok is False
+    assert "compromise" in (reason or "").lower()
+
+
+def test_spl_executed_claim_is_blocked() -> None:
+    contract = _contract()
+    ok, reason = validate_composed_prose(
+        "The SPL was executed in Splunk and returned results.",
+        contract,
+    )
+    assert ok is False
+    assert "execution" in (reason or "").lower()
+
+
+def test_spl_approval_claim_is_blocked() -> None:
+    contract = _contract()
+    ok, reason = validate_composed_prose(
+        "The SPL is approved for execution now.",
+        contract,
+    )
+    assert ok is False
+    assert "approval" in (reason or "").lower()
+
+
+def test_invented_severity_is_blocked() -> None:
+    contract = _contract()
+    ok, reason = validate_composed_prose(
+        "This is a P1 critical incident requiring immediate action.",
+        contract,
+    )
+    assert ok is False
+    assert "severity" in (reason or "").lower()
+
+
+def test_ignored_hil_status_is_blocked() -> None:
+    contract = _contract(
+        human_review={"required": True, "review_type": "analyst_review"},
+        evidence_plan={
+            "answer_mode": "live_investigation",
+            "needs_mitre": True,
+            "spl_allowed": True,
+            "mcp_allowed": False,
+            "requires_hil": True,
+            "missing_required_evidence": [],
+            "limitations": [],
+            "checklist": [],
+            "unsupported_claims_avoid": [],
+            "answer_rules": [],
+        },
+    )
+    ok, reason = validate_composed_prose(
+        "Everything is ready and no further action is needed.",
+        contract,
+    )
+    assert ok is False
+    assert "review" in (reason or "").lower()
+
+
+def test_removed_missing_evidence_and_limitations_is_blocked() -> None:
+    contract = _contract()
+    ok, reason = validate_composed_prose(
+        "All evidence is complete and no caveats apply.",
+        contract,
+    )
+    assert ok is False
+    assert reason is not None
+
+
+def test_raw_github_content_is_not_present_in_prompt_or_guard() -> None:
+    contract = _contract(
+        evidence_plan={
+            "answer_mode": "live_investigation",
+            "missing_required_evidence": ["mfa_status"],
+            "limitations": ["Do not claim account compromise from failed logins alone."],
+            "checklist": ["https://github.com/example/repo/skills/SKILL.md"],
+            "unsupported_claims_avoid": ["account_compromise"],
+            "answer_rules": [],
+        }
+    )
+    prompt = build_composer_prompt(contract, None)
+    assert "github.com" not in prompt.lower()
+    assert "skill.md" not in prompt.lower()
+
+    ok, reason = validate_composed_prose(
+        "See https://github.com/example/repo/skills/SKILL.md for details.",
+        contract,
+    )
+    assert ok is False
+    assert "github" in (reason or "").lower() or "skill.md" in (reason or "").lower()
+
+
+def test_guard_failure_uses_deterministic_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_composer(monkeypatch)
+    fallback = _envelope()
+    client = _StubClient(text="T1078 is evidence-supported valid account abuse.")
+    result = compose_governed_answer(
+        contract=_contract(),
+        enrichment_projection=_projection(),
+        fallback_envelope=fallback,
+        client=client,
+    )
+
+    assert client.calls == 1
+    assert result.llm_composer_used is False
+    assert result.llm_guard_status == "blocked"
+    assert result.llm_fallback_used is True
+    assert result.envelope.direct_answer_summary == fallback.direct_answer_summary
+
+
+def test_successful_compose_replaces_direct_answer_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_composer(monkeypatch)
+    fallback = _envelope()
+    safe_text = (
+        "T1110.001 is evidence-supported password guessing. Missing evidence includes mfa_status. "
+        "Do not claim account compromise from failed logins alone. Review only — not executed."
+    )
+    client = _StubClient(text=safe_text)
+    result = compose_governed_answer(
+        contract=_contract(),
+        enrichment_projection=_projection(),
+        fallback_envelope=fallback,
+        client=client,
+    )
+
+    assert result.llm_composer_used is True
+    assert result.llm_guard_status == "passed"
+    assert result.llm_fallback_used is False
+    assert result.envelope.direct_answer_summary == safe_text
+    assert "github.com" not in client.last_prompt.lower()

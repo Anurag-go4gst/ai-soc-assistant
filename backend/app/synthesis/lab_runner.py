@@ -129,7 +129,11 @@ def run_governed_synthesis_lab(
     # Live narration: the model rewrites ONLY the analyst-summary prose from the
     # governed package; all structured facts stay deterministic. Any failure
     # keeps the deterministic summary, so a live model never breaks the answer.
-    if settings.ai_soc_llm_live_synthesis_enabled and mode in _LAB_READY_MODES:
+    if (
+        settings.ai_soc_llm_live_synthesis_enabled
+        and mode in _LAB_READY_MODES
+        and not settings.control_plane_enabled
+    ):
         client = synthesis_client or build_synthesis_client_from_settings()
         if client is not None:
             narration, timed_out = _narrate_with_progress_and_timeout(

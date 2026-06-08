@@ -54,7 +54,12 @@ from app.splunk.capabilities import build_splunk_capability_profile
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
 from app.answer_guard.runner import run_answer_guard_lab
+from app.synthesis.governed_answer_composer import compose_governed_answer
 from app.synthesis.lab_runner import apply_synthesis_allowed_to_sufficiency, run_governed_synthesis_lab
+from app.use_cases.content_enrichment import (
+    get_runtime_curated_enrichment,
+    llm_facing_curated_enrichment_projection,
+)
 from app.synthesis.models import SynthesisStatus
 from app.threat.mitre_decision import resolve_mitre_decision
 from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
@@ -821,6 +826,18 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision=severity_decision,
         answer_contract=answer_contract,
     )
+    composer_trace: dict[str, Any] | None = None
+    if answer_contract is not None and analyst_response is not None:
+        enrichment_context = get_runtime_curated_enrichment(
+            response_use_case.use_case_id if response_use_case is not None else use_case_id
+        )
+        composer_result = compose_governed_answer(
+            contract=answer_contract,
+            enrichment_projection=llm_facing_curated_enrichment_projection(enrichment_context),
+            fallback_envelope=analyst_response,
+        )
+        composer_trace = composer_result.trace_payload()
+        analyst_response = composer_result.envelope
     if _rag_no_match(state.get("soc_kb_retrieval")) and spl_validation is None:
         analyst_response = None
     final_answer_validation = None
@@ -887,6 +904,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_guard=answer_guard.model_dump(),
             node_trace=visibility.get("node_trace"),
         )
+        if composer_trace is not None:
+            control_plane_trace["llm_composer"] = composer_trace
 
     session_context_status = None
     if settings.ai_soc_session_context_enabled and isinstance(session_resolution, SessionContextResolution):
