@@ -77,6 +77,41 @@ def composer_is_enabled() -> bool:
     )
 
 
+def build_composer_runtime_status() -> dict[str, Any]:
+    """Redacted runtime/config snapshot for trace/UI diagnosis (no secrets)."""
+    mode = settings.ai_soc_llm_mode.strip().lower()
+    base_url_configured = bool(
+        (settings.ai_soc_llm_local_base_url if mode == "local" else settings.ai_soc_llm_openai_base_url).strip()
+    )
+    model_configured = bool(
+        (
+            settings.ai_soc_llm_local_model
+            if mode == "local"
+            else settings.ai_soc_llm_openai_model
+        ).strip()
+        or settings.ai_soc_llm_default_model.strip()
+    )
+    provider_configured = build_synthesis_client_from_settings() is not None
+    enabled = composer_is_enabled()
+    return {
+        "control_plane_enabled": settings.control_plane_enabled,
+        "ai_soc_llm_final_synthesis_enabled": settings.ai_soc_llm_final_synthesis_enabled,
+        "ai_soc_llm_live_synthesis_enabled": settings.ai_soc_llm_live_synthesis_enabled,
+        "ai_soc_llm_mode": mode or "unset",
+        "ai_soc_llm_answer_guard_enabled": settings.ai_soc_llm_answer_guard_enabled,
+        "composer_is_enabled": enabled,
+        "provider_configured": provider_configured,
+        "provider_url_configured": base_url_configured,
+        "provider_model_configured": model_configured,
+        "provider_skip_reason": None if provider_configured else "no_provider_configured",
+        "composer_attempted": False,
+        "llm_composer_enabled": enabled,
+        "llm_composer_used": False,
+        "llm_guard_status": "disabled" if not enabled else "pending",
+        "llm_fallback_used": False,
+    }
+
+
 def build_composer_prompt(
     contract: AnswerContract,
     enrichment_projection: dict[str, Any] | None,

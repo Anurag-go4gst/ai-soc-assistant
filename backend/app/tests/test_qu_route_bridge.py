@@ -151,7 +151,7 @@ def test_single_understand_query_per_init_routing(monkeypatch: pytest.MonkeyPatc
         "app.chat.pipeline._route_plan_shadow_stage",
         lambda *args, **kwargs: {},
     )
-    monkeypatch.setattr("app.chat.pipeline._selected_use_case", lambda query: None)
+    monkeypatch.setattr("app.chat.pipeline._selected_use_case", lambda query, query_signals=None: None)
 
     graph_node_init_routing({"request": ChatRequest(message="Show SOP for brute-force investigation")})
     assert len(calls) == 1

@@ -1547,7 +1547,9 @@
       "category": "Network / Firewall",
       "intent_patterns": [
         "beaconing",
-        "beacon pattern"
+        "beacon pattern",
+        "dns beaconing",
+        "beaconing candidate"
       ],
       "example_queries": [
         "Investigate beaconing pattern candidate"

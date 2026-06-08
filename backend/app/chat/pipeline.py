@@ -54,7 +54,10 @@ from app.splunk.capabilities import build_splunk_capability_profile
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
 from app.answer_guard.runner import run_answer_guard_lab
-from app.synthesis.governed_answer_composer import compose_governed_answer
+from app.synthesis.governed_answer_composer import (
+    build_composer_runtime_status,
+    compose_governed_answer,
+)
 from app.synthesis.lab_runner import apply_synthesis_allowed_to_sufficiency, run_governed_synthesis_lab
 from app.use_cases.content_enrichment import (
     get_runtime_curated_enrichment,
@@ -205,7 +208,7 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
     except Exception:
         query_understanding = None
         qu_failed = True
-    selected_use_case = _selected_use_case(query_text)
+    selected_use_case = _selected_use_case(query_text, query_signals=None)
     session_resolution = state.get("session_context_resolution")
     if isinstance(session_resolution, SessionContextResolution):
         if (
@@ -263,11 +266,14 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         llm_intent_advisory=llm_advisory,
     )
     payload = result.model_dump()
+    signals = payload.get("query_signals") if isinstance(payload.get("query_signals"), dict) else None
+    selected_use_case = _selected_use_case(query_text, query_signals=signals)
     return {
         **state,
         "query_to_intent": payload,
         "llm_intent_advisory": payload.get("llm_intent_advisory"),
         "intent_classification": payload.get("intent_classification"),
+        "selected_use_case": selected_use_case,
     }
 
 
@@ -731,7 +737,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         human_review = _session_stale_clarification_review()
         message = human_review["safe_message_for_user"]
         note = "Session context was stale or insufficient; clarification is required."
-    elif _needs_mitre_clarification(request.message, candidate_spl, session_alert_context=session_alert_context):
+    elif _needs_mitre_clarification(
+        request.message,
+        candidate_spl,
+        session_alert_context=session_alert_context,
+        query_signals=_query_signals_from_state(state),
+    ):
         human_review = _mitre_clarification_review()
         message = (
             "I need alert context before mapping to MITRE ATT&CK. Share the alert title, "
@@ -826,7 +837,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision=severity_decision,
         answer_contract=answer_contract,
     )
-    composer_trace: dict[str, Any] | None = None
+    composer_trace: dict[str, Any] = build_composer_runtime_status()
     if answer_contract is not None and analyst_response is not None:
         enrichment_context = get_runtime_curated_enrichment(
             response_use_case.use_case_id if response_use_case is not None else use_case_id
@@ -836,8 +847,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             enrichment_projection=llm_facing_curated_enrichment_projection(enrichment_context),
             fallback_envelope=analyst_response,
         )
-        composer_trace = composer_result.trace_payload()
+        composer_trace = {**composer_trace, **composer_result.trace_payload()}
         analyst_response = composer_result.envelope
+    elif answer_contract is not None:
+        composer_trace["composer_attempted"] = False
+        composer_trace["composer_skipped_reason"] = (
+            "analyst_response_unavailable"
+            if analyst_response is None
+            else "composer_not_eligible"
+        )
     if _rag_no_match(state.get("soc_kb_retrieval")) and spl_validation is None:
         analyst_response = None
     final_answer_validation = None
@@ -904,8 +922,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_guard=answer_guard.model_dump(),
             node_trace=visibility.get("node_trace"),
         )
-        if composer_trace is not None:
-            control_plane_trace["llm_composer"] = composer_trace
+        control_plane_trace["llm_composer"] = composer_trace
 
     session_context_status = None
     if settings.ai_soc_session_context_enabled and isinstance(session_resolution, SessionContextResolution):
@@ -1103,11 +1120,33 @@ def _context_selected_skill(state: ChatPipelineState) -> str:
     return str(routed.get("skill") or _effective_routing_skill(state))
 
 
-def _selected_use_case(query: str) -> UseCaseSelection | None:
-    matches = match_use_cases(query, limit=3)
+def _selected_use_case(query: str, *, query_signals: dict[str, Any] | None = None) -> UseCaseSelection | None:
+    matches = match_use_cases(query, limit=5)
     if not matches:
         return None
     normalized = " ".join(query.lower().split())
+    signals = query_signals or {}
+    alert_context_present = bool(signals.get("alert_context_present"))
+    if not alert_context_present:
+        matches = [item for item in matches if item.use_case_id != "soc_map_alert_mitre"] or matches
+    if signals.get("powershell_context"):
+        preferred = next((item for item in matches if item.use_case_id == "edr_powershell_suspicious_command"), None)
+        if preferred is not None:
+            return preferred
+    if signals.get("dns_beaconing"):
+        preferred = next((item for item in matches if item.use_case_id == "dns_beaconing_candidate"), None)
+        if preferred is not None:
+            return preferred
+    if signals.get("spl_suppressed"):
+        preferred = next((item for item in matches if item.use_case_id == "soc_show_sop"), None)
+        if preferred is not None:
+            return preferred
+    if signals.get("playbook_procedure") and not (
+        signals.get("live_investigation_verbs") or signals.get("failed_login") or signals.get("time_window_24h")
+    ):
+        preferred = next((item for item in matches if item.use_case_id == "soc_show_sop"), None)
+        if preferred is not None:
+            return preferred
     success_after = (
         ("successful login" in normalized and any(term in normalized for term in ("followed", "after failure", "after failures", "after failed")))
         or any(
@@ -1179,6 +1218,7 @@ def _mitre_outputs_for_finalize(
         evidence_plan=evidence_plan,
         alert_context_present=_mitre_alert_context_present(query or "", session_alert_context=session_alert_context),
         negative_evidence=negative_evidence,
+        use_case_review_guidance=bool((query_signals or {}).get("use_case_review_guidance")),
     )
     if not decision.answer_visible:
         return [], decision.model_dump()
@@ -1272,6 +1312,7 @@ def _needs_mitre_clarification(
     candidate_spl: dict | None,
     *,
     session_alert_context: bool = False,
+    query_signals: dict[str, Any] | None = None,
 ) -> bool:
     """Conservative heuristic: a MITRE mapping ask with no alert context yet.
 
@@ -1279,6 +1320,8 @@ def _needs_mitre_clarification(
     false negatives, so any context marker, a generated SPL, or a long message
     routes through normal handling instead.
     """
+    if isinstance(query_signals, dict) and query_signals.get("use_case_review_guidance"):
+        return False
     normalized = " ".join(query.lower().split())
     if not any(keyword in normalized for keyword in _MITRE_INTENT_KEYWORDS):
         return False

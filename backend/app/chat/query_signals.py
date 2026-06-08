@@ -36,10 +36,8 @@ def extract_query_signals(
         term in normalized
         for term in ("failed login", "failed logins", "failed-login", "login failure", "login failures")
     )
-    spl_generation = any(
-        term in normalized
-        for term in ("generate spl", "write spl", "create spl", "produce spl", "build spl", "spl for", "spl query")
-    )
+    spl_suppressed = _spl_generation_suppressed(normalized)
+    spl_generation = (not spl_suppressed) and _spl_generation_requested(normalized)
     run_execution = any(
         term in normalized
         for term in (
@@ -58,10 +56,6 @@ def extract_query_signals(
     live_investigation_verbs = any(
         term in normalized
         for term in ("find ", "show ", "list ", "investigate", "search for", "look for", "top users", "which users")
-    )
-    mitre_map = bool(_MAP_TO_MITRE_RE.search(query)) or any(
-        term in normalized
-        for term in ("map to mitre", "map this to mitre", "mitre mapping", "map alert to mitre", "map this alert")
     )
     negative_successful_login = any(
         term in normalized
@@ -165,13 +159,6 @@ def extract_query_signals(
         or re.search(r"\bfor alert\b", normalized)
         or re.search(r"\balert\s+[a-z0-9][\w.-]+\b", normalized)
     )
-    hybrid_alert_review = (
-        alert_context_present
-        and (success_after_failure or failed_login)
-        and mitre_map
-        and (severity_request or review_only_spl)
-        and not run_execution
-    )
     explicit_mitre_context = (
         alert_context_present
         or bool(re.search(r"\b\d+\s+(?:failed login|failed-logins|login failure|failed authentication)", normalized))
@@ -225,9 +212,51 @@ def extract_query_signals(
     time_window_24h = any(term in normalized for term in ("last 24 hours", "last 24h", "past 24 hours", "24 hours", "24h"))
     exclude_service_accounts = "exclude service account" in normalized or "excluding service account" in normalized
     top_n_match = re.search(r"\b(?:top|first|limit|head)\s+(\d+)\b", normalized)
+    dns_beaconing = any(
+        term in normalized
+        for term in ("dns beaconing", "beaconing candidate", "beaconing pattern", "dns beacon")
+    ) or ("beaconing" in normalized and "dns" in normalized)
+    use_case_review_guidance = (
+        not alert_context_present
+        and not run_execution
+        and review_only_spl
+        and (
+            powershell_context
+            or dns_beaconing
+            or procedural_investigation
+            or any(
+                term in normalized
+                for term in (
+                    "analyst checklist",
+                    "required evidence",
+                    "evidence required",
+                    "limitations",
+                )
+            )
+        )
+    )
+    mitre_map = (not use_case_review_guidance) and (
+        bool(_MAP_TO_MITRE_RE.search(query))
+        or any(
+            term in normalized
+            for term in ("map to mitre", "map this to mitre", "map alert to mitre", "map this alert")
+        )
+        or (
+            "mitre mapping" in normalized
+            and alert_context_present
+        )
+    )
+    hybrid_alert_review = (
+        alert_context_present
+        and (success_after_failure or failed_login)
+        and mitre_map
+        and (severity_request or review_only_spl)
+        and not run_execution
+    )
 
     mitre_requires_alert_context = bool(
-        qu
+        not use_case_review_guidance
+        and qu
         and qu.clarification_needed
         and "mitre_mapping_requires_alert_context" in (qu.ambiguity_flags or [])
         and not explicit_mitre_context
@@ -239,6 +268,9 @@ def extract_query_signals(
         "escalation_without_policy_word": escalation_without_policy_word,
         "failed_login": failed_login,
         "spl_generation": spl_generation,
+        "spl_suppressed": spl_suppressed,
+        "dns_beaconing": dns_beaconing,
+        "use_case_review_guidance": use_case_review_guidance,
         "run_execution": run_execution,
         "has_specific_scope": has_specific_scope,
         "live_investigation_verbs": live_investigation_verbs,
@@ -297,9 +329,16 @@ def extract_query_signals(
         or playbook_procedure
         or procedural_investigation
         or (knowledge_definition and not spl_generation and not live_investigation_verbs),
-        "projected_needs_spl": spl_generation
-        and not block_or_contain
-        or (live_investigation_verbs and not policy_terms and not block_or_contain),
+        "projected_needs_spl": (
+            spl_generation
+            and not block_or_contain
+            or (
+                live_investigation_verbs
+                and not policy_terms
+                and not block_or_contain
+                and not spl_suppressed
+            )
+        ),
         "projected_needs_mcp": (
             live_investigation_verbs
             and not spl_generation
@@ -311,3 +350,37 @@ def extract_query_signals(
         "requires_hil": block_or_contain,
         "projected_action_mode": "recommend_only" if block_or_contain else None,
     }
+
+
+def _spl_generation_suppressed(normalized: str) -> bool:
+    if not ("spl" in normalized or "query" in normalized):
+        return False
+    return any(
+        term in normalized
+        for term in (
+            "do not generate spl",
+            "don't generate spl",
+            "do not generate a spl",
+            "do not generate any spl",
+            "no spl",
+            "without spl",
+            "unless required",
+            "unless absolutely required",
+        )
+    )
+
+
+def _spl_generation_requested(normalized: str) -> bool:
+    explicit_verbs = (
+        "generate spl",
+        "write spl",
+        "create spl",
+        "produce spl",
+        "build spl",
+        "spl query",
+    )
+    if any(term in normalized for term in explicit_verbs):
+        return True
+    if "spl for" in normalized and "review" not in normalized:
+        return True
+    return False

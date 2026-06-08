@@ -114,6 +114,44 @@ function nodeTraceState(trace: PlaceholderResponse): { label: string; variant: V
   return { label: `${nodes.length} nodes traced`, variant: 'success' };
 }
 
+type ComposerTrace = {
+  composer_is_enabled?: boolean;
+  provider_configured?: boolean;
+  provider_skip_reason?: string | null;
+  llm_composer_used?: boolean;
+  llm_guard_status?: string;
+  llm_fallback_used?: boolean;
+  composer_attempted?: boolean;
+  composer_skipped_reason?: string | null;
+};
+
+function composerFootnote(trace: PlaceholderResponse): string {
+  const composer = (trace.control_plane_trace?.llm_composer ?? null) as ComposerTrace | null;
+  if (!composer) {
+    return 'Final LLM synthesis and answer guard are not enabled yet.';
+  }
+  if (!composer.composer_is_enabled) {
+    const flags = [
+      trace.control_plane_trace ? 'control plane trace present' : null,
+      composer.provider_skip_reason ? `provider: ${composer.provider_skip_reason}` : 'composer flags off',
+    ].filter(Boolean);
+    return `Phase 9 composer inactive (${flags.join('; ')}).`;
+  }
+  if (!composer.provider_configured) {
+    return `Composer enabled but skipped: ${composer.provider_skip_reason ?? 'no_provider_configured'}.`;
+  }
+  if (composer.llm_composer_used) {
+    return `Phase 9 composer narrated prose (guard: ${composer.llm_guard_status ?? 'unknown'}).`;
+  }
+  if (composer.composer_skipped_reason) {
+    return `Composer skipped: ${composer.composer_skipped_reason}.`;
+  }
+  if (composer.llm_fallback_used) {
+    return `Composer fell back to deterministic prose (guard: ${composer.llm_guard_status ?? 'unknown'}).`;
+  }
+  return `Composer ready; guard status: ${composer.llm_guard_status ?? 'pending'}.`;
+}
+
 function nextAction(trace: PlaceholderResponse): string {
   if (trace.human_review?.required) {
     if (trace.human_review.review_type === 'intent_clarification') return 'Provide the requested alert context, then resend.';
@@ -234,7 +272,7 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
           ))}
         </div>
       ) : null}
-      <p className="mt-2 text-[0.65rem] text-slate-500">Final LLM synthesis and answer guard are not enabled yet.</p>
+      <p className="mt-2 text-[0.65rem] text-slate-500">{composerFootnote(trace)}</p>
     </div>
   );
 }

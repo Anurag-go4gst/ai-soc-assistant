@@ -84,6 +84,82 @@ def test_enrichment_only_pilot_does_not_become_runtime_active(monkeypatch) -> No
     assert get_runtime_curated_enrichment("email_phishing_header_review") is None
 
 
+def test_brute_force_sop_with_spl_suppression_does_not_generate_spl(monkeypatch) -> None:
+    _enable_phase7(monkeypatch)
+    monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", _fake_retrieve_collected)
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "Show me the SOP for brute-force login investigation. "
+                "Do not generate SPL unless required."
+            )
+        )
+    )
+
+    assert response.evidence_plan["answer_mode"] == "rag_only"
+    assert response.planning_decision["path_type"] == "rag_only"
+    assert response.query_to_intent["intent_classification"]["intent_family"] == "sop_or_playbook"
+    assert response.query_to_intent["query_signals"]["spl_suppressed"] is True
+    assert response.query_to_intent["query_signals"]["spl_generation"] is False
+    assert response.candidate_spl is None
+    assert response.spl_validation is None
+
+
+def test_powershell_guidance_maps_to_endpoint_use_case_and_template(monkeypatch) -> None:
+    _enable_phase7(monkeypatch)
+    monkeypatch.setattr("app.config.settings.mcp_global_execution_enabled", False)
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "For suspicious PowerShell command execution on an endpoint, give me the analyst "
+                "checklist, required evidence, MITRE status, and governed SPL for review."
+            )
+        )
+    )
+
+    assert response.selected_use_case is not None
+    assert response.selected_use_case.use_case_id == "edr_powershell_suspicious_command"
+    assert response.candidate_spl is not None
+    assert response.candidate_spl.template_id == "edr_powershell_suspicious_command"
+    assert "pgcil:auth" not in (response.candidate_spl.candidate_spl or "")
+    limitations = " ".join((response.analyst_response.limitations if response.analyst_response else []) or []).lower()
+    assert "failed login" not in limitations
+    assert "mfa" not in limitations
+    assert response.mitre_decision is not None
+    assert response.mitre_decision.get("answer_visible") is True
+    assert "evidence_supported" not in set((response.mitre_decision.get("evidence_statuses") or {}).values())
+
+
+def test_dns_beaconing_candidate_returns_guidance_without_alert_context(monkeypatch) -> None:
+    _enable_phase7(monkeypatch)
+    monkeypatch.setattr("app.config.settings.mcp_global_execution_enabled", False)
+
+    response = chat(
+        ChatRequest(
+            message=(
+                "For a DNS beaconing candidate, give me the investigation steps, evidence required, "
+                "MITRE mapping, limitations, and review-only SPL."
+            )
+        )
+    )
+
+    assert response.selected_use_case is not None
+    assert response.selected_use_case.use_case_id == "dns_beaconing_candidate"
+    assert response.human_review.review_type != "intent_clarification"
+    assert "alert context" not in (response.message or "").lower()
+    assert response.planning_decision["path_type"] == "hybrid_investigation"
+    checklist = response.evidence_plan.get("checklist") or []
+    assert checklist
+    assert response.mitre_decision is not None
+    assert response.mitre_decision.get("answer_visible") is True
+    assert (response.mitre_decision.get("evidence_statuses") or {}).get("T1071") == "candidate"
+    assert "evidence_supported" not in set((response.mitre_decision.get("evidence_statuses") or {}).values())
+    if response.candidate_spl is not None:
+        assert response.candidate_spl.template_id == "dns_beaconing_candidate"
+
+
 def test_pure_sop_question_does_not_select_spl_branch(monkeypatch) -> None:
     _enable_phase7(monkeypatch)
     monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", _fake_retrieve_collected)

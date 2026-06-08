@@ -125,7 +125,25 @@ def _event_types(query: str) -> list[str]:
 
 def _ambiguity_flags(normalized: str) -> list[str]:
     flags = []
-    if any(keyword in normalized for keyword in _MITRE_KEYWORDS) and not any(marker in normalized for marker in _ALERT_CONTEXT_MARKERS) and len(normalized) <= 160:
+    guidance_context = any(
+        term in normalized
+        for term in (
+            "investigation steps",
+            "evidence required",
+            "required evidence",
+            "analyst checklist",
+            "review-only spl",
+            "review only spl",
+            "dns beaconing",
+            "beaconing candidate",
+        )
+    )
+    if (
+        any(keyword in normalized for keyword in _MITRE_KEYWORDS)
+        and not any(marker in normalized for marker in _ALERT_CONTEXT_MARKERS)
+        and len(normalized) <= 160
+        and not guidance_context
+    ):
         flags.append("mitre_mapping_requires_alert_context")
     return flags
 

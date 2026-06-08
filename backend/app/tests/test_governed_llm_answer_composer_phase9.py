@@ -8,6 +8,7 @@ from app.llm.clients import ChatResult, LocalChatError
 from app.schemas.responses import AnalystResponseEnvelope
 from app.synthesis.governed_answer_composer import (
     build_composer_prompt,
+    build_composer_runtime_status,
     compose_governed_answer,
     composer_is_enabled,
     validate_composed_prose,
@@ -100,6 +101,23 @@ def _enable_composer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", True)
+
+
+def test_runtime_status_reports_flags_and_provider_without_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", False)
+    monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", False)
+    monkeypatch.setattr(settings, "ai_soc_llm_mode", "mock")
+
+    status = build_composer_runtime_status()
+
+    assert status["control_plane_enabled"] is True
+    assert status["ai_soc_llm_final_synthesis_enabled"] is False
+    assert status["ai_soc_llm_live_synthesis_enabled"] is False
+    assert status["composer_is_enabled"] is False
+    assert status["provider_configured"] is False
+    assert status["provider_skip_reason"] == "no_provider_configured"
+    assert "api_key" not in str(status).lower()
 
 
 def test_flags_off_returns_deterministic_phase8_response(monkeypatch: pytest.MonkeyPatch) -> None:

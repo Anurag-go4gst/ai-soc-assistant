@@ -76,6 +76,23 @@ def classify_intent(
             requested_output_type="INVESTIGATION",
         )
 
+    if signals.get("use_case_review_guidance"):
+        return _build_classification(
+            intent_family="hybrid_alert_review",
+            primary_intent="attack_discovery",
+            secondary_intents=["mitre_mapping", "spl_generation"],
+            query_type="ask_for_mapping",
+            answer_goal=["severity_assessment", "mitre_mapping", "spl_artifact", "procedural_steps"],
+            confidence=0.9,
+            requires_clarification=False,
+            action_mode="recommend_only",
+            reason=(
+                "Use-case investigation guidance with checklist, evidence requirements, "
+                "candidate MITRE status, and review-only governed SPL without alert context."
+            ),
+            requested_output_type="INVESTIGATION",
+        )
+
     if signals.get("spl_generation"):
         return _build_classification(
             intent_family="spl_generation_only",
@@ -133,8 +150,15 @@ def classify_intent(
         )
 
     normalized_query = str(signals.get("normalized_query") or query.lower())
-    explicit_sop_only = normalized_query.startswith(("show sop", "show runbook", "what is the playbook", "what is the sop"))
-    if signals.get("playbook_procedure") and explicit_sop_only and not any(
+    explicit_sop_only = (
+        normalized_query.startswith(("show sop", "show runbook", "what is the playbook", "what is the sop"))
+        or "show me the sop" in normalized_query
+        or "show me the playbook" in normalized_query
+        or "show me the runbook" in normalized_query
+    )
+    if signals.get("playbook_procedure") and (
+        explicit_sop_only or signals.get("spl_suppressed")
+    ) and not any(
         signals.get(key)
         for key in ("spl_generation", "run_execution", "analyst_action", "time_window_24h")
     ):
@@ -147,6 +171,19 @@ def classify_intent(
             requires_clarification=False,
             reason="User asked for SOP/playbook/runbook guidance.",
             requested_output_type="SOP",
+        )
+
+    if signals.get("dns_beaconing") and signals.get("procedural_investigation") and not signals.get("live_investigation_verbs"):
+        return _build_classification(
+            intent_family="knowledge_only",
+            primary_intent="knowledge_recall",
+            secondary_intents=["mitre_mapping", "spl_generation"],
+            query_type="ask_for_explanation",
+            answer_goal=["procedural_steps", "mitre_mapping", "spl_artifact"],
+            confidence=0.88,
+            requires_clarification=False,
+            reason="DNS beaconing investigation guidance without live alert context.",
+            requested_output_type="INVESTIGATION",
         )
 
     if signals.get("procedural_investigation") and not signals.get("live_investigation_verbs"):

@@ -89,7 +89,10 @@ def resolve_mitre_decision(
             registry_metadata=meta,
         )
 
-    if requires_clarification or (meta.mitre_requires_alert_context and not alert_context_present):
+    use_case_review_guidance = bool(_kwargs.get("use_case_review_guidance"))
+    if requires_clarification or (
+        meta.mitre_requires_alert_context and not alert_context_present and not use_case_review_guidance
+    ):
         return MitreDecision(
             mitre_status="requires_alert_context",
             techniques=[],
@@ -147,11 +150,25 @@ def resolve_mitre_decision(
         )
         for tid in non_blocked
     }
+    if use_case_review_guidance and not alert_context_present:
+        for tid in non_blocked:
+            detail = dict(status_details.get(tid) or {})
+            current = str(detail.get("status") or "candidate")
+            if current == "evidence_supported" and not detail.get("evidence_keys"):
+                current = "requires_validation"
+            elif current == "not_claimed" or precondition_negated(tid, present_evidence):
+                current = "candidate"
+                detail["reason"] = (
+                    detail.get("reason")
+                    or "Registry-permitted MITRE candidate without alert logs; validate against governed evidence requirements."
+                )
+            detail["status"] = current
+            status_details[tid] = detail
     visible_ids = [
         tid
         for tid, detail in status_details.items()
         if detail.get("status") in {"candidate", "evidence_supported", "requires_validation"}
-        and not precondition_negated(tid, present_evidence)
+        and (use_case_review_guidance or not precondition_negated(tid, present_evidence))
     ]
     demoted_ids = [
         tid

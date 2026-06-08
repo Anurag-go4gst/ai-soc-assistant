@@ -97,6 +97,7 @@ def run_mitre_evidence_branch(
         evidence_plan=evidence_plan,
         alert_context_present=alert_context_present,
         negative_evidence=negative_evidence,
+        use_case_review_guidance=bool((query_signals or {}).get("use_case_review_guidance")),
     )
     branch_status = "requires_context" if decision.requires_alert_context else "completed"
     branch = _branch_result(
