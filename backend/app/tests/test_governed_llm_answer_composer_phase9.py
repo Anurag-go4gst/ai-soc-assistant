@@ -155,6 +155,85 @@ def test_prompt_uses_answer_contract_and_projection_only() -> None:
     assert "github.com" not in prompt.lower()
 
 
+def test_sop_prompt_omits_live_investigation_fields() -> None:
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "sop_or_playbook",
+            "answer_goal": ["policy_citation", "procedural_steps"],
+        },
+        evidence_plan={"answer_mode": "rag_only", "spl_allowed": False, "mcp_allowed": False},
+        mitre_decision={"answer_visible": True},
+        severity_decision=type("Severity", (), {"severity_label": "P3 Medium", "missing_evidence": []})(),
+        spl_validation=None,
+        execution={"status": "skipped"},
+        human_review={"required": False},
+        mitre_mappings=[{"technique_id": "T1110.001"}],
+    )
+
+    prompt = build_composer_prompt(contract, {"analyst_checklist": ["Review approved SOP steps."]})
+
+    assert "Answer mode: governed SOP / knowledge recall." in prompt
+    assert "Severity" not in prompt
+    assert "MITRE" not in prompt
+    assert "SPL status" not in prompt
+    assert "HIL status" not in prompt
+    assert "Human review" not in prompt
+
+
+def test_endpoint_and_dns_prompts_do_not_contain_auth_limitations() -> None:
+    auth_phrases = ("privilege status", "asset criticality", "source ip ownership", "mfa", "post-login")
+    cases = [
+        (
+            "edr_powershell_suspicious_command",
+            ["command_line", "parent_process"],
+            ["Encoded command is a suspicious indicator, not a standalone malware verdict."],
+            ["Review Event ID 4104, script block text, parent process, and command line."],
+        ),
+        (
+            "dns_beaconing_candidate",
+            ["domain", "periodicity", "jitter"],
+            ["Beaconing requires periodicity, jitter, and destination reputation validation."],
+            ["Review DNS query cadence, destination rarity, byte profile, and host association."],
+        ),
+    ]
+    for use_case_id, missing, limitations, checklist in cases:
+        contract = build_answer_contract(
+            intent_classification={
+                "intent_family": "hybrid_alert_review",
+                "answer_goal": ["spl_artifact", "mitre_mapping", "analyst_action_guidance"],
+            },
+            evidence_plan={
+                "answer_mode": "hybrid",
+                "spl_allowed": True,
+                "mcp_allowed": False,
+                "use_case_id": use_case_id,
+                "missing_required_evidence": missing,
+                "limitations": limitations,
+                "checklist": checklist,
+            },
+            mitre_decision={"answer_visible": True},
+            severity_decision=type(
+                "Severity",
+                (),
+                {"severity_label": "P2 High", "missing_evidence": ["mfa_status", "post_login_activity"]},
+            )(),
+            spl_validation={
+                "approved": False,
+                "review_required": True,
+                "review_required_reason": "spl_template_active_source_profile_missing",
+                "spl_template_status": "active",
+            },
+            execution={"status": "skipped"},
+            human_review={"required": False},
+            use_case_id=use_case_id,
+        )
+
+        prompt = build_composer_prompt(contract, None).lower()
+
+        for phrase in auth_phrases:
+            assert phrase not in prompt
+
+
 def test_candidate_mitre_remains_candidate_in_guard() -> None:
     contract = _contract()
     ok, reason = validate_composed_prose(

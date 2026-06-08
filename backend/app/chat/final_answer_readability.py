@@ -158,21 +158,7 @@ def _apply_knowledge_profile_cleanup(payload: dict[str, Any], contract: AnswerCo
 
 
 def _sop_knowledge_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
-    parts = ["Governed SOP retrieved."]
-    if contract.spl_status == "not_required":
-        parts.append("SPL and MCP were skipped as requested.")
-    playbook = envelope.retrieved_playbook if isinstance(envelope.retrieved_playbook, dict) else {}
-    title = str(playbook.get("title") or "").strip()
-    purpose = str(playbook.get("purpose") or "").strip()
-    if title:
-        parts.append(f"SOP: {title}.")
-    if purpose:
-        parts.append(purpose if purpose.endswith(".") else f"{purpose}.")
-    checklist = list(contract.analyst_checklist_safe or [])
-    if checklist:
-        preview = "; ".join(checklist[:3])
-        parts.append(f"Checklist: {preview}.")
-    return " ".join(parts)
+    return "Governed SOP retrieved. SPL and MCP were skipped as requested."
 
 
 def _hybrid_mitre_bucket_counts(
@@ -337,7 +323,7 @@ def _limitations_display(contract: AnswerContract) -> list[str]:
     }:
         return []
 
-    if contract.success_after_failure_context:
+    if contract.success_after_failure_context and _is_auth_hybrid_contract(contract):
         return list(_ALERT_REVIEW_LIMITATIONS)
 
     if (
@@ -381,6 +367,7 @@ def _limitations_display(contract: AnswerContract) -> list[str]:
         not items
         and contract.render_sections.get("limitations")
         and contract.intent_family == "hybrid_alert_review"
+        and _is_auth_hybrid_contract(contract)
     ):
         items = list(_ALERT_REVIEW_LIMITATIONS)
     deduped: list[str] = []
@@ -439,6 +426,9 @@ def _format_investigation_actions(actions: list[Any]) -> list[str]:
             text = f"{glued.group(1)} — {text[len(glued.group(1)):].lstrip(' -—')}"
         if re.match(r"^P[1-4]\s*[—-]\s*", text):
             formatted.append(re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", text))
+            continue
+        if re.match(r"^Step\s+\d+\s*:", text, flags=re.IGNORECASE):
+            formatted.append(text)
             continue
         human = text.replace("_", " ")
         formatted.append(f"P2 — {human}")

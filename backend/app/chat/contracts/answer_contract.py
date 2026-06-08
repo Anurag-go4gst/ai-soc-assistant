@@ -304,17 +304,15 @@ def _spl_status_detail(
 ) -> dict[str, Any] | None:
     if not isinstance(spl_validation, dict):
         return None
-    reason = str(
-        spl_validation.get("review_required_reason")
-        or spl_validation.get("llm_fallback_reason")
-        or spl_validation.get("candidate_provider_reason")
-        or ""
-    )
     template_status = str(spl_validation.get("spl_template_status") or "unknown")
+    reason = _spl_block_reason(spl_validation)
     if spl_validation.get("approved") and spl_validation.get("normalized_spl"):
         return {
             "template_status": template_status,
+            "generation_status": "generated",
             "generation": "review_required",
+            "review_required": True,
+            "block_reason": None,
             "reason": "candidate_spl_review_only",
             "reason_display": "Governed SPL draft ready for analyst review (not executed).",
             "required_fields": [],
@@ -322,9 +320,9 @@ def _spl_status_detail(
         }
     if not reason and spl_validation.get("llm_fallback_status") != "clarification_required":
         return None
-    generation = "blocked" if reason else "review_required"
+    generation_status = "blocked" if reason else "review_required"
     reason_key = reason or "spl_generation_requires_source_clarification"
-    required_fields = ["index", "sourcetype", "key fields", "time range"]
+    required_fields = _spl_required_fields(spl_validation, candidate_spl, reason_key)
     reason_display = {
         "spl_template_active_source_profile_missing": "Source profile missing",
         "spl_template_missing": "No default template bound",
@@ -332,12 +330,45 @@ def _spl_status_detail(
     }.get(reason_key, reason_key.replace("_", " "))
     return {
         "template_status": template_status,
-        "generation": generation,
+        "generation_status": generation_status,
+        "generation": generation_status,
+        "review_required": bool(spl_validation.get("review_required") or reason),
+        "block_reason": reason_key if generation_status == "blocked" else None,
         "reason": reason_key,
         "reason_display": reason_display,
         "required_fields": required_fields,
         "template_id": spl_validation.get("template_id") or (candidate_spl or {}).get("template_id"),
     }
+
+
+def _spl_block_reason(spl_validation: dict[str, Any]) -> str:
+    reject_reasons = [str(item) for item in spl_validation.get("reject_reasons") or [] if item]
+    if {"missing_index", "missing_sourcetype", "index_or_datamodel"} & set(reject_reasons):
+        return "spl_template_active_source_profile_missing"
+    for key in ("review_required_reason", "llm_fallback_reason", "candidate_provider_reason", "governed_limitation"):
+        value = str(spl_validation.get(key) or "")
+        if value:
+            return value
+    return reject_reasons[0] if reject_reasons else ""
+
+
+def _spl_required_fields(
+    spl_validation: dict[str, Any],
+    candidate_spl: dict[str, Any] | None,
+    reason_key: str,
+) -> list[str]:
+    values: list[str] = []
+    for source in (spl_validation, candidate_spl or {}):
+        for key in ("required_fields", "enrichment_evidence_requirements"):
+            for item in source.get(key) or []:
+                text = str(item)
+                if text and text not in values:
+                    values.append(text)
+    if values:
+        return values
+    if reason_key == "spl_template_active_source_profile_missing":
+        return ["index", "sourcetype", "key fields", "time range"]
+    return []
 
 
 def _hil_status(

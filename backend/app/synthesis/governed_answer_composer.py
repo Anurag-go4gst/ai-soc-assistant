@@ -118,6 +118,11 @@ def build_composer_prompt(
 ) -> str:
     """Build a contract-only composer prompt (no raw events or GitHub content)."""
     projection = enrichment_projection or {}
+    knowledge_profile = contract.answer_mode == "rag_only" or contract.intent_family in {
+        "sop_or_playbook",
+        "policy_knowledge",
+        "knowledge_only",
+    }
     checklist = list(contract.analyst_checklist_safe)
     if not checklist:
         checklist = [str(item) for item in projection.get("analyst_checklist") or [] if item]
@@ -129,9 +134,28 @@ def build_composer_prompt(
         limitations = [str(item) for item in projection.get("limitations") or [] if item]
 
     lines = ["GOVERNED ANSWER CONTRACT:"]
+    if knowledge_profile:
+        lines.append("- Answer mode: governed SOP / knowledge recall.")
+        if checklist:
+            lines.append("- Analyst checklist: " + "; ".join(checklist))
+        if answer_rules:
+            lines.append("- Answer rules: " + "; ".join(answer_rules))
+        lines.append("\nWrite the analyst summary now using only the contract facts above.")
+        return "\n".join(lines)
+
     if contract.severity_label:
         lines.append(f"- Severity (deterministic): {contract.severity_label}")
     lines.append(f"- SPL status: {contract.spl_status}")
+    if contract.spl_status_detail:
+        detail = contract.spl_status_detail
+        lines.append(
+            "- SPL display status: "
+            f"template_status={detail.get('template_status')}; "
+            f"generation_status={detail.get('generation_status')}; "
+            f"review_required={detail.get('review_required')}; "
+            f"block_reason={detail.get('block_reason')}; "
+            f"required_fields={', '.join(str(item) for item in detail.get('required_fields') or [])}"
+        )
     lines.append(f"- HIL status: {contract.hil_status}")
     if contract.execution_status_display:
         lines.append(f"- Execution status: {contract.execution_status_display}")

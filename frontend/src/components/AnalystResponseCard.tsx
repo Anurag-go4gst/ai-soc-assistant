@@ -654,12 +654,15 @@ function SplStatusDetail({
 }: {
   detail: NonNullable<AnalystResponseEnvelope['spl_status_detail']>;
 }) {
+  const generationStatus = detail.generation_status ?? detail.generation;
   const generationLabel =
-    detail.generation === 'blocked'
+    generationStatus === 'blocked'
       ? 'blocked / review required'
-      : detail.generation === 'review_required'
+      : generationStatus === 'review_required'
         ? 'review required'
-        : detail.generation ?? 'unknown';
+        : generationStatus === 'generated'
+          ? 'generated / review required'
+          : generationStatus ?? 'unknown';
   return (
     <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-sm leading-6 text-amber-50">
       <SectionTitle>SPL status</SectionTitle>
@@ -673,6 +676,11 @@ function SplStatusDetail({
         {detail.reason_display || detail.reason ? (
           <li>
             <span className="text-slate-400">Reason:</span> {detail.reason_display ?? detail.reason}
+          </li>
+        ) : null}
+        {detail.block_reason ? (
+          <li>
+            <span className="text-slate-400">Block reason:</span> {detail.block_reason}
           </li>
         ) : null}
         {detail.required_fields?.length ? (

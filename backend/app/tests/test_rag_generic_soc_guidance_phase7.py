@@ -176,16 +176,28 @@ def test_brute_force_sop_answer_is_knowledge_only_without_alert_analysis_wording
     assert response.analyst_response is not None
     assert response.analyst_response.response_profile == "knowledge_recall"
     summary = (response.analyst_response.direct_answer_summary or "").lower()
-    assert "governed sop retrieved" in summary
-    assert "spl and mcp were skipped" in summary
+    assert response.analyst_response.direct_answer_summary == (
+        "Governed SOP retrieved. SPL and MCP were skipped as requested."
+    )
     assert "p3" not in (response.analyst_response.severity_label or "").lower()
     assert not response.analyst_response.mitre_mappings
     assert not response.analyst_response.not_claimed
-    assert "incident categorized" not in summary
-    assert "full scope of incident" not in summary
-    assert "security pipeline" not in summary
-    assert "incident was detected" not in summary
-    assert "candidate authentication security event" not in summary
+    for forbidden in (
+        "incident",
+        "breach",
+        "severity",
+        "mitre",
+        "execution",
+        "full scope",
+        "security pipeline",
+        "candidate authentication security event",
+    ):
+        assert forbidden not in summary
+    assert response.answer_contract is not None
+    assert response.answer_contract["severity_label"] is None
+    assert response.answer_contract["mitre_technique_ids"] == []
+    assert response.answer_contract["spl_status"] == "not_required"
+    assert response.answer_contract["hil_status"] == "not_required"
     assert response.candidate_spl is None
     assert response.spl_validation is None
     title = (response.analyst_response.finding_title or "").lower()
@@ -209,6 +221,20 @@ def test_powershell_answer_shows_required_evidence_and_checklist(monkeypatch) ->
     assert analyst.required_evidence
     assert analyst.analyst_checklist
     assert response.evidence_plan.get("checklist")
+    joined = " ".join(
+        [
+            *analyst.limitations,
+            *analyst.required_evidence,
+            *analyst.analyst_checklist,
+            *(response.answer_contract or {}).get("missing_evidence", []),
+        ]
+    ).lower()
+    for phrase in ("privilege status", "asset criticality", "source ip ownership", "mfa", "post-login"):
+        assert phrase not in joined
+    if analyst.spl_status_detail is not None:
+        detail = analyst.spl_status_detail
+        if detail.get("template_status") == "active":
+            assert "no active governed spl template" not in str(analyst.model_dump()).lower()
 
 
 def test_powershell_answer_uses_endpoint_limitations_not_auth(monkeypatch) -> None:
@@ -251,6 +277,18 @@ def test_dns_answer_shows_required_evidence_and_checklist(monkeypatch) -> None:
     assert analyst is not None
     assert analyst.required_evidence
     assert analyst.analyst_checklist
+    joined = " ".join(
+        [
+            *analyst.limitations,
+            *analyst.required_evidence,
+            *analyst.analyst_checklist,
+            *(response.answer_contract or {}).get("missing_evidence", []),
+        ]
+    ).lower()
+    for phrase in ("privilege status", "asset criticality", "source ip ownership", "mfa", "post-login"):
+        assert phrase not in joined
+    if analyst.spl_status_detail is not None and analyst.spl_status_detail.get("template_status") == "active":
+        assert "no active governed spl template" not in str(analyst.model_dump()).lower()
 
 
 def test_dns_answer_uses_network_limitations_not_auth(monkeypatch) -> None:

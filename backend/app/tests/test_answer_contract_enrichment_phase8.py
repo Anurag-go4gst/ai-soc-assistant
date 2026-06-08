@@ -130,6 +130,63 @@ def test_spl_status_reflects_phase6_review_and_block_status() -> None:
     assert blocked.spl_status == "review_required"
 
 
+def test_spl_status_detail_is_canonical_and_consistent_for_active_template_block() -> None:
+    contract = _contract(
+        spl_validation={
+            "approved": False,
+            "normalized_spl": None,
+            "review_required": True,
+            "review_required_reason": "spl_template_active_source_profile_missing",
+            "spl_template_status": "active",
+            "reject_reasons": ["missing_index"],
+        },
+        candidate_spl={"template_id": "edr_powershell_suspicious_command"},
+        execution={"status": "skipped"},
+    )
+
+    detail = contract.spl_status_detail
+
+    assert detail is not None
+    assert detail["template_status"] == "active"
+    assert detail["generation_status"] == "blocked"
+    assert detail["review_required"] is True
+    assert detail["block_reason"] == "spl_template_active_source_profile_missing"
+    assert "index" in detail["required_fields"]
+    assert "no active governed spl template" not in str(detail).lower()
+
+
+def test_non_auth_contracts_drop_auth_limitation_phrases() -> None:
+    for use_case_id, expected in (
+        ("edr_powershell_suspicious_command", "command_line"),
+        ("dns_beaconing_candidate", "periodicity"),
+    ):
+        contract = _contract(
+            evidence_plan={
+                "answer_mode": "hybrid",
+                "spl_allowed": True,
+                "mcp_allowed": False,
+                "use_case_id": use_case_id,
+                "missing_required_evidence": [expected, "mfa_status", "post_login_activity"],
+                "limitations": [],
+                "checklist": [],
+                "unsupported_claims_avoid": [],
+                "answer_rules": [],
+            },
+            severity_decision=type(
+                "Severity",
+                (),
+                {"severity_label": "P2 High", "missing_evidence": ["source_ownership", "mfa_status"]},
+            )(),
+            use_case_id=use_case_id,
+        )
+
+        assert expected in contract.missing_evidence
+        joined = " ".join(contract.missing_evidence).lower()
+        assert "mfa_status" not in joined
+        assert "post_login_activity" not in joined
+        assert "source_ownership" not in joined
+
+
 def test_execution_status_label_remains_review_only_or_not_executed() -> None:
     contract = _contract()
 

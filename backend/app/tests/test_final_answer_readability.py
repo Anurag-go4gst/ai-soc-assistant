@@ -291,11 +291,12 @@ def test_sop_knowledge_profile_suppresses_alert_analysis_fields() -> None:
     )
     result = apply_final_answer_readability(envelope, contract)
     summary = (result.direct_answer_summary or "").lower()
-    assert "governed sop retrieved" in summary
-    assert "spl and mcp were skipped" in summary
+    assert result.direct_answer_summary == "Governed SOP retrieved. SPL and MCP were skipped as requested."
     assert result.severity_label is None
     assert result.mitre_mappings == []
     assert result.spl_code is None
+    for forbidden in ("incident", "breach", "severity", "mitre", "execution", "full scope"):
+        assert forbidden not in summary
 
 
 def test_powershell_contract_uses_endpoint_limitations_not_auth() -> None:
@@ -335,8 +336,47 @@ def test_powershell_contract_uses_endpoint_limitations_not_auth() -> None:
     assert result.analyst_checklist
     assert result.spl_status_detail is not None
     assert result.spl_status_detail["template_status"] == "active"
-    assert result.spl_status_detail["generation"] == "blocked"
+    assert result.spl_status_detail["generation_status"] == "blocked"
+    assert result.spl_status_detail["review_required"] is True
+    assert result.spl_status_detail["block_reason"] == "spl_template_active_source_profile_missing"
     assert "index" in (result.spl_status_detail.get("required_fields") or [])
+    assert "no active governed spl template" not in str(result.model_dump()).lower()
+
+
+def test_dns_contract_uses_network_limitations_not_auth() -> None:
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "hybrid_alert_review",
+            "answer_goal": ["spl_artifact", "mitre_mapping", "analyst_action_guidance"],
+        },
+        evidence_plan={
+            "answer_mode": "hybrid",
+            "spl_allowed": True,
+            "mcp_allowed": False,
+            "use_case_id": "dns_beaconing_candidate",
+            "limitations": ["Beaconing requires periodicity, jitter, and destination reputation validation."],
+            "checklist": ["Review DNS query cadence and rare destination context."],
+            "required_evidence_keys": ["domain", "periodicity", "jitter"],
+            "missing_required_evidence": ["domain", "periodicity", "jitter", "mfa_status"],
+        },
+        mitre_decision={"answer_visible": True},
+        severity_decision=None,
+        spl_validation={
+            "approved": False,
+            "review_required": True,
+            "review_required_reason": "spl_template_active_source_profile_missing",
+            "spl_template_status": "active",
+        },
+        execution={"status": "skipped"},
+        human_review={"required": False},
+        use_case_id="dns_beaconing_candidate",
+    )
+    result = apply_final_answer_readability(AnalystResponseEnvelope(response_profile="hybrid_alert_review"), contract)
+    joined = " ".join(result.limitations).lower()
+    assert "beaconing" in joined
+    assert "mfa" not in joined
+    assert "post-login" not in joined
+    assert "privilege status" not in joined
 
 
 def test_investigation_actions_unglue_p2review_concatenation() -> None:
@@ -352,6 +392,7 @@ def test_investigation_actions_unglue_p2review_concatenation() -> None:
     envelope = AnalystResponseEnvelope(recommended_actions=["P2Review failed-login volume and source distribution."])
     result = apply_final_answer_readability(envelope, contract)
     assert result.recommended_actions[0] == "P2 — Review failed-login volume and source distribution."
+    assert "P2Review" not in str(result.model_dump())
 
 
 def test_investigation_actions_use_priority_prefix() -> None:

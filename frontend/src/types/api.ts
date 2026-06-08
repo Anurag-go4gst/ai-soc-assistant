@@ -394,7 +394,10 @@ export interface AnalystResponseEnvelope {
   required_evidence?: string[];
   spl_status_detail?: {
     template_status?: string;
+    generation_status?: string;
     generation?: string;
+    review_required?: boolean;
+    block_reason?: string | null;
     reason?: string;
     reason_display?: string;
     required_fields?: string[];
