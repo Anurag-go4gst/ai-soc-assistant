@@ -83,6 +83,18 @@ search index=fw sourcetype=pan earliest=-24h latest=now
     )
 
 
+def test_esp_fuzzy_zone_like_is_warning() -> None:
+    bad = """
+search index=fw sourcetype=pan action=allowed earliest=-24h latest=now
+| eval src_zone_norm=lower(coalesce(src_zone, ""))
+| eval dest_zone_norm=lower(coalesce(dest_zone, ""))
+| where like(src_zone_norm, "%it%") AND like(dest_zone_norm, "%ot%")
+| stats count by src_ip_norm
+"""
+    report = evaluate_draft_quality(bad, detection_family="esp_it_to_ot_connection")
+    assert any(item.rule_id.endswith("Q12") for item in report.findings)
+
+
 def test_stats_inclusion_critical_field_is_hard_fail() -> None:
     bad = """
 search index=fw sourcetype=pan action=allowed earliest=-24h latest=now

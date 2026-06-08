@@ -81,14 +81,16 @@ FAMILY_ENGINEERING_BLOCKS: dict[str, str] = {
 5. ESP IT to OT Boundary
 - Base search:
   index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> action=allowed
-- Optional raw hints: (*it* AND *ot*) only as a broad hint if useful, not as final authority.
 - Normalize:
   src_zone_norm = lower(coalesce(src_zone, source_zone, zone_src, ""))
   dest_zone_norm = lower(coalesce(dest_zone, destination_zone, zone_dest, ""))
   src_ip_norm = coalesce(src_ip, src, source, "")
   dest_ip_norm = coalesce(dest_ip, dest, destination, "")
   app_norm = lower(coalesce(app, application, service, protocol, ""))
-- Confirm corporate IT to OT using zones and/or cidrmatch placeholders.
+- Confirm corporate IT to OT with exact zone labels (no fuzzy like("%it%") / like("%ot%") substring matching):
+  src_zone_norm IN ("<corporate_it_zone>", "<corporate_it_zone_alt>") OR cidrmatch("<corporate_it_cidr>", src_ip_norm)
+  dest_zone_norm IN ("<ot_control_center_zone>", "<ot_control_center_zone_alt>") OR cidrmatch("<ot_control_center_cidr>", dest_ip_norm)
+- COE replaces placeholders with lowercase exact zone names from the ESP source profile; drop or replace _alt tokens.
 - Preserve values(src_zone_norm), values(dest_zone_norm), values(rule), values(app_norm) in stats.
 """.strip(),
     "substation_hmi_brute_force": """

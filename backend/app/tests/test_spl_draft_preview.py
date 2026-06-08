@@ -269,6 +269,10 @@ def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     spl = preview["draft_spl"]
     assert "action=allowed" in spl.split("|")[0]
     assert "src_zone_norm" in spl
+    assert 'src_zone_norm IN ("<corporate_it_zone>"' in spl
+    assert 'dest_zone_norm IN ("<ot_control_center_zone>"' in spl
+    assert 'like(src_zone_norm, "%it%")' not in spl
+    assert 'like(dest_zone_norm, "%ot%")' not in spl
     assert "values(app_norm)" in spl
     assert "cidrmatch(" in spl
 

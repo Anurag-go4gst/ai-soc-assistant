@@ -248,13 +248,11 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
 | eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
 | eval app_norm=lower(coalesce(app, application, service, protocol, ""))
 | where (
-    like(src_zone_norm, "%it%")
-    OR like(src_zone_norm, "%corporate%")
+    src_zone_norm IN ("<corporate_it_zone>", "<corporate_it_zone_alt>")
     OR cidrmatch("<corporate_it_cidr>", src_ip_norm)
   )
   AND (
-    like(dest_zone_norm, "%ot%")
-    OR like(dest_zone_norm, "%control%")
+    dest_zone_norm IN ("<ot_control_center_zone>", "<ot_control_center_zone_alt>")
     OR cidrmatch("<ot_control_center_cidr>", dest_ip_norm)
   )
 | stats count as connection_count values(src_zone_norm) as src_zones values(dest_zone_norm) as dest_zones values(rule) as firewall_rules values(app_norm) as applications earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip_norm dest_ip_norm
@@ -267,9 +265,10 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
 """,
         assumptions=(
             "ESP firewall zones label corporate IT and OT control center segments.",
-            "Shift-left action=allowed; IT→OT confirmed via zone_norm and/or cidrmatch() placeholders.",
+            "Shift-left action=allowed; IT→OT confirmed via exact zone labels (lowercase) and/or cidrmatch() placeholders — avoid fuzzy substring zone matching.",
+            "Replace <corporate_it_zone> / <ot_control_center_zone> (and _alt variants) with exact zone names from your ESP log schema; remove unused _alt tokens or duplicate with real alternates.",
             "values(src_zone_norm), values(dest_zone_norm), values(rule), values(app_norm) preserved in stats.",
-            "Zone/CIDR placeholders must be confirmed against your ESP source profile.",
+            "Zone and CIDR placeholders must be confirmed against your ESP source profile.",
         ),
         required_source_fields=(
             "index",

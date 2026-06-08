@@ -24,6 +24,10 @@ _COMPUTER_NAME_IN_CALLER_COALESCE = re.compile(
 _STREAMSTATS = re.compile(r"\bstreamstats\b", re.IGNORECASE)
 _SORT_BEFORE_STREAMSTATS = re.compile(r"\bsort\s+0\s*\+\s*_time\b", re.IGNORECASE)
 _BROKEN_HMI_REGEX = re.compile(r"\(\?i\)hmi\\n\s*\|\s*portal", re.IGNORECASE)
+_FUZZY_ESP_ZONE = re.compile(
+    r'like\s*\(\s*(?:src|dest)_zone_norm\s*,\s*"%',
+    re.IGNORECASE,
+)
 _STRFTIME = re.compile(r"\bstrftime\s*\(", re.IGNORECASE)
 _STRFTIME_ON_TIME = re.compile(
     r"\bstrftime\s*\(\s*(?:_time|event_time|lockout_time)\s*,",
@@ -432,6 +436,13 @@ def evaluate_draft_quality(
             "SOC-STD-SPL-001-Q11",
             "hard_fail",
             "HMI brute-force family must use streamstats time_window=5m rolling window.",
+        )
+
+    if detection_family == "esp_it_to_ot_connection" and _FUZZY_ESP_ZONE.search(spl):
+        report.add(
+            "SOC-STD-SPL-001-Q12",
+            "warning",
+            "ESP IT→OT zone matching should use exact IN() zone labels or cidrmatch(), not fuzzy like() substrings.",
         )
 
     return report.finalize()

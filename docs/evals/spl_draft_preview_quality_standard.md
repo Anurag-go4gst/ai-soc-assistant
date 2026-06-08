@@ -55,6 +55,7 @@ This standard does not change Phase 6 governed SPL approval logic, MCP execution
 | Q09 | advisory | Base `search` should include static `EventCode` / `action` / `protocol` filters where available |
 | Q10 | hard_fail | Event 4740 must use `caller_host_norm` with caller computer fields — not `ComputerName` alone |
 | Q11 | hard_fail | HMI brute-force must use `sort 0 + _time` before `streamstats time_window=5m` |
+| Q12 | warning | ESP IT→OT must use exact zone `IN()` labels or `cidrmatch()`, not fuzzy `like("%it%")` / `like("%ot%")` |
 
 ## Family-specific engineering
 
