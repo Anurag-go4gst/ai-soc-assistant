@@ -192,6 +192,8 @@ class Settings(BaseSettings):
     ai_soc_planner_path_selection_enabled: bool = False
     # Planner-led Phase 5B: MITRE evidence-status branch authority. Default off.
     ai_soc_planner_mitre_branch_enabled: bool = False
+    # Planner-led Phase 6: runtime SPL template governance. Default off.
+    ai_soc_spl_template_governance_enabled: bool = False
     # Phase 4/5: curated enrichment activation for runtime evidence/planner paths. Default off.
     ai_soc_curated_enrichment_activation_enabled: bool = False
     ai_soc_llm_reasoning_provider: str = ""

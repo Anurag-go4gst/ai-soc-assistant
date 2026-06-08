@@ -335,6 +335,8 @@ def _spl_limitation(status: str, allowed_templates: list[str]) -> str | None:
         if allowed_templates:
             return None
         return "active_enrichment_without_allowed_template"
+    if status == "sop_only":
+        return "spl_template_sop_only_no_active_investigation_support"
     if status == "planned":
         return "spl_template_planned_no_free_spl_fallback"
     return "spl_template_unavailable_no_free_spl_fallback"

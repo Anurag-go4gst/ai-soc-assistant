@@ -58,7 +58,7 @@ from app.synthesis.lab_runner import apply_synthesis_allowed_to_sufficiency, run
 from app.synthesis.models import SynthesisStatus
 from app.threat.mitre_decision import resolve_mitre_decision
 from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
-from app.use_cases.content_enrichment import enrichment_spl_governance
+from app.use_cases.content_enrichment import enrichment_spl_governance, enrichment_spl_governance_for_runtime
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
 from app.chat.evidence_planner import plan_evidence
@@ -1604,7 +1604,19 @@ def _candidate_spl_stage(
 
     telemetry = _routes_chat().get_telemetry_connector()
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
-    spl_governance = enrichment_spl_governance(use_case_id)
+    spl_governance = _runtime_spl_governance(use_case_id)
+    template = get_spl_template(template_id)
+    governance_block_reason = _spl_governance_block_reason(template_id, template, spl_governance)
+    if governance_block_reason is not None:
+        return _candidate_clarification(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            reason=governance_block_reason,
+            spl_governance=spl_governance,
+        )
     template_candidate = _candidate_from_default_template(
         trace_id=trace_id,
         skill=skill,
@@ -1632,6 +1644,7 @@ def _candidate_spl_stage(
                 query_signals=query_signals,
                 template_id=template_id,
             )
+            _mark_spl_review_status(candidate_payload, validation_payload)
         telemetry.record_spl_validation(
             trace_id,
             stage="spl_validation_result",
@@ -1642,7 +1655,7 @@ def _candidate_spl_stage(
         )
         return candidate_payload, validation_payload
 
-    if spl_governance and spl_governance.get("spl_template_status") in {"planned", "unavailable"}:
+    if spl_governance and spl_governance.get("spl_template_status") in {"planned", "unavailable", "missing", "unknown", "sop_only"}:
         return _candidate_clarification(
             trace_id=trace_id,
             skill=skill,
@@ -1714,6 +1727,7 @@ def _candidate_spl_stage(
         "capability_profile": profile.model_dump(),
     }
     _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
+    _mark_spl_review_status(candidate_payload, validation_payload)
     if slot_binding_enabled:
         validation_payload = validate_spl_slot_bindings(
             validation_payload,
@@ -1721,6 +1735,7 @@ def _candidate_spl_stage(
             query_signals=query_signals,
             template_id=template_id,
         )
+        _mark_spl_review_status(candidate_payload, validation_payload)
     telemetry.record_spl_validation(
         trace_id,
         stage="spl_validation_result",
@@ -1791,6 +1806,7 @@ def _candidate_from_default_template(
         validation_payload,
         spl_governance or _template_spl_governance(template.template_id, template.status, template.is_production_executable()),
     )
+    _mark_spl_review_status(candidate_payload, validation_payload)
     return candidate_payload, validation_payload
 
 
@@ -1857,6 +1873,7 @@ def _candidate_clarification(
         "llm_fallback_reason": reason,
     }
     _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
+    _mark_spl_review_status(candidate_payload, validation_payload, reason=reason)
     telemetry.record_step(
         trace_id,
         "candidate_spl_generated",
@@ -1896,6 +1913,19 @@ def _candidate_from_llm_fallback(
     re-validated deterministically; a failed/unsupported result surfaces as a
     clarification (non-approved, non-executable), never an executable query.
     """
+    if settings.ai_soc_spl_template_governance_enabled and spl_governance:
+        status = str(spl_governance.get("spl_template_status") or "unknown")
+        allowed_templates = [str(item) for item in spl_governance.get("allowed_spl_templates") or []]
+        if status != "active" or allowed_templates:
+            return _candidate_clarification(
+                trace_id=trace_id,
+                skill=skill,
+                user_query=user_query,
+                telemetry=telemetry,
+                profile=profile,
+                reason=str(spl_governance.get("governed_limitation") or _spl_status_block_reason(status)),
+                spl_governance=spl_governance,
+            )
     if not settings.ai_soc_llm_spl_fallback_enabled:
         return None
 
@@ -1971,6 +2001,7 @@ def _candidate_from_llm_fallback(
         },
     }
     _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
+    _mark_spl_review_status(candidate_payload, validation_payload)
     telemetry.record_step(
         trace_id,
         "candidate_spl_generated",
@@ -2007,6 +2038,66 @@ def _template_spl_governance(
     }
 
 
+def _runtime_spl_governance(use_case_id: str | None) -> dict[str, Any] | None:
+    if settings.ai_soc_spl_template_governance_enabled:
+        runtime_governance = enrichment_spl_governance_for_runtime(use_case_id)
+        if runtime_governance is not None:
+            return runtime_governance
+        legacy_metadata = enrichment_spl_governance(use_case_id)
+        if legacy_metadata is None:
+            return None
+        status = str(legacy_metadata.get("spl_template_status") or "unavailable")
+        return {
+            **legacy_metadata,
+            "allowed_spl_templates": [],
+            "governed_limitation": legacy_metadata.get("governed_limitation")
+            or _spl_status_block_reason(status),
+            "planner_runtime_activation_allowed": False,
+            "governed_enrichment_load_allowed": False,
+            "runtime_spl_governance_allowed": False,
+        }
+    return enrichment_spl_governance(use_case_id)
+
+
+def _spl_governance_block_reason(
+    template_id: str | None,
+    template: Any,
+    governance: dict[str, Any] | None,
+) -> str | None:
+    if not settings.ai_soc_spl_template_governance_enabled or not governance:
+        return None
+
+    status = str(governance.get("spl_template_status") or "unknown")
+    allowed_templates = {str(item) for item in governance.get("allowed_spl_templates") or []}
+    if status == "active":
+        if allowed_templates and not template_id:
+            return "spl_template_missing"
+        if template_id and allowed_templates and template_id not in allowed_templates:
+            return "spl_template_not_allowed_by_enrichment"
+        if template_id and template is None:
+            return "spl_template_missing"
+        if template_id and template is not None and getattr(template, "status", None) != "active":
+            return "spl_template_not_active"
+        if template_id and template is not None and not template.is_production_executable():
+            return "spl_template_not_production_executable"
+        return None
+    if status == "sop_only":
+        return "spl_template_sop_only_no_active_investigation_support"
+    if status == "planned":
+        return "spl_template_planned_no_free_spl_fallback"
+    if status in {"unavailable", "missing", "unknown"}:
+        return "spl_template_unavailable_no_free_spl_fallback"
+    return "spl_template_unknown_no_free_spl_fallback"
+
+
+def _spl_status_block_reason(status: str) -> str:
+    if status == "sop_only":
+        return "spl_template_sop_only_no_active_investigation_support"
+    if status == "planned":
+        return "spl_template_planned_no_free_spl_fallback"
+    return "spl_template_unavailable_no_free_spl_fallback"
+
+
 def _merge_spl_governance(
     candidate_payload: dict[str, Any],
     validation_payload: dict[str, Any],
@@ -2019,12 +2110,23 @@ def _merge_spl_governance(
     evidence_requirements = [str(item) for item in governance.get("evidence_requirements") or []]
     governed_limitation = governance.get("governed_limitation")
     production_executable = template_status == "active" and bool(allowed_templates)
+    template_id = candidate_payload.get("template_id") or validation_payload.get("template_id")
+    allowed_by_enrichment = bool(
+        template_status == "active"
+        and (
+            not template_id
+            or not allowed_templates
+            or str(template_id) in set(allowed_templates)
+        )
+    )
     fields = {
         "spl_template_status": template_status,
         "allowed_spl_templates": allowed_templates,
+        "allowed_by_enrichment": allowed_by_enrichment,
         "enrichment_evidence_requirements": evidence_requirements,
         "governed_limitation": str(governed_limitation) if governed_limitation else None,
         "template_production_executable": production_executable,
+        "execution_enabled": False,
     }
     candidate_payload.update(fields)
     validation_payload.update(fields)
@@ -2033,6 +2135,28 @@ def _merge_spl_governance(
         if str(governed_limitation) not in warnings:
             warnings.append(str(governed_limitation))
         validation_payload["warnings"] = warnings
+
+
+def _mark_spl_review_status(
+    candidate_payload: dict[str, Any],
+    validation_payload: dict[str, Any],
+    *,
+    reason: str | None = None,
+) -> None:
+    approved = bool(validation_payload.get("approved"))
+    if reason is None and not approved:
+        reason = "spl_validation_failed"
+    if reason is None:
+        reason = "candidate_spl_review_only"
+    fields = {
+        "validator_status": "approved" if approved else "blocked",
+        "execution_enabled": False,
+        "review_required": True,
+        "review_required_reason": reason,
+        "execution_eligible": False,
+    }
+    candidate_payload.update(fields)
+    validation_payload.update(fields)
 
 
 def _attach_spl_governance(
