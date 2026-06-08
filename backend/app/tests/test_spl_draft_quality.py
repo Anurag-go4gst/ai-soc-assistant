@@ -83,6 +83,27 @@ search index=fw sourcetype=pan earliest=-24h latest=now
     )
 
 
+def test_esp_noisy_wildcard_in_base_search_is_hard_fail() -> None:
+    bad = """
+search index=fw sourcetype=pan action=allowed (*it* OR *corporate*)
+| eval session_state_norm=lower(coalesce(session_state, ""))
+| stats count by src_ip_norm
+"""
+    report = evaluate_draft_quality(bad, detection_family="esp_it_to_ot_connection")
+    assert any(item.rule_id.endswith("Q13") and item.severity == "hard_fail" for item in report.findings)
+
+
+def test_esp_blank_session_state_pass_is_hard_fail() -> None:
+    bad = """
+search index=fw sourcetype=pan (action=allowed OR action=accept)
+| eval session_state_norm=lower(coalesce(session_state, ""))
+| where session_state_norm="" OR like(session_state_norm, "%establish%")
+| stats count by src_ip_norm
+"""
+    report = evaluate_draft_quality(bad, detection_family="esp_it_to_ot_connection")
+    assert any(item.rule_id.endswith("Q13") for item in report.findings)
+
+
 def test_esp_fuzzy_zone_like_is_warning() -> None:
     bad = """
 search index=fw sourcetype=pan action=allowed earliest=-24h latest=now

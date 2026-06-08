@@ -1,6 +1,6 @@
 # SPL Draft Preview Eval Summary
 
-- Generated: 2026-06-08T18:50:03.552014+00:00
+- Generated: 2026-06-08T19:02:14.582591+00:00
 - Rows: 12
 - Passed: 12
 - Failed: 0
@@ -21,10 +21,14 @@
 - draft_not_catalog_approved: 12/12
 - draft_not_governed_flag: 12/12
 - draft_only_when_flag_on: 12/12
+- esp_cidrmatch_placeholders: 1/12
 - esp_established_filter: 1/12
-- esp_no_spl_not_required_wording: 1/12
+- esp_hil_required_wording: 1/12
+- esp_no_blank_session_pass: 1/12
+- esp_no_contradictory_wording: 1/12
+- esp_no_noisy_wildcards: 1/12
 - esp_session_state_norm: 1/12
-- esp_shift_left_hints: 1/12
+- esp_shift_left_action_filters: 1/12
 - esp_stats_preservation: 1/12
 - execution_disabled: 12/12
 - family_match: 12/12

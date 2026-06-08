@@ -14,7 +14,16 @@ DRAFT_WARNING = (
     "Draft SPL preview only. Not governed. Not approved. Do not execute without SOC review."
 )
 DRAFT_PREVIEW_STATUS_MESSAGE = (
-    "Governed SPL is not available/ready; lab-only draft SPL preview is shown for SOC review."
+    "Governed SPL is not available/ready. A lab-only Draft SPL preview is shown for SOC review. "
+    "It is not governed, not approved, and must not be executed. "
+    "HIL approval is required before any future execution path."
+)
+DRAFT_PREVIEW_FORBIDDEN_PHRASES: tuple[str, ...] = (
+    "spl does not require review",
+    "no spl analysis has been conducted",
+    "no spl analysis",
+    "hil is not required",
+    "spl is not required",
 )
 DRAFT_STATUS = "draft_preview_not_governed"
 DRAFT_SOURCE = "deterministic_pattern"
@@ -244,7 +253,7 @@ search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earli
             r"control\s+center",
         ),
         draft_spl="""
-search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now action=allowed (*it* OR *corporate* OR *ot* OR *control*)
+search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now (action=allowed OR action=accept OR action=permit OR action=success)
 | eval src_zone_norm=lower(coalesce(src_zone, source_zone, zone_src, ""))
 | eval dest_zone_norm=lower(coalesce(dest_zone, destination_zone, zone_dest, ""))
 | eval src_ip_norm=coalesce(src_ip, src, source, "")
@@ -263,15 +272,10 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
     OR cidrmatch("<ot_control_center_cidr>", dest_ip_norm)
   )
   AND (
-    action_norm IN ("allowed", "accept", "permit", "success")
-    OR like(action_norm, "%allow%")
-  )
-  AND (
-    session_state_norm=""
+    session_state_norm IN ("established", "built", "connected", "success")
     OR like(session_state_norm, "%establish%")
     OR like(session_state_norm, "%built%")
     OR like(session_state_norm, "%connected%")
-    OR like(session_state_norm, "%success%")
   )
 | stats
     count as connection_count
@@ -295,10 +299,10 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
 """,
         assumptions=(
             "ESP firewall zones label corporate IT and OT control center segments.",
-            "Shift-left action=allowed plus broad (*it* OR *corporate* OR *ot* OR *control*) raw hints; final IT→OT boundary uses exact zone IN() labels and/or cidrmatch() CIDR placeholders.",
+            "Shift-left (action=allowed OR action=accept OR action=permit OR action=success) in base search; IT→OT boundary uses exact zone IN() labels and/or cidrmatch() CIDR placeholders.",
             "Replace <corporate_it_zone>, <ot_control_center_zone>, <corporate_it_cidr>, and <ot_control_center_cidr> from your ESP source profile; remove unused _alt zone tokens or replace with real alternates.",
-            "Established/successful connections: action_norm allow/permit plus session_state_norm establish/built/connected when the field exists.",
-            "If session_state/connection_state is absent in your sourcetype, confirm mapping during source-profile review — events with empty session_state_norm still pass until the field is mapped.",
+            "Established connections require session_state_norm establish/built/connected/success — blank session state is not treated as established.",
+            "If session_state or connection_state is missing from your sourcetype, map it during source-profile review before relying on this draft.",
             "values() preserves src_zone, dest_zone, rule, app, protocol, dest_port, action, and session_state through stats.",
         ),
         required_source_fields=(

@@ -7,7 +7,7 @@ from typing import Any
 
 from app.chat.contracts.answer_contract import AnswerContract
 from app.schemas.responses import AnalystResponseEnvelope
-from app.spl.draft_preview import DRAFT_PREVIEW_STATUS_MESSAGE
+from app.spl.draft_preview import DRAFT_PREVIEW_FORBIDDEN_PHRASES, DRAFT_PREVIEW_STATUS_MESSAGE
 
 _EXECUTION_LABELS = {
     "review_only_not_executed": "Review only — not executed",
@@ -58,12 +58,42 @@ _EXCLUDED_LIMITATIONS_WHEN_SUCCESS_STATED = {"confirmed_success", "success_after
 _AGG_SPLIT = re.compile(r"\s+(?=(?:count|values|min|max|sum|avg|list|dc|earliest|latest)\()", re.IGNORECASE)
 
 
+def apply_draft_preview_readability(envelope: AnalystResponseEnvelope) -> AnalystResponseEnvelope:
+    """Presentation-only overlay when a lab draft SPL preview is shown without AnswerContract."""
+    if not envelope.draft_spl_code:
+        return envelope
+    payload = envelope.model_dump()
+    payload["draft_spl_code"] = _format_spl_multiline(payload.get("draft_spl_code"))
+    payload["render_sections"] = dict(payload.get("render_sections") or {})
+    payload["section_order"] = list(payload.get("section_order") or [])
+    payload["render_sections"]["draft_spl_preview"] = True
+    if "draft_spl_preview" not in payload["section_order"]:
+        payload["section_order"] = ["draft_spl_preview", *payload["section_order"]]
+    payload["spl_status"] = "review_required"
+    payload["hil_status"] = "required"
+    draft_preview = payload.get("spl_draft_preview") if isinstance(payload.get("spl_draft_preview"), dict) else {}
+    payload["spl_status_detail"] = {
+        "template_status": "unavailable",
+        "generation_status": "draft_preview",
+        "generation": "draft_preview_lab",
+        "review_required": True,
+        "block_reason": "governed_spl_not_ready",
+        "reason": "draft_preview_lab",
+        "reason_display": DRAFT_PREVIEW_STATUS_MESSAGE,
+        "required_fields": list(draft_preview.get("required_source_fields") or []),
+    }
+    payload["direct_answer_summary"] = DRAFT_PREVIEW_STATUS_MESSAGE
+    payload = _scrub_draft_preview_contradictions(payload)
+    payload["one_sentence_finding"] = None
+    return AnalystResponseEnvelope.model_validate(payload)
+
+
 def apply_final_answer_readability(
     envelope: AnalystResponseEnvelope,
     contract: AnswerContract | None,
 ) -> AnalystResponseEnvelope:
     if contract is None:
-        return envelope
+        return apply_draft_preview_readability(envelope)
     payload = envelope.model_dump()
     payload["spl_code"] = _format_spl_multiline(payload.get("spl_code"))
     payload["draft_spl_code"] = _format_spl_multiline(payload.get("draft_spl_code"))
@@ -104,12 +134,28 @@ def apply_final_answer_readability(
             "reason_display": DRAFT_PREVIEW_STATUS_MESSAGE,
             "required_fields": required_fields,
         }
+        payload["hil_status"] = "required"
+        payload = _scrub_draft_preview_contradictions(payload)
     payload["direct_answer_summary"] = _direct_answer_summary(envelope, contract)
     payload = _apply_knowledge_profile_cleanup(payload, contract)
     payload = _dedupe_labels(payload, contract)
     payload = _apply_section_visibility(payload, contract)
     payload["recommended_actions"] = _format_investigation_actions(payload.get("recommended_actions") or [])
     return AnalystResponseEnvelope.model_validate(payload)
+
+
+def _scrub_draft_preview_contradictions(payload: dict[str, Any]) -> dict[str, Any]:
+    """Remove narrative lines that contradict a visible lab draft SPL preview."""
+    for key in ("finding_title", "one_sentence_finding", "review_notice", "splunk_status_line"):
+        value = payload.get(key)
+        if isinstance(value, str) and _contains_draft_forbidden_phrase(value):
+            payload[key] = None
+    return payload
+
+
+def _contains_draft_forbidden_phrase(text: str) -> bool:
+    lowered = (text or "").lower()
+    return any(phrase in lowered for phrase in DRAFT_PREVIEW_FORBIDDEN_PHRASES)
 
 
 def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:

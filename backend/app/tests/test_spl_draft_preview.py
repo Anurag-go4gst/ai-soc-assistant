@@ -269,7 +269,15 @@ def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     spl = preview["draft_spl"]
     base_search = spl.split("|")[0]
     assert "action=allowed" in base_search
-    assert "*it*" in base_search and "*corporate*" in base_search
+    assert "action=accept" in base_search
+    assert "action=permit" in base_search
+    assert "action=success" in base_search
+    assert "*it*" not in base_search
+    assert "*corporate*" not in base_search
+    assert "*ot*" not in base_search
+    assert "*control*" not in base_search
+    assert 'session_state_norm=""' not in spl
+    assert 'session_state_norm IN ("established"' in spl
     assert "session_state_norm" in spl
     assert "connection_state" in spl
     assert "protocol_norm" in spl
@@ -294,26 +302,35 @@ def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     assert preview["execution_enabled"] is False
 
 
-def test_esp_draft_preview_does_not_claim_spl_not_required(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_esp_draft_preview_review_wording(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     response = build_live_chat_response(ChatRequest(message=ESP_QUERY))
     assert response.spl_draft_preview is not None
+    analyst = response.analyst_response
+    assert analyst is not None
     blob = " ".join(
         filter(
             None,
             [
                 response.message,
                 response.note,
-                (response.analyst_response.direct_answer_summary if response.analyst_response else None),
-                (response.analyst_response.spl_status_detail or {}).get("reason_display")
-                if response.analyst_response and response.analyst_response.spl_status_detail
+                analyst.direct_answer_summary,
+                (analyst.spl_status_detail or {}).get("reason_display")
+                if analyst.spl_status_detail
                 else None,
+                analyst.review_notice,
             ],
         )
     ).lower()
-    assert "spl is not required" not in blob
+    assert "spl does not require review" not in blob
     assert "no spl analysis" not in blob
-    assert "governed spl is not available" in blob or "lab-only draft spl preview" in blob
+    assert "hil is not required" not in blob
+    assert "spl is not required" not in blob
+    assert "governed spl is not available" in blob
+    assert "lab-only draft spl preview" in blob
+    assert "hil approval is required" in blob
+    assert analyst.hil_status == "required"
+    assert analyst.spl_status == "review_required"
 
 
 def test_substation_hmi_brute_force_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -13,7 +13,11 @@ from typing import Any, Iterator
 from app.chat.pipeline import build_live_chat_response
 from app.config import settings
 from app.schemas.requests import ChatRequest
-from app.spl.draft_preview import build_draft_preview, match_detection_family
+from app.spl.draft_preview import (
+    DRAFT_PREVIEW_FORBIDDEN_PHRASES,
+    build_draft_preview,
+    match_detection_family,
+)
 from app.spl.draft_quality import evaluate_draft_quality
 from app.spl.draft_preview_lint import _scrub_lab_disclaimers, lint_draft_spl
 
@@ -248,19 +252,35 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool, llm_fallback
                 "values(session_state_norm)",
             )
         )
-        checks["esp_shift_left_hints"] = "*it*" in draft_spl.split("|")[0]
+        base_search = draft_spl.split("|")[0]
+        checks["esp_shift_left_action_filters"] = all(
+            token in base_search for token in ("action=allowed", "action=accept", "action=permit", "action=success")
+        )
+        checks["esp_no_noisy_wildcards"] = "*it*" not in base_search and "*corporate*" not in base_search
+        checks["esp_no_blank_session_pass"] = 'session_state_norm=""' not in draft_spl
+        checks["esp_cidrmatch_placeholders"] = "cidrmatch(" in draft_spl
         if not checks["esp_session_state_norm"]:
             violations.append("esp_missing_session_state_norm")
         if not checks["esp_established_filter"]:
             violations.append("esp_missing_established_filter")
         if not checks["esp_stats_preservation"]:
             violations.append("esp_missing_stats_preservation")
-        if not checks["esp_shift_left_hints"]:
-            violations.append("esp_missing_shift_left_hints")
+        if not checks["esp_shift_left_action_filters"]:
+            violations.append("esp_missing_shift_left_action_filters")
+        if not checks["esp_no_noisy_wildcards"]:
+            violations.append("esp_noisy_wildcard_tokens")
+        if not checks["esp_no_blank_session_pass"]:
+            violations.append("esp_blank_session_state_pass")
     if draft_enabled and draft and family == "esp_it_to_ot_connection":
-        checks["esp_no_spl_not_required_wording"] = "spl is not required" not in text.lower()
-        if not checks["esp_no_spl_not_required_wording"]:
-            violations.append("esp_spl_not_required_wording")
+        lowered = text.lower()
+        checks["esp_no_contradictory_wording"] = not any(
+            phrase in lowered for phrase in DRAFT_PREVIEW_FORBIDDEN_PHRASES
+        )
+        checks["esp_hil_required_wording"] = "hil approval is required" in lowered
+        if not checks["esp_no_contradictory_wording"]:
+            violations.append("esp_contradictory_review_wording")
+        if not checks["esp_hil_required_wording"]:
+            violations.append("esp_missing_hil_required_wording")
 
     return DraftEvalRow(
         question_id=question_id,

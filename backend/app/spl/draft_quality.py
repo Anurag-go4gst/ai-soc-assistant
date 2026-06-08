@@ -28,6 +28,8 @@ _FUZZY_ESP_ZONE = re.compile(
     r'like\s*\(\s*(?:src|dest)_zone_norm\s*,\s*"%',
     re.IGNORECASE,
 )
+_ESP_NOISY_WILDCARD = re.compile(r"\(\s*\*it\*|\*corporate\*|\*ot\*|\*control\*", re.IGNORECASE)
+_ESP_BLANK_SESSION_PASS = re.compile(r'session_state_norm\s*=\s*""', re.IGNORECASE)
 _STRFTIME = re.compile(r"\bstrftime\s*\(", re.IGNORECASE)
 _STRFTIME_ON_TIME = re.compile(
     r"\bstrftime\s*\(\s*(?:_time|event_time|lockout_time)\s*,",
@@ -45,7 +47,9 @@ _FAMILY_SHIFT_LEFT: dict[str, tuple[tuple[re.Pattern[str], str], ...]] = {
     "windows_privileged_group_changes": (
         (re.compile(r"EventCode\s*=\s*4728", re.I), "EventCode=4728/4732/4756"),
     ),
-    "esp_it_to_ot_connection": ((re.compile(r"action\s*=\s*allowed", re.I), "action=allowed"),),
+    "esp_it_to_ot_connection": (
+        (re.compile(r"action\s*=\s*(?:allowed|accept|permit|success)", re.I), "action=allowed|accept|permit|success"),
+    ),
     "substation_hmi_brute_force": (
         (re.compile(r"\b(?:failure|fail|denied)\b", re.I), "(failure OR fail OR denied)"),
     ),
@@ -455,6 +459,20 @@ def evaluate_draft_quality(
             "SOC-STD-SPL-001-Q12",
             "warning",
             "ESP IT→OT zone matching should use exact IN() zone labels or cidrmatch(), not fuzzy like() substrings.",
+        )
+
+    if detection_family == "esp_it_to_ot_connection" and _ESP_NOISY_WILDCARD.search(spl):
+        report.add(
+            "SOC-STD-SPL-001-Q13",
+            "hard_fail",
+            "ESP IT→OT base search must not use noisy short wildcards (*it*, *corporate*, *ot*, *control*).",
+        )
+
+    if detection_family == "esp_it_to_ot_connection" and _ESP_BLANK_SESSION_PASS.search(spl):
+        report.add(
+            "SOC-STD-SPL-001-Q13",
+            "hard_fail",
+            "ESP IT→OT draft must not treat blank session_state_norm as established.",
         )
 
     return report.finalize()

@@ -787,7 +787,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         message = maybe_attach_draft_preview_message(message, spl_draft_preview)
         note = (
             "Governed template SPL was not produced. Lab-only draft SPL preview shown for SOC review. "
-            "No MCP execution was run."
+            "HIL approval is required before any future execution path. No MCP execution was run."
         )
 
     evidence_origin = resolve_response_evidence_origin(

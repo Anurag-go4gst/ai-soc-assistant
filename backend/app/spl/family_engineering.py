@@ -80,7 +80,8 @@ FAMILY_ENGINEERING_BLOCKS: dict[str, str] = {
     "esp_it_to_ot_connection": """
 5. ESP IT to OT Boundary
 - Base search:
-  index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> action=allowed (*it* OR *corporate* OR *ot* OR *control*)
+  index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> (action=allowed OR action=accept OR action=permit OR action=success)
+- Do not use noisy short wildcards such as (*it* OR *corporate* OR *ot* OR *control*) in base search.
 - Normalize:
   src_zone_norm, dest_zone_norm, src_ip_norm, dest_ip_norm, app_norm
   protocol_norm = lower(coalesce(protocol, proto, protocol_name, transport, ""))
@@ -88,7 +89,7 @@ FAMILY_ENGINEERING_BLOCKS: dict[str, str] = {
   action_norm = lower(coalesce(action, status, result, disposition, ""))
   session_state_norm = lower(coalesce(session_state, connection_state, state, session_status, tcp_state, ""))
 - Confirm corporate IT to OT with exact zone IN() labels and/or cidrmatch() CIDR placeholders (no fuzzy like("%it%") zone matching).
-- Filter established/successful connections when session_state_norm is present; note missing session_state in assumptions if unmapped.
+- Established connections require session_state_norm establish/built/connected/success; do not pass blank session_state_norm as established.
 - Preserve values(src_zone_norm), values(dest_zone_norm), values(rule), values(app_norm), values(protocol_norm), values(dest_port_norm), values(action_norm), values(session_state_norm) in stats.
 """.strip(),
     "substation_hmi_brute_force": """

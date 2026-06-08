@@ -8,7 +8,7 @@ from typing import Any
 from app.config import settings
 from app.schemas.responses import AnalystResponseEnvelope
 from app.chat.contracts.answer_contract import build_answer_contract
-from app.chat.final_answer_readability import apply_final_answer_readability
+from app.chat.final_answer_readability import apply_draft_preview_readability, apply_final_answer_readability
 from app.threat.mitre_evidence_preconditions import PRECONDITION_BY_ID, not_claimed_reason
 
 _INVESTIGATION_GUIDANCE_USE_CASES = frozenset(
@@ -187,6 +187,8 @@ def build_analyst_response_for_live(
     )
     if contract is not None:
         envelope = apply_final_answer_readability(envelope, contract)
+    elif draft_spl_code:
+        envelope = apply_draft_preview_readability(envelope)
     return envelope
 
 
