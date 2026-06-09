@@ -18,6 +18,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+# Evidence tiers — MITRE `evidence_supported` requires source-grounded tier only.
+EVIDENCE_TIER_SOURCE_GROUNDED = "source_grounded"
+EVIDENCE_TIER_SIGNAL_ONLY = "signal_only"
+EVIDENCE_TIER_STUB_OR_METADATA = "stub_or_metadata"
+
+_SOURCE_GROUNDED_SOURCE_TYPES = frozenset({"splunk_mcp"})
+_STUB_SOURCE_TYPES = frozenset({"manual", "splunk_mcp_saia", "rag", "soc_kb"})
+
 
 @dataclass(frozen=True)
 class TechniquePrecondition:
@@ -94,6 +102,58 @@ def not_claimed_reason(technique_id: str) -> str:
     if precondition is None:
         return "Required supporting evidence was not present in the supplied scenario."
     return precondition.not_claimed_reason
+
+
+def resolve_evidence_tier(
+    *,
+    source_evidence: list[dict[str, Any]] | None = None,
+    execution: dict[str, Any] | None = None,
+    source_profile_missing: bool = False,
+) -> str:
+    """Classify whether present signals can support evidence-supported MITRE claims.
+
+    Query-signal-only and stub/metadata envelopes never qualify as source-grounded.
+    """
+    if source_profile_missing:
+        return EVIDENCE_TIER_SIGNAL_ONLY
+
+    exec_status = str((execution or {}).get("status") or "")
+    if exec_status == "executed":
+        for item in source_evidence or []:
+            if not isinstance(item, dict):
+                continue
+            source_type = str(item.get("source_type") or "")
+            collection_status = str(item.get("collection_status") or "")
+            warnings = {str(w) for w in item.get("warnings") or []}
+            if (
+                source_type in _SOURCE_GROUNDED_SOURCE_TYPES
+                and collection_status == "collected"
+                and "spl_not_required_for_skill" not in warnings
+            ):
+                return EVIDENCE_TIER_SOURCE_GROUNDED
+
+    envelopes = [item for item in (source_evidence or []) if isinstance(item, dict)]
+    if not envelopes:
+        return EVIDENCE_TIER_SIGNAL_ONLY
+
+    if all(
+        str(item.get("source_type") or "") in _STUB_SOURCE_TYPES
+        or str(item.get("collection_status") or "") in {"skipped", "stub", "metadata"}
+        for item in envelopes
+    ):
+        return EVIDENCE_TIER_STUB_OR_METADATA
+
+    return EVIDENCE_TIER_SIGNAL_ONLY
+
+
+def cap_mitre_status_for_evidence_tier(status: str, evidence_tier: str) -> str:
+    """Downgrade evidence-supported when tier is not source-grounded."""
+    normalized = str(status or "candidate")
+    if normalized != "evidence_supported":
+        return normalized
+    if evidence_tier == EVIDENCE_TIER_SOURCE_GROUNDED:
+        return normalized
+    return "requires_validation" if evidence_tier == EVIDENCE_TIER_STUB_OR_METADATA else "candidate"
 
 
 def evaluate_pilot_mitre_evidence_status(

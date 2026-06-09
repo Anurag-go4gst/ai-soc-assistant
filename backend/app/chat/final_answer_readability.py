@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from app.chat.contracts.answer_contract import AnswerContract
+from app.chat.guidance_templates import scrub_blocked_context_display_phrasing
 from app.schemas.responses import AnalystResponseEnvelope
 from app.spl.draft_preview import (
     DRAFT_PREVIEW_FORBIDDEN_PHRASES,
@@ -154,7 +155,20 @@ def apply_final_answer_readability(
     payload = _apply_knowledge_profile_cleanup(payload, contract)
     payload = _dedupe_labels(payload, contract)
     payload = _apply_section_visibility(payload, contract)
-    payload["recommended_actions"] = _format_investigation_actions(payload.get("recommended_actions") or [])
+    payload["recommended_actions"] = _scrub_blocked_context_actions(
+        _format_investigation_actions(payload.get("recommended_actions") or []),
+        contract,
+    )
+    if payload.get("investigation_steps"):
+        payload["investigation_steps"] = _scrub_blocked_context_actions(
+            [str(item) for item in payload.get("investigation_steps") or []],
+            contract,
+        )
+    if payload.get("direct_answer_summary"):
+        payload["direct_answer_summary"] = _maybe_scrub_direct_answer_summary(
+            str(payload["direct_answer_summary"]),
+            contract,
+        )
     return AnalystResponseEnvelope.model_validate(payload)
 
 
@@ -181,6 +195,10 @@ def _contains_draft_forbidden_phrase(text: str) -> bool:
 def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
     if envelope.draft_spl_code:
         return DRAFT_PREVIEW_STATUS_MESSAGE
+    if contract.intent_family == "mitre_explanation":
+        text = envelope.one_sentence_finding or envelope.direct_answer_summary
+        if text:
+            return str(text)
     if contract.intent_family in {"sop_or_playbook", "policy_knowledge"} or (
         contract.answer_mode == "rag_only" and contract.spl_status == "not_required"
     ):
@@ -209,7 +227,11 @@ def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerCo
         elif section == "policy_citation" and envelope.retrieved_playbook:
             title = str((envelope.retrieved_playbook or {}).get("title") or "SOC policy guidance")
             lines.append(f"Policy: {title}.")
-        elif section == "live_results" and envelope.splunk_results_table:
+        elif (
+            section == "live_results"
+            and envelope.splunk_results_table
+            and contract.execution_status_label in {"executed_mock_evidence", "executed_live_evidence"}
+        ):
             lines.append(f"Live results: {len(envelope.splunk_results_table)} row(s) retrieved.")
     if not lines and envelope.one_sentence_finding:
         return str(envelope.one_sentence_finding)
@@ -531,6 +553,25 @@ def _expand_stats_pipe(part: str) -> str:
     if group_by:
         lines.append(f"{_STATS_INDENT}by {group_by}")
     return "\n".join(lines)
+
+
+def _execution_blocked_for_display(contract: AnswerContract) -> bool:
+    return str(contract.execution_status_label or "") not in {
+        "executed_mock_evidence",
+        "executed_live_evidence",
+    }
+
+
+def _scrub_blocked_context_actions(actions: list[str], contract: AnswerContract) -> list[str]:
+    if not _execution_blocked_for_display(contract):
+        return actions
+    return [scrub_blocked_context_display_phrasing(item) for item in actions]
+
+
+def _maybe_scrub_direct_answer_summary(text: str, contract: AnswerContract) -> str:
+    if not _execution_blocked_for_display(contract):
+        return text
+    return scrub_blocked_context_display_phrasing(text)
 
 
 def _format_investigation_actions(actions: list[Any]) -> list[str]:

@@ -7,8 +7,10 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.threat.mitre_evidence_preconditions import (
+    cap_mitre_status_for_evidence_tier,
     evaluate_pilot_mitre_evidence_status,
     precondition_negated,
+    resolve_evidence_tier,
 )
 from app.threat.mitre_registry_schema import MitreRegistryMetadata
 
@@ -142,11 +144,19 @@ def resolve_mitre_decision(
     # `rejected_techniques` and are not re-listed here.
     blocked_set = set(blocked)
     non_blocked = [tid for tid in candidates if tid not in blocked_set]
+    evidence_tier = resolve_evidence_tier(
+        source_evidence=_kwargs.get("source_evidence"),
+        execution=_kwargs.get("execution"),
+        source_profile_missing=bool(_kwargs.get("source_profile_missing")),
+    )
     status_details = {
-        tid: evaluate_pilot_mitre_evidence_status(
-            use_case_id=use_case_id,
-            technique_id=tid,
-            present_evidence=present_evidence,
+        tid: _cap_status_detail(
+            evaluate_pilot_mitre_evidence_status(
+                use_case_id=use_case_id,
+                technique_id=tid,
+                present_evidence=present_evidence,
+            ),
+            evidence_tier,
         )
         for tid in non_blocked
     }
@@ -196,6 +206,23 @@ def resolve_mitre_decision(
         reason="Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation.",
         registry_metadata=meta,
     ).model_copy(update={"answer_visible": bool(visible_ids)})
+
+
+def _cap_status_detail(detail: dict[str, Any], evidence_tier: str) -> dict[str, Any]:
+    capped = dict(detail)
+    current = str(capped.get("status") or "candidate")
+    capped_status = cap_mitre_status_for_evidence_tier(current, evidence_tier)
+    if capped_status != current:
+        capped["status"] = capped_status
+        if capped_status in {"candidate", "requires_validation"}:
+            capped["reason"] = (
+                f"{capped.get('reason') or ''} "
+                "Signal-only or unvalidated context cannot support evidence-supported MITRE; "
+                "validate against source logs before upgrading."
+            ).strip()
+        if capped_status != "evidence_supported":
+            capped["evidence_keys"] = []
+    return capped
 
 
 def _answer_goal(intent_classification: dict[str, Any] | None) -> set[str]:

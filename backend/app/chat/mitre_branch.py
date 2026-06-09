@@ -50,6 +50,7 @@ def run_mitre_evidence_branch(
     source_evidence: list[dict[str, Any]] | None = None,
     structured_context: dict[str, Any] | None = None,
     alert_context_present: bool = False,
+    execution: dict[str, Any] | None = None,
 ) -> tuple[list[MitreMappingDecision], dict[str, Any] | None, MitreBranchResult]:
     if not settings.ai_soc_planner_mitre_branch_enabled:
         return [], None, MitreBranchResult(status="skipped", reason="planner_mitre_branch_disabled")
@@ -98,6 +99,9 @@ def run_mitre_evidence_branch(
         alert_context_present=alert_context_present,
         negative_evidence=negative_evidence,
         use_case_review_guidance=bool((query_signals or {}).get("use_case_review_guidance")),
+        source_evidence=source_evidence,
+        execution=execution,
+        source_profile_missing=_source_profile_missing(evidence_plan),
     )
     branch_status = "requires_context" if decision.requires_alert_context else "completed"
     branch = _branch_result(
@@ -182,6 +186,16 @@ def _branch_result(
         ruled_out_mitre=buckets["ruled_out"],
         metadata_only_candidates=list(decision.registry_candidates),
     )
+
+
+def _source_profile_missing(evidence_plan: dict[str, Any] | None) -> bool:
+    if not isinstance(evidence_plan, dict):
+        return False
+    warnings = {str(item) for item in evidence_plan.get("warnings") or []}
+    if "source_profile_missing" in warnings:
+        return True
+    missing = evidence_plan.get("missing_source_profile_fields")
+    return bool(missing)
 
 
 def _status_for_rejected_technique(detail: dict[str, Any]) -> str:

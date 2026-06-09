@@ -335,7 +335,8 @@ def _unsafe_containment_detected(intent: dict[str, Any], query_understanding: An
         return True
     raw_query = getattr(query_understanding, "raw_query", None)
     if isinstance(raw_query, str) and raw_query.strip():
-        return bool(extract_query_signals(raw_query).get("block_or_contain"))
+        signals = extract_query_signals(raw_query)
+        return bool(signals.get("block_or_contain") or signals.get("explicit_run_spl"))
     return False
 
 

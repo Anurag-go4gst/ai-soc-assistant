@@ -59,7 +59,9 @@ def build_analyst_response_for_live(
     llm_candidate = llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None
     draft_spl_code = str(draft_preview.get("draft_spl") or "") or None if draft_preview else None
     spl_code = _candidate_spl_text(candidate_spl, spl_validation, draft)
-    table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(draft.get("splunk_results_table"))
+    table: list[dict[str, Any]] = []
+    if execution_payload.get("status") == "executed":
+        table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(draft.get("splunk_results_table"))
     decision_payload = mitre_decision if isinstance(mitre_decision, dict) else None
     mitre_rows = _mitre_display_rows(mitre_mappings, user_query=user_query)
     if not mitre_rows and decision_payload and decision_payload.get("answer_visible"):
@@ -105,6 +107,20 @@ def build_analyst_response_for_live(
         sop_guidance=sop_guidance,
     )
     if not any([table, mitre_rows, not_claimed, playbook, summary, recommended, spl_code, draft_spl_code, llm_candidate]):
+        minimal = build_minimal_guidance_envelope(
+            user_query=user_query,
+            message=message,
+            contract=contract,
+            evidence_plan=plan,
+            human_review=human_review if isinstance(human_review, dict) else None,
+            execution=execution_payload,
+            mitre_rows=mitre_rows,
+            draft_spl_code=draft_spl_code,
+            spl_draft_preview=draft_preview,
+            selected_use_case_label=selected_use_case_label,
+        )
+        if minimal is not None:
+            return minimal
         return None
     resolved_use_case_label = resolve_analyst_use_case_label(
         use_case_id=str(plan.get("use_case_id") or "") or None,
@@ -199,6 +215,93 @@ def build_analyst_response_for_live(
     return envelope
 
 
+def build_minimal_guidance_envelope(
+    *,
+    user_query: str,
+    message: str,
+    contract: Any | None,
+    evidence_plan: dict[str, Any],
+    human_review: dict[str, Any] | None,
+    execution: dict[str, Any],
+    mitre_rows: list[dict[str, Any]],
+    draft_spl_code: str | None,
+    spl_draft_preview: dict[str, Any] | None,
+    selected_use_case_label: str | None,
+) -> AnalystResponseEnvelope | None:
+    """Guidance-only envelope when evidence conclusions are unavailable."""
+    checklist = _safe_display_list(evidence_plan.get("checklist") or [])
+    investigation = _safe_display_list(evidence_plan.get("investigation_workflow") or [])
+    limitations = _safe_display_list(evidence_plan.get("limitations") or [])
+    required = [str(item) for item in evidence_plan.get("required_evidence_keys") or [] if item]
+    if contract is not None:
+        checklist = checklist or list(contract.analyst_checklist_safe)
+        investigation = investigation or list(contract.investigation_steps)
+        limitations = limitations or list(contract.limitations)
+        required = required or list(contract.required_evidence)
+    has_guidance = bool(checklist or investigation or limitations or required or draft_spl_code or spl_draft_preview)
+    if not has_guidance and (not message or _ROUTING_COMPLETE_ONLY.search(message)):
+        return None
+
+    direct = str(message or "").strip()
+    if contract is not None and contract.missing_evidence:
+        direct = (
+            f"{direct}\n\nEvidence still needed: "
+            + "; ".join(str(item) for item in contract.missing_evidence[:8])
+        ).strip()
+    if checklist:
+        checklist_block = "\n".join(f"- {item}" for item in checklist[:8])
+        prefix = f"SOC review checklist:\n\n{checklist_block}"
+        direct = f"{direct}\n\n{prefix}".strip() if direct else prefix
+    recommended: list[str] = []
+    for item in checklist[:6]:
+        recommended.append(str(item))
+    for item in investigation[:4]:
+        text = str(item)
+        if text not in recommended:
+            recommended.append(text)
+    exec_label = str(execution.get("status") or "skipped")
+    review_notice = None
+    if isinstance(human_review, dict) and human_review.get("required"):
+        review_notice = str(
+            human_review.get("safe_message_for_user") or "Analyst review is required before execution."
+        )
+    elif draft_spl_code or spl_draft_preview:
+        review_notice = "Candidate SPL — review only; Splunk search was not run."
+
+    envelope = AnalystResponseEnvelope(
+        scenario_label=scrub_auth_anomaly_display_text(selected_use_case_label, user_query=user_query),
+        finding_title=selected_use_case_label or "SOC investigation guidance",
+        one_sentence_finding=direct[:1200] if direct else "SOC investigation guidance",
+        direct_answer_summary=direct[:1200] if direct else None,
+        mitre_mappings=mitre_rows,
+        recommended_actions=recommended,
+        spl_code=None,
+        draft_spl_code=draft_spl_code,
+        spl_draft_preview=spl_draft_preview,
+        execution_status=exec_label,
+        response_profile="hybrid_alert_review",
+        review_notice=review_notice,
+        analyst_checklist=checklist,
+        limitations=limitations,
+    )
+    if contract is not None:
+        envelope = apply_final_answer_readability(envelope, contract)
+        if recommended and not envelope.recommended_actions:
+            envelope = envelope.model_copy(update={"recommended_actions": recommended})
+    elif spl_draft_preview:
+        envelope = apply_draft_preview_readability(envelope)
+    return envelope
+
+
+_ROUTING_COMPLETE_ONLY = re.compile(r"^routing complete\.?\s*spl is not required", re.IGNORECASE)
+
+
+def _safe_display_list(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    return [str(item) for item in values if item]
+
+
 def summarize_failed_login_events(rows: list[dict[str, Any]]) -> str | None:
     """Explain total failed-login event count when the table supports it."""
     if not rows:
@@ -240,6 +343,8 @@ def _sum_failed_login_events(rows: list[dict[str, Any]]) -> tuple[int | None, li
 def _splunk_table_from_evidence(source_evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for envelope in source_evidence:
         if envelope.get("source_type") != "splunk_mcp":
+            continue
+        if str(envelope.get("collection_status") or "") != "collected":
             continue
         preview = envelope.get("preview_rows") or []
         if not isinstance(preview, list):

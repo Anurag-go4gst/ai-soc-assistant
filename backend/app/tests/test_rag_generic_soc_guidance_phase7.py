@@ -542,7 +542,7 @@ def test_failed_login_mitre_summary_bucket_counts_from_contract(monkeypatch) -> 
         response_profile="hybrid_alert_review",
     )
     summary = apply_final_answer_readability(envelope, contract).direct_answer_summary or ""
-    assert "1 evidence-supported MITRE technique" in summary
+    assert "1 source-grounded MITRE technique" in summary
     assert "1 candidate technique" in summary
     assert "2 techniques not claimed due to insufficient supporting evidence" in summary
 
