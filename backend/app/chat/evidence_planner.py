@@ -14,12 +14,16 @@ from app.use_cases.content_enrichment import (
 
 _CATALOG_PROJECTION_WHEN_INACTIVE = frozenset(
     {
+        "auth_failed_login_spike",
+        "auth_success_after_failure",
         "edr_powershell_suspicious_command",
         "dns_beaconing_candidate",
         "dns_tunneling_candidate",
         "dns_unusual_query_volume",
         "edr_suspicious_process",
         "email_phishing_header_review",
+        "net_vpn_login_anomaly",
+        "endpoint_ransomware_impact_review",
     }
 )
 

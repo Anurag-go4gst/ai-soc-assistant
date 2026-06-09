@@ -270,6 +270,43 @@ def curated_enrichment_trace(use_case_id: str | None) -> dict[str, Any] | None:
     return payload
 
 
+def _scrub_guidance_projection_lists(record: dict[str, Any], field: str) -> list[str]:
+    from app.chat.guidance_templates import scrub_blocked_context_text_list
+
+    return scrub_blocked_context_text_list([str(item) for item in record.get(field) or [] if item])
+
+
+def get_guidance_only_enrichment_projection(use_case_id: str | None) -> dict[str, Any] | None:
+    """Project safe guidance fields when runtime activation is blocked.
+
+    Must not enable SPL approval, MITRE evidence-supported status, severity
+    escalation, execution, or runtime_active claims.
+    """
+    record = get_content_enrichment(use_case_id)
+    if record is None:
+        return None
+    return {
+        "use_case_id": str(record.get("use_case_id") or record.get("proposed_use_case_id") or use_case_id or ""),
+        "evidence_requirements": _scrub_guidance_projection_lists(record, "evidence_requirements"),
+        "investigation_workflow": _scrub_guidance_projection_lists(record, "investigation_workflow"),
+        "analyst_checklist": _scrub_guidance_projection_lists(record, "analyst_checklist"),
+        "answer_rules": _scrub_guidance_projection_lists(record, "answer_rules"),
+        "limitations": _scrub_guidance_projection_lists(record, "limitations"),
+        "not_claimed_defaults": [str(item) for item in record.get("not_claimed_defaults") or [] if item],
+        "recommended_pivots": [str(item) for item in record.get("recommended_pivots") or [] if item],
+        "required_sources": [str(item) for item in record.get("required_sources") or [] if item],
+        "optional_sources": [str(item) for item in record.get("optional_sources") or [] if item],
+        "allowed_spl_templates": [],
+        "spl_template_status": "unavailable",
+        "rag_doc_ids": [],
+        "mitre_candidates_metadata_only": [str(item) for item in record.get("mitre_candidates") or [] if item],
+        "planning_or_analytic_skill": record.get("planning_or_analytic_skill"),
+        "activation_lifecycle_stage": "guidance_only_projection",
+        "runtime_support_status": record.get("runtime_support_status"),
+        "guidance_only": True,
+    }
+
+
 def llm_facing_curated_enrichment_projection(context: CuratedEnrichmentContext | None) -> dict[str, Any] | None:
     """Return a sanitized future composer payload.
 

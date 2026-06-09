@@ -45,6 +45,20 @@ def classify_intent(
     candidate_mappings: dict[str, Any],
     query_understanding: QueryUnderstandingResult | None = None,
 ) -> IntentClassification:
+    if signals.get("explicit_run_spl"):
+        return _build_classification(
+            intent_family="clarification_required",
+            primary_intent="human_review",
+            query_type="ask_for_next_action",
+            answer_goal=["clarification", "analyst_action_guidance"],
+            confidence=0.9,
+            requires_clarification=True,
+            requires_hil=True,
+            action_mode="recommend_only",
+            reason="Direct SPL execution and live-results request requires human review; execution is blocked.",
+            requested_output_type="ACTION_PLAN",
+        )
+
     if signals.get("block_or_contain"):
         return _build_classification(
             intent_family="clarification_required",
@@ -57,6 +71,40 @@ def classify_intent(
             action_mode="recommend_only",
             reason="Destructive or containment action requires human review and overrides SPL generation.",
             requested_output_type="ACTION_PLAN",
+        )
+
+    if signals.get("conceptual_mitre_judgment"):
+        return _build_classification(
+            intent_family="mitre_explanation",
+            primary_intent="mitre_explanation",
+            secondary_intents=["analyst_action_guidance"],
+            query_type="ask_for_mapping",
+            answer_goal=["mitre_explanation", "analyst_action_guidance"],
+            confidence=0.9,
+            requires_clarification=False,
+            action_mode="recommend_only",
+            reason=(
+                "Conceptual MITRE judgment requires a direct not-enough-to-confirm answer, "
+                "candidate-only framing, and evidence preconditions without alert logs."
+            ),
+            requested_output_type="INVESTIGATION",
+        )
+
+    if signals.get("mitre_evidence_threshold"):
+        return _build_classification(
+            intent_family="hybrid_alert_review",
+            primary_intent="attack_discovery",
+            secondary_intents=["mitre_mapping"],
+            query_type="ask_for_mapping",
+            answer_goal=["procedural_steps", "mitre_explanation", "analyst_action_guidance"],
+            confidence=0.9,
+            requires_clarification=False,
+            action_mode="recommend_only",
+            reason=(
+                "MITRE evidence-threshold question requires checklist, required evidence, "
+                "and candidate-only framing without declaration."
+            ),
+            requested_output_type="INVESTIGATION",
         )
 
     if signals.get("spl_generation") and signals.get("run_execution"):
@@ -171,6 +219,8 @@ def classify_intent(
         or "show me the sop" in normalized_query
         or "show me the playbook" in normalized_query
         or "show me the runbook" in normalized_query
+        or ("show me the" in normalized_query and "playbook" in normalized_query)
+        or bool(signals.get("sop_show_request"))
     )
     if signals.get("playbook_procedure") and (
         explicit_sop_only or signals.get("spl_suppressed")

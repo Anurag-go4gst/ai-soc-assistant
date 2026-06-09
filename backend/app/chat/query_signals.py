@@ -59,6 +59,8 @@ def extract_query_signals(
             "what is the policy",
             "escalation criteria",
             "escalation threshold",
+            "before escalating",
+            "l1 check",
         )
     )
     escalation_without_policy_word = "escalat" in normalized and "policy" not in normalized
@@ -67,12 +69,43 @@ def extract_query_signals(
         term in normalized
         for term in ("failed login", "failed logins", "failed-login", "login failure", "login failures")
     )
-    spl_suppressed = _spl_generation_suppressed(normalized)
+    sop_show_request = (
+        any(
+            term in normalized for term in ("playbook", "runbook", "sop", "standard operating procedure")
+        )
+        and (
+            ("show" in normalized and "playbook" in normalized)
+            or "show me the sop" in normalized
+            or "show me the runbook" in normalized
+            or normalized.startswith("show sop")
+            or normalized.startswith("show runbook")
+        )
+        and not any(
+            term in normalized
+            for term in (
+                "investigate",
+                "failed login",
+                "search ",
+                "find ",
+                "run the spl",
+                "run spl",
+                "execute spl",
+            )
+        )
+    )
+    explicit_run_spl = bool(
+        re.search(r"\b(run the spl|run spl|execute the spl|execute spl)\b", normalized)
+        or (
+            "give me results" in normalized
+            and ("spl" in normalized or "query" in normalized)
+        )
+    )
+    spl_suppressed = _spl_generation_suppressed(normalized) or sop_show_request
     explicit_log_search = _explicit_log_search_requested(normalized)
     spl_generation = (not spl_suppressed) and (
-        _spl_generation_requested(normalized) or explicit_log_search
+        _spl_generation_requested(normalized) or explicit_log_search or explicit_run_spl
     )
-    run_execution = any(
+    run_execution = explicit_run_spl or any(
         term in normalized
         for term in (
             " and run",
@@ -224,7 +257,38 @@ def extract_query_signals(
     dga = "dga" in normalized or "domain generation" in normalized
     block_or_contain = any(
         term in normalized
-        for term in ("block all", "block suspicious", "contain ", "isolate ", "quarantine ", "disable all")
+        for term in (
+            "block all",
+            "block suspicious",
+            "block this ip",
+            "block the ip",
+            "block ip ",
+            "block on the firewall",
+            "push a firewall",
+            "push firewall",
+            "firewall rule to deny",
+            "deny rule",
+            "contain ",
+            "isolate ",
+            "quarantine ",
+            "disable all",
+            "disable this user",
+            "disable the user",
+            "kill the process",
+            "kill process",
+        )
+    )
+    conceptual_mitre_judgment = bool(
+        re.search(r"\b(enough to confirm|alone confirm|treated as lateral movement|prove compromise)\b", normalized)
+        and "?" in query
+    )
+    mitre_evidence_threshold = bool(
+        re.search(
+            r"\b(what evidence is needed|evidence (?:is )?needed|required evidence|evidence required)\b.{0,96}"
+            r"\b(before|prior to|to declare|to call|to label)\b",
+            normalized,
+        )
+        or re.search(r"\bbefore (?:declaring|calling|labeling|confirming)\b", normalized)
     )
     procedural_investigation = any(
         term in normalized
@@ -255,6 +319,12 @@ def extract_query_signals(
             "proxy",
             "endpoint",
             "vpn",
+            "mfa",
+            "authentication",
+            "failed login",
+            "login attempt",
+            "windows",
+            "service start",
             "powershell",
             "ot server",
             "scada",
@@ -275,28 +345,38 @@ def extract_query_signals(
             "what should soc check",
             "what should soc investigate",
             "what should soc validate",
+            "what should soc review",
+            "what should the analyst review",
+            "what should l1",
+            "what should l1 check",
         )
     )
     guidance_alert_context = alert_context_present and investigation_triage_guidance
     use_case_review_guidance = (
-        (not alert_context_present or guidance_alert_context)
-        and not run_execution
-        and (
-            review_only_spl
-            or (investigation_triage_guidance and security_log_investigation)
-        )
-        and (
-            powershell_context
-            or dns_beaconing
-            or procedural_investigation
-            or security_log_investigation
-            or any(
-                term in normalized
-                for term in (
-                    "analyst checklist",
-                    "required evidence",
-                    "evidence required",
-                    "limitations",
+        conceptual_mitre_judgment
+        or mitre_evidence_threshold
+        or (
+            (not alert_context_present or guidance_alert_context)
+            and not run_execution
+            and (review_only_spl or investigation_triage_guidance)
+            and (
+                powershell_context
+                or dns_beaconing
+                or procedural_investigation
+                or security_log_investigation
+                or investigation_triage_guidance
+                or mitre_evidence_threshold
+                or any(
+                    term in normalized
+                    for term in (
+                        "analyst checklist",
+                        "required evidence",
+                        "evidence required",
+                        "limitations",
+                        "mfa",
+                        "failed service",
+                        "service start",
+                    )
                 )
             )
         )
@@ -310,6 +390,7 @@ def extract_query_signals(
             and not policy_terms
             and not block_or_contain
             and not spl_suppressed
+            and not sop_show_request
         )
     )
     mitre_map = (not use_case_review_guidance) and (
@@ -362,6 +443,9 @@ def extract_query_signals(
         "knowledge_definition": knowledge_definition,
         "dga": dga,
         "block_or_contain": block_or_contain,
+        "conceptual_mitre_judgment": conceptual_mitre_judgment,
+        "mitre_evidence_threshold": mitre_evidence_threshold,
+        "sop_show_request": sop_show_request,
         "procedural_investigation": procedural_investigation,
         "time_window_24h": time_window_24h,
         "exclude_service_accounts": exclude_service_accounts,
@@ -428,7 +512,8 @@ def extract_query_signals(
             and not mitre_map
         )
         or (spl_generation and run_execution and not block_or_contain),
-        "requires_hil": block_or_contain,
+        "requires_hil": block_or_contain or explicit_run_spl,
+        "explicit_run_spl": explicit_run_spl,
         "projected_action_mode": "recommend_only" if block_or_contain else None,
     }
 
