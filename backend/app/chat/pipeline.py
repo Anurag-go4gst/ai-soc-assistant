@@ -469,10 +469,17 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             ),
             slot_binding_enabled=settings.control_plane_enabled,
         )
+    query_understanding = state.get("query_understanding")
+    exact_105_pattern = None
+    if query_understanding is not None and getattr(
+        query_understanding, "deterministic_match_path", None
+    ) in ("exact_105_question", "exact_105_plus_use_case_catalog"):
+        exact_105_pattern = getattr(query_understanding, "mapped_pattern_type", None)
     spl_draft_preview = build_draft_preview(
         query_text,
         spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
         unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
+        pattern_type=exact_105_pattern,
     )
     llm_spl_candidate = _llm_spl_candidate_stage(
         skill=effective_skill,
@@ -648,7 +655,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     severity_decision = apply_analytics_severity_guard(
         severity_decision,
         analytics_query=bool(
-            guard_signals.get("exact_105_analytics") or guard_signals.get("analytics_aggregation")
+            guard_signals.get("exact_105_analytics")
+            or guard_signals.get("exact_105_hunt_spl")
+            or guard_signals.get("analytics_aggregation")
         ),
         alert_context_present=bool(
             guard_signals.get("alert_context_present") or session_alert_context

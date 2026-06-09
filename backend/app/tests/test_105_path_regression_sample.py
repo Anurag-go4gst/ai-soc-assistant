@@ -68,6 +68,17 @@ UNSAFE_ROWS = (
     "Run the SPL and give me the results",
 )
 
+# Exact-105 hunt/detection refs (one per major hunt pattern class) — must reach
+# the review-only SPL path, never clarification.
+HUNT_REFS = (
+    "q0.q022",  # ioc_correlation
+    "q0.q023",  # dns_beaconing_dga_behavior
+    "q0.q024",  # multi_signal_correlation
+    "q0.q025",  # new_or_unusual_source
+    "q0.q026",  # threshold_anomaly
+    "q0.q028",  # other_or_unclear
+)
+
 
 @lru_cache(maxsize=1)
 def _question_by_ref() -> dict[str, dict[str, Any]]:
@@ -94,7 +105,9 @@ def _run_path(query: str) -> dict[str, Any]:
     severity = apply_analytics_severity_guard(
         decide_severity(None, None, []),
         analytics_query=bool(
-            signals.get("exact_105_analytics") or signals.get("analytics_aggregation")
+            signals.get("exact_105_analytics")
+            or signals.get("exact_105_hunt_spl")
+            or signals.get("analytics_aggregation")
         ),
         alert_context_present=bool(signals.get("alert_context_present")),
     )
@@ -156,6 +169,18 @@ def test_rag_sop_explanation_rows_stay_on_knowledge_paths(
     assert row["needs_spl"] is False
     assert row["needs_rag"] is True
     assert row["answer_mode"] == "rag_only"
+    assert row["execution_enabled"] is False
+
+
+@pytest.mark.parametrize("ref", HUNT_REFS)
+def test_hunt_pattern_rows_route_to_spl_review(ref: str) -> None:
+    entry = _question_by_ref()[ref]
+    row = _run_path(entry["question"])
+    assert row["match_path"] in _EXACT_PATHS, (ref, row["match_path"])
+    assert row["intent_family"] == "spl_generation_only", (ref, row["intent_family"])
+    assert row["requires_clarification"] is False
+    assert row["path_type"] == "spl_review", (ref, row["path_type"])
+    assert row["needs_spl"] is True
     assert row["execution_enabled"] is False
 
 

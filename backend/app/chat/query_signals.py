@@ -39,6 +39,23 @@ _ANALYTICS_PHRASES = (
     "top hosts",
 )
 _EXACT_105_MATCH_PATHS = ("exact_105_question", "exact_105_plus_use_case_catalog")
+# Exact-105 hunt/detection pattern classes that map to a review-only SPL path.
+# Lookup/knowledge classes (asset_identity_context, case_state_lookup,
+# notable_risk_lookup, data_source_health, threat_intel_enrichment) are
+# deliberately excluded until their own registry honoring lands.
+_EXACT_105_HUNT_PATTERNS = (
+    "ioc_correlation",
+    "dns_beaconing_dga_behavior",
+    "multi_signal_correlation",
+    "new_or_unusual_source",
+    "threshold_anomaly",
+    "lateral_movement",
+    "suspicious_process_powershell",
+    "dlp_exfiltration",
+    "persistence_scheduled_task_service",
+    "success_after_failure",
+    "other_or_unclear",
+)
 
 
 def _explicit_log_search_requested(normalized: str) -> bool:
@@ -460,14 +477,17 @@ def extract_query_signals(
         (_ANALYTICS_SUBJECT_RE.search(normalized) and _ANALYTICS_RANK_RE.search(normalized))
         or any(term in normalized for term in _ANALYTICS_PHRASES)
     )
-    exact_105_analytics = bool(
+    exact_105_match = bool(
         qu is not None
         and getattr(qu, "deterministic_match_path", None) in _EXACT_105_MATCH_PATHS
-        and (
-            getattr(qu, "mapped_pattern_type", None) == "top_n_aggregation"
-            or getattr(qu, "mapped_primary_skill", None) == "aggregate_and_rank"
-            or getattr(qu, "mapped_operation_type", None) in ("top_n", "aggregate_and_rank")
-        )
+    )
+    exact_105_analytics = exact_105_match and bool(
+        getattr(qu, "mapped_pattern_type", None) == "top_n_aggregation"
+        or getattr(qu, "mapped_primary_skill", None) == "aggregate_and_rank"
+        or getattr(qu, "mapped_operation_type", None) in ("top_n", "aggregate_and_rank")
+    )
+    exact_105_hunt_spl = exact_105_match and (
+        getattr(qu, "mapped_pattern_type", None) in _EXACT_105_HUNT_PATTERNS
     )
 
     return {
@@ -539,6 +559,7 @@ def extract_query_signals(
         "review_only_spl": review_only_spl,
         "analytics_aggregation": analytics_aggregation,
         "exact_105_analytics": exact_105_analytics,
+        "exact_105_hunt_spl": exact_105_hunt_spl,
         "alert_context_present": alert_context_present,
         "hybrid_alert_review": hybrid_alert_review,
         "projected_needs_rag": policy_terms

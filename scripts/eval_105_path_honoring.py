@@ -44,9 +44,26 @@ MAP_PATH = Path(__file__).resolve().parents[1] / "backend" / "app" / "coverage" 
 EXACT_PATHS = {"exact_105_question", "exact_105_plus_use_case_catalog"}
 ROUTED_STUB = {"skill": "attack_discovery", "tool_plan": ["generate_spl", "validate_spl"]}
 
-# Recorded 2026-06-09 after the top_n analytics bridge landed (was 81 before).
-# Lowering this is progress; raising it is a regression.
-CLARIFICATION_BASELINE = 72
+# Recorded 2026-06-09 after the top_n analytics + hunt-pattern bridges landed
+# (was 81 before top_n, 72 before hunt). Lowering this is progress; raising it
+# is a regression.
+CLARIFICATION_BASELINE = 10
+
+# Exact-105 hunt/detection classes that must reach the review-only SPL path
+# (mirrors _EXACT_105_HUNT_PATTERNS in app/chat/query_signals.py).
+HUNT_PATTERNS = {
+    "ioc_correlation",
+    "dns_beaconing_dga_behavior",
+    "multi_signal_correlation",
+    "new_or_unusual_source",
+    "threshold_anomaly",
+    "lateral_movement",
+    "suspicious_process_powershell",
+    "dlp_exfiltration",
+    "persistence_scheduled_task_service",
+    "success_after_failure",
+    "other_or_unclear",
+}
 
 
 def evaluate_row(entry: dict[str, Any]) -> dict[str, Any]:
@@ -69,7 +86,9 @@ def evaluate_row(entry: dict[str, Any]) -> dict[str, Any]:
     severity = apply_analytics_severity_guard(
         decide_severity(None, None, []),
         analytics_query=bool(
-            signals.get("exact_105_analytics") or signals.get("analytics_aggregation")
+            signals.get("exact_105_analytics")
+            or signals.get("exact_105_hunt_spl")
+            or signals.get("analytics_aggregation")
         ),
         alert_context_present=bool(signals.get("alert_context_present")),
     )
@@ -114,6 +133,15 @@ def check_rows(rows: list[dict[str, Any]]) -> list[str]:
                 violations.append(f"{ref}: top_n answer_mode={row['answer_mode']}")
             if row["severity_label"] != ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL:
                 violations.append(f"{ref}: top_n severity={row['severity_label']}")
+        if row["pattern_type"] in HUNT_PATTERNS:
+            # Earlier deterministic branches (e.g. success-after-failure hybrid
+            # review) keep authority; the gate is only "never clarification".
+            if row["intent_family"] == "clarification_required":
+                violations.append(f"{ref}: hunt pattern fell to clarification")
+            if row["path_type"] in {"clarification_required", "unsafe_blocked"}:
+                violations.append(f"{ref}: hunt pattern path_type={row['path_type']}")
+            if row["intent_family"] == "spl_generation_only" and not row["needs_spl"]:
+                violations.append(f"{ref}: hunt pattern needs_spl=false")
     clarification_total = sum(1 for row in rows if row["intent_family"] == "clarification_required")
     if clarification_total > CLARIFICATION_BASELINE:
         violations.append(

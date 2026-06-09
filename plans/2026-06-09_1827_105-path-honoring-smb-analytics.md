@@ -1,9 +1,37 @@
 # 105-Question Path Honoring — SMB Top-Talkers Analytics (q0.q010)
 
-**Status:** Done (2026-06-09) — all gates green: focused tests 13/13, sample harness 22/22,
-backend suite 1591 passed, Tier B `eval_105_path_honoring.py --check` passed (top_n 9/9
-spl_review, clarification baseline 72), PowerGrid deterministic eval 50/50 `--check ok`,
-frontend build passed.
+**Status:** Done (2026-06-09, incl. hunt-pattern extension) — all gates green: focused
+tests + sample harness 41/41, backend suite 1591 passed, Tier B
+`eval_105_path_honoring.py --check` passed, PowerGrid deterministic eval 50/50
+`--check ok`, frontend build passed.
+
+**Final 105 coverage:** 95/105 honored (94 `spl_review`, 1 `generic_soc_guidance`);
+clarification dropped 81 → 72 (top_n bridge) → **10** (hunt bridge; baseline pinned).
+Hunt classes honored via registry `pattern_type` (no per-question regex):
+ioc_correlation, dns_beaconing_dga_behavior, multi_signal_correlation,
+new_or_unusual_source, threshold_anomaly, lateral_movement,
+suspicious_process_powershell, dlp_exfiltration, persistence_scheduled_task_service,
+success_after_failure, other_or_unclear.
+**10 deliberately deferred** (different answer shapes; forcing `spl_review` would
+pretend capability we don't have): notable_risk_lookup ×2 + case_state_lookup ×2
+(need live notable/case state — blocked on MCP), threat_intel_enrichment ×1
+(needs Q2 local IOC lookup, `plans/2026-05-28_0523_stage-3k-q2-local-ioc-lookup.md`),
+asset_identity_context ×3 (needs asset/identity context source),
+data_source_health ×2 (needs metadata/tstats SPL policy review).
+**Draft-family extension (same day):** 11 new lab-only detection families cover the hunt
+classes — `auth_failed_login_threshold`, `network_traffic_top_talkers`,
+`ioc_destination_match` (IN() placeholders from local IOC list; `lookup` outside allowed
+SPL commands, Q2 integration pending), `dns_beaconing_hunt`, `network_new_or_rare_behavior`,
+`network_threshold_anomaly`, `endpoint_powershell_suspicious`, `network_data_exfil_volume`,
+`lateral_movement_internal`, `endpoint_persistence_schtask_service`,
+`network_multi_signal_review`. Resolution order: explicit family → keyword matcher →
+exact-105 `PATTERN_TYPE_FAMILY_FALLBACK` (registry authority). Governed templates still
+beat lab drafts (e.g. C2-beaconing question uses the active `dns_beaconing_candidate`
+template). Fixed pre-existing scorer mis-route: generic failed-login questions went to the
+substation HMI family; now `auth_failed_login_threshold` unless HMI/substation/SCADA
+phrasing. **89/105 questions now carry a draft family or governed template**; the 16
+without are the deferred lookup/TI/asset-context/source-health classes. All drafts pass
+SOC-STD-SPL-001 lint; suite 1608 passed; PowerGrid 50/50; Tier B gates passed.
 **Date:** 2026-06-09
 
 ## Problem (verified by reproduction)
