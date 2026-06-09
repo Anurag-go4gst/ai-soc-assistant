@@ -10,10 +10,27 @@ from app.schemas.requests import ChatRequest
 from app.spl.llm_fallback import LlmSplFallbackResult
 
 
+_CLARIFICATION_GOVERNANCE_REASONS = frozenset(
+    {
+        "llm_spl_fallback_disabled",
+        "spl_template_missing",
+        "spl_template_governance_blocked",
+        "spl_template_unavailable_no_free_spl_fallback",
+    }
+)
+
+
 @pytest.fixture(autouse=True)
 def _enable_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.config.settings.spl_allowed_sourcetypes", "pgcil:auth,aws:cloudtrail")
+
+
+def _assert_spl_clarification_blocked(reject_reasons: list[str] | None) -> None:
+    reasons = set(reject_reasons or [])
+    assert reasons & _CLARIFICATION_GOVERNANCE_REASONS, (
+        f"expected governance clarification reason, got {sorted(reasons)}"
+    )
 
 
 def _chat(query: str):
@@ -151,9 +168,11 @@ def test_mitre_failed_login_context_maps_t1110_and_blocks_negated_techniques(
     assert {row["Technique"] for row in mapping_rows} == {"T1110", "T1110.001", "T1110.003"}
     mapping_by_id = {row["Technique"]: row for row in mapping_rows}
     assert mapping_by_id["T1110.001"]["Name"] == "Password Guessing"
-    assert mapping_by_id["T1110.001"]["Status"] == "Evidence Supported"
-    assert mapping_by_id["T1110.003"]["Status"] == "Evidence Supported"
-    assert mapping_by_id["T1110.001"]["Confidence"] == "High - evidence supported"
+    assert mapping_by_id["T1110"]["Status"] == "Requires Validation"
+    assert mapping_by_id["T1110.001"]["Status"] == "Requires Validation"
+    assert mapping_by_id["T1110.003"]["Status"] == "Requires Validation"
+    assert mapping_by_id["T1110.001"]["Confidence"] == "Moderate - analyst validation required"
+    assert response.analyst_response.severity_label == "P3 Medium"
     assert "password" in str(mapping_by_id["T1110.001"]["Evidence"]).lower()
     assert "password policy discovery" not in str(mapping_by_id["T1110.001"]["Evidence"]).lower()
 
@@ -169,7 +188,11 @@ def test_mitre_failed_login_context_maps_t1110_and_blocks_negated_techniques(
     assert "security alert has been triggered" not in analyst_text.lower()
 
 
-def test_generate_spl_top_failed_login_users_rejects_missing_slot_binding_no_mcp() -> None:
+def test_generate_spl_top_failed_login_users_rejects_missing_slot_binding_no_mcp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", False)
+    monkeypatch.setattr("app.spl.llm_fallback.settings.ai_soc_llm_spl_fallback_enabled", False)
     response = _chat("Generate SPL for the top failed-login users in the last 24 hours")
     assert response.evidence_plan["needs_spl"] is True
     assert response.evidence_plan["mcp_allowed"] is False
@@ -178,13 +201,17 @@ def test_generate_spl_top_failed_login_users_rejects_missing_slot_binding_no_mcp
     assert response.candidate_spl.candidate_spl == ""
     assert response.spl_validation is not None
     assert response.spl_validation.approved is False
-    assert "llm_spl_fallback_disabled" in response.spl_validation.reject_reasons
+    _assert_spl_clarification_blocked(response.spl_validation.reject_reasons)
     assert response.response_mode == "clarification_required"
     assert response.execution is not None
     assert response.execution.block_reason == "mcp_not_allowed_by_evidence_plan"
 
 
-def test_uncatalogued_spl_generation_requires_clarification_not_stage3c_stub() -> None:
+def test_uncatalogued_spl_generation_requires_clarification_not_stage3c_stub(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", False)
+    monkeypatch.setattr("app.spl.llm_fallback.settings.ai_soc_llm_spl_fallback_enabled", False)
     response = _chat("Write SPL to detect impossible travel from VPN logs")
 
     assert response.selected_use_case is not None
@@ -199,7 +226,7 @@ def test_uncatalogued_spl_generation_requires_clarification_not_stage3c_stub() -
     assert response.spl_validation.normalized_spl is None
     assert response.spl_validation.selected_candidate_spl_provider == "none"
     assert response.spl_validation.llm_fallback_status == "clarification_required"
-    assert "llm_spl_fallback_disabled" in response.spl_validation.reject_reasons
+    _assert_spl_clarification_blocked(response.spl_validation.reject_reasons)
     assert response.response_mode == "clarification_required"
     assert response.human_review is not None
     assert response.human_review.required is True
@@ -404,8 +431,10 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
 
     assert response.analyst_response is not None
     mapping_rows = {row["Technique"]: row for row in response.analyst_response.mitre_mappings}
-    assert mapping_rows["T1110.001"]["Status"] == "Evidence Supported"
+    assert mapping_rows["T1110.001"]["Status"] == "Requires Validation"
+    assert mapping_rows["T1110.001"]["Confidence"] == "Moderate - analyst validation required"
     assert mapping_rows["T1078"]["Status"] == "Candidate"
+    assert mapping_rows["T1078"]["Confidence"] == "Medium"
     assert response.analyst_response.severity_label is not None
     assert "Review required" in (response.analyst_response.severity_label or "")
     assert response.analyst_response.execution_status_label == "Review only — not executed"
@@ -417,8 +446,9 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
     assert 'alert_id="ALT-2024-0891"' in (response.analyst_response.spl_code or "")
     assert "\n" in (response.analyst_response.spl_code or "")
     assert response.analyst_response.direct_answer_summary
-    assert "evidence-supported MITRE technique" in response.analyst_response.direct_answer_summary
+    assert "technique requiring validation" in response.analyst_response.direct_answer_summary
     assert "candidate technique" in response.analyst_response.direct_answer_summary
+    assert "evidence-supported MITRE technique" not in response.analyst_response.direct_answer_summary
     assert "not claimed" in response.analyst_response.direct_answer_summary
     assert "governed SPL draft" in response.analyst_response.direct_answer_summary
     assert "Severity:" not in (response.analyst_response.direct_answer_summary or "")

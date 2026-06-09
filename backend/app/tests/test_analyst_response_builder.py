@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.chat.analyst_response_builder import (
     attach_evidence_summary,
     build_analyst_response_for_live,
@@ -37,6 +39,7 @@ def test_attach_evidence_summary_adds_footnote() -> None:
 
 
 def test_build_analyst_response_from_splunk_and_rag() -> None:
+    """Source-grounded splunk_mcp execution may render evidence-supported MITRE display."""
     envelope = build_analyst_response_for_live(
         user_query="failed logins on APP-01",
         message="SPL validation complete. MCP execution is disabled.",
@@ -77,19 +80,47 @@ def test_build_analyst_response_from_splunk_and_rag() -> None:
                 technique_id="T1110.001",
                 name="Password Guessing",
                 tactic="Credential Access",
-                status="supported",
+                status="evidence_supported",
                 why="Repeated failures",
             ),
         ],
+        mitre_decision={
+            "answer_visible": True,
+            "techniques": [
+                {
+                    "technique_id": "T1110.001",
+                    "name": "Password Guessing",
+                    "tactic": "Credential Access",
+                    "status": "evidence_supported",
+                    "why": "Repeated failures",
+                },
+            ],
+            "rejected_techniques": [],
+        },
         severity_label="P2 High",
         synthesis_draft=None,
         human_review=None,
         selected_use_case_label="Brute-force spike",
+        execution={
+            "status": "executed",
+            "splunk_result_envelope": {"origin": "fixture"},
+        },
+        intent_classification={
+            "intent_family": "hybrid_alert_review",
+            "answer_goal": ["mitre_mapping", "live_results", "policy_citation"],
+        },
+        evidence_plan={
+            "answer_mode": "hybrid",
+            "needs_mitre": True,
+            "mcp_allowed": True,
+            "spl_allowed": True,
+        },
     )
     assert envelope is not None
     assert envelope.severity_label == "P2 High"
     assert envelope.finding_title == "Brute-force spike"
-    assert envelope.one_sentence_finding == "Governed summary for analysts."
+    assert envelope.direct_answer_summary
+    assert "evidence-supported MITRE technique" in envelope.direct_answer_summary
     assert envelope.splunk_results_table
     assert envelope.splunk_results_table[0]["Failed logins"] == 42
     assert envelope.evidence_summary
@@ -98,12 +129,17 @@ def test_build_analyst_response_from_splunk_and_rag() -> None:
     assert envelope.retrieved_playbook.get("source_evidence_id") == "ev-rag-test"
     assert envelope.mitre_mappings
     assert envelope.mitre_mappings[0]["Technique"] == "T1110.001"
+    assert envelope.mitre_mappings[0]["Status"] == "Evidence Supported"
+    assert envelope.mitre_mappings[0]["Confidence"] == "High - evidence supported"
 
 
-def test_build_analyst_response_returns_none_without_substance() -> None:
+def test_build_analyst_response_returns_none_without_substance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.chat.analyst_response_builder.settings.control_plane_enabled", False)
     envelope = build_analyst_response_for_live(
         user_query="hello",
-        message="SPL validation complete. MCP execution is disabled.",
+        message="Routing complete. SPL is not required at this stage.",
         analyst_summary=None,
         source_evidence=[],
         mitre_mappings=[],
@@ -127,11 +163,16 @@ def test_build_analyst_response_prefers_approved_normalized_spl() -> None:
         candidate_spl={"candidate_spl": "search index=* earliest=-24h latest=now | stats count | head 100"},
         spl_validation={
             "approved": True,
-            "normalized_spl": "search index=pgcil_soc sourcetype=aws:cloudtrail earliest=-24h latest=now | stats count | head 100",
+            "normalized_spl": (
+                "search index=pgcil_soc sourcetype=aws:cloudtrail earliest=-24h latest=now "
+                "| stats count | head 100"
+            ),
         },
     )
     assert envelope is not None
     assert envelope.spl_code == (
-        "search index=pgcil_soc sourcetype=aws:cloudtrail earliest=-24h latest=now "
-        "| stats count | head 100"
+        "search index=pgcil_soc sourcetype=aws:cloudtrail earliest=-24h latest=now\n"
+        "| stats\n"
+        "    count\n"
+        "| head 100"
     )
