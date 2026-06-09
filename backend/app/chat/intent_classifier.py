@@ -93,7 +93,23 @@ def classify_intent(
             requested_output_type="INVESTIGATION",
         )
 
-    if signals.get("spl_generation"):
+    if signals.get("spl_generation") and not signals.get("run_execution"):
+        if signals.get("success_after_failure"):
+            return _build_classification(
+                intent_family="hybrid_alert_review",
+                primary_intent="attack_discovery",
+                secondary_intents=["mitre_mapping", "spl_generation"],
+                query_type="ask_for_mapping",
+                answer_goal=["severity_assessment", "mitre_mapping", "spl_artifact", "procedural_steps"],
+                confidence=0.9,
+                requires_clarification=False,
+                action_mode="recommend_only",
+                reason=(
+                    "Success-after-failure search request with review-only SPL, "
+                    "candidate MITRE status, and analyst guidance without execution."
+                ),
+                requested_output_type="INVESTIGATION",
+            )
         return _build_classification(
             intent_family="spl_generation_only",
             primary_intent="spl_generation",
@@ -271,6 +287,23 @@ def classify_intent(
             requires_clarification=False,
             reason="User requested live investigative results.",
             requested_output_type="INVESTIGATION",
+        )
+
+    if signals.get("explicit_search_intent") and not signals.get("run_execution"):
+        goals: list[AnswerGoal] = ["spl_artifact"]
+        if signals.get("investigation_triage_guidance") or signals.get("procedural_investigation"):
+            goals.append("procedural_steps")
+        if signals.get("analyst_action"):
+            goals.append("analyst_action_guidance")
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=goals,
+            confidence=0.9,
+            requires_clarification=False,
+            reason="User requested explicit log search or review-only SPL drafting.",
+            requested_output_type="SPL",
         )
 
     return _build_classification(

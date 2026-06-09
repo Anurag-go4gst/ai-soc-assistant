@@ -6,9 +6,39 @@ import re
 from typing import Any
 
 from app.query_understanding.models import QueryUnderstandingResult
+from app.query_understanding.success_after_failure import detect_success_after_failure
 
 _TECHNIQUE_ID_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
 _MAP_TO_MITRE_RE = re.compile(r"\bmap\b.{0,120}\b(?:mitre|att&ck)\b", re.IGNORECASE)
+_LOG_SEARCH_RE = re.compile(
+    r"\b(?:search|find|look for)\b.{0,80}\b(?:logs?|firewall|proxy|endpoint|vpn|dns|powershell)\b",
+    re.IGNORECASE,
+)
+
+
+def _explicit_log_search_requested(normalized: str) -> bool:
+    if _LOG_SEARCH_RE.search(normalized):
+        return True
+    return any(
+        term in normalized
+        for term in (
+            "draft a splunk search",
+            "draft splunk search",
+            "draft spl",
+            "write spl",
+            "search logs",
+            "search firewall logs",
+            "search proxy logs",
+            "search endpoint logs",
+            "search firewall logs for",
+            "find vpn logins",
+            "find windows servers",
+            "look for dns queries",
+            "find successful logins",
+            "find successful vpn logins",
+            "find successful established connections",
+        )
+    )
 
 
 def extract_query_signals(
@@ -32,12 +62,16 @@ def extract_query_signals(
         )
     )
     escalation_without_policy_word = "escalat" in normalized and "policy" not in normalized
+    success_after_failure = detect_success_after_failure(normalized)
     failed_login = any(
         term in normalized
         for term in ("failed login", "failed logins", "failed-login", "login failure", "login failures")
     )
     spl_suppressed = _spl_generation_suppressed(normalized)
-    spl_generation = (not spl_suppressed) and _spl_generation_requested(normalized)
+    explicit_log_search = _explicit_log_search_requested(normalized)
+    spl_generation = (not spl_suppressed) and (
+        _spl_generation_requested(normalized) or explicit_log_search
+    )
     run_execution = any(
         term in normalized
         for term in (
@@ -55,8 +89,21 @@ def extract_query_signals(
     has_specific_scope = any(term in normalized for term in (" index=", "index ", "host=", "host ", "sourcetype=", "sourcetype ", "earliest=", "latest=", "last "))
     live_investigation_verbs = any(
         term in normalized
-        for term in ("find ", "show ", "list ", "investigate", "search for", "look for", "top users", "which users")
-    )
+        for term in (
+            "find ",
+            "show ",
+            "list ",
+            "investigate",
+            "search for",
+            "search logs",
+            "search firewall",
+            "search proxy",
+            "search endpoint",
+            "look for",
+            "top users",
+            "which users",
+        )
+    ) or explicit_log_search
     negative_successful_login = any(
         term in normalized
         for term in ("no successful login", "no success", "no login success", "without successful login")
@@ -68,22 +115,6 @@ def extract_query_signals(
     negative_credential_dumping = any(
         term in normalized
         for term in ("no evidence of credential dumping", "no credential dumping", "without credential dumping")
-    )
-    success_after_failure = any(
-        term in normalized
-        for term in (
-            "successful login after",
-            "success after",
-            "success following",
-            "after failures",
-            "followed by a successful login",
-            "followed by successful login",
-            "failures followed by",
-            "failure followed by",
-        )
-    ) or (
-        "successful login" in normalized
-        and any(term in normalized for term in ("followed", "after failure", "after failures", "after failed"))
     )
     positive_successful_login = success_after_failure or (
         "successful login" in normalized and not negative_successful_login
@@ -216,14 +247,49 @@ def extract_query_signals(
         term in normalized
         for term in ("dns beaconing", "beaconing candidate", "beaconing pattern", "dns beacon")
     ) or ("beaconing" in normalized and "dns" in normalized)
+    security_log_investigation = any(
+        term in normalized
+        for term in (
+            "dns",
+            "firewall",
+            "proxy",
+            "endpoint",
+            "vpn",
+            "powershell",
+            "ot server",
+            "scada",
+            "control room",
+            "engineering workstation",
+        )
+    )
+    investigation_triage_guidance = any(
+        term in normalized
+        for term in (
+            "how should soc",
+            "what should soc",
+            "how should we",
+            "what should we",
+            "how should the analyst",
+            "what should the analyst",
+            "how should soc triage",
+            "what should soc check",
+            "what should soc investigate",
+            "what should soc validate",
+        )
+    )
+    guidance_alert_context = alert_context_present and investigation_triage_guidance
     use_case_review_guidance = (
-        not alert_context_present
+        (not alert_context_present or guidance_alert_context)
         and not run_execution
-        and review_only_spl
+        and (
+            review_only_spl
+            or (investigation_triage_guidance and security_log_investigation)
+        )
         and (
             powershell_context
             or dns_beaconing
             or procedural_investigation
+            or security_log_investigation
             or any(
                 term in normalized
                 for term in (
@@ -233,6 +299,17 @@ def extract_query_signals(
                     "limitations",
                 )
             )
+        )
+    )
+    explicit_search_intent = bool(
+        spl_generation
+        or explicit_log_search
+        or use_case_review_guidance
+        or (
+            live_investigation_verbs
+            and not policy_terms
+            and not block_or_contain
+            and not spl_suppressed
         )
     )
     mitre_map = (not use_case_review_guidance) and (
@@ -290,6 +367,10 @@ def extract_query_signals(
         "exclude_service_accounts": exclude_service_accounts,
         "top_n": int(top_n_match.group(1)) if top_n_match else None,
         "mitre_requires_alert_context": mitre_requires_alert_context,
+        "explicit_log_search": explicit_log_search,
+        "explicit_search_intent": explicit_search_intent,
+        "investigation_triage_guidance": investigation_triage_guidance,
+        "security_log_investigation": security_log_investigation,
         "success_after_failure": success_after_failure,
         "positive_successful_login": positive_successful_login,
         "spray_breadth": spray_breadth,
@@ -378,9 +459,14 @@ def _spl_generation_requested(normalized: str) -> bool:
         "produce spl",
         "build spl",
         "spl query",
+        "draft spl",
+        "draft a splunk search",
+        "draft splunk search",
     )
     if any(term in normalized for term in explicit_verbs):
         return True
     if "spl for" in normalized and "review" not in normalized:
+        return True
+    if normalized.startswith("draft a splunk") or normalized.startswith("draft splunk"):
         return True
     return False

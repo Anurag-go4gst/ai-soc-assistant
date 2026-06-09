@@ -4,6 +4,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from app.query_understanding.success_after_failure import detect_success_after_failure
 from app.use_cases.models import UseCaseDefinition, UseCaseSelection
 
 CATALOG_PATH = Path(__file__).with_name("catalog.json")
@@ -103,17 +104,8 @@ def _intent_boost(normalized_query: str, use_case_id: str) -> float:
         "dns beaconing" in normalized_query or "beaconing candidate" in normalized_query
     ):
         return 0.34
-    if use_case_id == "auth_success_after_failure" and (
-        ("successful login" in normalized_query and any(term in normalized_query for term in ("followed", "after failure", "after failures", "after failed")))
-        or any(
-            term in normalized_query
-            for term in (
-                "successful login after",
-                "success after",
-                "followed by a successful login",
-                "failures followed by",
-            )
-        )
-    ):
-        return 0.34
+    if use_case_id == "auth_success_after_failure" and detect_success_after_failure(normalized_query):
+        return 0.40
+    if use_case_id == "auth_failed_login_spike" and detect_success_after_failure(normalized_query):
+        return -0.20
     return 0.0

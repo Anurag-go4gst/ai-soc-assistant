@@ -69,7 +69,24 @@ def understand_query(query: str) -> QueryUnderstandingResult:
 
 
 def _requested_output(normalized: str, use_case_template: str | None) -> tuple[RequestedOutputType, OutputTemplate]:
-    if any(term in normalized for term in ("generate spl", "write spl", "produce spl", "create spl", "spl query", "optimize spl")):
+    if any(
+        term in normalized
+        for term in (
+            "generate spl",
+            "write spl",
+            "produce spl",
+            "create spl",
+            "spl query",
+            "optimize spl",
+            "draft spl",
+            "draft a splunk search",
+            "draft splunk search",
+            "search logs",
+            "search firewall logs",
+            "search proxy logs",
+            "search endpoint logs",
+        )
+    ):
         return RequestedOutputType.SPL, OutputTemplate.SPL_RESPONSE
     if any(term in normalized for term in ("sop", "playbook", "runbook", "standard operating procedure")):
         return RequestedOutputType.SOP, OutputTemplate.SOP_RESPONSE

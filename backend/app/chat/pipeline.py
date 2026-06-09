@@ -1206,19 +1206,9 @@ def _selected_use_case(query: str, *, query_signals: dict[str, Any] | None = Non
         preferred = next((item for item in matches if item.use_case_id == "soc_show_sop"), None)
         if preferred is not None:
             return preferred
-    success_after = (
-        ("successful login" in normalized and any(term in normalized for term in ("followed", "after failure", "after failures", "after failed")))
-        or any(
-            term in normalized
-            for term in (
-                "successful login after",
-                "success after",
-                "followed by a successful login",
-                "failures followed by",
-            )
-        )
-    )
-    if success_after:
+    from app.query_understanding.success_after_failure import detect_success_after_failure
+
+    if detect_success_after_failure(normalized) or signals.get("success_after_failure"):
         preferred = next((item for item in matches if item.use_case_id == "auth_success_after_failure"), None)
         if preferred is not None:
             return preferred
@@ -1311,23 +1301,9 @@ def _mitre_use_case_for_query(
 
 
 def _success_after_failure_context(normalized: str) -> bool:
-    return any(
-        term in normalized
-        for term in (
-            "successful login after",
-            "success after",
-            "success following",
-            "after failures",
-            "followed by a successful login",
-            "followed by successful login",
-            "failures followed by",
-            "failure followed by",
-        )
-    ) or (
-        "successful login" in normalized
-        and any(term in normalized for term in ("followed", "after failure", "after failures", "after failed"))
-        and "no successful login" not in normalized
-    )
+    from app.query_understanding.success_after_failure import detect_success_after_failure
+
+    return detect_success_after_failure(normalized)
 
 
 def _mitre_alert_context_present(query: str, *, session_alert_context: bool = False) -> bool:
@@ -2550,6 +2526,12 @@ def _chat_message(
     soc_kb_retrieval: dict[str, Any] | None = None,
 ) -> str:
     if spl_validation is None:
+        path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
+        if path_type in {"spl_review", "spl_review_plus_rag", "hybrid_investigation"}:
+            return (
+                "Governed SPL drafting is in review-only mode for this search request. "
+                "Confirm index, sourcetype, key fields, and time range if a template is not yet bound."
+            )
         if _rag_no_match(soc_kb_retrieval):
             return "No governed KB/SOP match was found for this request. I did not generate SPL, call MCP, or infer MITRE evidence."
         if _generic_soc_guidance_path(planning_decision):
@@ -2661,6 +2643,12 @@ def _chat_note(
     if not settings.soc_kb_retrieval_enabled:
         rag_note = "No RAG retrieval"
     if spl_validation is None:
+        path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
+        if path_type in {"spl_review", "spl_review_plus_rag", "hybrid_investigation"}:
+            return (
+                "Review-only SPL/search path selected. SPL drafting may require source profile or template binding; "
+                "no MCP execution, final synthesis, or Splunk telemetry write was run."
+            )
         if _rag_no_match(soc_kb_retrieval):
             return "No governed KB/SOP match found. SPL and MCP were skipped; final synthesis remains disabled."
         if _generic_soc_guidance_path(planning_decision):

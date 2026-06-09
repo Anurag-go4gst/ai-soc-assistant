@@ -106,11 +106,17 @@
       "category": "Authentication / Identity",
       "intent_patterns": [
         "successful login after",
+        "successful vpn login after",
+        "successful vpn logins after",
         "success after",
         "success following",
         "after failures",
+        "after repeated failures",
+        "after repeated failure",
         "followed by a successful login",
-        "failures followed by"
+        "failures followed by",
+        "failed logins followed by",
+        "login failures followed by"
       ],
       "example_queries": [
         "Generate SPL for successful login after failures"
