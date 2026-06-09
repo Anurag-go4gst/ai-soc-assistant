@@ -38,8 +38,11 @@ def test_attach_evidence_summary_adds_footnote() -> None:
     assert "15" in str(payload["evidence_summary"])
 
 
-def test_build_analyst_response_from_splunk_and_rag() -> None:
+def test_build_analyst_response_from_splunk_and_rag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Source-grounded splunk_mcp execution may render evidence-supported MITRE display."""
+    monkeypatch.setattr("app.chat.analyst_response_builder.settings.control_plane_enabled", True)
     envelope = build_analyst_response_for_live(
         user_query="failed logins on APP-01",
         message="SPL validation complete. MCP execution is disabled.",
@@ -150,7 +153,10 @@ def test_build_analyst_response_returns_none_without_substance(
     assert envelope is None
 
 
-def test_build_analyst_response_prefers_approved_normalized_spl() -> None:
+def test_build_analyst_response_prefers_approved_normalized_spl(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.chat.analyst_response_builder.settings.control_plane_enabled", True)
     envelope = build_analyst_response_for_live(
         user_query="write spl",
         message="SPL validation complete. MCP execution is disabled.",
