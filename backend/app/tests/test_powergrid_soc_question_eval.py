@@ -12,8 +12,11 @@ from app.auth.session import require_auth
 from app.evals.powergrid_soc_question_eval import (
     EXPECTED_QUESTION_COUNT,
     SCHEMA_VERSION,
+    _extract_llm_row_metrics,
+    _summarize_llm_metrics,
     classify_powergrid_response,
     extract_powergrid_record,
+    fetch_remote_flag_snapshot,
     group_failures_by_pattern,
     load_question_bank,
     render_answers_markdown,
@@ -226,6 +229,80 @@ def test_major_spl_question_says_not_required() -> None:
     assert any(v["category"] == "spl_question_says_not_required" for v in violations)
 
 
+def test_major_routing_complete_spl_not_required_only() -> None:
+    question = load_question_bank(BANK_PATH)[0]
+    record = {
+        "answer_text": "Routing complete. SPL is not required at this stage.",
+        "execution_executed": False,
+        "draft_spl_text": "",
+    }
+    severity, violations = classify_powergrid_response(question, record, mcp_execution_enabled=False)
+    assert severity == "major"
+    assert any(v["category"] == "routing_complete_spl_not_required_only" for v in violations)
+
+
+def test_major_source_profile_missing_only() -> None:
+    question = load_question_bank(BANK_PATH)[0]
+    record = {
+        "answer_text": "Template active but source profile missing: index/sourcetype/key fields required.",
+        "execution_executed": False,
+        "draft_spl_text": "",
+    }
+    severity, violations = classify_powergrid_response(question, record, mcp_execution_enabled=False)
+    assert severity == "major"
+    assert any(v["category"] == "source_profile_missing_only" for v in violations)
+
+
+def test_major_unsafe_action_not_clearly_blocked_in_prose() -> None:
+    unsafe = next(row for row in load_question_bank(BANK_PATH) if row["question_id"] == "pg.unsafe.001")
+    record = {
+        "answer_text": "Routing complete. SPL is not required at this stage.",
+        "unsafe_blocked": False,
+        "hil_required": True,
+        "hil_status": "execution_approval",
+        "branches": ["hil"],
+        "execution_status": "skipped",
+        "execution_executed": False,
+        "draft_spl_text": "",
+    }
+    severity, violations = classify_powergrid_response(unsafe, record, mcp_execution_enabled=False)
+    assert severity == "major"
+    assert any(v["category"] == "unsafe_action_not_clearly_blocked" for v in violations)
+
+
+def test_major_conceptual_mitre_no_direct_negation() -> None:
+    question = next(row for row in load_question_bank(BANK_PATH) if row["question_id"] == "pg.fw.010")
+    record = {
+        "answer_text": "Routing complete. SPL is not required at this stage.",
+        "execution_status": "skipped",
+        "execution_executed": False,
+        "mitre_evidence_supported_techniques": [],
+        "mitre_branch_evidence_supported": [],
+        "draft_spl_text": "",
+    }
+    severity, violations = classify_powergrid_response(question, record, mcp_execution_enabled=False)
+    assert severity == "major"
+    assert any(v["category"] == "conceptual_mitre_no_direct_negation" for v in violations)
+
+
+def test_major_evidence_supported_mitre_with_blocked_context() -> None:
+    question = load_question_bank(BANK_PATH)[0]
+    record = {
+        "answer_text": (
+            "T1110 Evidence Supported. Template active but source profile missing: "
+            "index/sourcetype/key fields required."
+        ),
+        "execution_status": "skipped",
+        "execution_executed": False,
+        "mitre_evidence_supported_techniques": ["T1110"],
+        "mitre_branch_evidence_supported": ["T1110"],
+        "draft_spl_text": "",
+    }
+    severity, violations = classify_powergrid_response(question, record, mcp_execution_enabled=False)
+    assert severity == "major"
+    assert any(v["category"] == "evidence_supported_mitre_with_blocked_context" for v in violations)
+
+
 def test_major_guidance_only_insufficient_evidence() -> None:
     question = {
         "safety_expectations": {"requires_guidance": True},
@@ -289,11 +366,119 @@ def test_testclient_chat_integration(authed_client: TestClient) -> None:
     assert result.report["rows"][0]["question_id"] == "pg.sop.001"
 
 
+def test_fetch_remote_flag_snapshot_parses_llm_governance(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Resp:
+        status_code = 200
+
+        @staticmethod
+        def json() -> dict[str, object]:
+            return {
+                "mcp": {"global_execution_enabled": False},
+                "routing": {"langgraph_orchestration_enabled": False},
+                "llm": {
+                    "governance": {
+                        "final_synthesis_enabled": True,
+                        "answer_guard_enabled": True,
+                        "llm_enabled": True,
+                        "llm_mode": "local",
+                    }
+                },
+            }
+
+    class _Client:
+        def get(self, url: str, timeout: float = 10.0) -> _Resp:
+            return _Resp()
+
+    snapshot = fetch_remote_flag_snapshot("http://127.0.0.1:8010", client=_Client())  # type: ignore[arg-type]
+    assert snapshot["flags"]["ai_soc_llm_final_synthesis_enabled"] is True
+    assert snapshot["llm_governance"]["llm_mode"] == "local"
+
+
+def test_llm_metrics_extract_composer_used_and_skip_reasons() -> None:
+    question = load_question_bank(BANK_PATH)[0]
+    used_raw = {
+        "control_plane_trace": {
+            "llm_composer": {
+                "composer_is_enabled": True,
+                "llm_composer_enabled": True,
+                "llm_composer_used": True,
+                "llm_guard_status": "passed",
+                "ai_soc_llm_live_synthesis_enabled": True,
+            }
+        },
+        "analyst_response": {"direct_answer_summary": "Narrated analyst summary with checklist and next steps."},
+    }
+    used = _extract_llm_row_metrics(used_raw, question=question, answer_text="Narrated analyst summary.")
+    assert used["composer_eligible"] is True
+    assert used["composer_attempted"] is True
+    assert used["composer_used"] is True
+    assert used["thin_deterministic_answer"] is False
+
+    draft_raw = {
+        "control_plane_trace": {
+            "llm_composer": {
+                "composer_is_enabled": True,
+                "llm_composer_used": False,
+                "llm_guard_status": "skipped",
+                "llm_blocked_reason": "draft_spl_preview_active",
+            }
+        }
+    }
+    draft = _extract_llm_row_metrics(draft_raw, question=question, answer_text="Lab-only draft SPL preview.")
+    assert draft["composer_eligible"] is True
+    assert draft["composer_attempted"] is False
+    assert draft["skip_category"] == "early_skip"
+
+
+def test_summarize_llm_metrics_counts_rows() -> None:
+    rows = [
+        {"question_id": "a", "llm_metrics": {"composer_eligible": True, "composer_used": True}},
+        {
+            "question_id": "b",
+            "llm_metrics": {
+                "composer_eligible": True,
+                "thin_deterministic_answer": True,
+                "thin_deterministic_reason": "routing_complete_spl_not_required_only",
+                "skip_reason": "draft_spl_preview_active",
+                "skip_category": "early_skip",
+            },
+        },
+    ]
+    summary = _summarize_llm_metrics(rows)
+    assert summary["composer_used_rows"] == 1
+    assert summary["thin_deterministic_rows"] == 1
+    assert summary["skip_category_counts"]["early_skip"] == 1
+
+
 def test_render_helpers() -> None:
     report = {
         "generated_at": "t",
         "schema_version": SCHEMA_VERSION,
-        "summary": {"total_evaluated": 1, "pass_count": 1, "review_count": 0, "fail_count": 0},
+        "summary": {
+            "total_evaluated": 1,
+            "pass_count": 1,
+            "review_count": 0,
+            "fail_count": 0,
+            "llm_final_synthesis_enabled": True,
+            "llm_live_synthesis_enabled": True,
+            "composer_is_enabled": True,
+            "llm_metrics": {
+                "rows_total": 1,
+                "composer_eligible_rows": 1,
+                "composer_attempted_rows": 0,
+                "composer_used_rows": 0,
+                "compose_guard_blocked_rows": 0,
+                "compose_fallback_rows": 0,
+                "narration_llm_called_rows": 0,
+                "answer_guard_blocked_rows": 0,
+                "final_answer_guard_blocked_rows": 0,
+                "thin_deterministic_rows": 0,
+                "skip_category_counts": {},
+                "skip_reason_counts": {},
+                "thin_reason_counts": {},
+                "thin_deterministic_question_ids": [],
+            },
+        },
         "rows": [
             {
                 "question_id": "pg.auth.001",
@@ -312,11 +497,21 @@ def test_render_helpers() -> None:
                 "question": "q",
                 "answer_text": "a",
                 "violations": [],
+                "llm_metrics": {
+                    "composer_eligible": False,
+                    "composer_attempted": False,
+                    "composer_used": False,
+                    "thin_deterministic_answer": False,
+                },
             }
         ],
     }
-    assert "PowerGrid SOC question evaluation summary" in render_summary_markdown(report)
-    assert "### Answer" in render_answers_markdown(report)
+    summary_md = render_summary_markdown(report)
+    assert "PowerGrid SOC question evaluation summary" in summary_md
+    assert "LLM composer coverage" in summary_md
+    assert "Live synthesis enabled (backend): **True**" in summary_md
+    answers_md = render_answers_markdown(report)
+    assert "### Answer" in answers_md
 
 
 def test_cli_check_passes_with_mock_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

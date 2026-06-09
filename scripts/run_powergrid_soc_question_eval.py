@@ -45,7 +45,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--csv-out", type=Path, default=DEFAULT_CSV)
     parser.add_argument("--answers-md-out", type=Path, default=DEFAULT_ANSWERS_MD)
     parser.add_argument("--question-bank", type=Path, default=DEFAULT_BANK)
+    parser.add_argument(
+        "--profile",
+        choices=("default", "deterministic", "live_llm"),
+        default="default",
+        help="Label run and pick default output suffix (deterministic vs live_llm)",
+    )
     args = parser.parse_args(argv)
+
+    if args.profile != "default":
+        suffix = "_deterministic" if args.profile == "deterministic" else "_llm"
+        evals = REPO_ROOT / "docs" / "evals"
+        if args.json_out == DEFAULT_JSON:
+            args.json_out = evals / f"powergrid_soc_question_eval_report{suffix}.json"
+        if args.md_out == DEFAULT_MD:
+            args.md_out = evals / f"powergrid_soc_question_eval_summary{suffix}.md"
+        if args.csv_out == DEFAULT_CSV:
+            args.csv_out = evals / f"powergrid_soc_question_eval_report{suffix}.csv"
+        if args.answers_md_out == DEFAULT_ANSWERS_MD:
+            args.answers_md_out = evals / f"powergrid_soc_question_eval_answers{suffix}.md"
 
     result = run_powergrid_eval(
         base_url=args.base_url,
@@ -55,6 +73,7 @@ def main(argv: list[str] | None = None) -> int:
         question_bank_path=args.question_bank,
         emit_answers=args.emit_answers,
         strict=args.strict,
+        eval_profile=args.profile if args.profile != "default" else "default",
     )
     write_powergrid_outputs(
         result,

@@ -25,8 +25,8 @@ _SYSTEM_PROMPT = (
     "Hard rules:\n"
     "- Do not invent severity, MITRE status upgrades, SPL approval, execution, "
     "or compromise conclusions.\n"
-    "- Candidate MITRE techniques stay candidate; only evidence-supported "
-    "techniques may be described as evidence-supported.\n"
+    "- Candidate MITRE techniques stay candidate; never use the phrase "
+    "'evidence-supported' unless the contract lists that technique as supported.\n"
     "- SPL is review-only unless the contract explicitly says it was executed.\n"
     "- If SPL template_status is active but block_reason says source profile is missing, "
     "say the governed SPL template is active but generation is blocked/review-required "
@@ -36,6 +36,11 @@ _SYSTEM_PROMPT = (
     "- Preserve missing-evidence and limitation caveats.\n"
     "- If human review is required, say review is required.\n"
     "- No SPL queries, no tool instructions, no GitHub references.\n"
+    "- Do not claim Splunk/MCP returned rows, observed live results, or confirmed compromise "
+    "unless the contract execution status says executed.\n"
+    "- Use MITRE technique names exactly as listed in the contract.\n"
+    "- Structure: direct answer; what SOC should check; evidence still needed; "
+    "SPL/MITRE/HIL status; what not to conclude yet.\n"
     "- Output plain prose only."
 )
 
@@ -87,12 +92,18 @@ class GovernedComposerResult:
     llm_blocked_reason: str | None = None
 
     def trace_payload(self) -> dict[str, Any]:
+        attempted = self.llm_composer_enabled and self.llm_guard_status in {
+            "passed",
+            "blocked",
+            "pending",
+        }
         return {
             "llm_composer_enabled": self.llm_composer_enabled,
             "llm_composer_used": self.llm_composer_used,
             "llm_guard_status": self.llm_guard_status,
             "llm_fallback_used": self.llm_fallback_used,
             "llm_blocked_reason": self.llm_blocked_reason,
+            "composer_attempted": attempted or self.llm_composer_used,
         }
 
 
@@ -288,6 +299,9 @@ def validate_composed_prose(text: str, contract: AnswerContract) -> tuple[bool, 
         if "account_compromise" in blocked_claims or "account compromis" in blocked_claims:
             return False, "Composed prose claims compromise without contract support."
 
+    if not supported and _EVIDENCE_SUPPORTED.search(lowered):
+        return False, "Composed prose uses evidence-supported wording without contract support."
+
     exec_label = str(contract.execution_status_label or "")
     if _EXECUTED_SPL.search(lowered) and exec_label not in {"executed_mock_evidence", "executed_live_evidence"}:
         return False, "Composed prose claims SPL execution without contract support."
@@ -387,7 +401,7 @@ def compose_governed_answer(
             envelope=fallback_envelope,
             llm_composer_enabled=True,
             llm_composer_used=False,
-            llm_guard_status="skipped",
+            llm_guard_status="blocked",
             llm_fallback_used=True,
             llm_blocked_reason=exc.user_message,
         )

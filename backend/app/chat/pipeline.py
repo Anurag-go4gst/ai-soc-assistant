@@ -66,6 +66,7 @@ from app.synthesis.governed_answer_composer import (
 )
 from app.synthesis.lab_runner import apply_synthesis_allowed_to_sufficiency, run_governed_synthesis_lab
 from app.use_cases.content_enrichment import (
+    get_guidance_only_enrichment_projection,
     get_runtime_curated_enrichment,
     llm_facing_curated_enrichment_projection,
 )
@@ -607,6 +608,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             state.get("effective_query") or request.message,
             session_alert_context=session_alert_context,
         ),
+        execution=execution,
     )
     if mitre_branch.ran:
         mitre_mappings, mitre_decision = branch_mappings, branch_decision
@@ -632,6 +634,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             source_evidence=source_evidence,
             structured_context=structured_context,
             session_alert_context=session_alert_context,
+            execution=execution,
         )
     mitre_branch_payload = mitre_branch.model_dump()
     response_use_case = _response_use_case(state)
@@ -733,13 +736,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         action_capability=action_capability,
     )
 
+    planning_decision = state.get("planning_decision")
+    path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
     message = _chat_message(
         spl_validation,
         execution,
         analyst_summary_from_lab,
         evidence_plan=state.get("evidence_plan"),
-        planning_decision=state.get("planning_decision"),
+        planning_decision=planning_decision,
         soc_kb_retrieval=state.get("soc_kb_retrieval"),
+        user_query=request.message,
     )
     note = _chat_note(
         spl_validation,
@@ -774,6 +780,26 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         human_review = _spl_clarification_review(spl_validation)
         message = human_review["safe_message_for_user"]
         note = "No governed candidate SPL was produced; clarification is required before validation or execution."
+    elif path_type == "unsafe_blocked":
+        from app.chat.guidance_templates import build_spl_execution_refusal_guidance, is_explicit_run_spl_query
+
+        if is_explicit_run_spl_query(request.message):
+            from app.orchestration.human_review import human_review as build_human_review
+
+            hil_review = build_human_review(
+                "execution_approval",
+                "explicit_run_spl_blocked",
+                "soc_analyst",
+                ["provide_investigation_guidance", "cancel"],
+                build_spl_execution_refusal_guidance(),
+            )
+            human_review = hil_review
+            message = hil_review["safe_message_for_user"]
+            note = "Explicit SPL execution/results request blocked; HIL approval required."
+        else:
+            human_review = _unsafe_action_review()
+            message = human_review["safe_message_for_user"]
+            note = "Unsafe containment/enforcement request blocked; HIL approval required before any action."
     else:
         audit_review = operation_audit_human_review(operation_audit)
         if audit_review is not None:
@@ -892,13 +918,28 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         llm_spl_candidate=llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None,
     )
     composer_trace: dict[str, Any] = build_composer_runtime_status()
-    if answer_contract is not None and analyst_response is not None:
-        enrichment_context = get_runtime_curated_enrichment(
+    from app.chat.guidance_templates import should_skip_llm_composer
+
+    intent_family = ""
+    if isinstance(state.get("intent_classification"), dict):
+        intent_family = str(state["intent_classification"].get("intent_family") or "")
+    skip_composer, skip_reason = should_skip_llm_composer(
+        query=request.message,
+        path_type=path_type,
+        intent_family=intent_family or None,
+        use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
+    )
+    if answer_contract is not None and analyst_response is not None and not skip_composer:
+        composer_use_case_id = (
             response_use_case.use_case_id if response_use_case is not None else use_case_id
         )
+        enrichment_context = get_runtime_curated_enrichment(composer_use_case_id)
+        enrichment_projection = llm_facing_curated_enrichment_projection(enrichment_context)
+        if enrichment_projection is None:
+            enrichment_projection = get_guidance_only_enrichment_projection(composer_use_case_id)
         composer_result = compose_governed_answer(
             contract=answer_contract,
-            enrichment_projection=llm_facing_curated_enrichment_projection(enrichment_context),
+            enrichment_projection=enrichment_projection,
             fallback_envelope=analyst_response,
         )
         composer_trace = {**composer_trace, **composer_result.trace_payload()}
@@ -907,6 +948,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             from app.chat.final_answer_readability import apply_draft_preview_readability
 
             analyst_response = apply_draft_preview_readability(analyst_response)
+    elif answer_contract is not None and skip_composer and analyst_response is not None:
+        composer_trace = {
+            **composer_trace,
+            "composer_attempted": False,
+            "llm_composer_used": False,
+            "llm_guard_status": "skipped",
+            "llm_fallback_used": False,
+            "llm_blocked_reason": skip_reason or "deterministic_guidance_only",
+        }
     elif answer_contract is not None:
         composer_trace["composer_attempted"] = False
         composer_trace["composer_skipped_reason"] = (
@@ -915,7 +965,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             else "composer_not_eligible"
         )
     if _rag_no_match(state.get("soc_kb_retrieval")) and spl_validation is None:
-        analyst_response = None
+        has_guidance = bool(
+            answer_contract is not None
+            and (
+                answer_contract.analyst_checklist_safe
+                or answer_contract.investigation_steps
+                or answer_contract.limitations
+                or answer_contract.missing_evidence
+            )
+        )
+        if not has_guidance:
+            analyst_response = None
     final_answer_validation = None
     if settings.control_plane_enabled:
         validation = validate_final_answer(
@@ -1233,6 +1293,7 @@ def _mitre_outputs_for_finalize(
     structured_context: dict[str, Any] | None = None,
     session_alert_context: bool = False,
     planning_decision: dict[str, Any] | None = None,
+    execution: dict[str, Any] | None = None,
 ) -> tuple[list[Any], dict[str, Any] | None]:
     """Legacy mapping by default; Phase 7 decision only when control plane is on."""
     if not settings.control_plane_enabled:
@@ -1250,6 +1311,7 @@ def _mitre_outputs_for_finalize(
         source_evidence=source_evidence,
         structured_context=structured_context,
         alert_context_present=_mitre_alert_context_present(query or "", session_alert_context=session_alert_context),
+        execution=execution,
     )
     if branch.ran:
         return branch_mappings, branch_decision
@@ -1264,6 +1326,8 @@ def _mitre_outputs_for_finalize(
         source_evidence=source_evidence,
         structured_context=structured_context,
     )
+    from app.chat.mitre_branch import _source_profile_missing
+
     decision = resolve_mitre_decision(
         question_ref=question_ref,
         use_case_id=effective_use_case_id,
@@ -1273,6 +1337,9 @@ def _mitre_outputs_for_finalize(
         alert_context_present=_mitre_alert_context_present(query or "", session_alert_context=session_alert_context),
         negative_evidence=negative_evidence,
         use_case_review_guidance=bool((query_signals or {}).get("use_case_review_guidance")),
+        source_evidence=source_evidence,
+        execution=execution,
+        source_profile_missing=_source_profile_missing(evidence_plan),
     )
     if not decision.answer_visible:
         return [], decision.model_dump()
@@ -1383,6 +1450,18 @@ def _mitre_clarification_review() -> dict:
         "To map to MITRE ATT&CK I need the alert context first: the alert title, detection rule, "
         "notable/event ID, or the SPL with a few sample fields. I will not generate SPL or guess "
         "techniques without grounding.",
+    )
+
+
+def _unsafe_action_review() -> dict:
+    from app.chat.guidance_templates import build_unsafe_action_guidance
+
+    return human_review(
+        "execution_approval",
+        "unsafe_action_blocked",
+        "soc_analyst",
+        ["provide_investigation_guidance", "cancel"],
+        build_unsafe_action_guidance(),
     )
 
 
@@ -2529,9 +2608,40 @@ def _chat_message(
     evidence_plan: dict[str, Any] | None = None,
     planning_decision: dict[str, Any] | None = None,
     soc_kb_retrieval: dict[str, Any] | None = None,
+    user_query: str | None = None,
 ) -> str:
+    from app.chat.guidance_templates import (
+        build_conceptual_mitre_guidance,
+        build_investigation_triage_guidance,
+        build_mitre_evidence_threshold_guidance,
+        build_policy_escalation_guidance,
+        build_spl_execution_refusal_guidance,
+        build_unsafe_action_guidance,
+        is_policy_escalation_guidance_query,
+        is_conceptual_mitre_confirm_query,
+        is_explicit_run_spl_query,
+        is_mitre_evidence_threshold_query,
+        is_unsafe_blocked_path,
+    )
+
+    path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
+    if is_unsafe_blocked_path(path_type) or (user_query and is_explicit_run_spl_query(user_query)):
+        if user_query and is_explicit_run_spl_query(user_query):
+            return build_spl_execution_refusal_guidance()
+        return build_unsafe_action_guidance()
+    if user_query and is_policy_escalation_guidance_query(user_query):
+        return build_policy_escalation_guidance(user_query)
+    if user_query and is_mitre_evidence_threshold_query(user_query):
+        return build_mitre_evidence_threshold_guidance(user_query)
+    if user_query and is_conceptual_mitre_confirm_query(user_query):
+        return build_conceptual_mitre_guidance(user_query)
+    if user_query:
+        from app.chat.query_signals import extract_query_signals
+
+        triage_signals = extract_query_signals(user_query)
+        if triage_signals.get("investigation_triage_guidance"):
+            return build_investigation_triage_guidance(user_query)
     if spl_validation is None:
-        path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
         if path_type in {"spl_review", "spl_review_plus_rag", "hybrid_investigation"}:
             return (
                 "Governed SPL drafting is in review-only mode for this search request. "
@@ -2543,7 +2653,26 @@ def _chat_message(
             return "Generic SOC guidance path selected. Governed KB was checked when enabled; no catalog use case, SPL, MCP, or MITRE evidence claim was created."
         if isinstance(evidence_plan, dict) and evidence_plan.get("answer_mode") == "rag_only":
             return "Governed knowledge path selected. SPL and MCP are skipped for this request."
-        return "Routing complete. SPL is not required at this stage."
+        if user_query:
+            from app.chat.query_signals import extract_query_signals
+
+            signals = extract_query_signals(user_query)
+            if signals.get("explicit_search_intent") or signals.get("explicit_log_search"):
+                return (
+                    "Review-only SPL/search path selected. A lab draft preview or governed template "
+                    "may be shown when available; confirm index, sourcetype, fields, and time range. "
+                    "No MCP execution was performed."
+                )
+            checklist = []
+            if isinstance(evidence_plan, dict):
+                checklist = list(evidence_plan.get("checklist") or evidence_plan.get("investigation_workflow") or [])
+            if checklist:
+                items = "\n".join(f"- {item}" for item in checklist[:6])
+                return f"SOC investigation guidance:\n{items}"
+        return (
+            "Investigation planning is complete. Provide source profile details or run a review-only "
+            "search when logs are required; no MCP execution was performed."
+        )
     if _is_spl_clarification_required(spl_validation):
         return _spl_clarification_user_message(spl_validation)
     if spl_validation.get("approved") is True and (
