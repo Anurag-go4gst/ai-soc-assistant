@@ -91,9 +91,15 @@ function mitreState(trace: PlaceholderResponse): { label: string; variant: Varia
   return { label: statuses[0].replace(/_/g, ' '), variant: 'secondary' };
 }
 
+function hasDraftPreview(trace: PlaceholderResponse): boolean {
+  return Boolean(
+    trace.analyst_response?.spl_draft_preview || trace.analyst_response?.draft_spl_code,
+  );
+}
+
 function reviewState(trace: PlaceholderResponse): { label: string; variant: Variant } {
   if (
-    trace.spl_draft_preview ||
+    hasDraftPreview(trace) ||
     trace.analyst_response?.hil_status === 'required' ||
     trace.human_review?.required
   ) {
@@ -103,7 +109,7 @@ function reviewState(trace: PlaceholderResponse): { label: string; variant: Vari
 }
 
 function draftPreviewSummary(trace: PlaceholderResponse): string | null {
-  if (!trace.spl_draft_preview) return null;
+  if (!hasDraftPreview(trace)) return null;
   return trace.analyst_response?.direct_answer_summary ?? trace.message ?? null;
 }
 

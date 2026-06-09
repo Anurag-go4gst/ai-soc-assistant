@@ -56,7 +56,7 @@ def test_no_duplicate_section_labels_and_standard_execution_status() -> None:
     assert result.severity_label == "P2 High — Review required"
     assert result.direct_answer_summary
     assert "Severity:" not in result.direct_answer_summary
-    assert "1 evidence-supported MITRE technique" in result.direct_answer_summary
+    assert "1 source-grounded MITRE technique" in result.direct_answer_summary
     assert "1 candidate technique" in result.direct_answer_summary
     assert "2 techniques not claimed due to insufficient supporting evidence" in result.direct_answer_summary
     assert "governed SPL draft" in result.direct_answer_summary
