@@ -276,6 +276,17 @@ def extract_query_signals(
             "disable the user",
             "kill the process",
             "kill process",
+            "quarantine endpoint",
+            "isolate the host",
+            "isolate host",
+            "clear mfa",
+            "clear the mfa",
+            "reset mfa factor",
+            "expire session",
+            "expire sessions",
+            "expire all session",
+            "revoke session",
+            "revoke all session",
         )
     )
     conceptual_mitre_judgment = bool(
