@@ -472,6 +472,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     spl_draft_preview = build_draft_preview(
         query_text,
         spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+        unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
     )
     llm_spl_candidate = _llm_spl_candidate_stage(
         skill=effective_skill,

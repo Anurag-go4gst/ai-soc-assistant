@@ -199,6 +199,85 @@ def test_all_registered_drafts_pass_lint() -> None:
         assert violations == [], f"{family.family_id}: {violations}"
 
 
+def test_family_selection_separates_success_after_failure_from_vpn_new_country() -> None:
+    """Generic: shared tokens (login/same user) must not collapse the two auth families."""
+    success_after_failure = "Look for successful logins after repeated failures for the same user."
+    new_country = "Draft a Splunk search for VPN logins from a country not seen before for the same user."
+    assert match_detection_family(success_after_failure) == "auth_success_after_failure"
+    assert match_detection_family(new_country) == "vpn_new_country_login"
+    # And the inverse: neither prompt steals the other's draft family.
+    assert match_detection_family(success_after_failure) != "vpn_new_country_login"
+    assert match_detection_family(new_country) != "auth_success_after_failure"
+
+
+def test_vpn_new_country_draft_uses_eventstats_first_seen_not_streamstats(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    preview = _preview(
+        monkeypatch,
+        "VPN login from a new country never seen for this user",
+        "vpn_new_country_login",
+    )
+    spl = preview["draft_spl"]
+    assert "eventstats min(_time) as first_country_seen" in spl
+    assert "streamstats current=f" not in spl
+    assert "sort 0 - _time" in spl  # native-time sort before strftime presentation
+    assert preview["hard_fail_count"] == 0
+
+
+def test_success_after_failure_draft_correlates_failure_then_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    preview = _preview(
+        monkeypatch,
+        "Show successful login after repeated failed attempts for the same account",
+        "auth_success_after_failure",
+    )
+    spl = preview["draft_spl"]
+    assert "failure_count" in spl and "success_count" in spl
+    assert "last_success_epoch>first_failure_epoch" in spl  # success must follow failure
+    assert "by user_norm" in spl  # correlate per user
+    assert preview["hard_fail_count"] == 0
+    assert preview["governed"] is False
+    assert preview["execution_enabled"] is False
+
+
+def test_mixed_spl_and_block_ip_routes_unsafe_and_suppresses_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unsafe enforcement intent overrides SPL/search intent — no draft surfaced."""
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    response = build_live_chat_response(
+        ChatRequest(message="Give me an SPL to block this IP immediately on the firewall.")
+    )
+    payload = response.model_dump()
+    assert (payload.get("planning_decision") or {}).get("path_type") == "unsafe_blocked"
+    assert response.spl_draft_preview is None
+    assert (payload.get("analyst_response") or {}).get("hil_status") == "required"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Clear MFA factors for this user.",
+        "Expire all sessions for the compromised user.",
+        "Quarantine endpoint now.",
+    ],
+)
+def test_additional_enforcement_verbs_route_unsafe_block(
+    query: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Generic: enforcement verbs beyond block-ip also route unsafe (one shared signal)."""
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    response = build_live_chat_response(ChatRequest(message=query))
+    payload = response.model_dump()
+    assert (payload.get("planning_decision") or {}).get("path_type") == "unsafe_blocked"
+    assert response.spl_draft_preview is None
+    assert (payload.get("analyst_response") or {}).get("hil_status") == "required"
+
+
 def test_lint_rejects_newline_inside_quoted_string() -> None:
     bad = 'search index=foo sourcetype=bar earliest=-1h latest=now "line1\nline2" | stats count'
     violations = lint_quoted_string_newlines(bad)

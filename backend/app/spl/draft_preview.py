@@ -572,6 +572,118 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
         scope_notice=ESTABLISHED_TRAFFIC_SCOPE_NOTICE,
     ),
     _family(
+        "vpn_new_country_login",
+        pattern_texts=(
+            r"\bvpn\b",
+            r"countr",
+            r"not\s+seen",
+            r"unseen",
+            r"new\s+countr",
+            r"never\s+seen",
+            r"first[\s-]?seen",
+        ),
+        draft_spl="""
+search index=<vpn_index> sourcetype=<vpn_auth_sourcetype> earliest=-90d latest=now (action=success OR action=allowed OR action=permit OR action=login OR result=success)
+| eval user_norm=lower(coalesce(user, username, src_user, ""))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval country_norm=upper(coalesce(geo_country, src_country, country, ""))
+| eval action_norm=lower(coalesce(action, status, result, event_action, ""))
+| eval app_norm=lower(coalesce(app, application, vpn_app, ""))
+| eval mfa_norm=lower(coalesce(mfa_result, mfa_status, authentication_result, ""))
+| eval device_norm=coalesce(device_id, device, endpoint_id, "")
+| eval user_agent_norm=coalesce(user_agent, http_user_agent, "")
+| where user_norm!="" AND country_norm!=""
+| eventstats min(_time) as first_country_seen by user_norm country_norm
+| where _time=first_country_seen AND first_country_seen>=relative_time(now(),"-24h@h")
+| sort 0 - _time
+| eval login_time=strftime(_time, "%Y-%m-%d %H:%M:%S")
+| table login_time user_norm src_ip_norm country_norm action_norm app_norm mfa_norm device_norm user_agent_norm
+| head 100
+""",
+        assumptions=(
+            "Shift-left VPN success/login actions in base search; tune action values to your VPN auth sourcetype.",
+            "First-seen country uses eventstats min(_time) by user+country within the 90-day lookback; the 24h filter flags the country's first appearance. No fragile streamstats current=f.",
+            "Per-login fields (src_ip, action, app, mfa, device, user_agent) are kept at event level by eventstats, not collapsed by stats.",
+            "Replace <vpn_index> and <vpn_auth_sourcetype> from your VPN source profile before review.",
+            "Map geo_country, src_country, or country to the field your VPN logs populate; geo enrichment accuracy varies by egress IP.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=(
+            "index",
+            "sourcetype",
+            "user",
+            "src_ip",
+            "geo_country",
+            "action",
+            "_time",
+        ),
+        required_source_profile_fields=(
+            "vpn_index",
+            "vpn_auth_sourcetype",
+            "geo_country_field",
+        ),
+        investigation_checklist=(
+            "Confirm VPN auth sourcetype and country field mapping from the source profile.",
+            "Validate geo enrichment accuracy for VPN egress IPs before treating country as novel.",
+            "Review MFA outcome and device context when those fields are available.",
+            "Correlate with IdP/VPN vendor admin activity before escalation.",
+        ),
+    ),
+    _family(
+        "auth_success_after_failure",
+        pattern_texts=(
+            r"success.*after.*fail",
+            r"after\s+(?:repeated\s+)?fail",
+            r"fail.*then.*success",
+            r"success(?:ful)?\s+log\s*in.*fail",
+        ),
+        draft_spl="""
+search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (action=success OR action=failure OR action=failed OR action=denied OR result=success OR result=failure)
+| eval user_norm=lower(coalesce(user, username, src_user, ""))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval host_norm=lower(coalesce(dest, host, dest_host, ""))
+| eval action_norm=lower(coalesce(action, status, result, event_action, ""))
+| eval outcome=case(match(action_norm, "fail|denied|invalid"), "failure", match(action_norm, "success|allowed|permit"), "success", true(), "other")
+| where user_norm!="" AND outcome!="other"
+| eval failure_time=if(outcome="failure", _time, null())
+| eval success_time=if(outcome="success", _time, null())
+| stats count(failure_time) as failure_count count(success_time) as success_count min(failure_time) as first_failure_epoch max(success_time) as last_success_epoch values(src_ip_norm) as source_ips values(host_norm) as hosts by user_norm
+| where failure_count>=5 AND success_count>=1 AND last_success_epoch>first_failure_epoch
+| eval first_failure=strftime(first_failure_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_success=strftime(last_success_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_failure_epoch last_success_epoch
+| table user_norm failure_count success_count source_ips hosts first_failure last_success
+| sort - failure_count
+| head 100
+""",
+        assumptions=(
+            "Correlates repeated failures followed by a later success for the SAME user; success must occur after the first failure.",
+            "Shift-left success/failure/denied actions in base search; outcome bucketed via match() on action_norm.",
+            "Source IPs and hosts are preserved with values() so analysts can see whether failures and the success share a source/host.",
+            "Failure threshold (>=5) is illustrative — tune per environment; lower for high-value accounts.",
+            "Replace <auth_index> and <auth_sourcetype> from your authentication source profile before review.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=(
+            "index",
+            "sourcetype",
+            "user",
+            "src_ip",
+            "action",
+            "_time",
+        ),
+        required_source_profile_fields=(
+            "auth_index",
+            "auth_sourcetype",
+        ),
+        investigation_checklist=(
+            "Confirm the success genuinely followed the failure burst (not interleaved noise).",
+            "Check whether the successful login came from the same source IP/host as the failures.",
+            "Review MFA outcome and device posture for the successful login when available.",
+            "Correlate with password-reset, IdP admin, or lockout events before escalation.",
+        ),
+    ),
+    _family(
         "substation_hmi_brute_force",
         pattern_texts=(
             r"substation",
@@ -636,6 +748,15 @@ def match_detection_family(user_query: str) -> str | None:
         return "firewall_ot_egress_denied"
     if "vendor vpn" in normalized and "jump" in normalized:
         return "firewall_vendor_vpn_jump"
+    if re.search(r"\bvpn\b", normalized) and re.search(r"\bcountr", normalized):
+        if re.search(r"not\s+seen|unseen|new\s+countr|never\s+seen|not\s+seen\s+before", normalized):
+            return "vpn_new_country_login"
+    if (
+        re.search(r"success", normalized)
+        and re.search(r"fail", normalized)
+        and re.search(r"\bafter\b|following|then|repeated", normalized)
+    ):
+        return "auth_success_after_failure"
     if re.search(r"\brdp\b|remote desktop|\b3389\b", normalized):
         return "firewall_it_ot_rdp"
     if "smb" in normalized and "ot" in normalized:
@@ -720,9 +841,14 @@ def build_draft_preview(
     *,
     spl_validation: dict[str, Any] | None = None,
     family_id: str | None = None,
+    unsafe_enforcement: bool = False,
 ) -> dict[str, Any] | None:
     """Build a lab-only draft preview dict when the flag is enabled and query matches."""
     if not settings.ai_soc_spl_draft_preview_enabled:
+        return None
+    # Unsafe enforcement intent overrides all SPL/search intent: never surface a
+    # draft (investigation or otherwise) when the request is to block/contain.
+    if unsafe_enforcement:
         return None
     if _is_governed_spl_ready(spl_validation):
         return None
