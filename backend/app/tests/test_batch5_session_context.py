@@ -67,7 +67,8 @@ def test_follow_up_mitre_uses_fresh_session_context() -> None:
     assert follow_up.session_context_status.staleness == "fresh"
     assert "last_alert_id" in follow_up.session_context_status.used_fields
     assert follow_up.mitre_evidence_status is not None
-    assert follow_up.mitre_evidence_status.get("T1110.001") == "evidence_supported"
+    # MCP off → no source-grounded evidence → tier gate caps to requires_validation.
+    assert follow_up.mitre_evidence_status.get("T1110.001") == "requires_validation"
     assert follow_up.mitre_evidence_status.get("T1078") == "candidate"
     names = {item.get("node_name") for item in (follow_up.node_trace or [])}
     assert "session_context" in names

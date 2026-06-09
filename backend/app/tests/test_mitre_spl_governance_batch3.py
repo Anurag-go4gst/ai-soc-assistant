@@ -25,7 +25,21 @@ def _plan() -> dict:
     return {"answer_mode": "live_investigation"}
 
 
-def _decision(use_case_id: str, present: list[str], candidates: list[str] | None = None):
+# Approved test-fixture equivalent of validated source-grounded evidence: an
+# executed MCP collection with collected splunk_mcp evidence. Required for
+# evidence_supported under the WS1 evidence-tier gate. This does NOT bypass the
+# gate — it supplies the source_grounded tier the gate demands.
+_GROUNDED_EXECUTION = {"status": "executed"}
+_GROUNDED_SOURCE_EVIDENCE = [{"source_type": "splunk_mcp", "collection_status": "collected"}]
+
+
+def _decision(
+    use_case_id: str,
+    present: list[str],
+    candidates: list[str] | None = None,
+    *,
+    grounded: bool = False,
+):
     if candidates is not None:
         registry_metadata: MitreRegistryMetadata | None = MitreRegistryMetadata(
             mitre_candidate=candidates,
@@ -43,11 +57,13 @@ def _decision(use_case_id: str, present: list[str], candidates: list[str] | None
         source_refs=["ev-1"],
         alert_context_present=True,
         negative_evidence={"present_evidence": present},
+        execution=_GROUNDED_EXECUTION if grounded else None,
+        source_evidence=_GROUNDED_SOURCE_EVIDENCE if grounded else None,
     )
 
 
 def test_failed_login_spike_supports_bruteforce_but_not_valid_accounts() -> None:
-    decision = _decision("auth_failed_login_spike", ["failed_login_pattern"])
+    decision = _decision("auth_failed_login_spike", ["failed_login_pattern"], grounded=True)
 
     assert decision.evidence_statuses["T1110"] == "evidence_supported"
     assert decision.evidence_statuses["T1110.001"] == "evidence_supported"
@@ -60,6 +76,7 @@ def test_success_after_failures_supports_t1110_but_t1078_stays_candidate() -> No
     decision = _decision(
         "auth_success_after_failure",
         ["failed_login_pattern", "successful_login"],
+        grounded=True,
     )
 
     assert decision.evidence_statuses["T1110.001"] == "evidence_supported"
@@ -73,16 +90,18 @@ def test_success_after_failures_supports_t1078_only_with_stronger_misuse_evidenc
     decision = _decision(
         "auth_success_after_failure",
         ["failed_login_pattern", "successful_login", "source_ip_novelty"],
+        grounded=True,
     )
 
     assert decision.evidence_statuses["T1078"] == "evidence_supported"
 
 
 def test_powershell_status_requires_command_or_script_evidence() -> None:
-    candidate = _decision("edr_powershell_suspicious_command", [])
+    candidate = _decision("edr_powershell_suspicious_command", [], grounded=True)
     supported = _decision(
         "edr_powershell_suspicious_command",
         ["powershell_command_evidence", "encoded_command"],
+        grounded=True,
     )
 
     assert candidate.evidence_statuses["T1059.001"] == "candidate"
@@ -93,10 +112,12 @@ def test_phishing_single_sender_mismatch_is_candidate_only() -> None:
     single = _decision(
         "email_phishing_header_review",
         ["sender_return_path_mismatch"],
+        grounded=True,
     )
     supported = _decision(
         "email_phishing_header_review",
         ["sender_return_path_mismatch", "email_auth_failure"],
+        grounded=True,
     )
 
     assert single.evidence_statuses["T1566"] == "candidate"
@@ -104,18 +125,23 @@ def test_phishing_single_sender_mismatch_is_candidate_only() -> None:
 
 
 def test_c2_requires_multiple_beaconing_signals() -> None:
-    single = _decision("dns_beaconing_candidate", ["periodicity", "network_telemetry"])
-    supported = _decision("dns_beaconing_candidate", ["periodicity", "jitter_profile", "network_telemetry"])
+    single = _decision("dns_beaconing_candidate", ["periodicity", "network_telemetry"], grounded=True)
+    supported = _decision(
+        "dns_beaconing_candidate",
+        ["periodicity", "jitter_profile", "network_telemetry"],
+        grounded=True,
+    )
 
     assert single.evidence_statuses["T1071"] == "candidate"
     assert supported.evidence_statuses["T1071"] == "evidence_supported"
 
 
 def test_ransomware_requires_multiple_impact_signals() -> None:
-    single = _decision("endpoint_ransomware_impact_review", ["file_rename_volume"])
+    single = _decision("endpoint_ransomware_impact_review", ["file_rename_volume"], grounded=True)
     supported = _decision(
         "endpoint_ransomware_impact_review",
         ["file_rename_volume", "extension_pattern", "process_evidence"],
+        grounded=True,
     )
 
     assert single.evidence_statuses["T1486"] == "candidate"

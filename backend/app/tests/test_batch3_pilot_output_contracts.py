@@ -169,7 +169,8 @@ def test_failed_login_chat_exposes_evidence_supported_mitre_status(
     )
     assert response.mitre_decision is not None
     statuses = response.mitre_decision.get("evidence_statuses") or {}
-    assert statuses.get("T1110.001") == "evidence_supported"
+    # MCP off → no source-grounded evidence → tier gate caps to requires_validation.
+    assert statuses.get("T1110.001") == "requires_validation"
     assert "T1078" in (response.mitre_decision.get("rejected_techniques") or [])
 
     analyst_json = (response.analyst_response.model_dump_json() if response.analyst_response else "").lower()
@@ -190,7 +191,8 @@ def test_success_after_failure_chat_wording_and_mitre_status(
     assert response.selected_use_case.use_case_id == "auth_success_after_failure"
     assert response.mitre_decision is not None
     statuses = response.mitre_decision.get("evidence_statuses") or {}
-    assert statuses.get("T1110.001") == "evidence_supported"
+    # MCP off → no source-grounded evidence → tier gate caps to requires_validation.
+    assert statuses.get("T1110.001") == "requires_validation"
     assert statuses.get("T1078") == "candidate"
 
     assert response.analyst_response is not None
@@ -271,8 +273,17 @@ def test_planned_phishing_and_ransomware_mitre_do_not_fake_support() -> None:
             assert status != forbidden_status, f"{use_case_id}/{technique_id}"
 
 
-def test_llm_spl_fallback_disabled_by_default_outside_lab() -> None:
-    assert settings.ai_soc_llm_spl_fallback_enabled is False
+def test_llm_spl_fallback_disabled_by_default_outside_lab(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default config is off; lab .env may enable at runtime without changing the default."""
+    from app.config import Settings
+    from app.spl.llm_fallback import CLARIFICATION_LLM_DISABLED, generate_llm_spl_fallback
+
+    assert Settings.model_fields["ai_soc_llm_spl_fallback_enabled"].default is False
+    monkeypatch.setattr("app.spl.llm_fallback.settings.ai_soc_llm_spl_fallback_enabled", False)
+    result = generate_llm_spl_fallback(user_query="Write SPL to detect impossible travel from VPN logs")
+    assert result is not None
+    assert result.clarification_required is True
+    assert result.clarification_reason == CLARIFICATION_LLM_DISABLED
 
 
 def test_batch3_response_surface_audit_documents_batch4_gaps() -> None:

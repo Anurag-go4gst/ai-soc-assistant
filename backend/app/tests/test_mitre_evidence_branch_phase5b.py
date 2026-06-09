@@ -47,9 +47,12 @@ def test_mitre_branch_uses_resolver_as_authority_when_enabled(monkeypatch) -> No
     assert branch.ran is True
     assert branch.status == "completed"
     assert branch.branch_authority == "planner_mitre_branch"
-    assert "T1110.001" in branch.evidence_supported_mitre
+    # Query-signal-only context (no executed MCP / source-grounded evidence):
+    # the WS1 evidence-tier gate caps MITRE to candidate, never evidence_supported.
+    assert "T1110.001" in branch.candidate_mitre
+    assert branch.evidence_supported_mitre == []
     assert decision is not None
-    assert decision["mitre_status"] == "evidence_supported"
+    assert decision["mitre_status"] == "candidate"
     assert {item.technique_id for item in mappings} >= {"T1110.001"}
 
 
@@ -138,7 +141,8 @@ def test_finalize_uses_branch_output_when_branch_enabled(monkeypatch) -> None:
     )
 
     assert decision is not None
-    assert decision["mitre_status"] == "evidence_supported"
+    # Signal-only finalize path (no executed MCP evidence): tier gate caps to candidate.
+    assert decision["mitre_status"] == "candidate"
     assert {item.technique_id for item in mappings} >= {"T1110.001"}
 
 

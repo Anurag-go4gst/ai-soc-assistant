@@ -129,6 +129,7 @@ def test_mitre_candidates_remain_metadata_only_and_no_evidence_status_emitted(mo
 
 
 def test_flag_off_preserves_current_evidence_plan_behavior(monkeypatch) -> None:
+    """Flag off disables runtime activation but still projects catalog enrichment metadata."""
     monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", False)
     query = "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours"
     qu = understand_query(query)
@@ -143,7 +144,11 @@ def test_flag_off_preserves_current_evidence_plan_behavior(monkeypatch) -> None:
     )
 
     assert plan.enrichment_driven is False
-    assert plan.required_evidence_keys == []
+    assert plan.use_case_id == "auth_failed_login_spike"
+    assert plan.evidence_plan_reason == "curated_enrichment_activation_disabled"
+    assert "catalog_enrichment_projection" in plan.reasons
+    for key in ("user", "src", "host", "fail_count", "time_window", "first_failure", "last_failure"):
+        assert key in plan.required_evidence_keys
     assert plan.missing_required_evidence == []
-    assert plan.use_case_id is None
     assert plan.runtime_support_status is None
+    assert plan.checklist

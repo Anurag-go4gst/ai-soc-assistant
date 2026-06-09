@@ -108,7 +108,8 @@ def test_success_after_failure_keeps_t1078_candidate(monkeypatch: pytest.MonkeyP
         "I can review—but not execute"
     )
     statuses = response.mitre_evidence_status or {}
-    assert statuses.get("T1110.001") == "evidence_supported"
+    # MCP off → no source-grounded evidence → tier gate caps to requires_validation.
+    assert statuses.get("T1110.001") == "requires_validation"
     assert statuses.get("T1078") == "candidate"
     combined = (
         f"{response.analyst_response.direct_answer_summary or ''} "
