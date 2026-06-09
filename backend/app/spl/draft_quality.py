@@ -28,6 +28,10 @@ _FUZZY_ESP_ZONE = re.compile(
     r'like\s*\(\s*(?:src|dest)_zone_norm\s*,\s*"%',
     re.IGNORECASE,
 )
+_FUZZY_SESSION_STATE = re.compile(
+    r'like\s*\(\s*session_state_norm\s*,\s*["\']%',
+    re.IGNORECASE,
+)
 _ESP_NOISY_WILDCARD = re.compile(r"\(\s*\*it\*|\*corporate\*|\*ot\*|\*control\*", re.IGNORECASE)
 _ESP_BLANK_SESSION_PASS = re.compile(r'session_state_norm\s*=\s*""', re.IGNORECASE)
 _STRFTIME = re.compile(r"\bstrftime\s*\(", re.IGNORECASE)
@@ -49,6 +53,18 @@ _FAMILY_SHIFT_LEFT: dict[str, tuple[tuple[re.Pattern[str], str], ...]] = {
     ),
     "esp_it_to_ot_connection": (
         (re.compile(r"action\s*=\s*(?:allowed|accept|permit|success)", re.I), "action=allowed|accept|permit|success"),
+    ),
+    "firewall_it_ot_rdp": (
+        (re.compile(r"action\s*=\s*(?:allowed|accept|permit|success)", re.I), "action=allowed|accept|permit|success"),
+    ),
+    "firewall_vendor_vpn_jump": (
+        (re.compile(r"action\s*=\s*(?:allowed|accept|permit|success)", re.I), "action=allowed|accept|permit|success"),
+    ),
+    "firewall_ot_smb_lateral": (
+        (re.compile(r"action\s*=\s*(?:allowed|accept|permit|success)", re.I), "action=allowed|accept|permit|success"),
+    ),
+    "firewall_ot_egress_denied": (
+        (re.compile(r"action\s*=\s*(?:denied|blocked|drop|reject)", re.I), "action=denied|blocked|drop|reject"),
     ),
     "substation_hmi_brute_force": (
         (re.compile(r"\b(?:failure|fail|denied)\b", re.I), "(failure OR fail OR denied)"),
@@ -473,6 +489,20 @@ def evaluate_draft_quality(
             "SOC-STD-SPL-001-Q13",
             "hard_fail",
             "ESP IT→OT draft must not treat blank session_state_norm as established.",
+        )
+
+    if (
+        detection_family
+        and (
+            detection_family.startswith("esp_")
+            or detection_family.startswith("firewall_")
+        )
+        and _FUZZY_SESSION_STATE.search(spl)
+    ):
+        report.add(
+            "SOC-STD-SPL-001-Q14",
+            "hard_fail",
+            "Firewall draft must use strict session_state_norm IN() values only, not fuzzy like() matching.",
         )
 
     return report.finalize()

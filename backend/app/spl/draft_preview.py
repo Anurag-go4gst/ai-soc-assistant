@@ -6,18 +6,42 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from app.chat.network_boundary_display import (
+    DENIED_TRAFFIC_SCOPE_NOTICE,
+    ESTABLISHED_TRAFFIC_SCOPE_NOTICE,
+    FIREWALL_BOUNDARY_CHECKLIST,
+)
 from app.config import settings
 from app.safeguards.spl_validator import validate_spl
 from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
 
+_FIREWALL_LOG_FIELDS: tuple[str, ...] = (
+    "index",
+    "sourcetype",
+    "src_zone",
+    "dest_zone",
+    "src_ip",
+    "dest_ip",
+    "action",
+    "session_state",
+    "connection_state",
+    "protocol",
+    "dest_port",
+    "rule",
+    "_time",
+)
+_FIREWALL_PROFILE_FIELDS: tuple[str, ...] = (
+    "corporate_it_zone",
+    "ot_control_center_zone",
+    "corporate_it_cidr",
+    "ot_control_center_cidr",
+)
+
 DRAFT_WARNING = (
-    "Draft SPL preview only. Not governed. Not approved. Do not execute without SOC review."
+    "Lab-only draft SPL preview. Not governed, not approved, not executed. "
+    "HIL/SOC review is required before any future execution path."
 )
-DRAFT_PREVIEW_STATUS_MESSAGE = (
-    "Governed SPL is not available/ready. A lab-only Draft SPL preview is shown for SOC review. "
-    "It is not governed, not approved, and must not be executed. "
-    "HIL approval is required before any future execution path."
-)
+DRAFT_PREVIEW_STATUS_MESSAGE = DRAFT_WARNING
 DRAFT_PREVIEW_FORBIDDEN_PHRASES: tuple[str, ...] = (
     "spl does not require review",
     "does not require review",
@@ -39,7 +63,15 @@ class DetectionFamily:
     patterns: tuple[re.Pattern[str], ...]
     draft_spl: str
     assumptions: tuple[str, ...]
-    required_source_fields: tuple[str, ...]
+    required_log_fields: tuple[str, ...]
+    required_source_profile_fields: tuple[str, ...] = ()
+    investigation_checklist: tuple[str, ...] = ()
+    scope_notice: str | None = None
+
+    @property
+    def required_source_fields(self) -> tuple[str, ...]:
+        """Backward-compatible union for callers expecting a single list."""
+        return self.required_log_fields + self.required_source_profile_fields
 
 
 def _family(
@@ -48,14 +80,20 @@ def _family(
     pattern_texts: tuple[str, ...],
     draft_spl: str,
     assumptions: tuple[str, ...],
-    required_source_fields: tuple[str, ...],
+    required_log_fields: tuple[str, ...],
+    required_source_profile_fields: tuple[str, ...] = (),
+    investigation_checklist: tuple[str, ...] = (),
+    scope_notice: str | None = None,
 ) -> DetectionFamily:
     return DetectionFamily(
         family_id=family_id,
         patterns=tuple(re.compile(text, re.IGNORECASE) for text in pattern_texts),
         draft_spl=draft_spl.strip(),
         assumptions=assumptions,
-        required_source_fields=required_source_fields,
+        required_log_fields=required_log_fields,
+        required_source_profile_fields=required_source_profile_fields,
+        investigation_checklist=investigation_checklist,
+        scope_notice=scope_notice,
     )
 
 
@@ -101,7 +139,7 @@ search index=<windows_index> sourcetype=<windows_security_sourcetype> earliest=-
             "Threshold of more than 3 additions in 7 days is illustrative; tune per environment.",
             "Index and sourcetype are placeholders — confirm against your Windows security log source profile.",
         ),
-        required_source_fields=(
+        required_log_fields=(
             "index",
             "sourcetype",
             "EventCode",
@@ -136,7 +174,7 @@ search index=<windows_index> sourcetype=<windows_security_sourcetype> earliest=-
             "earliest(_time)/latest(_time) preserved in stats; readable strftime only at presentation.",
             "Index and sourcetype are placeholders — confirm against your Windows security log source profile.",
         ),
-        required_source_fields=(
+        required_log_fields=(
             "index",
             "sourcetype",
             "EventCode",
@@ -188,7 +226,7 @@ search index=<endpoint_index> sourcetype=XmlWinEventLog:Microsoft-Windows-Sysmon
             "Sorted by native _time; spawn_time strftime added before table presentation only.",
             "Index and sourcetype are placeholders — confirm Sysmon collection in your environment.",
         ),
-        required_source_fields=(
+        required_log_fields=(
             "index",
             "sourcetype",
             "EventCode",
@@ -237,7 +275,7 @@ search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earli
             "Engineering workstation allowlist uses cidrmatch() with placeholder CIDR — do not invent real CIDRs.",
             "Field names vary by firewall vendor — map DNP3/Modbus write/modify semantics during review.",
         ),
-        required_source_fields=(
+        required_log_fields=(
             "index",
             "sourcetype",
             "src_ip",
@@ -248,6 +286,227 @@ search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earli
         ),
     ),
     _family(
+        "firewall_ot_egress_denied",
+        pattern_texts=(
+            r"denied\s+traffic",
+            r"blocked\s+traffic",
+            r"denied.*\bot\b",
+            r"\bot\b.*internet",
+            r"egress.*\bot\b",
+        ),
+        draft_spl="""
+search index=<ot_firewall_index> sourcetype=<ot_firewall_sourcetype> earliest=-24h latest=now (action=denied OR action=blocked OR action=drop OR action=reject)
+| eval src_zone_norm=lower(coalesce(src_zone, source_zone, zone_src, ""))
+| eval dest_zone_norm=lower(coalesce(dest_zone, destination_zone, zone_dest, ""))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
+| eval action_norm=lower(coalesce(action, status, result, disposition, ""))
+| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, transport, ""))
+| eval dest_port_norm=coalesce(dest_port, destination_port, dport, "")
+| eval rule_norm=coalesce(rule, rule_name, policy_name, "")
+| where (
+    src_zone_norm IN ("<ot_zone>", "<ot_zone_alt>")
+    OR cidrmatch("<ot_asset_cidr>", src_ip_norm)
+  )
+  AND (
+    dest_zone_norm IN ("<internet_zone>", "untrust", "external")
+    OR NOT cidrmatch("<ot_asset_cidr>", dest_ip_norm)
+  )
+| stats
+    count as denied_count
+    values(src_zone_norm) as src_zones
+    values(dest_zone_norm) as dest_zones
+    values(rule_norm) as firewall_rules
+    values(protocol_norm) as protocols
+    values(dest_port_norm) as dest_ports
+    values(action_norm) as actions
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by src_ip_norm dest_ip_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| table src_ip_norm dest_ip_norm src_zones dest_zones firewall_rules protocols dest_ports actions denied_count first_seen last_seen
+| sort - denied_count
+| head 100
+""",
+        assumptions=(
+            "Shift-left denied/blocked/drop/reject actions in base search; no established-session filter for denied egress review.",
+            "OT source zones/CIDR placeholders must be confirmed from your OT firewall source profile.",
+            "Internet/untrust destination zones vary by vendor — map dest_zone or external CIDR during review.",
+        ),
+        required_log_fields=_FIREWALL_LOG_FIELDS,
+        required_source_profile_fields=("ot_zone", "ot_asset_cidr", "internet_zone"),
+        investigation_checklist=FIREWALL_BOUNDARY_CHECKLIST,
+        scope_notice=DENIED_TRAFFIC_SCOPE_NOTICE,
+    ),
+    _family(
+        "firewall_vendor_vpn_jump",
+        pattern_texts=(
+            r"vendor\s+vpn",
+            r"jump\s+server",
+            r"vpn.*\bot\b",
+        ),
+        draft_spl="""
+search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now (action=allowed OR action=accept OR action=permit OR action=success)
+| eval src_zone_norm=lower(coalesce(src_zone, source_zone, zone_src, ""))
+| eval dest_zone_norm=lower(coalesce(dest_zone, destination_zone, zone_dest, ""))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
+| eval action_norm=lower(coalesce(action, status, result, disposition, ""))
+| eval session_state_norm=lower(coalesce(session_state, connection_state, state, session_status, tcp_state, ""))
+| eval dest_host_norm=lower(coalesce(dest_host, hostname, dest_hostname, ""))
+| where (
+    src_zone_norm IN ("<vendor_vpn_zone>", "vpn", "vendor_vpn")
+    OR like(src_zone_norm, "%vpn%")
+  )
+  AND (
+    dest_zone_norm IN ("<ot_jump_zone>", "ot_jump", "jump")
+    OR like(dest_host_norm, "%jump%")
+  )
+  AND session_state_norm IN ("established", "built", "connected", "tcp_established")
+| stats
+    count as connection_count
+    values(src_zone_norm) as src_zones
+    values(dest_zone_norm) as dest_zones
+    values(rule) as firewall_rules
+    values(session_state_norm) as session_states
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by src_ip_norm dest_ip_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| table src_ip_norm dest_ip_norm src_zones dest_zones firewall_rules session_states connection_count first_seen last_seen
+| sort - connection_count
+| head 100
+""",
+        assumptions=(
+            "Vendor VPN to OT jump-server access uses strict established session states only.",
+            "Replace <vendor_vpn_zone> and <ot_jump_zone> from your firewall source profile.",
+            "If your vendor encodes session state differently, map values during source-profile review — do not add fuzzy like() in default SPL.",
+        ),
+        required_log_fields=_FIREWALL_LOG_FIELDS,
+        required_source_profile_fields=("vendor_vpn_zone", "ot_jump_zone"),
+        investigation_checklist=FIREWALL_BOUNDARY_CHECKLIST,
+        scope_notice=ESTABLISHED_TRAFFIC_SCOPE_NOTICE,
+    ),
+    _family(
+        "firewall_it_ot_rdp",
+        pattern_texts=(
+            r"\brdp\b",
+            r"remote\s+desktop",
+            r"\b3389\b",
+        ),
+        draft_spl="""
+search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now (action=allowed OR action=accept OR action=permit OR action=success)
+| eval src_zone_norm=lower(coalesce(src_zone, source_zone, zone_src, ""))
+| eval dest_zone_norm=lower(coalesce(dest_zone, destination_zone, zone_dest, ""))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
+| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, transport, ""))
+| eval dest_port_norm=coalesce(dest_port, destination_port, dport, "")
+| eval session_state_norm=lower(coalesce(session_state, connection_state, state, session_status, tcp_state, ""))
+| where (
+    src_zone_norm IN ("<corporate_it_zone>", "<corporate_it_zone_alt>")
+    OR cidrmatch("<corporate_it_cidr>", src_ip_norm)
+  )
+  AND (
+    dest_zone_norm IN ("<ot_control_center_zone>", "<ot_control_center_zone_alt>")
+    OR cidrmatch("<ot_control_center_cidr>", dest_ip_norm)
+  )
+  AND (
+    dest_port_norm IN ("3389", "3388")
+    OR like(protocol_norm, "%rdp%")
+  )
+  AND session_state_norm IN ("established", "built", "connected", "tcp_established")
+| stats
+    count as connection_count
+    values(src_zone_norm) as src_zones
+    values(dest_zone_norm) as dest_zones
+    values(rule) as firewall_rules
+    values(protocol_norm) as protocols
+    values(dest_port_norm) as dest_ports
+    values(session_state_norm) as session_states
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by src_ip_norm dest_ip_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| table src_ip_norm dest_ip_norm src_zones dest_zones firewall_rules protocols dest_ports session_states connection_count first_seen last_seen
+| sort - connection_count
+| head 100
+""",
+        assumptions=(
+            "RDP IT-to-OT crossing draft filters dest_port 3389/3388 or RDP protocol label.",
+            "Established sessions use strict session_state_norm IN() values only.",
+            "Replace zone/CIDR placeholders from your ESP firewall source profile.",
+        ),
+        required_log_fields=_FIREWALL_LOG_FIELDS,
+        required_source_profile_fields=_FIREWALL_PROFILE_FIELDS,
+        investigation_checklist=FIREWALL_BOUNDARY_CHECKLIST,
+        scope_notice=ESTABLISHED_TRAFFIC_SCOPE_NOTICE,
+    ),
+    _family(
+        "firewall_ot_smb_lateral",
+        pattern_texts=(
+            r"\bsmb\b",
+            r"\b445\b",
+            r"ot\s+network\s+segment",
+            r"between\s+ot",
+        ),
+        draft_spl="""
+search index=<ot_firewall_index> sourcetype=<ot_firewall_sourcetype> earliest=-24h latest=now (action=allowed OR action=accept OR action=permit OR action=success)
+| eval src_zone_norm=lower(coalesce(src_zone, source_zone, zone_src, ""))
+| eval dest_zone_norm=lower(coalesce(dest_zone, destination_zone, zone_dest, ""))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
+| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, transport, ""))
+| eval dest_port_norm=coalesce(dest_port, destination_port, dport, "")
+| eval app_norm=lower(coalesce(app, application, service, ""))
+| where (
+    src_zone_norm IN ("<ot_segment_a_zone>", "<ot_segment_b_zone>")
+    OR cidrmatch("<ot_segment_cidr>", src_ip_norm)
+  )
+  AND (
+    dest_zone_norm IN ("<ot_segment_a_zone>", "<ot_segment_b_zone>")
+    OR cidrmatch("<ot_segment_cidr>", dest_ip_norm)
+  )
+  AND (
+    dest_port_norm IN ("445", "139")
+    OR like(app_norm, "%smb%")
+    OR like(protocol_norm, "%smb%")
+  )
+| stats
+    count as connection_count
+    values(src_zone_norm) as src_zones
+    values(dest_zone_norm) as dest_zones
+    values(rule) as firewall_rules
+    values(app_norm) as applications
+    values(protocol_norm) as protocols
+    values(dest_port_norm) as dest_ports
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by src_ip_norm dest_ip_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| table src_ip_norm dest_ip_norm src_zones dest_zones firewall_rules applications protocols dest_ports connection_count first_seen last_seen
+| sort - connection_count
+| head 100
+""",
+        assumptions=(
+            "OT segment SMB lateral-movement draft scopes allowed SMB (445/139) between OT zones.",
+            "Replace <ot_segment_a_zone>, <ot_segment_b_zone>, and <ot_segment_cidr> from your OT firewall profile.",
+            "This draft does not apply established-session filters — SMB session semantics vary by vendor.",
+        ),
+        required_log_fields=_FIREWALL_LOG_FIELDS,
+        required_source_profile_fields=("ot_segment_a_zone", "ot_segment_b_zone", "ot_segment_cidr"),
+        investigation_checklist=FIREWALL_BOUNDARY_CHECKLIST,
+        scope_notice=ESTABLISHED_TRAFFIC_SCOPE_NOTICE,
+    ),
+    _family(
         "esp_it_to_ot_connection",
         pattern_texts=(
             r"electronic\s+security\s+perimeter",
@@ -255,6 +514,8 @@ search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earli
             r"corporate\s+it",
             r"\bot\b",
             r"control\s+center",
+            r"firewall\s+log",
+            r"ot\s+vlan",
         ),
         draft_spl="""
 search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now (action=allowed OR action=accept OR action=permit OR action=success)
@@ -275,12 +536,7 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
     dest_zone_norm IN ("<ot_control_center_zone>", "<ot_control_center_zone_alt>")
     OR cidrmatch("<ot_control_center_cidr>", dest_ip_norm)
   )
-  AND (
-    session_state_norm IN ("established", "built", "connected", "success")
-    OR like(session_state_norm, "%establish%")
-    OR like(session_state_norm, "%built%")
-    OR like(session_state_norm, "%connected%")
-  )
+  AND session_state_norm IN ("established", "built", "connected", "tcp_established")
 | stats
     count as connection_count
     values(src_zone_norm) as src_zones
@@ -305,27 +561,15 @@ search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=
             "ESP firewall zones label corporate IT and OT control center segments.",
             "Shift-left (action=allowed OR action=accept OR action=permit OR action=success) in base search; IT→OT boundary uses exact zone IN() labels and/or cidrmatch() CIDR placeholders.",
             "Replace <corporate_it_zone>, <ot_control_center_zone>, <corporate_it_cidr>, and <ot_control_center_cidr> from your ESP source profile; remove unused _alt zone tokens or replace with real alternates.",
-            "Established connections require session_state_norm establish/built/connected/success — blank session state is not treated as established.",
+            "Established connections require strict session_state_norm IN (established, built, connected, tcp_established) — blank session state is not treated as established.",
             "If session_state or connection_state is missing from your sourcetype, map it during source-profile review before relying on this draft.",
+            "Vendor-specific fuzzy session matching belongs in source-profile review guidance only, not in default draft SPL.",
             "values() preserves src_zone, dest_zone, rule, app, protocol, dest_port, action, and session_state through stats.",
         ),
-        required_source_fields=(
-            "index",
-            "sourcetype",
-            "src_zone",
-            "dest_zone",
-            "src_ip",
-            "dest_ip",
-            "action",
-            "session_state",
-            "connection_state",
-            "protocol",
-            "dest_port",
-            "rule",
-            "corporate_it_cidr",
-            "ot_control_center_cidr",
-            "_time",
-        ),
+        required_log_fields=_FIREWALL_LOG_FIELDS,
+        required_source_profile_fields=_FIREWALL_PROFILE_FIELDS,
+        investigation_checklist=FIREWALL_BOUNDARY_CHECKLIST,
+        scope_notice=ESTABLISHED_TRAFFIC_SCOPE_NOTICE,
     ),
     _family(
         "substation_hmi_brute_force",
@@ -367,7 +611,7 @@ search index=<substation_index> sourcetype=<hmi_or_os_auth_sourcetype> earliest=
             "Threshold of more than 10 failures per window is illustrative; tune per environment.",
             "HMI/OS portal field names vary — confirm app/dest mappings for substation assets.",
         ),
-        required_source_fields=(
+        required_log_fields=(
             "index",
             "sourcetype",
             "action",
@@ -385,6 +629,17 @@ def match_detection_family(user_query: str) -> str | None:
     text = (user_query or "").strip()
     if not text:
         return None
+    normalized = " ".join(text.lower().split())
+    if re.search(r"\b(denied|blocked|drop|reject)\b", normalized) and (
+        "ot" in normalized or "internet" in normalized or "egress" in normalized
+    ):
+        return "firewall_ot_egress_denied"
+    if "vendor vpn" in normalized and "jump" in normalized:
+        return "firewall_vendor_vpn_jump"
+    if re.search(r"\brdp\b|remote desktop|\b3389\b", normalized):
+        return "firewall_it_ot_rdp"
+    if "smb" in normalized and "ot" in normalized:
+        return "firewall_ot_smb_lateral"
     best_id: str | None = None
     best_score = 0
     for family in DETECTION_FAMILIES:
@@ -493,7 +748,11 @@ def build_draft_preview(
         "quality_standard": STANDARD_ID,
         "detection_family": family.family_id,
         "assumptions": list(family.assumptions),
+        "required_log_fields": list(family.required_log_fields),
+        "required_source_profile_fields": list(family.required_source_profile_fields),
         "required_source_fields": list(family.required_source_fields),
+        "investigation_checklist": list(family.investigation_checklist),
+        "scope_notice": family.scope_notice,
         "source_profile_missing": _source_profile_missing(spl_validation),
         "governed_template_missing": _governed_template_missing(spl_validation),
         "validator_status": validator_status,
@@ -520,15 +779,21 @@ def maybe_attach_draft_preview_message(
     base_message: str,
     draft_preview: dict[str, Any] | None,
 ) -> str:
+    """Return base message unchanged — draft preview warnings are consolidated upstream."""
+    return base_message
+
+
+def build_draft_preview_analyst_message(draft_preview: dict[str, Any] | None) -> str:
+    """Single analyst-facing warning block with optional checklist and scope notice."""
     if not draft_preview:
-        return base_message
-    notice = str(draft_preview.get("not_catalog_approved_notice") or "")
-    warning = str(draft_preview.get("warning") or DRAFT_WARNING)
-    family = str(draft_preview.get("detection_family") or "unknown")
-    suffix = (
-        f"\n\nDraft SPL Preview ({family}): {notice} {warning}"
-        " Placeholder index/sourcetype values must be confirmed before any review or execution."
-    )
-    if suffix.strip() in base_message:
-        return base_message
-    return f"{base_message.rstrip()}{suffix}"
+        return DRAFT_PREVIEW_STATUS_MESSAGE
+    parts: list[str] = []
+    checklist = draft_preview.get("investigation_checklist") or []
+    if checklist:
+        parts.append("SOC review checklist:")
+        parts.extend(f"- {item}" for item in checklist)
+    scope = draft_preview.get("scope_notice")
+    if isinstance(scope, str) and scope.strip():
+        parts.append(scope.strip())
+    parts.append(str(draft_preview.get("warning") or DRAFT_PREVIEW_STATUS_MESSAGE))
+    return "\n\n".join(parts)

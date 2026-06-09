@@ -51,10 +51,11 @@ from app.schemas.responses import PlaceholderResponse, SessionContextStatusEnvel
 from app.skills.selector import select_skill_chain
 from app.spl.template_registry import QUERY_SHAPE_RAW_SEARCH, get_spl_template, template_summary
 from app.splunk.capabilities import build_splunk_capability_profile
+from app.chat.network_boundary_display import resolve_analyst_use_case_label
 from app.spl.draft_preview import (
     DRAFT_PREVIEW_STATUS_MESSAGE,
     build_draft_preview,
-    maybe_attach_draft_preview_message,
+    build_draft_preview_analyst_message,
 )
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
@@ -785,11 +786,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         and synthesis_status.status != "partial_timeout"
         and not _is_governed_spl_ready_for_response(spl_validation)
     ):
-        message = DRAFT_PREVIEW_STATUS_MESSAGE
-        message = maybe_attach_draft_preview_message(message, spl_draft_preview)
+        message = build_draft_preview_analyst_message(spl_draft_preview)
         note = (
-            "Governed template SPL was not produced. Lab-only draft SPL preview shown for SOC review. "
-            "HIL approval is required before any future execution path. No MCP execution was run."
+            "Governed template SPL was not produced. HIL/SOC review is required. "
+            "No MCP execution was run."
         )
 
     evidence_origin = resolve_response_evidence_origin(
@@ -830,8 +830,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     synthesis_mode = _synthesis_mode(synthesis_status, analyst_summary_from_lab)
     use_case_label = None
     if response_use_case is not None:
-        use_case_label = getattr(response_use_case, "display_name", None) or getattr(
+        catalog_label = getattr(response_use_case, "display_name", None) or getattr(
             response_use_case, "use_case_id", None
+        )
+        use_case_label = resolve_analyst_use_case_label(
+            use_case_id=getattr(response_use_case, "use_case_id", None),
+            catalog_label=str(catalog_label) if catalog_label else None,
+            user_query=request.message,
         )
     intent_classification = state.get("intent_classification")
     if intent_classification is None and isinstance(state.get("query_to_intent"), dict):
@@ -1010,7 +1015,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         message=message,
         note=note,
         analyst_summary=(
-            DRAFT_PREVIEW_STATUS_MESSAGE
+            None
             if spl_draft_preview and isinstance(spl_draft_preview, dict)
             else analyst_summary_from_lab
         ),

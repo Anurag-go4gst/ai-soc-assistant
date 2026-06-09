@@ -7,7 +7,11 @@ from typing import Any
 
 from app.chat.contracts.answer_contract import AnswerContract
 from app.schemas.responses import AnalystResponseEnvelope
-from app.spl.draft_preview import DRAFT_PREVIEW_FORBIDDEN_PHRASES, DRAFT_PREVIEW_STATUS_MESSAGE
+from app.spl.draft_preview import (
+    DRAFT_PREVIEW_FORBIDDEN_PHRASES,
+    DRAFT_PREVIEW_STATUS_MESSAGE,
+    build_draft_preview_analyst_message,
+)
 
 _EXECUTION_LABELS = {
     "review_only_not_executed": "Review only — not executed",
@@ -79,10 +83,15 @@ def apply_draft_preview_readability(envelope: AnalystResponseEnvelope) -> Analys
         "review_required": True,
         "block_reason": "governed_spl_not_ready",
         "reason": "draft_preview_lab",
-        "reason_display": DRAFT_PREVIEW_STATUS_MESSAGE,
-        "required_fields": list(draft_preview.get("required_source_fields") or []),
+        "reason_display": "Draft preview — HIL/SOC review required.",
+        "required_log_fields": list(draft_preview.get("required_log_fields") or []),
+        "required_source_profile_fields": list(
+            draft_preview.get("required_source_profile_fields") or []
+        ),
+        "required_fields": list(draft_preview.get("required_log_fields") or []),
     }
-    payload["direct_answer_summary"] = DRAFT_PREVIEW_STATUS_MESSAGE
+    payload["direct_answer_summary"] = None
+    payload["analyst_checklist"] = list(draft_preview.get("investigation_checklist") or [])
     payload = _scrub_draft_preview_contradictions(payload)
     payload["one_sentence_finding"] = None
     return AnalystResponseEnvelope.model_validate(payload)
@@ -123,7 +132,6 @@ def apply_final_answer_readability(
             payload["section_order"] = ["draft_spl_preview", *list(payload["section_order"])]
         payload["spl_status"] = "review_required"
         draft_preview = payload.get("spl_draft_preview") if isinstance(payload.get("spl_draft_preview"), dict) else {}
-        required_fields = list(draft_preview.get("required_source_fields") or [])
         payload["spl_status_detail"] = {
             "template_status": "unavailable",
             "generation_status": "draft_preview",
@@ -131,10 +139,16 @@ def apply_final_answer_readability(
             "review_required": True,
             "block_reason": "governed_spl_not_ready",
             "reason": "draft_preview_lab",
-            "reason_display": DRAFT_PREVIEW_STATUS_MESSAGE,
-            "required_fields": required_fields,
+            "reason_display": "Draft preview — HIL/SOC review required.",
+            "required_log_fields": list(draft_preview.get("required_log_fields") or []),
+            "required_source_profile_fields": list(
+                draft_preview.get("required_source_profile_fields") or []
+            ),
+            "required_fields": list(draft_preview.get("required_log_fields") or []),
         }
         payload["hil_status"] = "required"
+        payload["analyst_checklist"] = list(draft_preview.get("investigation_checklist") or [])
+        payload["direct_answer_summary"] = None
         payload = _scrub_draft_preview_contradictions(payload)
     payload["direct_answer_summary"] = _direct_answer_summary(envelope, contract)
     payload = _apply_knowledge_profile_cleanup(payload, contract)

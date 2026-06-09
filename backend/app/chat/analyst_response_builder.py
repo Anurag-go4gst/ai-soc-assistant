@@ -9,6 +9,7 @@ from app.config import settings
 from app.schemas.responses import AnalystResponseEnvelope
 from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.final_answer_readability import apply_draft_preview_readability, apply_final_answer_readability
+from app.chat.network_boundary_display import resolve_analyst_use_case_label, scrub_auth_anomaly_display_text
 from app.threat.mitre_evidence_preconditions import PRECONDITION_BY_ID, not_claimed_reason
 
 _INVESTIGATION_GUIDANCE_USE_CASES = frozenset(
@@ -105,13 +106,21 @@ def build_analyst_response_for_live(
     )
     if not any([table, mitre_rows, not_claimed, playbook, summary, recommended, spl_code, draft_spl_code, llm_candidate]):
         return None
-    finding = _finding_title(
-        message,
-        user_query,
-        selected_use_case_label,
-        intent_family=str(intent.get("intent_family") or "") or None,
-        answer_mode=str(plan.get("answer_mode") or "") or None,
-        playbook=playbook,
+    resolved_use_case_label = resolve_analyst_use_case_label(
+        use_case_id=str(plan.get("use_case_id") or "") or None,
+        catalog_label=selected_use_case_label,
+        user_query=user_query,
+    )
+    finding = scrub_auth_anomaly_display_text(
+        _finding_title(
+            message,
+            user_query,
+            resolved_use_case_label,
+            intent_family=str(intent.get("intent_family") or "") or None,
+            answer_mode=str(plan.get("answer_mode") or "") or None,
+            playbook=playbook,
+        ),
+        user_query=user_query,
     )
     execution_status = str(execution_payload.get("status") or "") or None
     executed_spl = str(execution_payload.get("executed_spl") or "") or None
@@ -129,9 +138,7 @@ def build_analyst_response_for_live(
         response_profile = None
 
     review_notice = None
-    if draft_preview:
-        review_notice = str(draft_preview.get("warning") or "")
-    elif isinstance(human_review, dict) and human_review.get("required"):
+    if not draft_preview and isinstance(human_review, dict) and human_review.get("required"):
         review_type = str(human_review.get("review_type") or "")
         if review_type != "intent_clarification":
             review_notice = str(
@@ -161,7 +168,7 @@ def build_analyst_response_for_live(
         display_severity = f"{severity_label} — Review required"
 
     envelope = AnalystResponseEnvelope(
-        scenario_label=selected_use_case_label,
+        scenario_label=scrub_auth_anomaly_display_text(resolved_use_case_label, user_query=user_query),
         severity_label=display_severity,
         severity_confidence=severity_confidence,
         severity_rationale=severity_rationale,

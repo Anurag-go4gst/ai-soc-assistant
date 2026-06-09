@@ -242,7 +242,11 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool, llm_fallback
             violations.append("sysmon_missing_pwsh_or_web_parents")
     if family == "esp_it_to_ot_connection" and draft:
         checks["esp_session_state_norm"] = "session_state_norm" in draft_spl
-        checks["esp_established_filter"] = "%establish%" in draft_spl or "%connected%" in draft_spl
+        checks["esp_established_filter"] = (
+            'session_state_norm IN ("established"' in draft_spl
+            and "tcp_established" in draft_spl
+            and "%establish%" not in draft_spl
+        )
         checks["esp_stats_preservation"] = all(
             token in draft_spl
             for token in (
@@ -276,7 +280,7 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool, llm_fallback
         checks["esp_no_contradictory_wording"] = not any(
             phrase in lowered for phrase in DRAFT_PREVIEW_FORBIDDEN_PHRASES
         )
-        checks["esp_hil_required_wording"] = "hil approval is required" in lowered
+        checks["esp_hil_required_wording"] = "hil/soc review is required" in lowered
         if not checks["esp_no_contradictory_wording"]:
             violations.append("esp_contradictory_review_wording")
         if not checks["esp_hil_required_wording"]:

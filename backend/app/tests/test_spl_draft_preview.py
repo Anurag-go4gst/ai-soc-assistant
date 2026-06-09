@@ -288,7 +288,9 @@ def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "values(dest_port_norm)" in spl
     assert "values(action_norm)" in spl
     assert "values(session_state_norm)" in spl
-    assert "%establish%" in spl or "%connected%" in spl
+    assert "%establish%" not in spl
+    assert "%connected%" not in spl
+    assert "%built%" not in spl
     assert "src_zone_norm" in spl
     assert 'src_zone_norm IN ("<corporate_it_zone>"' in spl
     assert 'dest_zone_norm IN ("<ot_control_center_zone>"' in spl
@@ -296,8 +298,11 @@ def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'like(dest_zone_norm, "%ot%")' not in spl
     assert "values(app_norm)" in spl
     assert "cidrmatch(" in spl
-    assert "corporate_it_cidr" in preview["required_source_fields"]
-    assert "session_state" in preview["required_source_fields"]
+    assert "corporate_it_cidr" in preview["required_source_profile_fields"]
+    assert "corporate_it_cidr" not in preview["required_log_fields"]
+    assert "session_state" in preview["required_log_fields"]
+    assert preview.get("investigation_checklist")
+    assert preview.get("scope_notice")
     assert preview["governed"] is False
     assert preview["catalog_approved"] is False
     assert preview["execution_enabled"] is False
@@ -312,26 +317,21 @@ def _assert_draft_preview_narrative(response) -> None:
             None,
             [
                 response.message,
-                response.note,
-                response.analyst_summary,
                 analyst.direct_answer_summary,
                 analyst.foundation_sec_analysis,
-                (analyst.spl_status_detail or {}).get("reason_display")
-                if analyst.spl_status_detail
-                else None,
                 analyst.review_notice,
             ],
         )
     ).lower()
     for phrase in DRAFT_PREVIEW_FORBIDDEN_PHRASES:
         assert phrase not in blob, f"forbidden phrase in narrative: {phrase!r}"
-    assert "governed spl is not available" in blob
     assert "lab-only draft spl preview" in blob
-    assert "hil approval is required" in blob
+    assert "hil/soc review is required" in blob
+    assert blob.count("lab-only draft spl preview") == 1
     assert analyst.hil_status == "required"
     assert analyst.spl_status == "review_required"
-    assert analyst.direct_answer_summary
-    assert "hil approval is required" in analyst.direct_answer_summary.lower()
+    assert response.message
+    assert "hil/soc review is required" in response.message.lower()
 
 
 def test_esp_draft_preview_review_wording(monkeypatch: pytest.MonkeyPatch) -> None:
