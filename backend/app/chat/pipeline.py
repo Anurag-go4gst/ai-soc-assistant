@@ -43,7 +43,7 @@ from app.routing.use_case_registry_bridge import build_use_case_registry_bridge
 from app.routing.template_match_shadow import apply_template_match_to_shadow
 from app.synthesis.analyst_summary_llm_assist import apply_analyst_summary_shadow
 from app.governance.trace_panels import build_governance_trace
-from app.risk.severity_policy import decide_severity
+from app.risk.severity_policy import apply_analytics_severity_guard, decide_severity
 from app.safeguards.spl_validator import validate_spl
 from app.safeguards.spl_slot_binding_validator import validate_spl_slot_bindings
 from app.schemas.requests import ChatRequest
@@ -644,6 +644,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         structured_context,
         source_refs,
     )
+    guard_signals = _query_signals_from_state(state) or {}
+    severity_decision = apply_analytics_severity_guard(
+        severity_decision,
+        analytics_query=bool(
+            guard_signals.get("exact_105_analytics") or guard_signals.get("analytics_aggregation")
+        ),
+        alert_context_present=bool(
+            guard_signals.get("alert_context_present") or session_alert_context
+        ),
+    )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,
         severity_decision.severity_label,
@@ -880,7 +890,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     answer_contract = None
     contract_evidence_plan = evidence_plan_for_analyst
-    if settings.control_plane_enabled or contract_evidence_plan:
+    # Contract is a read-model that drives the section-ordered analyst card; build it
+    # for every classified answer so no path falls back to a one-paragraph bubble.
+    if intent_classification or settings.control_plane_enabled or contract_evidence_plan:
         answer_contract = build_answer_contract(
             intent_classification=intent_classification,
             evidence_plan=contract_evidence_plan,

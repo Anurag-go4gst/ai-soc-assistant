@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 NETWORK_USE_CASE_DISPLAY: dict[str, str] = {
     "ot_it_to_ot_auth_anomaly": "IT-to-OT network boundary traffic review",
 }
@@ -26,29 +28,59 @@ DENIED_TRAFFIC_SCOPE_NOTICE = (
 )
 
 
+# Terms that establish a network-boundary context on their own.
+_BOUNDARY_CONTEXT_TERMS: tuple[str, ...] = (
+    "firewall",
+    "ot vlan",
+    "control room",
+    "it-to-ot",
+    "it to ot",
+    "corporate it",
+    "corporate to ot",
+    "ot network",
+    "ot segment",
+    "scada",
+    "substation",
+    "electronic security perimeter",
+    "vendor vpn",
+    "jump server",
+    "zone",
+    "vlan",
+    "segment",
+    "boundary",
+)
+
+# Bare OT/ESP word mentions also establish boundary context ("denied traffic
+# from OT to the internet"); \b keeps "most"/"hosts" from matching "ot".
+_BOUNDARY_WORD_RE = re.compile(r"\b(?:ot|esp)\b")
+
+_ANALYTICS_RANK_RE = re.compile(r"\b(?:most|top|highest|largest|busiest)\b")
+
+
 def is_firewall_boundary_query(user_query: str) -> bool:
+    """Boundary review requires boundary context; protocol-only phrases such as
+    bare "SMB traffic" or "RDP traffic" no longer imply an IT-to-OT review."""
     normalized = " ".join((user_query or "").lower().split())
-    return any(
+    if any(term in normalized for term in _BOUNDARY_CONTEXT_TERMS):
+        return True
+    return bool(_BOUNDARY_WORD_RE.search(normalized))
+
+
+def analytics_traffic_label(user_query: str) -> str | None:
+    """Display label for ranking/analytics traffic questions without boundary context."""
+    normalized = " ".join((user_query or "").lower().split())
+    if not normalized or is_firewall_boundary_query(normalized):
+        return None
+    if not _ANALYTICS_RANK_RE.search(normalized):
+        return None
+    if "smb" in normalized:
+        return "SMB traffic analytics"
+    if any(
         term in normalized
-        for term in (
-            "firewall",
-            "ot vlan",
-            "control room",
-            "it-to-ot",
-            "it to ot",
-            "corporate it",
-            "ot network",
-            "ot segment",
-            "scada",
-            "substation",
-            "electronic security perimeter",
-            "vendor vpn",
-            "jump server",
-            "denied traffic",
-            "rdp traffic",
-            "smb traffic",
-        )
-    )
+        for term in ("traffic", "talker", "bytes", "upload", "download", "connection", "dns quer")
+    ):
+        return "Network traffic analytics"
+    return None
 
 
 def resolve_analyst_use_case_label(
@@ -63,6 +95,8 @@ def resolve_analyst_use_case_label(
         return _infer_boundary_label(user_query)
     if is_firewall_boundary_query(user_query):
         return _infer_boundary_label(user_query)
+    if not catalog_label:
+        return analytics_traffic_label(user_query)
     return catalog_label
 
 

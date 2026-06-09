@@ -507,6 +507,82 @@ search index=<ot_firewall_index> sourcetype=<ot_firewall_sourcetype> earliest=-2
         scope_notice=ESTABLISHED_TRAFFIC_SCOPE_NOTICE,
     ),
     _family(
+        "network_smb_top_talkers",
+        pattern_texts=(
+            r"\bsmb\b",
+            r"\bcifs\b",
+            r"\b445\b",
+            r"top\s+talkers?",
+            r"generating\s+the\s+most",
+            r"most\s+smb\s+traffic",
+        ),
+        draft_spl="""
+search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now (dest_port=445 OR dest_port=139 OR *smb* OR *cifs* OR *microsoft-ds*)
+| eval src_host_norm=lower(coalesce(src_host, src_nt_host, hostname, src, src_ip, "unknown"))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
+| eval dest_port_norm=coalesce(dest_port, destination_port, dport, "")
+| eval app_norm=lower(coalesce(app, application, service, svc, protocol, proto, ""))
+| eval action_norm=lower(coalesce(action, status, result, disposition, ""))
+| eval bytes_total=coalesce(bytes, bytes_out + bytes_in, bytes_out, bytes_in, 0)
+| where dest_port_norm IN ("445", "139")
+    OR like(app_norm, "%smb%")
+    OR like(app_norm, "%cifs%")
+    OR like(app_norm, "%microsoft-ds%")
+| stats
+    count as connection_count
+    sum(bytes_total) as total_bytes
+    dc(dest_ip_norm) as distinct_destinations
+    values(dest_port_norm) as dest_ports
+    values(app_norm) as applications
+    values(action_norm) as actions
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by src_host_norm src_ip_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| table src_host_norm src_ip_norm connection_count total_bytes distinct_destinations dest_ports applications actions first_seen last_seen
+| sort - connection_count
+| head 100
+""",
+        assumptions=(
+            "Top-SMB-talkers analytics draft ranks source hosts by SMB session volume; it is not an incident detection.",
+            "SMB indicator is dest_port 445/139 OR app/protocol/service containing smb, cifs, or microsoft-ds.",
+            "bytes_total prefers a combined bytes field, then bytes_out + bytes_in; vendors that omit byte counts return 0 — validate during source-profile review.",
+            "No action filter is applied: allowed and denied sessions are both counted; add action filters during SOC review if needed.",
+            "Replace <network_index> and <network_traffic_sourcetype> from your network/firewall traffic source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=(
+            "index",
+            "sourcetype",
+            "src_ip",
+            "src_host",
+            "dest_ip",
+            "dest_host",
+            "dest_port",
+            "app",
+            "protocol",
+            "bytes",
+            "bytes_out",
+            "bytes_in",
+            "action",
+            "_time",
+        ),
+        required_source_profile_fields=(
+            "network_index",
+            "network_traffic_sourcetype",
+        ),
+        investigation_checklist=(
+            "Confirm the traffic source profile (index, sourcetype, byte-count fields) before trusting volumes.",
+            "Expect file servers, domain controllers, and backup systems among top SMB talkers — validate against asset inventory.",
+            "Flag workstations or unexpected segments ranking high for SMB volume for follow-up review.",
+            "Pivot on distinct_destinations and dest_ports for fan-out patterns before drawing any lateral-movement conclusion.",
+            "Do not declare compromise from SMB volume ranking alone.",
+        ),
+    ),
+    _family(
         "esp_it_to_ot_connection",
         pattern_texts=(
             r"electronic\s+security\s+perimeter",
@@ -759,8 +835,12 @@ def match_detection_family(user_query: str) -> str | None:
         return "auth_success_after_failure"
     if re.search(r"\brdp\b|remote desktop|\b3389\b", normalized):
         return "firewall_it_ot_rdp"
-    if "smb" in normalized and "ot" in normalized:
+    if "smb" in normalized and re.search(r"\bot\b", normalized):
         return "firewall_ot_smb_lateral"
+    if "smb" in normalized and re.search(
+        r"\b(?:most|top|talkers?|highest|largest|busiest|volume)\b", normalized
+    ):
+        return "network_smb_top_talkers"
     best_id: str | None = None
     best_score = 0
     for family in DETECTION_FAMILIES:

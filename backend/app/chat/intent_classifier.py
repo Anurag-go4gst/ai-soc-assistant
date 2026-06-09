@@ -356,6 +356,33 @@ def classify_intent(
             requested_output_type="SPL",
         )
 
+    # Exact-105 analytics bridge: registry metadata is authoritative; the
+    # analytics_aggregation phrasing signal is only a paraphrase fallback.
+    # Sits below all knowledge/SOP/MITRE/unsafe branches so a 105 question
+    # phrased as SOP/MITRE/containment keeps its existing path; this branch
+    # rescues queries that would otherwise die in clarification.
+    registry_analytics = bool(signals.get("exact_105_analytics")) and str(
+        candidate_mappings.get("match_path") or ""
+    ) in {"exact_105_question", "exact_105_plus_use_case_catalog"}
+    if (registry_analytics or signals.get("analytics_aggregation")) and not (
+        signals.get("block_or_contain") or signals.get("explicit_run_spl")
+    ):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.9 if registry_analytics else 0.82,
+            requires_clarification=False,
+            reason=(
+                "Exact 105-question analytics match (top-N aggregation) inherited from the "
+                "question registry; review-only SPL drafting path, execution disabled."
+                if registry_analytics
+                else "Analytics/ranking question detected; review-only SPL drafting path, execution disabled."
+            ),
+            requested_output_type="SPL",
+        )
+
     return _build_classification(
         intent_family="clarification_required",
         primary_intent="knowledge_recall",

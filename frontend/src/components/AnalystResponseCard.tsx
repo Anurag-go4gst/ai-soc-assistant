@@ -424,8 +424,14 @@ export function AnalystResponseCard({
         <p className="mt-2 text-sm leading-6 text-slate-200">{response.severity_safety_note}</p>
       ) : null}
 
-      {showSummaryInHeader ? (
-        <p className="mt-2 leading-6 text-slate-200">{summaryText}</p>
+      {showSummaryInHeader && summaryText ? (
+        <div className="mt-2 space-y-2">
+          {splitParagraphs(summaryText).map((paragraph) => (
+            <p key={paragraph} className="leading-6 text-slate-200">
+              {paragraph}
+            </p>
+          ))}
+        </div>
       ) : null}
 
       {showLimitations ? (
