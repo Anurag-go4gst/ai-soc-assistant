@@ -30,6 +30,10 @@ python3 scripts/build_soc_validation_sheets.py --check || fail "soc validation s
 (cd backend && python3 -m pytest app/tests/test_soc_validation_package_phase10.py -q) \
   || fail "soc validation package phase10 pytest"
 
+section "sentinel happy-path gate (T-PRE)"
+python3 scripts/build_sentinel_set.py --check || fail "sentinel set drifted"
+python3 scripts/eval_sentinel.py --check || fail "sentinel baseline diff"
+
 section "backend pytest"
 (cd backend && python3 -m pytest -q) || fail "backend pytest"
 
