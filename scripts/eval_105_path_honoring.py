@@ -161,9 +161,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="exit 1 on gate violations")
     parser.add_argument("--json", type=Path, default=None, help="write per-row results JSON")
+    parser.add_argument(
+        "--refs",
+        type=str,
+        default=None,
+        help="comma-separated question_refs subset (debugging only, e.g. q0.q001,q0.q010)",
+    )
     args = parser.parse_args()
 
     entries = json.loads(MAP_PATH.read_text(encoding="utf-8"))["entries"]
+    if args.refs:
+        wanted = {ref.strip() for ref in args.refs.split(",") if ref.strip()}
+        entries = [entry for entry in entries if entry.get("question_ref") in wanted]
+        missing = wanted - {entry.get("question_ref") for entry in entries}
+        if missing:
+            print(f"RESULT: FAIL (unknown refs: {', '.join(sorted(missing))})")
+            return 1
     rows: list[dict[str, Any]] = []
     errors: list[str] = []
     for entry in entries:
@@ -189,12 +202,20 @@ def main() -> int:
         )
         print(f"wrote {args.json}")
 
+    evaluated_refs = {row["question_ref"] for row in rows}
+    failed_refs = {
+        item.split(":", 1)[0]
+        for item in violations
+        if item.split(":", 1)[0] in evaluated_refs
+    } | {error.split(":", 1)[0] for error in errors}
+    passed = len(rows) - len(failed_refs & evaluated_refs)
     if violations:
         print(f"\nVIOLATIONS ({len(violations)}):")
         for item in violations:
             print(f"  - {item}")
+        print(f"RESULT: FAIL ({passed}/{len(entries)} rows, {len(violations)} violations)")
         return 1 if args.check else 0
-    print("\nall gates passed")
+    print(f"\nall gates passed\nRESULT: PASS ({passed}/{len(entries)} rows)")
     return 0
 
 

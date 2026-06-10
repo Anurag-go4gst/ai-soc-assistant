@@ -1,0 +1,527 @@
+{
+  "note": "Frozen sentinel happy-path baseline (plan rev 3 T-PRE.2). Regenerate only via scripts/eval_sentinel.py --freeze; re-freezing requires the diff review rule in the plan (additive sections only).",
+  "rows": {
+    "pg.auth.001": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "investigation_guidance",
+        "limitations",
+        "mitre_mapping",
+        "not_claimed",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": true,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": false,
+      "draft_status": null,
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "investigation_guidance",
+        "limitations",
+        "mitre_mapping",
+        "not_claimed",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "intent_family": "hybrid_alert_review",
+      "mapped_question_ref": null,
+      "match_path": "use_case_catalog",
+      "mitre_answer_visible": true,
+      "mitre_technique_ids": [
+        "T1110",
+        "T1110.001",
+        "T1110.003"
+      ],
+      "requires_clarification": false,
+      "response_mode": "deterministic_investigation",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
+      "severity_label": "P3 Medium",
+      "spl_approved": true,
+      "spl_template_status": "active"
+    },
+    "pg.clar.001": {
+      "analyst_enabled_sections": [
+        "limitations"
+      ],
+      "answer_mode": "clarification",
+      "candidate_spl_present": false,
+      "contract_answer_mode": "clarification",
+      "draft_spl_present": false,
+      "draft_status": null,
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "intent_family": "clarification_required",
+      "mapped_question_ref": null,
+      "match_path": "out_of_registry",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": true,
+      "response_mode": "insufficient_evidence",
+      "route_final": "knowledge_recall",
+      "selected_skill": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null,
+      "spl_template_status": null
+    },
+    "pg.dns.001": {
+      "analyst_enabled_sections": [],
+      "answer_mode": "rag_only",
+      "candidate_spl_present": false,
+      "contract_answer_mode": "rag_only",
+      "draft_spl_present": false,
+      "draft_status": null,
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "policy_citation"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "intent_family": "mitre_explanation",
+      "mapped_question_ref": null,
+      "match_path": "use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "insufficient_evidence",
+      "route_final": "knowledge_recall",
+      "selected_skill": "attack_discovery",
+      "severity_label": "P3 Medium",
+      "spl_approved": null,
+      "spl_template_status": null
+    },
+    "pg.dns.010": {
+      "analyst_enabled_sections": [
+        "limitations"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": true,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": false,
+      "draft_status": null,
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": null,
+      "match_path": "out_of_registry",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "clarification_required",
+      "route_final": "spl_generation",
+      "selected_skill": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false,
+      "spl_template_status": null
+    },
+    "pg.unsafe.001": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "limitations"
+      ],
+      "answer_mode": "clarification",
+      "candidate_spl_present": false,
+      "contract_answer_mode": "clarification",
+      "draft_spl_present": false,
+      "draft_status": null,
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "limitations"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "intent_family": "clarification_required",
+      "mapped_question_ref": null,
+      "match_path": "out_of_registry",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": true,
+      "response_mode": "human_review_required",
+      "route_final": "knowledge_recall",
+      "selected_skill": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null,
+      "spl_template_status": null
+    },
+    "q0.q001": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview",
+        "limitations"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": false,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": true,
+      "draft_status": "draft_preview_not_governed",
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q001",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "insufficient_evidence",
+      "route_final": "alert_summary",
+      "selected_skill": "alert_summary",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null,
+      "spl_template_status": null
+    },
+    "q0.q002": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview",
+        "limitations"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": true,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": true,
+      "draft_status": "draft_preview_not_governed",
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q002",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "clarification_required",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false,
+      "spl_template_status": null
+    },
+    "q0.q005": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview",
+        "limitations"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": false,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": true,
+      "draft_status": "draft_preview_not_governed",
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q005",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "insufficient_evidence",
+      "route_final": "knowledge_recall",
+      "selected_skill": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null,
+      "spl_template_status": null
+    },
+    "q0.q006": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview",
+        "limitations"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": true,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": true,
+      "draft_status": "draft_preview_not_governed",
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q006",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "clarification_required",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false,
+      "spl_template_status": null
+    },
+    "q0.q009": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview",
+        "limitations"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": true,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": true,
+      "draft_status": "draft_preview_not_governed",
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q009",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "clarification_required",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false,
+      "spl_template_status": null
+    },
+    "q0.q010": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview",
+        "limitations"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": true,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": true,
+      "draft_status": "draft_preview_not_governed",
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q010",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "clarification_required",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false,
+      "spl_template_status": null
+    },
+    "q0.q013": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview",
+        "limitations"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": true,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": true,
+      "draft_status": "draft_preview_not_governed",
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q013",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "clarification_required",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false,
+      "spl_template_status": null
+    },
+    "q0.q015": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview",
+        "limitations"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": true,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": true,
+      "draft_status": "draft_preview_not_governed",
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q015",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "clarification_required",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false,
+      "spl_template_status": null
+    },
+    "q0.q045": {
+      "analyst_enabled_sections": [
+        "limitations"
+      ],
+      "answer_mode": "clarification",
+      "candidate_spl_present": false,
+      "contract_answer_mode": "clarification",
+      "draft_spl_present": false,
+      "draft_status": null,
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "intent_family": "clarification_required",
+      "mapped_question_ref": "q0.q045",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": true,
+      "response_mode": "insufficient_evidence",
+      "route_final": "knowledge_recall",
+      "selected_skill": "alert_summary",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null,
+      "spl_template_status": null
+    },
+    "q0.q049": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": true,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": true,
+      "draft_status": "draft_preview_not_governed",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q049",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "candidate_spl_rejected",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false,
+      "spl_template_status": "active"
+    },
+    "q0.q055": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview",
+        "limitations"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": false,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": true,
+      "draft_status": "draft_preview_not_governed",
+      "enabled_sections": [
+        "limitations"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q055",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "insufficient_evidence",
+      "route_final": "knowledge_recall",
+      "selected_skill": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null,
+      "spl_template_status": null
+    },
+    "q0.q060": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "answer_mode": "live_investigation",
+      "candidate_spl_present": true,
+      "contract_answer_mode": "live_investigation",
+      "draft_spl_present": false,
+      "draft_status": null,
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "intent_family": "spl_generation_only",
+      "mapped_question_ref": "q0.q060",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "requires_clarification": false,
+      "response_mode": "deterministic_investigation",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
+      "severity_label": "P2 High",
+      "spl_approved": true,
+      "spl_template_status": "active"
+    }
+  },
+  "schema_version": 1
+}

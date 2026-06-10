@@ -94,6 +94,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.emit_answers:
         print(f"answers_md={args.answers_md_out}")
+    total = summary.get("total_evaluated") or 0
+    pass_count = summary.get("pass_count") or 0
+    verdict = "PASS" if not result.failures else "FAIL"
+    print(f"RESULT: {verdict} ({pass_count}/{total} rows, {len(result.failures)} check failures)")
     if args.check and result.failures:
         for failure in result.failures:
             print(f"CHECK_FAIL:{failure}", file=sys.stderr)
