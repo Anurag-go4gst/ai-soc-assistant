@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.chat.contracts.answer_contract import AnswerContract
+from app.synthesis import claim_patterns
 from app.chat.final_answer_readability import apply_draft_preview_readability
 from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
@@ -44,21 +45,15 @@ _SYSTEM_PROMPT = (
     "- Output plain prose only."
 )
 
-_GITHUB_MARKERS = ("skill.md", "github.com", "/skills/", "github_ref:")
-_EXECUTED_SPL = re.compile(r"\b(spl (was )?executed|executed spl|executed in splunk)\b", re.IGNORECASE)
-_APPROVED_EXEC = re.compile(
-    r"\b(spl (is )?approved for execution|approved for execution|ready to execute|execute (the )?spl)\b",
-    re.IGNORECASE,
-)
-_COMPROMISE = re.compile(
-    r"\b(account compromis\w*|confirmed compromis\w*|compromise confirmed)\b",
-    re.IGNORECASE,
-)
-_NEGATION = re.compile(
-    r"\b(not confirmed|no evidence of|not evidence of|candidate only|is not confirmed|review required|do not claim)\b",
-    re.IGNORECASE,
-)
-_EVIDENCE_SUPPORTED = re.compile(r"\b(evidence[- ]supported|evidence supported)\b", re.IGNORECASE)
+# Shared claim patterns live in app.synthesis.claim_patterns (leaf module) so
+# the Tier-D quality checks can reuse them without importing this module's
+# pipeline-coupled import chain. Aliases keep composer internals unchanged.
+_GITHUB_MARKERS = claim_patterns.GITHUB_MARKERS
+_EXECUTED_SPL = claim_patterns.EXECUTED_SPL
+_APPROVED_EXEC = claim_patterns.APPROVED_EXEC
+_COMPROMISE = claim_patterns.COMPROMISE
+_NEGATION = claim_patterns.NEGATION
+_EVIDENCE_SUPPORTED = claim_patterns.EVIDENCE_SUPPORTED
 _SUPPORTING_EVIDENCE_CONTEXT = re.compile(
     r"\b("
     r"supporting evidence|"
