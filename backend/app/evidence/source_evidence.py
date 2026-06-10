@@ -26,7 +26,9 @@ def build_source_evidence(
 ) -> list[dict[str, Any]]:
     evidence: list[dict[str, Any]] = []
     if soc_kb_retrieval is not None and soc_kb_retrieval.get("retrieval_status") != "disabled":
-        evidence.append(soc_kb_source_evidence(trace_id, query, soc_kb_retrieval))
+        kb_item = soc_kb_source_evidence(trace_id, query, soc_kb_retrieval)
+        kb_item.setdefault("plan_step_ref", "rag")
+        evidence.append(kb_item)
     if spl_validation and str(spl_validation.get("selected_candidate_spl_provider") or "").startswith("saia_"):
         evidence.append(
             _evidence(
@@ -189,7 +191,19 @@ def _evidence(
     }
     if execution_outcome:
         payload["execution_outcome"] = execution_outcome
+    # WS0 T0.4: link evidence back to the composed plan step that produced it.
+    # Step ids are fixed by the deterministic composer ("rag"/"spl"/"mcp").
+    step_ref = _PLAN_STEP_REF_BY_SOURCE_TYPE.get(source_type)
+    if step_ref is not None:
+        payload["plan_step_ref"] = step_ref
     return payload
+
+
+_PLAN_STEP_REF_BY_SOURCE_TYPE = {
+    "splunk_mcp": "mcp",
+    "splunk_mcp_saia": "spl",
+    "rag": "rag",
+}
 
 
 def _collection_status(execution_status: str) -> str:
