@@ -528,7 +528,6 @@ def _limitations_display(contract: AnswerContract) -> list[str]:
         )
     if (
         not items
-        and contract.render_sections.get("limitations")
         and contract.intent_family == "hybrid_alert_review"
         and _is_auth_hybrid_contract(contract)
     ):

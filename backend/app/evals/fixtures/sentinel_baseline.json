@@ -48,17 +48,13 @@
       "spl_template_status": "active"
     },
     "pg.clar.001": {
-      "analyst_enabled_sections": [
-        "limitations"
-      ],
+      "analyst_enabled_sections": [],
       "answer_mode": "clarification",
       "candidate_spl_present": false,
       "contract_answer_mode": "clarification",
       "draft_spl_present": false,
       "draft_status": null,
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": null,
       "execution_status": "skipped",
       "human_review_required": false,
@@ -103,17 +99,13 @@
       "spl_template_status": null
     },
     "pg.dns.010": {
-      "analyst_enabled_sections": [
-        "limitations"
-      ],
+      "analyst_enabled_sections": [],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": false,
       "draft_status": null,
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
       "human_review_required": true,
@@ -132,8 +124,7 @@
     },
     "pg.unsafe.001": {
       "analyst_enabled_sections": [
-        "analyst_action_guidance",
-        "limitations"
+        "analyst_action_guidance"
       ],
       "answer_mode": "clarification",
       "candidate_spl_present": false,
@@ -141,8 +132,7 @@
       "draft_spl_present": false,
       "draft_status": null,
       "enabled_sections": [
-        "analyst_action_guidance",
-        "limitations"
+        "analyst_action_guidance"
       ],
       "execution_eligible": null,
       "execution_status": "skipped",
@@ -162,17 +152,14 @@
     },
     "q0.q001": {
       "analyst_enabled_sections": [
-        "draft_spl_preview",
-        "limitations"
+        "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": false,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": null,
       "execution_status": "skipped",
       "human_review_required": false,
@@ -191,17 +178,14 @@
     },
     "q0.q002": {
       "analyst_enabled_sections": [
-        "draft_spl_preview",
-        "limitations"
+        "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
       "human_review_required": true,
@@ -220,17 +204,14 @@
     },
     "q0.q005": {
       "analyst_enabled_sections": [
-        "draft_spl_preview",
-        "limitations"
+        "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": false,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": null,
       "execution_status": "skipped",
       "human_review_required": false,
@@ -249,17 +230,14 @@
     },
     "q0.q006": {
       "analyst_enabled_sections": [
-        "draft_spl_preview",
-        "limitations"
+        "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
       "human_review_required": true,
@@ -278,17 +256,14 @@
     },
     "q0.q009": {
       "analyst_enabled_sections": [
-        "draft_spl_preview",
-        "limitations"
+        "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
       "human_review_required": true,
@@ -307,17 +282,14 @@
     },
     "q0.q010": {
       "analyst_enabled_sections": [
-        "draft_spl_preview",
-        "limitations"
+        "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
       "human_review_required": true,
@@ -336,17 +308,14 @@
     },
     "q0.q013": {
       "analyst_enabled_sections": [
-        "draft_spl_preview",
-        "limitations"
+        "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
       "human_review_required": true,
@@ -365,17 +334,14 @@
     },
     "q0.q015": {
       "analyst_enabled_sections": [
-        "draft_spl_preview",
-        "limitations"
+        "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
       "human_review_required": true,
@@ -393,17 +359,13 @@
       "spl_template_status": null
     },
     "q0.q045": {
-      "analyst_enabled_sections": [
-        "limitations"
-      ],
+      "analyst_enabled_sections": [],
       "answer_mode": "clarification",
       "candidate_spl_present": false,
       "contract_answer_mode": "clarification",
       "draft_spl_present": false,
       "draft_status": null,
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": null,
       "execution_status": "skipped",
       "human_review_required": false,
@@ -457,17 +419,14 @@
     },
     "q0.q055": {
       "analyst_enabled_sections": [
-        "draft_spl_preview",
-        "limitations"
+        "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": false,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "limitations"
-      ],
+      "enabled_sections": [],
       "execution_eligible": null,
       "execution_status": "skipped",
       "human_review_required": false,
