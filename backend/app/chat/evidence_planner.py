@@ -49,10 +49,16 @@ def plan_evidence(
     selected_use_case_id = _use_case_id(selected_use_case, query_understanding, query_to_intent, routed)
 
     def with_enrichment(plan: EvidencePlan) -> EvidencePlan:
-        return _apply_curated_enrichment(
+        enriched = _apply_curated_enrichment(
             plan,
             use_case_id=selected_use_case_id,
             query_to_intent=query_to_intent,
+            query_understanding=query_understanding,
+        )
+        return _attach_resource_plan(
+            enriched,
+            intent=intent,
+            use_case_id=selected_use_case_id,
             query_understanding=query_understanding,
         )
 
@@ -239,6 +245,29 @@ def plan_evidence(
             reasons=["live_investigation"],
         )
     )
+
+
+def _attach_resource_plan(
+    plan: EvidencePlan,
+    *,
+    intent: IntentClassification,
+    use_case_id: str | None,
+    query_understanding: Any,
+) -> EvidencePlan:
+    """Attach the composed step plan (WS0 T0.3). Booleans stay authoritative;
+    composition failure must never break evidence planning."""
+    from app.planner.composer import compose_resource_plan
+
+    try:
+        composed = compose_resource_plan(
+            plan,
+            intent_family=intent.intent_family,
+            use_case_id=use_case_id or plan.use_case_id,
+            match_path=getattr(query_understanding, "deterministic_match_path", None),
+        )
+    except Exception:
+        return plan
+    return plan.model_copy(update={"resource_plan": composed.model_dump()})
 
 
 def _apply_curated_enrichment(
