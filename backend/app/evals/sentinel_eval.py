@@ -118,6 +118,9 @@ def capture_row(question: str) -> dict[str, Any]:
     candidate_spl = payload.get("candidate_spl") or {}
     answer_contract = payload.get("answer_contract") or {}
     render_sections = answer_contract.get("render_sections") or {}
+    analyst_response = payload.get("analyst_response") or {}
+    analyst_sections = analyst_response.get("render_sections") or {}
+    draft_preview = analyst_response.get("spl_draft_preview") or {}
 
     return {
         "match_path": candidate_mappings.get("match_path"),
@@ -143,6 +146,14 @@ def capture_row(question: str) -> dict[str, Any]:
         "enabled_sections": sorted(
             name for name, enabled in render_sections.items() if enabled
         ),
+        # Analyst-facing card — the surface the user actually reads. This is
+        # where the 105 lab-draft families render (draft_spl_preview), so the
+        # happy-path gate must freeze it too.
+        "analyst_enabled_sections": sorted(
+            name for name, enabled in analyst_sections.items() if enabled
+        ),
+        "draft_spl_present": bool(draft_preview.get("draft_spl")),
+        "draft_status": draft_preview.get("draft_status"),
         "mitre_answer_visible": answer_contract.get("mitre_answer_visible"),
         "mitre_technique_ids": sorted(answer_contract.get("mitre_technique_ids") or []),
     }

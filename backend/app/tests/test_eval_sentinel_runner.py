@@ -23,7 +23,24 @@ CONTRACT_FIELDS = {
     "severity_label",
     "execution_eligible",
     "enabled_sections",
+    "analyst_enabled_sections",
+    "draft_spl_present",
+    "draft_status",
 }
+
+
+def test_baseline_freezes_smb_lab_draft() -> None:
+    """q0.q010 must carry its lab draft in the analyst card (105 honoring)."""
+    from app.evals.sentinel_eval import BASELINE_PATH
+
+    rows = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))["rows"]
+    smb = rows["q0.q010"]
+    assert smb["draft_spl_present"] is True
+    assert smb["draft_status"] == "draft_preview_not_governed"
+    assert "draft_spl_preview" in smb["analyst_enabled_sections"]
+    assert smb["intent_family"] == "spl_generation_only"
+    assert smb["requires_clarification"] is False
+    assert smb["severity_label"] == "Not assigned from this question alone"
 
 
 def test_sentinel_set_loads_seventeen_rows() -> None:
