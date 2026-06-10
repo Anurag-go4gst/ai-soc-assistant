@@ -32,6 +32,19 @@ substation HMI family; now `auth_failed_login_threshold` unless HMI/substation/S
 phrasing. **89/105 questions now carry a draft family or governed template**; the 16
 without are the deferred lookup/TI/asset-context/source-health classes. All drafts pass
 SOC-STD-SPL-001 lint; suite 1608 passed; PowerGrid 50/50; Tier B gates passed.
+**Lookup-class completion (2026-06-10):** hunt set extended with notable_risk_lookup,
+data_source_health, threat_intel_enrichment, asset_identity_context; 3 new families
+(`notable_risk_review`, `windows_identity_privileged_activity`,
+`data_source_health_review`); threat-intel rows reuse `ioc_destination_match`.
+Severity guard phase 2: any `spl_generation_only` / `live_investigation` /
+`clarification_required` answer without an explicit alert reference (ALT-id,
+"for alert", session pin — NOT the loose `alert_context_present` regex, which
+false-positives on "alert network events") gets "Not assigned"; active use-case
+severity policies still win (e.g. `auth_failed_login_spike` rows keep policy P3).
+Full-105 real-pipeline run: **0 P3-without-policy rows; 101/105 carry an SPL artifact
+or lab draft**. The 4 without: q0.q045 + q0.q105 (need a specific notable/entity —
+clarification/honest review), q0.q103 (asset-DB enrichment lookup), q0.q104
+(knowledge-only timeline guidance). Tier B clarification baseline now 1 (q0.q045).
 **Date:** 2026-06-09
 
 ## Problem (verified by reproduction)

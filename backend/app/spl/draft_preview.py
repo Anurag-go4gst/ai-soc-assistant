@@ -1356,6 +1356,172 @@ search index=<windows_index> sourcetype=<windows_security_or_system_sourcetype> 
         ),
     ),
     _family(
+        "notable_risk_review",
+        pattern_texts=(
+            r"notable\s+events?",
+            r"risk\s+(?:scores?|events?|objects?)",
+            r"accumulated\s+risk",
+            r"(?:alerts?|incidents?)\s+.{0,30}(?:open|unresolved|high|critical)",
+            r"high\s+or\s+critical",
+        ),
+        draft_spl="""
+search index=<notable_index> sourcetype=<notable_or_risk_sourcetype> earliest=-24h latest=now (status=* OR risk_score=* OR urgency=*)
+| eval risk_object_norm=lower(coalesce(risk_object, object, user, dest, host, "unknown"))
+| eval rule_norm=lower(coalesce(search_name, rule, rule_name, source, ""))
+| eval status_norm=lower(coalesce(status, status_label, disposition, ""))
+| eval urgency_norm=lower(coalesce(urgency, severity, priority, ""))
+| eval risk_score_norm=coalesce(risk_score, risk_score_sum, score, 0)
+| stats
+    count as event_count
+    sum(risk_score_norm) as total_risk_score
+    dc(rule_norm) as distinct_rules
+    values(rule_norm) as rules
+    values(status_norm) as statuses
+    values(urgency_norm) as urgencies
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by risk_object_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| table risk_object_norm total_risk_score event_count distinct_rules rules statuses urgencies first_seen last_seen
+| sort - total_risk_score
+| head 100
+""",
+        assumptions=(
+            "Notable/risk review ranks risk objects (users/hosts/assets) by accumulated risk score and notable/risk event count.",
+            "Field names assume an ES-style notable or risk index — search_name, status, urgency, risk_score; map your SIEM's equivalents during review.",
+            "For open/unresolved filtering, add status_norm IN (\"new\", \"open\", \"in progress\") during review — status vocabularies vary per deployment.",
+            "Risk scores rank attention order; they are not a compromise verdict.",
+            "Replace <notable_index> and <notable_or_risk_sourcetype> from your notable/risk source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=(
+            "index",
+            "sourcetype",
+            "risk_object",
+            "search_name",
+            "status",
+            "urgency",
+            "risk_score",
+            "_time",
+        ),
+        required_source_profile_fields=("notable_index", "notable_or_risk_sourcetype"),
+        investigation_checklist=(
+            "Confirm the notable/risk index and status vocabulary from your SIEM configuration.",
+            "Review distinct contributing rules — many rules on one object outranks one noisy rule.",
+            "Cross-check top risk objects against asset criticality before prioritizing.",
+            "Do not declare compromise from risk-score ranking alone.",
+        ),
+    ),
+    _family(
+        "windows_identity_privileged_activity",
+        pattern_texts=(
+            r"privileged\s+(?:actions?|applications?|access|logon)",
+            r"non[\s-]?admin\s+workstations?",
+            r"accounts?\s+(?:were\s+)?(?:disabled|re-?enabled)",
+            r"\b4672\b|\b4722\b|\b4725\b|\b4738\b",
+            r"added\s+to\s+administrators",
+        ),
+        draft_spl="""
+search index=<windows_index> sourcetype=<windows_security_sourcetype> earliest=-24h latest=now (EventCode=4672 OR EventCode=4722 OR EventCode=4725 OR EventCode=4738 OR EventCode=4648)
+| eval user_norm=lower(coalesce(SubjectUserName, TargetUserName, user, Account_Name, "unknown"))
+| eval host_norm=lower(coalesce(Computer, host, dest, "unknown"))
+| eval event_code_norm=coalesce(EventCode, signature_id, "")
+| eval activity_norm=case(event_code_norm=="4672", "privileged_logon", event_code_norm=="4722", "account_enabled", event_code_norm=="4725", "account_disabled", event_code_norm=="4738", "account_changed", event_code_norm=="4648", "explicit_credentials", true(), "other")
+| where NOT like(host_norm, "%<admin_workstation_pattern>%")
+| stats
+    count as activity_count
+    values(activity_norm) as activities
+    values(event_code_norm) as event_codes
+    dc(host_norm) as distinct_hosts
+    values(host_norm) as hosts
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by user_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| table user_norm activities event_codes activity_count distinct_hosts hosts first_seen last_seen
+| sort - activity_count
+| head 100
+""",
+        assumptions=(
+            "Identity/privileged-activity hunt covers privileged logon (4672), account enable/disable (4722/4725), account change (4738), and explicit-credential use (4648).",
+            "The NOT like(host_norm, ...) filter excludes approved admin workstations — replace <admin_workstation_pattern> from your asset inventory; remove the filter to see all hosts.",
+            "Privileged-application access beyond Windows events needs application audit logs — map during review.",
+            "Service accounts generate routine privileged logons — baseline before judging volume.",
+            "Replace <windows_index> and <windows_security_sourcetype> from your Windows security source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=(
+            "index",
+            "sourcetype",
+            "EventCode",
+            "SubjectUserName",
+            "TargetUserName",
+            "Computer",
+            "_time",
+        ),
+        required_source_profile_fields=("windows_index", "windows_security_sourcetype", "admin_workstation_pattern"),
+        investigation_checklist=(
+            "Validate which workstations are approved for administrative use before flagging.",
+            "Review account enable/disable actors and change tickets for authorization.",
+            "Correlate privileged logons with the user's normal working pattern.",
+            "Do not declare privilege misuse from event counts alone.",
+        ),
+    ),
+    _family(
+        "data_source_health_review",
+        pattern_texts=(
+            r"logs?\s+(?:are\s+)?missing",
+            r"stopped\s+sending",
+            r"not\s+sending\s+(?:events|logs)",
+            r"(?:ingestion|data\s+source)\s+health",
+            r"sources?\s+.{0,20}(?:silent|stale|gap)",
+        ),
+        draft_spl="""
+search index=<monitored_index> earliest=-7d latest=now sourcetype=*
+| eval sourcetype_norm=lower(coalesce(sourcetype, "unknown"))
+| eval host_norm=lower(coalesce(host, "unknown"))
+| stats
+    count as event_count
+    dc(host_norm) as reporting_hosts
+    earliest(_time) as first_event_epoch
+    latest(_time) as last_event_epoch
+    by sourcetype_norm
+| eval last_event=strftime(last_event_epoch, "%Y-%m-%d %H:%M:%S")
+| eval first_event=strftime(first_event_epoch, "%Y-%m-%d %H:%M:%S")
+| eval hours_since_last_event=round((now() - last_event_epoch) / 3600, 1)
+| fields - first_event_epoch last_event_epoch
+| where hours_since_last_event>24
+| table sourcetype_norm event_count reporting_hosts hours_since_last_event first_event last_event
+| sort - hours_since_last_event
+| head 100
+""",
+        assumptions=(
+            "Source-health review flags sourcetypes whose newest event is older than 24 hours within a 7-day window.",
+            "A sourcetype absent for the whole 7 days will not appear at all — compare the result against your expected-source inventory during review.",
+            "The 24-hour staleness threshold is illustrative — low-volume sources (weekly exports) need a longer threshold.",
+            "Run once per monitored index; tstats/metadata variants are faster but outside the current allowed SPL command policy.",
+            "Replace <monitored_index> from your logging inventory.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=(
+            "index",
+            "sourcetype",
+            "host",
+            "_time",
+        ),
+        required_source_profile_fields=("monitored_index", "expected_source_inventory"),
+        investigation_checklist=(
+            "Compare flagged sourcetypes against the expected-source inventory for true gaps.",
+            "Check forwarder/collector health for sources that stopped sending.",
+            "Verify whether silence aligns with planned maintenance or decommissioning.",
+            "Treat silent security sources as a detection-coverage risk, not an incident by itself.",
+        ),
+    ),
+    _family(
         "network_multi_signal_review",
         pattern_texts=(
             r"both\s+dns\s+and\s+network",
@@ -1428,6 +1594,12 @@ PATTERN_TYPE_FAMILY_FALLBACK: dict[str, str] = {
     "persistence_scheduled_task_service": "endpoint_persistence_schtask_service",
     "multi_signal_correlation": "network_multi_signal_review",
     "success_after_failure": "auth_success_after_failure",
+    "notable_risk_lookup": "notable_risk_review",
+    "data_source_health": "data_source_health_review",
+    "threat_intel_enrichment": "ioc_destination_match",
+    # asset_identity_context is deliberately unmapped: its enrichment-lookup row
+    # (asset criticality / business owner) has no SPL answer; the listable
+    # identity rows are caught by explicit keyword rules instead.
 }
 
 
@@ -1462,6 +1634,16 @@ def match_detection_family(user_query: str) -> str | None:
         and not re.search(r"\b4740\b|lockout|locked", normalized)
     ):
         return "auth_failed_login_threshold"
+    if re.search(r"added\s+to\s+(?:administrators|domain\s+admins)", normalized):
+        return "windows_privileged_group_changes"
+    if (
+        re.search(r"privileged\s+(?:actions?|applications?|access|logon)", normalized)
+        or re.search(r"accounts?\s+(?:were\s+)?(?:disabled|re-?enabled)", normalized)
+        or re.search(r"non[-\s]?admin\s+workstations?", normalized)
+    ):
+        return "windows_identity_privileged_activity"
+    if re.search(r"(?:alerts?|notables?)\s+.{0,40}(?:still\s+open|open\s+and\s+unresolved|unresolved)", normalized):
+        return "notable_risk_review"
     if "smb" in normalized and re.search(r"\bot\b", normalized):
         return "firewall_ot_smb_lateral"
     if "smb" in normalized and re.search(

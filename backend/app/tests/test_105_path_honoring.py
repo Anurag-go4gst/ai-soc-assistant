@@ -226,6 +226,54 @@ def test_unsafe_action_still_overrides_exact_or_spl_intent() -> None:
     assert build_draft_preview(query, unsafe_enforcement=True) is None
 
 
+def test_live_pipeline_no_p3_leak_for_unbound_105_questions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression for the q0.q096 stale answer: exact-105 questions without an
+    active use-case severity policy must never display the P3 default, and the
+    loose alert_context regex ("alert network events") must not defeat the guard."""
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    from app.api.routes_chat import build_live_chat_response
+    from app.schemas.requests import ChatRequest
+
+    cases = {
+        "Which users performed privileged actions from non-admin workstations?": (
+            "windows_identity_privileged_activity"
+        ),
+        "What incident or alert network events are high or critical right now?": (
+            "notable_risk_review"
+        ),
+        "Which logs are missing from key security sources?": "data_source_health_review",
+    }
+    for query, family in cases.items():
+        response = build_live_chat_response(ChatRequest(message=query))
+        analyst = response.analyst_response
+        assert analyst is not None, query
+        assert analyst.severity_label == ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL, (
+            query,
+            analyst.severity_label,
+        )
+        preview = analyst.spl_draft_preview or {}
+        assert preview.get("detection_family") == family, (query, preview.get("detection_family"))
+        assert preview.get("execution_eligible") is False
+
+
+def test_use_case_severity_policy_still_wins(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Questions bound to a use case with an active severity policy keep their
+    policy severity (the guard only replaces the no-policy default)."""
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    from app.api.routes_chat import build_live_chat_response
+    from app.schemas.requests import ChatRequest
+
+    response = build_live_chat_response(
+        ChatRequest(message="Which users have excessive failed logins?")
+    )
+    analyst = response.analyst_response
+    assert analyst is not None
+    assert analyst.severity_label is not None
+    assert analyst.severity_label != ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
+
+
 def test_composer_inputs_cannot_reintroduce_p3_for_analytics(monkeypatch: pytest.MonkeyPatch) -> None:
     """Deterministic authority: the analytics severity label and draft posture
     survive the readability/composer fallback path verbatim."""

@@ -652,16 +652,35 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         source_refs,
     )
     guard_signals = _query_signals_from_state(state) or {}
+    guard_intent = (
+        state.get("intent_classification")
+        if isinstance(state.get("intent_classification"), dict)
+        else {}
+    )
+    # The guard needs an explicit alert reference (ALT-style id, "for alert",
+    # or pinned session alert), not the looser alert_context_present signal —
+    # that regex also matches prose like "alert network events" and would let
+    # the P3 default leak onto pure analytics questions.
+    guard_query_text = state.get("effective_query") or request.message
+    guard_alert_reference = bool(
+        session_alert_context
+        or re.search(r"\balt-\d{4}-\d+\b", guard_query_text, re.IGNORECASE)
+        or re.search(r"\bfor alert\b", guard_query_text, re.IGNORECASE)
+        or re.search(r"\balert[_\s]?id\b", guard_query_text, re.IGNORECASE)
+    )
     severity_decision = apply_analytics_severity_guard(
         severity_decision,
+        # Phase 2: any analytics/query-shaped or clarification answer without
+        # alert evidence gets "Not assigned". Active use-case severity policies
+        # still win inside the guard (default_no_policy check).
         analytics_query=bool(
             guard_signals.get("exact_105_analytics")
             or guard_signals.get("exact_105_hunt_spl")
             or guard_signals.get("analytics_aggregation")
+            or guard_intent.get("intent_family")
+            in ("spl_generation_only", "live_investigation", "clarification_required")
         ),
-        alert_context_present=bool(
-            guard_signals.get("alert_context_present") or session_alert_context
-        ),
+        alert_context_present=guard_alert_reference,
     )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,

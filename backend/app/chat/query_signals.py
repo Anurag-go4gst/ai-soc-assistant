@@ -37,12 +37,14 @@ _ANALYTICS_PHRASES = (
     "top ports",
     "top sources",
     "top hosts",
+    "still open",
+    "open and unresolved",
 )
 _EXACT_105_MATCH_PATHS = ("exact_105_question", "exact_105_plus_use_case_catalog")
-# Exact-105 hunt/detection pattern classes that map to a review-only SPL path.
-# Lookup/knowledge classes (asset_identity_context, case_state_lookup,
-# notable_risk_lookup, data_source_health, threat_intel_enrichment) are
-# deliberately excluded until their own registry honoring lands.
+# Exact-105 hunt/detection/lookup pattern classes that map to a review-only SPL
+# path. case_state_lookup stays excluded: its rows reference a specific notable
+# or entity the user has not supplied, so clarification is the correct answer
+# (the listable "open alerts" phrasing is caught by the analytics phrases).
 _EXACT_105_HUNT_PATTERNS = (
     "ioc_correlation",
     "dns_beaconing_dga_behavior",
@@ -55,6 +57,10 @@ _EXACT_105_HUNT_PATTERNS = (
     "persistence_scheduled_task_service",
     "success_after_failure",
     "other_or_unclear",
+    "notable_risk_lookup",
+    "data_source_health",
+    "threat_intel_enrichment",
+    "asset_identity_context",
 )
 
 

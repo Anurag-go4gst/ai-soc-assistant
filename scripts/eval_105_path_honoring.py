@@ -44,10 +44,11 @@ MAP_PATH = Path(__file__).resolve().parents[1] / "backend" / "app" / "coverage" 
 EXACT_PATHS = {"exact_105_question", "exact_105_plus_use_case_catalog"}
 ROUTED_STUB = {"skill": "attack_discovery", "tool_plan": ["generate_spl", "validate_spl"]}
 
-# Recorded 2026-06-09 after the top_n analytics + hunt-pattern bridges landed
-# (was 81 before top_n, 72 before hunt). Lowering this is progress; raising it
-# is a regression.
-CLARIFICATION_BASELINE = 10
+# Recorded 2026-06-09 after the top_n analytics + hunt + lookup-class bridges
+# landed (81 before top_n, 72 before hunt, 10 before lookup classes). The one
+# remaining row (q0.q045 "this specific notable event") references an entity
+# the user has not supplied — clarification is the correct answer for it.
+CLARIFICATION_BASELINE = 1
 
 # Exact-105 hunt/detection classes that must reach the review-only SPL path
 # (mirrors _EXACT_105_HUNT_PATTERNS in app/chat/query_signals.py).
@@ -63,6 +64,10 @@ HUNT_PATTERNS = {
     "persistence_scheduled_task_service",
     "success_after_failure",
     "other_or_unclear",
+    "notable_risk_lookup",
+    "data_source_health",
+    "threat_intel_enrichment",
+    "asset_identity_context",
 }
 
 
@@ -89,6 +94,7 @@ def evaluate_row(entry: dict[str, Any]) -> dict[str, Any]:
             signals.get("exact_105_analytics")
             or signals.get("exact_105_hunt_spl")
             or signals.get("analytics_aggregation")
+            or intent.intent_family in ("spl_generation_only", "live_investigation")
         ),
         alert_context_present=bool(signals.get("alert_context_present")),
     )
