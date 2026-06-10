@@ -356,6 +356,43 @@ def classify_intent(
             requested_output_type="SPL",
         )
 
+    # Exact-105 analytics bridge: registry metadata is authoritative; the
+    # analytics_aggregation phrasing signal is only a paraphrase fallback.
+    # Sits below all knowledge/SOP/MITRE/unsafe branches so a 105 question
+    # phrased as SOP/MITRE/containment keeps its existing path; this branch
+    # rescues queries that would otherwise die in clarification.
+    exact_match = str(candidate_mappings.get("match_path") or "") in {
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog",
+    }
+    registry_analytics = bool(signals.get("exact_105_analytics")) and exact_match
+    registry_hunt = bool(signals.get("exact_105_hunt_spl")) and exact_match
+    if (registry_analytics or registry_hunt or signals.get("analytics_aggregation")) and not (
+        signals.get("block_or_contain") or signals.get("explicit_run_spl")
+    ):
+        if registry_analytics:
+            reason = (
+                "Exact 105-question analytics match (top-N aggregation) inherited from the "
+                "question registry; review-only SPL drafting path, execution disabled."
+            )
+        elif registry_hunt:
+            reason = (
+                "Exact 105-question hunt/detection match inherited from the question "
+                "registry; review-only SPL drafting path, execution disabled."
+            )
+        else:
+            reason = "Analytics/ranking question detected; review-only SPL drafting path, execution disabled."
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.9 if (registry_analytics or registry_hunt) else 0.82,
+            requires_clarification=False,
+            reason=reason,
+            requested_output_type="SPL",
+        )
+
     return _build_classification(
         intent_family="clarification_required",
         primary_intent="knowledge_recall",

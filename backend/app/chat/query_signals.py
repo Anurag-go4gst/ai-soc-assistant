@@ -14,6 +14,54 @@ _LOG_SEARCH_RE = re.compile(
     r"\b(?:search|find|look for)\b.{0,80}\b(?:logs?|firewall|proxy|endpoint|vpn|dns|powershell)\b",
     re.IGNORECASE,
 )
+_ANALYTICS_SUBJECT_RE = re.compile(
+    r"\b(?:which|what)\s+(?:hosts?|users?|accounts?|devices?|machines?|systems?|endpoints?|"
+    r"domains?|rules?|assets?|source\s+ips?|destination\s+ips?|ips?)\b",
+    re.IGNORECASE,
+)
+_ANALYTICS_RANK_RE = re.compile(
+    r"\b(?:most|top|highest|largest|busiest)\b",
+    re.IGNORECASE,
+)
+_ANALYTICS_PHRASES = (
+    "top talkers",
+    "top talker",
+    "generating the most",
+    "highest volume",
+    "largest uploads",
+    "largest upload",
+    "most smb traffic",
+    "most dns queries",
+    "most failed logins",
+    "top destinations",
+    "top ports",
+    "top sources",
+    "top hosts",
+    "still open",
+    "open and unresolved",
+)
+_EXACT_105_MATCH_PATHS = ("exact_105_question", "exact_105_plus_use_case_catalog")
+# Exact-105 hunt/detection/lookup pattern classes that map to a review-only SPL
+# path. case_state_lookup stays excluded: its rows reference a specific notable
+# or entity the user has not supplied, so clarification is the correct answer
+# (the listable "open alerts" phrasing is caught by the analytics phrases).
+_EXACT_105_HUNT_PATTERNS = (
+    "ioc_correlation",
+    "dns_beaconing_dga_behavior",
+    "multi_signal_correlation",
+    "new_or_unusual_source",
+    "threshold_anomaly",
+    "lateral_movement",
+    "suspicious_process_powershell",
+    "dlp_exfiltration",
+    "persistence_scheduled_task_service",
+    "success_after_failure",
+    "other_or_unclear",
+    "notable_risk_lookup",
+    "data_source_health",
+    "threat_intel_enrichment",
+    "asset_identity_context",
+)
 
 
 def _explicit_log_search_requested(normalized: str) -> bool:
@@ -431,6 +479,23 @@ def extract_query_signals(
         and not explicit_mitre_context
     )
 
+    analytics_aggregation = bool(
+        (_ANALYTICS_SUBJECT_RE.search(normalized) and _ANALYTICS_RANK_RE.search(normalized))
+        or any(term in normalized for term in _ANALYTICS_PHRASES)
+    )
+    exact_105_match = bool(
+        qu is not None
+        and getattr(qu, "deterministic_match_path", None) in _EXACT_105_MATCH_PATHS
+    )
+    exact_105_analytics = exact_105_match and bool(
+        getattr(qu, "mapped_pattern_type", None) == "top_n_aggregation"
+        or getattr(qu, "mapped_primary_skill", None) == "aggregate_and_rank"
+        or getattr(qu, "mapped_operation_type", None) in ("top_n", "aggregate_and_rank")
+    )
+    exact_105_hunt_spl = exact_105_match and (
+        getattr(qu, "mapped_pattern_type", None) in _EXACT_105_HUNT_PATTERNS
+    )
+
     return {
         "normalized_query": normalized,
         "policy_terms": policy_terms,
@@ -498,6 +563,9 @@ def extract_query_signals(
         "host_spread": host_spread,
         "severity_request": severity_request,
         "review_only_spl": review_only_spl,
+        "analytics_aggregation": analytics_aggregation,
+        "exact_105_analytics": exact_105_analytics,
+        "exact_105_hunt_spl": exact_105_hunt_spl,
         "alert_context_present": alert_context_present,
         "hybrid_alert_review": hybrid_alert_review,
         "projected_needs_rag": policy_terms

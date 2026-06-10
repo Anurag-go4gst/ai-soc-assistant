@@ -10,6 +10,10 @@ from app.schemas.responses import AnalystResponseEnvelope
 from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.final_answer_readability import apply_draft_preview_readability, apply_final_answer_readability
 from app.chat.network_boundary_display import resolve_analyst_use_case_label, scrub_auth_anomaly_display_text
+from app.risk.severity_policy import (
+    ANALYTICS_REVIEW_TYPE_NOTE,
+    ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL,
+)
 from app.threat.mitre_evidence_preconditions import PRECONDITION_BY_ID, not_claimed_reason
 
 _INVESTIGATION_GUIDANCE_USE_CASES = frozenset(
@@ -175,8 +179,15 @@ def build_analyst_response_for_live(
         or intent.get("intent_family") in {"sop_or_playbook", "policy_knowledge", "knowledge_only"}
     )
     display_severity = None if knowledge_profile else severity_label
+    severity_not_assigned = bool(
+        display_severity and display_severity.startswith(ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL)
+    )
+    if severity_not_assigned:
+        severity_confidence = None
+        severity_rationale = ANALYTICS_REVIEW_TYPE_NOTE
     if (
         not knowledge_profile
+        and not severity_not_assigned
         and review_notice
         and severity_label
         and "review required" not in severity_label.lower()

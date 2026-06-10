@@ -62,6 +62,31 @@ _EXCLUDED_LIMITATIONS_WHEN_SUCCESS_STATED = {"confirmed_success", "success_after
 
 _AGG_SPLIT = re.compile(r"\s+(?=(?:count|values|min|max|sum|avg|list|dc|earliest|latest)\()", re.IGNORECASE)
 
+# Analyst lead-in for draft-preview answers. Must not repeat the DRAFT_WARNING
+# phrase ("Lab-only draft SPL preview…") — narrative tests require it to appear
+# exactly once across message + summary + review notice.
+_DRAFT_FAMILY_LEAD_INS = {
+    "network_smb_top_talkers": (
+        "This is an analytics/ranking question: identify which hosts generate the most "
+        "SMB traffic. No governed SPL template is bound for it yet, so a draft search is "
+        "provided for SOC review. It aggregates SMB sessions (ports 445/139 or "
+        "smb/cifs/microsoft-ds applications) by source host — connection count, total "
+        "bytes, distinct destinations, and first/last seen. The draft is review-only and "
+        "has not been executed."
+    ),
+}
+_DRAFT_GENERIC_LEAD_IN = (
+    "A governed SPL template is not bound for this question yet, so a draft search is "
+    "provided for SOC review. Validate the index, sourcetype, and field placeholders "
+    "against your source profile; the draft is review-only and has not been executed."
+)
+
+
+def _draft_preview_lead_in(spl_draft_preview: Any) -> str:
+    preview = spl_draft_preview if isinstance(spl_draft_preview, dict) else {}
+    family = str(preview.get("detection_family") or "")
+    return _DRAFT_FAMILY_LEAD_INS.get(family, _DRAFT_GENERIC_LEAD_IN)
+
 
 def apply_draft_preview_readability(envelope: AnalystResponseEnvelope) -> AnalystResponseEnvelope:
     """Presentation-only overlay when a lab draft SPL preview is shown without AnswerContract."""
@@ -91,7 +116,7 @@ def apply_draft_preview_readability(envelope: AnalystResponseEnvelope) -> Analys
         ),
         "required_fields": list(draft_preview.get("required_log_fields") or []),
     }
-    payload["direct_answer_summary"] = None
+    payload["direct_answer_summary"] = _draft_preview_lead_in(payload.get("spl_draft_preview"))
     payload["analyst_checklist"] = list(draft_preview.get("investigation_checklist") or [])
     payload = _scrub_draft_preview_contradictions(payload)
     payload["one_sentence_finding"] = None
@@ -194,7 +219,7 @@ def _contains_draft_forbidden_phrase(text: str) -> bool:
 
 def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
     if envelope.draft_spl_code:
-        return DRAFT_PREVIEW_STATUS_MESSAGE
+        return _draft_preview_lead_in(envelope.spl_draft_preview)
     if contract.intent_family == "mitre_explanation":
         text = envelope.one_sentence_finding or envelope.direct_answer_summary
         if text:

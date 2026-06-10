@@ -11,6 +11,9 @@ MATRIX_PATH = Path(__file__).with_name("severity_matrix.json")
 ACTION_PRIORITIES = ("urgent", "high", "standard_triage", "low")
 PRIORITY_ENUM = ("P1", "P2", "P3", "P4")
 
+ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL = "Not assigned from this question alone"
+ANALYTICS_REVIEW_TYPE_NOTE = "Review type: analytics/query review."
+
 
 class SeverityDecision(BaseModel):
     use_case_id: str | None = None
@@ -66,6 +69,34 @@ def decide_severity(use_case_id: str | None, structured_context: dict[str, Any] 
         source_refs=source_refs,
         recommended_priority=_priority(label),
         allowed_action_tier=1,
+    )
+
+
+def apply_analytics_severity_guard(
+    decision: SeverityDecision,
+    *,
+    analytics_query: bool,
+    alert_context_present: bool,
+) -> SeverityDecision:
+    """Suppress the default P3 for pure analytics/ranking questions.
+
+    Only the no-policy default is replaced: an active use-case severity policy
+    (or alert evidence) always keeps authority over this presentation guard.
+    """
+    if not analytics_query or alert_context_present:
+        return decision
+    if "default_no_policy" not in decision.matched_rules:
+        return decision
+    return decision.model_copy(
+        update={
+            "severity_label": ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL,
+            "matched_rules": ["analytics_query_no_alert_evidence"],
+            "why_not_higher": [
+                "Pure analytics/ranking question without alert evidence or an active "
+                "use-case severity policy; incident severity is not assigned."
+            ],
+            "recommended_priority": "not_applicable",
+        }
     )
 
 
