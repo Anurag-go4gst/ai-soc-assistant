@@ -22,13 +22,16 @@ behavior work that changes the analyst card and requires a sentinel baseline
 re-freeze under the additive-diff review rule. Per plan T5.1 pass criterion:
 "if any row fails: record, escalate E4, do not weaken the check."
 
-**Decision needed (Anurag):**
-1. Make `render_sections.limitations` content-driven (`bool(limitations)`), or
-2. Populate default limitations for all non-knowledge profiles, or
-3. Accept empty-limitations sections as design and scope the check accordingly.
+**Resolution (Anurag, 2026-06-10): option 1 — content-driven flag.** Landed in
+`985f75e` (`render_sections.limitations` enabled only when deterministic
+limitation text exists; sentinel baseline re-frozen to drop the empty
+sections). `eval_answer_quality.py` is now wired into the governance
+regression. Status: **RESOLVED**.
 
-Until decided, `eval_answer_quality.py` is **not** wired into the governance
-regression (it would hard-fail CI on a known product finding).
+Original options considered:
+1. Make `render_sections.limitations` content-driven (`bool(limitations)`) ✅
+2. Populate default limitations for all non-knowledge profiles
+3. Accept empty-limitations sections as design and scope the check accordingly
 
 ## Check-calibration fixes applied during this run (not weakenings)
 
