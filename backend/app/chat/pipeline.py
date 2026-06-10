@@ -77,6 +77,12 @@ from app.use_cases.content_enrichment import enrichment_spl_governance, enrichme
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
 from app.chat.evidence_planner import plan_evidence, resolve_analyst_evidence_plan
+from app.planner.executor import (
+    DispatchHooks,
+    annotate_step_statuses,
+    execute_plan_dispatch,
+    has_composed_plan,
+)
 from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.negative_evidence_extractor import extract_negative_evidence
@@ -191,7 +197,11 @@ def _build_live_chat_response_inner(request: ChatRequest) -> PlaceholderResponse
     state = graph_node_query_to_intent(state)
     state = graph_node_evidence_planning(state)
     state = graph_node_shadow_enrichment(state)
-    if _uses_rag_only_path(state):
+    if has_composed_plan(state):
+        # WS0 T0.4: composed-plan dispatch — same node calls, same predicates,
+        # plus per-step status/degrade-chain recording.
+        state = execute_plan_dispatch(state, _dispatch_hooks())
+    elif _uses_rag_only_path(state):
         state = graph_node_prepare_rag_only(state)
         state = graph_node_rag_early(state)
     else:
@@ -1088,6 +1098,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         session_context_status = SessionContextStatusEnvelope(**session_resolution.status.model_dump())
 
     partial_fallback = synthesis_status.status == "partial_timeout"
+    # WS0 T0.4: resolve final plan-step statuses (incl. MITRE, resolved in
+    # this node) so the response's evidence_plan carries executed/fallback/
+    # blocked provenance for every composed step.
+    state = annotate_step_statuses({**state, "mitre_decision": mitre_decision})
     response = PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,
@@ -1212,6 +1226,17 @@ def _coverage_id_from_authority(route_authority: dict[str, object] | None) -> st
 def _evidence_plan(state: ChatPipelineState) -> dict[str, Any]:
     plan = state.get("evidence_plan")
     return plan if isinstance(plan, dict) else {}
+
+
+def _dispatch_hooks() -> DispatchHooks:
+    return DispatchHooks(
+        uses_rag_only_path=_uses_rag_only_path,
+        uses_pre_mcp_rag=_uses_pre_mcp_rag,
+        prepare_rag_only=graph_node_prepare_rag_only,
+        rag_early=graph_node_rag_early,
+        workflow_spl=graph_node_workflow_spl,
+        execution=graph_node_execution,
+    )
 
 
 def _uses_rag_only_path(state: ChatPipelineState) -> bool:
