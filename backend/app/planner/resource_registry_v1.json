@@ -1,0 +1,1118 @@
+{
+  "schema_version": 1,
+  "resources": [
+    {
+      "resource_id": "mcp_tool:search_splunk",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "execute_validated_spl",
+        "event_search"
+      ],
+      "input_contract": {
+        "args": [
+          "search_query",
+          "earliest_time",
+          "latest_time",
+          "max_results"
+        ]
+      },
+      "cost_class": "expensive",
+      "availability": "not_implemented",
+      "policy_tier": 2,
+      "notes": "livehybrid/splunk-mcp; gated by mcp_execution_gate; schema_confirmed=false"
+    },
+    {
+      "resource_id": "mcp_tool:splunk_run_query",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "execute_validated_spl",
+        "event_search"
+      ],
+      "input_contract": {
+        "args": [
+          "query"
+        ]
+      },
+      "cost_class": "expensive",
+      "availability": "fixture_only",
+      "policy_tier": 2,
+      "notes": "mock connector; bounded deterministic rows only when both execution flags true"
+    },
+    {
+      "resource_id": "mcp_tool:list_indexes",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2
+    },
+    {
+      "resource_id": "mcp_tool:get_index_info",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2
+    },
+    {
+      "resource_id": "mcp_tool:indexes_and_sourcetypes",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2
+    },
+    {
+      "resource_id": "mcp_tool:list_saved_searches",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2
+    },
+    {
+      "resource_id": "mcp_tool:health_check",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2
+    },
+    {
+      "resource_id": "mcp_tool:ping",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2
+    },
+    {
+      "resource_id": "mcp_tool:current_user",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2
+    },
+    {
+      "resource_id": "mcp_tool:list_users",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2
+    },
+    {
+      "resource_id": "mcp_tool:list_tools",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2
+    },
+    {
+      "resource_id": "mcp_tool:list_kvstore_collections",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2
+    },
+    {
+      "resource_id": "mcp_tool:create_kvstore_collection",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "kvstore_mutation"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "blocked",
+      "policy_tier": 3,
+      "notes": "mutating tool \u2014 never selectable"
+    },
+    {
+      "resource_id": "mcp_tool:delete_kvstore_collection",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "kvstore_mutation"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "blocked",
+      "policy_tier": 3,
+      "notes": "mutating tool \u2014 never selectable"
+    },
+    {
+      "resource_id": "rag_corpus:soc_kb",
+      "kind": "rag_corpus",
+      "capabilities": [
+        "sop_retrieval",
+        "policy_citation",
+        "knowledge_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 0
+    },
+    {
+      "resource_id": "spl_lab_draft_family:windows_privileged_group_changes",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:windows_account_lockout",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:sysmon_web_shell_spawn",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:scada_dnp3_modbus_write",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:firewall_ot_egress_denied",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:firewall_vendor_vpn_jump",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:firewall_it_ot_rdp",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:firewall_ot_smb_lateral",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:network_smb_top_talkers",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:esp_it_to_ot_connection",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:vpn_new_country_login",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:auth_success_after_failure",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable",
+      "fallback_of": "spl_template_family:auth_success_after_failure"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:substation_hmi_brute_force",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:auth_failed_login_threshold",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable",
+      "fallback_of": "spl_template_family:auth_failed_login_spike"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:network_traffic_top_talkers",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:ioc_destination_match",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:dns_beaconing_hunt",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable",
+      "fallback_of": "spl_template_family:dns_beaconing_candidate"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:network_new_or_rare_behavior",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:network_threshold_anomaly",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:endpoint_powershell_suspicious",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable",
+      "fallback_of": "spl_template_family:edr_powershell_suspicious_command"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:network_data_exfil_volume",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:lateral_movement_internal",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:endpoint_persistence_schtask_service",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:notable_risk_review",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:windows_identity_privileged_activity",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:data_source_health_review",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_lab_draft_family:network_multi_signal_review",
+      "kind": "spl_lab_draft_family",
+      "capabilities": [
+        "spl_draft_preview",
+        "hunt_pattern_guidance"
+      ],
+      "input_contract": {},
+      "cost_class": "free",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "draft_preview_not_governed; never executable"
+    },
+    {
+      "resource_id": "spl_template_family:auth_failed_login_spike",
+      "kind": "spl_template_family",
+      "capabilities": [
+        "governed_spl_generation",
+        "spl_validation"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1,
+      "notes": "falls back to spl_lab_draft_family:auth_failed_login_threshold",
+      "fallback_of": null
+    },
+    {
+      "resource_id": "spl_template_family:auth_success_after_failure",
+      "kind": "spl_template_family",
+      "capabilities": [
+        "governed_spl_generation",
+        "spl_validation"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1,
+      "notes": "falls back to spl_lab_draft_family:auth_success_after_failure",
+      "fallback_of": null
+    },
+    {
+      "resource_id": "spl_template_family:edr_powershell_suspicious_command",
+      "kind": "spl_template_family",
+      "capabilities": [
+        "governed_spl_generation",
+        "spl_validation"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1,
+      "notes": "falls back to spl_lab_draft_family:endpoint_powershell_suspicious",
+      "fallback_of": null
+    },
+    {
+      "resource_id": "spl_template_family:dns_beaconing_candidate",
+      "kind": "spl_template_family",
+      "capabilities": [
+        "governed_spl_generation",
+        "spl_validation"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1,
+      "notes": "falls back to spl_lab_draft_family:dns_beaconing_hunt",
+      "fallback_of": null
+    },
+    {
+      "resource_id": "llm_role:intent_advisory",
+      "kind": "llm_role",
+      "capabilities": [
+        "intent_candidate_annotation"
+      ],
+      "input_contract": {},
+      "cost_class": "expensive",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "advisory only; deterministic authority overrides"
+    },
+    {
+      "resource_id": "llm_role:route_plan_candidate",
+      "kind": "llm_role",
+      "capabilities": [
+        "route_plan_shadow"
+      ],
+      "input_contract": {},
+      "cost_class": "expensive",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "advisory only; deterministic authority overrides"
+    },
+    {
+      "resource_id": "llm_role:resource_plan_proposal",
+      "kind": "llm_role",
+      "capabilities": [
+        "resource_plan_proposal_for_validation"
+      ],
+      "input_contract": {},
+      "cost_class": "expensive",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "advisory only; deterministic authority overrides"
+    },
+    {
+      "resource_id": "llm_role:narration",
+      "kind": "llm_role",
+      "capabilities": [
+        "analyst_summary_prose"
+      ],
+      "input_contract": {},
+      "cost_class": "expensive",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "advisory only; deterministic authority overrides"
+    },
+    {
+      "resource_id": "llm_role:mitre_candidate",
+      "kind": "llm_role",
+      "capabilities": [
+        "mitre_candidate_mapping"
+      ],
+      "input_contract": {},
+      "cost_class": "expensive",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "advisory only; deterministic authority overrides"
+    },
+    {
+      "resource_id": "llm_role:spl_fallback",
+      "kind": "llm_role",
+      "capabilities": [
+        "candidate_spl_draft_non_executable"
+      ],
+      "input_contract": {},
+      "cost_class": "expensive",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "advisory only; deterministic authority overrides"
+    },
+    {
+      "resource_id": "llm_role:answer_guard",
+      "kind": "llm_role",
+      "capabilities": [
+        "draft_answer_validation"
+      ],
+      "input_contract": {},
+      "cost_class": "expensive",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "advisory only; deterministic authority overrides"
+    },
+    {
+      "resource_id": "llm_role:judge",
+      "kind": "llm_role",
+      "capabilities": [
+        "answer_quality_judgment"
+      ],
+      "input_contract": {},
+      "cost_class": "expensive",
+      "availability": "available",
+      "policy_tier": 0,
+      "notes": "advisory only; deterministic authority overrides"
+    },
+    {
+      "resource_id": "skill:attack_discovery",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:spl_generation",
+        "allowed_tool:spl_validation",
+        "allowed_tool:splunk_mcp_search"
+      ],
+      "input_contract": {
+        "input": "QueryUnderstandingResult",
+        "output": "StructuredContext",
+        "blocked_tools": [
+          "remediation",
+          "admin",
+          "write"
+        ],
+        "required_evidence": [
+          "source_evidence"
+        ],
+        "default_workflow": [
+          "spl_generation",
+          "spl_validation",
+          "evidence_collection",
+          "context_sufficiency"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:spl_generation",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:spl_template_registry",
+        "allowed_tool:spl_validator"
+      ],
+      "input_contract": {
+        "input": "QueryUnderstandingResult",
+        "output": "SplValidationEnvelope",
+        "blocked_tools": [
+          "mcp_execution_without_validation"
+        ],
+        "required_evidence": [],
+        "default_workflow": [
+          "spl_generation",
+          "spl_validation"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:knowledge_recall",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:governed_rag"
+      ],
+      "input_contract": {
+        "input": "QueryUnderstandingResult",
+        "output": "SourceEvidence",
+        "blocked_tools": [
+          "mcp_execution"
+        ],
+        "required_evidence": [
+          "rag:sop"
+        ],
+        "default_workflow": [
+          "knowledge_recall",
+          "context_sufficiency"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:mitre_mapping",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:local_mitre_kb"
+      ],
+      "input_contract": {
+        "input": "StructuredContext",
+        "output": "MitreMappingDecision",
+        "blocked_tools": [
+          "live_internet"
+        ],
+        "required_evidence": [
+          "alert_context",
+          "mitre:enterprise"
+        ],
+        "default_workflow": [
+          "knowledge_recall",
+          "mitre_mapping",
+          "context_sufficiency"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:alert_summary",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:source_evidence"
+      ],
+      "input_contract": {
+        "input": "SourceEvidence",
+        "output": "AnalystResponseEnvelope",
+        "blocked_tools": [
+          "remediation"
+        ],
+        "required_evidence": [
+          "source_evidence"
+        ],
+        "default_workflow": [
+          "evidence_collection",
+          "context_sufficiency"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:investigation_notes",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:source_evidence"
+      ],
+      "input_contract": {
+        "input": "StructuredContext",
+        "output": "NoteResponse",
+        "blocked_tools": [
+          "ticket_write"
+        ],
+        "required_evidence": [
+          "source_evidence"
+        ],
+        "default_workflow": [
+          "context_sufficiency"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:out_of_scope",
+      "kind": "skill",
+      "capabilities": [
+        "pipeline_stage"
+      ],
+      "input_contract": {
+        "input": "QueryUnderstandingResult",
+        "output": "ClarificationResponse",
+        "blocked_tools": [
+          "all_execution"
+        ],
+        "required_evidence": [],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:query_understanding",
+      "kind": "skill",
+      "capabilities": [
+        "pipeline_stage"
+      ],
+      "input_contract": {
+        "input": "ChatRequest",
+        "output": "QueryUnderstandingResult",
+        "blocked_tools": [
+          "mcp_execution"
+        ],
+        "required_evidence": [],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:spl_validation",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:spl_validator"
+      ],
+      "input_contract": {
+        "input": "CandidateSplEnvelope",
+        "output": "SplValidationEnvelope",
+        "blocked_tools": [
+          "mcp_execution"
+        ],
+        "required_evidence": [],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:evidence_collection",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:splunk_mcp_search",
+        "allowed_tool:governed_rag"
+      ],
+      "input_contract": {
+        "input": "WorkflowPlan",
+        "output": "SourceEvidence",
+        "blocked_tools": [
+          "candidate_spl_as_evidence"
+        ],
+        "required_evidence": [],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:asset_enrichment",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:asset_lookup"
+      ],
+      "input_contract": {
+        "input": "SourceEvidence",
+        "output": "SourceEvidence",
+        "blocked_tools": [
+          "asset_write"
+        ],
+        "required_evidence": [
+          "asset_identifier"
+        ],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:identity_enrichment",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:identity_lookup"
+      ],
+      "input_contract": {
+        "input": "SourceEvidence",
+        "output": "SourceEvidence",
+        "blocked_tools": [
+          "identity_write"
+        ],
+        "required_evidence": [
+          "user"
+        ],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:network_enrichment",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:network_lookup"
+      ],
+      "input_contract": {
+        "input": "SourceEvidence",
+        "output": "SourceEvidence",
+        "blocked_tools": [
+          "network_write"
+        ],
+        "required_evidence": [
+          "ip"
+        ],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:context_sufficiency",
+      "kind": "skill",
+      "capabilities": [
+        "pipeline_stage"
+      ],
+      "input_contract": {
+        "input": "StructuredContextPackage",
+        "output": "ContextSufficiencyEnvelope",
+        "blocked_tools": [
+          "llm_synthesis"
+        ],
+        "required_evidence": [
+          "source_refs"
+        ],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:synthesis",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:llm_synthesis"
+      ],
+      "input_contract": {
+        "input": "StructuredContextPackage",
+        "output": "AnalystResponseEnvelope",
+        "blocked_tools": [
+          "mcp_direct"
+        ],
+        "required_evidence": [
+          "structured_context",
+          "source_refs"
+        ],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:answer_guard",
+      "kind": "skill",
+      "capabilities": [
+        "pipeline_stage"
+      ],
+      "input_contract": {
+        "input": "AnalystResponseEnvelope",
+        "output": "AnswerGuardDecision",
+        "blocked_tools": [
+          "auto_correct_v1"
+        ],
+        "required_evidence": [
+          "source_refs"
+        ],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:action_planning",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:draft_only"
+      ],
+      "input_contract": {
+        "input": "SeverityDecision",
+        "output": "ActionCapability",
+        "blocked_tools": [
+          "remediation"
+        ],
+        "required_evidence": [
+          "severity_decision"
+        ],
+        "default_workflow": []
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:ticket_drafting",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:ticketing_provider_draft"
+      ],
+      "input_contract": {
+        "input": "StructuredContextPackage",
+        "output": "TicketDraft",
+        "blocked_tools": [
+          "ticket_create_without_hil"
+        ],
+        "required_evidence": [
+          "source_evidence"
+        ],
+        "default_workflow": [
+          "context_sufficiency"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "api:threat_intel_lookup",
+      "kind": "api",
+      "capabilities": [
+        "ioc_enrichment"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 1,
+      "notes": "deferred TI class; no provider integrated yet"
+    },
+    {
+      "resource_id": "api:asset_context_lookup",
+      "kind": "api",
+      "capabilities": [
+        "asset_identity_context"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 1,
+      "notes": "deferred asset-context class; no CMDB integrated yet"
+    }
+  ]
+}
