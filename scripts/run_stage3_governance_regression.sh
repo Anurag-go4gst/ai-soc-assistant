@@ -34,6 +34,9 @@ section "sentinel happy-path gate (T-PRE)"
 python3 scripts/build_sentinel_set.py --check || fail "sentinel set drifted"
 python3 scripts/eval_sentinel.py --check || fail "sentinel baseline diff"
 
+section "Tier-D answer quality (T5.1)"
+python3 scripts/eval_answer_quality.py --check || fail "answer quality gate"
+
 section "backend pytest"
 (cd backend && python3 -m pytest -q) || fail "backend pytest"
 
