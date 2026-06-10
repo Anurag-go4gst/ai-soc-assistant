@@ -106,6 +106,73 @@ def test_blocked_findings_source_from_mitre_decision_union() -> None:
     assert contract.mitre_technique_ids == ["T1110.001"]
 
 
+def test_limitations_section_disabled_when_no_content() -> None:
+    """AQ-001: do not enable limitations render section without backing text."""
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "spl_generation_only",
+            "answer_goal": ["spl_artifact"],
+        },
+        evidence_plan={
+            "answer_mode": "live_investigation",
+            "mcp_allowed": False,
+            "spl_allowed": True,
+            "limitations": [],
+        },
+        mitre_decision={"answer_visible": False, "not_claimed": []},
+        severity_decision=None,
+        spl_validation={"approved": False, "review_required": True},
+        execution={"status": "skipped"},
+        human_review={"required": False},
+    )
+    assert contract.limitations == []
+    assert contract.render_sections["limitations"] is False
+    assert "limitations" not in contract.section_order
+
+
+def test_limitations_section_enabled_when_plan_has_content() -> None:
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "spl_generation_only",
+            "answer_goal": ["spl_artifact"],
+        },
+        evidence_plan={
+            "answer_mode": "live_investigation",
+            "limitations": ["Candidate SPL only; Splunk search was not executed."],
+        },
+        mitre_decision={"answer_visible": False, "not_claimed": []},
+        severity_decision=None,
+        spl_validation={"approved": True, "normalized_spl": "index=x | stats count"},
+        execution={"status": "skipped"},
+        human_review={"required": False},
+    )
+    assert contract.render_sections["limitations"] is True
+    assert contract.limitations == ["Candidate SPL only; Splunk search was not executed."]
+
+
+def test_limitations_section_enabled_for_auth_hybrid_alert_review() -> None:
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "hybrid_alert_review",
+            "answer_goal": ["severity_assessment", "mitre_mapping", "spl_artifact"],
+        },
+        evidence_plan={
+            "answer_mode": "live_investigation",
+            "use_case_id": "auth_failed_login_spike",
+            "mcp_allowed": False,
+            "spl_allowed": True,
+        },
+        mitre_decision={"answer_visible": True, "not_claimed": []},
+        severity_decision=type("Severity", (), {"severity_label": "P3 Medium", "missing_evidence": []})(),
+        spl_validation={"approved": True, "normalized_spl": "index=x | stats count"},
+        execution={"status": "skipped"},
+        human_review={"required": False},
+        mitre_mappings=[{"technique_id": "T1110.001"}],
+        use_case_id="auth_failed_login_spike",
+    )
+    assert contract.render_sections["limitations"] is True
+
+
 def test_human_review_forces_blocked_label() -> None:
     contract = build_answer_contract(
         intent_classification={"answer_goal": ["spl_artifact"]},

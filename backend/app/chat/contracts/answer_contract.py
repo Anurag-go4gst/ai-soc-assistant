@@ -194,6 +194,17 @@ def build_answer_contract(
     spl_status = _spl_status(spl_validation, spl_allowed=bool(plan.get("spl_allowed")))
     spl_status_detail = _spl_status_detail(spl_validation, candidate_spl)
     hil_status = _hil_status(review, plan, missing)
+    success_after_failure = _success_after_failure_context(
+        query_signals, str(intent.get("intent_family") or "")
+    )
+    has_limitations_content = _has_limitations_content(
+        limitations=limitations,
+        missing_evidence=missing,
+        intent_family=intent_family,
+        answer_mode=answer_mode,
+        use_case_id=resolved_use_case_id,
+        success_after_failure_context=success_after_failure,
+    )
     section_order = _section_order(
         goals,
         answer_mode=answer_mode,
@@ -201,6 +212,7 @@ def build_answer_contract(
         has_investigation_guidance=bool(
             required_evidence or checklist or investigation_steps or limitations
         ),
+        has_limitations_content=has_limitations_content,
     )
     render = _render_sections(
         goals=goals,
@@ -213,6 +225,7 @@ def build_answer_contract(
         has_investigation_guidance=bool(
             required_evidence or checklist or investigation_steps or limitations
         ),
+        has_limitations_content=has_limitations_content,
     )
 
     severity_label = None
@@ -257,9 +270,7 @@ def build_answer_contract(
         execution_status_display=exec_display,
         section_order=section_order,
         render_sections=render,
-        success_after_failure_context=_success_after_failure_context(
-            query_signals, str(intent.get("intent_family") or "")
-        ),
+        success_after_failure_context=success_after_failure,
         use_case_id=resolved_use_case_id,
         required_evidence=required_evidence,
         spl_status_detail=spl_status_detail,
@@ -430,6 +441,7 @@ def _section_order(
     answer_mode: str | None = None,
     intent_family: str | None = None,
     has_investigation_guidance: bool = False,
+    has_limitations_content: bool = False,
 ) -> list[str]:
     if _is_knowledge_profile(intent_family, answer_mode):
         ordered = [goal for goal in ("policy_citation", "procedural_steps") if goal in goals]
@@ -437,7 +449,7 @@ def _section_order(
     ordered = sorted({goal for goal in goals if goal in _SECTION_PRIORITY}, key=lambda g: _SECTION_PRIORITY[g])
     if has_investigation_guidance and "investigation_guidance" not in ordered:
         ordered.insert(0, "investigation_guidance")
-    if ordered and "limitations" not in ordered:
+    if ordered and has_limitations_content and "limitations" not in ordered:
         ordered.append("limitations")
     return ordered
 
@@ -452,6 +464,7 @@ def _render_sections(
     spl_present: bool,
     playbook_eligible: bool,
     has_investigation_guidance: bool = False,
+    has_limitations_content: bool = False,
 ) -> dict[str, bool]:
     knowledge_profile = _is_knowledge_profile(intent_family, answer_mode)
     show_mitre = (
@@ -468,9 +481,59 @@ def _render_sections(
         "analyst_action_guidance": has_investigation_guidance or "analyst_action_guidance" in goals,
         "policy_citation": playbook_eligible and answer_mode in {"rag_only", "hybrid"},
         "procedural_steps": "procedural_steps" in goals or has_investigation_guidance,
-        "limitations": not knowledge_profile,
+        "limitations": has_limitations_content,
         "investigation_guidance": has_investigation_guidance and not knowledge_profile,
     }
+
+
+_EXCLUDED_LIMITATION_KEYS = frozenset({"confirmed_success", "success_after_failure"})
+
+
+def _has_limitations_content(
+    *,
+    limitations: list[str],
+    missing_evidence: list[str],
+    intent_family: str | None,
+    answer_mode: str | None,
+    use_case_id: str | None,
+    success_after_failure_context: bool,
+) -> bool:
+    """True only when deterministic limitation text will render (AQ-001)."""
+    if _is_knowledge_profile(intent_family, answer_mode):
+        return False
+    if limitations:
+        return True
+    if success_after_failure_context and _is_auth_hybrid_use_case(use_case_id, intent_family):
+        return True
+    if intent_family == "hybrid_alert_review" and _is_auth_hybrid_use_case(use_case_id, intent_family):
+        return True
+    return bool(_missing_evidence_limitation_keys(missing_evidence, use_case_id=use_case_id))
+
+
+def _is_auth_hybrid_use_case(use_case_id: str | None, intent_family: str | None) -> bool:
+    if use_case_id:
+        if use_case_id in _NON_AUTH_USE_CASES:
+            return False
+        return use_case_id.startswith(_AUTH_USE_CASE_PREFIXES)
+    return intent_family == "hybrid_alert_review"
+
+
+def _missing_evidence_limitation_keys(
+    missing_evidence: list[str],
+    *,
+    use_case_id: str | None,
+) -> list[str]:
+    auth_only_keys = set(_AUTH_LIMITATION_KEYS)
+    use_case = str(use_case_id or "")
+    keys: list[str] = []
+    for key in missing_evidence:
+        text = str(key)
+        if not text or text in _EXCLUDED_LIMITATION_KEYS:
+            continue
+        if text in auth_only_keys and not use_case.startswith("auth_"):
+            continue
+        keys.append(text)
+    return keys
 
 
 _AUTH_LIMITATION_KEYS = (
