@@ -10,6 +10,46 @@ from app.connectors.mcp.splunk_result_envelope import (
     SplunkResultEnvelope,
 )
 from app.connectors.mcp.splunk_result_fixture import envelope_from_fixture_payload
+from app.safeguards.data_minimizer import minimize_context
+from app.safeguards.mcp_result_safeguard import scan_mcp_preview_rows
+
+_MINIMIZED_WARNING = "mcp_result_fields_minimized"
+
+
+def sanitize_result_envelope(envelope: SplunkResultEnvelope) -> SplunkResultEnvelope:
+    """Apply data minimization and injection scanning to envelope rows (T4.2).
+
+    Runs at the adapter boundary so every downstream consumer of an envelope
+    (execution gate, source evidence, demo fixtures) only ever sees minimized
+    rows and an injection verdict in `warnings`. Rows are not rewritten on
+    injection — the warning plus the source-evidence sensitivity flag drive
+    the blocked-by-policy path; minimization only drops secret-bearing keys.
+    """
+    if not envelope.rows:
+        return envelope
+
+    original_rows = [dict(row) for row in envelope.rows]
+    minimized_rows = [minimize_context(row) for row in original_rows]
+    dropped_keys = {
+        key
+        for original, minimized in zip(original_rows, minimized_rows)
+        for key in set(original) - set(minimized)
+    }
+
+    warnings = list(envelope.warnings)
+    if dropped_keys and _MINIMIZED_WARNING not in warnings:
+        warnings.append(_MINIMIZED_WARNING)
+    _, _, scan_warnings = scan_mcp_preview_rows(minimized_rows)
+    warnings.extend(item for item in scan_warnings if item not in warnings)
+
+    if not dropped_keys and not scan_warnings:
+        return envelope
+    return replace(
+        envelope,
+        rows=tuple(minimized_rows),
+        fields=tuple(field for field in envelope.fields if field not in dropped_keys),
+        warnings=tuple(warnings),
+    )
 
 
 class SplunkMcpResultAdapter(Protocol):
@@ -96,13 +136,14 @@ def adapt_mcp_search_payload(
     normalized_spl: str | None = None,
     duration_ms: int | None = None,
 ) -> SplunkResultEnvelope:
-    """Single entry point for execution gate: raw MCP dict → envelope."""
-    return get_splunk_result_adapter(mcp_mode).adapt_search_result(
+    """Single entry point for execution gate: raw MCP dict → sanitized envelope."""
+    envelope = get_splunk_result_adapter(mcp_mode).adapt_search_result(
         raw_payload,
         trace_id=trace_id,
         normalized_spl=normalized_spl,
         duration_ms=duration_ms,
     )
+    return sanitize_result_envelope(envelope)
 
 
 def execution_preview_from_envelope(
