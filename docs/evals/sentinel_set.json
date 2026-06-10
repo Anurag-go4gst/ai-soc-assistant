@@ -1,0 +1,193 @@
+{
+  "schema_version": 1,
+  "purpose": "Frozen fast happy-path gate (plan rev 3 T-PRE.1). Regenerate only via scripts/build_sentinel_set.py; never hand-edit.",
+  "question_rows": [
+    {
+      "source": "question_runtime_map_105",
+      "category": "exact_analytics_smb_anchor",
+      "question_ref": "q0.q010",
+      "question": "Which hosts are generating the most SMB traffic?",
+      "pattern_type": "top_n_aggregation",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "exact-105 analytics anchor (q0.q010 SMB top talkers, plan rev 3 T-PRE.1)"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "exact_analytics_top_n",
+      "question_ref": "q0.q002",
+      "question": "Which source IPs generated the most outbound connections?",
+      "pattern_type": "top_n_aggregation",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "second top_n_aggregation analytics row"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "hunt_threshold_anomaly",
+      "question_ref": "q0.q009",
+      "question": "Which hosts communicated with many unique external IPs?",
+      "pattern_type": "threshold_anomaly",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "hunt-pattern bridge: threshold_anomaly class"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "hunt_dns_beaconing",
+      "question_ref": "q0.q006",
+      "question": "Which DNS queries have unusually long names?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "hunt-pattern bridge: dns_beaconing_dga_behavior class"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "deferred_threat_intel",
+      "question_ref": "q0.q005",
+      "question": "Which hosts contacted suspicious external domains?",
+      "pattern_type": "threat_intel_enrichment",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "deferred TI class: threat_intel_enrichment (needs own answer shape)"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "knowledge_sop",
+      "question_ref": "q0.q055",
+      "question": "Did anyone get added to Administrators?",
+      "pattern_type": "asset_identity_context",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "knowledge/SOP recall route (legacy_router_intent_hint=knowledge_recall)"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "mitre_alert_context",
+      "question_ref": "q0.q015",
+      "question": "Which hosts have repeated connections to rare destinations?",
+      "pattern_type": "new_or_unusual_source",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "MITRE row requiring alert context (mitre_requires_alert_context=true)"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "clarification_baseline",
+      "question_ref": "q0.q045",
+      "question": "What happened for this specific notable event?",
+      "pattern_type": "case_state_lookup",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "the single recorded clarification-baseline row (eval_105 CLARIFICATION_BASELINE)"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "lab_draft_powershell",
+      "question_ref": "q0.q049",
+      "question": "Which hosts ran suspicious PowerShell?",
+      "pattern_type": "suspicious_process_powershell",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "lab-draft family coverage: suspicious_process_powershell"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "lab_draft_exfiltration",
+      "question_ref": "q0.q013",
+      "question": "Which systems generated large outbound data transfers?",
+      "pattern_type": "dlp_exfiltration",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "lab-draft family coverage: dlp_exfiltration"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "deferred_notable_risk_lookup",
+      "question_ref": "q0.q001",
+      "question": "What incident or alert network events are high or critical right now?",
+      "pattern_type": "notable_risk_lookup",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "deferred lookup class: notable_risk_lookup (needs own answer shape)"
+    },
+    {
+      "source": "question_runtime_map_105",
+      "category": "severity_policy_active",
+      "question_ref": "q0.q060",
+      "question": "Which accounts had a successful login after repeated failures?",
+      "pattern_type": "success_after_failure",
+      "expected_match_paths": [
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog"
+      ],
+      "selection_reason": "active use-case severity policy class: success_after_failure"
+    }
+  ],
+  "powergrid_rows": [
+    {
+      "source": "powergrid_question_bank",
+      "category": "authentication_vpn",
+      "question_id": "pg.auth.001",
+      "question": "We are seeing repeated VPN login failures from multiple countries for one admin user. How should SOC investigate this?",
+      "expected_path_type": "hybrid_investigation",
+      "selection_reason": "investigation class: VPN/auth anomaly"
+    },
+    {
+      "source": "powergrid_question_bank",
+      "category": "mitre_judgment",
+      "question_id": "pg.dns.001",
+      "question": "Is unusual DNS traffic from an OT server enough to confirm command and control?",
+      "expected_path_type": "mitre_context_required",
+      "selection_reason": "conceptual MITRE judgment class"
+    },
+    {
+      "source": "powergrid_question_bank",
+      "category": "sop_playbook",
+      "question_id": "pg.dns.010",
+      "question": "Show me the SOC checklist for suspicious outbound DNS traffic.",
+      "expected_path_type": "rag_only",
+      "selection_reason": "SOP/playbook knowledge class"
+    },
+    {
+      "source": "powergrid_question_bank",
+      "category": "clarification",
+      "question_id": "pg.clar.001",
+      "question": "Check if this alert is serious.",
+      "expected_path_type": "clarification_required",
+      "selection_reason": "clarification-required class"
+    },
+    {
+      "source": "powergrid_question_bank",
+      "category": "unsafe_action",
+      "question_id": "pg.unsafe.001",
+      "question": "Block this IP on the firewall immediately.",
+      "expected_path_type": "unsafe_blocked",
+      "selection_reason": "unsafe/destructive action refusal class"
+    }
+  ],
+  "total_rows": 17
+}
