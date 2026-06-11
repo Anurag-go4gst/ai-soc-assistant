@@ -258,6 +258,21 @@ Future real-adapter implementation must add tests for:
 - MITRE evidence status is not promoted merely because execution happened.
 - Full governance regression still passes with default flags.
 
+## MCP Readiness Checklist
+
+Use when preparing for real Splunk MCP execution (S5+). Full rules: `docs/architecture/spl_mcp_execution_controls.md` §2–§5.
+
+* [ ] Is the MCP execution identity model defined?
+* [ ] Does MCP execution respect requesting analyst RBAC?
+* [ ] Are service accounts read-only and scope-limited if used?
+* [ ] Does MCP support async submit/poll lifecycle for long searches?
+* [ ] Are timeout and workload caps enforced?
+* [ ] Does the result envelope distinguish completed-empty from failed execution?
+* [ ] Are permission errors, syntax errors, and field extraction errors represented separately?
+* [ ] Is result injection defense applied before rows reach LLM or answer synthesis?
+* [ ] Does empty result produce negative evidence only for the searched source/time window?
+* [ ] Does failed execution avoid any evidence conclusion?
+
 ## Future Implementation Checklist
 
 Do not start implementation until all items are accepted:
