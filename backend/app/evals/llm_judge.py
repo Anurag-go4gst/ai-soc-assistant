@@ -16,7 +16,7 @@ from typing import Any
 
 from app.llm.adapter.json_extractor import extract_first_json_object
 
-JUDGE_TIMEOUT_SECONDS_CAP = 30
+JUDGE_TIMEOUT_SECONDS_CAP = 90
 _SEVERITY_ORDER = {"pass": 0, "review": 1, "fail": 2}
 
 _SYSTEM_PROMPT = (

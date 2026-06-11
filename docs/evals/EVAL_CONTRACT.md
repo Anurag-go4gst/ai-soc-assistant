@@ -40,6 +40,7 @@ No eval may end on a fuzzy score without a threshold and a verdict.
 | `scripts/eval_105_path_honoring.py --check` | in-process | workstream end / pre-PR (B4) | ~10 s | full 105 path honoring; `--refs q0.q001,q0.q010` = debugging subset |
 | `scripts/run_powergrid_soc_question_eval.py --check` | live HTTP `/chat` | workstream end / pre-PR (B4) | minutes | needs running backend (`docker compose up -d`); profiles `deterministic` / `live_llm` |
 | `python3 -m app.evals.golden_answer_runner` (Tier 0) | in-process | governance regression | seconds | golden-answer contract assertions |
+| `scripts/eval_out_of_set_soc.py --check` | in-process | on demand / WS5 reporting (NOT in governance regression) | ~1 s | 36-row out-of-set corpus; critical rules gate, REVIEW rows report findings; `--llm-judge` adds the offline judge (eval-only, never gating) |
 | `./scripts/run_stage3_governance_regression.sh` | umbrella | workstream end / pre-PR | minutes | generators `--check` + full pytest + harness 6/6 + Tier 0 |
 
 ## Command-name notes
