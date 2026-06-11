@@ -1,0 +1,418 @@
+"""Pre-render SPL template slot validation and escaping.
+
+Validates dynamic slot values before ``customize_template_spl`` or
+``render_template`` substitution. Fail closed on injection or type mismatch.
+"""
+
+from __future__ import annotations
+
+import ipaddress
+import re
+from dataclasses import dataclass, field
+from typing import Any
+
+from app.spl.policy import SplValidationPolicy, load_spl_policy
+from app.spl.template_registry import SplTemplateDefinition, get_spl_template
+
+POLICY_VERSION = "2026-06-spl-slot-binding-v2"
+
+SLOT_TYPES = frozenset(
+    {
+        "host",
+        "user",
+        "src_ip",
+        "dest_ip",
+        "index",
+        "sourcetype",
+        "time_window",
+        "threshold",
+        "port",
+        "cidr",
+        "zone",
+        "rule_name",
+        "country",
+        "application_protocol",
+        "alert_id",
+        "result_limit",
+        "earliest",
+        "latest",
+    }
+)
+
+_INJECTION_PATTERN = re.compile(
+    r'["\\`]|[\[\]]|(?:\||;)|\b(?:search|tstats|delete|stats|where|inputlookup|outputlookup|map|rest)\b',
+    re.IGNORECASE,
+)
+_HOST_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._:-]{0,253}[A-Za-z0-9])?$")
+_USER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@$-]{0,127}$")
+_ALERT_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$")
+_INDEX_PATTERN = re.compile(r"^[a-z0-9_][a-z0-9_*-]{0,63}$", re.IGNORECASE)
+_SOURCETYPE_PATTERN = re.compile(r"^[a-z0-9_:][a-z0-9_:*-]{0,127}$", re.IGNORECASE)
+_ZONE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$")
+_RULE_APP_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _./:-]{0,127}$")
+_COUNTRY_PATTERN = re.compile(r"^[A-Za-z]{2,3}$")
+_TIME_TOKEN_PATTERN = re.compile(r"^(?:earliest|latest)=", re.IGNORECASE)
+_RELATIVE_TIME_PATTERN = re.compile(r"^-\d+[smhdw]$", re.IGNORECASE)
+_EARLIEST_LATEST_PAIR = re.compile(
+    r"^earliest=-\d+[smhdw]\s+latest=(?:now|-\d+[smhdw])$",
+    re.IGNORECASE,
+)
+
+_HOST_SLOT_RE = re.compile(
+    r'\bhost=(?:"([^"]+)"|\'([^\']+)\'|([A-Za-z0-9_.:-]+))',
+    re.IGNORECASE,
+)
+_USER_SLOT_RE = re.compile(
+    r'\buser=(?:"([^"]+)"|\'([^\']+)\'|([A-Za-z0-9._@$-]+))',
+    re.IGNORECASE,
+)
+_INDEX_SLOT_RE = re.compile(r"\bindex=([A-Za-z0-9_*:-]+)", re.IGNORECASE)
+_SOURCETYPE_SLOT_RE = re.compile(r"\bsourcetype=([A-Za-z0-9_:.-]+)", re.IGNORECASE)
+_IP_SLOT_RE = re.compile(
+    r"\b(?:src_ip|dest_ip|src|dest)=(?:(\"[^\"]+\")|('[^']+')|([0-9a-fA-F:.]+))",
+    re.IGNORECASE,
+)
+_CIDR_SLOT_RE = re.compile(r"\bcidrmatch\(\s*\"([^\"]+)\"", re.IGNORECASE)
+_PORT_SLOT_RE = re.compile(r"\bdest_port=(\d{1,5})\b", re.IGNORECASE)
+_THRESHOLD_RE = re.compile(r"\b(?:threshold|>=)\s*(\d+)\b", re.IGNORECASE)
+_TOP_N_RE = re.compile(r"\b(?:top|first|head|limit)\s+(\d+)\b", re.IGNORECASE)
+_ALERT_ID_RE = re.compile(
+    r"\b(?:alert_id|alert|alt)[\s:=]+([A-Za-z0-9][\w.-]*)",
+    re.IGNORECASE,
+)
+
+
+@dataclass
+class SlotValidationOutcome:
+    valid: bool
+    normalized_slots: dict[str, str] = field(default_factory=dict)
+    reject_reasons: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    policy_version: str = POLICY_VERSION
+
+
+def load_slot_binding_policy() -> SplValidationPolicy:
+    return load_spl_policy()
+
+
+def escape_spl_quoted_string(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def validate_template_query_slots(
+    template_id: str,
+    user_query: str,
+    *,
+    template: SplTemplateDefinition | None = None,
+    extra_slots: dict[str, Any] | None = None,
+    slot_source: str = "user",
+    policy: SplValidationPolicy | None = None,
+) -> SlotValidationOutcome:
+    """Validate slots extracted from a user/LLM query before template rendering."""
+    resolved_template = template or get_spl_template(template_id)
+    slots = extract_query_slots(user_query)
+    if extra_slots:
+        slots.update(extra_slots)
+    allowed_indexes = _template_allowed_indexes(resolved_template, policy)
+    allowed_sourcetypes = _template_allowed_sourcetypes(resolved_template, policy)
+    return validate_slot_map(
+        slots,
+        allowed_indexes=allowed_indexes,
+        allowed_sourcetypes=allowed_sourcetypes,
+        policy=policy,
+        slot_source=slot_source,
+    )
+
+
+def extract_query_slots(user_query: str) -> dict[str, Any]:
+    normalized = " ".join(user_query.split())
+    slots: dict[str, Any] = {}
+
+    host = _first_capture(_HOST_SLOT_RE.search(normalized))
+    if host is not None:
+        slots["host"] = host
+
+    user = _first_capture(_USER_SLOT_RE.search(normalized))
+    if user is not None:
+        slots["user"] = user
+
+    alert_id = _extract_alert_id(normalized)
+    if alert_id is not None:
+        slots["alert_id"] = alert_id
+
+    index_match = _INDEX_SLOT_RE.search(normalized)
+    if index_match:
+        slots["index"] = index_match.group(1)
+
+    sourcetype_match = _SOURCETYPE_SLOT_RE.search(normalized)
+    if sourcetype_match:
+        slots["sourcetype"] = sourcetype_match.group(1)
+
+    ip_match = _IP_SLOT_RE.search(normalized)
+    if ip_match:
+        ip_value = _first_capture(ip_match)
+        key = "src_ip" if re.search(r"\bsrc(?:_ip)?=", normalized, re.IGNORECASE) else "dest_ip"
+        slots[key] = ip_value
+
+    cidr_match = _CIDR_SLOT_RE.search(normalized)
+    if cidr_match:
+        slots["cidr"] = cidr_match.group(1)
+
+    port_match = _PORT_SLOT_RE.search(normalized)
+    if port_match:
+        slots["port"] = port_match.group(1)
+
+    threshold_match = _THRESHOLD_RE.search(normalized)
+    if threshold_match:
+        slots["threshold"] = threshold_match.group(1)
+
+    top_n_match = _TOP_N_RE.search(normalized.lower())
+    if top_n_match:
+        slots["result_limit"] = top_n_match.group(1)
+
+    if any(token in normalized.lower() for token in ("last 24 hours", "last 24h", "past 24 hours", "24 hours")):
+        slots["time_window"] = "earliest=-24h latest=now"
+    elif "last hour" in normalized.lower() or "last 1 hour" in normalized.lower():
+        slots["time_window"] = "earliest=-1h latest=now"
+
+    return slots
+
+
+def validate_slot_map(
+    slots: dict[str, Any],
+    *,
+    allowed_indexes: tuple[str, ...] | None = None,
+    allowed_sourcetypes: tuple[str, ...] | None = None,
+    policy: SplValidationPolicy | None = None,
+    slot_source: str = "user",
+) -> SlotValidationOutcome:
+    policy = policy or load_slot_binding_policy()
+    allowed_indexes = allowed_indexes or policy.allowed_indexes
+    allowed_sourcetypes = allowed_sourcetypes or policy.allowed_sourcetypes
+    reject_reasons: list[str] = []
+    warnings: list[str] = []
+    normalized: dict[str, str] = {}
+
+    for slot_type, raw_value in slots.items():
+        if slot_type not in SLOT_TYPES:
+            reject_reasons.append(f"unsupported_slot:{slot_type}")
+            continue
+        value, slot_errors = validate_slot_value(
+            slot_type,
+            raw_value,
+            allowed_indexes=allowed_indexes,
+            allowed_sourcetypes=allowed_sourcetypes,
+            policy=policy,
+        )
+        if slot_errors:
+            reject_reasons.extend(slot_errors)
+            continue
+        if value is None:
+            reject_reasons.append(f"slot_validation_failed:{slot_type}")
+            continue
+        normalized[slot_type] = value
+
+    if slot_source == "llm" and reject_reasons:
+        reject_reasons.append("llm_slot_rejected")
+
+    return SlotValidationOutcome(
+        valid=not reject_reasons,
+        normalized_slots=normalized,
+        reject_reasons=sorted(set(reject_reasons)),
+        warnings=sorted(set(warnings)),
+    )
+
+
+def validate_slot_value(
+    slot_type: str,
+    value: Any,
+    *,
+    allowed_indexes: tuple[str, ...],
+    allowed_sourcetypes: tuple[str, ...],
+    policy: SplValidationPolicy,
+) -> tuple[str | None, list[str]]:
+    if value is None:
+        return None, [f"slot_empty:{slot_type}"]
+
+    text = str(value).strip()
+    if not text:
+        return None, [f"slot_empty:{slot_type}"]
+    if _INJECTION_PATTERN.search(text):
+        return None, [f"slot_injection_blocked:{slot_type}"]
+
+    if slot_type in {"host", "alert_id"}:
+        pattern = _HOST_PATTERN if slot_type == "host" else _ALERT_ID_PATTERN
+        if not pattern.fullmatch(text):
+            return None, [f"slot_pattern_invalid:{slot_type}"]
+        return escape_spl_quoted_string(text), []
+
+    if slot_type == "user":
+        if not _USER_PATTERN.fullmatch(text):
+            return None, [f"slot_pattern_invalid:user"]
+        return escape_spl_quoted_string(text), []
+
+    if slot_type in {"src_ip", "dest_ip"}:
+        if not _valid_ip(text):
+            return None, [f"slot_ip_invalid:{slot_type}"]
+        return text, []
+
+    if slot_type == "cidr":
+        if not _valid_cidr(text):
+            return None, ["slot_cidr_invalid"]
+        return text, []
+
+    if slot_type == "index":
+        lowered = text.lower()
+        if not _INDEX_PATTERN.fullmatch(text) or lowered not in allowed_indexes:
+            return None, ["slot_index_not_allowlisted"]
+        return lowered, []
+
+    if slot_type == "sourcetype":
+        lowered = text.lower()
+        if not _SOURCETYPE_PATTERN.fullmatch(text) or lowered not in allowed_sourcetypes:
+            return None, ["slot_sourcetype_not_allowlisted"]
+        return lowered, []
+
+    if slot_type == "port":
+        if not str(text).isdigit():
+            return None, ["slot_port_not_numeric"]
+        port = int(text)
+        if port < 1 or port > 65535:
+            return None, ["slot_port_out_of_range"]
+        return str(port), []
+
+    if slot_type in {"threshold", "result_limit"}:
+        if not str(text).isdigit():
+            return None, [f"slot_{slot_type}_not_numeric"]
+        number = int(text)
+        if number < 1:
+            return None, [f"slot_{slot_type}_out_of_range"]
+        if slot_type == "result_limit" and number > policy.max_result_limit:
+            return None, ["slot_result_limit_exceeds_policy"]
+        return str(number), []
+
+    if slot_type == "time_window":
+        normalized_window = _normalize_time_window(text)
+        if normalized_window is None:
+            return None, ["slot_time_window_unbounded"]
+        return normalized_window, []
+
+    if slot_type in {"earliest", "latest"}:
+        token = text if _TIME_TOKEN_PATTERN.search(text) else f"{slot_type}={text}"
+        if slot_type == "earliest" and not token.lower().startswith("earliest=-") and token.lower() != "earliest=0":
+            if not _RELATIVE_TIME_PATTERN.fullmatch(text):
+                return None, ["slot_time_window_unbounded"]
+            token = f"earliest={text}"
+        if slot_type == "latest" and not token.lower().startswith("latest="):
+            token = f"latest={text}"
+        if _INJECTION_PATTERN.search(token):
+            return None, [f"slot_injection_blocked:{slot_type}"]
+        return token, []
+
+    if slot_type == "zone":
+        if not _ZONE_PATTERN.fullmatch(text):
+            return None, ["slot_pattern_invalid:zone"]
+        return escape_spl_quoted_string(text), []
+
+    if slot_type in {"rule_name", "application_protocol"}:
+        if not _RULE_APP_PATTERN.fullmatch(text):
+            return None, [f"slot_pattern_invalid:{slot_type}"]
+        return escape_spl_quoted_string(text), []
+
+    if slot_type == "country":
+        if not _COUNTRY_PATTERN.fullmatch(text):
+            return None, ["slot_pattern_invalid:country"]
+        return text.upper(), []
+
+    return None, [f"unsupported_slot:{slot_type}"]
+
+
+def validate_render_bindings(
+    bindings: dict[str, Any],
+    *,
+    template: SplTemplateDefinition | None = None,
+    policy: SplValidationPolicy | None = None,
+) -> list[str]:
+    """Validate renderer binding map; returns reject reason codes."""
+    allowed_indexes = _template_allowed_indexes(template, policy)
+    allowed_sourcetypes = _template_allowed_sourcetypes(template, policy)
+    outcome = validate_slot_map(
+        bindings,
+        allowed_indexes=allowed_indexes,
+        allowed_sourcetypes=allowed_sourcetypes,
+        policy=policy,
+    )
+    if outcome.valid:
+        return []
+    return outcome.reject_reasons
+
+
+def _template_allowed_indexes(
+    template: SplTemplateDefinition | None,
+    policy: SplValidationPolicy | None,
+) -> tuple[str, ...]:
+    policy = policy or load_slot_binding_policy()
+    rules = template.validation_rules if template is not None else {}
+    if isinstance(rules, dict):
+        raw = rules.get("allowed_indexes")
+        if isinstance(raw, list) and raw:
+            return tuple(str(item).lower() for item in raw)
+    return policy.allowed_indexes
+
+
+def _template_allowed_sourcetypes(
+    template: SplTemplateDefinition | None,
+    policy: SplValidationPolicy | None,
+) -> tuple[str, ...]:
+    policy = policy or load_slot_binding_policy()
+    rules = template.validation_rules if template is not None else {}
+    if isinstance(rules, dict):
+        raw = rules.get("allowed_sourcetypes")
+        if isinstance(raw, list) and raw:
+            return tuple(str(item).lower() for item in raw)
+    return policy.allowed_sourcetypes
+
+
+def _valid_ip(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
+
+
+def _valid_cidr(value: str) -> bool:
+    try:
+        ipaddress.ip_network(value, strict=False)
+        return True
+    except ValueError:
+        return False
+
+
+def _normalize_time_window(value: str) -> str | None:
+    text = " ".join(value.split())
+    if _EARLIEST_LATEST_PAIR.fullmatch(text):
+        return text
+    if text in {"earliest=-24h latest=now", "earliest=-1h latest=now", "earliest=-60m latest=now"}:
+        return text
+    if _RELATIVE_TIME_PATTERN.fullmatch(text):
+        return f"earliest={text} latest=now"
+    if text.lower() in {"now", "all", "0", "earliest=0"}:
+        return None
+    return None
+
+
+def _first_capture(match: re.Match[str] | None) -> str | None:
+    if match is None:
+        return None
+    for group in match.groups():
+        if group:
+            return group.strip()
+    return None
+
+
+def _extract_alert_id(query: str) -> str | None:
+    match = _ALERT_ID_RE.search(query)
+    if not match:
+        return None
+    return match.group(1).strip()

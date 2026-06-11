@@ -6,14 +6,13 @@ CIM/datamodel templates render from parameterized patterns. No MCP calls.
 
 from __future__ import annotations
 
-import ipaddress
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from app.config import settings
 from app.safeguards.spl_validator import validate_spl
 from app.spl.policy import load_spl_policy
+from app.spl.spl_slot_binding_validator import _valid_ip, validate_render_bindings
 from app.spl.template_registry import (
     QUERY_SHAPE_FROM_DATAMODEL,
     QUERY_SHAPE_RAW_SEARCH,
@@ -32,14 +31,6 @@ RENDER_VALIDATION_FAILED = "validation_failed"
 
 SYSTEM_BINDINGS = frozenset({"earliest", "latest", "result_limit"})
 PLACEHOLDER_PATTERN = re.compile(r"\{([a-z_][a-z0-9_]*)\}", re.IGNORECASE)
-
-DEFAULT_PARAMETER_PATTERNS: dict[str, str] = {
-    "earliest": r"^earliest=-\d+[mhd]$",
-    "latest": r"^latest=now$",
-    "result_limit": r"^[0-9]+$",
-    "host": r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,253}[A-Za-z0-9])?$",
-    "user": r"^[A-Za-z0-9][A-Za-z0-9._@$-]{0,127}$",
-}
 
 ROUTE_WINDOW_ALIASES: dict[str, tuple[str, str]] = {
     "last_24_hours": ("earliest=-24h", "latest=now"),
@@ -141,7 +132,7 @@ def render_template(
     if errors:
         return _failure(template, errors, warnings, bindings)
 
-    regex_errors = _validate_bindings(template, bindings)
+    regex_errors = validate_render_bindings(bindings, template=template, policy=load_spl_policy())
     if regex_errors:
         errors.append(RENDER_BINDING_REGEX_FAILED)
         errors.extend(regex_errors)
@@ -238,45 +229,6 @@ def _resolve_time_window(route_window: Any, default_time_window: str | None) -> 
             return earliest, latest
 
     return None, None
-
-
-def _validate_bindings(template: SplTemplateDefinition, bindings: dict[str, Any]) -> list[str]:
-    patterns = {**DEFAULT_PARAMETER_PATTERNS, **(template.parameter_value_patterns or {})}
-    errors: list[str] = []
-    max_limit = settings.spl_max_result_limit
-
-    for key, value in bindings.items():
-        if key in {"src_ip", "dest_ip"}:
-            if not _valid_ip(str(value)):
-                errors.append(f"binding_regex_failed:{key}")
-            continue
-
-        pattern = patterns.get(key)
-        if not pattern:
-            continue
-
-        text = str(value)
-        if SPL_IN_VALUE_PATTERN.search(text):
-            errors.append(f"spl_fragment_forbidden:{key}")
-            continue
-        if not re.fullmatch(pattern, text):
-            errors.append(f"binding_regex_failed:{key}")
-
-    limit = bindings.get("result_limit")
-    if limit is not None:
-        limit_int = int(limit)
-        if limit_int < 1 or limit_int > max_limit:
-            errors.append("binding_regex_failed:result_limit")
-
-    return errors
-
-
-def _valid_ip(value: str) -> bool:
-    try:
-        ipaddress.ip_address(value)
-        return True
-    except ValueError:
-        return False
 
 
 def _substitute(pattern: str, bindings: dict[str, Any], placeholders: set[str]) -> str:
