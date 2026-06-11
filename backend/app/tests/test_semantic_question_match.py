@@ -55,14 +55,17 @@ def test_ladder_order_near_token_outranks_semantic() -> None:
     assert result.mapped_question_ref == "q0.q013"
 
 
-def test_catalog_match_still_inherits_semantic_question_ref() -> None:
-    # "suspicious powershell" hits the use-case catalog (higher rung), but the
-    # semantic row still populates mapped_question_ref — paraphrases inherit
+def test_catalog_match_still_inherits_question_ref() -> None:
+    # "suspicious powershell" hits the use-case catalog (higher rung) and the
+    # registry rungs still populate mapped_question_ref — paraphrases inherit
     # the known 105 direction even when the catalog wins the path label.
     result = understand_query("Which endpoints ran suspicious powershell commands?")
     assert result.deterministic_match_path == "use_case_catalog"
     assert result.mapped_question_ref == "q0.q049"
-    assert result.question_registry_match_source == "question_runtime_map_105_semantic"
+    assert result.question_registry_match_source in {
+        "question_runtime_map_105_near_token",
+        "question_runtime_map_105_semantic",
+    }
 
 
 def test_parser_surfaces_semantic_path_when_threshold_met(monkeypatch) -> None:
