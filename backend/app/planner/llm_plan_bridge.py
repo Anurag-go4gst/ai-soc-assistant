@@ -43,6 +43,24 @@ _SYSTEM_PROMPT = (
 )
 
 
+# The bridge is an inline pre-answer step on the live path; it must never
+# consume the narration-sized timeout budget. On expiry the deterministic
+# plan stands — so a tight cap costs only provenance, never correctness.
+_BRIDGE_TIMEOUT_SECONDS_CAP = 20
+
+
+def _bridge_client() -> Any | None:
+    from dataclasses import replace
+
+    from app.llm.clients.local_chat_client import build_synthesis_client_from_settings
+
+    client = build_synthesis_client_from_settings()
+    if client is None:
+        return None
+    capped = min(int(getattr(client, "timeout_seconds", _BRIDGE_TIMEOUT_SECONDS_CAP)), _BRIDGE_TIMEOUT_SECONDS_CAP)
+    return replace(client, timeout_seconds=capped)
+
+
 def bridge_enabled() -> bool:
     return bool(
         settings.ai_soc_llm_intent_advisor_enabled
@@ -67,9 +85,7 @@ def propose_validated_llm_plan(
     try:
         registry = registry or load_resource_registry()
         if client is None:
-            from app.llm.clients.local_chat_client import build_synthesis_client_from_settings
-
-            client = build_synthesis_client_from_settings()
+            client = _bridge_client()
         if client is None:
             return None
         result = client.generate(
