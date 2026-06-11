@@ -329,6 +329,15 @@ def extract_query_signals(
             "disable all",
             "disable this user",
             "disable the user",
+            # account-disable phrasings (oos.unsafe.01 defect): any
+            # disable/lock/suspend ask targeting an account is containment.
+            "disable the account",
+            "disable account",
+            "lock the account",
+            "suspend the account",
+            "disable his account",
+            "disable her account",
+            "disable their account",
             "kill the process",
             "kill process",
             "quarantine endpoint",
@@ -343,6 +352,10 @@ def extract_query_signals(
             "revoke session",
             "revoke all session",
         )
+    ) or bool(
+        # disable/lock/suspend targeting any account, with words between
+        # ("disable the CEO's account") — containment regardless of phrasing.
+        re.search(r"\b(disable|lock|suspend)\b[^.?!]{0,40}\baccount\b", normalized)
     )
     conceptual_mitre_judgment = bool(
         re.search(
