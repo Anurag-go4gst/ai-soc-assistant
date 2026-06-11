@@ -43,8 +43,12 @@ PIPELINE_STAGE_SPECS: list[tuple[str, str, str]] = [
     ("severity_decision", "severity", "Severity decision"),
     ("context_sufficiency", "context_sufficiency", "Context sufficiency"),
     ("action_capability", "action_capability", "Action capability"),
-    ("llm_synthesis_planned", "synthesis", "LLM synthesis planned"),
-    ("answer_guard_planned", "answer_guard", "Answer Guard planned"),
+    (
+        "llm_narration_visibility",
+        "synthesis",
+        "LLM narration: not live; captured advisory model signal only; deterministic governed answer used",
+    ),
+    ("answer_governance", "answer_guard", "Answer governance"),
 ]
 
 FAILED_LOGIN_SCENARIO_ID = "failed_login_spike_app01"
@@ -124,6 +128,18 @@ class GovernanceTrace(BaseModel):
     severity: SeverityGovernancePanel | None = None
     skills_operations: SkillsOperationsGovernancePanel
     completion_status: CompletionStatusGovernancePanel
+    resource_planner: dict[str, Any] | None = None
+    spl_validation_panel: dict[str, Any] | None = None
+    mcp_tool_selection: dict[str, Any] | None = None
+    mcp_fixture_result: dict[str, Any] | None = None
+    source_evidence_panel: dict[str, Any] | None = None
+    soc_kb_panel: dict[str, Any] | None = None
+    mitre_panel: dict[str, Any] | None = None
+    answer_contract_panel: dict[str, Any] | None = None
+    model_signal_panel: dict[str, Any] | None = None
+    answer_scorecard_panel: dict[str, Any] | None = None
+    narration_visibility_panel: dict[str, Any] | None = None
+    progress_labels: list[str] = Field(default_factory=list)
 
 
 def build_governance_trace(
@@ -176,6 +192,8 @@ def build_governance_trace(
         demo_mode=demo_mode,
     )
 
+    failed_login_panels = _failed_login_experience_center_panels(scenario_id)
+
     return GovernanceTrace(
         mcp_envelope=envelope_panel,
         severity=severity_panel,
@@ -184,6 +202,7 @@ def build_governance_trace(
             completed=list(COMPLETED_CAPABILITIES),
             gated_wip=list(GATED_WIP_CAPABILITIES),
         ),
+        **failed_login_panels,
     )
 
 
@@ -213,7 +232,11 @@ def _mcp_envelope_panel(
         envelope_dict = execution["splunk_result_envelope"]
         executed_spl = execution.get("executed_spl")
     else:
-        splunk_items = [item for item in source_evidence if item.get("source_type") == "splunk_mcp"]
+        splunk_items = [
+            item
+            for item in source_evidence
+            if item.get("source_type") in {"splunk_mcp", "splunk_mcp_fixture"}
+        ]
         if splunk_items:
             item = splunk_items[0]
             preview_rows = item.get("preview_rows") or []
@@ -246,6 +269,194 @@ def _mcp_envelope_panel(
         provenance=str(envelope_dict.get("provenance") or ""),
         executed_spl=executed_spl,
     )
+
+
+def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str, Any]:
+    if scenario_id != FAILED_LOGIN_SCENARIO_ID:
+        return {}
+
+    candidate_spl = (
+        "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure host=APP-01 "
+        "| stats count as fail_count dc(user) as distinct_users_by_source min(_time) as first_seen "
+        "max(_time) as last_seen values(action) as action by host, src | where fail_count >= 25 "
+        "| sort -fail_count | head 100"
+    )
+    rows = [
+        {
+            "source IP": "10.10.4.21",
+            "failed login count": 42,
+            "distinct users by source": 7,
+            "first seen": "13:42:10",
+            "last seen": "14:37:22",
+            "action": "failure",
+        },
+        {
+            "source IP": "10.10.4.22",
+            "failed login count": 31,
+            "distinct users by source": 4,
+            "first seen": "13:48:31",
+            "last seen": "14:36:58",
+            "action": "failure",
+        },
+        {
+            "source IP": "10.10.4.19",
+            "failed login count": 28,
+            "distinct users by source": 3,
+            "first seen": "13:51:02",
+            "last seen": "14:35:41",
+            "action": "failure",
+        },
+    ]
+    answer_scorecard = {
+        "verdict": "pass",
+        "key_checks_passed": [
+            "route honored",
+            "analyst guidance present",
+            "SPL status clear",
+            "execution status clear",
+            "MITRE wording safe",
+            "severity clear",
+            "HIL clear",
+            "no unsupported claims",
+        ],
+    }
+    narration_visibility = {
+        "final_answer_source": "governed evidence contract",
+        "llm_narration": "advisory model signal",
+    }
+    return {
+        "resource_planner": {
+            "selected_capability": "auth_failed_login_spike",
+            "selected_resources": [
+                "SPL candidate / validation",
+                "MCP tool: mcp:splunk.search",
+                "Governed SOC-KB / RAG: SOC-SOP-AUTH-001",
+                "MITRE mapping: T1110.001 Password Guessing",
+                "Severity policy: brute-force failed-login severity matrix",
+                "Answer contract",
+                "Foundation-sec model signal",
+            ],
+            "resource_decision": [
+                "Splunk evidence is required to answer the question.",
+                "Resource Planner selected MCP search because the use case needs failed-login event counts by host/source.",
+                "The selected MCP tool is splunk.search.",
+                "The SPL must be validated before any MCP call.",
+            "The MCP search path returns COE-controlled Splunk evidence for this showcase.",
+            "Live MCP gate is closed until production approval is enabled.",
+            ],
+        },
+        "spl_validation_panel": {
+            "candidate_spl": candidate_spl,
+            "normalized_spl": candidate_spl,
+            "validation_status": "approved for Experience Center evidence path",
+            "live_customer_query": False,
+        },
+        "mcp_tool_selection": {
+            "mcp_server": "splunk",
+            "mcp_tool": "search",
+            "selection_reason": "validated SPL review for failed-login evidence",
+            "input_contract": ["search_query", "earliest_time", "latest_time", "max_results"],
+            "execution_mode": "COE-controlled Splunk evidence",
+            "execution_gate": "live MCP gate closed",
+        },
+        "mcp_fixture_result": {
+            "result_label": "MCP search result",
+            "result_source": "COE-controlled Splunk evidence",
+            "rows_returned": 3,
+            "host": "APP-01",
+            "index": "pgcil_soc",
+            "sourcetype": "pgcil:auth",
+            "time_window": "last 60 minutes",
+            "row_count_label": "3 source IP rows",
+            "total_failed_login_events": 101,
+            "evidence_ref": "ev-splunk-failed-app01",
+            "rows": rows,
+        },
+        "source_evidence_panel": {
+            "evidence_id": "ev-splunk-failed-app01",
+            "source_type": "splunk_mcp",
+            "collection_status": "collected",
+            "result_count": 3,
+            "warnings": ["COE-controlled evidence", "no live customer data", "live MCP gate closed"],
+        },
+        "soc_kb_panel": {
+            "sop": "SOC-SOP-AUTH-001",
+            "retrieval_mode": "governed SOC-KB",
+            "confidence": 0.91,
+            "allowed_use": "analyst guidance / triage checklist",
+        },
+        "mitre_panel": {
+            "technique": "T1110.001 Password Guessing",
+            "status": "supported",
+            "evidence_basis": "failed-login volume from multiple source IPs against APP-01",
+            "unsupported_claims": [
+                "no success-after-failure evidence",
+                "no privileged account status",
+                "no source ownership",
+                "no APP-01 criticality",
+                "no post-authentication activity",
+            ],
+            "compromise_confirmed": False,
+        },
+        "answer_contract_panel": {
+            "confirmed_facts": [
+                "APP-01 has 101 failed-login events in the last 60 minutes.",
+                "Three source IP rows are present in the COE Splunk evidence result.",
+                "T1110.001 Password Guessing is supported by the evidence package.",
+                "SOC-SOP-AUTH-001 is available as governed analyst guidance.",
+            ],
+            "missing_evidence": [
+                "success-after-failure evidence",
+                "privileged account status",
+                "source ownership",
+                "APP-01 criticality",
+                "post-authentication activity",
+            ],
+            "limitations": [
+                "Evidence is scoped to the Experience Center scenario.",
+                "Compromise is not confirmed.",
+            ],
+            "recommended_investigation_actions": [
+                "Run success-after-failure correlation for APP-01.",
+                "Check affected account privilege and service-account status.",
+                "Validate source IP ownership.",
+                "Pivot firewall, VPN, EDR, and identity logs.",
+                "Check APP-01 criticality and business owner.",
+            ],
+            "unsupported_claims_to_avoid": [
+                "account compromise confirmed",
+                "privileged account impact confirmed",
+                "APP-01 is a critical asset",
+                "source IPs are malicious",
+                "successful login occurred after failures",
+            ],
+            "hil_execution_status": "human review visible; live MCP gate closed; COE evidence result available for Experience Center",
+        },
+        "model_signal_panel": {
+            "model_family": "Foundation-sec",
+            "signal": "advisory",
+            "statements": [
+                "Foundation-sec model signal is advisory.",
+                "Deterministic V.AI SOC policy wins.",
+                "LLM does not decide MITRE, severity, SPL approval, or execution.",
+                "Final answer is governed by deterministic evidence and answer contract.",
+            ],
+        },
+        "answer_scorecard_panel": answer_scorecard,
+        "narration_visibility_panel": narration_visibility,
+        "progress_labels": [
+            "Understanding query",
+            "Resource planning",
+            "Validating SPL",
+            "Selecting MCP tool",
+            "Calling MCP search",
+            "Packaging SourceEvidence",
+            "Retrieving governed SOC knowledge",
+            "Mapping MITRE and severity",
+            "Applying answer governance",
+            "Packaging final analyst answer",
+        ],
+    }
 
 
 def _severity_panel(

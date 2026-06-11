@@ -72,7 +72,7 @@ FOUNDATION_SEC_GOVERNANCE_FIXTURES: dict[str, dict[str, Any]] = {
             },
         ],
         governed_analysis={
-            "model_signal": "Foundation-sec identified a high-confidence password-guessing pattern from sustained failed logins across three source IPs.",
+            "model_signal": "Foundation-sec model signal supports a high-confidence password-guessing pattern from sustained failed logins across three source IPs.",
             "vai_soc_decision": "V.AI SOC accepts T1110.001 as supported and keeps the final answer at P2 High because compromise, privileged-account impact, source ownership, and APP-01 criticality are not confirmed.",
             "evidence_used": [
                 "10.10.4.21 produced 42 failed logins and 7 distinct users by source.",
@@ -184,7 +184,7 @@ FOUNDATION_SEC_GOVERNANCE_FIXTURES: dict[str, dict[str, Any]] = {
             "model_signal": "Foundation-sec treated the executed preview row as a success-after-failure sequence for svc_grid_ops on APP-01.",
             "vai_soc_decision": "V.AI SOC accepts T1110.001 as supported from the returned row and keeps T1078 at requires_validation until MFA, session, and post-login evidence are collected.",
             "evidence_used": [
-                "Splunk MCP preview returned 58 failures and 1 success for svc_grid_ops from 10.10.4.21 on APP-01.",
+                "Splunk MCP search returned 58 failures and 1 success for svc_grid_ops from 10.10.4.21 on APP-01.",
                 "Validated normalized SPL was the only query submitted to the MCP gate.",
             ],
             "evidence_refs": ["ev-splunk-success-after-fail-run"],

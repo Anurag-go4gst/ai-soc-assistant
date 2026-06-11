@@ -13,8 +13,9 @@ interface Stage3DTracePanelProps {
 
 export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
   const rows = evidenceRowsFor(trace);
-  const splunkRowIndex = rows.findIndex((row) => row.title === 'Splunk MCP');
+  const splunkRowIndex = rows.findIndex((row) => row.title.startsWith('Splunk MCP'));
   const governance = resolveGovernanceTrace(trace);
+  const hasExperienceCenterPanels = Boolean(governance?.resource_planner);
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950/70 text-xs text-slate-300">
       <RoutePlanShadowDemoCallout trace={trace} />
@@ -27,7 +28,7 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
                 <div className="font-semibold text-slate-100">{row.title}</div>
                 <div className="mt-1 text-slate-400">{row.detail}</div>
                 <div className="mt-1 text-slate-500">{row.meta}</div>
-                {governance && index === splunkRowIndex ? (
+                {governance && index === splunkRowIndex && !hasExperienceCenterPanels ? (
                   <ExperienceCenterGovernancePanels
                     governance={governance}
                     demoMode={trace.demo_mode}
@@ -44,7 +45,7 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
           <ExperienceCenterGovernancePanels
             governance={governance}
             demoMode={trace.demo_mode}
-            sections={['severity', 'skills', 'completion']}
+            sections={hasExperienceCenterPanels ? undefined : ['severity', 'skills', 'completion']}
           />
         </div>
       ) : null}
@@ -73,8 +74,8 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
   const scenarioId = String(trace.structured_context?.entity_summary?.scenario_id ?? '');
   if (scenarioId === 'new_source_ip_logins') {
     return [
-      { title: 'LangGraph orchestration', detail: 'attack discovery -> evidence collection -> MITRE mapping -> context sufficiency', meta: '4 nodes completed · 138ms' },
-      { title: 'Splunk MCP', detail: 'splunk.search · index=pgcil_soc · sourcetype=pgcil:auth · 24h window', meta: '2 rows returned · new source filter applied · 312ms' },
+      { title: 'Investigation orchestration', detail: 'attack discovery -> evidence collection -> MITRE mapping -> context sufficiency', meta: '4 stages completed · 138ms' },
+      { title: 'Splunk MCP search', detail: 'splunk.search · index=pgcil_soc · sourcetype=pgcil:auth · 24h window', meta: '2 rows returned · new source filter applied · 312ms' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-002#source-baseline · v2026.04', meta: 'confidence 0.88 · 1 document retrieved' },
       { title: 'Deterministic analysis', detail: 'behavioural classification · T1078 Valid Accounts candidate', meta: 'source novelty analysis · service account flag · validation required' },
       { title: 'MITRE ATT&CK', detail: 'technique lookup · T1078 Valid Accounts · tactic: Initial Access / Persistence', meta: 'analyst validation required for technique confirmation' },
@@ -83,25 +84,25 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
   }
   if (scenarioId === 'successful_login_after_failures' || scenarioId === 'airgapped_no_saia_success_after_failures') {
     return [
-      { title: 'LangGraph orchestration', detail: 'SPL generation -> policy validation -> Splunk readiness check', meta: '3 nodes completed · 89ms' },
+      { title: 'Investigation orchestration', detail: 'SPL generation -> policy validation -> Splunk readiness check', meta: '3 stages completed · 89ms' },
       { title: 'SPL policy validation', detail: 'spl-policy-v1 · read-only · time-range required · aggregation required', meta: 'candidate SPL approved for analyst review' },
-      { title: 'Splunk MCP readiness', detail: 'splunk.search available · index=pgcil_soc reachable', meta: 'SPL ready for analyst-initiated execution' },
+      { title: 'Splunk MCP readiness', detail: 'splunk.search available · index=pgcil_soc reachable', meta: 'SPL ready for analyst-initiated review' },
       { title: 'Deterministic analysis', detail: 'SPL logic review · transaction chain logic validated', meta: 'success-after-failure pattern supported · risk field verified' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SPL-LIB-003', meta: 'SPL guidance cross-referenced' },
     ];
   }
   if (scenarioId === 'account_lockouts_over_time_spl') {
     return [
-      { title: 'LangGraph orchestration', detail: 'SPL generation -> policy validation -> Splunk readiness check', meta: '3 nodes completed · 92ms' },
+      { title: 'Investigation orchestration', detail: 'SPL generation -> policy validation -> Splunk readiness check', meta: '3 stages completed · 92ms' },
       { title: 'SPL policy validation', detail: 'spl-policy-v1 · read-only · time-range required · aggregation required', meta: 'candidate SPL approved for analyst review' },
-      { title: 'Splunk MCP readiness', detail: 'splunk.search available · index=pgcil_soc reachable', meta: 'SPL ready for analyst-initiated execution' },
+      { title: 'Splunk MCP readiness', detail: 'splunk.search available · index=pgcil_soc reachable', meta: 'SPL ready for analyst-initiated review' },
       { title: 'Deterministic analysis', detail: 'SPL logic review · lockout trend logic validated', meta: '15-minute bucketing supported · user_total rollup verified' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SPL-LIB-007', meta: 'lockout SPL guidance cross-referenced' },
     ];
   }
   if (scenarioId === 'brute_force_sop_guidance' || scenarioId === 'failed_login_playbook') {
     return [
-      { title: 'LangGraph orchestration', detail: 'knowledge retrieval -> RAG fetch -> context sufficiency', meta: '3 nodes completed · 74ms' },
+      { title: 'Investigation orchestration', detail: 'knowledge retrieval -> RAG fetch -> context sufficiency', meta: '3 stages completed · 74ms' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-001 · v2026.04 · full document', meta: 'confidence 0.93 · approved · published' },
       { title: 'Deterministic analysis', detail: 'document classification · brute-force authentication SOP', meta: 'triage, escalation, and closure sections identified' },
       { title: 'Context sufficiency', detail: 'knowledge answer · evidence sufficient · no Splunk query required', meta: 'ready for analyst guidance' },
@@ -109,19 +110,24 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
   }
   if (scenarioId === 'mitre_mapping_auth_alert') {
     return [
-      { title: 'LangGraph orchestration', detail: 'attack discovery -> MITRE mapping -> deterministic classification -> context sufficiency', meta: '4 nodes completed · 141ms' },
-      { title: 'Splunk MCP', detail: 'splunk.search · alert evidence · index=pgcil_soc · 60 min window', meta: 'evidence rows retrieved · 267ms' },
+      { title: 'Investigation orchestration', detail: 'attack discovery -> MITRE mapping -> deterministic classification -> context sufficiency', meta: '4 stages completed · 141ms' },
+      { title: 'Splunk MCP search', detail: 'splunk.search · alert evidence · index=pgcil_soc · 60 min window', meta: 'evidence rows retrieved · 267ms' },
       { title: 'MITRE ATT&CK', detail: 'technique lookup · T1110.001 Password Guessing · Credential Access - supported', meta: 'technique lookup · T1078 Valid Accounts · Initial Access / Persistence - validation required' },
       { title: 'Deterministic analysis', detail: 'dual-technique classification · T1110.001 supported · T1078 analyst-pending', meta: 'post-login behaviour review required for T1078 confirmation' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-001#triage', meta: 'playbook cross-referenced' },
     ];
   }
   return [
-    { title: 'LangGraph orchestration', detail: 'attack discovery -> evidence collection -> MITRE mapping -> context sufficiency', meta: '4 nodes completed · 126ms' },
-    { title: 'Splunk MCP', detail: 'splunk.search · index=pgcil_soc · sourcetype=pgcil:auth · 60 min window', meta: '3 rows returned · fail_count >= 25 filter applied · 284ms' },
+    { title: 'Query understanding', detail: 'Investigate failed login spike on APP-01 -> auth_failed_login_spike', meta: 'skill attack_discovery · intent: failed authentication spike' },
+    { title: 'Resource Planner', detail: 'auth_failed_login_spike -> SPL validation -> MCP search -> SOC-KB -> MITRE/severity -> answer contract', meta: 'capability selected · resources planned' },
+    { title: 'SPL validation', detail: 'validated SPL candidate · index=pgcil_soc · sourcetype=pgcil:auth · 60 min window', meta: 'approved for governed evidence path' },
+    { title: 'MCP tool selection', detail: 'server splunk · tool search · input contract search_query/earliest_time/latest_time/max_results', meta: 'tool selected after SPL validation' },
+    { title: 'Splunk MCP search', detail: 'splunk.search · index=pgcil_soc · sourcetype=pgcil:auth · 60 min window', meta: '3 evidence rows · fail_count >= 25 filter applied' },
+    { title: 'SourceEvidence package', detail: 'ev-splunk-failed-app01 · collected · 3 result rows', meta: 'fields normalized for governed answer contract' },
     { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-001#triage · v2026.04', meta: 'confidence 0.91 · 1 document retrieved' },
-    { title: 'Deterministic analysis', detail: 'pattern classification · password guessing / T1110.001', meta: 'coordinated source analysis · supported, validation pending' },
-    { title: 'MITRE ATT&CK', detail: 'technique lookup · T1110.001 Password Guessing · tactic: Credential Access', meta: 'supported by volume and source distribution pattern' },
+    { title: 'MITRE and severity', detail: 'T1110.001 Password Guessing · P2 High', meta: 'supported by volume and source distribution pattern' },
+    { title: 'Answer contract', detail: 'confirmed facts, missing evidence, limitations, recommended investigation actions', meta: 'compromise not confirmed' },
+    { title: 'Scorecard and narration', detail: 'answer_scorecard pass · narration visibility recorded', meta: 'model signal advisory · deterministic governed answer used' },
   ];
 }
 
@@ -171,7 +177,7 @@ function liveEvidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
     });
   }
 
-  const splunkEvidence = trace.source_evidence?.filter((item) => item.source_type === 'splunk_mcp') ?? [];
+  const splunkEvidence = trace.source_evidence?.filter((item) => item.source_type === 'splunk_mcp' || item.source_type === 'splunk_mcp_fixture') ?? [];
   if (splunkEvidence.length) {
     const count = splunkEvidence.reduce((sum, item) => sum + (item.result_count ?? 0), 0);
     rows.push({

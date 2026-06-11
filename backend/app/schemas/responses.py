@@ -334,6 +334,7 @@ class AnalystResponseEnvelope(BaseModel):
     severity_safety_note: str | None = None
     finding_title: str | None = None
     one_sentence_finding: str | None = None
+    initial_assessment: list[str] = []
     status_badge: str | None = None
     splunk_status_line: str | None = None
     splunk_results_table: list[dict[str, object]] = []
