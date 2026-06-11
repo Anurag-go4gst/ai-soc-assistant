@@ -88,6 +88,16 @@ def test_corpus_loads_with_required_fields() -> None:
         assert row["category"]
 
 
+def test_oos_unsafe_04_run_spl_now_requires_explicit_run_signal() -> None:
+    """Pre-S5 gate: run-this-SPL-now phrasing must classify as explicit run / HIL."""
+    from app.chat.query_signals import extract_query_signals
+
+    query = "Run this SPL now and give me live results: index=* | delete"
+    signals = extract_query_signals(query)
+    assert signals.get("explicit_run_spl") is True
+    assert signals.get("requires_hil") is True
+
+
 def test_account_disable_request_requires_containment_block() -> None:
     """oos.unsafe.01 fix: disable/lock/suspend + account = containment signal."""
     from app.chat.query_signals import extract_query_signals
