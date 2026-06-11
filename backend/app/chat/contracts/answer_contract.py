@@ -69,6 +69,9 @@ class AnswerContract(BaseModel):
     execution_status_display: str | None = None
     section_order: list[str] = Field(default_factory=list)
     render_sections: dict[str, bool] = Field(default_factory=dict)
+    # WS1 T1.4 — honest out-of-catalog handling.
+    out_of_catalog_notice: str | None = None
+    nearest_questions: list[dict] = Field(default_factory=list)
     success_after_failure_context: bool = False
     use_case_id: str | None = None
     required_evidence: list[str] = Field(default_factory=list)
@@ -105,6 +108,7 @@ def build_answer_contract(
     user_query: str | None = None,
     query_signals: dict[str, Any] | None = None,
     use_case_id: str | None = None,
+    match_path: str | None = None,
 ) -> AnswerContract:
     intent = intent_classification or {}
     plan = evidence_plan or {}
@@ -214,6 +218,33 @@ def build_answer_contract(
         ),
         has_limitations_content=has_limitations_content,
     )
+    out_of_catalog_notice = None
+    nearest_questions: list[dict] = []
+    # Refusals/explicit human-review turns perform no guidance and carry no
+    # notice. The default clarification fallback DOES — "did you mean" with
+    # the nearest governed questions is the honest version of that turn.
+    is_clarification_turn = str(plan.get("answer_mode") or "") == "clarification" or bool(
+        intent.get("requires_clarification")
+    )
+    if str(match_path or "") == "out_of_registry" and not bool(review.get("required")):
+        if is_clarification_turn:
+            out_of_catalog_notice = (
+                "This question is outside the governed question catalog. The closest "
+                "governed questions are suggested below — confirm one or refine the ask."
+            )
+        else:
+            out_of_catalog_notice = (
+                "This question is outside the governed question catalog. The guidance "
+                "below is general, review-only, and makes no claims beyond available evidence."
+            )
+        if user_query:
+            from app.coverage.semantic_question_index import semantic_candidates
+
+            nearest_questions = [
+                {"question_ref": item["question_ref"], "question": item["question"]}
+                for item in semantic_candidates(user_query)
+            ]
+
     render = _render_sections(
         goals=goals,
         answer_mode=answer_mode or "",
@@ -234,6 +265,9 @@ def build_answer_contract(
         severity_label = getattr(severity_decision, "severity_label", None)
         if exec_label in {"review_only_not_executed", "validated_not_executed", "blocked_approval_required"}:
             severity_confidence = "Medium" if exec_status != "executed" else "High"
+
+    if out_of_catalog_notice:
+        render["out_of_catalog_notice"] = True
 
     return AnswerContract(
         answer_goal=goals,
@@ -270,6 +304,8 @@ def build_answer_contract(
         execution_status_display=exec_display,
         section_order=section_order,
         render_sections=render,
+        out_of_catalog_notice=out_of_catalog_notice,
+        nearest_questions=nearest_questions,
         success_after_failure_context=success_after_failure,
         use_case_id=resolved_use_case_id,
         required_evidence=required_evidence,

@@ -945,6 +945,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             user_query=request.message,
             query_signals=_query_signals_from_state(state),
             use_case_id=resolved_use_case_id,
+            match_path=_candidate_match_path(state),
         )
     answer_contract_payload = answer_contract.model_dump() if answer_contract is not None else None
     analyst_response = build_analyst_response_for_live(
@@ -1878,6 +1879,17 @@ def _effective_routing_skill(state: ChatPipelineState) -> str:
     routed = state.get("routed") or {}
     return str(routed.get("skill") or "knowledge_recall")
 
+
+
+def _candidate_match_path(state: ChatPipelineState) -> str | None:
+    query_to_intent = state.get("query_to_intent")
+    if isinstance(query_to_intent, dict):
+        mappings = query_to_intent.get("candidate_mappings")
+        if isinstance(mappings, dict):
+            value = mappings.get("match_path")
+            if isinstance(value, str) and value:
+                return value
+    return None
 
 def _query_signals_from_state(state: ChatPipelineState) -> dict[str, Any] | None:
     q2i = state.get("query_to_intent")
