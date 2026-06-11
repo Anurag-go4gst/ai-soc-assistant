@@ -1,522 +1,2826 @@
 [
-  {
-    "entry_id": "coe-auth-bruteforce",
-    "doc_id": "coe-auth-sop-v1",
-    "doc_version": "1.0",
-    "collection_id": "soc_sop",
-    "title": "Brute Force / Failed Login Spike SOP",
-    "section_id": "AUTH-001",
-    "section_title": "Failed Login Spike",
-    "entry_type": "procedure",
-    "source_excerpt": "For a failed-login spike, verify account, source IP distribution, time window, and any successful login after repeated failures before escalation.",
-    "source_refs": ["coe_auth_sop_sample.md#AUTH-001"],
-    "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-001",
-    "retrieval_hints": ["brute force", "failed login spike", "password spray", "multiple failures", "authentication failures"],
-    "synonyms": ["bruteforce", "brute-force", "failed logins", "faild login", "auth failures", "password spraying"],
-    "positive_examples": ["show users with failed login spike", "brute force against admin", "faild logins by user"],
-    "negative_examples": ["malware download", "dns beacon", "firewall denied traffic"],
-    "answer_constraints": ["Do not declare compromise from failed-login counts alone.", "Require approved evidence before severity or root-cause conclusions."],
-    "prohibited_conclusions": ["confirmed account compromise", "confirmed brute force success"],
-    "expected_skills": ["attack_discovery", "alert_summary", "knowledge_recall"],
-    "allowed_use": ["hil_guidance", "synthesis_context"],
-    "mitre_refs": ["T1110"],
-    "splunk_indexes": ["pgcil_soc"],
-    "sourcetypes": ["pgcil:auth"],
-    "fields": ["user", "src", "action", "result", "fail_count"],
-    "mcp_tools": [],
-    "asset_types": ["identity", "vpn", "windows"],
-    "reviewer_role": "tier2_soc_analyst",
-    "recommended_actions": ["Review failed-login volume and source distribution.", "Check for successful login after repeated failures.", "Escalate when privileged accounts or broad source spread are involved."],
-    "risk_level": "high",
-    "sensitivity": "internal",
-    "tags": ["auth", "failed_login", "brute_force", "T1110"],
-    "confidence_weight": 1.0,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:coe-auth-bruteforce",
-    "graph_edges": [{"type": "entry_mentions_mitre", "to": "mitre:T1110"}, {"type": "entry_mentions_sourcetype", "to": "sourcetype:pgcil:auth"}]
-  },
-  {
-    "entry_id": "coe-auth-failed-by-src",
-    "doc_id": "coe-auth-sop-v1",
-    "doc_version": "1.0",
-    "collection_id": "soc_sop",
-    "title": "Failed Logins by Source IP SOP",
-    "section_id": "AUTH-002",
-    "section_title": "Source IP Clustering",
-    "entry_type": "procedure",
-    "source_excerpt": "When failures cluster by source IP, compare unique users, geo or network ownership, and whether the source is expected for the environment.",
-    "source_refs": ["coe_auth_sop_sample.md#AUTH-002"],
-    "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-002",
-    "retrieval_hints": ["source ip", "src", "failed logins by source", "ip address failures"],
-    "synonyms": ["src ip", "remote address", "client ip"],
-    "positive_examples": ["top source IPs for failed logins", "failed logins by src"],
-    "negative_examples": ["locked account count only"],
-    "answer_constraints": ["Treat source-IP reputation as contextual unless approved threat intel is available."],
-    "prohibited_conclusions": ["malicious IP confirmed"],
-    "expected_skills": ["attack_discovery", "alert_summary"],
-    "allowed_use": ["hil_guidance", "synthesis_context"],
-    "mitre_refs": ["T1110"],
-    "splunk_indexes": ["pgcil_soc"],
-    "sourcetypes": ["pgcil:auth"],
-    "fields": ["src", "user", "fail_count"],
-    "mcp_tools": [],
-    "asset_types": ["identity", "network"],
-    "reviewer_role": "tier2_soc_analyst",
-    "recommended_actions": ["Group failures by src and user.", "Check whether source IP is expected or previously observed."],
-    "risk_level": "medium",
-    "sensitivity": "internal",
-    "tags": ["auth", "source_ip", "failed_login"],
-    "confidence_weight": 0.95,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:coe-auth-failed-by-src",
-    "graph_edges": [{"type": "entry_mentions_field", "to": "field:src"}]
-  },
-  {
-    "entry_id": "coe-auth-success-after-failures",
-    "doc_id": "coe-auth-sop-v1",
-    "doc_version": "1.0",
-    "collection_id": "soc_sop",
-    "title": "Successful Login After Repeated Failures Guidance",
-    "section_id": "AUTH-003",
-    "section_title": "Success After Failure",
-    "entry_type": "procedure",
-    "source_excerpt": "A successful login following repeated failures should be reviewed for account criticality, source novelty, and session activity before escalation.",
-    "source_refs": ["coe_auth_sop_sample.md#AUTH-003"],
-    "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-003",
-    "retrieval_hints": ["successful login after failures", "success after failed", "repeated failures then success"],
-    "synonyms": ["login succeeded after failures", "valid account after brute force"],
-    "positive_examples": ["successful login after repeated failures", "success following failed logins"],
-    "negative_examples": ["only failed login no success"],
-    "answer_constraints": ["Do not call the account compromised without post-login evidence or approval."],
-    "prohibited_conclusions": ["account takeover confirmed"],
-    "expected_skills": ["attack_discovery", "alert_summary"],
-    "allowed_use": ["hil_guidance", "synthesis_context"],
-    "mitre_refs": ["T1078", "T1110"],
-    "splunk_indexes": ["pgcil_soc"],
-    "sourcetypes": ["pgcil:auth"],
-    "fields": ["user", "src", "action", "result"],
-    "mcp_tools": [],
-    "asset_types": ["identity"],
-    "reviewer_role": "tier2_soc_analyst",
-    "recommended_actions": ["Correlate failure and success events for same user and src.", "Check if source is new for the user."],
-    "risk_level": "high",
-    "sensitivity": "internal",
-    "tags": ["auth", "successful_login", "T1078", "T1110"],
-    "confidence_weight": 1.0,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:coe-auth-success-after-failures",
-    "graph_edges": [{"type": "entry_mentions_mitre", "to": "mitre:T1078"}]
-  },
-  {
-    "entry_id": "coe-auth-lockout",
-    "doc_id": "coe-auth-sop-v1",
-    "doc_version": "1.0",
-    "collection_id": "soc_sop",
-    "title": "Account Lockout Guidance",
-    "section_id": "AUTH-004",
-    "section_title": "Lockout Review",
-    "entry_type": "procedure",
-    "source_excerpt": "Account lockout events should be checked for affected user criticality, repeated source patterns, and business-impact context.",
-    "source_refs": ["coe_auth_sop_sample.md#AUTH-004"],
-    "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-004",
-    "retrieval_hints": ["account lockout", "locked account", "lockout"],
-    "synonyms": ["account locked", "user lockout"],
-    "positive_examples": ["account lockout after failed logins"],
-    "negative_examples": ["successful login only"],
-    "answer_constraints": ["Do not infer malicious activity from a lockout without supporting source or timing evidence."],
-    "prohibited_conclusions": ["lockout proves attack"],
-    "expected_skills": ["alert_summary", "attack_discovery"],
-    "allowed_use": ["hil_guidance", "synthesis_context"],
-    "mitre_refs": ["T1110"],
-    "splunk_indexes": ["pgcil_soc"],
-    "sourcetypes": ["pgcil:auth"],
-    "fields": ["user", "src", "action"],
-    "mcp_tools": [],
-    "asset_types": ["identity"],
-    "reviewer_role": "tier1_soc_analyst",
-    "recommended_actions": ["Check lockout frequency and impacted user role."],
-    "risk_level": "medium",
-    "sensitivity": "internal",
-    "tags": ["auth", "lockout"],
-    "confidence_weight": 0.9,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:coe-auth-lockout",
-    "graph_edges": []
-  },
-  {
-    "entry_id": "coe-auth-new-source-ip",
-    "doc_id": "coe-auth-sop-v1",
-    "doc_version": "1.0",
-    "collection_id": "soc_sop",
-    "title": "New Source IP Login Guidance",
-    "section_id": "AUTH-005",
-    "section_title": "Novel Source Review",
-    "entry_type": "procedure",
-    "source_excerpt": "A login from a new source IP should be compared with prior user activity and expected access patterns before escalation.",
-    "source_refs": ["coe_auth_sop_sample.md#AUTH-005"],
-    "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-005",
-    "retrieval_hints": ["new source ip", "first seen src", "novel login source"],
-    "synonyms": ["unseen ip", "new src", "new remote address"],
-    "positive_examples": ["new source IP login for user", "first seen login source"],
-    "negative_examples": ["known source IP"],
-    "answer_constraints": ["Do not label a new source as malicious without corroborating evidence."],
-    "prohibited_conclusions": ["new source means compromise"],
-    "expected_skills": ["attack_discovery", "alert_summary"],
-    "allowed_use": ["hil_guidance", "synthesis_context"],
-    "mitre_refs": ["T1078"],
-    "splunk_indexes": ["pgcil_soc"],
-    "sourcetypes": ["pgcil:auth"],
-    "fields": ["user", "src", "first_seen"],
-    "mcp_tools": [],
-    "asset_types": ["identity"],
-    "reviewer_role": "tier2_soc_analyst",
-    "recommended_actions": ["Compare source IP against user baseline.", "Check whether VPN or jump host behavior is expected."],
-    "risk_level": "medium",
-    "sensitivity": "internal",
-    "tags": ["auth", "new_source_ip", "T1078"],
-    "confidence_weight": 0.95,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:coe-auth-new-source-ip",
-    "graph_edges": [{"type": "entry_mentions_field", "to": "field:src"}]
-  },
-  {
-    "entry_id": "coe-splunk-auth-context",
-    "doc_id": "coe-splunk-auth-context-v1",
-    "doc_version": "1.0",
-    "collection_id": "splunk_context",
-    "title": "Splunk Auth Context Note",
-    "section_id": "SPLUNK-AUTH-001",
-    "section_title": "Auth Data Grounding",
-    "entry_type": "environment_fact",
-    "source_excerpt": "COE sample auth searches use index=pgcil_soc and sourcetype=pgcil:auth with user, src, action, result, and _time fields.",
-    "source_refs": ["coe_splunk_auth_context_sample.md#SPLUNK-AUTH-001"],
-    "citation": "COE Sample Splunk Auth Context v1.0 SPLUNK-AUTH-001",
-    "retrieval_hints": ["splunk auth", "pgcil:auth", "index pgcil_soc", "authentication data"],
-    "synonyms": ["auth sourcetype", "authentication index"],
-    "positive_examples": ["generate SPL for failed logins", "which sourcetype for auth failures"],
-    "negative_examples": ["endpoint malware process tree"],
-    "answer_constraints": ["Only use configured allowed indexes and sourcetypes during SPL validation."],
-    "prohibited_conclusions": ["all customer auth data is covered"],
-    "expected_skills": ["attack_discovery", "spl_generation"],
-    "allowed_use": ["spl_generation", "validation", "synthesis_context", "environment_grounding"],
-    "mitre_refs": [],
-    "splunk_indexes": ["pgcil_soc"],
-    "sourcetypes": ["pgcil:auth"],
-    "fields": ["_time", "user", "src", "action", "result"],
-    "mcp_tools": ["run_splunk_query"],
-    "asset_types": ["identity"],
-    "reviewer_role": "detection_engineer",
-    "recommended_actions": ["Validate generated SPL against deterministic SPL policy."],
-    "risk_level": "medium",
-    "sensitivity": "internal",
-    "tags": ["splunk", "auth", "spl_generation"],
-    "confidence_weight": 1.0,
-    "status": "active",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:coe-splunk-auth-context",
-    "graph_edges": [{"type": "scd_allows_index", "to": "index:pgcil_soc"}, {"type": "scd_allows_sourcetype", "to": "sourcetype:pgcil:auth"}]
-  },
-  {
-    "entry_id": "mitre-t1110",
-    "doc_id": "mitre-auth-grounding-v1",
-    "doc_version": "1.0",
-    "collection_id": "mitre_enterprise",
-    "title": "MITRE T1110 Reference Note",
-    "section_id": "MITRE-T1110",
-    "section_title": "Brute Force",
-    "entry_type": "mitre_mapping",
-    "source_excerpt": "T1110 is the Enterprise technique commonly used for brute-force password guessing and password spraying style behavior.",
-    "source_refs": ["mitre_auth_grounding_sample.md#T1110"],
-    "citation": "COE Sample MITRE Auth Grounding v1.0 T1110",
-    "retrieval_hints": ["T1110", "brute force", "password spray", "password guessing"],
-    "synonyms": ["bruteforce", "brute-force"],
-    "positive_examples": ["map brute force to MITRE", "T1110 failed logins"],
-    "negative_examples": ["valid account login only"],
-    "answer_constraints": ["Use as grounding, not a final attack determination."],
-    "prohibited_conclusions": ["MITRE mapping confirmed without evidence"],
-    "expected_skills": ["attack_discovery", "knowledge_recall", "alert_summary"],
-    "allowed_use": ["mitre_grounding", "synthesis_context", "validation"],
-    "mitre_refs": ["T1110"],
-    "splunk_indexes": [],
-    "sourcetypes": [],
-    "fields": [],
-    "mcp_tools": [],
-    "asset_types": ["identity"],
-    "reviewer_role": "threat_intel",
-    "recommended_actions": ["Correlate with failed authentication evidence before final mapping."],
-    "risk_level": "low",
-    "sensitivity": "public",
-    "tags": ["mitre", "T1110", "brute_force"],
-    "confidence_weight": 0.9,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:mitre-t1110",
-    "graph_edges": [{"type": "entry_mentions_mitre", "to": "mitre:T1110"}]
-  },
-  {
-    "entry_id": "mitre-t1078",
-    "doc_id": "mitre-auth-grounding-v1",
-    "doc_version": "1.0",
-    "collection_id": "mitre_enterprise",
-    "title": "MITRE T1078 Reference Note",
-    "section_id": "MITRE-T1078",
-    "section_title": "Valid Accounts",
-    "entry_type": "mitre_mapping",
-    "source_excerpt": "T1078 is the Enterprise technique commonly used for valid-account access, including suspicious successful authentication after failures.",
-    "source_refs": ["mitre_auth_grounding_sample.md#T1078"],
-    "citation": "COE Sample MITRE Auth Grounding v1.0 T1078",
-    "retrieval_hints": ["T1078", "valid accounts", "successful login", "new source ip"],
-    "synonyms": ["valid account", "valid credentials"],
-    "positive_examples": ["successful login after failures T1078", "new source IP valid account"],
-    "negative_examples": ["failed logins only"],
-    "answer_constraints": ["Use as grounding, not a final attack determination."],
-    "prohibited_conclusions": ["valid account abuse confirmed"],
-    "expected_skills": ["attack_discovery", "knowledge_recall", "alert_summary"],
-    "allowed_use": ["mitre_grounding", "synthesis_context", "validation"],
-    "mitre_refs": ["T1078"],
-    "splunk_indexes": [],
-    "sourcetypes": [],
-    "fields": [],
-    "mcp_tools": [],
-    "asset_types": ["identity"],
-    "reviewer_role": "threat_intel",
-    "recommended_actions": ["Correlate successful auth with user baseline before final mapping."],
-    "risk_level": "low",
-    "sensitivity": "public",
-    "tags": ["mitre", "T1078", "valid_accounts"],
-    "confidence_weight": 0.9,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:mitre-t1078",
-    "graph_edges": [{"type": "entry_mentions_mitre", "to": "mitre:T1078"}]
-  },
-  {
-    "entry_id": "coe-escalation-hil-auth",
-    "doc_id": "coe-escalation-auth-v1",
-    "doc_version": "1.0",
-    "collection_id": "escalation_matrix",
-    "title": "Escalation Guidance for HIL",
-    "section_id": "ESC-AUTH-001",
-    "section_title": "Human Review Routing",
-    "entry_type": "escalation",
-    "source_excerpt": "Escalate auth scenarios to a tier2 SOC analyst when privileged accounts, success-after-failure, or broad source distribution are present.",
-    "source_refs": ["coe_escalation_auth_sample.md#ESC-AUTH-001"],
-    "citation": "COE Sample Auth Escalation Matrix v1.0 ESC-AUTH-001",
-    "retrieval_hints": ["human review", "escalation", "escalation policy", "failed login escalation", "L2", "HIL", "tier2", "privileged account"],
-    "synonyms": ["human in the loop", "analyst review", "level 2", "tier 2", "assign to L2"],
-    "positive_examples": ["requires human review for brute force", "escalate successful login after failures", "when should repeated failed login alerts be assigned to L2"],
-    "negative_examples": ["routing only no auth scenario"],
-    "answer_constraints": ["Escalation guidance is advisory and does not authorize execution."],
-    "prohibited_conclusions": ["execution approved"],
-    "expected_skills": ["attack_discovery", "alert_summary", "knowledge_recall"],
-    "allowed_use": ["hil_guidance", "synthesis_context"],
-    "mitre_refs": ["T1110", "T1078"],
-    "splunk_indexes": [],
-    "sourcetypes": [],
-    "fields": [],
-    "mcp_tools": [],
-    "asset_types": ["identity"],
-    "reviewer_role": "tier2_soc_analyst",
-    "recommended_actions": ["Review the validated SPL and collection status before approving mock execution.", "Request more evidence if source coverage is insufficient."],
-    "risk_level": "high",
-    "sensitivity": "internal",
-    "tags": ["hil", "escalation", "auth"],
-    "confidence_weight": 0.85,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:coe-escalation-hil-auth",
-    "graph_edges": [{"type": "sop_requires_reviewer_role", "to": "role:tier2_soc"}]
-  },
-  {
-    "entry_id": "coe-mcp-tool-policy-spl-search",
-    "doc_id": "coe-mcp-tool-policy-v1",
-    "doc_version": "1.0",
-    "collection_id": "mcp_tool_policy",
-    "title": "MCP SPL Search Tool Policy",
-    "section_id": "MCP-001",
-    "section_title": "Search Tool Selection",
-    "entry_type": "tool_policy",
-    "source_excerpt": "Only deterministic policy may select search tools, and only validated normalized SPL may reach the MCP execution gate.",
-    "source_refs": ["coe_mcp_tool_policy_sample.md#MCP-001"],
-    "citation": "COE Sample MCP Tool Policy v1.0 MCP-001",
-    "retrieval_hints": ["MCP tool policy", "run_splunk_query", "tool selection", "validated SPL"],
-    "synonyms": ["mcp search tool", "spl search execution gate"],
-    "positive_examples": ["which MCP tool can run validated SPL", "tool selection for spl_search"],
-    "negative_examples": ["assistant write tool", "SAIA generate SPL"],
-    "answer_constraints": ["LLMs must not call MCP directly.", "Candidate SPL must never execute."],
-    "prohibited_conclusions": ["LLM may select arbitrary MCP tools"],
-    "expected_skills": ["attack_discovery", "spl_generation"],
-    "allowed_use": ["tool_selection", "validation"],
-    "mitre_refs": [],
-    "splunk_indexes": [],
-    "sourcetypes": [],
-    "fields": [],
-    "mcp_tools": ["run_splunk_query"],
-    "asset_types": [],
-    "reviewer_role": "platform_owner",
-    "recommended_actions": ["Keep deterministic MCP selector authoritative."],
-    "risk_level": "high",
-    "sensitivity": "internal",
-    "tags": ["mcp", "tool_policy"],
-    "confidence_weight": 1.0,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:coe-mcp-tool-policy-spl-search",
-    "graph_edges": [{"type": "mcp_policy_allows_tool", "to": "mcp_tool:run_splunk_query"}]
-  },
-  {
-    "entry_id": "draft-auth-entry",
-    "doc_id": "draft-auth-sop-v2",
-    "doc_version": "2.0-draft",
-    "collection_id": "soc_sop",
-    "title": "Draft Entry Must Not Retrieve",
-    "section_id": "DRAFT-001",
-    "section_title": "Draft",
-    "entry_type": "procedure",
-    "source_excerpt": "Draft guidance must not affect runtime retrieval.",
-    "source_refs": ["draft.md#DRAFT-001"],
-    "citation": "Draft Auth SOP",
-    "retrieval_hints": ["draft runtime should not retrieve"],
-    "synonyms": [],
-    "positive_examples": ["draft runtime should not retrieve"],
-    "negative_examples": [],
-    "answer_constraints": [],
-    "prohibited_conclusions": [],
-    "expected_skills": ["attack_discovery"],
-    "allowed_use": ["hil_guidance"],
-    "mitre_refs": [],
-    "splunk_indexes": [],
-    "sourcetypes": [],
-    "fields": [],
-    "mcp_tools": [],
-    "asset_types": [],
-    "reviewer_role": "tier2_soc_analyst",
-    "recommended_actions": ["Do not use."],
-    "risk_level": "medium",
-    "sensitivity": "internal",
-    "tags": ["draft"],
-    "confidence_weight": 1.0,
-    "status": "draft",
-    "approval_status": "draft",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:draft-auth-entry",
-    "graph_edges": []
-  },
-  {
-    "entry_id": "old-auth-entry",
-    "doc_id": "old-auth-sop-v0",
-    "doc_version": "0.9",
-    "collection_id": "soc_sop",
-    "title": "Superseded Entry Must Not Retrieve",
-    "section_id": "OLD-001",
-    "section_title": "Old",
-    "entry_type": "procedure",
-    "source_excerpt": "Superseded guidance must not affect runtime retrieval.",
-    "source_refs": ["old.md#OLD-001"],
-    "citation": "Old Auth SOP",
-    "retrieval_hints": ["superseded runtime should not retrieve"],
-    "synonyms": [],
-    "positive_examples": ["superseded runtime should not retrieve"],
-    "negative_examples": [],
-    "answer_constraints": [],
-    "prohibited_conclusions": [],
-    "expected_skills": ["attack_discovery"],
-    "allowed_use": ["hil_guidance"],
-    "mitre_refs": [],
-    "splunk_indexes": [],
-    "sourcetypes": [],
-    "fields": [],
-    "mcp_tools": [],
-    "asset_types": [],
-    "reviewer_role": "tier2_soc_analyst",
-    "recommended_actions": ["Do not use."],
-    "risk_level": "medium",
-    "sensitivity": "internal",
-    "tags": ["superseded"],
-    "confidence_weight": 1.0,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:old-auth-entry",
-    "graph_edges": []
-  },
-  {
-    "entry_id": "coe-auth-spl-pattern",
-    "doc_id": "coe-auth-detection-note-v1",
-    "doc_version": "1.0",
-    "collection_id": "detection_notes",
-    "title": "Auth Failed Login SPL Pattern Note",
-    "section_id": "DET-AUTH-001",
-    "section_title": "Failed Login Aggregation",
-    "entry_type": "detection_note",
-    "source_excerpt": "For governed SPL generation, aggregate authentication failures over a bounded time window and group by user and source fields before analyst review.",
-    "source_refs": ["coe_auth_detection_note_sample.md#DET-AUTH-001"],
-    "citation": "COE Sample Auth Detection Engineering Note v1.0 DET-AUTH-001",
-    "retrieval_hints": ["spl failed login pattern", "auth failure aggregation", "failed login spl generation"],
-    "synonyms": ["authentication failure spl", "failed logon detection"],
-    "positive_examples": ["generate SPL for failed login aggregation", "SPL failed auth by user and src"],
-    "negative_examples": ["malware download", "dns beacon"],
-    "answer_constraints": ["Generated SPL must remain candidate-only until deterministic validation approves it."],
-    "prohibited_conclusions": ["candidate SPL executed"],
-    "expected_skills": ["spl_generation", "attack_discovery"],
-    "allowed_use": ["spl_generation", "validation", "synthesis_context"],
-    "mitre_refs": ["T1110"],
-    "splunk_indexes": ["pgcil_soc"],
-    "sourcetypes": ["pgcil:auth"],
-    "fields": ["user", "src", "action", "result"],
-    "mcp_tools": ["run_splunk_query"],
-    "asset_types": ["identity"],
-    "reviewer_role": "detection_engineer",
-    "recommended_actions": ["Use bounded time windows.", "Aggregate before presenting candidate SPL."],
-    "risk_level": "medium",
-    "sensitivity": "internal",
-    "tags": ["auth", "spl_generation", "failed_login"],
-    "confidence_weight": 0.9,
-    "status": "published",
-    "approval_status": "coe_reviewed",
-    "retrieval_backend": "deterministic",
-    "embedding_ref": null,
-    "sparse_ref": null,
-    "graph_node_id": "entry:coe-auth-spl-pattern",
-    "graph_edges": [{"type": "detection_note_supports_spl_pattern", "to": "spl_pattern:auth_failed_login_aggregation"}]
-  }
+ {
+  "entry_id": "coe-auth-bruteforce",
+  "doc_id": "coe-auth-sop-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Brute Force / Failed Login Spike SOP",
+  "section_id": "AUTH-001",
+  "section_title": "Failed Login Spike",
+  "entry_type": "procedure",
+  "source_excerpt": "For a failed-login spike, verify account, source IP distribution, time window, and any successful login after repeated failures before escalation.",
+  "source_refs": [
+   "coe_auth_sop_sample.md#AUTH-001"
+  ],
+  "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-001",
+  "retrieval_hints": [
+   "brute force",
+   "failed login spike",
+   "password spray",
+   "multiple failures",
+   "authentication failures"
+  ],
+  "synonyms": [
+   "bruteforce",
+   "brute-force",
+   "failed logins",
+   "faild login",
+   "auth failures",
+   "password spraying"
+  ],
+  "positive_examples": [
+   "show users with failed login spike",
+   "brute force against admin",
+   "faild logins by user"
+  ],
+  "negative_examples": [
+   "malware download",
+   "dns beacon",
+   "firewall denied traffic"
+  ],
+  "answer_constraints": [
+   "Do not declare compromise from failed-login counts alone.",
+   "Require approved evidence before severity or root-cause conclusions."
+  ],
+  "prohibited_conclusions": [
+   "confirmed account compromise",
+   "confirmed brute force success"
+  ],
+  "expected_skills": [
+   "attack_discovery",
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "mitre_refs": [
+   "T1110"
+  ],
+  "splunk_indexes": [
+   "pgcil_soc"
+  ],
+  "sourcetypes": [
+   "pgcil:auth"
+  ],
+  "fields": [
+   "user",
+   "src",
+   "action",
+   "result",
+   "fail_count"
+  ],
+  "mcp_tools": [],
+  "asset_types": [
+   "identity",
+   "vpn",
+   "windows"
+  ],
+  "reviewer_role": "tier2_soc_analyst",
+  "recommended_actions": [
+   "Review failed-login volume and source distribution.",
+   "Check for successful login after repeated failures.",
+   "Escalate when privileged accounts or broad source spread are involved."
+  ],
+  "risk_level": "high",
+  "sensitivity": "internal",
+  "tags": [
+   "auth",
+   "failed_login",
+   "brute_force",
+   "T1110"
+  ],
+  "confidence_weight": 1.0,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:coe-auth-bruteforce",
+  "graph_edges": [
+   {
+    "type": "entry_mentions_mitre",
+    "to": "mitre:T1110"
+   },
+   {
+    "type": "entry_mentions_sourcetype",
+    "to": "sourcetype:pgcil:auth"
+   }
+  ]
+ },
+ {
+  "entry_id": "coe-auth-failed-by-src",
+  "doc_id": "coe-auth-sop-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Failed Logins by Source IP SOP",
+  "section_id": "AUTH-002",
+  "section_title": "Source IP Clustering",
+  "entry_type": "procedure",
+  "source_excerpt": "When failures cluster by source IP, compare unique users, geo or network ownership, and whether the source is expected for the environment.",
+  "source_refs": [
+   "coe_auth_sop_sample.md#AUTH-002"
+  ],
+  "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-002",
+  "retrieval_hints": [
+   "source ip",
+   "src",
+   "failed logins by source",
+   "ip address failures"
+  ],
+  "synonyms": [
+   "src ip",
+   "remote address",
+   "client ip"
+  ],
+  "positive_examples": [
+   "top source IPs for failed logins",
+   "failed logins by src"
+  ],
+  "negative_examples": [
+   "locked account count only"
+  ],
+  "answer_constraints": [
+   "Treat source-IP reputation as contextual unless approved threat intel is available."
+  ],
+  "prohibited_conclusions": [
+   "malicious IP confirmed"
+  ],
+  "expected_skills": [
+   "attack_discovery",
+   "alert_summary"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "mitre_refs": [
+   "T1110"
+  ],
+  "splunk_indexes": [
+   "pgcil_soc"
+  ],
+  "sourcetypes": [
+   "pgcil:auth"
+  ],
+  "fields": [
+   "src",
+   "user",
+   "fail_count"
+  ],
+  "mcp_tools": [],
+  "asset_types": [
+   "identity",
+   "network"
+  ],
+  "reviewer_role": "tier2_soc_analyst",
+  "recommended_actions": [
+   "Group failures by src and user.",
+   "Check whether source IP is expected or previously observed."
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "auth",
+   "source_ip",
+   "failed_login"
+  ],
+  "confidence_weight": 0.95,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:coe-auth-failed-by-src",
+  "graph_edges": [
+   {
+    "type": "entry_mentions_field",
+    "to": "field:src"
+   }
+  ]
+ },
+ {
+  "entry_id": "coe-auth-success-after-failures",
+  "doc_id": "coe-auth-sop-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Successful Login After Repeated Failures Guidance",
+  "section_id": "AUTH-003",
+  "section_title": "Success After Failure",
+  "entry_type": "procedure",
+  "source_excerpt": "A successful login following repeated failures should be reviewed for account criticality, source novelty, and session activity before escalation.",
+  "source_refs": [
+   "coe_auth_sop_sample.md#AUTH-003"
+  ],
+  "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-003",
+  "retrieval_hints": [
+   "successful login after failures",
+   "success after failed",
+   "repeated failures then success"
+  ],
+  "synonyms": [
+   "login succeeded after failures",
+   "valid account after brute force"
+  ],
+  "positive_examples": [
+   "successful login after repeated failures",
+   "success following failed logins"
+  ],
+  "negative_examples": [
+   "only failed login no success"
+  ],
+  "answer_constraints": [
+   "Do not call the account compromised without post-login evidence or approval."
+  ],
+  "prohibited_conclusions": [
+   "account takeover confirmed"
+  ],
+  "expected_skills": [
+   "attack_discovery",
+   "alert_summary"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "mitre_refs": [
+   "T1078",
+   "T1110"
+  ],
+  "splunk_indexes": [
+   "pgcil_soc"
+  ],
+  "sourcetypes": [
+   "pgcil:auth"
+  ],
+  "fields": [
+   "user",
+   "src",
+   "action",
+   "result"
+  ],
+  "mcp_tools": [],
+  "asset_types": [
+   "identity"
+  ],
+  "reviewer_role": "tier2_soc_analyst",
+  "recommended_actions": [
+   "Correlate failure and success events for same user and src.",
+   "Check if source is new for the user."
+  ],
+  "risk_level": "high",
+  "sensitivity": "internal",
+  "tags": [
+   "auth",
+   "successful_login",
+   "T1078",
+   "T1110"
+  ],
+  "confidence_weight": 1.0,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:coe-auth-success-after-failures",
+  "graph_edges": [
+   {
+    "type": "entry_mentions_mitre",
+    "to": "mitre:T1078"
+   }
+  ]
+ },
+ {
+  "entry_id": "coe-auth-lockout",
+  "doc_id": "coe-auth-sop-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Account Lockout Guidance",
+  "section_id": "AUTH-004",
+  "section_title": "Lockout Review",
+  "entry_type": "procedure",
+  "source_excerpt": "Account lockout events should be checked for affected user criticality, repeated source patterns, and business-impact context.",
+  "source_refs": [
+   "coe_auth_sop_sample.md#AUTH-004"
+  ],
+  "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-004",
+  "retrieval_hints": [
+   "account lockout",
+   "locked account",
+   "lockout"
+  ],
+  "synonyms": [
+   "account locked",
+   "user lockout"
+  ],
+  "positive_examples": [
+   "account lockout after failed logins"
+  ],
+  "negative_examples": [
+   "successful login only"
+  ],
+  "answer_constraints": [
+   "Do not infer malicious activity from a lockout without supporting source or timing evidence."
+  ],
+  "prohibited_conclusions": [
+   "lockout proves attack"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "attack_discovery"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "mitre_refs": [
+   "T1110"
+  ],
+  "splunk_indexes": [
+   "pgcil_soc"
+  ],
+  "sourcetypes": [
+   "pgcil:auth"
+  ],
+  "fields": [
+   "user",
+   "src",
+   "action"
+  ],
+  "mcp_tools": [],
+  "asset_types": [
+   "identity"
+  ],
+  "reviewer_role": "tier1_soc_analyst",
+  "recommended_actions": [
+   "Check lockout frequency and impacted user role."
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "auth",
+   "lockout"
+  ],
+  "confidence_weight": 0.9,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:coe-auth-lockout",
+  "graph_edges": []
+ },
+ {
+  "entry_id": "coe-auth-new-source-ip",
+  "doc_id": "coe-auth-sop-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "New Source IP Login Guidance",
+  "section_id": "AUTH-005",
+  "section_title": "Novel Source Review",
+  "entry_type": "procedure",
+  "source_excerpt": "A login from a new source IP should be compared with prior user activity and expected access patterns before escalation.",
+  "source_refs": [
+   "coe_auth_sop_sample.md#AUTH-005"
+  ],
+  "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-005",
+  "retrieval_hints": [
+   "new source ip",
+   "first seen src",
+   "novel login source"
+  ],
+  "synonyms": [
+   "unseen ip",
+   "new src",
+   "new remote address"
+  ],
+  "positive_examples": [
+   "new source IP login for user",
+   "first seen login source"
+  ],
+  "negative_examples": [
+   "known source IP"
+  ],
+  "answer_constraints": [
+   "Do not label a new source as malicious without corroborating evidence."
+  ],
+  "prohibited_conclusions": [
+   "new source means compromise"
+  ],
+  "expected_skills": [
+   "attack_discovery",
+   "alert_summary"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "mitre_refs": [
+   "T1078"
+  ],
+  "splunk_indexes": [
+   "pgcil_soc"
+  ],
+  "sourcetypes": [
+   "pgcil:auth"
+  ],
+  "fields": [
+   "user",
+   "src",
+   "first_seen"
+  ],
+  "mcp_tools": [],
+  "asset_types": [
+   "identity"
+  ],
+  "reviewer_role": "tier2_soc_analyst",
+  "recommended_actions": [
+   "Compare source IP against user baseline.",
+   "Check whether VPN or jump host behavior is expected."
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "auth",
+   "new_source_ip",
+   "T1078"
+  ],
+  "confidence_weight": 0.95,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:coe-auth-new-source-ip",
+  "graph_edges": [
+   {
+    "type": "entry_mentions_field",
+    "to": "field:src"
+   }
+  ]
+ },
+ {
+  "entry_id": "coe-splunk-auth-context",
+  "doc_id": "coe-splunk-auth-context-v1",
+  "doc_version": "1.0",
+  "collection_id": "splunk_context",
+  "title": "Splunk Auth Context Note",
+  "section_id": "SPLUNK-AUTH-001",
+  "section_title": "Auth Data Grounding",
+  "entry_type": "environment_fact",
+  "source_excerpt": "COE sample auth searches use index=pgcil_soc and sourcetype=pgcil:auth with user, src, action, result, and _time fields.",
+  "source_refs": [
+   "coe_splunk_auth_context_sample.md#SPLUNK-AUTH-001"
+  ],
+  "citation": "COE Sample Splunk Auth Context v1.0 SPLUNK-AUTH-001",
+  "retrieval_hints": [
+   "splunk auth",
+   "pgcil:auth",
+   "index pgcil_soc",
+   "authentication data"
+  ],
+  "synonyms": [
+   "auth sourcetype",
+   "authentication index"
+  ],
+  "positive_examples": [
+   "generate SPL for failed logins",
+   "which sourcetype for auth failures"
+  ],
+  "negative_examples": [
+   "endpoint malware process tree"
+  ],
+  "answer_constraints": [
+   "Only use configured allowed indexes and sourcetypes during SPL validation."
+  ],
+  "prohibited_conclusions": [
+   "all customer auth data is covered"
+  ],
+  "expected_skills": [
+   "attack_discovery",
+   "spl_generation"
+  ],
+  "allowed_use": [
+   "spl_generation",
+   "validation",
+   "synthesis_context",
+   "environment_grounding"
+  ],
+  "mitre_refs": [],
+  "splunk_indexes": [
+   "pgcil_soc"
+  ],
+  "sourcetypes": [
+   "pgcil:auth"
+  ],
+  "fields": [
+   "_time",
+   "user",
+   "src",
+   "action",
+   "result"
+  ],
+  "mcp_tools": [
+   "run_splunk_query"
+  ],
+  "asset_types": [
+   "identity"
+  ],
+  "reviewer_role": "detection_engineer",
+  "recommended_actions": [
+   "Validate generated SPL against deterministic SPL policy."
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "splunk",
+   "auth",
+   "spl_generation"
+  ],
+  "confidence_weight": 1.0,
+  "status": "active",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:coe-splunk-auth-context",
+  "graph_edges": [
+   {
+    "type": "scd_allows_index",
+    "to": "index:pgcil_soc"
+   },
+   {
+    "type": "scd_allows_sourcetype",
+    "to": "sourcetype:pgcil:auth"
+   }
+  ]
+ },
+ {
+  "entry_id": "mitre-t1110",
+  "doc_id": "mitre-auth-grounding-v1",
+  "doc_version": "1.0",
+  "collection_id": "mitre_enterprise",
+  "title": "MITRE T1110 Reference Note",
+  "section_id": "MITRE-T1110",
+  "section_title": "Brute Force",
+  "entry_type": "mitre_mapping",
+  "source_excerpt": "T1110 is the Enterprise technique commonly used for brute-force password guessing and password spraying style behavior.",
+  "source_refs": [
+   "mitre_auth_grounding_sample.md#T1110"
+  ],
+  "citation": "COE Sample MITRE Auth Grounding v1.0 T1110",
+  "retrieval_hints": [
+   "T1110",
+   "brute force",
+   "password spray",
+   "password guessing"
+  ],
+  "synonyms": [
+   "bruteforce",
+   "brute-force"
+  ],
+  "positive_examples": [
+   "map brute force to MITRE",
+   "T1110 failed logins"
+  ],
+  "negative_examples": [
+   "valid account login only"
+  ],
+  "answer_constraints": [
+   "Use as grounding, not a final attack determination."
+  ],
+  "prohibited_conclusions": [
+   "MITRE mapping confirmed without evidence"
+  ],
+  "expected_skills": [
+   "attack_discovery",
+   "knowledge_recall",
+   "alert_summary"
+  ],
+  "allowed_use": [
+   "mitre_grounding",
+   "synthesis_context",
+   "validation"
+  ],
+  "mitre_refs": [
+   "T1110"
+  ],
+  "splunk_indexes": [],
+  "sourcetypes": [],
+  "fields": [],
+  "mcp_tools": [],
+  "asset_types": [
+   "identity"
+  ],
+  "reviewer_role": "threat_intel",
+  "recommended_actions": [
+   "Correlate with failed authentication evidence before final mapping."
+  ],
+  "risk_level": "low",
+  "sensitivity": "public",
+  "tags": [
+   "mitre",
+   "T1110",
+   "brute_force"
+  ],
+  "confidence_weight": 0.9,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:mitre-t1110",
+  "graph_edges": [
+   {
+    "type": "entry_mentions_mitre",
+    "to": "mitre:T1110"
+   }
+  ]
+ },
+ {
+  "entry_id": "mitre-t1078",
+  "doc_id": "mitre-auth-grounding-v1",
+  "doc_version": "1.0",
+  "collection_id": "mitre_enterprise",
+  "title": "MITRE T1078 Reference Note",
+  "section_id": "MITRE-T1078",
+  "section_title": "Valid Accounts",
+  "entry_type": "mitre_mapping",
+  "source_excerpt": "T1078 is the Enterprise technique commonly used for valid-account access, including suspicious successful authentication after failures.",
+  "source_refs": [
+   "mitre_auth_grounding_sample.md#T1078"
+  ],
+  "citation": "COE Sample MITRE Auth Grounding v1.0 T1078",
+  "retrieval_hints": [
+   "T1078",
+   "valid accounts",
+   "successful login",
+   "new source ip"
+  ],
+  "synonyms": [
+   "valid account",
+   "valid credentials"
+  ],
+  "positive_examples": [
+   "successful login after failures T1078",
+   "new source IP valid account"
+  ],
+  "negative_examples": [
+   "failed logins only"
+  ],
+  "answer_constraints": [
+   "Use as grounding, not a final attack determination."
+  ],
+  "prohibited_conclusions": [
+   "valid account abuse confirmed"
+  ],
+  "expected_skills": [
+   "attack_discovery",
+   "knowledge_recall",
+   "alert_summary"
+  ],
+  "allowed_use": [
+   "mitre_grounding",
+   "synthesis_context",
+   "validation"
+  ],
+  "mitre_refs": [
+   "T1078"
+  ],
+  "splunk_indexes": [],
+  "sourcetypes": [],
+  "fields": [],
+  "mcp_tools": [],
+  "asset_types": [
+   "identity"
+  ],
+  "reviewer_role": "threat_intel",
+  "recommended_actions": [
+   "Correlate successful auth with user baseline before final mapping."
+  ],
+  "risk_level": "low",
+  "sensitivity": "public",
+  "tags": [
+   "mitre",
+   "T1078",
+   "valid_accounts"
+  ],
+  "confidence_weight": 0.9,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:mitre-t1078",
+  "graph_edges": [
+   {
+    "type": "entry_mentions_mitre",
+    "to": "mitre:T1078"
+   }
+  ]
+ },
+ {
+  "entry_id": "coe-escalation-hil-auth",
+  "doc_id": "coe-escalation-auth-v1",
+  "doc_version": "1.0",
+  "collection_id": "escalation_matrix",
+  "title": "Escalation Guidance for HIL",
+  "section_id": "ESC-AUTH-001",
+  "section_title": "Human Review Routing",
+  "entry_type": "escalation",
+  "source_excerpt": "Escalate auth scenarios to a tier2 SOC analyst when privileged accounts, success-after-failure, or broad source distribution are present.",
+  "source_refs": [
+   "coe_escalation_auth_sample.md#ESC-AUTH-001"
+  ],
+  "citation": "COE Sample Auth Escalation Matrix v1.0 ESC-AUTH-001",
+  "retrieval_hints": [
+   "human review",
+   "escalation",
+   "escalation policy",
+   "failed login escalation",
+   "L2",
+   "HIL",
+   "tier2",
+   "privileged account"
+  ],
+  "synonyms": [
+   "human in the loop",
+   "analyst review",
+   "level 2",
+   "tier 2",
+   "assign to L2"
+  ],
+  "positive_examples": [
+   "requires human review for brute force",
+   "escalate successful login after failures",
+   "when should repeated failed login alerts be assigned to L2"
+  ],
+  "negative_examples": [
+   "routing only no auth scenario"
+  ],
+  "answer_constraints": [
+   "Escalation guidance is advisory and does not authorize execution."
+  ],
+  "prohibited_conclusions": [
+   "execution approved"
+  ],
+  "expected_skills": [
+   "attack_discovery",
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "mitre_refs": [
+   "T1110",
+   "T1078"
+  ],
+  "splunk_indexes": [],
+  "sourcetypes": [],
+  "fields": [],
+  "mcp_tools": [],
+  "asset_types": [
+   "identity"
+  ],
+  "reviewer_role": "tier2_soc_analyst",
+  "recommended_actions": [
+   "Review the validated SPL and collection status before approving mock execution.",
+   "Request more evidence if source coverage is insufficient."
+  ],
+  "risk_level": "high",
+  "sensitivity": "internal",
+  "tags": [
+   "hil",
+   "escalation",
+   "auth"
+  ],
+  "confidence_weight": 0.85,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:coe-escalation-hil-auth",
+  "graph_edges": [
+   {
+    "type": "sop_requires_reviewer_role",
+    "to": "role:tier2_soc"
+   }
+  ]
+ },
+ {
+  "entry_id": "coe-mcp-tool-policy-spl-search",
+  "doc_id": "coe-mcp-tool-policy-v1",
+  "doc_version": "1.0",
+  "collection_id": "mcp_tool_policy",
+  "title": "MCP SPL Search Tool Policy",
+  "section_id": "MCP-001",
+  "section_title": "Search Tool Selection",
+  "entry_type": "tool_policy",
+  "source_excerpt": "Only deterministic policy may select search tools, and only validated normalized SPL may reach the MCP execution gate.",
+  "source_refs": [
+   "coe_mcp_tool_policy_sample.md#MCP-001"
+  ],
+  "citation": "COE Sample MCP Tool Policy v1.0 MCP-001",
+  "retrieval_hints": [
+   "MCP tool policy",
+   "run_splunk_query",
+   "tool selection",
+   "validated SPL"
+  ],
+  "synonyms": [
+   "mcp search tool",
+   "spl search execution gate"
+  ],
+  "positive_examples": [
+   "which MCP tool can run validated SPL",
+   "tool selection for spl_search"
+  ],
+  "negative_examples": [
+   "assistant write tool",
+   "SAIA generate SPL"
+  ],
+  "answer_constraints": [
+   "LLMs must not call MCP directly.",
+   "Candidate SPL must never execute."
+  ],
+  "prohibited_conclusions": [
+   "LLM may select arbitrary MCP tools"
+  ],
+  "expected_skills": [
+   "attack_discovery",
+   "spl_generation"
+  ],
+  "allowed_use": [
+   "tool_selection",
+   "validation"
+  ],
+  "mitre_refs": [],
+  "splunk_indexes": [],
+  "sourcetypes": [],
+  "fields": [],
+  "mcp_tools": [
+   "run_splunk_query"
+  ],
+  "asset_types": [],
+  "reviewer_role": "platform_owner",
+  "recommended_actions": [
+   "Keep deterministic MCP selector authoritative."
+  ],
+  "risk_level": "high",
+  "sensitivity": "internal",
+  "tags": [
+   "mcp",
+   "tool_policy"
+  ],
+  "confidence_weight": 1.0,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:coe-mcp-tool-policy-spl-search",
+  "graph_edges": [
+   {
+    "type": "mcp_policy_allows_tool",
+    "to": "mcp_tool:run_splunk_query"
+   }
+  ]
+ },
+ {
+  "entry_id": "draft-auth-entry",
+  "doc_id": "draft-auth-sop-v2",
+  "doc_version": "2.0-draft",
+  "collection_id": "soc_sop",
+  "title": "Draft Entry Must Not Retrieve",
+  "section_id": "DRAFT-001",
+  "section_title": "Draft",
+  "entry_type": "procedure",
+  "source_excerpt": "Draft guidance must not affect runtime retrieval.",
+  "source_refs": [
+   "draft.md#DRAFT-001"
+  ],
+  "citation": "Draft Auth SOP",
+  "retrieval_hints": [
+   "draft runtime should not retrieve"
+  ],
+  "synonyms": [],
+  "positive_examples": [
+   "draft runtime should not retrieve"
+  ],
+  "negative_examples": [],
+  "answer_constraints": [],
+  "prohibited_conclusions": [],
+  "expected_skills": [
+   "attack_discovery"
+  ],
+  "allowed_use": [
+   "hil_guidance"
+  ],
+  "mitre_refs": [],
+  "splunk_indexes": [],
+  "sourcetypes": [],
+  "fields": [],
+  "mcp_tools": [],
+  "asset_types": [],
+  "reviewer_role": "tier2_soc_analyst",
+  "recommended_actions": [
+   "Do not use."
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "draft"
+  ],
+  "confidence_weight": 1.0,
+  "status": "draft",
+  "approval_status": "draft",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:draft-auth-entry",
+  "graph_edges": []
+ },
+ {
+  "entry_id": "old-auth-entry",
+  "doc_id": "old-auth-sop-v0",
+  "doc_version": "0.9",
+  "collection_id": "soc_sop",
+  "title": "Superseded Entry Must Not Retrieve",
+  "section_id": "OLD-001",
+  "section_title": "Old",
+  "entry_type": "procedure",
+  "source_excerpt": "Superseded guidance must not affect runtime retrieval.",
+  "source_refs": [
+   "old.md#OLD-001"
+  ],
+  "citation": "Old Auth SOP",
+  "retrieval_hints": [
+   "superseded runtime should not retrieve"
+  ],
+  "synonyms": [],
+  "positive_examples": [
+   "superseded runtime should not retrieve"
+  ],
+  "negative_examples": [],
+  "answer_constraints": [],
+  "prohibited_conclusions": [],
+  "expected_skills": [
+   "attack_discovery"
+  ],
+  "allowed_use": [
+   "hil_guidance"
+  ],
+  "mitre_refs": [],
+  "splunk_indexes": [],
+  "sourcetypes": [],
+  "fields": [],
+  "mcp_tools": [],
+  "asset_types": [],
+  "reviewer_role": "tier2_soc_analyst",
+  "recommended_actions": [
+   "Do not use."
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "superseded"
+  ],
+  "confidence_weight": 1.0,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:old-auth-entry",
+  "graph_edges": []
+ },
+ {
+  "entry_id": "coe-auth-spl-pattern",
+  "doc_id": "coe-auth-detection-note-v1",
+  "doc_version": "1.0",
+  "collection_id": "detection_notes",
+  "title": "Auth Failed Login SPL Pattern Note",
+  "section_id": "DET-AUTH-001",
+  "section_title": "Failed Login Aggregation",
+  "entry_type": "detection_note",
+  "source_excerpt": "For governed SPL generation, aggregate authentication failures over a bounded time window and group by user and source fields before analyst review.",
+  "source_refs": [
+   "coe_auth_detection_note_sample.md#DET-AUTH-001"
+  ],
+  "citation": "COE Sample Auth Detection Engineering Note v1.0 DET-AUTH-001",
+  "retrieval_hints": [
+   "spl failed login pattern",
+   "auth failure aggregation",
+   "failed login spl generation"
+  ],
+  "synonyms": [
+   "authentication failure spl",
+   "failed logon detection"
+  ],
+  "positive_examples": [
+   "generate SPL for failed login aggregation",
+   "SPL failed auth by user and src"
+  ],
+  "negative_examples": [
+   "malware download",
+   "dns beacon"
+  ],
+  "answer_constraints": [
+   "Generated SPL must remain candidate-only until deterministic validation approves it."
+  ],
+  "prohibited_conclusions": [
+   "candidate SPL executed"
+  ],
+  "expected_skills": [
+   "spl_generation",
+   "attack_discovery"
+  ],
+  "allowed_use": [
+   "spl_generation",
+   "validation",
+   "synthesis_context"
+  ],
+  "mitre_refs": [
+   "T1110"
+  ],
+  "splunk_indexes": [
+   "pgcil_soc"
+  ],
+  "sourcetypes": [
+   "pgcil:auth"
+  ],
+  "fields": [
+   "user",
+   "src",
+   "action",
+   "result"
+  ],
+  "mcp_tools": [
+   "run_splunk_query"
+  ],
+  "asset_types": [
+   "identity"
+  ],
+  "reviewer_role": "detection_engineer",
+  "recommended_actions": [
+   "Use bounded time windows.",
+   "Aggregate before presenting candidate SPL."
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "auth",
+   "spl_generation",
+   "failed_login"
+  ],
+  "confidence_weight": 0.9,
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "entry:coe-auth-spl-pattern",
+  "graph_edges": [
+   {
+    "type": "detection_note_supports_spl_pattern",
+    "to": "spl_pattern:auth_failed_login_aggregation"
+   }
+  ]
+ },
+ {
+  "entry_id": "skill-enrich-auth_failed_login_spike-checklist",
+  "doc_id": "skill-enrich-auth_failed_login_spike-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: auth failed login spike",
+  "section_id": "AUTH_FAILED_LOGIN_SPIKE-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Validate time window and threshold. Compare distinct users and sources. Check whether any successful authentication followed the failures. Review asset or account criticality before severity claims.",
+  "source_refs": [
+   "content_enrichment.json#auth_failed_login_spike.checklist"
+  ],
+  "citation": "Skill enrichment auth_failed_login_spike v1 CHECKLIST",
+  "retrieval_hints": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login"
+  ],
+  "synonyms": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Validate time window and threshold."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_failed_login_spike-workflow",
+  "doc_id": "skill-enrich-auth_failed_login_spike-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: auth failed login spike",
+  "section_id": "AUTH_FAILED_LOGIN_SPIKE-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Scope authentication failures by user, source, host, and time window. Confirm threshold evidence before labeling brute-force activity evidence-supported. Pivot to success-after-failure only when successful authentication evidence exists. Keep SPL generation and execution behind existing validation and review gates.",
+  "source_refs": [
+   "content_enrichment.json#auth_failed_login_spike.workflow"
+  ],
+  "citation": "Skill enrichment auth_failed_login_spike v1 WORKFLOW",
+  "retrieval_hints": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login"
+  ],
+  "synonyms": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Scope authentication failures by user, source, host, and time window."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_failed_login_spike-limits",
+  "doc_id": "skill-enrich-auth_failed_login_spike-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: auth failed login spike",
+  "section_id": "AUTH_FAILED_LOGIN_SPIKE-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Failed login telemetry alone does not establish credential validity. Source IP reuse, NAT, or scanner behavior may require analyst review.",
+  "source_refs": [
+   "content_enrichment.json#auth_failed_login_spike.limits"
+  ],
+  "citation": "Skill enrichment auth_failed_login_spike v1 LIMITS",
+  "retrieval_hints": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login"
+  ],
+  "synonyms": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Failed login telemetry alone does not establish credential validity."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_failed_login_spike-rules",
+  "doc_id": "skill-enrich-auth_failed_login_spike-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: auth failed login spike",
+  "section_id": "AUTH_FAILED_LOGIN_SPIKE-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Do not claim account compromise from failed logins alone. Mark brute force as evidence-supported only after threshold evidence exists. SPL/execution remains review-gated.",
+  "source_refs": [
+   "content_enrichment.json#auth_failed_login_spike.rules"
+  ],
+  "citation": "Skill enrichment auth_failed_login_spike v1 RULES",
+  "retrieval_hints": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login"
+  ],
+  "synonyms": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Do not claim account compromise from failed logins alone."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "auth failed login spike",
+   "authentication",
+   "brute force",
+   "failed login",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_privileged_login_anomaly-checklist",
+  "doc_id": "skill-enrich-auth_privileged_login_anomaly-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: auth privileged login anomaly",
+  "section_id": "AUTH_PRIVILEGED_LOGIN_ANOMALY-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Confirm whether the login matches the user's normal access pattern, shift timing, location, and device. Check whether the account is privileged, dormant, service-like, or recently modified. Check whether the target asset is crown-jewel, domain controller, OT engineering workstation, or SCADA gateway. Review failure-then-success ordering and whether multiple users authenticated from the same source IP. Review the MFA outcome and whether the source IP is new for this user. Review first post-login commands, remote service use, and access to sensitive shares or credential stores. Escalate to the IT/OT incident bridge when the target is OT or crown-jewel infrastructure.",
+  "source_refs": [
+   "content_enrichment.json#auth_privileged_login_anomaly.checklist"
+  ],
+  "citation": "Skill enrichment auth_privileged_login_anomaly v1 CHECKLIST",
+  "retrieval_hints": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "synonyms": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "positive_examples": [
+   "Confirm whether the login matches the user's normal access pattern, shift timing, location, and device."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_privileged_login_anomaly-workflow",
+  "doc_id": "skill-enrich-auth_privileged_login_anomaly-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: auth privileged login anomaly",
+  "section_id": "AUTH_PRIVILEGED_LOGIN_ANOMALY-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Scope and baseline: identify source and destination (workstation, jump server, VPN gateway, PAW, OT host, cloud console); confirm the login matches the user's normal pattern, shift, location, and device. Account and asset context: check whether the account is privileged, dormant, service-like, or recently modified; check whether the target is crown-jewel, domain controller, OT engineering workstation, or SCADA gateway. Authentication evidence: check repeated failures before success for the same user/source/host/time window; check multiple users from one source IP; review MFA outcome (approved, denied, timeout, push fatigue, bypass, none); validate source IP novelty against known corporate or VPN egress. Post-authentication pivots: review first commands, processes, or administrative actions after login; check for PsExec, WMI, PowerShell remoting, RDP, SMB admin shares, or unusual remote s",
+  "source_refs": [
+   "content_enrichment.json#auth_privileged_login_anomaly.workflow"
+  ],
+  "citation": "Skill enrichment auth_privileged_login_anomaly v1 WORKFLOW",
+  "retrieval_hints": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "synonyms": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "positive_examples": [
+   "Scope and baseline: identify source and destination (workstation, jump server, VPN gateway, PAW, OT host, cloud console); confirm the login matches the user's normal pattern, shift, location, and devi"
+  ],
+  "negative_examples": [],
+  "tags": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_privileged_login_anomaly-limits",
+  "doc_id": "skill-enrich-auth_privileged_login_anomaly-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: auth privileged login anomaly",
+  "section_id": "AUTH_PRIVILEGED_LOGIN_ANOMALY-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "A single anomalous admin login does not confirm compromise. Login metadata alone cannot support evidence-supported MITRE claims. High admin activity may be scheduled maintenance, automation, or approved support activity. No containment or account action may be performed without HIL/change approval.",
+  "source_refs": [
+   "content_enrichment.json#auth_privileged_login_anomaly.limits"
+  ],
+  "citation": "Skill enrichment auth_privileged_login_anomaly v1 LIMITS",
+  "retrieval_hints": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "synonyms": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "positive_examples": [
+   "A single anomalous admin login does not confirm compromise."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_privileged_login_anomaly-rules",
+  "doc_id": "skill-enrich-auth_privileged_login_anomaly-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: auth privileged login anomaly",
+  "section_id": "AUTH_PRIVILEGED_LOGIN_ANOMALY-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "State that this checklist validates whether an admin login is expected, suspicious, or requires escalation; it does not confirm compromise by itself. Keep T1078 Valid Accounts as a candidate when the login is suspicious but not proven malicious. Mention T1110 brute force only when the failure pattern supports it. Mention post-login techniques (remote services, PowerShell, credential access, collection) only when observed evidence supports them. MITRE mappings remain candidates until supported by source-grounded evidence.",
+  "source_refs": [
+   "content_enrichment.json#auth_privileged_login_anomaly.rules"
+  ],
+  "citation": "Skill enrichment auth_privileged_login_anomaly v1 RULES",
+  "retrieval_hints": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "synonyms": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "positive_examples": [
+   "State that this checklist validates whether an admin login is expected, suspicious, or requires escalation; it does not confirm compromise by itself."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "admin login",
+   "auth privileged login anomaly",
+   "curated internal 2026 06 11",
+   "investigation checklist",
+   "privileged account"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_success_after_failure-checklist",
+  "doc_id": "skill-enrich-auth_success_after_failure-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: auth success after failure",
+  "section_id": "AUTH_SUCCESS_AFTER_FAILURE-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Confirm failure and success event ordering. Review whether the source is known for the user. Check privileged account or critical asset context. Look for follow-on activity before compromise language.",
+  "source_refs": [
+   "content_enrichment.json#auth_success_after_failure.checklist"
+  ],
+  "citation": "Skill enrichment auth_success_after_failure v1 CHECKLIST",
+  "retrieval_hints": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "successful login"
+  ],
+  "synonyms": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "splunk",
+   "successful login"
+  ],
+  "positive_examples": [
+   "Confirm failure and success event ordering."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "splunk",
+   "successful login"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_success_after_failure-workflow",
+  "doc_id": "skill-enrich-auth_success_after_failure-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: auth success after failure",
+  "section_id": "AUTH_SUCCESS_AFTER_FAILURE-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Correlate failures followed by successful authentication for the same user, source, host, and time window. Check source IP novelty where available. Keep Valid Accounts as a candidate unless additional misuse evidence exists.",
+  "source_refs": [
+   "content_enrichment.json#auth_success_after_failure.workflow"
+  ],
+  "citation": "Skill enrichment auth_success_after_failure v1 WORKFLOW",
+  "retrieval_hints": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "successful login"
+  ],
+  "synonyms": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "splunk",
+   "successful login"
+  ],
+  "positive_examples": [
+   "Correlate failures followed by successful authentication for the same user, source, host, and time window."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "splunk",
+   "successful login"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_success_after_failure-limits",
+  "doc_id": "skill-enrich-auth_success_after_failure-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: auth success after failure",
+  "section_id": "AUTH_SUCCESS_AFTER_FAILURE-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Sequence evidence can be benign if the user retried successfully. Novelty is optional and may be unavailable in current telemetry.",
+  "source_refs": [
+   "content_enrichment.json#auth_success_after_failure.limits"
+  ],
+  "citation": "Skill enrichment auth_success_after_failure v1 LIMITS",
+  "retrieval_hints": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "successful login"
+  ],
+  "synonyms": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "splunk",
+   "successful login"
+  ],
+  "positive_examples": [
+   "Sequence evidence can be benign if the user retried successfully."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "splunk",
+   "successful login"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_success_after_failure-rules",
+  "doc_id": "skill-enrich-auth_success_after_failure-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: auth success after failure",
+  "section_id": "AUTH_SUCCESS_AFTER_FAILURE-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "State 'successful login after failures observed.' Do not state 'compromised account' unless additional evidence exists. T1078 remains candidate unless stronger account-misuse evidence exists.",
+  "source_refs": [
+   "content_enrichment.json#auth_success_after_failure.rules"
+  ],
+  "citation": "Skill enrichment auth_success_after_failure v1 RULES",
+  "retrieval_hints": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "successful login"
+  ],
+  "synonyms": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "splunk",
+   "successful login"
+  ],
+  "positive_examples": [
+   "State 'successful login after failures observed.'"
+  ],
+  "negative_examples": [],
+  "tags": [
+   "auth success after failure",
+   "brute force",
+   "sequence correlation",
+   "splunk",
+   "successful login"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-dns_beaconing_candidate-checklist",
+  "doc_id": "skill-enrich-dns_beaconing_candidate-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: dns beaconing candidate",
+  "section_id": "DNS_BEACONING_CANDIDATE-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Measure periodicity and jitter. Check bytes out and DNS query count. Assess domain rarity and destination context. Tie traffic to a host or user before impact language.",
+  "source_refs": [
+   "content_enrichment.json#dns_beaconing_candidate.checklist"
+  ],
+  "citation": "Skill enrichment dns_beaconing_candidate v1 CHECKLIST",
+  "retrieval_hints": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "synonyms": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "positive_examples": [
+   "Measure periodicity and jitter."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-dns_beaconing_candidate-workflow",
+  "doc_id": "skill-enrich-dns_beaconing_candidate-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: dns beaconing candidate",
+  "section_id": "DNS_BEACONING_CANDIDATE-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Review periodicity, jitter, outbound volume, and domain rarity together. Associate source with user or host identity when possible. Escalate from candidate to evidence-supported only when multiple signals align.",
+  "source_refs": [
+   "content_enrichment.json#dns_beaconing_candidate.workflow"
+  ],
+  "citation": "Skill enrichment dns_beaconing_candidate v1 WORKFLOW",
+  "retrieval_hints": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "synonyms": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "positive_examples": [
+   "Review periodicity, jitter, outbound volume, and domain rarity together."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-dns_beaconing_candidate-limits",
+  "doc_id": "skill-enrich-dns_beaconing_candidate-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: dns beaconing candidate",
+  "section_id": "DNS_BEACONING_CANDIDATE-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Periodic traffic may be benign polling or monitoring. Parent T1071 is used unless evidence supports a specific sub-technique.",
+  "source_refs": [
+   "content_enrichment.json#dns_beaconing_candidate.limits"
+  ],
+  "citation": "Skill enrichment dns_beaconing_candidate v1 LIMITS",
+  "retrieval_hints": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "synonyms": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "positive_examples": [
+   "Periodic traffic may be benign polling or monitoring."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-dns_beaconing_candidate-rules",
+  "doc_id": "skill-enrich-dns_beaconing_candidate-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: dns beaconing candidate",
+  "section_id": "DNS_BEACONING_CANDIDATE-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Do not claim C2 confirmed from periodicity alone. Use candidate/evidence-supported wording based on multiple signals.",
+  "source_refs": [
+   "content_enrichment.json#dns_beaconing_candidate.rules"
+  ],
+  "citation": "Skill enrichment dns_beaconing_candidate v1 RULES",
+  "retrieval_hints": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "synonyms": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "positive_examples": [
+   "Do not claim C2 confirmed from periodicity alone."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "beaconing",
+   "command and control",
+   "dns",
+   "dns beaconing candidate",
+   "network"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-edr_powershell_suspicious_command-checklist",
+  "doc_id": "skill-enrich-edr_powershell_suspicious_command-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: edr powershell suspicious command",
+  "section_id": "EDR_POWERSHELL_SUSPICIOUS_COMMAND-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Review event ID and script block text. Check parent process and user context. Identify encoded-command usage. Look for related network connections or child processes.",
+  "source_refs": [
+   "content_enrichment.json#edr_powershell_suspicious_command.checklist"
+  ],
+  "citation": "Skill enrichment edr_powershell_suspicious_command v1 CHECKLIST",
+  "retrieval_hints": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "synonyms": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "positive_examples": [
+   "Review event ID and script block text."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-edr_powershell_suspicious_command-workflow",
+  "doc_id": "skill-enrich-edr_powershell_suspicious_command-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: edr powershell suspicious command",
+  "section_id": "EDR_POWERSHELL_SUSPICIOUS_COMMAND-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Collect process, command line, parent process, and script block evidence. Flag encoded command or suspicious invocation patterns as evidence, not malware verdicts. Pivot to network and child-process activity when available.",
+  "source_refs": [
+   "content_enrichment.json#edr_powershell_suspicious_command.workflow"
+  ],
+  "citation": "Skill enrichment edr_powershell_suspicious_command v1 WORKFLOW",
+  "retrieval_hints": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "synonyms": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "positive_examples": [
+   "Collect process, command line, parent process, and script block evidence."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-edr_powershell_suspicious_command-limits",
+  "doc_id": "skill-enrich-edr_powershell_suspicious_command-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: edr powershell suspicious command",
+  "section_id": "EDR_POWERSHELL_SUSPICIOUS_COMMAND-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Administrative scripts may use PowerShell legitimately. Encoded command is a suspicious indicator, not a standalone malware verdict.",
+  "source_refs": [
+   "content_enrichment.json#edr_powershell_suspicious_command.limits"
+  ],
+  "citation": "Skill enrichment edr_powershell_suspicious_command v1 LIMITS",
+  "retrieval_hints": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "synonyms": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "positive_examples": [
+   "Administrative scripts may use PowerShell legitimately."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-edr_powershell_suspicious_command-rules",
+  "doc_id": "skill-enrich-edr_powershell_suspicious_command-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: edr powershell suspicious command",
+  "section_id": "EDR_POWERSHELL_SUSPICIOUS_COMMAND-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Do not classify as malware unless malware evidence exists. State suspicious command execution evidence and required pivots.",
+  "source_refs": [
+   "content_enrichment.json#edr_powershell_suspicious_command.rules"
+  ],
+  "citation": "Skill enrichment edr_powershell_suspicious_command v1 RULES",
+  "retrieval_hints": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "synonyms": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "positive_examples": [
+   "Do not classify as malware unless malware evidence exists."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "edr",
+   "edr powershell suspicious command",
+   "encoded command",
+   "powershell",
+   "script block"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-email_phishing_header_review-checklist",
+  "doc_id": "skill-enrich-email_phishing_header_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: email phishing header review",
+  "section_id": "EMAIL_PHISHING_HEADER_REVIEW-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Check SPF, DKIM, and DMARC alignment. Review sender and reply-to mismatch. Collect URL/domain and attachment indicators. Confirm gateway verdict and affected recipients.",
+  "source_refs": [
+   "content_enrichment.json#email_phishing_header_review.checklist"
+  ],
+  "citation": "Skill enrichment email_phishing_header_review v1 CHECKLIST",
+  "retrieval_hints": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "synonyms": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "positive_examples": [
+   "Check SPF, DKIM, and DMARC alignment."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-email_phishing_header_review-workflow",
+  "doc_id": "skill-enrich-email_phishing_header_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: email phishing header review",
+  "section_id": "EMAIL_PHISHING_HEADER_REVIEW-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Compare sender, return-path, reply-to, and authentication results. Inspect URL/domain, attachment, recipient, and gateway verdict evidence. Classify wording based on combined evidence strength.",
+  "source_refs": [
+   "content_enrichment.json#email_phishing_header_review.workflow"
+  ],
+  "citation": "Skill enrichment email_phishing_header_review v1 WORKFLOW",
+  "retrieval_hints": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "synonyms": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "positive_examples": [
+   "Compare sender, return-path, reply-to, and authentication results."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-email_phishing_header_review-limits",
+  "doc_id": "skill-enrich-email_phishing_header_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: email phishing header review",
+  "section_id": "EMAIL_PHISHING_HEADER_REVIEW-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Email header anomalies may reflect forwarding or gateway behavior. Phishing verdict needs more than a single mismatch signal.",
+  "source_refs": [
+   "content_enrichment.json#email_phishing_header_review.limits"
+  ],
+  "citation": "Skill enrichment email_phishing_header_review v1 LIMITS",
+  "retrieval_hints": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "synonyms": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "positive_examples": [
+   "Email header anomalies may reflect forwarding or gateway behavior."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-email_phishing_header_review-rules",
+  "doc_id": "skill-enrich-email_phishing_header_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: email phishing header review",
+  "section_id": "EMAIL_PHISHING_HEADER_REVIEW-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Do not claim phishing confirmed only from sender mismatch. Distinguish suspicious, likely phishing, and evidence-supported phishing.",
+  "source_refs": [
+   "content_enrichment.json#email_phishing_header_review.rules"
+  ],
+  "citation": "Skill enrichment email_phishing_header_review v1 RULES",
+  "retrieval_hints": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "synonyms": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "positive_examples": [
+   "Do not claim phishing confirmed only from sender mismatch."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "dkim",
+   "dmarc",
+   "email headers",
+   "email phishing header review",
+   "phishing",
+   "spf"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-endpoint_ransomware_impact_review-checklist",
+  "doc_id": "skill-enrich-endpoint_ransomware_impact_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: endpoint ransomware impact review",
+  "section_id": "ENDPOINT_RANSOMWARE_IMPACT_REVIEW-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Measure file rename count and extension patterns. Identify affected paths and process name. Check shadow copy deletion and service stop indicators. Count impacted hosts before scope claims.",
+  "source_refs": [
+   "content_enrichment.json#endpoint_ransomware_impact_review.checklist"
+  ],
+  "citation": "Skill enrichment endpoint_ransomware_impact_review v1 CHECKLIST",
+  "retrieval_hints": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "synonyms": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "positive_examples": [
+   "Measure file rename count and extension patterns."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-endpoint_ransomware_impact_review-workflow",
+  "doc_id": "skill-enrich-endpoint_ransomware_impact_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: endpoint ransomware impact review",
+  "section_id": "ENDPOINT_RANSOMWARE_IMPACT_REVIEW-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Collect file-change, process, recovery-inhibition, service-stop, and host-impact signals. Use T1486 evidence-supported wording only when multiple impact signals align. Require human review for containment or remediation recommendations.",
+  "source_refs": [
+   "content_enrichment.json#endpoint_ransomware_impact_review.workflow"
+  ],
+  "citation": "Skill enrichment endpoint_ransomware_impact_review v1 WORKFLOW",
+  "retrieval_hints": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "synonyms": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "positive_examples": [
+   "Collect file-change, process, recovery-inhibition, service-stop, and host-impact signals."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-endpoint_ransomware_impact_review-limits",
+  "doc_id": "skill-enrich-endpoint_ransomware_impact_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: endpoint ransomware impact review",
+  "section_id": "ENDPOINT_RANSOMWARE_IMPACT_REVIEW-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Bulk file changes can be benign administrative or backup activity. This enrichment does not include malware reverse-engineering or decryptor guidance.",
+  "source_refs": [
+   "content_enrichment.json#endpoint_ransomware_impact_review.limits"
+  ],
+  "citation": "Skill enrichment endpoint_ransomware_impact_review v1 LIMITS",
+  "retrieval_hints": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "synonyms": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "positive_examples": [
+   "Bulk file changes can be benign administrative or backup activity."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-endpoint_ransomware_impact_review-rules",
+  "doc_id": "skill-enrich-endpoint_ransomware_impact_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: endpoint ransomware impact review",
+  "section_id": "ENDPOINT_RANSOMWARE_IMPACT_REVIEW-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Do not claim ransomware from file changes alone. Require multiple evidence signals for evidence-supported T1486. Require HIL for containment or remediation guidance.",
+  "source_refs": [
+   "content_enrichment.json#endpoint_ransomware_impact_review.rules"
+  ],
+  "citation": "Skill enrichment endpoint_ransomware_impact_review v1 RULES",
+  "retrieval_hints": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "synonyms": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "positive_examples": [
+   "Do not claim ransomware from file changes alone."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "encryption",
+   "endpoint",
+   "endpoint ransomware impact review",
+   "impact",
+   "ransomware"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-soc_incident_triage-checklist",
+  "doc_id": "skill-enrich-soc_incident_triage-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: soc incident triage",
+  "section_id": "SOC_INCIDENT_TRIAGE-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Confirm alert type and affected asset. Collect severity policy inputs. Review prior related alerts. Record containment state without recommending destructive action.",
+  "source_refs": [
+   "content_enrichment.json#soc_incident_triage.checklist"
+  ],
+  "citation": "Skill enrichment soc_incident_triage v1 CHECKLIST",
+  "retrieval_hints": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "synonyms": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "positive_examples": [
+   "Confirm alert type and affected asset."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-soc_incident_triage-workflow",
+  "doc_id": "skill-enrich-soc_incident_triage-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: soc incident triage",
+  "section_id": "SOC_INCIDENT_TRIAGE-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Summarize alert type, affected asset, user, status, related alerts, and containment state. Use SOP guidance without assigning MITRE absent alert evidence. Require human approval for containment or remediation.",
+  "source_refs": [
+   "content_enrichment.json#soc_incident_triage.workflow"
+  ],
+  "citation": "Skill enrichment soc_incident_triage v1 WORKFLOW",
+  "retrieval_hints": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "synonyms": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "positive_examples": [
+   "Summarize alert type, affected asset, user, status, related alerts, and containment state."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-soc_incident_triage-limits",
+  "doc_id": "skill-enrich-soc_incident_triage-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: soc incident triage",
+  "section_id": "SOC_INCIDENT_TRIAGE-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Playbook guidance depends on alert evidence supplied by the analyst or governed retrieval. No remediation action is authorized by this enrichment.",
+  "source_refs": [
+   "content_enrichment.json#soc_incident_triage.limits"
+  ],
+  "citation": "Skill enrichment soc_incident_triage v1 LIMITS",
+  "retrieval_hints": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "synonyms": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "positive_examples": [
+   "Playbook guidance depends on alert evidence supplied by the analyst or governed retrieval."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-soc_incident_triage-rules",
+  "doc_id": "skill-enrich-soc_incident_triage-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: soc incident triage",
+  "section_id": "SOC_INCIDENT_TRIAGE-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Use IR/SOP guidance. Do not recommend destructive containment. Human approval required for containment/remediation. Do not assign MITRE without alert type/evidence.",
+  "source_refs": [
+   "content_enrichment.json#soc_incident_triage.rules"
+  ],
+  "citation": "Skill enrichment soc_incident_triage v1 RULES",
+  "retrieval_hints": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "synonyms": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "positive_examples": [
+   "Use IR/SOP guidance."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "alert triage",
+   "hil",
+   "incident response",
+   "playbook",
+   "soc incident triage"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ }
 ]

@@ -45,8 +45,12 @@ def main() -> int:
     for row in rows:
         key = row["key"]
         try:
+            import uuid
+
             with sentinel_runtime():
-                payload = _model_to_dict(chat(ChatRequest(message=row["question"])))
+                payload = _model_to_dict(
+                    chat(ChatRequest(message=row["question"], session_id=f"aq-{uuid.uuid4()}"))
+                )
             checks = run_answer_quality_checks(payload)
         except Exception as exc:
             results[key] = [
