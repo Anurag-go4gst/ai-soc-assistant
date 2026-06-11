@@ -481,6 +481,8 @@ class PlaceholderResponse(BaseModel):
     answer_contract: dict[str, object] | None = None
     # WS3 T3.1 — deterministic read-model scorecard (never authority).
     answer_scorecard: dict[str, object] | None = None
+    # WS3 T3.2 — consolidated LLM narration usage visibility (read-model).
+    narration_visibility: dict[str, object] | None = None
     final_answer_validation: dict[str, object] | None = None
     mitre_decision: dict[str, object] | None = None
     mitre_mappings: list[MitreMappingDecision] | None = None
