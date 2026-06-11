@@ -26,14 +26,34 @@ def compose_resource_plan(
     use_case_id: str | None = None,
     match_path: str | None = None,
     registry: ResourceRegistry | None = None,
+    skill_id: str | None = None,
 ) -> ResourcePlan:
     """Translate a decided EvidencePlan into an ordered, fallback-aware plan."""
     registry = registry or load_resource_registry()
     steps: list[PlanStep] = []
+    contract = _skill_contract(skill_id, registry)
+    skill_vetoes: list[str] = []
 
     rag_step = _rag_step(evidence_plan) if getattr(evidence_plan, "needs_rag", False) else None
     spl_step = _spl_step(evidence_plan, use_case_id, registry) if getattr(evidence_plan, "needs_spl", False) else None
     mcp_step = _mcp_step(evidence_plan) if getattr(evidence_plan, "needs_mcp", False) else None
+
+    # WS2 T2.1: the routed skill's capability contract constrains composition.
+    # A step whose purpose the skill blocks (or does not allow at all) is
+    # vetoed before it ever exists; the veto is recorded in provenance.
+    if contract is not None:
+        if spl_step is not None and not _skill_permits(contract, "spl"):
+            skill_vetoes.append("spl_artifact:skill_contract")
+            spl_step = None
+        if mcp_step is not None and not _skill_permits(contract, "mcp"):
+            skill_vetoes.append("mcp_execution:skill_contract")
+            mcp_step = None
+        required = [str(item) for item in contract.get("required_evidence") or []]
+        if required:
+            check = "skill_required_evidence:" + ",".join(sorted(required))
+            for step in (rag_step, spl_step, mcp_step):
+                if step is not None:
+                    step.policy_checks.append(check)
     mitre_step = (
         PlanStep(
             step_id="mitre",
@@ -68,15 +88,22 @@ def compose_resource_plan(
             )
         )
 
+    provenance: dict[str, Any] = {
+        "composer": _COMPOSER_VERSION,
+        "intent_family": intent_family,
+        "use_case_id": use_case_id,
+        "match_path": match_path,
+    }
+    if skill_id:
+        provenance["skill_id"] = skill_id
+    if contract is not None and contract.get("default_workflow"):
+        provenance["skill_workflow"] = list(contract["default_workflow"])
+    if skill_vetoes:
+        provenance["skill_vetoes"] = skill_vetoes
     return ResourcePlan(
         steps=steps,
         plan_source="deterministic",
-        provenance={
-            "composer": _COMPOSER_VERSION,
-            "intent_family": intent_family,
-            "use_case_id": use_case_id,
-            "match_path": match_path,
-        },
+        provenance=provenance,
     )
 
 
@@ -136,3 +163,50 @@ def _mcp_step(evidence_plan: Any) -> PlanStep:
             "global_and_server_execution_flags",
         ],
     )
+
+
+# Tool-name fragments in skill catalog contracts that permit each purpose.
+_PURPOSE_TOOL_HINTS = {
+    "spl": ("spl_generation", "spl_template_registry", "spl_validator", "spl_validation"),
+    "mcp": ("splunk_mcp_search", "mcp_search", "splunk_mcp"),
+}
+
+
+def _skill_contract(skill_id: str | None, registry: ResourceRegistry) -> dict[str, Any] | None:
+    if not skill_id:
+        return None
+    descriptor = registry.by_id(f"skill:{skill_id}")
+    if descriptor is None:
+        return None
+    contract = dict(descriptor.input_contract or {})
+    # Allowed tools ride on the descriptor as capability strings.
+    contract.setdefault(
+        "allowed_tools",
+        [
+            cap.split(":", 1)[1]
+            for cap in descriptor.capabilities
+            if cap.startswith("allowed_tool:")
+        ],
+    )
+    return contract
+
+
+def _skill_permits(contract: dict[str, Any], purpose_key: str) -> bool:
+    blocked = {str(item) for item in contract.get("blocked_tools") or []}
+    hints = _PURPOSE_TOOL_HINTS[purpose_key]
+    if purpose_key == "mcp" and "mcp_execution" in blocked:
+        return False
+    allowed = contract.get("default_workflow") or []
+    allowed_tools = _allowed_tools_from_registry_caps(contract)
+    pool = {*map(str, allowed), *allowed_tools}
+    return any(any(hint in item for item in pool) for hint in hints)
+
+
+def _allowed_tools_from_registry_caps(contract: dict[str, Any]) -> set[str]:
+    # The registry descriptor stores allowed tools as capability strings
+    # ("allowed_tool:<name>") on the skill resource; the raw contract dict may
+    # also carry them directly when provided by tests.
+    direct = contract.get("allowed_tools")
+    if isinstance(direct, list):
+        return {str(item) for item in direct}
+    return set()
