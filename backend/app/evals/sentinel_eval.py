@@ -103,8 +103,12 @@ def capture_row(question: str) -> dict[str, Any]:
 
     Raises whatever the pipeline raises — callers decide how to record it.
     """
+    # Fresh session per capture: rows must not inherit pins from earlier
+    # captures in the same process (order-coupled baselines are unfreezable).
+    import uuid
+
     with sentinel_runtime():
-        response = chat(ChatRequest(message=question))
+        response = chat(ChatRequest(message=question, session_id=f"sentinel-{uuid.uuid4()}"))
     payload = _model_to_dict(response)
 
     query_to_intent = payload.get("query_to_intent") or {}

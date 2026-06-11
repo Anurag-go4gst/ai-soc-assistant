@@ -257,6 +257,7 @@ def build_answer_contract(
             required_evidence or checklist or investigation_steps or limitations
         ),
         has_limitations_content=has_limitations_content,
+        hil_review_required=bool(review.get("required")),
     )
 
     severity_label = None
@@ -501,6 +502,7 @@ def _render_sections(
     playbook_eligible: bool,
     has_investigation_guidance: bool = False,
     has_limitations_content: bool = False,
+    hil_review_required: bool = False,
 ) -> dict[str, bool]:
     knowledge_profile = _is_knowledge_profile(intent_family, answer_mode)
     show_mitre = (
@@ -514,7 +516,9 @@ def _render_sections(
         "not_claimed": show_mitre and bool(not_claimed),
         "spl_artifact": spl_present and ("spl_artifact" in goals or answer_mode in {"live_investigation", "hybrid"}),
         "live_results": "live_results" in goals,
-        "analyst_action_guidance": has_investigation_guidance or "analyst_action_guidance" in goals,
+        # AQ-001-consistent: the flag is content-driven. A goal alone is an
+        # empty promise; HIL review turns are backed by the review notice.
+        "analyst_action_guidance": has_investigation_guidance or hil_review_required,
         "policy_citation": playbook_eligible and answer_mode in {"rag_only", "hybrid"},
         "procedural_steps": "procedural_steps" in goals or has_investigation_guidance,
         "limitations": has_limitations_content,
