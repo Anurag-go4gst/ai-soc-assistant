@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-10T08:25:10.554952+00:00",
+  "generated_at": "2026-06-11T11:15:27.785082+00:00",
   "profile": {
     "ai_soc_curated_enrichment_activation_enabled": true,
     "ai_soc_langgraph_shadow_enabled": true,
@@ -109,6 +109,67 @@
             "mcp:splunk"
           ],
           "requires_hil": true,
+          "resource_plan": {
+            "plan_source": "deterministic",
+            "provenance": {
+              "composer": "deterministic_v1",
+              "intent_family": "live_investigation",
+              "match_path": "use_case_catalog",
+              "skill_id": "attack_discovery",
+              "skill_workflow": [
+                "spl_generation",
+                "spl_validation",
+                "evidence_collection",
+                "context_sufficiency"
+              ],
+              "use_case_id": "auth_failed_login_spike"
+            },
+            "steps": [
+              {
+                "args_template": {},
+                "on_unavailable": "spl_lab_draft_family:auth_failed_login_threshold",
+                "policy_checks": [
+                  "spl_validator",
+                  "execution_eligible_false",
+                  "required_evidence:fail_count,first_failure,host,last_failure,src,time_window,user",
+                  "skill_required_evidence:source_evidence"
+                ],
+                "purpose": "spl_artifact",
+                "resource_id": "spl_template_family:auth_failed_login_spike",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "spl"
+              },
+              {
+                "args_template": {},
+                "on_unavailable": null,
+                "policy_checks": [
+                  "mcp_execution_gate",
+                  "approved_normalized_spl_only",
+                  "global_and_server_execution_flags",
+                  "skill_required_evidence:source_evidence"
+                ],
+                "purpose": "mcp_execution",
+                "resource_id": "mcp_tool:splunk_run_query",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "mcp"
+              },
+              {
+                "args_template": {},
+                "on_unavailable": null,
+                "policy_checks": [
+                  "answer_guard",
+                  "deterministic_fallback_on_failure"
+                ],
+                "purpose": "narration",
+                "resource_id": "llm_role:narration",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "narration"
+              }
+            ]
+          },
           "runtime_support_status": "runtime_active",
           "spl_allowed": true,
           "unsupported_claims_avoid": [
@@ -311,6 +372,67 @@
               "mcp:splunk"
             ],
             "requires_hil": true,
+            "resource_plan": {
+              "plan_source": "deterministic",
+              "provenance": {
+                "composer": "deterministic_v1",
+                "intent_family": "live_investigation",
+                "match_path": "use_case_catalog",
+                "skill_id": "attack_discovery",
+                "skill_workflow": [
+                  "spl_generation",
+                  "spl_validation",
+                  "evidence_collection",
+                  "context_sufficiency"
+                ],
+                "use_case_id": "auth_failed_login_spike"
+              },
+              "steps": [
+                {
+                  "args_template": {},
+                  "on_unavailable": "spl_lab_draft_family:auth_failed_login_threshold",
+                  "policy_checks": [
+                    "spl_validator",
+                    "execution_eligible_false",
+                    "required_evidence:fail_count,first_failure,host,last_failure,src,time_window,user",
+                    "skill_required_evidence:source_evidence"
+                  ],
+                  "purpose": "spl_artifact",
+                  "resource_id": "spl_template_family:auth_failed_login_spike",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "spl"
+                },
+                {
+                  "args_template": {},
+                  "on_unavailable": null,
+                  "policy_checks": [
+                    "mcp_execution_gate",
+                    "approved_normalized_spl_only",
+                    "global_and_server_execution_flags",
+                    "skill_required_evidence:source_evidence"
+                  ],
+                  "purpose": "mcp_execution",
+                  "resource_id": "mcp_tool:splunk_run_query",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "mcp"
+                },
+                {
+                  "args_template": {},
+                  "on_unavailable": null,
+                  "policy_checks": [
+                    "answer_guard",
+                    "deterministic_fallback_on_failure"
+                  ],
+                  "purpose": "narration",
+                  "resource_id": "llm_role:narration",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "narration"
+                }
+              ]
+            },
             "runtime_support_status": "runtime_active",
             "spl_allowed": true,
             "unsupported_claims_avoid": [
@@ -541,6 +663,23 @@
             "mcp:splunk"
           ],
           "requires_hil": true,
+          "resource_plan": {
+            "plan_source": "deterministic",
+            "provenance": {
+              "composer": "deterministic_v1",
+              "intent_family": "clarification_required",
+              "match_path": "use_case_catalog",
+              "skill_id": "attack_discovery",
+              "skill_workflow": [
+                "spl_generation",
+                "spl_validation",
+                "evidence_collection",
+                "context_sufficiency"
+              ],
+              "use_case_id": "auth_success_after_failure"
+            },
+            "steps": []
+          },
           "runtime_support_status": "runtime_active",
           "spl_allowed": false,
           "unsupported_claims_avoid": [
@@ -717,6 +856,23 @@
               "mcp:splunk"
             ],
             "requires_hil": true,
+            "resource_plan": {
+              "plan_source": "deterministic",
+              "provenance": {
+                "composer": "deterministic_v1",
+                "intent_family": "clarification_required",
+                "match_path": "use_case_catalog",
+                "skill_id": "attack_discovery",
+                "skill_workflow": [
+                  "spl_generation",
+                  "spl_validation",
+                  "evidence_collection",
+                  "context_sufficiency"
+                ],
+                "use_case_id": "auth_success_after_failure"
+              },
+              "steps": []
+            },
             "runtime_support_status": "runtime_active",
             "spl_allowed": false,
             "unsupported_claims_avoid": [
@@ -907,6 +1063,23 @@
             "mcp:splunk"
           ],
           "requires_hil": true,
+          "resource_plan": {
+            "plan_source": "deterministic",
+            "provenance": {
+              "composer": "deterministic_v1",
+              "intent_family": "clarification_required",
+              "match_path": "use_case_catalog",
+              "skill_id": "attack_discovery",
+              "skill_workflow": [
+                "spl_generation",
+                "spl_validation",
+                "evidence_collection",
+                "context_sufficiency"
+              ],
+              "use_case_id": "dns_beaconing_candidate"
+            },
+            "steps": []
+          },
           "runtime_support_status": "runtime_active",
           "spl_allowed": false,
           "unsupported_claims_avoid": [
@@ -1075,6 +1248,23 @@
               "mcp:splunk"
             ],
             "requires_hil": true,
+            "resource_plan": {
+              "plan_source": "deterministic",
+              "provenance": {
+                "composer": "deterministic_v1",
+                "intent_family": "clarification_required",
+                "match_path": "use_case_catalog",
+                "skill_id": "attack_discovery",
+                "skill_workflow": [
+                  "spl_generation",
+                  "spl_validation",
+                  "evidence_collection",
+                  "context_sufficiency"
+                ],
+                "use_case_id": "dns_beaconing_candidate"
+              },
+              "steps": []
+            },
             "runtime_support_status": "runtime_active",
             "spl_allowed": false,
             "unsupported_claims_avoid": [
@@ -1219,6 +1409,21 @@
           "required_evidence_keys": [],
           "required_sources": [],
           "requires_hil": true,
+          "resource_plan": {
+            "plan_source": "deterministic",
+            "provenance": {
+              "composer": "deterministic_v1",
+              "intent_family": "clarification_required",
+              "match_path": "out_of_registry",
+              "skill_id": "knowledge_recall",
+              "skill_workflow": [
+                "knowledge_recall",
+                "context_sufficiency"
+              ],
+              "use_case_id": null
+            },
+            "steps": []
+          },
           "runtime_support_status": null,
           "spl_allowed": false,
           "unsupported_claims_avoid": [],
@@ -1337,6 +1542,21 @@
             "required_evidence_keys": [],
             "required_sources": [],
             "requires_hil": true,
+            "resource_plan": {
+              "plan_source": "deterministic",
+              "provenance": {
+                "composer": "deterministic_v1",
+                "intent_family": "clarification_required",
+                "match_path": "out_of_registry",
+                "skill_id": "knowledge_recall",
+                "skill_workflow": [
+                  "knowledge_recall",
+                  "context_sufficiency"
+                ],
+                "use_case_id": null
+              },
+              "steps": []
+            },
             "runtime_support_status": null,
             "spl_allowed": false,
             "unsupported_claims_avoid": [],
@@ -1473,6 +1693,49 @@
           "required_evidence_keys": [],
           "required_sources": [],
           "requires_hil": false,
+          "resource_plan": {
+            "plan_source": "deterministic",
+            "provenance": {
+              "composer": "deterministic_v1",
+              "intent_family": "sop_or_playbook",
+              "match_path": "use_case_catalog",
+              "skill_id": "knowledge_recall",
+              "skill_workflow": [
+                "knowledge_recall",
+                "context_sufficiency"
+              ],
+              "use_case_id": "soc_show_sop"
+            },
+            "steps": [
+              {
+                "args_template": {},
+                "on_unavailable": null,
+                "policy_checks": [
+                  "governed_rag_only",
+                  "policy_context_required",
+                  "skill_required_evidence:rag:sop"
+                ],
+                "purpose": "knowledge_retrieval",
+                "resource_id": "rag_corpus:soc_kb",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "rag"
+              },
+              {
+                "args_template": {},
+                "on_unavailable": null,
+                "policy_checks": [
+                  "answer_guard",
+                  "deterministic_fallback_on_failure"
+                ],
+                "purpose": "narration",
+                "resource_id": "llm_role:narration",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "narration"
+              }
+            ]
+          },
           "runtime_support_status": "planned",
           "spl_allowed": false,
           "unsupported_claims_avoid": [],
@@ -1585,6 +1848,49 @@
             "required_evidence_keys": [],
             "required_sources": [],
             "requires_hil": false,
+            "resource_plan": {
+              "plan_source": "deterministic",
+              "provenance": {
+                "composer": "deterministic_v1",
+                "intent_family": "sop_or_playbook",
+                "match_path": "use_case_catalog",
+                "skill_id": "knowledge_recall",
+                "skill_workflow": [
+                  "knowledge_recall",
+                  "context_sufficiency"
+                ],
+                "use_case_id": "soc_show_sop"
+              },
+              "steps": [
+                {
+                  "args_template": {},
+                  "on_unavailable": null,
+                  "policy_checks": [
+                    "governed_rag_only",
+                    "policy_context_required",
+                    "skill_required_evidence:rag:sop"
+                  ],
+                  "purpose": "knowledge_retrieval",
+                  "resource_id": "rag_corpus:soc_kb",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "rag"
+                },
+                {
+                  "args_template": {},
+                  "on_unavailable": null,
+                  "policy_checks": [
+                    "answer_guard",
+                    "deterministic_fallback_on_failure"
+                  ],
+                  "purpose": "narration",
+                  "resource_id": "llm_role:narration",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "narration"
+                }
+              ]
+            },
             "runtime_support_status": "planned",
             "spl_allowed": false,
             "unsupported_claims_avoid": [],
@@ -1721,6 +2027,21 @@
           "required_evidence_keys": [],
           "required_sources": [],
           "requires_hil": true,
+          "resource_plan": {
+            "plan_source": "deterministic",
+            "provenance": {
+              "composer": "deterministic_v1",
+              "intent_family": "mitre_mapping",
+              "match_path": "use_case_catalog",
+              "skill_id": "knowledge_recall",
+              "skill_workflow": [
+                "knowledge_recall",
+                "context_sufficiency"
+              ],
+              "use_case_id": "soc_map_alert_mitre"
+            },
+            "steps": []
+          },
           "runtime_support_status": "planned",
           "spl_allowed": false,
           "unsupported_claims_avoid": [],
@@ -1839,6 +2160,21 @@
             "required_evidence_keys": [],
             "required_sources": [],
             "requires_hil": true,
+            "resource_plan": {
+              "plan_source": "deterministic",
+              "provenance": {
+                "composer": "deterministic_v1",
+                "intent_family": "mitre_mapping",
+                "match_path": "use_case_catalog",
+                "skill_id": "knowledge_recall",
+                "skill_workflow": [
+                  "knowledge_recall",
+                  "context_sufficiency"
+                ],
+                "use_case_id": "soc_map_alert_mitre"
+              },
+              "steps": []
+            },
             "runtime_support_status": "planned",
             "spl_allowed": false,
             "unsupported_claims_avoid": [],
@@ -1979,6 +2315,21 @@
           "required_evidence_keys": [],
           "required_sources": [],
           "requires_hil": true,
+          "resource_plan": {
+            "plan_source": "deterministic",
+            "provenance": {
+              "composer": "deterministic_v1",
+              "intent_family": "clarification_required",
+              "match_path": "out_of_registry",
+              "skill_id": "knowledge_recall",
+              "skill_workflow": [
+                "knowledge_recall",
+                "context_sufficiency"
+              ],
+              "use_case_id": null
+            },
+            "steps": []
+          },
           "runtime_support_status": null,
           "spl_allowed": false,
           "unsupported_claims_avoid": [],
@@ -2097,6 +2448,21 @@
             "required_evidence_keys": [],
             "required_sources": [],
             "requires_hil": true,
+            "resource_plan": {
+              "plan_source": "deterministic",
+              "provenance": {
+                "composer": "deterministic_v1",
+                "intent_family": "clarification_required",
+                "match_path": "out_of_registry",
+                "skill_id": "knowledge_recall",
+                "skill_workflow": [
+                  "knowledge_recall",
+                  "context_sufficiency"
+                ],
+                "use_case_id": null
+              },
+              "steps": []
+            },
             "runtime_support_status": null,
             "spl_allowed": false,
             "unsupported_claims_avoid": [],
@@ -2233,6 +2599,21 @@
           "required_evidence_keys": [],
           "required_sources": [],
           "requires_hil": true,
+          "resource_plan": {
+            "plan_source": "deterministic",
+            "provenance": {
+              "composer": "deterministic_v1",
+              "intent_family": "clarification_required",
+              "match_path": "out_of_registry",
+              "skill_id": "knowledge_recall",
+              "skill_workflow": [
+                "knowledge_recall",
+                "context_sufficiency"
+              ],
+              "use_case_id": null
+            },
+            "steps": []
+          },
           "runtime_support_status": null,
           "spl_allowed": false,
           "unsupported_claims_avoid": [],
@@ -2361,6 +2742,21 @@
             "required_evidence_keys": [],
             "required_sources": [],
             "requires_hil": true,
+            "resource_plan": {
+              "plan_source": "deterministic",
+              "provenance": {
+                "composer": "deterministic_v1",
+                "intent_family": "clarification_required",
+                "match_path": "out_of_registry",
+                "skill_id": "knowledge_recall",
+                "skill_workflow": [
+                  "knowledge_recall",
+                  "context_sufficiency"
+                ],
+                "use_case_id": null
+              },
+              "steps": []
+            },
             "runtime_support_status": null,
             "spl_allowed": false,
             "unsupported_claims_avoid": [],

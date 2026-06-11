@@ -2,7 +2,7 @@
 
 Phase 13C — live `/chat` API harness for PowerGrid OT/IT SOC questions. Evaluation only; no runtime cutover.
 
-- Generated: `2026-06-09T08:39:27.676187+00:00`
+- Generated: `2026-06-11T11:18:51.857043+00:00`
 - Schema: `2026-06-09-powergrid-soc-v1`
 - Total evaluated: **50**
 - PASS / REVIEW / FAIL: **50** / **0** / **0**
@@ -19,29 +19,27 @@ Phase 13C — live `/chat` API harness for PowerGrid OT/IT SOC questions. Evalua
 - Composer gate open (`composer_is_enabled`): **True**
 
 - Composer eligible rows: **50** / 50
-- Composer attempted rows: **14**
-- Composer used rows (LLM prose applied): **13**
-- Compose validation blocked rows: **1**
-- Compose fallback rows: **1**
+- Composer attempted rows: **8**
+- Composer used rows (LLM prose applied): **8**
+- Compose validation blocked rows: **0**
+- Compose fallback rows: **0**
 - Analyst-summary narration LLM called: **0**
-- Answer-guard blocked rows: **0**
+- Answer-guard blocked rows: **1**
 - Final-answer guard blocked rows: **0**
 - Thin deterministic answer rows: **1**
 
 ### Skip categories
 
-- `compose_validation_blocked`: **1**
-- `early_skip`: **5**
-- `other_skip`: **31**
+- `early_skip`: **7**
+- `other_skip`: **35**
 
 ### Skip / block reasons
 
-- (21) `guidance_only_deterministic_envelope`
+- (24) `guidance_only_deterministic_envelope`
+- (7) `draft_spl_preview_active`
 - (5) `conceptual_mitre_deterministic_guidance`
-- (5) `draft_spl_preview_active`
 - (3) `mitre_evidence_threshold_deterministic_guidance`
-- (2) `unsafe_blocked_deterministic_guidance`
-- (1) `Composed prose claims compromise without contract support.`
+- (3) `unsafe_blocked_deterministic_guidance`
 
 ### Thin deterministic answer reasons
 
@@ -49,7 +47,7 @@ Phase 13C — live `/chat` API harness for PowerGrid OT/IT SOC questions. Evalua
 
 ### Thin deterministic question IDs
 
-`pg.sop.001`
+`pg.dns.010`
 
 ## Guidance Fallback Failures
 
