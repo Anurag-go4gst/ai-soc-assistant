@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-06-11T06:14:45+00:00",
+  "generated_at": "2026-06-11T10:33:45+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -96,6 +96,105 @@
       "tests_added": true,
       "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
       "validation_status": "tests_added"
+    },
+    {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
+      "content_enrichment_added": false,
+      "decision": "accept",
+      "enrichment_linkage": {
+        "enrichment_present": false,
+        "github_reference_paths": [],
+        "use_case_id": null
+      },
+      "evidence_requirements_added": false,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [],
+        "triage_priority": "P1",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
+      "github_reuse_type": "sop_reference",
+      "github_skill_id": "automating-ioc-enrichment",
+      "mapped_use_case_id": null,
+      "mapped_use_case_ids": [],
+      "mapping_state": "rejected",
+      "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [],
+      "review_status": "accepted_for_enrichment",
+      "runtime_skill": false,
+      "runtime_support_status": "metadata_only",
+      "tests_added": false,
+      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
+      "content_enrichment_added": false,
+      "decision": "accept",
+      "enrichment_linkage": {
+        "enrichment_present": false,
+        "github_reference_paths": [],
+        "use_case_id": null
+      },
+      "evidence_requirements_added": false,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [],
+        "triage_priority": "P1",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
+      "github_reuse_type": "sop_reference",
+      "github_skill_id": "building-threat-intelligence-enrichment-in-splunk",
+      "mapped_use_case_id": null,
+      "mapped_use_case_ids": [],
+      "mapping_state": "rejected",
+      "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [],
+      "review_status": "accepted_for_enrichment",
+      "runtime_skill": false,
+      "runtime_support_status": "metadata_only",
+      "tests_added": false,
+      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
+      "content_enrichment_added": false,
+      "decision": "accept",
+      "enrichment_linkage": {
+        "enrichment_present": false,
+        "github_reference_paths": [],
+        "use_case_id": null
+      },
+      "evidence_requirements_added": false,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [],
+        "triage_priority": "P1",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
+      "github_reuse_type": "sop_reference",
+      "github_skill_id": "configuring-windows-event-logging-for-detection",
+      "mapped_use_case_id": null,
+      "mapped_use_case_ids": [],
+      "mapping_state": "rejected",
+      "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [],
+      "review_status": "accepted_for_enrichment",
+      "runtime_skill": false,
+      "runtime_support_status": "metadata_only",
+      "tests_added": false,
+      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
+      "validation_status": "needs_soc_review"
     },
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -206,6 +305,72 @@
       "tests_added": true,
       "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
       "validation_status": "tests_added"
+    },
+    {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
+      "content_enrichment_added": false,
+      "decision": "accept",
+      "enrichment_linkage": {
+        "enrichment_present": false,
+        "github_reference_paths": [],
+        "use_case_id": null
+      },
+      "evidence_requirements_added": false,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [],
+        "triage_priority": "P1",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
+      "github_reuse_type": "sop_reference",
+      "github_skill_id": "implementing-alert-fatigue-reduction",
+      "mapped_use_case_id": null,
+      "mapped_use_case_ids": [],
+      "mapping_state": "rejected",
+      "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [],
+      "review_status": "accepted_for_enrichment",
+      "runtime_skill": false,
+      "runtime_support_status": "metadata_only",
+      "tests_added": false,
+      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "acceptance_means": "accepted_for_enrichment_only",
+      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
+      "content_enrichment_added": false,
+      "decision": "accept",
+      "enrichment_linkage": {
+        "enrichment_present": false,
+        "github_reference_paths": [],
+        "use_case_id": null
+      },
+      "evidence_requirements_added": false,
+      "factory_visibility": {
+        "discovery_present": true,
+        "discovery_review_status": "accepted_for_enrichment",
+        "proposed_use_case_ids": [],
+        "triage_priority": "P1",
+        "triage_recommended_decision": "accept_for_enrichment_only",
+        "triage_soc_relevance": 0.9
+      },
+      "github_reuse_type": "sop_reference",
+      "github_skill_id": "performing-asset-criticality-scoring-for-vulns",
+      "mapped_use_case_id": null,
+      "mapped_use_case_ids": [],
+      "mapping_state": "rejected",
+      "no_runtime_markdown_loading": true,
+      "proposed_use_case_ids": [],
+      "review_status": "accepted_for_enrichment",
+      "runtime_skill": false,
+      "runtime_support_status": "metadata_only",
+      "tests_added": false,
+      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
+      "validation_status": "needs_soc_review"
     },
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -3152,7 +3317,7 @@
     "discovery_skills": 754,
     "enrichment_only_use_cases": 3,
     "enrichment_records": 8,
-    "github_skill_rows": 7,
+    "github_skill_rows": 12,
     "proposed_use_case_rows": 3,
     "question_rows": 105,
     "triage_scores": 754,
@@ -5409,6 +5574,7 @@
     "q0.q102: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q103: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q104: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q105: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)"
+    "q0.q105: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
+    "github_skill row count drift: expected 7, got 12"
   ]
 }

@@ -83,7 +83,7 @@ def test_soc_capability_crosswalk_json_export_contains_expected_rows() -> None:
     assert payload["artifact"] == "soc_capability_crosswalk"
     assert payload["row_counts"]["question_rows"] == 105
     assert payload["row_counts"]["use_case_rows"] == 49
-    assert payload["row_counts"]["github_skill_rows"] == 7
+    assert payload["row_counts"]["github_skill_rows"] == 12
     assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
 
 
@@ -114,7 +114,7 @@ def test_github_intake_register_export_works() -> None:
     payload = json.loads(response.body)
 
     assert payload["artifact"] == "github_skill_intake_register"
-    assert payload["row_count"] == 7
+    assert payload["row_count"] == 12
     assert payload["records"][0]["github_skill_id"]
 
 
@@ -122,7 +122,7 @@ def test_github_intake_register_csv_export_works() -> None:
     response = export_mapping_artifact("github_intake", file_format="csv")
     rows = list(csv.DictReader(io.StringIO(response.body.decode("utf-8"))))
 
-    assert len(rows) == 7
+    assert len(rows) == 12
     assert rows[0]["github_skill_id"]
 
 
@@ -131,7 +131,7 @@ def test_github_skill_discovery_export_works() -> None:
     payload = json.loads(response.body)
 
     assert payload["artifact"] == "github_skill_discovery_index"
-    assert payload["row_counts"]["accepted_for_enrichment"] == 7
+    assert payload["row_counts"]["accepted_for_enrichment"] == 12
 
 
 def test_github_skill_triage_export_works() -> None:

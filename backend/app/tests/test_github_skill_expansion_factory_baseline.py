@@ -33,6 +33,12 @@ REQUIRED_GITHUB_SKILLS = {
     "hunting-for-anomalous-powershell-execution",
     "hunting-for-command-and-control-beaconing",
     "triaging-security-incident-with-ir-playbook",
+    # WS2 T2.4 deferred-class intake batch (2026-06-11)
+    "building-threat-intelligence-enrichment-in-splunk",
+    "automating-ioc-enrichment",
+    "performing-asset-criticality-scoring-for-vulns",
+    "configuring-windows-event-logging-for-detection",
+    "implementing-alert-fatigue-reduction",
     "analyzing-ransomware-encryption-mechanisms",
 }
 
@@ -106,8 +112,8 @@ def test_committed_discovery_artifact_schema() -> None:
     payload = json.loads(DISCOVERY_PATH.read_text(encoding="utf-8"))
     assert payload["schema_version"]
     assert payload["row_counts"]["skills"] >= 7
-    assert payload["row_counts"]["accepted_for_enrichment"] == 7
-    assert payload["row_counts"]["intake_register_records"] == 7
+    assert payload["row_counts"]["accepted_for_enrichment"] == 12
+    assert payload["row_counts"]["intake_register_records"] == 12
     skill_ids = {row["github_skill_id"] for row in payload["skills"]}
     assert REQUIRED_GITHUB_SKILLS.issubset(skill_ids)
 
@@ -123,7 +129,7 @@ def test_triage_artifact_schema_and_no_auto_accept() -> None:
         for row in payload["scores"]
         if row.get("recommended_decision") == "accept_for_enrichment_only"
     ]
-    assert len(accepted_only) == 7
+    assert len(accepted_only) == 12
 
 
 def test_proposed_use_cases_not_runtime_active() -> None:

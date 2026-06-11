@@ -81,10 +81,10 @@ def test_question_sheet_has_all_105_rows() -> None:
     assert len(sheet["rows"]) == 105
 
 
-def test_github_sheet_has_all_7_rows() -> None:
+def test_github_sheet_has_all_12_rows() -> None:
     sheet = _sheet("github_enrichment_review_sheet.json")
-    assert sheet["row_counts"]["github_skills"] == 7
-    assert len(sheet["rows"]) == 7
+    assert sheet["row_counts"]["github_skills"] == 12
+    assert len(sheet["rows"]) == 12
 
 
 def test_runtime_active_rows_satisfy_freeze_gate_2() -> None:
