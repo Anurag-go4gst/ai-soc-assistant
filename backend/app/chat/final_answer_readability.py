@@ -8,10 +8,12 @@ from typing import Any
 from app.chat.contracts.answer_contract import AnswerContract
 from app.chat.guidance_templates import scrub_blocked_context_display_phrasing
 from app.schemas.responses import AnalystResponseEnvelope
+from app.risk.severity_policy import ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
 from app.spl.draft_preview import (
     DRAFT_PREVIEW_FORBIDDEN_PHRASES,
     DRAFT_PREVIEW_STATUS_MESSAGE,
     build_draft_preview_analyst_message,
+    family_presentation,
 )
 
 _EXECUTION_LABELS = {
@@ -71,8 +73,43 @@ _DRAFT_FAMILY_LEAD_INS = {
         "SMB traffic. No governed SPL template is bound for it yet, so a draft search is "
         "provided for SOC review. It aggregates SMB sessions (ports 445/139 or "
         "smb/cifs/microsoft-ds applications) by source host — connection count, total "
-        "bytes, distinct destinations, and first/last seen. The draft is review-only and "
-        "has not been executed."
+        "bytes, distinct destinations, and first/last seen. Severity is not assigned from "
+        "this question alone. The draft is review-only and has not been executed."
+    ),
+    "esp_it_to_ot_connection": (
+        "This is an IT-to-OT firewall boundary review. A lab draft SPL uses exact zone "
+        "labels and CIDR placeholders from your ESP source profile — not fuzzy wildcards. "
+        "Validate corporate IT and OT control-center zone/CIDR mappings before review. "
+        "The draft is not governed, not catalog-approved, and has not been executed."
+    ),
+    "vpn_new_country_login": (
+        "This is a VPN anomaly hunt for first-seen country logins per user. The draft "
+        "uses eventstats for first-seen timing and requires VPN index/sourcetype and "
+        "country-field mapping from your source profile. Lab-only — not executed."
+    ),
+    "auth_success_after_failure": (
+        "This correlates repeated authentication failures followed by a later success for "
+        "the same user. Validate auth index/sourcetype from your source profile and tune "
+        "the failure threshold during review. Lab draft only — not executed; do not "
+        "claim compromise without corroborating evidence."
+    ),
+    "auth_failed_login_threshold": (
+        "This ranks source/user pairs by failed-login volume over 24 hours. Thresholds "
+        "are illustrative — tune per environment. Lab draft only — not executed."
+    ),
+    "dns_beaconing_hunt": (
+        "This surfaces high-volume or unusually long DNS queries as beaconing candidates. "
+        "Validate DNS index/sourcetype and domain reputation before escalation. Lab draft "
+        "only — not executed; do not claim C2 without timing and egress corroboration."
+    ),
+    "endpoint_powershell_suspicious": (
+        "This hunts encoded/download/IEX PowerShell and suspicious Office/script parents. "
+        "Map endpoint index/sourcetype and command-line fields during source-profile "
+        "review. Lab draft only — not executed."
+    ),
+    "windows_identity_privileged_activity": (
+        "This hunts privileged logon and account-change events (4672, 4722, 4725, 4738, "
+        "4648). Lab draft only — not executed."
     ),
 }
 _DRAFT_GENERIC_LEAD_IN = (
@@ -86,6 +123,29 @@ def _draft_preview_lead_in(spl_draft_preview: Any) -> str:
     preview = spl_draft_preview if isinstance(spl_draft_preview, dict) else {}
     family = str(preview.get("detection_family") or "")
     return _DRAFT_FAMILY_LEAD_INS.get(family, _DRAFT_GENERIC_LEAD_IN)
+
+
+def _draft_preview_presentation(spl_draft_preview: Any) -> dict[str, str]:
+    preview = spl_draft_preview if isinstance(spl_draft_preview, dict) else {}
+    family = str(preview.get("detection_family") or "")
+    if preview.get("family_title"):
+        return {
+            "title": str(preview.get("family_title") or ""),
+            "review_type": str(preview.get("review_type") or "lab_draft"),
+            "review_type_display": str(
+                preview.get("review_type_display") or "Lab draft preview — not governed, not executed"
+            ),
+        }
+    return family_presentation(family)
+
+
+def _apply_analytics_draft_severity_guard(payload: dict[str, Any], presentation: dict[str, str]) -> None:
+    """Analytics draft families must not surface P2/P3 severity from the question alone."""
+    if presentation.get("review_type") != "analytics_review":
+        return
+    payload["severity_label"] = ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
+    payload["severity_confidence"] = None
+    payload["severity_rationale"] = None
 
 
 def apply_draft_preview_readability(envelope: AnalystResponseEnvelope) -> AnalystResponseEnvelope:
@@ -102,24 +162,30 @@ def apply_draft_preview_readability(envelope: AnalystResponseEnvelope) -> Analys
     payload["spl_status"] = "review_required"
     payload["hil_status"] = "required"
     draft_preview = payload.get("spl_draft_preview") if isinstance(payload.get("spl_draft_preview"), dict) else {}
+    presentation = _draft_preview_presentation(draft_preview)
+    payload["finding_title"] = presentation["title"]
     payload["spl_status_detail"] = {
         "template_status": "unavailable",
         "generation_status": "draft_preview",
         "generation": "draft_preview_lab",
         "review_required": True,
+        "review_type": presentation["review_type"],
+        "review_type_display": presentation["review_type_display"],
         "block_reason": "governed_spl_not_ready",
         "reason": "draft_preview_lab",
-        "reason_display": "Draft preview — HIL/SOC review required.",
+        "reason_display": presentation["review_type_display"],
         "required_log_fields": list(draft_preview.get("required_log_fields") or []),
         "required_source_profile_fields": list(
             draft_preview.get("required_source_profile_fields") or []
         ),
         "required_fields": list(draft_preview.get("required_log_fields") or []),
+        "source_profile_missing": bool(draft_preview.get("source_profile_missing")),
     }
     payload["direct_answer_summary"] = _draft_preview_lead_in(payload.get("spl_draft_preview"))
     payload["analyst_checklist"] = list(draft_preview.get("investigation_checklist") or [])
     payload = _scrub_draft_preview_contradictions(payload)
     payload["one_sentence_finding"] = None
+    _apply_analytics_draft_severity_guard(payload, presentation)
     return AnalystResponseEnvelope.model_validate(payload)
 
 
@@ -158,24 +224,30 @@ def apply_final_answer_readability(
             payload["section_order"] = ["draft_spl_preview", *list(payload["section_order"])]
         payload["spl_status"] = "review_required"
         draft_preview = payload.get("spl_draft_preview") if isinstance(payload.get("spl_draft_preview"), dict) else {}
+        presentation = _draft_preview_presentation(draft_preview)
+        payload["finding_title"] = presentation["title"]
         payload["spl_status_detail"] = {
             "template_status": "unavailable",
             "generation_status": "draft_preview",
             "generation": "draft_preview_lab",
             "review_required": True,
+            "review_type": presentation["review_type"],
+            "review_type_display": presentation["review_type_display"],
             "block_reason": "governed_spl_not_ready",
             "reason": "draft_preview_lab",
-            "reason_display": "Draft preview — HIL/SOC review required.",
+            "reason_display": presentation["review_type_display"],
             "required_log_fields": list(draft_preview.get("required_log_fields") or []),
             "required_source_profile_fields": list(
                 draft_preview.get("required_source_profile_fields") or []
             ),
             "required_fields": list(draft_preview.get("required_log_fields") or []),
+            "source_profile_missing": bool(draft_preview.get("source_profile_missing")),
         }
         payload["hil_status"] = "required"
         payload["analyst_checklist"] = list(draft_preview.get("investigation_checklist") or [])
         payload["direct_answer_summary"] = None
         payload = _scrub_draft_preview_contradictions(payload)
+        _apply_analytics_draft_severity_guard(payload, presentation)
     payload["direct_answer_summary"] = _direct_answer_summary(envelope, contract)
     payload = _apply_knowledge_profile_cleanup(payload, contract)
     payload = _dedupe_labels(payload, contract)

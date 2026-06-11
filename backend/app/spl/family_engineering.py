@@ -23,6 +23,10 @@ U3. Stats inclusion rule
   (a) in the by clause, or (b) preserved via values(), latest(), earliest(), count(), dc(), list(), etc.
 - Especially preserve: src_zone, dest_zone, rule, app, caller_host, command_line, parent_image, child_image,
   target_user, added_user, group_name (or their *_norm aliases).
+
+U4. Null-safe byte totals
+- Prefer: coalesce(bytes, coalesce(bytes_out,0)+coalesce(bytes_in,0), 0)
+- Never use bare bytes_out + bytes_in when either operand may be null.
 """.strip()
 
 FAMILY_ENGINEERING_BLOCKS: dict[str, str] = {
