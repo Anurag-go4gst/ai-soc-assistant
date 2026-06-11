@@ -22,6 +22,7 @@ from app.spl.draft_preview import (
     DRAFT_STATUS,
     DRAFT_WARNING,
     build_draft_preview,
+    family_presentation,
     match_detection_family,
 )
 from app.spl.draft_preview_lint import (
@@ -58,6 +59,17 @@ ESP_QUERY = (
 HMI_QUERY = (
     "Find any IP address that has failed to log into our substation OS or HMI portals more than "
     "10 times within a 5-minute window."
+)
+SMB_TOP_HOSTS_QUERY = "Which hosts are generating the most SMB traffic?"
+VPN_NEW_COUNTRY_QUERY = (
+    "Draft a Splunk search to find VPN logins from countries not seen before for the same user."
+)
+AUTH_SUCCESS_AFTER_FAIL_QUERY = (
+    "Look for successful VPN logins after repeated failures for the same user."
+)
+DNS_BEACONING_QUERY = "Find DNS queries that may indicate beaconing or C2 activity."
+POWERSHELL_QUERY = (
+    "Search endpoint logs for suspicious PowerShell with encoded commands or download cradles."
 )
 
 
@@ -499,3 +511,84 @@ def test_draft_eval_report_is_generated(tmp_path: Path, monkeypatch: pytest.Monk
     assert json_path.exists()
     assert md_path.exists()
     assert result.passed_rows == result.total_rows
+
+
+def test_smb_top_talkers_uses_fielded_base_search_not_unfielded_wildcards(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    preview = _preview(monkeypatch, SMB_TOP_HOSTS_QUERY, "network_smb_top_talkers")
+    spl = preview["draft_spl"]
+    assert "*smb*" not in spl
+    assert "*cifs*" not in spl
+    assert "dest_port=445" in spl
+    assert preview["family_title"] == "SMB top talkers — network analytics"
+    assert preview["review_type"] == "analytics_review"
+
+
+def test_bytes_total_uses_null_safe_coalesce(monkeypatch: pytest.MonkeyPatch) -> None:
+    preview = _preview(monkeypatch, SMB_TOP_HOSTS_QUERY, "network_smb_top_talkers")
+    assert "coalesce(bytes_out,0)+coalesce(bytes_in,0)" in preview["draft_spl"]
+    assert "bytes_out + bytes_in" not in preview["draft_spl"]
+
+
+def test_esp_it_to_ot_draft_uses_exact_zone_cidr_placeholders(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    preview = _preview(monkeypatch, ESP_QUERY, "esp_it_to_ot_connection")
+    spl = preview["draft_spl"]
+    assert "<corporate_it_zone>" in spl
+    assert "<ot_control_center_zone>" in spl
+    assert 'cidrmatch("<corporate_it_cidr>"' in spl
+    assert "*ot*" not in spl.lower()
+
+
+def test_vpn_new_country_draft_is_lab_only_with_source_profile_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    preview = _preview(monkeypatch, VPN_NEW_COUNTRY_QUERY, "vpn_new_country_login")
+    assert preview["review_type"] == "investigation_review"
+    assert "vpn_index" in preview["required_source_profile_fields"]
+    assert preview["draft_status"] == DRAFT_STATUS
+    assert "not executed" in " ".join(preview["assumptions"]).lower()
+
+
+@pytest.mark.parametrize(
+    ("query", "family_id"),
+    [
+        (AUTH_SUCCESS_AFTER_FAIL_QUERY, "auth_success_after_failure"),
+        (DNS_BEACONING_QUERY, "dns_beaconing_hunt"),
+        (POWERSHELL_QUERY, "endpoint_powershell_suspicious"),
+    ],
+)
+def test_investigation_draft_families_remain_review_only_not_executed(
+    monkeypatch: pytest.MonkeyPatch,
+    query: str,
+    family_id: str,
+) -> None:
+    preview = _preview(monkeypatch, query, family_id)
+    assert preview["draft_status"] == DRAFT_STATUS
+    presentation = family_presentation(family_id)
+    assert presentation["review_type"] == "investigation_review"
+    assert "not executed" in presentation["review_type_display"].lower()
+
+
+def test_draft_preview_never_marks_execution_eligible(monkeypatch: pytest.MonkeyPatch) -> None:
+    preview = _preview(monkeypatch, SMB_TOP_HOSTS_QUERY)
+    assert preview.get("execution_eligible") is not True
+    assert preview["draft_status"] == DRAFT_STATUS
+    for phrase in DRAFT_PREVIEW_FORBIDDEN_PHRASES:
+        assert phrase.lower() not in preview["draft_spl"].lower()
+
+
+def test_candidate_spl_still_requires_validator_approval(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    candidate, validation = chat_pipeline._candidate_spl_stage(
+        trace_id="t",
+        skill="spl_generation",
+        user_query=SMB_TOP_HOSTS_QUERY,
+        template_id=None,
+        use_case_id="network_smb_top_talkers",
+    )
+    assert candidate is not None
+    assert validation is not None
+    assert validation["approved"] is False or candidate.get("candidate_spl") == ""

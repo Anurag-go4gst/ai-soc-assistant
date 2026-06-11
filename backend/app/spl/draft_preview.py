@@ -56,6 +56,68 @@ DRAFT_PREVIEW_FORBIDDEN_PHRASES: tuple[str, ...] = (
 DRAFT_STATUS = "draft_preview_not_governed"
 DRAFT_SOURCE = "deterministic_pattern"
 
+# Null-safe byte total used in analytics drafts (avoids null()+number null arithmetic).
+_BYTES_TOTAL_EXPR = "coalesce(bytes, coalesce(bytes_out,0)+coalesce(bytes_in,0), 0)"
+
+# Analyst-facing labels for common draft families (presentation only; no authority change).
+FAMILY_PRESENTATION: dict[str, dict[str, str]] = {
+    "network_smb_top_talkers": {
+        "title": "SMB top talkers — network analytics",
+        "review_type": "analytics_review",
+        "review_type_display": "Analytics review — lab draft SPL, not executed",
+    },
+    "esp_it_to_ot_connection": {
+        "title": "IT-to-OT firewall boundary review",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, source profile required, not executed",
+    },
+    "vpn_new_country_login": {
+        "title": "VPN login from unseen country",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, VPN source profile required, not executed",
+    },
+    "auth_success_after_failure": {
+        "title": "Success-after-failure authentication correlation",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, auth source profile required, not executed",
+    },
+    "auth_failed_login_threshold": {
+        "title": "Failed-login threshold hunt",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, not executed",
+    },
+    "dns_beaconing_hunt": {
+        "title": "DNS beaconing / high-volume query hunt",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, DNS source profile required, not executed",
+    },
+    "endpoint_powershell_suspicious": {
+        "title": "Suspicious PowerShell activity hunt",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, endpoint source profile required, not executed",
+    },
+    "windows_identity_privileged_activity": {
+        "title": "Privileged identity activity hunt",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, not executed",
+    },
+    "windows_privileged_group_changes": {
+        "title": "Privileged group membership changes",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, not executed",
+    },
+}
+
+
+def family_presentation(family_id: str) -> dict[str, str]:
+    """Return analyst-facing title/review labels for a detection family."""
+    default = {
+        "title": family_id.replace("_", " ").replace("-", " ").title(),
+        "review_type": "lab_draft",
+        "review_type_display": "Lab draft preview — not governed, not executed",
+    }
+    return {**default, **FAMILY_PRESENTATION.get(family_id, {})}
+
 
 @dataclass(frozen=True)
 class DetectionFamily:
@@ -516,15 +578,15 @@ search index=<ot_firewall_index> sourcetype=<ot_firewall_sourcetype> earliest=-2
             r"generating\s+the\s+most",
             r"most\s+smb\s+traffic",
         ),
-        draft_spl="""
-search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now (dest_port=445 OR dest_port=139 OR *smb* OR *cifs* OR *microsoft-ds*)
+        draft_spl=f"""
+search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now (dest_port=445 OR dest_port=139 OR app=smb OR app=cifs OR app="microsoft-ds" OR service=smb OR service=cifs OR service="microsoft-ds")
 | eval src_host_norm=lower(coalesce(src_host, src_nt_host, hostname, src, src_ip, "unknown"))
 | eval src_ip_norm=coalesce(src_ip, src, source, "")
 | eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
 | eval dest_port_norm=coalesce(dest_port, destination_port, dport, "")
 | eval app_norm=lower(coalesce(app, application, service, svc, protocol, proto, ""))
 | eval action_norm=lower(coalesce(action, status, result, disposition, ""))
-| eval bytes_total=coalesce(bytes, bytes_out + bytes_in, bytes_out, bytes_in, 0)
+| eval bytes_total={_BYTES_TOTAL_EXPR}
 | where dest_port_norm IN ("445", "139")
     OR like(app_norm, "%smb%")
     OR like(app_norm, "%cifs%")
@@ -549,7 +611,7 @@ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-2
         assumptions=(
             "Top-SMB-talkers analytics draft ranks source hosts by SMB session volume; it is not an incident detection.",
             "SMB indicator is dest_port 445/139 OR app/protocol/service containing smb, cifs, or microsoft-ds.",
-            "bytes_total prefers a combined bytes field, then bytes_out + bytes_in; vendors that omit byte counts return 0 — validate during source-profile review.",
+            "bytes_total uses null-safe coalesce(bytes, coalesce(bytes_out,0)+coalesce(bytes_in,0), 0) — vendors that omit byte counts return 0; validate during source-profile review.",
             "No action filter is applied: allowed and denied sessions are both counted; add action filters during SOC review if needed.",
             "Replace <network_index> and <network_traffic_sourcetype> from your network/firewall traffic source profile.",
             "This draft is lab-only; not governed, not approved, and not executed.",
@@ -876,7 +938,7 @@ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-2
 | eval src_ip_norm=coalesce(src_ip, src, source, "")
 | eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
 | eval dest_port_norm=coalesce(dest_port, destination_port, dport, "")
-| eval bytes_total=coalesce(bytes, bytes_out + bytes_in, bytes_out, bytes_in, 0)
+| eval bytes_total={_BYTES_TOTAL_EXPR}
 | stats
     count as connection_count
     sum(bytes_total) as total_bytes
@@ -894,7 +956,7 @@ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-2
 """,
         assumptions=(
             "Generic top-talkers analytics draft ranks sources by connection count and byte volume; it is not an incident detection.",
-            "bytes_total prefers a combined bytes field, then bytes_out + bytes_in; vendors that omit byte counts return 0.",
+            "bytes_total uses null-safe coalesce(bytes, coalesce(bytes_out,0)+coalesce(bytes_in,0), 0).",
             "Swap the sort key to total_bytes when volume matters more than session count.",
             "Replace <network_index> and <network_traffic_sourcetype> from your network traffic source profile.",
             "This draft is lab-only; not governed, not approved, and not executed.",
@@ -1094,7 +1156,7 @@ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-2
 | eval src_host_norm=lower(coalesce(src_host, src_nt_host, hostname, src, src_ip, "unknown"))
 | eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
 | eval dest_port_norm=coalesce(dest_port, destination_port, dport, "")
-| eval bytes_total=coalesce(bytes, bytes_out + bytes_in, bytes_out, bytes_in, 0)
+| eval bytes_total={_BYTES_TOTAL_EXPR}
 | stats
     count as connection_count
     sum(bytes_total) as total_bytes
@@ -1764,12 +1826,16 @@ def build_draft_preview(
     quality_payload = quality.to_dict()
     validation = validate_spl(draft_spl)
     validator_status = "approved" if validation.get("approved") else "blocked"
+    presentation = family_presentation(family.family_id)
     return {
         "draft_spl": draft_spl,
         "draft_status": DRAFT_STATUS,
         "draft_source": DRAFT_SOURCE,
         "quality_standard": STANDARD_ID,
         "detection_family": family.family_id,
+        "family_title": presentation["title"],
+        "review_type": presentation["review_type"],
+        "review_type_display": presentation["review_type_display"],
         "assumptions": list(family.assumptions),
         "required_log_fields": list(family.required_log_fields),
         "required_source_profile_fields": list(family.required_source_profile_fields),
