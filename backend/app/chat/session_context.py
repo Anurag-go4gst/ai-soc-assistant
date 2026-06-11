@@ -34,7 +34,20 @@ _FOLLOW_UP_SPL_REFINE = (
 _FOLLOW_UP_SAME_ALERT = ("same alert", "that alert", "for that alert")
 _FOLLOW_UP_SHOW_EVIDENCE = ("show evidence", "show the evidence", "previous evidence")
 _FOLLOW_UP_SEVERITY = ("what is the severity", "what's the severity", "severity?", "show severity")
-_FOLLOW_UP_SUMMARY = ("analyst summary", "give analyst summary", "give me a summary", "summarize")
+# Bare "summarize" is NOT a follow-up marker: queries that carry their own
+# subject ("summarize yesterday's helpdesk tickets") are standalone asks and
+# must not HIL-block on missing session context (oos.near_miss.02 defect).
+_FOLLOW_UP_SUMMARY = (
+    "analyst summary",
+    "give analyst summary",
+    "give me a summary",
+    "summarize it",
+    "summarize this",
+    "summarize that",
+    "summarize the alert",
+    "summarize the investigation",
+    "summarize above",
+)
 
 
 class SessionContextStatus(BaseModel):
