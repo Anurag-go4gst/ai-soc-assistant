@@ -114,6 +114,7 @@ export function AnalystResponseCard({
   const playbookVersion =
     typeof response.retrieved_playbook?.version === 'string' ? (response.retrieved_playbook.version as string) : null;
   const tableRows = response.splunk_results_table?.length ?? 0;
+  const initialAssessment = response.initial_assessment?.filter(Boolean) ?? [];
 
   // Phases are built from the fields that are actually present, so the same
   // timeline renders the full Experience Center fixture and the partial live
@@ -424,7 +425,12 @@ export function AnalystResponseCard({
         <p className="mt-2 text-sm leading-6 text-slate-200">{response.severity_safety_note}</p>
       ) : null}
 
-      {showSummaryInHeader && summaryText ? (
+      {initialAssessment.length ? (
+        <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
+          <SectionTitle>Initial assessment</SectionTitle>
+          <BulletList items={initialAssessment} />
+        </div>
+      ) : showSummaryInHeader && summaryText ? (
         <div className="mt-2 space-y-2">
           {splitParagraphs(summaryText).map((paragraph) => (
             <p key={paragraph} className="leading-6 text-slate-200">
@@ -870,7 +876,7 @@ function normalizePriorityAction(item: string): { priority: string; text: string
   if (glued) {
     cleaned = `${glued[1]} — ${cleaned.slice(glued[1].length).replace(/^[\s-—]+/, '')}`;
   }
-  const matched = cleaned.match(/^(P[1-4])\s*[—-]\s*(.*)$/);
+  const matched = cleaned.match(/^(P[1-4])\s*[:—-]\s*(.*)$/);
   if (matched) {
     return { priority: matched[1], text: humanizeStep(matched[2]) };
   }

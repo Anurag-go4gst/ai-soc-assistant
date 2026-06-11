@@ -24,6 +24,61 @@ export function ExperienceCenterGovernancePanels({
       {!sections?.includes('mcp') ? (
         <p className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-slate-500">Governance panels</p>
       ) : null}
+      {!sections && governance.resource_planner ? (
+        <GovernanceDetails title="Resource Planner" testId="ec-resource-planner-panel">
+          <ObjectPanel panel={governance.resource_planner} />
+        </GovernanceDetails>
+      ) : null}
+      {!sections && governance.spl_validation_panel ? (
+        <GovernanceDetails title="SPL validation" testId="ec-spl-validation-panel">
+          <ObjectPanel panel={governance.spl_validation_panel} />
+        </GovernanceDetails>
+      ) : null}
+      {!sections && governance.mcp_tool_selection ? (
+        <GovernanceDetails title="MCP tool selection" testId="ec-mcp-tool-selection-panel">
+          <ObjectPanel panel={governance.mcp_tool_selection} />
+        </GovernanceDetails>
+      ) : null}
+      {!sections && governance.mcp_fixture_result ? (
+        <GovernanceDetails title="MCP search result" testId="ec-mcp-fixture-result-panel">
+          <ObjectPanel panel={governance.mcp_fixture_result} />
+        </GovernanceDetails>
+      ) : null}
+      {!sections && governance.source_evidence_panel ? (
+        <GovernanceDetails title="SourceEvidence package" testId="ec-source-evidence-panel">
+          <ObjectPanel panel={governance.source_evidence_panel} />
+        </GovernanceDetails>
+      ) : null}
+      {!sections && governance.soc_kb_panel ? (
+        <GovernanceDetails title="Governed SOC-KB" testId="ec-soc-kb-panel">
+          <ObjectPanel panel={governance.soc_kb_panel} />
+        </GovernanceDetails>
+      ) : null}
+      {!sections && governance.mitre_panel ? (
+        <GovernanceDetails title="MITRE treatment" testId="ec-mitre-panel">
+          <ObjectPanel panel={governance.mitre_panel} />
+        </GovernanceDetails>
+      ) : null}
+      {!sections && governance.answer_contract_panel ? (
+        <GovernanceDetails title="Answer contract" testId="ec-answer-contract-panel">
+          <ObjectPanel panel={governance.answer_contract_panel} />
+        </GovernanceDetails>
+      ) : null}
+      {!sections && governance.model_signal_panel ? (
+        <GovernanceDetails title="Model signal" testId="ec-model-signal-panel">
+          <ObjectPanel panel={governance.model_signal_panel} />
+        </GovernanceDetails>
+      ) : null}
+      {!sections && governance.answer_scorecard_panel ? (
+        <GovernanceDetails title="Answer scorecard" testId="ec-answer-scorecard-panel">
+          <ObjectPanel panel={governance.answer_scorecard_panel} />
+        </GovernanceDetails>
+      ) : null}
+      {!sections && governance.narration_visibility_panel ? (
+        <GovernanceDetails title="Narration visibility" testId="ec-narration-visibility-panel">
+          <ObjectPanel panel={governance.narration_visibility_panel} />
+        </GovernanceDetails>
+      ) : null}
       {show('mcp') && governance.mcp_envelope?.available ? (
         <GovernanceDetails title="MCP response / envelope" testId="ec-mcp-envelope-panel">
           <EnvelopeGrid panel={governance.mcp_envelope} />
@@ -184,6 +239,52 @@ function KeyRow({ label, value, mono }: { label: string; value: string; mono?: b
       <p className={cn('mt-0.5 break-all text-slate-100', mono && 'font-mono text-[0.7rem]')}>{value}</p>
     </div>
   );
+}
+
+function ObjectPanel({ panel }: { panel: Record<string, unknown> }) {
+  return (
+    <div className="space-y-2">
+      {Object.entries(panel).map(([key, value]) => (
+        <ValueBlock key={key} label={key} value={value} />
+      ))}
+    </div>
+  );
+}
+
+function ValueBlock({ label, value }: { label: string; value: unknown }) {
+  if (Array.isArray(value)) {
+    if (value.every((item) => typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean')) {
+      return (
+        <div>
+          <p className="mb-1 font-mono text-[0.62rem] uppercase text-slate-500">{label}</p>
+          <BulletList items={value.map((item) => String(item))} />
+        </div>
+      );
+    }
+    return (
+      <div>
+        <p className="mb-1 font-mono text-[0.62rem] uppercase text-slate-500">{label}</p>
+        <div className="space-y-1.5">
+          {value.map((item, index) => (
+            <pre key={`${label}-${index}`} className="overflow-x-auto rounded border border-slate-800 bg-slate-950 p-2 font-mono text-[0.68rem] leading-5 text-slate-200">
+              {JSON.stringify(item, null, 2)}
+            </pre>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (value && typeof value === 'object') {
+    return (
+      <div>
+        <p className="mb-1 font-mono text-[0.62rem] uppercase text-slate-500">{label}</p>
+        <pre className="overflow-x-auto rounded border border-slate-800 bg-slate-950 p-2 font-mono text-[0.68rem] leading-5 text-slate-200">
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      </div>
+    );
+  }
+  return <KeyRow label={label} value={value == null ? '—' : String(value)} mono={typeof value === 'string' && value.length > 80} />;
 }
 
 function BulletList({ items, tone = 'default' }: { items: string[]; tone?: 'default' | 'success' | 'warning' }) {

@@ -191,6 +191,18 @@ export interface ExperienceCenterGovernance {
   severity?: SeverityGovernancePanel | null;
   skills_operations: SkillsOperationsGovernancePanel;
   completion_status: CompletionStatusGovernancePanel;
+  resource_planner?: Record<string, unknown> | null;
+  spl_validation_panel?: Record<string, unknown> | null;
+  mcp_tool_selection?: Record<string, unknown> | null;
+  mcp_fixture_result?: Record<string, unknown> | null;
+  source_evidence_panel?: Record<string, unknown> | null;
+  soc_kb_panel?: Record<string, unknown> | null;
+  mitre_panel?: Record<string, unknown> | null;
+  answer_contract_panel?: Record<string, unknown> | null;
+  model_signal_panel?: Record<string, unknown> | null;
+  answer_scorecard_panel?: Record<string, unknown> | null;
+  narration_visibility_panel?: Record<string, unknown> | null;
+  progress_labels?: string[];
 }
 
 export type RequestedOutputType =
@@ -410,6 +422,7 @@ export interface AnalystResponseEnvelope {
   severity_safety_note?: string | null;
   finding_title?: string | null;
   one_sentence_finding?: string | null;
+  initial_assessment?: string[];
   status_badge?: string | null;
   splunk_status_line?: string | null;
   splunk_results_table?: Record<string, unknown>[];

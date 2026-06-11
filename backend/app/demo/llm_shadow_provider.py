@@ -1,4 +1,4 @@
-"""Stage 3M-S4: Demo-only Foundation-Sec / HF shadow proposals (lineage only)."""
+"""Experience Center Foundation-Sec advisory model signal (lineage only)."""
 
 from __future__ import annotations
 

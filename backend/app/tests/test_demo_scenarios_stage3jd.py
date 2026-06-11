@@ -139,7 +139,7 @@ def test_visible_failed_login_response_is_analyst_facing() -> None:
     assert "Distinct users by source" in visible
     assert "Supported" in visible
     assert "Confirmed" not in visible
-    assert all(action.startswith(("P1 - ", "P2 - ", "P3 - ", "P4 - ")) for action in response.analyst_response.recommended_actions)
+    assert all(action.startswith(("P1: ", "P2: ", "P3: ", "P4: ")) for action in response.analyst_response.recommended_actions)
     assert response.analyst_response.evidence_summary is not None
     assert "42 + 31 + 28" in response.analyst_response.evidence_summary
     playbook = response.analyst_response.retrieved_playbook
@@ -293,7 +293,7 @@ def test_stage3jj_failed_login_answer_uses_governed_foundation_sec_posture() -> 
     assert "no privileged accounts targeted" not in visible.lower()
     assert "APP-01 is critical" not in visible
     assert any(row.get("Distinct users by source") == 7 for row in answer.splunk_results_table)
-    assert all(action.startswith(("P1 - ", "P2 - ", "P3 - ", "P4 - ")) for action in answer.recommended_actions)
+    assert all(action.startswith(("P1: ", "P2: ", "P3: ", "P4: ")) for action in answer.recommended_actions)
 
 
 def test_stage3jj_spl_answers_are_template_generated_and_not_execution_eligible() -> None:
@@ -366,7 +366,7 @@ def test_stage3jj3_failed_login_governance_records_guarded_corrections() -> None
     response = _run("failed_login_spike_app01")
     text = _main_answer_text(response)
 
-    assert "Foundation-sec identified" in text
+    assert "Foundation-sec model signal" in text
     assert "password-guessing" in text
     assert "T1110.001" in text
     assert "Global distinct-user count is not claimed" in text
