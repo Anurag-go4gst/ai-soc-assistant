@@ -4,13 +4,15 @@
     "pg.auth.001": {
       "analyst_enabled_sections": [
         "analyst_action_guidance",
+        "evidence_checklist",
         "investigation_guidance",
         "limitations",
         "mitre_mapping",
         "not_claimed",
         "procedural_steps",
         "severity_assessment",
-        "spl_artifact"
+        "spl_artifact",
+        "triage_checklist"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
@@ -19,13 +21,15 @@
       "draft_status": null,
       "enabled_sections": [
         "analyst_action_guidance",
+        "evidence_checklist",
         "investigation_guidance",
         "limitations",
         "mitre_mapping",
         "not_claimed",
         "procedural_steps",
         "severity_assessment",
-        "spl_artifact"
+        "spl_artifact",
+        "triage_checklist"
       ],
       "execution_eligible": false,
       "execution_status": "skipped",
@@ -413,9 +417,11 @@
       "analyst_enabled_sections": [
         "analyst_action_guidance",
         "draft_spl_preview",
+        "evidence_checklist",
         "investigation_guidance",
         "limitations",
-        "procedural_steps"
+        "procedural_steps",
+        "triage_checklist"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
@@ -424,9 +430,11 @@
       "draft_status": "draft_preview_not_governed",
       "enabled_sections": [
         "analyst_action_guidance",
+        "evidence_checklist",
         "investigation_guidance",
         "limitations",
-        "procedural_steps"
+        "procedural_steps",
+        "triage_checklist"
       ],
       "execution_eligible": false,
       "execution_status": "skipped",
@@ -473,11 +481,13 @@
     "q0.q060": {
       "analyst_enabled_sections": [
         "analyst_action_guidance",
+        "evidence_checklist",
         "investigation_guidance",
         "limitations",
         "procedural_steps",
         "severity_assessment",
-        "spl_artifact"
+        "spl_artifact",
+        "triage_checklist"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
@@ -486,11 +496,13 @@
       "draft_status": null,
       "enabled_sections": [
         "analyst_action_guidance",
+        "evidence_checklist",
         "investigation_guidance",
         "limitations",
         "procedural_steps",
         "severity_assessment",
-        "spl_artifact"
+        "spl_artifact",
+        "triage_checklist"
       ],
       "execution_eligible": false,
       "execution_status": "skipped",

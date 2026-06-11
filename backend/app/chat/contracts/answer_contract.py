@@ -269,6 +269,11 @@ def build_answer_contract(
 
     if out_of_catalog_notice:
         render["out_of_catalog_notice"] = True
+    # WS2 T2.3 — skill-derived sections, content-driven (never goal-promised):
+    # triage checklist from curated enrichment, evidence checklist from the
+    # deterministic evidence requirements.
+    render["triage_checklist"] = bool(checklist)
+    render["evidence_checklist"] = bool(required_evidence)
 
     return AnswerContract(
         answer_goal=goals,
