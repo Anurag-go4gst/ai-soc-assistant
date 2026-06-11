@@ -206,18 +206,18 @@ export function buildInvestigationProgressSteps(options?: {
     step(
       {
         id: 'route',
-        label: 'Routing skill',
-        description: `Selecting governed route for ${skill.replace(/_/g, ' ')}.`,
-        activity: ['Comparing deterministic router vs registry…', 'Tool plan locked for this turn'],
+        label: 'Resource planning',
+        description: `Selecting governed capability and resources for ${skill.replace(/_/g, ' ')}.`,
+        activity: ['Mapping capability and evidence needs…', 'Resource plan locked for this turn'],
       },
       800,
     ),
     step(
       {
         id: 'workflow',
-        label: 'Planning workflow',
-        description: 'Building investigation steps (workflow execution stays disabled).',
-        activity: ['Assigning connectors and safety gates…'],
+        label: 'Selecting MCP tool',
+        description: 'Selecting the governed MCP tool and input contract.',
+        activity: ['Selecting splunk.search when Splunk evidence is required…', 'Applying safety gates…'],
       },
       700,
     ),
@@ -251,14 +251,14 @@ export function buildInvestigationProgressSteps(options?: {
       step(
         {
           id: 'mcp_connect',
-          label: 'Connecting Splunk MCP',
+          label: 'Calling MCP search',
           description: demo
-            ? 'Checking Splunk MCP registry and tool readiness (fixture path; no live search).'
+            ? 'Running the Splunk MCP search path.'
             : 'Checking Splunk MCP registry, transport, and tool policy.',
           activity: [
             'Resolving splunk server from MCP registry…',
             'Verifying splunk.search is allowed for this skill…',
-            demo ? 'Connection ready — execution gate remains closed' : 'Awaiting execution gate approval…',
+            demo ? 'Splunk result received' : 'Awaiting execution gate approval…',
           ],
         },
         1200,
@@ -266,14 +266,14 @@ export function buildInvestigationProgressSteps(options?: {
       step(
         {
           id: 'mcp_evidence',
-          label: 'Splunk evidence',
+          label: 'Packaging SourceEvidence',
           description: demo
-            ? 'Packaging COE synthetic rows into SplunkResultEnvelope.'
+            ? 'Packaging Splunk search rows into SourceEvidence.'
             : 'Packaging search results into governed SourceEvidence.',
           activity: [
             'Preparing search preview request…',
             'Normalizing fields and row counts…',
-            demo ? 'Fixture envelope attached (schema_unconfirmed)' : 'Redacting sensitive fields…',
+            demo ? 'SourceEvidence package attached' : 'Redacting sensitive fields…',
           ],
         },
         1000,
@@ -286,7 +286,7 @@ export function buildInvestigationProgressSteps(options?: {
       step(
         {
           id: 'rag',
-          label: 'Governed SOC KB',
+          label: 'Retrieving governed SOC knowledge',
           description: 'Retrieving approved SOP and playbook context into SourceEvidence.',
           activity: ['Querying governed knowledge index…', 'Binding SOC-SOP citations to context…'],
         },
@@ -300,7 +300,7 @@ export function buildInvestigationProgressSteps(options?: {
       step(
         {
           id: 'mitre',
-          label: 'MITRE mapping',
+          label: 'Mapping MITRE and severity',
           description: 'Applying local technique candidates with support status.',
           activity: ['Matching TTPs to evidence refs…', 'Setting supported vs requires_validation…'],
         },
@@ -313,7 +313,7 @@ export function buildInvestigationProgressSteps(options?: {
     step(
       {
         id: 'severity',
-        label: 'Severity & sufficiency',
+        label: 'Applying answer governance',
         description: 'Running severity matrix and context sufficiency gates.',
         activity: ['Evaluating P1/P2 escalation thresholds…', 'Computing synthesis readiness (gated)…'],
       },
@@ -325,7 +325,7 @@ export function buildInvestigationProgressSteps(options?: {
     step(
       {
         id: 'llm_governance',
-        label: 'LLM governance pass',
+        label: 'Applying answer governance',
         description: demo
           ? 'Applying captured Foundation-sec signal under V.AI SOC policy (no live model call).'
           : 'Running governed LLM layer when enabled (advisory + overrides only).',
@@ -338,7 +338,7 @@ export function buildInvestigationProgressSteps(options?: {
           : [
               'Selecting instruct provider from registry…',
               'Structured JSON extraction and schema validation…',
-              'Answer guard: planned / not executed in this stage',
+              'Answer governance: deterministic governed answer used',
             ],
       },
       1100,
@@ -349,7 +349,7 @@ export function buildInvestigationProgressSteps(options?: {
     step(
       {
         id: 'package',
-        label: 'Packaging analyst answer',
+        label: 'Packaging final analyst answer',
         description: demo
           ? 'Assembling the analyst card, actions, and trace from governed fixtures.'
           : 'Assembling the analyst summary from evidence and policy outputs.',

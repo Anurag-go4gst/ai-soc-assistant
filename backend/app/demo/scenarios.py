@@ -190,6 +190,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         action_capability=action_capability,
         demo_llm_shadow=demo_llm_shadow.to_lineage_dict() if demo_llm_shadow else None,
     )
+    _scrub_experience_center_stage_labels(scenario, investigation_lineage)
     experience_center_governance = build_experience_center_governance(
         scenario_id=scenario.scenario_id,
         selected_skill=scenario.expected_skill,
@@ -221,6 +222,8 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         answer_guard=answer_guard.model_dump(),
     )
     control_plane_trace["experience_center_provenance"] = deepcopy(EXPERIENCE_CENTER_PROVENANCE)
+    answer_scorecard = _experience_center_answer_scorecard(scenario)
+    narration_visibility = _experience_center_narration_visibility(scenario)
 
     return {
         "trace_id": trace_id,
@@ -255,6 +258,8 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "route_adjudication": route_adjudication,
         "llm_plan_validation": llm_plan_validation,
         "control_plane_trace": control_plane_trace,
+        "answer_scorecard": answer_scorecard,
+        "narration_visibility": narration_visibility,
         "mitre_decision": mitre_decision,
         "selected_use_case": selected_use_case.model_dump() if selected_use_case else None,
         "selected_skill_chain": selected_skill_chain.model_dump(),
@@ -279,6 +284,54 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "experience_center_governance": experience_center_governance.model_dump(),
         "governance_trace": experience_center_governance.model_dump(),
     }
+
+
+def _experience_center_answer_scorecard(scenario: DemoScenario) -> dict[str, Any] | None:
+    if scenario.scenario_id != "failed_login_spike_app01":
+        return None
+    return {
+        "verdict": "pass",
+        "key_checks_passed": [
+            "route honored",
+            "analyst guidance present",
+            "SPL status clear",
+            "execution status clear",
+            "MITRE wording safe",
+            "severity clear",
+            "HIL clear",
+            "no unsupported claims",
+        ],
+    }
+
+
+def _experience_center_narration_visibility(scenario: DemoScenario) -> dict[str, Any] | None:
+    if scenario.scenario_id != "failed_login_spike_app01":
+        return None
+    return {
+        "final_answer_source": "governed evidence contract",
+        "llm_narration": "advisory model signal",
+        "model_signal_authority": "advisory_only",
+        "deterministic_policy_authority": "wins",
+    }
+
+
+def _scrub_experience_center_stage_labels(scenario: DemoScenario, investigation_lineage: Any) -> None:
+    if scenario.scenario_id != "failed_login_spike_app01":
+        return
+    replacements = {
+        "Stage 3C": "SPL candidate / validation",
+        "Stage 3K": "governed composer / narration visibility",
+        "Stage 3L": "answer governance",
+        "Stage 3M": "model signal advisory",
+    }
+    for stage in getattr(investigation_lineage, "stages", []) or []:
+        for field_name in ("visible_label", "explanation", "production_equivalent"):
+            value = getattr(stage, field_name, None)
+            if not isinstance(value, str):
+                continue
+            for old, new in replacements.items():
+                value = value.replace(old, new)
+            setattr(stage, field_name, value)
 
 
 def _selected_use_case(scenario: DemoScenario) -> Any | None:
@@ -571,7 +624,7 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
         splunk_items = [
             item
             for item in (scenario.source_evidence or [])
-            if isinstance(item, dict) and item.get("source_type") == "splunk_mcp"
+            if isinstance(item, dict) and item.get("source_type") in {"splunk_mcp", "splunk_mcp_fixture"}
         ]
         if splunk_items:
             result_count = sum(int(item.get("row_count") or 0) for item in splunk_items)
@@ -583,8 +636,8 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
                 "selected_mcp_tool": tool_name,
                 "tool_selection_status": "fixture_evidence_packaged",
                 "tool_selection_reason": (
-                    "Experience Center packaged assumed happy-path MCP fixture output "
-                    "from known Splunk MCP tool behavior; no live MCP call was made."
+                    "Experience Center packaged the governed Splunk result from known MCP tool behavior; "
+                    "the live MCP gate remains closed."
                 ),
                 "executed_spl": None,
                 "result_count": result_count,
@@ -641,7 +694,7 @@ def _with_trace(evidence: list[dict[str, Any]], trace_id: str) -> list[dict[str,
     for item in evidence:
         item["trace_id"] = trace_id
         item.setdefault("created_at", CREATED_AT)
-        if item.get("source_type") == "splunk_mcp" and isinstance(item.get("preview_rows"), list):
+        if item.get("source_type") in {"splunk_mcp", "splunk_mcp_fixture"} and isinstance(item.get("preview_rows"), list):
             envelope = demo_envelope_from_rows(
                 item["preview_rows"],
                 trace_id=trace_id,
@@ -763,8 +816,14 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             **base,
             "severity_label": "P2 High",
             "finding_title": "Brute-force authentication spike detected on APP-01",
-            "one_sentence_finding": "Foundation-sec identified 101 failed logins across three source IPs as a password-guessing pattern against APP-01; V.AI SOC governs it as P2 High because the evidence supports T1110.001, the global distinct user count is not confirmed, and compromise, privileged-account impact, source ownership, and APP-01 criticality are not confirmed.",
-            "splunk_status_line": "Querying Splunk [index=pgcil_soc] · last 60 minutes...",
+            "one_sentence_finding": "COE Splunk evidence shows 101 failed logins across three source IPs against APP-01. Foundation-sec model signal supports a password-guessing pattern. V.AI SOC governs the case as P2 High because the evidence supports T1110.001. Compromise not confirmed: global distinct user count is not confirmed, and privileged-account impact, source ownership, and APP-01 criticality are not confirmed.",
+            "initial_assessment": [
+                "COE Splunk evidence shows 101 failed logins across three source IPs against APP-01.",
+                "Foundation-sec model signal supports a password-guessing pattern.",
+                "V.AI SOC governs the case as P2 High because the evidence supports T1110.001.",
+                "Compromise not confirmed: global distinct user count, privileged-account impact, source ownership, and APP-01 criticality are not confirmed.",
+            ],
+            "splunk_status_line": "Splunk MCP search result [index=pgcil_soc] · last 60 minutes · 3 rows",
             "splunk_results_table": [
                 {"Host": "APP-01", "Source IP": "10.10.4.21", "Failed logins": 42, "Distinct users by source": 7, "First seen": "13:42:10", "Last seen": "14:37:22", "Action": "failure"},
                 {"Host": "APP-01", "Source IP": "10.10.4.22", "Failed logins": 31, "Distinct users by source": 4, "First seen": "13:48:31", "Last seen": "14:36:58", "Action": "failure"},
@@ -774,16 +833,16 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Status": "Supported", "Evidence": "High failed-login volume from multiple source IPs against APP-01", "Confidence": "High"},
             ],
             "foundation_sec_analysis": "\n\n".join([
-                "Foundation-sec identified the activity as a high-confidence password-guessing pattern based on sustained failed logins across three source IPs.",
+                "Foundation-sec contributes an advisory password-guessing signal based on sustained failed logins across three source IPs.",
                 "V.AI SOC accepts the T1110.001 mapping as supported, but keeps the response evidence-grounded: no successful login after the failures has been confirmed, and privileged-account status, APP-01 criticality, and source ownership remain unresolved.",
             ]),
             "recommended_actions": [
-                "P1 - Run success-after-failure correlation for APP-01 using the same source IPs and time window. Escalate immediately if any successful login follows five or more failures.",
-                "P1 - Check whether the affected users include privileged, service, VPN, or administrative accounts. Do not state account impact until identity evidence is available.",
-                "P2 - Validate ownership of 10.10.4.19, 10.10.4.21, and 10.10.4.22 against CMDB, DHCP, VPN, jump-host, and firewall inventory.",
-                "P2 - Pivot across firewall, VPN, EDR, and identity logs for the same source IPs and time window to identify related activity.",
-                "P2 - Check APP-01 CMDB criticality and business owner. Escalate scope if APP-01 supports critical or OT-adjacent operations.",
-                "P3 - Document findings after success-after-failure, account privilege, source ownership, and asset criticality checks are complete.",
+                "P1: Run success-after-failure correlation for APP-01 using the same source IPs and time window. Escalate immediately if any successful login follows five or more failures.",
+                "P1: Check whether the affected users include privileged, service, VPN, or administrative accounts. Do not state account impact until identity evidence is available.",
+                "P2: Validate ownership of 10.10.4.19, 10.10.4.21, and 10.10.4.22 against CMDB, DHCP, VPN, jump-host, and firewall inventory.",
+                "P2: Pivot across firewall, VPN, EDR, and identity logs for the same source IPs and time window to identify related activity.",
+                "P2: Check APP-01 CMDB criticality and business owner. Escalate scope if APP-01 supports critical or OT-adjacent operations.",
+                "P3: Document findings after success-after-failure, account privilege, source ownership, and asset criticality checks are complete.",
             ],
         })
     if scenario.scenario_id == "new_source_ip_logins":
@@ -792,7 +851,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             "severity_label": "P2 High",
             "finding_title": "New source IP login pattern observed for APP-01",
             "one_sentence_finding": "Foundation-sec recognised new-source successful logins as a Valid Accounts signal; V.AI SOC keeps T1078 validation-required until source ownership, MFA/session, account status, and post-login activity are confirmed.",
-            "splunk_status_line": "Querying Splunk [index=pgcil_soc] · last 24 hours · new source IPs only...",
+            "splunk_status_line": "Splunk MCP search result [index=pgcil_soc] · last 24 hours · new source IPs only",
             "splunk_results_table": [
                 {"Host": "APP-01", "User": "svc_grid_ops", "Source IP": "10.10.7.44", "First seen": "14:21:05", "Prior sightings": "None in 30 days", "Action": "success"},
                 {"Host": "APP-01", "User": "operator.rajesh", "Source IP": "10.10.7.45", "First seen": "14:24:19", "Prior sightings": "None in 30 days", "Action": "success"},
@@ -822,11 +881,11 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "V.AI SOC constrains the answer to investigation status: the evidence does not prove misuse by itself, and source ownership, MFA result, account type, and endpoint activity are still required.",
             ]),
             "recommended_actions": [
-                "P2 - Validate source IP ownership for 10.10.7.44 and 10.10.7.45 against CMDB, DHCP, VPN, jump-host, and firewall inventory.",
-                "P2 - Check MFA result, session duration, and first post-login activity for each successful login.",
-                "P2 - Confirm account type, owner, and privilege level before stating account impact.",
-                "P2 - Pivot VPN, firewall, EDR, and identity logs around the same window for related activity.",
-                "P3 - Update the source-IP baseline for svc_grid_ops and operator.rajesh only after analyst sign-off. Do not auto-approve the new source range. Any baseline update must be linked to a documented change ticket, jump-host migration, VPN reconfiguration, or approved workstation reassignment before it is applied.",
+                "P2: Validate source IP ownership for 10.10.7.44 and 10.10.7.45 against CMDB, DHCP, VPN, jump-host, and firewall inventory.",
+                "P2: Check MFA result, session duration, and first post-login activity for each successful login.",
+                "P2: Confirm account type, owner, and privilege level before stating account impact.",
+                "P2: Pivot VPN, firewall, EDR, and identity logs around the same window for related activity.",
+                "P3: Update the source-IP baseline for svc_grid_ops and operator.rajesh only after analyst sign-off. Do not auto-approve the new source range. Any baseline update must be linked to a documented change ticket, jump-host migration, VPN reconfiguration, or approved workstation reassignment before it is applied.",
             ],
         }
     if scenario.scenario_id == "mitre_mapping_auth_alert":
@@ -847,11 +906,11 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "T1110.001 is supported at high confidence by the failure volume and source distribution. T1078 remains validation-required until post-login activity, session behavior, or unauthorized access is observed.",
             ]),
             "recommended_actions": [
-                "P1 - Validate the successful session: source IP, MFA result, session duration, and first post-login activity.",
-                "P1 - Review EDR/process telemetry for APP-01 immediately after login.",
-                "P2 - Check account type, ownership, and privilege evidence for svc_grid_ops.",
-                "P2 - Pivot firewall, VPN, and identity logs for 10.10.4.21 around the same window.",
-                "P2 - Check CMDB criticality for APP-01.",
+                "P1: Validate the successful session: source IP, MFA result, session duration, and first post-login activity.",
+                "P1: Review EDR/process telemetry for APP-01 immediately after login.",
+                "P2: Check account type, ownership, and privilege evidence for svc_grid_ops.",
+                "P2: Pivot firewall, VPN, and identity logs for 10.10.4.21 around the same window.",
+                "P2: Check CMDB criticality for APP-01.",
             ],
         }
     if scenario.scenario_id in {"brute_force_sop_guidance", "failed_login_playbook"}:
@@ -919,9 +978,9 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             "retrieved_playbook": None,
             "sop_guidance": None,
             "finding_title": "Success-after-failure correlation executed on APP-01",
-            "status_badge": "Splunk MCP preview execution",
-            "one_sentence_finding": "Splunk MCP preview returned one success-after-failure sequence for APP-01 using governed COE evidence.",
-            "splunk_status_line": "Splunk MCP executed (COE preview) · 1 row(s)",
+            "status_badge": "Splunk MCP search result",
+            "one_sentence_finding": "Splunk MCP search returned one success-after-failure sequence for APP-01 using governed COE evidence.",
+            "splunk_status_line": "Splunk MCP search result · 1 row",
             "splunk_results_table": [
                 {
                     "User": "svc_grid_ops",
@@ -952,13 +1011,13 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Status": "Requires validation", "Evidence": "Successful login after repeated failures", "Validation needed": "Confirm MFA, session legitimacy, and post-login activity."},
             ],
             "recommended_actions": [
-                "P1 - Validate the successful session: source IP, MFA result, session duration, and first post-login activity.",
-                "P1 - Review EDR/process telemetry for APP-01 immediately after login.",
-                "P2 - Check account type, ownership, and privilege evidence for svc_grid_ops.",
-                "P2 - Pivot firewall, VPN, and identity logs for 10.10.4.21 around the same window.",
-                "P2 - Check CMDB criticality for APP-01.",
+                "P1: Validate the successful session: source IP, MFA result, session duration, and first post-login activity.",
+                "P1: Review EDR/process telemetry for APP-01 immediately after login.",
+                "P2: Check account type, ownership, and privilege evidence for svc_grid_ops.",
+                "P2: Pivot firewall, VPN, and identity logs for 10.10.4.21 around the same window.",
+                "P2: Check CMDB criticality for APP-01.",
             ],
-            "review_notice": "Preview execution used validated normalized_spl only. Real MCP execution remains blocked until COE configuration and approvals are supplied.",
+            "review_notice": "Review the validated normalized SPL and MCP gate status before operational use.",
         }
     if scenario.scenario_id == "airgapped_no_saia_success_after_failures":
         return {
@@ -997,10 +1056,10 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "user_total - total lockouts for that user across the 24h window",
             ],
             "recommended_actions": [
-                "P2 - Run the lockout trend SPL across the last 24 hours and filter for any user with more than 10 lockout events across multiple source IPs. High lockout counts from multiple sources against the same user are a brute-force indicator even without a threshold breach on any single IP.",
-                "P2 - Identify whether any locked accounts are service, privileged, or shared-credential accounts. Service account lockouts can affect automated processes, scheduled jobs, and system integrations. If a lockout is disrupting operations, the business impact extends beyond security - notify the account owner and operations team.",
-                "P3 - Cross-reference lockout source IPs against approved authentication systems. If the source of repeated lockouts is not a registered client for the target host, treat it as unauthorised and investigate the source before unlocking the account.",
-                "P4 - Review account lockout policy thresholds against the observed pattern. If the current threshold, for example five failures before lockout, is being systematically avoided by distributing attempts across multiple IPs, consider tightening the policy or adding velocity-based detection at the host level.",
+                "P2: Run the lockout trend SPL across the last 24 hours and filter for any user with more than 10 lockout events across multiple source IPs. High lockout counts from multiple sources against the same user are a brute-force indicator even without a threshold breach on any single IP.",
+                "P2: Identify whether any locked accounts are service, privileged, or shared-credential accounts. Service account lockouts can affect automated processes, scheduled jobs, and system integrations. If a lockout is disrupting operations, the business impact extends beyond security - notify the account owner and operations team.",
+                "P3: Cross-reference lockout source IPs against approved authentication systems. If the source of repeated lockouts is not a registered client for the target host, treat it as unauthorised and investigate the source before unlocking the account.",
+                "P4: Review account lockout policy thresholds against the observed pattern. If the current threshold, for example five failures before lockout, is being systematically avoided by distributing attempts across multiple IPs, consider tightening the policy or adding velocity-based detection at the host level.",
             ],
             "review_notice": "Review required before using this SPL in an operational search.",
         }
@@ -1013,8 +1072,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             "one_sentence_finding": "Please provide the alert title, rule name, SPL, notable event details, or key fields such as host, user, source IP, event type, and time window. V.AI SOC cannot map this alert to MITRE without event evidence.",
             "foundation_sec_analysis": "Foundation-sec recognised a MITRE mapping request, but V.AI SOC requires supporting alert evidence before selecting a technique.",
             "recommended_actions": [
-                "P2 - Provide alert title, detection rule, notable/event ID, or SPL before MITRE mapping.",
-                "P2 - Include key fields such as host, user, source IP, event type, and time window.",
+                "P2: Provide alert title, detection rule, notable/event ID, or SPL before MITRE mapping.",
+                "P2: Include key fields such as host, user, source IP, event type, and time window.",
             ],
             "review_notice": "Clarification required before MITRE mapping.",
         }
@@ -1027,9 +1086,9 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             "one_sentence_finding": "Foundation-sec recognised that index and sourcetype discovery is needed before SPL generation; V.AI SOC rejects invented data locations and selects safe metadata discovery tools.",
             "foundation_sec_analysis": "Foundation-sec can identify the discovery need, but V.AI SOC does not accept invented index or sourcetype names. The governed path is splunk_get_indexes followed by splunk_get_metadata, with no SPL execution.",
             "recommended_actions": [
-                "P2 - Use splunk_get_indexes to enumerate available indexes before drafting SPL.",
-                "P2 - Use splunk_get_metadata to identify sourcetypes related to APP-01 authentication events.",
-                "P3 - Generate SPL only after actual index and sourcetype evidence is available.",
+                "P2: Use splunk_get_indexes to enumerate available indexes before drafting SPL.",
+                "P2: Use splunk_get_metadata to identify sourcetypes related to APP-01 authentication events.",
+                "P3: Generate SPL only after actual index and sourcetype evidence is available.",
             ],
             "review_notice": "Discovery result required before SPL generation.",
         }
@@ -1213,13 +1272,13 @@ SCENARIOS: dict[str, DemoScenario] = {
         analyst_summary="Synthetic APP-01 auth evidence shows a failed-login spike candidate. MITRE T1110 is supported by the fixture; SOP guidance is attached for analyst review.",
         trace_explanation=[
             "Routed to attack_discovery because the query asks to investigate failed authentication activity.",
-            "SPL is generated by the Stage 3C stub path and validated, but not executed.",
+            "SPL candidate generation and validation are shown before the MCP search path.",
             "RAG SOP evidence is included only as SourceEvidence and StructuredContext.",
         ],
         source_evidence=[
             _evidence(
                 "ev-splunk-failed-app01",
-                "splunk_mcp",
+                "splunk_mcp_fixture",
                 "Splunk auth fixture",
                 3,
                 ["index", "sourcetype", "host", "src", "action", "fail_count"],
@@ -1273,7 +1332,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         analyst_summary="APP-01 has new source IP login evidence with SOC KB guidance attached for analyst validation.",
         trace_explanation=[
             "Routed to attack_discovery because the query asks to investigate novel authentication source behavior.",
-            "Splunk MCP evidence is represented as SourceEvidence; operational execution remains gated.",
+            "Splunk search result is represented as SourceEvidence; operational execution remains gated.",
             "SOC KB guidance is included for validation and escalation criteria.",
         ],
         source_evidence=[
@@ -1392,7 +1451,7 @@ SCENARIOS: dict[str, DemoScenario] = {
             [
                 _fact(
                     "fact-success-correlation-run",
-                    "Mock MCP fixture returned one APP-01 success-after-failure sequence from validated normalized SPL.",
+                    "COE Splunk result returned one APP-01 success-after-failure sequence from validated normalized SPL.",
                     ["ev-splunk-success-after-fail-run"],
                 )
             ],

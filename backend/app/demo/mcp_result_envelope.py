@@ -1,4 +1,4 @@
-"""Stage 3M-S3: Experience Center demo rows → SplunkResultEnvelope (no MCP I/O)."""
+"""Experience Center Splunk rows → governed result envelope (no live MCP I/O)."""
 
 from __future__ import annotations
 
