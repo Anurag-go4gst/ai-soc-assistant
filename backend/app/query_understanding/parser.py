@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from app.coverage.question_runtime_map import match_question_runtime_entry, nearest_question_runtime_entry
+from app.coverage.semantic_question_index import semantic_question_match
 from app.query_understanding.models import OutputTemplate, QueryEntities, QueryUnderstandingResult, RequestedOutputType
 from app.query_understanding.time_window import normalize_time_window
 from app.use_cases.registry import load_use_case_catalog, match_use_cases
@@ -24,7 +25,14 @@ def understand_query(query: str) -> QueryUnderstandingResult:
     primary_use_case = use_cases[0] if use_cases else None
     exact_question_registry_entry = match_question_runtime_entry(query)
     near_question_registry_entry = None if exact_question_registry_entry else nearest_question_runtime_entry(query)
-    question_registry_entry = exact_question_registry_entry or near_question_registry_entry
+    semantic_question_registry_entry = (
+        None
+        if (exact_question_registry_entry or near_question_registry_entry)
+        else semantic_question_match(query)
+    )
+    question_registry_entry = (
+        exact_question_registry_entry or near_question_registry_entry or semantic_question_registry_entry
+    )
     requested_output_type, output_template = _requested_output(normalized, primary_use_case.output_template if primary_use_case else None)
     ambiguity_flags = _ambiguity_flags(normalized)
     registry_warnings = _registry_warnings(primary_use_case, question_registry_entry)
@@ -34,6 +42,7 @@ def understand_query(query: str) -> QueryUnderstandingResult:
     deterministic_match_path = _deterministic_match_path(
         exact_question_registry_entry=exact_question_registry_entry,
         near_question_registry_entry=near_question_registry_entry,
+        semantic_question_registry_entry=semantic_question_registry_entry,
         primary_use_case=primary_use_case,
     )
 
@@ -56,8 +65,10 @@ def understand_query(query: str) -> QueryUnderstandingResult:
         mapped_pattern_type=_registry_str(question_registry_entry, "pattern_type"),
         mapped_primary_skill=_registry_str(question_registry_entry, "proposed_primary_skill"),
         mapped_operation_type=_registry_str(question_registry_entry, "proposed_operation_type"),
-        question_registry_match_source=_question_registry_match_source(exact_question_registry_entry, near_question_registry_entry),
-        question_registry_match_score=_registry_score(near_question_registry_entry),
+        question_registry_match_source=_question_registry_match_source(
+            exact_question_registry_entry, near_question_registry_entry, semantic_question_registry_entry
+        ),
+        question_registry_match_score=_registry_score(near_question_registry_entry or semantic_question_registry_entry),
         question_registry_observation_only=True,
         use_case_catalog_size=len(load_use_case_catalog()),
         use_case_match_source="expanded_catalog" if primary_use_case else None,
@@ -202,17 +213,22 @@ def _registry_score(registry_entry: dict | None) -> float | None:
     if not registry_entry:
         return None
     value = registry_entry.get("_near_match_score")
+    if value is None:
+        value = registry_entry.get("_semantic_match_score")
     return float(value) if isinstance(value, float | int) else None
 
 
 def _question_registry_match_source(
     exact_question_registry_entry: dict | None,
     near_question_registry_entry: dict | None,
+    semantic_question_registry_entry: dict | None = None,
 ) -> str | None:
     if exact_question_registry_entry:
         return "question_runtime_map_105_exact"
     if near_question_registry_entry:
         return "question_runtime_map_105_near_token"
+    if semantic_question_registry_entry:
+        return "question_runtime_map_105_semantic"
     return None
 
 
@@ -221,6 +237,7 @@ def _deterministic_match_path(
     exact_question_registry_entry: dict | None,
     near_question_registry_entry: dict | None,
     primary_use_case: object | None,
+    semantic_question_registry_entry: dict | None = None,
 ) -> str:
     if exact_question_registry_entry and primary_use_case:
         return "exact_105_plus_use_case_catalog"
@@ -230,6 +247,8 @@ def _deterministic_match_path(
         return "use_case_catalog"
     if near_question_registry_entry:
         return "near_105_question"
+    if semantic_question_registry_entry:
+        return "semantic_105_question"
     return "out_of_registry"
 
 
@@ -250,4 +269,4 @@ def _registry_warnings(primary_use_case: object | None, registry_entry: dict | N
 
 
 def _llm_advisory_recommended(deterministic_match_path: str, registry_warnings: list[str]) -> bool:
-    return deterministic_match_path in {"near_105_question", "out_of_registry"} or bool(registry_warnings)
+    return deterministic_match_path in {"near_105_question", "semantic_105_question", "out_of_registry"} or bool(registry_warnings)
