@@ -51,7 +51,6 @@ def test_no_splunk_write_path_advertised() -> None:
 
 def test_placeholder_connectors_advertise_implemented_false_and_fallback() -> None:
     for connector in (
-        SplunkMcpConnector(),
         LocalRuntimeLlmConnector(),
         LocalVectorRagConnector(),
         LocalEmbeddingsConnector(),
@@ -59,6 +58,15 @@ def test_placeholder_connectors_advertise_implemented_false_and_fallback() -> No
         status = connector.health()
         assert status.implemented is False, type(connector).__name__
         assert status.fallback == "mock", type(connector).__name__
+
+
+def test_splunk_mcp_readiness_scaffold_advertises_not_available() -> None:
+    """WS4c/d: readiness adapter exists but live execution stays unavailable."""
+    status = SplunkMcpConnector().health()
+    assert status.implemented is True
+    assert status.available is False
+    assert status.fallback == "mock"
+    assert status.detail in {"execution_disabled", "real_adapter_schema_unverified"}
 
 
 def test_mock_connectors_remain_available() -> None:

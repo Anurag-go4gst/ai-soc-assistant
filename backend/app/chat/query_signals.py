@@ -148,11 +148,21 @@ def extract_query_signals(
         )
     )
     explicit_run_spl = bool(
-        re.search(r"\b(run the spl|run spl|execute the spl|execute spl)\b", normalized)
-        or (
-            "give me results" in normalized
-            and ("spl" in normalized or "query" in normalized)
+        re.search(
+            r"\b(run the spl|run spl|run this spl|execute the spl|execute spl|execute this search)\b",
+            normalized,
         )
+        or re.search(r"\brun this\b.{0,32}\bspl\b", normalized)
+        or (
+            (
+                "give me results" in normalized
+                or "give me live results" in normalized
+                or "live results" in normalized
+            )
+            and ("spl" in normalized or "query" in normalized or "search" in normalized)
+        )
+        or "query splunk" in normalized
+        or bool(re.search(r"\bquery splunk directly\b", normalized))
     )
     spl_suppressed = _spl_generation_suppressed(normalized) or sop_show_request
     explicit_log_search = _explicit_log_search_requested(normalized)
