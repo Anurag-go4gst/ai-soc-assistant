@@ -48,13 +48,17 @@
       "spl_template_status": "active"
     },
     "pg.clar.001": {
-      "analyst_enabled_sections": [],
+      "analyst_enabled_sections": [
+        "out_of_catalog_notice"
+      ],
       "answer_mode": "clarification",
       "candidate_spl_present": false,
       "contract_answer_mode": "clarification",
       "draft_spl_present": false,
       "draft_status": null,
-      "enabled_sections": [],
+      "enabled_sections": [
+        "out_of_catalog_notice"
+      ],
       "execution_eligible": null,
       "execution_status": "skipped",
       "human_review_required": false,
@@ -106,6 +110,7 @@
       "draft_spl_present": false,
       "draft_status": null,
       "enabled_sections": [
+        "out_of_catalog_notice",
         "policy_citation",
         "procedural_steps"
       ],

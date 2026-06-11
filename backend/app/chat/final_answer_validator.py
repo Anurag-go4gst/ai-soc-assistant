@@ -112,6 +112,23 @@ def validate_final_answer(
     response_profile = str(getattr(analyst_response, "response_profile", "") or "")
     recommended = getattr(analyst_response, "recommended_actions", None) or []
 
+    # 0. WS1 T1.4 fail-closed: an out-of-catalog answer must say so.
+    resource_plan = plan.get("resource_plan") if isinstance(plan.get("resource_plan"), dict) else {}
+    provenance = resource_plan.get("provenance") if isinstance(resource_plan.get("provenance"), dict) else {}
+    if (
+        str(provenance.get("match_path") or "") == "out_of_registry"
+        and not contract.get("out_of_catalog_notice")
+        # Refusal/HIL turns intentionally carry no notice (they perform no guidance).
+        and not bool(contract.get("human_review_required"))
+    ):
+        findings.append(
+            _blocking(
+                "final.out_of_catalog_notice_missing",
+                "Out-of-registry answer is missing the out-of-catalog notice.",
+                field="out_of_catalog_notice",
+            )
+        )
+
     # 1. A blocked / not-claimed finding must never appear as a positive mapping.
     leaked = sorted(visible_mitre & blocked_ids)
     if leaked:
