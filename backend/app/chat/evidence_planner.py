@@ -60,6 +60,7 @@ def plan_evidence(
             intent=intent,
             use_case_id=selected_use_case_id,
             query_understanding=query_understanding,
+            routed_skill=str((routed or {}).get("skill") or "") or None,
         )
 
     if intent.requires_clarification or family == "clarification_required":
@@ -253,6 +254,7 @@ def _attach_resource_plan(
     intent: IntentClassification,
     use_case_id: str | None,
     query_understanding: Any,
+    routed_skill: str | None = None,
 ) -> EvidencePlan:
     """Attach the composed step plan (WS0 T0.3). Booleans stay authoritative;
     composition failure must never break evidence planning."""
@@ -266,6 +268,7 @@ def _attach_resource_plan(
             intent_family=intent.intent_family,
             use_case_id=use_case_id or plan.use_case_id,
             match_path=match_path,
+            skill_id=routed_skill,
         )
         # T0.5 (revised after PowerGrid latency diagnosis 2026-06-11): the LLM
         # plan bridge is never called inline — a blocking model call on the
