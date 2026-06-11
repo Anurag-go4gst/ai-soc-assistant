@@ -72,6 +72,8 @@ _SECTION_BACKING: dict[str, tuple[str, ...]] = {
     "not_claimed": ("not_claimed",),
     "policy_citation": ("retrieved_playbook", "sop_guidance"),
     "live_results": ("splunk_results_table",),
+    "triage_checklist": ("analyst_checklist",),
+    "evidence_checklist": ("required_evidence",),
 }
 
 
