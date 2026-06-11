@@ -257,7 +257,7 @@ def _attach_resource_plan(
     """Attach the composed step plan (WS0 T0.3). Booleans stay authoritative;
     composition failure must never break evidence planning."""
     from app.planner.composer import compose_resource_plan
-    from app.planner.llm_plan_bridge import propose_validated_llm_plan
+    from app.planner.llm_plan_bridge import bridge_enabled, bridge_trigger_match
 
     match_path = getattr(query_understanding, "deterministic_match_path", None)
     try:
@@ -267,17 +267,12 @@ def _attach_resource_plan(
             use_case_id=use_case_id or plan.use_case_id,
             match_path=match_path,
         )
-        # T0.5: for unmatched questions a validated LLM proposal may replace
-        # the generic deterministic composition. Booleans stay authoritative;
-        # any bridge failure keeps the deterministic plan.
-        proposed = propose_validated_llm_plan(
-            query=str(getattr(query_understanding, "raw_query", "") or ""),
-            match_path=match_path,
-            action_mode=intent.action_mode,
-            mcp_allowed=plan.mcp_allowed,
-        )
-        if proposed is not None:
-            composed = proposed
+        # T0.5 (revised after PowerGrid latency diagnosis 2026-06-11): the LLM
+        # plan bridge is never called inline — a blocking model call on the
+        # live path added flat latency while never changing dispatch. Unmatched
+        # questions are marked for off-path proposal (scorecard/async use).
+        if bridge_trigger_match(match_path) and bridge_enabled():
+            composed.provenance["llm_bridge"] = "deferred_not_inline"
     except Exception:
         return plan
     return plan.model_copy(update={"resource_plan": composed.model_dump()})
