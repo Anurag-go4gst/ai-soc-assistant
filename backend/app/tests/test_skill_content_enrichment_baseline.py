@@ -37,6 +37,8 @@ REQUIRED_RECORD_IDS = {
     "dns_beaconing_candidate",
     "soc_incident_triage",
     "endpoint_ransomware_impact_review",
+    # Internally curated (Anurag, 2026-06-11) — checklist content staged for WS2.
+    "auth_privileged_login_anomaly",
 }
 
 REQUIRED_RECORD_FIELDS = {
@@ -128,7 +130,12 @@ def test_every_enrichment_record_has_required_contract_fields() -> None:
         assert record["use_case_status"] in {"active", "planned", "unavailable"}
         assert record["live_execution_skill"]
         assert record["planning_or_analytic_skill"]
-        assert isinstance(record["github_reference_skills"], list) and record["github_reference_skills"]
+        has_github_provenance = bool(record["github_reference_skills"])
+        has_internal_provenance = any(
+            str(tag).startswith("curated_internal_") for tag in record.get("tags", [])
+        )
+        assert isinstance(record["github_reference_skills"], list)
+        assert has_github_provenance or has_internal_provenance, record_id
         assert isinstance(record["mitre_candidates"], list)
         assert isinstance(record["evidence_requirements"], list) and record["evidence_requirements"]
         assert isinstance(record["answer_rules"], list) and record["answer_rules"]

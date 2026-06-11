@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-06-07T17:47:28+00:00",
+  "generated_at": "2026-06-11T06:14:45+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -3151,7 +3151,7 @@
     "catalog_use_cases": 46,
     "discovery_skills": 754,
     "enrichment_only_use_cases": 3,
-    "enrichment_records": 7,
+    "enrichment_records": 8,
     "github_skill_rows": 7,
     "proposed_use_case_rows": 3,
     "question_rows": 105,
@@ -3529,26 +3529,27 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
+      "answer_rules_status": "present",
       "catalog_present": true,
-      "enrichment_present": false,
-      "evidence_requirements": {
-        "optional_entities": [
-          "user",
-          "host",
-          "time_window"
-        ],
-        "optional_sources": [
-          "identity"
-        ],
-        "required_entities": [],
-        "required_sources": [
-          "mcp:splunk"
-        ]
-      },
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "user",
+        "src",
+        "host",
+        "privilege_status",
+        "asset_criticality",
+        "mfa_outcome",
+        "time_window",
+        "post_login_activity",
+        "source_ip_novelty"
+      ],
       "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "github_reuse_type": [
+        "evidence_reference",
+        "sop_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
@@ -3561,17 +3562,17 @@
         "T1078"
       ],
       "mitre_metadata_role": "metadata_not_evidence",
-      "planning_or_analytic_skill": "identity_enrichment",
+      "planning_or_analytic_skill": "threshold_anomaly",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
+      "rag_status": "configured",
       "runtime_support_status": "planned",
       "spl_template_id": "privileged_account_failure",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
+      "spl_template_status": "planned",
+      "tests_added": true,
       "use_case_id": "auth_privileged_login_anomaly",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",
