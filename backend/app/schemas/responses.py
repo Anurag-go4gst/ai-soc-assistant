@@ -479,6 +479,8 @@ class PlaceholderResponse(BaseModel):
     query_to_intent: dict[str, object] | None = None
     control_plane_trace: dict[str, object] | None = None
     answer_contract: dict[str, object] | None = None
+    # WS3 T3.1 — deterministic read-model scorecard (never authority).
+    answer_scorecard: dict[str, object] | None = None
     final_answer_validation: dict[str, object] | None = None
     mitre_decision: dict[str, object] | None = None
     mitre_mappings: list[MitreMappingDecision] | None = None
