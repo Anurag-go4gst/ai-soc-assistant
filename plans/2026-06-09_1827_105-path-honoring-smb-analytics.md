@@ -284,7 +284,7 @@ separate commit, not in this change.
 3. Presentation: grep/check no test asserts `answer_contract is None` with control plane
    off before removing the contract gate; `cd frontend && npm run build`.
 4. Tier B: `python scripts/eval_105_path_honoring.py --check` (all 105, path-only, fast).
-5. `python scripts/run_powergrid_soc_question_eval.py --profile deterministic --check`.
+5. `python3 scripts/run_powergrid_soc_question_eval.py --profile deterministic --check`.
 6. `.env.example` aligned to all-on SOC posture (MCP execution flags stay false).
 7. No live_llm runs; governance regression covers Tier A automatically via pytest.
 
