@@ -42,6 +42,13 @@ No eval may end on a fuzzy score without a threshold and a verdict.
 | `python3 -m app.evals.golden_answer_runner` (Tier 0) | in-process | governance regression | seconds | golden-answer contract assertions |
 | `./scripts/run_stage3_governance_regression.sh` | umbrella | workstream end / pre-PR | minutes | generators `--check` + full pytest + harness 6/6 + Tier 0 |
 
+## Command-name notes
+
+- The Tier-D answer-quality runner is `scripts/eval_answer_quality.py`. There
+  is **no** `scripts/eval_tier_d.py` — references to that name mean this
+  runner.
+- Invoke all eval scripts with `python3` (the box has no `python` alias).
+
 ## Inner loop vs heavy gates (plan B3/B4)
 
 Per commit: task tests → `eval_sentinel.py --check` → full backend pytest.
