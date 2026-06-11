@@ -2,7 +2,7 @@
 
 Phase 13C — live `/chat` API harness for PowerGrid OT/IT SOC questions. Evaluation only; no runtime cutover.
 
-- Generated: `2026-06-11T11:18:51.857043+00:00`
+- Generated: `2026-06-11T15:03:12.391980+00:00`
 - Schema: `2026-06-09-powergrid-soc-v1`
 - Total evaluated: **50**
 - PASS / REVIEW / FAIL: **50** / **0** / **0**
