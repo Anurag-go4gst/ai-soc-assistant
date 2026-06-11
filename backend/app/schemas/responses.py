@@ -433,6 +433,7 @@ class PlaceholderResponse(BaseModel):
     saia_available: bool | None = None
     rag_available: bool | None = None
     fallback_active: bool | None = None
+    response_packaging_status: str | None = None
     analyst_summary: str | None = None
     response_mode: str | None = None
     synthesis_mode: str | None = None

@@ -67,6 +67,9 @@ interface EvidenceRow {
 }
 
 function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
+  if (!trace.demo_mode) {
+    return liveEvidenceRowsFor(trace);
+  }
   const scenarioId = String(trace.structured_context?.entity_summary?.scenario_id ?? '');
   if (scenarioId === 'new_source_ip_logins') {
     return [
@@ -120,6 +123,96 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
     { title: 'Deterministic analysis', detail: 'pattern classification · password guessing / T1110.001', meta: 'coordinated source analysis · supported, validation pending' },
     { title: 'MITRE ATT&CK', detail: 'technique lookup · T1110.001 Password Guessing · tactic: Credential Access', meta: 'supported by volume and source distribution pattern' },
   ];
+}
+
+function liveEvidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
+  const rows: EvidenceRow[] = [];
+  const workflowSteps = trace.workflow_plan?.steps?.length ?? 0;
+  rows.push({
+    title: 'Workflow planning',
+    detail: workflowSteps ? `${workflowSteps} governed workflow steps planned` : 'Governed workflow planning completed',
+    meta: `execution ${trace.workflow_plan?.execution_enabled ? 'enabled' : 'disabled'} · status ${safeText(trace.workflow_plan?.status ?? 'planned')}`,
+  });
+
+  if (trace.candidate_spl || trace.spl_validation || trace.spl_draft_preview || trace.llm_spl_candidate) {
+    rows.push({
+      title: 'SPL / evidence path',
+      detail: trace.spl_validation?.approved
+        ? 'Governed SPL validation passed for review'
+        : 'Governed SPL / evidence preparation completed for review',
+      meta: trace.spl_validation?.approved
+        ? 'candidate SPL remains non-executable until gates approve'
+        : 'no SPL execution is implied',
+    });
+  }
+
+  if (trace.execution) {
+    const executed = trace.execution.status === 'executed';
+    rows.push({
+      title: 'MCP gate',
+      detail: executed ? 'MCP execution result was returned by the configured gate' : 'MCP gate checked; live search was not run',
+      meta: [
+        `status ${safeText(trace.execution.status ?? 'unknown')}`,
+        trace.execution.execution_status_label ? `label ${safeText(trace.execution.execution_status_label)}` : null,
+        trace.execution.block_reason ? `reason ${safeText(trace.execution.block_reason)}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    });
+  }
+
+  const ragEvidence = trace.source_evidence?.filter((item) => item.source_type === 'rag') ?? [];
+  if (ragEvidence.length) {
+    const count = ragEvidence.reduce((sum, item) => sum + (item.result_count ?? 0), 0);
+    rows.push({
+      title: 'Governed SOC knowledge',
+      detail: `${ragEvidence.length} governed knowledge envelope${ragEvidence.length === 1 ? '' : 's'} collected`,
+      meta: `${count} approved result${count === 1 ? '' : 's'} · source evidence only`,
+    });
+  }
+
+  const splunkEvidence = trace.source_evidence?.filter((item) => item.source_type === 'splunk_mcp') ?? [];
+  if (splunkEvidence.length) {
+    const count = splunkEvidence.reduce((sum, item) => sum + (item.result_count ?? 0), 0);
+    rows.push({
+      title: 'Splunk evidence',
+      detail: `Splunk SourceEvidence envelope present`,
+      meta: `${count} row${count === 1 ? '' : 's'} reported by response envelope`,
+    });
+  }
+
+  if (trace.mitre_decision || trace.mitre_mappings?.length) {
+    rows.push({
+      title: 'MITRE / severity',
+      detail: 'MITRE visibility and severity policy evaluated',
+      meta: trace.severity_decision?.severity_label
+        ? `severity ${safeText(trace.severity_decision.severity_label)}`
+        : 'severity not assigned or not applicable',
+    });
+  }
+
+  if (trace.answer_contract || trace.final_answer_validation || trace.answer_guard_status) {
+    rows.push({
+      title: 'Answer governance',
+      detail: 'Answer contract and safety validation evaluated',
+      meta: [
+        trace.answer_guard_status ? `answer guard ${safeText(trace.answer_guard_status)}` : null,
+        trace.final_answer_safety_status ? `final validation ${safeText(trace.final_answer_safety_status)}` : null,
+        trace.response_packaging_status ? `packaging ${safeText(trace.response_packaging_status)}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    });
+  }
+
+  if (!rows.length) {
+    rows.push({
+      title: 'Live trace',
+      detail: 'No detailed live evidence rows were returned for this response',
+      meta: 'No fixture evidence is displayed in live chat',
+    });
+  }
+  return rows;
 }
 
 function RoutePlanShadowDemoCallout({ trace }: Stage3DTracePanelProps) {

@@ -7,6 +7,7 @@ export interface InvestigationProgressStep {
   activity?: string[];
 }
 
+export type InvestigationProgressStepStatus = 'pending' | 'active' | 'completed' | 'skipped' | 'blocked' | 'fallback';
 export type InvestigationProgressPhase = 'deterministic' | 'finalizing' | 'partial' | 'complete' | 'error';
 
 export interface InvestigationProgressError {
@@ -34,6 +35,8 @@ export interface InvestigationProgressState {
   steps: InvestigationProgressStep[];
   activeStepIndex: number;
   completedStepIds: string[];
+  stepStatuses?: Record<string, InvestigationProgressStepStatus>;
+  stepDisplayText?: Record<string, string>;
   /** True when deterministic steps finished but final answer not yet received. */
   finalization?: InvestigationFinalizationState;
   /** Server-reported pipeline stage (live chat stream). */
@@ -51,11 +54,11 @@ export const SERVER_STAGE_TO_STEP_ID: Record<string, string> = {
   classifying_intent: 'route',
   planning_evidence: 'workflow',
   route_adjudication: 'workflow',
+  generating_spl: 'spl_evidence',
+  checking_mcp: 'mcp_gate',
   retrieving_knowledge: 'rag',
-  generating_spl: 'spl_validation',
-  checking_mcp: 'mcp_connect',
-  mapping_mitre: 'mitre',
-  checking_sufficiency: 'severity',
+  mapping_mitre: 'mitre_severity',
+  checking_sufficiency: 'mitre_severity',
   generating_answer: 'llm_governance',
   validating_answer: 'package',
 };
@@ -78,6 +81,97 @@ const BASE_STEPS: Omit<InvestigationProgressStep, 'durationMs' | 'activity'>[] =
   },
 ];
 
+const LIVE_LINEAR_STEPS: InvestigationProgressStep[] = [
+  step(
+    {
+      id: 'query',
+      label: 'Understanding query',
+      description: 'Parsing analyst intent and safe routing context.',
+      activity: ['Normalizing query…', 'Identifying entities and requested outcome…'],
+    },
+    700,
+  ),
+  step(
+    {
+      id: 'route',
+      label: 'Selecting route',
+      description: 'Selecting the governed SOC route for this turn.',
+      activity: ['Checking deterministic routing…', 'Locking route authority…'],
+    },
+    700,
+  ),
+  step(
+    {
+      id: 'workflow',
+      label: 'Planning workflow',
+      description: 'Planning the investigation path without changing execution gates.',
+      activity: ['Planning evidence needs…', 'Applying workflow gates…'],
+    },
+    700,
+  ),
+  step(
+    {
+      id: 'spl_evidence',
+      label: 'Preparing SPL / evidence path',
+      description: 'Preparing governed query or evidence handling when needed.',
+      activity: ['Checking governed SPL and evidence policy…'],
+    },
+    800,
+  ),
+  step(
+    {
+      id: 'mcp_gate',
+      label: 'Checking MCP gate',
+      description: 'Checking whether MCP execution is allowed for this request.',
+      activity: ['Evaluating MCP and HIL gates…'],
+    },
+    750,
+  ),
+  step(
+    {
+      id: 'rag',
+      label: 'Retrieving SOC knowledge',
+      description: 'Retrieving governed SOC knowledge only when the path requests it.',
+      activity: ['Looking up approved SOC knowledge…'],
+    },
+    850,
+  ),
+  step(
+    {
+      id: 'mitre_severity',
+      label: 'Mapping MITRE / severity',
+      description: 'Applying MITRE visibility and severity policy.',
+      activity: ['Applying MITRE evidence policy…', 'Checking severity and sufficiency…'],
+    },
+    800,
+  ),
+  step(
+    {
+      id: 'llm_governance',
+      label: 'Applying LLM / answer governance',
+      description: 'Applying answer governance and deterministic fallback policy.',
+      activity: ['Checking governed answer policy…'],
+    },
+    900,
+  ),
+  step(
+    {
+      id: 'package',
+      label: 'Packaging analyst answer',
+      description: 'Packaging the analyst-visible answer or review-required response.',
+      activity: ['Final analyst answer is being packaged…'],
+    },
+    800,
+  ),
+];
+
+const LIVE_OPTIONAL_STEP_IDS = new Set(['spl_evidence', 'mcp_gate', 'rag']);
+
+function isLiveLinearProgress(steps: InvestigationProgressStep[]): boolean {
+  const ids = new Set(steps.map((item) => item.id));
+  return ids.has('spl_evidence') && ids.has('mcp_gate') && ids.has('package');
+}
+
 function step(
   partial: Omit<InvestigationProgressStep, 'durationMs'> & { durationMs?: number },
   durationMs: number,
@@ -94,6 +188,10 @@ export function buildInvestigationProgressSteps(options?: {
   const skill = options?.expectedSkill ?? 'investigation';
   const sources = new Set(options?.expectedSources ?? []);
   const demo = options?.demoMode ?? true;
+
+  if (!demo) {
+    return LIVE_LINEAR_STEPS.map((item) => ({ ...item, activity: item.activity ? [...item.activity] : undefined }));
+  }
 
   const steps: InvestigationProgressStep[] = [
     step(
@@ -312,10 +410,24 @@ export function applyServerProgressStage(
   if (index < 0) {
     return { ...state, serverStage: stage };
   }
-  const completedStepIds = state.steps.slice(0, index).map((step) => step.id);
+  const liveLinear = isLiveLinearProgress(state.steps);
+  const stepStatuses: Record<string, InvestigationProgressStepStatus> = {
+    ...(state.stepStatuses ?? {}),
+  };
+  const stepDisplayText: Record<string, string> = {
+    ...(state.stepDisplayText ?? {}),
+  };
+  for (let i = 0; i < index; i += 1) {
+    const id = state.steps[i].id;
+    const current = stepStatuses[id];
+    if (current === 'completed' || current === 'blocked' || current === 'fallback') continue;
+    stepStatuses[id] = liveLinear && LIVE_OPTIONAL_STEP_IDS.has(id) ? 'skipped' : 'completed';
+  }
+  stepStatuses[stepId] = 'active';
   const isFinalization = stage === 'generating_answer' || stage === 'validating_answer';
   let finalization = state.finalization;
   if (stage === 'checking_mcp' && detail) {
+    stepDisplayText[stepId] = detail;
     finalization = {
       phase: finalization?.phase ?? 'deterministic',
       statusLine: finalization?.statusLine ?? 'Checking MCP…',
@@ -325,6 +437,12 @@ export function applyServerProgressStage(
       showRetryHint: false,
     };
   } else if (isFinalization) {
+    if (stage === 'generating_answer') {
+      stepDisplayText[stepId] = 'Applying governed answer policy.';
+    }
+    if (stage === 'validating_answer') {
+      stepDisplayText[stepId] = 'Final analyst answer is being packaged…';
+    }
     finalization = {
       phase: 'finalizing',
       statusLine:
@@ -342,7 +460,11 @@ export function applyServerProgressStage(
     ...state,
     serverStage: stage,
     activeStepIndex: index,
-    completedStepIds,
+    completedStepIds: Object.entries(stepStatuses)
+      .filter(([, status]) => status === 'completed')
+      .map(([id]) => id),
+    stepStatuses,
+    stepDisplayText,
     finalization,
   };
 }

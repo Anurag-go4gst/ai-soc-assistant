@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Circle, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Circle, Loader2, MinusCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -99,9 +99,14 @@ export function InvestigationProgressPanel({ state, demoMode, onRetryFinalSynthe
 
       <ol className="space-y-2">
         {steps.map((stepItem, index) => {
-          const isComplete = completed.has(stepItem.id);
-          const isActive = !allDone && !inFinalization && index === activeStepIndex;
-          const isPending = !isComplete && !isActive;
+          const explicitStatus = state.stepStatuses?.[stepItem.id];
+          const isComplete = explicitStatus === 'completed' || (!explicitStatus && completed.has(stepItem.id));
+          const isSkipped = explicitStatus === 'skipped';
+          const isBlocked = explicitStatus === 'blocked';
+          const isFallback = explicitStatus === 'fallback';
+          const isActive = explicitStatus === 'active' || (!explicitStatus && !allDone && !inFinalization && index === activeStepIndex);
+          const isPending = !isComplete && !isActive && !isSkipped && !isBlocked && !isFallback;
+          const displayText = state.stepDisplayText?.[stepItem.id];
 
           return (
             <li
@@ -110,12 +115,21 @@ export function InvestigationProgressPanel({ state, demoMode, onRetryFinalSynthe
                 'flex gap-3 rounded-lg border px-3 py-2.5 transition-colors duration-300',
                 isActive && 'border-cyan-500/40 bg-cyan-500/10 shadow-[0_0_12px_rgba(34,211,238,0.08)]',
                 isComplete && 'border-slate-800 bg-slate-950/50',
+                isSkipped && 'border-slate-800/50 bg-slate-950/20 opacity-70',
+                isBlocked && 'border-red-500/35 bg-red-500/[0.08]',
+                isFallback && 'border-amber-500/35 bg-amber-500/[0.08]',
                 isPending && 'border-slate-800/60 bg-slate-950/30 opacity-60',
                 inFinalization && isComplete && 'opacity-90',
               )}
             >
               <div className="mt-0.5 shrink-0">
-                {isComplete ? (
+                {isBlocked ? (
+                  <AlertTriangle className="h-4 w-4 text-red-300" />
+                ) : isFallback ? (
+                  <CheckCircle2 className="h-4 w-4 text-amber-300" />
+                ) : isSkipped ? (
+                  <MinusCircle className="h-4 w-4 text-slate-500" />
+                ) : isComplete ? (
                   <CheckCircle2 className="h-4 w-4 text-emerald-300" />
                 ) : isActive ? (
                   <Loader2 className="h-4 w-4 animate-spin text-cyan-300" />
@@ -123,7 +137,12 @@ export function InvestigationProgressPanel({ state, demoMode, onRetryFinalSynthe
                   <Circle className="h-4 w-4 text-slate-600" />
                 )}
               </div>
-              <StepDescription step={stepItem} isActive={isActive} isComplete={isComplete} />
+              <div className="min-w-0">
+                <StepDescription step={stepItem} isActive={isActive} isComplete={isComplete || isSkipped || isFallback} />
+                {displayText ? (
+                  <p className="mt-1.5 text-xs leading-5 text-slate-300">{displayText}</p>
+                ) : null}
+              </div>
             </li>
           );
         })}
