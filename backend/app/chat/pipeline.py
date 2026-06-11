@@ -2042,6 +2042,8 @@ def _candidate_spl_stage(
         user_query=user_query,
         template_id=template_id,
         spl_governance=spl_governance,
+        telemetry=telemetry,
+        profile=profile,
     )
     if template_candidate is not None:
         candidate_payload, validation_payload = template_candidate
@@ -2180,6 +2182,10 @@ def _candidate_from_default_template(
     user_query: str,
     template_id: str | None,
     spl_governance: dict[str, Any] | None = None,
+    telemetry: Any | None = None,
+    profile: Any | None = None,
+    extra_slots: dict[str, Any] | None = None,
+    slot_source: str = "user",
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     template = get_spl_template(template_id)
     if template is None or template.query_shape != QUERY_SHAPE_RAW_SEARCH or not template.spl_text:
@@ -2187,9 +2193,58 @@ def _candidate_from_default_template(
     if template.status != "active":
         return None
 
-    from app.spl.template_query_bindings import customize_template_spl
+    from app.spl.template_query_bindings import (
+        customize_template_spl,
+        validate_template_slots_for_render,
+    )
 
-    rendered_spl = customize_template_spl(template.template_id, template.spl_text, user_query)
+    slot_outcome = validate_template_slots_for_render(
+        template.template_id,
+        user_query,
+        extra_slots=extra_slots,
+        slot_source=slot_source,
+    )
+    if not slot_outcome.valid:
+        if telemetry is not None and profile is not None:
+            clarification = _candidate_clarification(
+                trace_id=trace_id,
+                skill=skill,
+                user_query=user_query,
+                telemetry=telemetry,
+                profile=profile,
+                reason="slot_validation_failed",
+                spl_governance=spl_governance,
+            )
+        else:
+            clarification = _slot_validation_clarification(
+                trace_id=trace_id,
+                skill=skill,
+                user_query=user_query,
+                spl_governance=spl_governance,
+            )
+        candidate_payload, validation_payload = clarification
+        validation_payload["reject_reasons"] = sorted(
+            set(list(validation_payload.get("reject_reasons") or []) + slot_outcome.reject_reasons)
+        )
+        candidate_payload["candidate_spl"] = ""
+        candidate_payload["generation_mode"] = "clarification_required"
+        candidate_payload["warnings"] = sorted(
+            set(list(candidate_payload.get("warnings") or []) + ["spl_slot_validation_failed"])
+        )
+        validation_payload["requires_mcp_identity_rbac_check"] = True
+        validation_payload["mcp_execution_enabled"] = False
+        candidate_payload["requires_mcp_identity_rbac_check"] = True
+        candidate_payload["mcp_execution_enabled"] = False
+        return candidate_payload, validation_payload
+
+    from app.spl.spl_generation_safety import apply_spl_generation_safety
+
+    rendered_spl = customize_template_spl(
+        template.template_id,
+        template.spl_text,
+        user_query,
+        normalized_slots=slot_outcome.normalized_slots,
+    )
     validation = validate_spl(rendered_spl)
     candidate_payload = {
         "trace_id": trace_id,
@@ -2232,7 +2287,65 @@ def _candidate_from_default_template(
         validation_payload,
         spl_governance or _template_spl_governance(template.template_id, template.status, template.is_production_executable()),
     )
+    apply_spl_generation_safety(candidate_payload, validation_payload, spl=rendered_spl)
     _mark_spl_review_status(candidate_payload, validation_payload)
+    return candidate_payload, validation_payload
+
+
+def _slot_validation_clarification(
+    *,
+    trace_id: str,
+    skill: str,
+    user_query: str,
+    spl_governance: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
+    validation = validate_spl("")
+    reject_reasons = list(validation.get("reject_reasons") or [])
+    if "slot_validation_failed" not in reject_reasons:
+        reject_reasons.append("slot_validation_failed")
+    candidate_payload = {
+        "trace_id": trace_id,
+        "skill": skill,
+        "user_query": user_query,
+        "candidate_spl": "",
+        "generation_mode": "clarification_required",
+        "confidence": 0.0,
+        "assumptions": [
+            "Template slot validation failed before SPL rendering.",
+            "No candidate SPL was generated; analyst clarification is required.",
+        ],
+        "warnings": ["spl_slot_validation_failed"],
+        "selected_candidate_spl_provider": "none",
+        "fallback_required": True,
+        "candidate_spl_generated": False,
+        "validation_required": False,
+        "execution_eligible": False,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+    }
+    validation_payload = {
+        "approved": False,
+        "normalized_spl": None,
+        "reject_reasons": reject_reasons,
+        "warnings": list(validation.get("warnings") or []),
+        "enforced_limits": validation.get("enforced_limits"),
+        "policy_version": validation.get("policy_version"),
+        "selected_candidate_spl_provider": "none",
+        "candidate_provider_reason": "slot_validation_failed",
+        "saia_available": False,
+        "fallback_required": True,
+        "spl_explanation_provider": "rule_based",
+        "spl_optimization_provider": "rule_based",
+        "spl_guidance_provider": "scd_rag",
+        "optimization_applied": False,
+        "optimization_revalidation_status": None,
+        "optimization_revalidation_approved": False,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+    }
+    _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
+    _mark_spl_review_status(candidate_payload, validation_payload, reason="slot_validation_failed")
     return candidate_payload, validation_payload
 
 
@@ -2754,6 +2867,8 @@ def _chat_message(
         if _generic_soc_guidance_path(planning_decision):
             return "Generic SOC guidance path selected. Governed KB was checked when enabled; no catalog use case, SPL, MCP, or MITRE evidence claim was created."
         if isinstance(evidence_plan, dict) and evidence_plan.get("answer_mode") == "rag_only":
+            if user_query and "checklist" in user_query.lower():
+                return "Governed knowledge checklist path selected. SPL and MCP are skipped for this request."
             return "Governed knowledge path selected. SPL and MCP are skipped for this request."
         if user_query:
             from app.chat.query_signals import extract_query_signals

@@ -22,5 +22,5 @@ def test_auth_success_after_failure_injects_alert_id_without_host() -> None:
 def test_auth_success_after_failure_adds_explicit_host_only_when_present() -> None:
     query = "Generate SPL for successful login after failures on host=APP-01"
     spl = customize_template_spl("auth_success_after_failure", _BASE, query)
-    assert "host=APP-01" in spl
+    assert 'host="APP-01"' in spl
     assert "alert_id=" not in spl
