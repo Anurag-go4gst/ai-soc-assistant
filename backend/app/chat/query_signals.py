@@ -119,7 +119,8 @@ def extract_query_signals(
     )
     sop_show_request = (
         any(
-            term in normalized for term in ("playbook", "runbook", "sop", "standard operating procedure")
+            term in normalized
+            for term in ("playbook", "runbook", "sop", "standard operating procedure", "checklist")
         )
         and (
             ("show" in normalized and "playbook" in normalized)
@@ -127,6 +128,11 @@ def extract_query_signals(
             or "show me the runbook" in normalized
             or normalized.startswith("show sop")
             or normalized.startswith("show runbook")
+            # WS1 T1.2: checklist asks are SOP-channel requests even when the
+            # topic carries investigation verbs ("checklist for investigating X").
+            or ("show" in normalized and "checklist" in normalized)
+            or "checklist for" in normalized
+            or "soc checklist" in normalized
         )
         and not any(
             term in normalized
@@ -299,7 +305,8 @@ def extract_query_signals(
         )
     )
     playbook_procedure = any(
-        term in normalized for term in ("playbook", "runbook", "sop", "standard operating procedure", "procedure steps")
+        term in normalized
+        for term in ("playbook", "runbook", "sop", "standard operating procedure", "procedure steps", "checklist")
     )
     knowledge_definition = normalized.startswith("what is ") or normalized.startswith("what are ")
     dga = "dga" in normalized or "domain generation" in normalized
@@ -338,7 +345,11 @@ def extract_query_signals(
         )
     )
     conceptual_mitre_judgment = bool(
-        re.search(r"\b(enough to confirm|alone confirm|treated as lateral movement|prove compromise)\b", normalized)
+        re.search(
+            r"\b((enough|sufficient) to confirm|alone confirm|treated as lateral movement|prove compromise"
+            r"|be confirmed (just |only )?from|confirmed (c2|command and control))\b",
+            normalized,
+        )
         and "?" in query
     )
     mitre_evidence_threshold = bool(
@@ -398,6 +409,14 @@ def extract_query_signals(
             "what should soc",
             "how should we",
             "what should we",
+            # WS1 T1.2: paraphrase forms of "how should we investigate".
+            # ("next steps" deliberately excluded — it appears inside ordinary
+            # hybrid investigation+playbook requests.)
+            "what now",
+            "what next",
+            "how do we proceed",
+            "how to proceed",
+            "guidance",
             "how should the analyst",
             "what should the analyst",
             "how should soc triage",

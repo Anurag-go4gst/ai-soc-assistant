@@ -22,8 +22,15 @@ from typing import Any
 
 from app.coverage.question_runtime_map import list_question_runtime_entries
 
-SEMANTIC_MATCH_THRESHOLD = 0.80
+# Calibrated by the T1.2 paraphrase eval (51 rows): at 0.65 the corpus shows
+# zero wrong landings (margin gate absorbs ambiguity) while recovering most
+# paraphrase misses seen at the initial 0.80. Scores in the candidate band
+# below the threshold are never landed silently — they surface as explicit
+# "did you mean" candidates (T1.4) for analyst adjudication.
+SEMANTIC_MATCH_THRESHOLD = 0.65
 SEMANTIC_MATCH_MARGIN = 0.05
+SEMANTIC_CANDIDATE_FLOOR = 0.45
+SEMANTIC_CANDIDATE_LIMIT = 3
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _STOP_WORDS = {
@@ -68,6 +75,16 @@ _PHRASE_CANON: tuple[tuple[str, str], ...] = (
     ("dns lookups", "dns queries"),
     ("dns requests", "dns queries"),
     ("smb file sharing traffic", "smb traffic"),
+    # paraphrase-eval-motivated (T1.2 misses):
+    ("top talkers", "hosts generating the most traffic"),
+    ("admin group", "administrators"),
+    ("new members", "added"),
+    ("data movers", "data transfers"),
+    ("big outbound", "large outbound"),
+    ("failed attempts", "failures"),
+    ("after many", "after repeated"),
+    ("lots of", "many"),
+    ("distinct", "unique"),
 )
 
 _INDEX_CACHE: list[tuple[dict[str, Any], Counter[str], float]] | None = None
@@ -117,6 +134,43 @@ def semantic_question_match(
     match = dict(best_entry)
     match["_semantic_match_score"] = round(best_score, 4)
     return match
+
+
+def semantic_candidates(
+    query: str,
+    *,
+    limit: int = SEMANTIC_CANDIDATE_LIMIT,
+    floor: float | None = None,
+) -> list[dict[str, Any]]:
+    """Top candidate rows for the confused band (T1.4 'did you mean').
+
+    Returns up to `limit` rows scoring >= floor, best first, each carrying
+    `question_ref`, `question`, and `_semantic_match_score`. Never used for
+    silent landing — only for explicit analyst-facing suggestions and for
+    validating advisory promotions (T1.3).
+    """
+    if floor is None:
+        floor = SEMANTIC_CANDIDATE_FLOOR
+    query_vector = _vectorize(query)
+    query_norm = _norm(query_vector)
+    if not query_vector or query_norm == 0.0:
+        return []
+    scored: list[tuple[float, dict[str, Any]]] = []
+    for entry, vector, vector_norm in _index():
+        score = _cosine(query_vector, query_norm, vector, vector_norm)
+        if score >= floor:
+            scored.append((score, entry))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    candidates = []
+    for score, entry in scored[:limit]:
+        candidates.append(
+            {
+                "question_ref": entry.get("question_ref"),
+                "question": entry.get("question"),
+                "_semantic_match_score": round(score, 4),
+            }
+        )
+    return candidates
 
 
 def _index() -> list[tuple[dict[str, Any], Counter[str], float]]:
