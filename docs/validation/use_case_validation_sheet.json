@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_use_cases",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-08T12:26:51+00:00",
+  "generated_at": "2026-06-11T06:14:45+00:00",
   "row_counts": {
     "use_cases": 49
   },
@@ -112,16 +112,16 @@
     },
     {
       "catalog_present": true,
-      "enrichment_present": false,
+      "enrichment_present": true,
       "live_execution_skill": "attack_discovery",
       "notes": "",
-      "rag_status": "missing",
+      "rag_status": "configured",
       "review_decision": "",
       "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
+      "spl_template_status": "planned",
+      "tests_added": true,
       "use_case_id": "auth_privileged_login_anomaly",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "catalog_present": true,
