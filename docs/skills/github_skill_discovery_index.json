@@ -1,10 +1,10 @@
 {
   "clone_root_used": "/tmp/ai-soc-references/Anthropic-Cybersecurity-Skills",
-  "generated_at": "2026-06-07T17:45:49+00:00",
+  "generated_at": "2026-06-11T10:33:35+00:00",
   "row_counts": {
-    "accepted_for_enrichment": 7,
-    "discovered_unreviewed": 747,
-    "intake_register_records": 7,
+    "accepted_for_enrichment": 12,
+    "discovered_unreviewed": 742,
+    "intake_register_records": 12,
     "skills": 754
   },
   "schema_version": "2026-06-07-phase0b-v1",
@@ -1833,9 +1833,9 @@
       "title": "Auditing TLS Certificate Transparency Logs"
     },
     {
-      "decision": null,
-      "domain": "soc-operations",
-      "duplicate_of_existing": null,
+      "decision": "accept",
+      "domain": "cybersecurity",
+      "duplicate_of_existing": "automating-ioc-enrichment",
       "github_skill_id": "automating-ioc-enrichment",
       "likely_internal_domain": "soc-operations",
       "likely_soc_relevance": "high",
@@ -1846,10 +1846,10 @@
         "T1590.005",
         "T1596"
       ],
-      "notes": null,
+      "notes": "WS2 T2.4 deferred-class intake batch (lookup/TI/asset-context/source-health/notable). Content enrichment to follow in a later batch. GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "path": "skills/automating-ioc-enrichment/SKILL.md",
-      "priority": null,
-      "review_status": "discovered_unreviewed",
+      "priority": "P1",
+      "review_status": "accepted_for_enrichment",
       "subdomain": "threat-intelligence",
       "tags": [],
       "title": "Automating IOC Enrichment"
@@ -2448,9 +2448,9 @@
       "title": "Building Threat Hunt Hypothesis Framework"
     },
     {
-      "decision": null,
-      "domain": "soc-operations",
-      "duplicate_of_existing": null,
+      "decision": "accept",
+      "domain": "cybersecurity",
+      "duplicate_of_existing": "building-threat-intelligence-enrichment-in-splunk",
       "github_skill_id": "building-threat-intelligence-enrichment-in-splunk",
       "likely_internal_domain": "soc-operations",
       "likely_soc_relevance": "high",
@@ -2459,10 +2459,10 @@
         "T1071",
         "T1105"
       ],
-      "notes": null,
+      "notes": "WS2 T2.4 deferred-class intake batch (lookup/TI/asset-context/source-health/notable). Content enrichment to follow in a later batch. GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "path": "skills/building-threat-intelligence-enrichment-in-splunk/SKILL.md",
-      "priority": null,
-      "review_status": "discovered_unreviewed",
+      "priority": "P1",
+      "review_status": "accepted_for_enrichment",
       "subdomain": "soc-operations",
       "tags": [],
       "title": "Building Threat Intelligence Enrichment in Splunk"
@@ -3524,9 +3524,9 @@
       "title": "Configuring Windows Defender Advanced Settings"
     },
     {
-      "decision": null,
-      "domain": "soc-operations",
-      "duplicate_of_existing": null,
+      "decision": "accept",
+      "domain": "cybersecurity",
+      "duplicate_of_existing": "configuring-windows-event-logging-for-detection",
       "github_skill_id": "configuring-windows-event-logging-for-detection",
       "likely_internal_domain": "soc-operations",
       "likely_soc_relevance": "high",
@@ -3537,10 +3537,10 @@
         "T1543.003",
         "T1685.005"
       ],
-      "notes": null,
+      "notes": "WS2 T2.4 deferred-class intake batch (lookup/TI/asset-context/source-health/notable). Content enrichment to follow in a later batch. GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "path": "skills/configuring-windows-event-logging-for-detection/SKILL.md",
-      "priority": null,
-      "review_status": "discovered_unreviewed",
+      "priority": "P1",
+      "review_status": "accepted_for_enrichment",
       "subdomain": "endpoint-security",
       "tags": [],
       "title": "Configuring Windows Event Logging for Detection"
@@ -7846,9 +7846,9 @@
       "title": "Implementing AES Encryption for Data at Rest"
     },
     {
-      "decision": null,
-      "domain": "soc-operations",
-      "duplicate_of_existing": null,
+      "decision": "accept",
+      "domain": "cybersecurity",
+      "duplicate_of_existing": "implementing-alert-fatigue-reduction",
       "github_skill_id": "implementing-alert-fatigue-reduction",
       "likely_internal_domain": "soc-operations",
       "likely_soc_relevance": "high",
@@ -7859,10 +7859,10 @@
         "T1685.002",
         "T1685.005"
       ],
-      "notes": null,
+      "notes": "WS2 T2.4 deferred-class intake batch (lookup/TI/asset-context/source-health/notable). Content enrichment to follow in a later batch. GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "path": "skills/implementing-alert-fatigue-reduction/SKILL.md",
-      "priority": null,
-      "review_status": "discovered_unreviewed",
+      "priority": "P1",
+      "review_status": "accepted_for_enrichment",
       "subdomain": "soc-operations",
       "tags": [],
       "title": "Implementing Alert Fatigue Reduction"
@@ -12108,9 +12108,9 @@
       "title": "Performing ARP Spoofing Attack Simulation"
     },
     {
-      "decision": null,
-      "domain": "soc-operations",
-      "duplicate_of_existing": null,
+      "decision": "accept",
+      "domain": "cybersecurity",
+      "duplicate_of_existing": "performing-asset-criticality-scoring-for-vulns",
       "github_skill_id": "performing-asset-criticality-scoring-for-vulns",
       "likely_internal_domain": "soc-operations",
       "likely_soc_relevance": "high",
@@ -12119,10 +12119,10 @@
         "T1190",
         "T1203"
       ],
-      "notes": null,
+      "notes": "WS2 T2.4 deferred-class intake batch (lookup/TI/asset-context/source-health/notable). Content enrichment to follow in a later batch. GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
       "path": "skills/performing-asset-criticality-scoring-for-vulns/SKILL.md",
-      "priority": null,
-      "review_status": "discovered_unreviewed",
+      "priority": "P1",
+      "review_status": "accepted_for_enrichment",
       "subdomain": "vulnerability-management",
       "tags": [],
       "title": "Performing Asset Criticality Scoring for Vulns"

@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_rag_sop",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-11T06:14:45+00:00",
+  "generated_at": "2026-06-11T10:33:45+00:00",
   "row_counts": {
     "use_cases": 49
   },

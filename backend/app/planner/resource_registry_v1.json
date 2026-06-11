@@ -1113,6 +1113,19 @@
       "availability": "not_implemented",
       "policy_tier": 1,
       "notes": "deferred asset-context class; no CMDB integrated yet"
+    },
+    {
+      "resource_id": "api:notable_case_lookup",
+      "kind": "api",
+      "capabilities": [
+        "notable_event_lookup",
+        "case_history_lookup"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 1,
+      "notes": "deferred notable/case-lookup class; no SIEM case API integrated yet"
     }
   ]
 }

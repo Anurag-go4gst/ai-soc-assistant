@@ -270,24 +270,6 @@
       "title": "Building Threat Hunt Hypothesis Framework"
     },
     {
-      "backlog_id": "BL-AUTO-building-threat-intelligence-enrichment-in-splunk",
-      "dependency": "phase0b_discovery",
-      "github_skill_id": "building-threat-intelligence-enrichment-in-splunk",
-      "internal_use_case_candidate": null,
-      "mitre_candidate": [
-        "T1041",
-        "T1071",
-        "T1105"
-      ],
-      "path": "skills/building-threat-intelligence-enrichment-in-splunk/SKILL.md",
-      "priority": "P2",
-      "reason": "Promising defensive SOC relevance; requires human safety and mapping review.",
-      "recommended_decision": "review",
-      "soc_domain": "soc-operations",
-      "status": "review",
-      "title": "Building Threat Intelligence Enrichment in Splunk"
-    },
-    {
       "backlog_id": "BL-AUTO-conducting-cloud-incident-response",
       "dependency": "phase0b_discovery",
       "github_skill_id": "conducting-cloud-incident-response",
@@ -431,26 +413,6 @@
       "soc_domain": "soc-operations",
       "status": "review",
       "title": "Configuring Snort IDS for Intrusion Detection"
-    },
-    {
-      "backlog_id": "BL-AUTO-configuring-windows-event-logging-for-detection",
-      "dependency": "phase0b_discovery",
-      "github_skill_id": "configuring-windows-event-logging-for-detection",
-      "internal_use_case_candidate": null,
-      "mitre_candidate": [
-        "T1047",
-        "T1053.005",
-        "T1059.001",
-        "T1543.003",
-        "T1685.005"
-      ],
-      "path": "skills/configuring-windows-event-logging-for-detection/SKILL.md",
-      "priority": "P2",
-      "reason": "Promising defensive SOC relevance; requires human safety and mapping review.",
-      "recommended_decision": "review",
-      "soc_domain": "soc-operations",
-      "status": "review",
-      "title": "Configuring Windows Event Logging for Detection"
     },
     {
       "backlog_id": "BL-AUTO-deploying-decoy-files-for-ransomware-detection",
@@ -2138,9 +2100,49 @@
       "soc_domain": "soc-operations",
       "status": "deferred",
       "title": "Acquiring Disk Image with dd and dcfldd"
+    },
+    {
+      "backlog_id": "BL-AUTO-analyzing-active-directory-acl-abuse",
+      "dependency": "phase0b_discovery",
+      "github_skill_id": "analyzing-active-directory-acl-abuse",
+      "internal_use_case_candidate": null,
+      "mitre_candidate": [
+        "T1078.002",
+        "T1098",
+        "T1098.007",
+        "T1222.001",
+        "T1484.001"
+      ],
+      "path": "skills/analyzing-active-directory-acl-abuse/SKILL.md",
+      "priority": "P3",
+      "reason": "Moderate relevance; defer until higher-priority batches complete.",
+      "recommended_decision": "defer",
+      "soc_domain": "soc-operations",
+      "status": "deferred",
+      "title": "Analyzing Active Directory ACL Abuse"
+    },
+    {
+      "backlog_id": "BL-AUTO-analyzing-android-malware-with-apktool",
+      "dependency": "phase0b_discovery",
+      "github_skill_id": "analyzing-android-malware-with-apktool",
+      "internal_use_case_candidate": null,
+      "mitre_candidate": [
+        "T1406",
+        "T1407",
+        "T1521.001",
+        "T1626.001",
+        "T1655.001"
+      ],
+      "path": "skills/analyzing-android-malware-with-apktool/SKILL.md",
+      "priority": "P3",
+      "reason": "Moderate relevance; defer until higher-priority batches complete.",
+      "recommended_decision": "defer",
+      "soc_domain": "soc-operations",
+      "status": "deferred",
+      "title": "Analyzing Android Malware with Apktool"
     }
   ],
-  "generated_at": "2026-06-11T06:14:45+00:00",
+  "generated_at": "2026-06-11T10:33:35+00:00",
   "row_counts": {
     "backlog_items": 100
   },
