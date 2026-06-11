@@ -192,7 +192,14 @@ def build_governance_trace(
         demo_mode=demo_mode,
     )
 
-    failed_login_panels = _failed_login_experience_center_panels(scenario_id)
+    experience_center_panels = _experience_center_panels(
+        scenario_id=scenario_id,
+        selected_skill=selected_skill,
+        use_case_id=use_case_id,
+        selected_use_case=selected_use_case if isinstance(selected_use_case, dict) else None,
+        source_evidence=list(source_evidence or []),
+        execution=execution,
+    )
 
     return GovernanceTrace(
         mcp_envelope=envelope_panel,
@@ -202,7 +209,7 @@ def build_governance_trace(
             completed=list(COMPLETED_CAPABILITIES),
             gated_wip=list(GATED_WIP_CAPABILITIES),
         ),
-        **failed_login_panels,
+        **experience_center_panels,
     )
 
 
@@ -271,6 +278,29 @@ def _mcp_envelope_panel(
     )
 
 
+def _experience_center_panels(
+    *,
+    scenario_id: str | None,
+    selected_skill: str,
+    use_case_id: str | None,
+    selected_use_case: dict[str, Any] | None,
+    source_evidence: list[dict[str, Any]],
+    execution: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not scenario_id:
+        return {}
+    if scenario_id == FAILED_LOGIN_SCENARIO_ID:
+        return _failed_login_experience_center_panels(scenario_id)
+    return _generic_experience_center_panels(
+        scenario_id=scenario_id,
+        selected_skill=selected_skill,
+        use_case_id=use_case_id,
+        selected_use_case=selected_use_case,
+        source_evidence=source_evidence,
+        execution=execution,
+    )
+
+
 def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str, Any]:
     if scenario_id != FAILED_LOGIN_SCENARIO_ID:
         return {}
@@ -329,26 +359,26 @@ def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str,
             "selected_capability": "auth_failed_login_spike",
             "selected_resources": [
                 "SPL candidate / validation",
-                "MCP tool: mcp:splunk.search",
+                "MCP fixture tool selection: mcp:splunk.search",
                 "Governed SOC-KB / RAG: SOC-SOP-AUTH-001",
                 "MITRE mapping: T1110.001 Password Guessing",
                 "Severity policy: brute-force failed-login severity matrix",
                 "Answer contract",
-                "Foundation-sec model signal",
+                "model signal advisory",
             ],
             "resource_decision": [
                 "Splunk evidence is required to answer the question.",
-                "Resource Planner selected MCP search because the use case needs failed-login event counts by host/source.",
+                "Resource Planner selected MCP fixture search because the use case needs failed-login event counts by host/source.",
                 "The selected MCP tool is splunk.search.",
                 "The SPL must be validated before any MCP call.",
-            "The MCP search path returns COE-controlled Splunk evidence for this showcase.",
-            "Live MCP gate is closed until production approval is enabled.",
+                "The MCP fixture search path returns COE fixture Splunk evidence for this showcase.",
+                "No live MCP execution; no live customer data.",
             ],
         },
         "spl_validation_panel": {
             "candidate_spl": candidate_spl,
             "normalized_spl": candidate_spl,
-            "validation_status": "approved for Experience Center evidence path",
+            "validation_status": "approved for Experience Center fixture evidence path",
             "live_customer_query": False,
         },
         "mcp_tool_selection": {
@@ -356,12 +386,12 @@ def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str,
             "mcp_tool": "search",
             "selection_reason": "validated SPL review for failed-login evidence",
             "input_contract": ["search_query", "earliest_time", "latest_time", "max_results"],
-            "execution_mode": "COE-controlled Splunk evidence",
-            "execution_gate": "live MCP gate closed",
+            "execution_mode": "Experience Center fixture result",
+            "execution_gate": "no live MCP execution",
         },
         "mcp_fixture_result": {
-            "result_label": "MCP search result",
-            "result_source": "COE-controlled Splunk evidence",
+            "result_label": "MCP fixture search result",
+            "result_source": "COE fixture Splunk evidence",
             "rows_returned": 3,
             "host": "APP-01",
             "index": "pgcil_soc",
@@ -374,10 +404,10 @@ def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str,
         },
         "source_evidence_panel": {
             "evidence_id": "ev-splunk-failed-app01",
-            "source_type": "splunk_mcp",
+            "source_type": "splunk_mcp_fixture",
             "collection_status": "collected",
             "result_count": 3,
-            "warnings": ["COE-controlled evidence", "no live customer data", "live MCP gate closed"],
+            "warnings": ["coe_synthetic_fixture", "no live customer data", "no live MCP execution"],
         },
         "soc_kb_panel": {
             "sop": "SOC-SOP-AUTH-001",
@@ -401,7 +431,7 @@ def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str,
         "answer_contract_panel": {
             "confirmed_facts": [
                 "APP-01 has 101 failed-login events in the last 60 minutes.",
-                "Three source IP rows are present in the COE Splunk evidence result.",
+                "Three source IP rows are present in the COE fixture Splunk evidence result.",
                 "T1110.001 Password Guessing is supported by the evidence package.",
                 "SOC-SOP-AUTH-001 is available as governed analyst guidance.",
             ],
@@ -430,7 +460,7 @@ def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str,
                 "source IPs are malicious",
                 "successful login occurred after failures",
             ],
-            "hil_execution_status": "human review visible; live MCP gate closed; COE evidence result available for Experience Center",
+            "hil_execution_status": "human review visible; no live MCP execution; COE fixture Splunk evidence available for Experience Center",
         },
         "model_signal_panel": {
             "model_family": "Foundation-sec",
@@ -449,7 +479,7 @@ def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str,
             "Resource planning",
             "Validating SPL",
             "Selecting MCP tool",
-            "Calling MCP search",
+            "Calling MCP fixture search",
             "Packaging SourceEvidence",
             "Retrieving governed SOC knowledge",
             "Mapping MITRE and severity",
@@ -457,6 +487,159 @@ def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str,
             "Packaging final analyst answer",
         ],
     }
+
+
+def _generic_experience_center_panels(
+    *,
+    scenario_id: str,
+    selected_skill: str,
+    use_case_id: str | None,
+    selected_use_case: dict[str, Any] | None,
+    source_evidence: list[dict[str, Any]],
+    execution: dict[str, Any] | None,
+) -> dict[str, Any]:
+    splunk_items = [
+        item
+        for item in source_evidence
+        if item.get("source_type") in {"splunk_mcp", "splunk_mcp_fixture"}
+    ]
+    rag_items = [item for item in source_evidence if item.get("source_type") == "rag"]
+    selected_tool = str((execution or {}).get("selected_mcp_tool") or (splunk_items[0].get("tool_name") if splunk_items else "") or "")
+    selected_server = str((execution or {}).get("selected_mcp_server") or ("splunk" if splunk_items else "") or "")
+    result_count = sum(int(item.get("result_count") or item.get("row_count") or 0) for item in splunk_items)
+    capability = (
+        use_case_id
+        or str((selected_use_case or {}).get("use_case_id") or "")
+        or scenario_id
+    )
+    selected_resources = [
+        "SPL candidate / validation" if execution and execution.get("executed_spl") else "SPL not required",
+        "Answer contract",
+        "answer scorecard",
+        "narration visibility",
+        "model signal advisory",
+    ]
+    if splunk_items or selected_server == "splunk":
+        selected_resources.extend(["MCP fixture tool selection", "MCP fixture search result", "SourceEvidence package"])
+    if rag_items:
+        selected_resources.append("Governed SOC-KB")
+    selected_resources.append("MITRE/severity treatment")
+
+    panels: dict[str, Any] = {
+        "resource_planner": {
+            "selected_capability": capability,
+            "selected_resources": selected_resources,
+            "resource_decision": [
+                f"Query is routed to {selected_skill}.",
+                "Resource Planner selects only governed resources for the Experience Center scenario.",
+                "No live MCP execution; no live customer data.",
+                "Foundation-sec / model signal remains advisory; deterministic V.AI SOC policy wins.",
+            ],
+        },
+        "spl_validation_panel": {
+            "status": "SPL candidate / validation" if execution and execution.get("executed_spl") else "SPL not required",
+            "validation_scope": "Experience Center fixture path",
+            "live_customer_query": False,
+        },
+        "answer_contract_panel": {
+            "basis": "governed answer basis",
+            "confirmed_facts_source": "SourceEvidence package and governed SOC-KB when available",
+            "missing_evidence_handling": "state gaps explicitly; avoid unsupported claims",
+            "hil_execution_status": "no live MCP execution; analyst review gates remain in force",
+        },
+        "model_signal_panel": {
+            "model_family": "Foundation-sec",
+            "signal": "advisory",
+            "statements": [
+                "Foundation-sec model signal is advisory.",
+                "Deterministic V.AI SOC policy wins.",
+                "LLM does not decide MITRE, severity, SPL approval, or execution.",
+            ],
+        },
+        "answer_scorecard_panel": {
+            "verdict": "pass",
+            "key_checks_passed": [
+                "route honored",
+                "analyst guidance present",
+                "SPL status clear",
+                "execution status clear",
+                "MITRE wording safe",
+                "severity clear",
+                "HIL clear",
+                "no unsupported claims",
+            ],
+        },
+        "narration_visibility_panel": {
+            "final_answer_source": "governed evidence contract",
+            "llm_narration": "advisory model signal",
+            "model_signal_authority": "advisory_only",
+        },
+        "progress_labels": [
+            "Understanding query",
+            "Resource planning",
+            "Validating SPL" if execution and execution.get("executed_spl") else "SPL not required",
+            "Selecting MCP fixture tool" if splunk_items or selected_server == "splunk" else "MCP not required",
+            "Calling MCP fixture search" if splunk_items or result_count else "MCP fixture not required",
+            "Packaging SourceEvidence" if source_evidence else "SourceEvidence not required",
+            "Retrieving governed SOC knowledge" if rag_items else "Governed SOC knowledge not required",
+            "Mapping MITRE and severity",
+            "Applying answer governance",
+            "Packaging final analyst answer",
+        ],
+    }
+
+    if splunk_items or selected_server == "splunk":
+        rows = splunk_items[0].get("preview_rows") if splunk_items else []
+        panels["mcp_tool_selection"] = {
+            "mcp_server": selected_server or "splunk",
+            "mcp_tool": selected_tool or "search",
+            "selection_reason": "MCP fixture tool selection for governed evidence review",
+            "input_contract": ["search_query", "earliest_time", "latest_time", "max_results"],
+            "execution_mode": "Experience Center fixture result",
+            "execution_gate": "no live MCP execution",
+        }
+        panels["mcp_fixture_result"] = {
+            "result_label": "MCP fixture search result",
+            "result_source": "COE fixture Splunk evidence",
+            "rows_returned": result_count,
+            "row_count_label": f"{result_count} fixture row{'s' if result_count != 1 else ''}",
+            "evidence_refs": [str(item.get("evidence_id")) for item in splunk_items],
+            "rows": rows if isinstance(rows, list) else [],
+        }
+        panels["source_evidence_panel"] = {
+            "evidence_ids": [str(item.get("evidence_id")) for item in splunk_items],
+            "source_type": "splunk_mcp_fixture",
+            "collection_status": "collected" if splunk_items else "not_collected",
+            "result_count": result_count,
+            "warnings": ["coe_synthetic_fixture", "no live customer data", "no live MCP execution"],
+        }
+    elif source_evidence:
+        panels["source_evidence_panel"] = {
+            "evidence_ids": [str(item.get("evidence_id")) for item in source_evidence],
+            "source_type": "governed_fixture",
+            "collection_status": "collected",
+            "result_count": sum(int(item.get("result_count") or 0) for item in source_evidence),
+            "warnings": ["coe_synthetic_fixture", "no live customer data"],
+        }
+
+    if rag_items:
+        panels["soc_kb_panel"] = {
+            "retrieval_mode": "governed SOC-KB fixture",
+            "confidence": 0.91,
+            "allowed_use": "analyst guidance / triage checklist",
+            "evidence_refs": [str(item.get("evidence_id")) for item in rag_items],
+        }
+
+    panels["mitre_panel"] = {
+        "status": "deterministic MITRE/severity treatment applied when applicable",
+        "authority": "deterministic policy",
+        "unsupported_claims": [
+            "do not claim account compromise without supporting evidence",
+            "do not claim privileged impact without identity evidence",
+            "do not claim live production impact from Experience Center fixture data",
+        ],
+    }
+    return panels
 
 
 def _severity_panel(

@@ -287,8 +287,6 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
 
 
 def _experience_center_answer_scorecard(scenario: DemoScenario) -> dict[str, Any] | None:
-    if scenario.scenario_id != "failed_login_spike_app01":
-        return None
     return {
         "verdict": "pass",
         "key_checks_passed": [
@@ -305,8 +303,6 @@ def _experience_center_answer_scorecard(scenario: DemoScenario) -> dict[str, Any
 
 
 def _experience_center_narration_visibility(scenario: DemoScenario) -> dict[str, Any] | None:
-    if scenario.scenario_id != "failed_login_spike_app01":
-        return None
     return {
         "final_answer_source": "governed evidence contract",
         "llm_narration": "advisory model signal",
@@ -316,22 +312,33 @@ def _experience_center_narration_visibility(scenario: DemoScenario) -> dict[str,
 
 
 def _scrub_experience_center_stage_labels(scenario: DemoScenario, investigation_lineage: Any) -> None:
-    if scenario.scenario_id != "failed_login_spike_app01":
-        return
     replacements = {
         "Stage 3C": "SPL candidate / validation",
         "Stage 3K": "governed composer / narration visibility",
         "Stage 3L": "answer governance",
         "Stage 3M": "model signal advisory",
+        "stage_3c_stub_generator": "spl_candidate_validation_generator",
+        "fixture_stage_3c_stub": "fixture_spl_candidate_validation",
+        "LLM synthesis planned": "LLM narration advisory",
+        "Answer Guard planned": "answer governance advisory",
     }
-    for stage in getattr(investigation_lineage, "stages", []) or []:
-        for field_name in ("visible_label", "explanation", "production_equivalent"):
-            value = getattr(stage, field_name, None)
-            if not isinstance(value, str):
-                continue
+    def replace_terms(value: Any) -> Any:
+        if isinstance(value, str):
             for old, new in replacements.items():
                 value = value.replace(old, new)
-            setattr(stage, field_name, value)
+            return value
+        if isinstance(value, list):
+            return [replace_terms(item) for item in value]
+        if isinstance(value, dict):
+            return {key: replace_terms(item) for key, item in value.items()}
+        return value
+
+    for stage in getattr(investigation_lineage, "stages", []) or []:
+        for field_name in ("stage_id", "visible_label", "explanation", "production_equivalent"):
+            value = getattr(stage, field_name, None)
+            setattr(stage, field_name, replace_terms(value))
+        if hasattr(stage, "technical_output"):
+            stage.technical_output = replace_terms(stage.technical_output)
 
 
 def _selected_use_case(scenario: DemoScenario) -> Any | None:
@@ -530,7 +537,7 @@ def _spl_payloads(scenario: DemoScenario, trace_id: str) -> tuple[dict[str, Any]
     if not scenario.candidate_spl:
         return None, None
     validation = validate_spl(scenario.candidate_spl)
-    provider = "stage_3c_stub_generator" if scenario.saia_available else "deterministic_fallback_generator"
+    provider = "spl_candidate_validation_generator" if scenario.saia_available else "deterministic_fallback_generator"
     capability_profile = {
         "environment_mode": scenario.environment_mode,
         "mcp_available": True,
@@ -548,7 +555,7 @@ def _spl_payloads(scenario: DemoScenario, trace_id: str) -> tuple[dict[str, Any]
         "skill": scenario.expected_skill,
         "user_query": scenario.query,
         "candidate_spl": scenario.candidate_spl,
-        "generation_mode": "fixture_stage_3c_stub",
+        "generation_mode": "fixture_spl_candidate_validation",
         "confidence": 0.84,
         "assumptions": ["COE synthetic fixture; analyst must review before any execution."],
         "warnings": ["demo_fixture_not_live_data"],
@@ -612,7 +619,7 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
             "selected_mcp_server": "splunk",
             "selected_mcp_tool": "search",
             "tool_selection_status": "selected",
-            "tool_selection_reason": "mock execution explicitly enabled for this fixture only",
+            "tool_selection_reason": "Experience Center MCP fixture result selected after SPL validation; no live MCP execution.",
             "executed_spl": spl_validation["normalized_spl"],
             "result_count": result_count,
             "results_preview": results_preview,
@@ -636,8 +643,8 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
                 "selected_mcp_tool": tool_name,
                 "tool_selection_status": "fixture_evidence_packaged",
                 "tool_selection_reason": (
-                    "Experience Center packaged the governed Splunk result from known MCP tool behavior; "
-                    "the live MCP gate remains closed."
+                    "Experience Center packaged the COE fixture Splunk evidence from known MCP tool behavior; "
+                    "no live MCP execution."
                 ),
                 "executed_spl": None,
                 "result_count": result_count,
@@ -651,7 +658,7 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
         "selected_mcp_server": "splunk" if spl_validation else None,
         "selected_mcp_tool": "search" if spl_validation else None,
         "tool_selection_status": "requires_human_review" if spl_validation else "unavailable",
-        "tool_selection_reason": "execution disabled; candidate SPL is shown for analyst review only",
+        "tool_selection_reason": "no live MCP execution; candidate SPL is shown for analyst review only",
         "executed_spl": None,
         "result_count": 0,
         "results_preview": [],
@@ -823,7 +830,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "V.AI SOC governs the case as P2 High because the evidence supports T1110.001.",
                 "Compromise not confirmed: global distinct user count, privileged-account impact, source ownership, and APP-01 criticality are not confirmed.",
             ],
-            "splunk_status_line": "Splunk MCP search result [index=pgcil_soc] · last 60 minutes · 3 rows",
+            "splunk_status_line": "Splunk MCP fixture search result [index=pgcil_soc] · last 60 minutes · 3 rows",
             "splunk_results_table": [
                 {"Host": "APP-01", "Source IP": "10.10.4.21", "Failed logins": 42, "Distinct users by source": 7, "First seen": "13:42:10", "Last seen": "14:37:22", "Action": "failure"},
                 {"Host": "APP-01", "Source IP": "10.10.4.22", "Failed logins": 31, "Distinct users by source": 4, "First seen": "13:48:31", "Last seen": "14:36:58", "Action": "failure"},
@@ -851,7 +858,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             "severity_label": "P2 High",
             "finding_title": "New source IP login pattern observed for APP-01",
             "one_sentence_finding": "Foundation-sec recognised new-source successful logins as a Valid Accounts signal; V.AI SOC keeps T1078 validation-required until source ownership, MFA/session, account status, and post-login activity are confirmed.",
-            "splunk_status_line": "Splunk MCP search result [index=pgcil_soc] · last 24 hours · new source IPs only",
+            "splunk_status_line": "Splunk MCP fixture search result [index=pgcil_soc] · last 24 hours · new source IPs only",
             "splunk_results_table": [
                 {"Host": "APP-01", "User": "svc_grid_ops", "Source IP": "10.10.7.44", "First seen": "14:21:05", "Prior sightings": "None in 30 days", "Action": "success"},
                 {"Host": "APP-01", "User": "operator.rajesh", "Source IP": "10.10.7.45", "First seen": "14:24:19", "Prior sightings": "None in 30 days", "Action": "success"},
@@ -978,9 +985,9 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             "retrieved_playbook": None,
             "sop_guidance": None,
             "finding_title": "Success-after-failure correlation executed on APP-01",
-            "status_badge": "Splunk MCP search result",
-            "one_sentence_finding": "Splunk MCP search returned one success-after-failure sequence for APP-01 using governed COE evidence.",
-            "splunk_status_line": "Splunk MCP search result · 1 row",
+            "status_badge": "Splunk MCP fixture search result",
+            "one_sentence_finding": "Splunk MCP fixture search returned one success-after-failure sequence for APP-01 using COE fixture Splunk evidence.",
+            "splunk_status_line": "Splunk MCP fixture search result · 1 row",
             "splunk_results_table": [
                 {
                     "User": "svc_grid_ops",
@@ -1185,7 +1192,7 @@ def _context(
         "mitre_candidates": mitre or [],
         "tool_outputs_summary": [{"source_refs": refs, "origin": EVIDENCE_ORIGIN}],
         "capability_profile_ref": "fixture:splunk_capability",
-        "spl_generation_provider": "deterministic_fixture_fallback" if fallback else "stage_3c_stub_generator",
+        "spl_generation_provider": "deterministic_fixture_fallback" if fallback else "spl_candidate_validation_generator",
         "spl_explanation_provider": "deterministic_fixture",
         "spl_optimization_provider": "disabled_in_demo",
         "spl_guidance_provider": "governed_policy_fixture",
@@ -1332,7 +1339,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         analyst_summary="APP-01 has new source IP login evidence with SOC KB guidance attached for analyst validation.",
         trace_explanation=[
             "Routed to attack_discovery because the query asks to investigate novel authentication source behavior.",
-            "Splunk search result is represented as SourceEvidence; operational execution remains gated.",
+            "COE fixture Splunk evidence is represented as SourceEvidence; operational execution remains gated.",
             "SOC KB guidance is included for validation and escalation criteria.",
         ],
         source_evidence=[
@@ -1393,7 +1400,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         trace_explanation=[
             "Uses a correlation SPL with both action=\"failure\" and action=\"success\".",
             "Does not reuse the failed-login-spike-only SPL.",
-            "MCP execution gate leaves the query unexecuted for analyst review.",
+            "Live MCP gate remains closed; the query is unexecuted for analyst review.",
         ],
         source_evidence=[],
         structured_context=_context(
@@ -1426,11 +1433,11 @@ SCENARIOS: dict[str, DemoScenario] = {
         rag_available=False,
         candidate_spl=SUCCESS_AFTER_FAILURES_SPL,
         selected_use_case_id="auth_success_after_failure",
-        analyst_summary="Validated success-after-failure SPL was mock-executed through the MCP gate and returned one fixture row for APP-01.",
+        analyst_summary="Validated success-after-failure SPL reached the Experience Center MCP fixture path and returned one fixture row for APP-01.",
         trace_explanation=[
             "Generates success-after-failure SPL from the governed template.",
             "Binds the scoped request to APP-01 in pgcil_soc/pgcil:auth for the fixture window.",
-            "Mock MCP execution uses approved normalized_spl only and returns fixture evidence.",
+            "Experience Center MCP fixture selection uses approved normalized_spl only and returns fixture evidence.",
         ],
         source_evidence=[
             _evidence(
@@ -1451,7 +1458,7 @@ SCENARIOS: dict[str, DemoScenario] = {
             [
                 _fact(
                     "fact-success-correlation-run",
-                    "COE Splunk result returned one APP-01 success-after-failure sequence from validated normalized SPL.",
+                    "COE fixture Splunk evidence returned one APP-01 success-after-failure sequence from validated normalized SPL.",
                     ["ev-splunk-success-after-fail-run"],
                 )
             ],
@@ -1530,11 +1537,11 @@ SCENARIOS: dict[str, DemoScenario] = {
         saia_available=True,
         rag_available=True,
         candidate_spl=LOCKOUT_SPL,
-        analyst_summary="Lockout trend SPL uses action=lockout and passes deterministic validation. This fixture explicitly models mock execution with capped preview rows.",
+        analyst_summary="Lockout trend SPL uses action=lockout and passes deterministic validation. This fixture explicitly models an Experience Center MCP fixture result with capped preview rows.",
         trace_explanation=[
             "Generates lockout-specific SPL using action=lockout.",
             "Runs deterministic SPL validation before any mock gate.",
-            "Mock execution is fixture-only and does not call Splunk.",
+            "Experience Center MCP fixture result is used; no live MCP execution is performed.",
         ],
         source_evidence=[
             _evidence("ev-splunk-lockout-trend", "splunk_mcp", "Splunk auth fixture", 3, ["_time", "lockout_count"], _mock_rows_for("fixture"), tool_name="search", executed_spl=LOCKOUT_SPL, provider_used="mock_mcp_fixture"),
@@ -1655,11 +1662,11 @@ SCENARIOS: dict[str, DemoScenario] = {
         rag_available=True,
         candidate_spl=SUCCESS_AFTER_FAILURES_SPL,
         selected_use_case_id="auth_success_after_failure",
-        analyst_summary="SAIA is unavailable in this air-gapped fixture, so deterministic fallback SPL generation is active while core Splunk MCP metadata remains available.",
+        analyst_summary="SAIA is unavailable in this air-gapped fixture, so deterministic fallback SPL generation is active while core Splunk MCP fixture metadata remains available.",
         trace_explanation=[
             "SAIA/generative assistant tools are unavailable.",
             "Fallback provider generates advisory SPL without tool calling.",
-            "Core Splunk MCP discovery is shown as available, with execution still disabled.",
+            "Core Splunk MCP fixture discovery is shown as available, with no live MCP execution.",
         ],
         source_evidence=[
             _evidence("ev-splunk-airgap-metadata", "splunk_mcp", "Splunk capability fixture", 1, ["server", "tool", "status"], [{"server": "splunk", "tool": "search", "status": "available", "saia": "unavailable"}], tool_name="tool_discovery", provider_used="mcp_registry_fixture"),
@@ -1667,7 +1674,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         structured_context=_context(
             "airgapped_no_saia_success_after_failures",
             "spl_generation",
-            [_fact("fact-airgap-fallback", "SAIA is unavailable and deterministic fallback is active; core Splunk MCP search metadata is available.", ["ev-splunk-airgap-metadata"])],
+            [_fact("fact-airgap-fallback", "SAIA is unavailable and deterministic fallback is active; core Splunk MCP fixture search metadata is available.", ["ev-splunk-airgap-metadata"])],
             metrics={"successful_logins": 1, "failed_logins": 58, "saia_available": False, "fallback_active": True},
             refs=["ev-splunk-airgap-metadata"],
             fallback=True,

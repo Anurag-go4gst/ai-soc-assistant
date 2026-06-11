@@ -13,7 +13,7 @@ interface Stage3DTracePanelProps {
 
 export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
   const rows = evidenceRowsFor(trace);
-  const splunkRowIndex = rows.findIndex((row) => row.title.startsWith('Splunk MCP'));
+  const splunkRowIndex = rows.findIndex((row) => row.title.includes('Splunk MCP fixture') || row.title.includes('MCP fixture'));
   const governance = resolveGovernanceTrace(trace);
   const hasExperienceCenterPanels = Boolean(governance?.resource_planner);
   return (
@@ -75,7 +75,7 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
   if (scenarioId === 'new_source_ip_logins') {
     return [
       { title: 'Investigation orchestration', detail: 'attack discovery -> evidence collection -> MITRE mapping -> context sufficiency', meta: '4 stages completed · 138ms' },
-      { title: 'Splunk MCP search', detail: 'splunk.search · index=pgcil_soc · sourcetype=pgcil:auth · 24h window', meta: '2 rows returned · new source filter applied · 312ms' },
+      { title: 'MCP fixture search result', detail: 'splunk.search · index=pgcil_soc · sourcetype=pgcil:auth · 24h window', meta: '2 fixture rows returned · new source filter applied · 312ms' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-002#source-baseline · v2026.04', meta: 'confidence 0.88 · 1 document retrieved' },
       { title: 'Deterministic analysis', detail: 'behavioural classification · T1078 Valid Accounts candidate', meta: 'source novelty analysis · service account flag · validation required' },
       { title: 'MITRE ATT&CK', detail: 'technique lookup · T1078 Valid Accounts · tactic: Initial Access / Persistence', meta: 'analyst validation required for technique confirmation' },
@@ -86,7 +86,7 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
     return [
       { title: 'Investigation orchestration', detail: 'SPL generation -> policy validation -> Splunk readiness check', meta: '3 stages completed · 89ms' },
       { title: 'SPL policy validation', detail: 'spl-policy-v1 · read-only · time-range required · aggregation required', meta: 'candidate SPL approved for analyst review' },
-      { title: 'Splunk MCP readiness', detail: 'splunk.search available · index=pgcil_soc reachable', meta: 'SPL ready for analyst-initiated review' },
+      { title: 'Splunk MCP fixture readiness', detail: 'splunk.search metadata available · index=pgcil_soc fixture path', meta: 'SPL ready for analyst-initiated review · no live MCP execution' },
       { title: 'Deterministic analysis', detail: 'SPL logic review · transaction chain logic validated', meta: 'success-after-failure pattern supported · risk field verified' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SPL-LIB-003', meta: 'SPL guidance cross-referenced' },
     ];
@@ -95,7 +95,7 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
     return [
       { title: 'Investigation orchestration', detail: 'SPL generation -> policy validation -> Splunk readiness check', meta: '3 stages completed · 92ms' },
       { title: 'SPL policy validation', detail: 'spl-policy-v1 · read-only · time-range required · aggregation required', meta: 'candidate SPL approved for analyst review' },
-      { title: 'Splunk MCP readiness', detail: 'splunk.search available · index=pgcil_soc reachable', meta: 'SPL ready for analyst-initiated review' },
+      { title: 'Splunk MCP fixture readiness', detail: 'splunk.search metadata available · index=pgcil_soc fixture path', meta: 'SPL ready for analyst-initiated review · no live MCP execution' },
       { title: 'Deterministic analysis', detail: 'SPL logic review · lockout trend logic validated', meta: '15-minute bucketing supported · user_total rollup verified' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SPL-LIB-007', meta: 'lockout SPL guidance cross-referenced' },
     ];
@@ -111,7 +111,7 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
   if (scenarioId === 'mitre_mapping_auth_alert') {
     return [
       { title: 'Investigation orchestration', detail: 'attack discovery -> MITRE mapping -> deterministic classification -> context sufficiency', meta: '4 stages completed · 141ms' },
-      { title: 'Splunk MCP search', detail: 'splunk.search · alert evidence · index=pgcil_soc · 60 min window', meta: 'evidence rows retrieved · 267ms' },
+      { title: 'MCP fixture search result', detail: 'splunk.search · alert evidence · index=pgcil_soc · 60 min window', meta: 'fixture rows retrieved · 267ms' },
       { title: 'MITRE ATT&CK', detail: 'technique lookup · T1110.001 Password Guessing · Credential Access - supported', meta: 'technique lookup · T1078 Valid Accounts · Initial Access / Persistence - validation required' },
       { title: 'Deterministic analysis', detail: 'dual-technique classification · T1110.001 supported · T1078 analyst-pending', meta: 'post-login behaviour review required for T1078 confirmation' },
       { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-001#triage', meta: 'playbook cross-referenced' },
@@ -119,10 +119,10 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
   }
   return [
     { title: 'Query understanding', detail: 'Investigate failed login spike on APP-01 -> auth_failed_login_spike', meta: 'skill attack_discovery · intent: failed authentication spike' },
-    { title: 'Resource Planner', detail: 'auth_failed_login_spike -> SPL validation -> MCP search -> SOC-KB -> MITRE/severity -> answer contract', meta: 'capability selected · resources planned' },
+    { title: 'Resource Planner', detail: 'auth_failed_login_spike -> SPL validation -> MCP fixture search -> SOC-KB -> MITRE/severity -> answer contract', meta: 'capability selected · resources planned' },
     { title: 'SPL validation', detail: 'validated SPL candidate · index=pgcil_soc · sourcetype=pgcil:auth · 60 min window', meta: 'approved for governed evidence path' },
-    { title: 'MCP tool selection', detail: 'server splunk · tool search · input contract search_query/earliest_time/latest_time/max_results', meta: 'tool selected after SPL validation' },
-    { title: 'Splunk MCP search', detail: 'splunk.search · index=pgcil_soc · sourcetype=pgcil:auth · 60 min window', meta: '3 evidence rows · fail_count >= 25 filter applied' },
+    { title: 'MCP fixture tool selection', detail: 'server splunk · tool search · input contract search_query/earliest_time/latest_time/max_results', meta: 'tool selected after SPL validation · no live MCP execution' },
+    { title: 'MCP fixture search result', detail: 'splunk.search · index=pgcil_soc · sourcetype=pgcil:auth · 60 min window', meta: '3 fixture rows · fail_count >= 25 filter applied' },
     { title: 'SourceEvidence package', detail: 'ev-splunk-failed-app01 · collected · 3 result rows', meta: 'fields normalized for governed answer contract' },
     { title: 'Governed RAG', detail: 'soc_kb retrieval · SOC-SOP-AUTH-001#triage · v2026.04', meta: 'confidence 0.91 · 1 document retrieved' },
     { title: 'MITRE and severity', detail: 'T1110.001 Password Guessing · P2 High', meta: 'supported by volume and source distribution pattern' },
@@ -283,7 +283,7 @@ function RawDeveloperTracePanel({ trace }: Stage3DTracePanelProps) {
 
 function SplunkCapabilitySection({ profile, validation }: { profile: Record<string, unknown>; validation: SplValidationEnvelope | null }) {
   return (
-    <TraceSection icon={<Wrench className="h-3.5 w-3.5 text-cyan-300" />} title="Splunk MCP Capability">
+    <TraceSection icon={<Wrench className="h-3.5 w-3.5 text-cyan-300" />} title="Splunk MCP fixture capability">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={profile.mcp_available ? 'success' : 'warning'}>Core MCP</Badge>
         <Badge variant={profile.saia_available ? 'success' : 'secondary'}>{profile.saia_available ? 'SAIA available' : 'SAIA unavailable'}</Badge>

@@ -7,6 +7,30 @@ import json
 from app.api.routes_scenarios import run_demo_scenario_fixture
 
 
+SCENARIO_WIDE_BANNED_PHRASES = (
+    "Stage 3C",
+    "Stage 3K",
+    "Stage 3L",
+    "Stage 3M",
+    "stage_3c_stub_generator",
+    "LLM synthesis planned",
+    "Answer Guard planned",
+    "MCP evidence",
+    "Splunk MCP search result",
+    "connected to Splunk",
+    "live Splunk search",
+    "Foundation-sec identified",
+)
+
+REQUESTED_EC_QUESTION_AUDIT = {
+    "Investigate failed login spike on APP-01": "formal_scenario:failed_login_spike_app01",
+    "A privileged user logged in from a new source IP. What should SOC check?": "covered_by_existing_theme:new_source_ip_logins",
+    "Search firewall logs for corporate IT to OT control room network": "not_formal_ec_scenario_yet",
+    "Which hosts are generating the most SMB traffic?": "not_formal_ec_scenario_yet",
+    "Give SPL to block this IP on the firewall immediately.": "not_formal_ec_scenario_yet",
+}
+
+
 def _run(scenario_id: str):
     return run_demo_scenario_fixture(scenario_id)
 
@@ -140,7 +164,7 @@ def test_ec_failed_login_resource_planner_selects_splunk_search_tool() -> None:
     assert gov is not None
     assert gov.resource_planner is not None
     assert gov.resource_planner["selected_capability"] == "auth_failed_login_spike"
-    assert "MCP tool: mcp:splunk.search" in gov.resource_planner["selected_resources"]
+    assert "MCP fixture tool selection: mcp:splunk.search" in gov.resource_planner["selected_resources"]
     assert any("selected MCP tool is splunk.search" in item for item in gov.resource_planner["resource_decision"])
 
 
@@ -152,7 +176,7 @@ def test_ec_mcp_call_is_fixture_not_live_execution() -> None:
     assert gov.mcp_tool_selection is not None
     assert gov.mcp_tool_selection["mcp_server"] == "splunk"
     assert gov.mcp_tool_selection["mcp_tool"] == "search"
-    assert gov.mcp_tool_selection["execution_gate"] == "live MCP gate closed"
+    assert gov.mcp_tool_selection["execution_gate"] == "no live MCP execution"
     assert response.execution is not None
     assert response.execution.status != "executed"
     assert response.execution.executed_spl is None
@@ -168,7 +192,7 @@ def test_ec_mcp_result_becomes_source_evidence() -> None:
     assert gov.mcp_fixture_result["total_failed_login_events"] == 101
     assert gov.source_evidence_panel is not None
     assert gov.source_evidence_panel["evidence_id"] == "ev-splunk-failed-app01"
-    assert gov.source_evidence_panel["source_type"] == "splunk_mcp"
+    assert gov.source_evidence_panel["source_type"] == "splunk_mcp_fixture"
     assert gov.source_evidence_panel["collection_status"] == "collected"
 
 
@@ -224,7 +248,7 @@ def test_ec_resource_planner_appears_before_mcp_search_result() -> None:
     gov = response.governance_trace or response.experience_center_governance
 
     assert gov is not None
-    assert gov.progress_labels.index("Resource planning") < gov.progress_labels.index("Calling MCP search")
+    assert gov.progress_labels.index("Resource planning") < gov.progress_labels.index("Calling MCP fixture search")
 
 
 def test_ec_priority_action_labels_are_colon_formatted() -> None:
@@ -256,3 +280,85 @@ def test_ec_no_raw_github_skill_markdown() -> None:
 
     assert "SKILL.md" not in text
     assert "github.com" not in text.lower()
+
+
+def test_ec_all_scenarios_use_current_architecture_labels() -> None:
+    from app.api.routes_scenarios import list_demo_scenario_fixtures
+
+    for item in list_demo_scenario_fixtures()["scenarios"]:
+        response = _run(item["scenario_id"])
+        gov = response.governance_trace or response.experience_center_governance
+        assert gov is not None
+        assert gov.resource_planner is not None
+        assert gov.spl_validation_panel is not None
+        assert gov.answer_contract_panel is not None
+        assert gov.model_signal_panel is not None
+        assert gov.answer_scorecard_panel is not None
+        assert gov.narration_visibility_panel is not None
+
+
+def test_ec_all_mcp_phrases_are_fixture_qualified() -> None:
+    from app.api.routes_scenarios import list_demo_scenario_fixtures
+
+    for item in list_demo_scenario_fixtures()["scenarios"]:
+        response = _run(item["scenario_id"])
+        text = json.dumps(response.model_dump())
+        assert "MCP evidence" not in text
+        assert "Splunk MCP search result" not in text
+        assert "connected to Splunk" not in text
+        assert "live Splunk search" not in text
+        if "Splunk MCP" in text or "MCP fixture" in text:
+            assert "fixture" in text.lower()
+            assert "no live MCP execution" in text
+
+
+def test_ec_all_scenarios_show_scorecard_and_narration_when_available() -> None:
+    from app.api.routes_scenarios import list_demo_scenario_fixtures
+
+    for item in list_demo_scenario_fixtures()["scenarios"]:
+        response = _run(item["scenario_id"])
+        gov = response.governance_trace or response.experience_center_governance
+        assert response.answer_scorecard is not None
+        assert response.answer_scorecard["verdict"] == "pass"
+        assert response.narration_visibility is not None
+        assert response.narration_visibility["llm_narration"] == "advisory model signal"
+        assert gov is not None
+        assert gov.answer_scorecard_panel is not None
+        assert gov.narration_visibility_panel is not None
+
+
+def test_ec_no_stage3_legacy_labels_anywhere() -> None:
+    from app.api.routes_scenarios import list_demo_scenario_fixtures
+
+    for item in list_demo_scenario_fixtures()["scenarios"]:
+        response = _run(item["scenario_id"])
+        text = json.dumps(response.model_dump())
+        for phrase in SCENARIO_WIDE_BANNED_PHRASES:
+            assert phrase not in text
+
+
+def test_ec_multiple_scenarios_not_only_failed_login_are_updated() -> None:
+    from app.api.routes_scenarios import list_demo_scenario_fixtures
+
+    updated_non_app01 = []
+    for item in list_demo_scenario_fixtures()["scenarios"]:
+        if item["scenario_id"] == "failed_login_spike_app01":
+            continue
+        response = _run(item["scenario_id"])
+        gov = response.governance_trace or response.experience_center_governance
+        if gov and gov.resource_planner and gov.answer_scorecard_panel and gov.narration_visibility_panel:
+            updated_non_app01.append(item["scenario_id"])
+
+    assert len(updated_non_app01) >= 3
+    assert "new_source_ip_logins" in updated_non_app01
+    assert "successful_login_after_failures" in updated_non_app01
+
+
+def test_ec_requested_question_audit_is_documented() -> None:
+    assert REQUESTED_EC_QUESTION_AUDIT["Investigate failed login spike on APP-01"].startswith("formal_scenario:")
+    assert REQUESTED_EC_QUESTION_AUDIT["A privileged user logged in from a new source IP. What should SOC check?"].startswith(
+        "covered_by_existing_theme:"
+    )
+    assert REQUESTED_EC_QUESTION_AUDIT["Search firewall logs for corporate IT to OT control room network"] == "not_formal_ec_scenario_yet"
+    assert REQUESTED_EC_QUESTION_AUDIT["Which hosts are generating the most SMB traffic?"] == "not_formal_ec_scenario_yet"
+    assert REQUESTED_EC_QUESTION_AUDIT["Give SPL to block this IP on the firewall immediately."] == "not_formal_ec_scenario_yet"

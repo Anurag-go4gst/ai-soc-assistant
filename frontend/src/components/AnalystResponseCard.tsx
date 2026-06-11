@@ -322,7 +322,7 @@ export function AnalystResponseCard({
       icon: <Database className="h-3.5 w-3.5" />,
       accent: 'cyan',
       chips: [
-        { text: 'Splunk MCP', variant: 'secondary' },
+        { text: response.splunk_status_line?.toLowerCase().includes('fixture') ? 'Splunk MCP fixture' : 'Splunk MCP', variant: 'secondary' },
         ...(tableRows ? [{ text: `${tableRows} row${tableRows === 1 ? '' : 's'}`, variant: 'outline' as const }] : []),
       ],
       content: (
