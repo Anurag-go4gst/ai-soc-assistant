@@ -5,7 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-LlmIntentAdjudicationStatus = Literal["skipped", "accepted", "rejected", "corrected"]
+LlmIntentAdjudicationStatus = Literal["skipped", "accepted", "rejected", "corrected", "promoted"]
 
 
 class LLMIntentAdvisory(BaseModel):

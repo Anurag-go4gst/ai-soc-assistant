@@ -157,11 +157,102 @@ def _known_use_cases(
 def _candidate_question_allowed(candidate: str, known_question: str | None) -> bool:
     if known_question:
         return candidate == known_question
-    return False
+    # WS1 T1.3: when deterministic intake found nothing, a candidate is
+    # acceptable iff it names a real registry row — promotion applies the
+    # remaining gates (confidence, semantic agree/abstain, unsafe veto).
+    from app.coverage.question_runtime_map import question_runtime_entry
+
+    return question_runtime_entry(candidate) is not None
 
 
 def _candidate_use_case_allowed(candidate: str, known_use_cases: list[str]) -> bool:
     if known_use_cases:
         return candidate in known_use_cases
-    return False
+    from app.use_cases.registry import load_use_case_catalog
 
+    return candidate in {item.use_case_id for item in load_use_case_catalog()}
+
+
+
+PROMOTION_MIN_CONFIDENCE = 0.75
+
+
+def apply_advisory_promotion(
+    *,
+    advisory: LLMIntentAdvisory | None,
+    candidate_mappings: dict[str, Any],
+    intent_requires_clarification: bool,
+    intent_requires_hil: bool,
+    query: str,
+) -> tuple[dict[str, Any], LLMIntentAdvisory | None]:
+    """Promote a validated advisory candidate when deterministic intake found
+    nothing (WS1 T1.3).
+
+    Promotion conditions (ALL must hold):
+    - deterministic match path is out_of_registry (deterministic has nothing
+      to defend — exact/near/semantic/catalog rungs always win otherwise)
+    - the advisory survived adjudication ("accepted": candidate ids already
+      validated against the deterministic registries)
+    - candidate confidence >= PROMOTION_MIN_CONFIDENCE
+    - the semantic tier agrees or abstains: candidate ref appears in the top
+      semantic candidates, or there are no candidates at all
+    - the classified intent did not require clarification or human review
+      (unsafe/clarification outcomes override promotion entirely)
+
+    Effect is mapping-level only: match_path becomes
+    "llm_promoted_with_registry_validation" and the candidate ref/use-case is
+    recorded. Severity, MITRE, SPL, and execution authority are untouched.
+    """
+    if advisory is None or advisory.adjudication_status != "accepted":
+        return candidate_mappings, advisory
+    if str(candidate_mappings.get("match_path") or "") != "out_of_registry":
+        return candidate_mappings, advisory
+    if intent_requires_clarification or intent_requires_hil:
+        return candidate_mappings, advisory
+
+    candidate_ref = advisory.question_ref_candidate
+    candidate_use_case = advisory.use_case_id_candidate
+    if not candidate_ref and not candidate_use_case:
+        return candidate_mappings, advisory
+
+    confidence = advisory.confidence_metadata.get("confidence")
+    try:
+        confidence_value = float(confidence)
+    except (TypeError, ValueError):
+        confidence_value = 0.0
+    if confidence_value < PROMOTION_MIN_CONFIDENCE:
+        return candidate_mappings, advisory
+
+    if candidate_ref:
+        from app.coverage.question_runtime_map import question_runtime_entry
+        from app.coverage.semantic_question_index import semantic_candidates
+
+        entry = question_runtime_entry(candidate_ref)
+        if entry is None:
+            return candidate_mappings, advisory
+        suggestions = [item["question_ref"] for item in semantic_candidates(query)]
+        if suggestions and candidate_ref not in suggestions:
+            return candidate_mappings, advisory
+        promoted = {
+            **candidate_mappings,
+            "match_path": "llm_promoted_with_registry_validation",
+            "question_ref": candidate_ref,
+        }
+    else:
+        from app.use_cases.registry import load_use_case_catalog
+
+        catalog_ids = {item.use_case_id for item in load_use_case_catalog()}
+        if candidate_use_case not in catalog_ids:
+            return candidate_mappings, advisory
+        promoted = {
+            **candidate_mappings,
+            "match_path": "llm_promoted_with_registry_validation",
+            "use_case_ids": [candidate_use_case, *candidate_mappings.get("use_case_ids", [])],
+        }
+
+    return promoted, advisory.model_copy(
+        update={
+            "adjudication_status": "promoted",
+            "adjudication_reason": "out_of_registry_candidate_promoted_after_registry_validation",
+        }
+    )
