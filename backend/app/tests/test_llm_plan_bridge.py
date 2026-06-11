@@ -168,3 +168,30 @@ def test_bridge_client_timeout_is_hard_capped(monkeypatch) -> None:
     capped = bridge._bridge_client()
     assert capped is not None
     assert capped.timeout_seconds <= bridge._BRIDGE_TIMEOUT_SECONDS_CAP
+
+
+def test_live_evidence_planning_never_calls_llm_inline(monkeypatch) -> None:
+    """Latency guard: the live planning path must not build or call a client,
+    even with both bridge flags on; eligible plans carry the deferred marker."""
+    from app.chat.evidence_planner import plan_evidence
+    from app.chat.intent_classifier import build_query_to_intent
+    from app.query_understanding.parser import understand_query
+
+    def _boom() -> None:
+        raise AssertionError("LLM client built on live planning path")
+
+    monkeypatch.setattr(
+        "app.llm.clients.local_chat_client.build_synthesis_client_from_settings", _boom
+    )
+    query = "Strange OT chatter to a brand new external host overnight, anything to hunt?"
+    understanding = understand_query(query)
+    result = build_query_to_intent(query=query, query_understanding=understanding)
+    plan = plan_evidence(
+        result.intent_classification,
+        query_to_intent=result.model_dump(),
+        query_understanding=understanding,
+    )
+    assert plan.resource_plan is not None
+    assert plan.resource_plan["plan_source"] == "deterministic"
+    if understanding.deterministic_match_path in {"out_of_registry", "near_105_question"}:
+        assert plan.resource_plan["provenance"].get("llm_bridge") == "deferred_not_inline"

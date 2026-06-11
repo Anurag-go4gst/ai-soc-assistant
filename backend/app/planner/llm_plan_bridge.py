@@ -11,6 +11,12 @@ not exist.
 Gating: both existing flags must be on — the intent-advisor flag (LLM may
 advise on intake) and the live-synthesis flag (a live client is wired).
 Pinned eval/test runtimes set live synthesis off, so gates stay LLM-free.
+
+NOT called inline on the live /chat path (PowerGrid latency diagnosis,
+2026-06-11): a blocking model call added flat latency and never changed
+dispatch. The evidence planner marks eligible plans
+`provenance.llm_bridge="deferred_not_inline"`; this entry point serves
+off-path callers (scorecard runs, future async proposal).
 """
 
 from __future__ import annotations
@@ -59,6 +65,11 @@ def _bridge_client() -> Any | None:
         return None
     capped = min(int(getattr(client, "timeout_seconds", _BRIDGE_TIMEOUT_SECONDS_CAP)), _BRIDGE_TIMEOUT_SECONDS_CAP)
     return replace(client, timeout_seconds=capped)
+
+
+def bridge_trigger_match(match_path: str | None) -> bool:
+    """True when the intake path is one the bridge may plan for."""
+    return str(match_path or "") in _TRIGGER_MATCH_PATHS
 
 
 def bridge_enabled() -> bool:
