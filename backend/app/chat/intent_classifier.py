@@ -13,7 +13,7 @@ from app.chat.contracts.intent_classification import (
     QueryToIntentResult,
 )
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
-from app.chat.llm_intent_advisor import adjudicate_llm_intent_advisory
+from app.chat.llm_intent_advisor import adjudicate_llm_intent_advisory, apply_advisory_promotion
 from app.chat.query_signals import extract_query_signals
 from app.query_understanding.models import QueryUnderstandingResult
 
@@ -425,6 +425,19 @@ def build_query_to_intent(
         llm_intent_advisory,
         query_understanding=query_understanding,
         candidate_mappings=candidate_mappings,
+    )
+    # WS1 T1.3: out_of_registry intake may adopt a registry-validated advisory
+    # candidate; deterministic rungs and unsafe/clarification outcomes always win.
+    # Veto scope: explicit human-review outcomes (unsafe action, run-SPL
+    # demand) always win. The default insufficient-signals clarification does
+    # NOT veto — those queries are exactly the population promotion rescues.
+    explicit_review = bool(intent.requires_hil or intent.primary_intent == "human_review")
+    candidate_mappings, adjudicated_advisory = apply_advisory_promotion(
+        advisory=adjudicated_advisory,
+        candidate_mappings=candidate_mappings,
+        intent_requires_clarification=explicit_review,
+        intent_requires_hil=explicit_review,
+        query=query,
     )
     llm_status = _llm_intent_assist_status(
         query_understanding,

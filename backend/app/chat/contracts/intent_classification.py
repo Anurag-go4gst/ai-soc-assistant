@@ -43,7 +43,7 @@ AnswerGoal = Literal[
     "clarification",
 ]
 ConfidenceBand = Literal["high", "medium", "low"]
-LlmIntentAssistStatus = Literal["skipped", "attempted", "accepted", "rejected", "corrected"]
+LlmIntentAssistStatus = Literal["skipped", "attempted", "accepted", "rejected", "corrected", "promoted"]
 ActionMode = Literal["recommend_only", "execute_action_not_allowed", "hil_required"]
 
 
