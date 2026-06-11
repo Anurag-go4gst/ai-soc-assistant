@@ -23,3 +23,18 @@ Answer Guard, or Experience Center behavior.
   `sample_only=true`, and are never returned by `enabled_templates()`.
 - The Q1A SPL validator remains the safety boundary; actual SOC pattern
   implementation is deferred to Q1C or later.
+
+## SPL Quality Checklist
+
+Use when reviewing governed templates, lab drafts, or LLM SPL advisory output before promotion or execution. Full rules: `docs/architecture/spl_mcp_execution_controls.md` §1, §6–§8.
+
+* [ ] Are all dynamic slot variables type-validated before rendering?
+* [ ] Are slot values escaped or normalized before template insertion?
+* [ ] Are index and sourcetype values allowlisted?
+* [ ] Does the SPL avoid raw user-string interpolation?
+* [ ] Does the template prevent SPL injection through host/user/IP/time/window fields?
+* [ ] Does any `tstats` query use `summariesonly=true` where applicable?
+* [ ] Are subsearches avoided or replaced by orchestrated multi-step searches?
+* [ ] Does the query have earliest/latest time bounds?
+* [ ] Does the query avoid broad unfielded wildcard base searches?
+* [ ] Do all final table fields survive aggregation?
