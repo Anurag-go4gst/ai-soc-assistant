@@ -1190,6 +1190,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 state=state,
             )
         )
+    try:
+        from app.quality.answer_scorecard import build_answer_scorecard
+
+        response = response.model_copy(
+            update={"answer_scorecard": build_answer_scorecard(response.model_dump())}
+        )
+    except Exception:
+        # Scorecard is reporting only; it must never break an answer.
+        pass
     return {
         **state,
         "response": response,
