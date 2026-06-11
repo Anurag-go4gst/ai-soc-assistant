@@ -35,12 +35,12 @@ export function ExperienceCenterGovernancePanels({
         </GovernanceDetails>
       ) : null}
       {!sections && governance.mcp_tool_selection ? (
-        <GovernanceDetails title="MCP tool selection" testId="ec-mcp-tool-selection-panel">
+        <GovernanceDetails title="MCP fixture tool selection" testId="ec-mcp-tool-selection-panel">
           <ObjectPanel panel={governance.mcp_tool_selection} />
         </GovernanceDetails>
       ) : null}
       {!sections && governance.mcp_fixture_result ? (
-        <GovernanceDetails title="MCP search result" testId="ec-mcp-fixture-result-panel">
+        <GovernanceDetails title="MCP fixture search result" testId="ec-mcp-fixture-result-panel">
           <ObjectPanel panel={governance.mcp_fixture_result} />
         </GovernanceDetails>
       ) : null}

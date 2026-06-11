@@ -6,7 +6,6 @@ from app.api.routes_scenarios import list_demo_scenario_fixtures, run_demo_scena
 
 
 BANNED_VISIBLE_TERMS = (
-    "fixture",
     "synthetic",
     "demo",
     "simulated",

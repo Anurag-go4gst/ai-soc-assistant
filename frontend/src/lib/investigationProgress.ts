@@ -251,14 +251,14 @@ export function buildInvestigationProgressSteps(options?: {
       step(
         {
           id: 'mcp_connect',
-          label: 'Calling MCP search',
+          label: demo ? 'Calling MCP fixture search' : 'Calling MCP search',
           description: demo
-            ? 'Running the Splunk MCP search path.'
+            ? 'Running the Splunk MCP fixture search path.'
             : 'Checking Splunk MCP registry, transport, and tool policy.',
           activity: [
             'Resolving splunk server from MCP registry…',
             'Verifying splunk.search is allowed for this skill…',
-            demo ? 'Splunk result received' : 'Awaiting execution gate approval…',
+            demo ? 'MCP fixture result received' : 'Awaiting execution gate approval…',
           ],
         },
         1200,
@@ -268,7 +268,7 @@ export function buildInvestigationProgressSteps(options?: {
           id: 'mcp_evidence',
           label: 'Packaging SourceEvidence',
           description: demo
-            ? 'Packaging Splunk search rows into SourceEvidence.'
+            ? 'Packaging COE fixture Splunk rows into SourceEvidence.'
             : 'Packaging search results into governed SourceEvidence.',
           activity: [
             'Preparing search preview request…',
