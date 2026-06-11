@@ -1192,9 +1192,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         )
     try:
         from app.quality.answer_scorecard import build_answer_scorecard
+        from app.synthesis.narration_visibility import build_narration_visibility
 
+        payload_view = response.model_dump()
+        visibility = build_narration_visibility(payload_view)
+        payload_view["narration_visibility"] = visibility
         response = response.model_copy(
-            update={"answer_scorecard": build_answer_scorecard(response.model_dump())}
+            update={
+                "narration_visibility": visibility,
+                "answer_scorecard": build_answer_scorecard(payload_view),
+            }
         )
     except Exception:
         # Scorecard is reporting only; it must never break an answer.

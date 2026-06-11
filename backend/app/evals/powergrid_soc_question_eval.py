@@ -274,54 +274,15 @@ def fetch_remote_flag_snapshot(base_url: str, *, client: httpx.Client | None = N
         return snapshot
 
 
-_LLM_EARLY_SKIP_REASONS = frozenset(
-    {
-        "draft_spl_preview_active",
-        "Knowledge/SOP profile uses deterministic governed RAG summary.",
-        "analyst_response_unavailable",
-        "composer_not_eligible",
-    }
+from app.synthesis.narration_visibility import (
+    LLM_EARLY_SKIP_REASONS as _LLM_EARLY_SKIP_REASONS,
+    build_narration_visibility,
+    composer_trace_from_payload as _llm_composer_from_raw,
+    llm_attempted as _llm_attempted,
+    llm_eligible as _llm_eligible,
+    llm_skip_category as _llm_skip_category_shared,
+    llm_skip_reason as _llm_skip_reason,
 )
-
-
-def _llm_composer_from_raw(raw: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(raw, dict):
-        return {}
-    trace = raw.get("control_plane_trace") if isinstance(raw.get("control_plane_trace"), dict) else {}
-    composer = raw.get("llm_composer") if isinstance(raw.get("llm_composer"), dict) else {}
-    if not composer and isinstance(trace.get("llm_composer"), dict):
-        composer = trace["llm_composer"]
-    return composer
-
-
-def _llm_skip_reason(composer: dict[str, Any]) -> str | None:
-    blocked = composer.get("llm_blocked_reason")
-    if isinstance(blocked, str) and blocked.strip():
-        return blocked.strip()
-    skipped = composer.get("composer_skipped_reason")
-    if isinstance(skipped, str) and skipped.strip():
-        return skipped.strip()
-    provider_skip = composer.get("provider_skip_reason")
-    if isinstance(provider_skip, str) and provider_skip.strip():
-        return provider_skip.strip()
-    if composer.get("llm_guard_status") == "disabled":
-        return "composer_disabled_by_config"
-    return None
-
-
-def _llm_eligible(composer: dict[str, Any]) -> bool:
-    return bool(composer.get("composer_is_enabled"))
-
-
-def _llm_attempted(composer: dict[str, Any]) -> bool:
-    if composer.get("llm_composer_used"):
-        return True
-    if composer.get("llm_guard_status") == "blocked":
-        return True
-    reason = str(composer.get("llm_blocked_reason") or "")
-    if composer.get("llm_fallback_used") and reason and reason not in _LLM_EARLY_SKIP_REASONS:
-        return True
-    return False
 
 
 def _extract_llm_row_metrics(
@@ -330,59 +291,15 @@ def _extract_llm_row_metrics(
     question: dict[str, Any],
     answer_text: str | None,
 ) -> dict[str, Any]:
+    metrics = build_narration_visibility(raw if isinstance(raw, dict) else None)
     composer = _llm_composer_from_raw(raw)
-    trace = raw.get("control_plane_trace") if isinstance(raw, dict) and isinstance(raw.get("control_plane_trace"), dict) else {}
-    answer_guard = {}
-    if isinstance(raw, dict):
-        answer_guard = raw.get("answer_guard") if isinstance(raw.get("answer_guard"), dict) else {}
-        if not answer_guard and isinstance(trace.get("answer_guard"), dict):
-            answer_guard = trace["answer_guard"]
-    final_validation = trace.get("final_answer_validation") if isinstance(trace.get("final_answer_validation"), dict) else {}
-    if isinstance(raw, dict) and not final_validation:
-        final_validation = raw.get("final_answer_validation") if isinstance(raw.get("final_answer_validation"), dict) else {}
-
-    skip_reason = _llm_skip_reason(composer)
-    eligible = _llm_eligible(composer)
-    attempted = _llm_attempted(composer)
-    used = bool(composer.get("llm_composer_used"))
-    thin, thin_reason = _thin_deterministic_case(str(answer_text or ""), question, used)
-
-    return {
-        "composer_eligible": eligible,
-        "composer_attempted": attempted,
-        "composer_used": used,
-        "composer_enabled": bool(composer.get("llm_composer_enabled")),
-        "composer_is_enabled": bool(composer.get("composer_is_enabled")),
-        "guard_status": composer.get("llm_guard_status"),
-        "guard_blocked": composer.get("llm_guard_status") == "blocked",
-        "fallback_used": bool(composer.get("llm_fallback_used")),
-        "skip_reason": skip_reason,
-        "skip_category": _llm_skip_category(skip_reason, composer),
-        "narration_llm_called": bool(trace.get("analyst_summary_narration_llm_called")),
-        "answer_guard_status": answer_guard.get("guard_status"),
-        "final_answer_guard_status": final_validation.get("guard_status"),
-        "provider_configured": composer.get("provider_configured"),
-        "thin_deterministic_answer": thin,
-        "thin_deterministic_reason": thin_reason,
-    }
-
-
-def _llm_skip_category(skip_reason: str | None, composer: dict[str, Any]) -> str | None:
-    if skip_reason in _LLM_EARLY_SKIP_REASONS:
-        return "early_skip"
-    if skip_reason == "composer_disabled_by_config" or composer.get("llm_guard_status") == "disabled":
-        return "disabled_by_config"
-    if skip_reason == "Live LLM client is not configured." or skip_reason == "no_provider_configured":
-        return "provider_not_configured"
-    if composer.get("llm_guard_status") == "blocked":
-        return "compose_validation_blocked"
-    if composer.get("llm_fallback_used") and skip_reason:
-        return "llm_call_or_validation_fallback"
-    if skip_reason:
-        return "other_skip"
-    if not composer:
-        return "no_composer_trace"
-    return None
+    metrics["composer_is_enabled"] = bool(composer.get("composer_is_enabled"))
+    thin, thin_reason = _thin_deterministic_case(
+        str(answer_text or ""), question, bool(metrics.get("composer_used"))
+    )
+    metrics["thin_deterministic_answer"] = thin
+    metrics["thin_deterministic_reason"] = thin_reason
+    return metrics
 
 
 def _thin_deterministic_case(answer: str, question: dict[str, Any], composer_used: bool) -> tuple[bool, str | None]:

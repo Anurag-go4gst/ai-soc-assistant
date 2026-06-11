@@ -148,11 +148,21 @@ def build_answer_scorecard(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
     verdict = "pass" if all(checks.values()) else "review"
+    narration = payload.get("narration_visibility")
+    narration_summary = None
+    if isinstance(narration, dict):
+        narration_summary = {
+            "final_answer_source": narration.get("final_answer_source"),
+            "fallback_used": narration.get("fallback_used"),
+            "guard_blocked": narration.get("guard_blocked"),
+            "skip_category": narration.get("skip_category"),
+        }
     return {
         "verdict": verdict,
         "checks": checks,
         "reasons": reasons,
         "tier_d": tier_d,
+        "narration": narration_summary,
     }
 
 
