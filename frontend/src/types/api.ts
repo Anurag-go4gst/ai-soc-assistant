@@ -34,6 +34,7 @@ export interface PlaceholderResponse {
   saia_available?: boolean | null;
   rag_available?: boolean | null;
   fallback_active?: boolean | null;
+  response_packaging_status?: 'answer_ready' | 'packaging' | 'deterministic_fallback' | 'llm_skipped' | 'llm_timeout' | 'blocked_review_required' | string | null;
   analyst_summary?: string | null;
   response_mode?: string | null;
   synthesis_mode?: string | null;
@@ -60,6 +61,7 @@ export interface PlaceholderResponse {
   workflow_plan?: WorkflowPlan | null;
   candidate_spl?: CandidateSplEnvelope | null;
   spl_validation?: SplValidationEnvelope | null;
+  spl_draft_preview?: SplDraftPreviewEnvelope | null;
   llm_spl_candidate?: LlmSplCandidateEnvelope | null;
   execution?: ExecutionEnvelope | null;
   human_review?: HumanReviewEnvelope | null;
@@ -600,6 +602,8 @@ export interface ExecutionEnvelope {
   results_preview: Record<string, unknown>[];
   block_reason?: string | null;
   duration_ms: number;
+  evidence_source?: string | null;
+  execution_status_label?: string | null;
   saved_search_name?: string | null;
 }
 

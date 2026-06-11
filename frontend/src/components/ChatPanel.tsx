@@ -24,6 +24,7 @@ import {
   playInvestigationProgress,
   type InvestigationProgressError,
   type InvestigationProgressState,
+  type InvestigationProgressStepStatus,
 } from '@/lib/investigationProgress';
 import type { DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
 
@@ -120,8 +121,18 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     event: ChatProgressEvent,
   ): InvestigationProgressState => {
     if (event.type === 'llm_degraded') {
+      const stepStatuses = {
+        ...(base.stepStatuses ?? initialStepStatuses(base.steps)),
+        llm_governance: 'fallback' as InvestigationProgressStepStatus,
+      };
+      const stepDisplayText = {
+        ...(base.stepDisplayText ?? {}),
+        llm_governance: event.message ?? 'Using governed deterministic answer while LLM narration is unavailable.',
+      };
       return {
         ...base,
+        stepStatuses,
+        stepDisplayText,
         llmWarning: {
           message: event.message ?? event.label,
           code: event.code ?? null,
@@ -157,8 +168,6 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
       const tier = next.finalization?.timeoutTier ?? 0;
       next = {
         ...next,
-        activeStepIndex: next.steps.length,
-        completedStepIds: next.steps.map((step) => step.id),
         finalization: {
           phase: event.type === 'partial_timeout' ? 'partial' : 'finalizing',
           statusLine: finalizationLineForTier(tier, event.stage),
@@ -183,6 +192,90 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
       };
     }
     return next;
+  };
+
+  const initialStepStatuses = (steps: InvestigationProgressState['steps']): Record<string, InvestigationProgressStepStatus> =>
+    Object.fromEntries(steps.map((step) => [step.id, 'pending' as InvestigationProgressStepStatus]));
+
+  const composerFallbackReason = (response: PlaceholderResponse): string | null => {
+    const composer = response.control_plane_trace?.llm_composer as
+      | { llm_blocked_reason?: string | null; provider_skip_reason?: string | null; llm_guard_status?: string | null }
+      | undefined;
+    return composer?.llm_blocked_reason ?? composer?.provider_skip_reason ?? composer?.llm_guard_status ?? null;
+  };
+
+  const settleProgressFromResponse = (
+    snapshot: InvestigationProgressState,
+    response: PlaceholderResponse,
+  ): InvestigationProgressState => {
+    const statuses = { ...initialStepStatuses(snapshot.steps), ...(snapshot.stepStatuses ?? {}) };
+    const text = { ...(snapshot.stepDisplayText ?? {}) };
+    for (const step of snapshot.steps) {
+      if (statuses[step.id] === 'active') statuses[step.id] = 'completed';
+    }
+    if (!response.candidate_spl && !response.spl_validation && !response.spl_draft_preview && !response.llm_spl_candidate) {
+      statuses.spl_evidence = statuses.spl_evidence === 'completed' ? 'completed' : 'skipped';
+      text.spl_evidence = 'No governed SPL preparation was required for this response.';
+    } else {
+      statuses.spl_evidence = 'completed';
+      text.spl_evidence = 'Prepared governed SPL / evidence path for review.';
+    }
+    if (!response.execution) {
+      statuses.mcp_gate = 'skipped';
+      text.mcp_gate = 'MCP execution was not required for this response.';
+    } else if (response.human_review?.required && response.execution.status !== 'skipped') {
+      statuses.mcp_gate = 'blocked';
+      text.mcp_gate = 'MCP execution remains blocked by policy / review gate.';
+    } else {
+      statuses.mcp_gate = statuses.mcp_gate === 'blocked' ? 'blocked' : 'completed';
+      text.mcp_gate = 'MCP gate checked; no live execution is implied.';
+    }
+    if (response.source_evidence?.some((item) => item.source_type === 'rag')) {
+      statuses.rag = 'completed';
+      text.rag = 'Retrieved governed SOC knowledge.';
+    } else {
+      statuses.rag = statuses.rag === 'completed' ? 'completed' : 'skipped';
+      text.rag = 'SOC knowledge retrieval was not required or returned no approved match.';
+    }
+    statuses.mitre_severity = response.mitre_decision || response.severity_decision || response.context_sufficiency ? 'completed' : 'skipped';
+    const packagingStatus = response.response_packaging_status;
+    if (packagingStatus === 'blocked_review_required') {
+      statuses.llm_governance = statuses.llm_governance === 'completed' ? 'completed' : 'skipped';
+      statuses.package = 'blocked';
+      text.package = response.human_review?.safe_message_for_user ?? 'Blocked pending analyst review.';
+    } else if (packagingStatus === 'deterministic_fallback' || packagingStatus === 'llm_timeout') {
+      statuses.llm_governance = 'fallback';
+      statuses.package = 'completed';
+      text.llm_governance = composerFallbackReason(response)
+        ? `Using governed deterministic answer while LLM narration is unavailable: ${composerFallbackReason(response)}.`
+        : 'Using governed deterministic answer while LLM narration is unavailable.';
+    } else if (packagingStatus === 'llm_skipped') {
+      statuses.llm_governance = 'skipped';
+      statuses.package = 'completed';
+      text.llm_governance = 'LLM narration skipped; using governed deterministic answer.';
+    } else {
+      statuses.llm_governance = statuses.llm_governance === 'skipped' ? 'skipped' : 'completed';
+      statuses.package = 'completed';
+    }
+    return {
+      ...snapshot,
+      activeStepIndex: snapshot.steps.length,
+      completedStepIds: Object.entries(statuses)
+        .filter(([, status]) => status === 'completed')
+        .map(([id]) => id),
+      stepStatuses: statuses,
+      stepDisplayText: text,
+      finalization: {
+        phase: packagingStatus === 'blocked_review_required' ? 'error' : 'complete',
+        statusLine:
+          packagingStatus === 'blocked_review_required'
+            ? 'Blocked pending analyst review.'
+            : 'Final analyst answer packaged.',
+        timeoutTier: 0,
+        partialFallback: packagingStatus === 'deterministic_fallback' || packagingStatus === 'llm_timeout',
+        showRetryHint: false,
+      },
+    };
   };
 
   const startFinalizationTimers = (
@@ -250,6 +343,14 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     if (response.synthesis_status?.status === 'degraded' && response.synthesis_status.reason) {
       toast.warning(response.synthesis_status.reason, { duration: 10_000 });
     }
+    if (response.response_packaging_status === 'deterministic_fallback' || response.response_packaging_status === 'llm_timeout') {
+      toast.warning(
+        composerFallbackReason(response)
+          ? `Using governed deterministic answer. LLM narration unavailable: ${composerFallbackReason(response)}`
+          : 'Using governed deterministic answer while LLM narration is unavailable.',
+        { duration: 10_000 },
+      );
+    }
     const payload = assistantMessageFromResponse(response);
     setMessages((current) =>
       current.map((message) =>
@@ -292,6 +393,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
       steps,
       activeStepIndex: 0,
       completedStepIds: [],
+      stepStatuses: initialStepStatuses(steps),
     };
 
     setMessages((current) => [
@@ -334,6 +436,9 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
           llmSplDraftMode,
         );
         clearFinalizationTimers?.();
+        progressSnapshot = settleProgressFromResponse(progressSnapshot, response);
+        updateProgressMessage(progressId, epoch, progressSnapshot);
+        await delay(250);
         await finishInvestigation(progressId, epoch, response);
         return;
       }

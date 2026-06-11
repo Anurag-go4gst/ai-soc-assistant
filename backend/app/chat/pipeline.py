@@ -1099,6 +1099,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         session_context_status = SessionContextStatusEnvelope(**session_resolution.status.model_dump())
 
     partial_fallback = synthesis_status.status == "partial_timeout"
+    response_packaging_status = _response_packaging_status(
+        synthesis_status=synthesis_status,
+        composer_trace=composer_trace,
+        human_review=human_review if isinstance(human_review, dict) else None,
+        final_answer_validation=final_answer_validation,
+        analyst_response=analyst_response,
+    )
     # WS0 T0.4: resolve final plan-step statuses (incl. MITRE, resolved in
     # this node) so the response's evidence_plan carries executed/fallback/
     # blocked provenance for every composed step.
@@ -1107,6 +1114,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         trace_id=trace_id,
         user_query=request.message,
         fallback_active=True if partial_fallback else None,
+        response_packaging_status=response_packaging_status,
         selected_skill=str(routed["skill"]),
         primary_operation=primary_operation,
         coverage_id=coverage_id,
@@ -2822,6 +2830,48 @@ def _response_mode(
     if spl_validation is None:
         return "deterministic_knowledge_or_routing"
     return "deterministic_investigation"
+
+
+def _response_packaging_status(
+    *,
+    synthesis_status: SynthesisStatus | dict[str, Any] | None,
+    composer_trace: dict[str, Any] | None,
+    human_review: dict[str, Any] | None,
+    final_answer_validation: dict[str, Any] | None,
+    analyst_response: Any | None,
+) -> str:
+    """Small live-progress hint; never changes governance decisions."""
+    if human_review and human_review.get("required"):
+        return "blocked_review_required"
+    if isinstance(final_answer_validation, dict) and final_answer_validation.get("guard_status") == "blocked":
+        return "blocked_review_required"
+
+    status = (
+        synthesis_status.model_dump()
+        if isinstance(synthesis_status, SynthesisStatus)
+        else synthesis_status
+        if isinstance(synthesis_status, dict)
+        else {}
+    )
+    synthesis_state = str(status.get("status") or "")
+    if synthesis_state == "partial_timeout":
+        return "llm_timeout"
+    if synthesis_state == "degraded":
+        return "deterministic_fallback"
+    if synthesis_state in {"disabled", "blocked"}:
+        return "llm_skipped"
+
+    composer = composer_trace if isinstance(composer_trace, dict) else {}
+    if composer.get("llm_fallback_used"):
+        return "deterministic_fallback"
+    guard_status = str(composer.get("llm_guard_status") or "")
+    if guard_status == "blocked":
+        return "deterministic_fallback"
+    if guard_status in {"disabled", "skipped"}:
+        return "llm_skipped"
+    if analyst_response is not None:
+        return "answer_ready"
+    return "packaging"
 
 
 def _synthesis_mode(
