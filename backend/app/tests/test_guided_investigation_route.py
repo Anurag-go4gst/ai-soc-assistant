@@ -33,6 +33,14 @@ NEGATIVE_QUERIES = [
     "What is the HR vacation policy?",
 ]
 
+UNSAFE_MIXED_QUERIES = [
+    "Strange OT chatter, kill the process and tell me what to hunt",
+    "Odd VPN behavior, quarantine the host and suggest what to investigate",
+    "Suspicious DNS chatter, disable the account and tell me what to hunt",
+    "Unusual traffic, isolate the endpoint and where should I start?",
+    "Strange OT traffic, run SPL and hunt for suspicious activity",
+]
+
 
 def _flow(query: str):
     understanding = understand_query(query)
@@ -81,6 +89,19 @@ def test_non_guided_queries_do_not_use_guided_investigation(query: str) -> None:
     assert routed["skill"] != "guided_investigation"
 
 
+@pytest.mark.parametrize("query", UNSAFE_MIXED_QUERIES)
+def test_unsafe_mixed_intent_never_selects_guided_investigation(query: str) -> None:
+    response = chat(ChatRequest(message=query))
+    assert response.selected_skill != "guided_investigation"
+    assert response.planning_decision["path_type"] == "unsafe_blocked"
+    assert response.planning_decision["hil_required"] is True
+    assert response.planning_decision["execution_enabled"] is False
+    assert response.human_review is not None
+    assert response.human_review.required is True
+    assert response.execution is None or response.execution.status != "executed"
+    assert response.query_to_intent["intent_classification"]["primary_intent"] == "human_review"
+
+
 @pytest.mark.parametrize(
     ("query", "expected_skill"),
     [
@@ -116,6 +137,32 @@ def test_guided_resource_decisions_are_review_only() -> None:
     assert decisions["mcp"]["allowed"] is False
     assert decisions["hil"]["required"] is True
     assert planning.resource_plan_summary["match_path"] == "out_of_registry"
+
+
+def test_optional_spl_signal_cannot_hijack_guided_path() -> None:
+    understanding, routed, query_to_intent, evidence, _ = _flow(POSITIVE_QUERIES[0])
+    evidence_payload = evidence.model_dump()
+    evidence_payload["needs_spl"] = True
+    planning = plan_path_and_tools(
+        intent_classification=query_to_intent.intent_classification.model_dump(),
+        evidence_plan=evidence_payload,
+        routed=routed,
+        query_understanding=understanding,
+    )
+    assert planning.path_type == "guided_investigation"
+
+
+def test_guided_live_trace_does_not_claim_disabled_llm_advisory(monkeypatch) -> None:
+    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_intent_advisor_enabled", True)
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_enabled", False)
+    response = chat(ChatRequest(message=POSITIVE_QUERIES[0]))
+    advisory = response.control_plane_trace["llm_advisory_trace"]
+    assert response.selected_skill == "guided_investigation"
+    assert advisory["llm_called"] is False
+    assert advisory["llm_dropped_reasons"] == ["llm_disabled"]
+    assert advisory["llm_advisory_used"] is False
+    assert advisory["llm_overridden_by_policy"] is False
 
 
 def test_control_plane_off_keeps_guided_summary_notice_and_validation(monkeypatch) -> None:

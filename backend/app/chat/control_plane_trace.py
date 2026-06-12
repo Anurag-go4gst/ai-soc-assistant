@@ -62,23 +62,45 @@ def build_control_plane_trace(
 
 def _llm_advisory_trace(state: dict[str, Any]) -> dict[str, Any]:
     routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
+    route_shadow = state.get("route_plan_shadow") if isinstance(state.get("route_plan_shadow"), dict) else {}
     comparison = routed.get("comparison") if isinstance(routed.get("comparison"), dict) else {}
     route_advisory = routed.get("llm_semantic_advisory")
     if not isinstance(route_advisory, dict):
         route_advisory = comparison.get("llm") if isinstance(comparison.get("llm"), dict) else {}
+    llm_shadow = routed.get("llm_shadow") if isinstance(routed.get("llm_shadow"), dict) else {}
+    llm_shadow_metadata = llm_shadow.get("metadata") if isinstance(llm_shadow.get("metadata"), dict) else {}
     query_to_intent = state.get("query_to_intent") if isinstance(state.get("query_to_intent"), dict) else {}
     intent_advisory = query_to_intent.get("llm_intent_advisory")
     if not isinstance(intent_advisory, dict):
         intent_advisory = state.get("llm_intent_advisory") if isinstance(state.get("llm_intent_advisory"), dict) else {}
-    route_candidate = route_advisory.get("skill") or route_advisory.get("candidate_skill")
-    intent_candidate = intent_advisory.get("intent_family") or intent_advisory.get("candidate_intent_family")
+    route_candidate = (
+        route_advisory.get("llm_selected_skill_candidate")
+        or route_advisory.get("skill")
+        or route_advisory.get("candidate_skill")
+    )
+    if llm_shadow_metadata.get("mock") is True:
+        route_candidate = None
+    intent_candidate = (
+        intent_advisory.get("intent_family_candidate")
+        or intent_advisory.get("intent_family")
+        or intent_advisory.get("candidate_intent_family")
+    )
     intent_status = str(query_to_intent.get("llm_intent_assist_status") or "skipped")
     selected_by = str(routed.get("selected_by") or "")
     final_source = str(state.get("final_answer_source") or "")
     narration_used = final_source in {"live_llm_synthesis", "llm_narration"}
-    advisory_used = bool(route_candidate or intent_candidate or intent_status not in {"", "skipped"} or narration_used)
+    attempted = intent_status not in {"", "skipped"}
+    llm_called = bool(route_shadow.get("llm_called") or intent_advisory.get("llm_called"))
+    candidate_present = bool(route_candidate or intent_candidate)
+    dropped_reasons = list(
+        dict.fromkeys(
+            [str(reason) for reason in route_shadow.get("llm_candidate_dropped_reasons") or []]
+            + [str(reason) for reason in intent_advisory.get("dropped_reasons") or []]
+        )
+    )
+    advisory_used = bool(llm_called or candidate_present)
     overridden = bool(
-        advisory_used
+        candidate_present
         and (
             selected_by not in {"llm_advisory_validated", "llm_assisted_semantic"}
             or intent_status in {"rejected", "corrected"}
@@ -86,9 +108,13 @@ def _llm_advisory_trace(state: dict[str, Any]) -> dict[str, Any]:
         )
     )
     return {
+        "llm_advisory_attempted": attempted,
+        "llm_called": llm_called,
+        "llm_candidate_present": candidate_present,
         "llm_advisory_used": advisory_used,
         "llm_route_candidate": str(route_candidate) if route_candidate else None,
         "llm_intent_candidate": str(intent_candidate) if intent_candidate else None,
+        "llm_dropped_reasons": dropped_reasons,
         "llm_narration_used": narration_used,
         "llm_overridden_by_policy": overridden,
     }

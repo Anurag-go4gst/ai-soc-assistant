@@ -210,7 +210,13 @@ def _route_out_of_registry(
     query: str,
     keyword_would_have: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    if understanding.soc_investigation_shaped:
+    # Route rescue is subordinate to the canonical governance action signals.
+    # The shape detector may still recognize the investigation half of a mixed
+    # request, but it must never turn an unsafe action into guided guidance.
+    from app.chat.query_signals import extract_query_signals
+
+    signals = extract_query_signals(query, understanding)
+    if understanding.soc_investigation_shaped and not signals["action_or_containment_shaped"]:
         base = {
             "skill": "guided_investigation",
             "tool_plan": _tool_plan_for_skill("guided_investigation"),
