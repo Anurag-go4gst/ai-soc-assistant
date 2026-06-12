@@ -4,6 +4,8 @@ Status: Proposed (rev 3 — executable playbook; per-task pass/fail, tests, git/
 Date: 2026-06-10
 Author: Anurag + Claude
 
+> WS1/WS0 note (2026-06-12): out-of-registry SOC-investigation-shaped questions now have a deterministic `guided_investigation` rescue candidate. Exact/near 105 and catalog authority remain unchanged; the resource plan records governed RAG, optional review-only SPL, skipped MCP, and required analyst validation.
+
 ---
 
 ## Part 0 — Operating principles (set by Anurag, 2026-06-10)
