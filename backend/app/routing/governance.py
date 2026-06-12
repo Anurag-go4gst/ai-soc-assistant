@@ -416,6 +416,7 @@ def _tool_plan_for_skill(skill: str) -> list[str]:
         "spl_generation": ["draft_spl_spec", "validate_spl_before_execution"],
         "attack_discovery": ["classify_auth_pattern", "prepare_spl_spec", "require_spl_validation"],
         "knowledge_recall": ["retrieve_approved_context", "summarize_bounded_reference"],
+        "guided_investigation": ["prepare_guided_investigation", "require_analyst_validation"],
         "action_planning": ["retrieve_approved_context", "prepare_action_plan"],
     }
     return list(plans.get(skill, ["retrieve_approved_context", "summarize_bounded_reference"]))

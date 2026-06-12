@@ -17,7 +17,7 @@ from app.use_cases.content_enrichment import (
 _CROSSWALK_PATH = Path(__file__).resolve().parents[3] / "docs" / "evals" / "soc_capability_crosswalk.json"
 
 ALLOWED_LIVE_SKILLS = frozenset(
-    {"alert_summary", "spl_generation", "attack_discovery", "knowledge_recall"}
+    {"alert_summary", "spl_generation", "attack_discovery", "knowledge_recall", "guided_investigation"}
 )
 
 PATH_TYPE_BRANCH_MAP: dict[str, list[BranchName]] = {
@@ -30,6 +30,7 @@ PATH_TYPE_BRANCH_MAP: dict[str, list[BranchName]] = {
     "unsafe_blocked": ["unsafe_blocked", "hil", "block"],
     "clarification_required": ["hil", "clarification"],
     "legacy_or_unsupported": ["rag"],
+    "guided_investigation": ["evidence", "hil"],
 }
 
 
@@ -208,6 +209,22 @@ def _build_planning_decision(
         execution_enabled=False,
         planner_path_selection_enabled=planner_path_selection_enabled,
         planner_runtime_activation_allowed=planner_runtime_activation_allowed,
+        resource_plan_summary=(
+            _guided_resource_plan_summary(plan, routed_payload)
+            if path_type == "guided_investigation"
+            else None
+        ),
+    )
+
+
+def _guided_resource_plan_summary(plan: dict[str, Any], routed: dict[str, Any]) -> dict[str, object]:
+    from app.planner.composer import build_guided_investigation_resource_decisions
+
+    provenance = routed.get("routing_provenance") if isinstance(routed.get("routing_provenance"), dict) else {}
+    evidence = type("EvidenceSummary", (), plan)() if plan else None
+    return build_guided_investigation_resource_decisions(
+        evidence,
+        match_path=str(provenance.get("deterministic_match_path") or "out_of_registry"),
     )
 
 
@@ -232,6 +249,9 @@ def _resolve_path_type(
 
     if _advisory_blocked(advisory):
         return "unsafe_blocked"
+
+    if family == "guided_investigation" or plan.get("answer_mode") == "guided_investigation":
+        return "guided_investigation"
 
     if family == "mitre_mapping" and bool(intent.get("requires_clarification")):
         return "mitre_context_required"
@@ -297,6 +317,8 @@ def _selected_tools(path_type: str, plan: dict[str, Any], routed: dict[str, Any]
     tools = [str(item) for item in routed.get("tool_plan") or []]
     if path_type == "rag_only":
         return [tool for tool in tools if "knowledge" in tool or "rag" in tool] or ["retrieve_approved_knowledge"]
+    if path_type == "guided_investigation":
+        return ["prepare_guided_investigation", "require_analyst_validation"]
     if path_type in {"spl_review", "spl_review_plus_rag", "hybrid_investigation"} and plan.get("needs_spl"):
         selected = [tool for tool in tools if "spl" in tool]
         return selected or ["generate_spl", "validate_spl"]
@@ -313,6 +335,7 @@ def _blocked_tools(path_type: str, plan: dict[str, Any]) -> list[str]:
         "mitre_context_required",
         "clarification_required",
         "unsafe_blocked",
+        "guided_investigation",
     }:
         blocked.append("spl")
     if not bool(plan.get("needs_mcp")):

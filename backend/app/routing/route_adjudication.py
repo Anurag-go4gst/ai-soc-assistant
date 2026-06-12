@@ -67,6 +67,17 @@ def adjudicate_route(
             reason="Intent requires clarification or human review before tool execution.",
         )
 
+    if intent.intent_family == "guided_investigation":
+        return _result(
+            deterministic_route=deterministic_route,
+            llm_suggested_route=llm_route,
+            shadow_plan_status=shadow_status,
+            final_route="guided_investigation",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="guided_investigation_rescue",
+            reason="Out-of-registry SOC investigation shape preserves the governed guided route.",
+        )
+
     if plan is not None and (
         plan.answer_mode == "rag_only" or (not plan.spl_allowed and not plan.mcp_allowed)
     ):
@@ -287,7 +298,7 @@ def _skill_for_intent_family(intent_family: str, fallback: str) -> str:
         return "knowledge_recall"
     if intent_family in {"mitre_explanation", "clarification_required"}:
         return "knowledge_recall"
-    if fallback.strip() in {"attack_discovery", "spl_generation", "knowledge_recall", "alert_summary"}:
+    if fallback.strip() in {"attack_discovery", "spl_generation", "knowledge_recall", "alert_summary", "guided_investigation"}:
         return fallback.strip()
     return "attack_discovery"
 

@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-AnswerMode = Literal["rag_only", "live_investigation", "hybrid", "clarification"]
+AnswerMode = Literal["rag_only", "live_investigation", "hybrid", "clarification", "guided_investigation"]
 RagPhase = Literal["rag_only", "pre_mcp", "post_mcp"]
 ActionMode = Literal["recommend_only", "execute_action_not_allowed", "hil_required"]
 RagNoMatchBehavior = Literal["insufficient_policy_context", "general_guidance_allowed"]

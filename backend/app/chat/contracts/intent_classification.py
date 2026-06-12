@@ -19,6 +19,7 @@ IntentFamily = Literal[
     "knowledge_only",
     "clarification_required",
     "sop_or_playbook",
+    "guided_investigation",
 ]
 QueryType = Literal[
     "ask_for_policy",

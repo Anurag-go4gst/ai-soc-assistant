@@ -112,6 +112,36 @@ def build_answer_contract(
 ) -> AnswerContract:
     intent = intent_classification or {}
     plan = evidence_plan or {}
+    if str(intent.get("intent_family") or "") == "guided_investigation" and not plan:
+        plan = {
+            "answer_mode": "guided_investigation",
+            "spl_allowed": True,
+            "mcp_allowed": False,
+            "needs_mitre": False,
+            "requires_hil": True,
+            "needs_hil": True,
+            "checklist": [
+                "Confirm asset ownership, criticality, and expected communications.",
+                "Review firewall, DNS, proxy, and endpoint telemetry for a bounded window.",
+                "Compare the activity with peer assets and approved change or vendor access.",
+                "Have an analyst validate evidence before severity, MITRE, or containment decisions.",
+            ],
+            "investigation_workflow": [
+                "Scope the affected assets and observation window.",
+                "Collect and correlate the available telemetry.",
+                "Test benign and suspicious hypotheses.",
+                "Document limitations and analyst-approved next steps.",
+            ],
+            "limitations": [
+                "No live query was executed.",
+                "No MITRE technique or incident severity is asserted without evidence.",
+            ],
+            "unsupported_claims_avoid": [
+                "confirmed compromise",
+                "confirmed MITRE technique",
+                "P1/P2 severity",
+            ],
+        }
     decision = mitre_decision or {}
     execution_payload = execution or {}
     review = human_review or {}
@@ -262,7 +292,11 @@ def build_answer_contract(
 
     severity_label = None
     severity_confidence = None
-    if severity_decision is not None and not _is_knowledge_profile(intent_family, answer_mode, user_query):
+    if (
+        severity_decision is not None
+        and intent_family != "guided_investigation"
+        and not _is_knowledge_profile(intent_family, answer_mode, user_query)
+    ):
         severity_label = getattr(severity_decision, "severity_label", None)
         if exec_label in {"review_only_not_executed", "validated_not_executed", "blocked_approval_required"}:
             severity_confidence = "Medium" if exec_status != "executed" else "High"
@@ -445,6 +479,8 @@ def _hil_status(
         return "required"
     if missing_evidence and (plan.get("requires_hil") or plan.get("needs_hil")):
         return "missing_evidence_review"
+    if plan.get("answer_mode") == "guided_investigation" and plan.get("requires_hil"):
+        return "required"
     return "not_required"
 
 

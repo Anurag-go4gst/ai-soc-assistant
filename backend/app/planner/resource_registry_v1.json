@@ -770,6 +770,33 @@
       "policy_tier": 1
     },
     {
+      "resource_id": "skill:guided_investigation",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:governed_rag"
+      ],
+      "input_contract": {
+        "input": "QueryUnderstandingResult",
+        "output": "AnswerContract",
+        "blocked_tools": [
+          "mcp_execution",
+          "remediation",
+          "admin",
+          "write"
+        ],
+        "required_evidence": [],
+        "default_workflow": [
+          "evidence_collection",
+          "context_sufficiency",
+          "synthesis",
+          "answer_guard"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
       "resource_id": "skill:mitre_mapping",
       "kind": "skill",
       "capabilities": [

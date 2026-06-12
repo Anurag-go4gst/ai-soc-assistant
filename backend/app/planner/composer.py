@@ -100,11 +100,50 @@ def compose_resource_plan(
         provenance["skill_workflow"] = list(contract["default_workflow"])
     if skill_vetoes:
         provenance["skill_vetoes"] = skill_vetoes
+    if intent_family == "guided_investigation" or skill_id == "guided_investigation":
+        provenance["resource_decisions"] = build_guided_investigation_resource_decisions(
+            evidence_plan,
+            match_path=match_path,
+        )
     return ResourcePlan(
         steps=steps,
         plan_source="deterministic",
         provenance=provenance,
     )
+
+
+def build_guided_investigation_resource_decisions(
+    evidence_plan: Any | None,
+    *,
+    match_path: str | None = None,
+) -> dict[str, Any]:
+    limitations = list(getattr(evidence_plan, "limitations", []) or []) or [
+        "No live query was executed.",
+        "No MITRE technique or incident severity is asserted without evidence.",
+    ]
+    return {
+        "match_path": match_path,
+        "rag": {
+            "needed": True,
+            "source": "soc_kb_rag",
+            "no_match_behavior": "general_guidance_allowed",
+        },
+        "spl": {
+            "needed": "optional",
+            "review_only": True,
+            "skip_reason": "No existing deterministic draft family matched this out-of-registry hunt.",
+        },
+        "mcp": {
+            "needed": False,
+            "allowed": False,
+            "skip_reason": "Execution gates closed; checklist runnable manually by analyst.",
+            "planned_discovery": ["splunk_get_indexes", "splunk_get_metadata", "splunk_get_knowledge_objects"],
+        },
+        "mitre": {"allowed": False, "skip_reason": "No evidence-supported technique claim is available."},
+        "severity": {"allowed": False, "skip_reason": "No grounded incident severity is available."},
+        "hil": {"required": True, "reason": "Analyst validates hypotheses and local data scope."},
+        "limitations": limitations,
+    }
 
 
 def _rag_step(evidence_plan: Any) -> PlanStep:

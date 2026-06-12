@@ -53,10 +53,45 @@ def build_control_plane_trace(
             if isinstance(item, dict) and item.get("evidence_id")
         ],
         "precondition_evaluation": route_shadow.get("precondition_evaluation"),
+        "llm_advisory_trace": _llm_advisory_trace(state),
     }
     if node_trace:
         trace["node_trace"] = node_trace
     return _redact(trace)
+
+
+def _llm_advisory_trace(state: dict[str, Any]) -> dict[str, Any]:
+    routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
+    comparison = routed.get("comparison") if isinstance(routed.get("comparison"), dict) else {}
+    route_advisory = routed.get("llm_semantic_advisory")
+    if not isinstance(route_advisory, dict):
+        route_advisory = comparison.get("llm") if isinstance(comparison.get("llm"), dict) else {}
+    query_to_intent = state.get("query_to_intent") if isinstance(state.get("query_to_intent"), dict) else {}
+    intent_advisory = query_to_intent.get("llm_intent_advisory")
+    if not isinstance(intent_advisory, dict):
+        intent_advisory = state.get("llm_intent_advisory") if isinstance(state.get("llm_intent_advisory"), dict) else {}
+    route_candidate = route_advisory.get("skill") or route_advisory.get("candidate_skill")
+    intent_candidate = intent_advisory.get("intent_family") or intent_advisory.get("candidate_intent_family")
+    intent_status = str(query_to_intent.get("llm_intent_assist_status") or "skipped")
+    selected_by = str(routed.get("selected_by") or "")
+    final_source = str(state.get("final_answer_source") or "")
+    narration_used = final_source in {"live_llm_synthesis", "llm_narration"}
+    advisory_used = bool(route_candidate or intent_candidate or intent_status not in {"", "skipped"} or narration_used)
+    overridden = bool(
+        advisory_used
+        and (
+            selected_by not in {"llm_advisory_validated", "llm_assisted_semantic"}
+            or intent_status in {"rejected", "corrected"}
+            or state.get("answer_guard", {}).get("guard_status") == "blocked"
+        )
+    )
+    return {
+        "llm_advisory_used": advisory_used,
+        "llm_route_candidate": str(route_candidate) if route_candidate else None,
+        "llm_intent_candidate": str(intent_candidate) if intent_candidate else None,
+        "llm_narration_used": narration_used,
+        "llm_overridden_by_policy": overridden,
+    }
 
 
 def _candidate_spl_generation_trace(

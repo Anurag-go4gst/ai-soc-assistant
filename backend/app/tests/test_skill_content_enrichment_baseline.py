@@ -88,6 +88,7 @@ LIVE_SKILL_ENUM_BASELINE = {
     "alert_summary",
     "knowledge_recall",
     "spl_generation",
+    "guided_investigation",
 }
 
 

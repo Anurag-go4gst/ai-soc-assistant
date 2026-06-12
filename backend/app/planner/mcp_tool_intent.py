@@ -24,6 +24,7 @@ _PATHS_WITHOUT_MCP = frozenset(
         "generic_soc_guidance",
         "mitre_context_required",
         "clarification_required",
+        "guided_investigation",
     }
 )
 

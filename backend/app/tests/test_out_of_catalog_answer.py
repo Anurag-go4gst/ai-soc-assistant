@@ -20,6 +20,8 @@ def _payload(question: str) -> dict:
 def test_out_of_set_answer_carries_notice_and_suggestions() -> None:
     payload = _payload(OUT_OF_SET)
     contract = payload.get("answer_contract") or {}
+    assert payload.get("selected_skill") == "guided_investigation"
+    assert (payload.get("planning_decision") or {}).get("path_type") == "guided_investigation"
     assert contract.get("out_of_catalog_notice"), "notice missing"
     assert "outside the governed question catalog" in contract["out_of_catalog_notice"]
     assert (contract.get("render_sections") or {}).get("out_of_catalog_notice") is True
@@ -87,3 +89,23 @@ def test_validator_passes_when_notice_present() -> None:
     )
     text = str(status.model_dump() if hasattr(status, "model_dump") else status.__dict__)
     assert "out_of_catalog_notice_missing" not in text
+
+
+def test_validator_fails_closed_without_notice_when_control_plane_plan_is_absent() -> None:
+    class _Analyst:
+        mitre_mappings: list = []
+        spl_code = None
+        response_profile = ""
+        recommended_actions: list = []
+
+    status = validate_final_answer(
+        analyst_response=_Analyst(),
+        answer_contract={"not_claimed_technique_ids": [], "answer_goal": []},
+        evidence_plan=None,
+        mitre_decision={},
+        planning_decision={
+            "path_type": "guided_investigation",
+            "resource_plan_summary": {"match_path": "out_of_registry"},
+        },
+    )
+    assert "final.out_of_catalog_notice_missing" in status.failed_checks

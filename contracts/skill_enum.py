@@ -9,4 +9,5 @@ SKILL_ENUM: Final[tuple[str, ...]] = (
     "spl_generation",
     "attack_discovery",
     "knowledge_recall",
+    "guided_investigation",
 )

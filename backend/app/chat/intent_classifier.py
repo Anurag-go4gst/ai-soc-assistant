@@ -73,6 +73,25 @@ def classify_intent(
             requested_output_type="ACTION_PLAN",
         )
 
+    if (
+        signals.get("soc_investigation_shaped")
+        and str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+    ):
+        return _build_classification(
+            intent_family="guided_investigation",
+            primary_intent="investigation_guidance",
+            query_type="investigation_with_guidance",
+            answer_goal=["procedural_steps", "analyst_action_guidance"],
+            confidence=0.52,
+            requires_clarification=False,
+            requires_hil=True,
+            action_mode="recommend_only",
+            reason="Out-of-registry SOC investigation request receives governed, review-only hunt guidance.",
+            requested_output_type="INVESTIGATION",
+        )
+
     if signals.get("conceptual_mitre_judgment"):
         return _build_classification(
             intent_family="mitre_explanation",

@@ -47,6 +47,12 @@ _WORKFLOW_BLUEPRINTS: dict[str, list[dict[str, Any]]] = {
         _step("rank chunks", [], ["source_metadata_required"]),
         _step("synthesize grounded answer", ["llm"], ["grounded_evidence_only", "insufficient_evidence_allowed"]),
     ],
+    "guided_investigation": [
+        _step("retrieve approved SOC playbook context", ["rag"], ["approved_chunks_only", "general_guidance_on_no_match"]),
+        _step("prepare investigation hypotheses and evidence checklist", [], ["review_only", "no_live_query"]),
+        _step("apply context sufficiency and answer guard", [], ["no_mitre_or_severity_without_evidence"]),
+        _step("return guidance for analyst validation", [], ["human_review_required", "no_execution"]),
+    ],
 }
 
 _SOURCE_REQUIREMENTS: dict[str, list[str]] = {
@@ -54,6 +60,7 @@ _SOURCE_REQUIREMENTS: dict[str, list[str]] = {
     "spl_generation": [],
     "alert_summary": ["mcp:splunk", "rag:sop"],
     "knowledge_recall": ["rag:sop"],
+    "guided_investigation": ["rag:sop"],
 }
 
 

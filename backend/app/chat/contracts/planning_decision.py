@@ -15,6 +15,7 @@ PathType = Literal[
     "unsafe_blocked",
     "clarification_required",
     "legacy_or_unsupported",
+    "guided_investigation",
 ]
 
 BranchName = Literal[
@@ -56,3 +57,4 @@ class PlanningDecision(BaseModel):
     execution_enabled: bool = False
     planner_path_selection_enabled: bool = False
     planner_runtime_activation_allowed: bool = False
+    resource_plan_summary: dict[str, object] | None = None

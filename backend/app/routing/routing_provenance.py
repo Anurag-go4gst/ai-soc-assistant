@@ -22,6 +22,8 @@ def build_routing_provenance(
     qu_failed: bool = False,
     degraded: bool = False,
     keyword_router_would_have_selected: dict[str, Any] | None = None,
+    rescue_mode: bool = False,
+    why_not_knowledge_recall: str | None = None,
 ) -> dict[str, Any]:
     """Forward every QU field used or preserved for downstream (H2/H4)."""
     use_case_id = None
@@ -73,6 +75,12 @@ def build_routing_provenance(
         "llm_advisory_recommended": understanding.llm_advisory_recommended,
         "qu_failed": qu_failed,
         "degraded": degraded,
+        "soc_investigation_shaped": understanding.soc_investigation_shaped,
+        "route_skill_candidate": understanding.route_skill_candidate,
+        "intent_candidate": understanding.intent_candidate,
+        "triage_signals": dict(understanding.triage_signals),
+        "rescue_mode": rescue_mode,
+        "why_not_knowledge_recall": why_not_knowledge_recall,
     }
     if collapsed_from:
         provenance["collapsed_from"] = collapsed_from
