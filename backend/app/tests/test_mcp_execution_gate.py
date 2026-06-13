@@ -143,6 +143,29 @@ def test_requested_safe_tool_can_be_selected(monkeypatch) -> None:
     )
 
     assert selection["tool_selection_status"] == "selected"
+    assert selection["selected_mcp_tool"] == "splunk_run_query"
+
+
+def test_requested_canonical_tool_matches_legacy_discovery_alias(monkeypatch) -> None:
+    monkeypatch.setenv("MCP_MODE", "registry")
+    monkeypatch.setenv("MCP_SERVERS", "splunk_soc")
+    monkeypatch.setenv("MCP_DEFAULT_SERVER", "splunk_soc")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_TYPE", "splunk")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_URL", "https://splunk-mcp.example.invalid/mcp")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_AUTH_MODE", "none")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST", "run_splunk_query")
+
+    selection = select_mcp_tool(
+        trace_id="trace-canonical-select",
+        selected_skill="attack_discovery",
+        workflow_plan={},
+        execution_intent="spl_search",
+        spl_validation=APPROVED_VALIDATION,
+        user_requested_mcp_tool="splunk_run_query",
+    )
+
+    assert selection["tool_selection_status"] == "selected"
     assert selection["selected_mcp_tool"] == "run_splunk_query"
 
 

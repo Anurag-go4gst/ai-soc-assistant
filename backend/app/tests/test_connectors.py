@@ -20,6 +20,16 @@ def test_mock_mcp_returns_deterministic_response() -> None:
     assert first["row_count"] == 1
 
 
+def test_mock_mcp_accepts_canonical_run_query_name() -> None:
+    result = MockMcpConnector().call_tool(
+        "splunk_run_query",
+        {"query": "search index=pgcil_soc earliest=-15m latest=now | head 10"},
+    )
+
+    assert result["status"] == "ok"
+    assert result["tool_name"] == "splunk_run_query"
+
+
 def test_mock_rag_returns_approved_deterministic_chunks() -> None:
     chunks = MockRagConnector().retrieve("failed login triage", {"approved": True})
     assert len(chunks) == 1

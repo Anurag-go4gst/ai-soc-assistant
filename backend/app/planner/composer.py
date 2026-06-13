@@ -79,6 +79,23 @@ def compose_resource_plan(
         steps.append(mitre_step)
 
     answer_mode = str(getattr(evidence_plan, "answer_mode", "") or "")
+    if answer_mode == "guided_investigation":
+        steps.extend(
+            [
+                PlanStep(
+                    step_id="evidence",
+                    resource_id="skill:evidence_collection",
+                    purpose="evidence_collection",
+                    policy_checks=["metadata_only", "analyst_validation_required"],
+                ),
+                PlanStep(
+                    step_id="sufficiency",
+                    resource_id="skill:context_sufficiency",
+                    purpose="context_sufficiency",
+                    policy_checks=["no_unsupported_claims", "analyst_validation_required"],
+                ),
+            ]
+        )
     if answer_mode != "clarification":
         steps.append(
             PlanStep(

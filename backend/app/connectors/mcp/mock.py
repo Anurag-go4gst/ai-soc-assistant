@@ -4,6 +4,7 @@ from typing import Any
 
 from app.connectors.mcp.base import ConnectorStatus, KnowledgeObjectRequest
 from app.connectors.mcp.discovery import McpToolDescriptor, mock_discovered_tools
+from app.splunk.capabilities import RUN_QUERY_ALIASES
 
 
 class MockMcpConnector:
@@ -16,7 +17,7 @@ class MockMcpConnector:
         return mock_discovered_tools("splunk")
 
     def call_tool(self, tool_name: str, arguments: dict[str, Any], server_name: str | None = None) -> dict[str, Any]:
-        if tool_name != "run_splunk_query":
+        if tool_name not in RUN_QUERY_ALIASES:
             return {"status": "blocked", "error": "mock_tool_not_allowlisted", "rows": []}
         query = str(arguments.get("query") or "")
         return self.execute_validated_spl(

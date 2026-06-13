@@ -527,16 +527,31 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
 def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
     request = state["request"]
     trace_id = state["trace_id"]
+    planning = state.get("planning_decision")
+    guided = isinstance(planning, dict) and planning.get("path_type") == "guided_investigation"
+    selected_skill = "guided_investigation" if guided else "knowledge_recall"
     rc = _routes_chat()
     workflow_plan = rc.plan_workflow(
-        selected_skill="knowledge_recall",
-        tool_plan=["retrieve_approved_knowledge", "no_spl", "no_mcp"],
+        selected_skill=selected_skill,
+        tool_plan=(
+            ["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"]
+            if guided
+            else ["retrieve_approved_knowledge", "no_spl", "no_mcp"]
+        ),
         query=request.message,
         trace_id=trace_id,
     )
+    spl_draft_preview = (
+        build_draft_preview(
+            state.get("effective_query") or request.message,
+            unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
+        )
+        if guided
+        else None
+    )
     execution, human_review = _execution_stage(
         trace_id=trace_id,
-        selected_skill="knowledge_recall",
+        selected_skill=selected_skill,
         workflow_plan=workflow_plan,
         spl_validation=None,
         precondition_evaluation=state.get("route_plan_shadow", {}).get("precondition_evaluation"),
@@ -545,14 +560,20 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
         mcp_allowed=False,
     )
     emit_mcp_status_from_execution(execution)
-    return {
+    prepared = {
         **state,
         "workflow_plan": workflow_plan,
         "candidate_spl": None,
         "spl_validation": None,
+        "spl_draft_preview": spl_draft_preview,
         "execution": execution,
         "human_review": human_review,
     }
+    return _record_guided_resource_outcome(
+        prepared,
+        spl_draft_preview=spl_draft_preview,
+        update_spl=True,
+    )
 
 
 def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
@@ -568,7 +589,70 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
         required_sources=list(workflow_plan.get("required_sources") or []),
         execution_block_reason=execution.get("block_reason"),
     )
-    return {**state, "soc_kb_retrieval": retrieval}
+    updated = {**state, "soc_kb_retrieval": retrieval}
+    if _path_type(updated) == "guided_investigation" and _rag_no_match(retrieval):
+        updated = _record_guided_resource_outcome(updated, rag_no_match=True)
+    return updated
+
+
+def _record_guided_resource_outcome(
+    state: ChatPipelineState,
+    *,
+    spl_draft_preview: dict[str, Any] | None = None,
+    update_spl: bool = False,
+    rag_no_match: bool = False,
+) -> ChatPipelineState:
+    if _path_type(state) != "guided_investigation":
+        return state
+
+    no_match_limitation = (
+        "No governed playbook matched this hunt; the checklist is general guidance and must be "
+        "validated against local telemetry and policy."
+    )
+
+    def update_decisions(decisions: dict[str, Any]) -> dict[str, Any]:
+        updated = dict(decisions)
+        if update_spl and spl_draft_preview is not None:
+            updated["spl"] = {
+                **dict(updated.get("spl") or {}),
+                "needed": True,
+                "status": "planned_review_only",
+                "detection_family": spl_draft_preview.get("detection_family"),
+                "skip_reason": None,
+            }
+        elif update_spl and "spl" in updated:
+            updated["spl"] = {
+                **dict(updated.get("spl") or {}),
+                "needed": False,
+                "status": "skipped_no_deterministic_family_match",
+            }
+        if rag_no_match:
+            updated["rag"] = {**dict(updated.get("rag") or {}), "match_status": "no_match"}
+            limitations = list(updated.get("limitations") or [])
+            if no_match_limitation not in limitations:
+                limitations.append(no_match_limitation)
+            updated["limitations"] = limitations
+        return updated
+
+    result: ChatPipelineState = dict(state)
+    evidence_plan = state.get("evidence_plan")
+    if isinstance(evidence_plan, dict):
+        evidence_copy = dict(evidence_plan)
+        resource_plan = dict(evidence_copy.get("resource_plan") or {})
+        provenance = dict(resource_plan.get("provenance") or {})
+        decisions = provenance.get("resource_decisions")
+        if isinstance(decisions, dict):
+            provenance["resource_decisions"] = update_decisions(decisions)
+            resource_plan["provenance"] = provenance
+            evidence_copy["resource_plan"] = resource_plan
+            result["evidence_plan"] = evidence_copy
+
+    planning = state.get("planning_decision")
+    if isinstance(planning, dict) and isinstance(planning.get("resource_plan_summary"), dict):
+        planning_copy = dict(planning)
+        planning_copy["resource_plan_summary"] = update_decisions(planning["resource_plan_summary"])
+        result["planning_decision"] = planning_copy
+    return result
 
 
 def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
@@ -947,6 +1031,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             use_case_id=resolved_use_case_id,
             match_path=_candidate_match_path(state),
         )
+        if path_type == "guided_investigation" and _rag_no_match(state.get("soc_kb_retrieval")):
+            limitations = list(answer_contract.limitations)
+            no_match_limitation = (
+                "No governed playbook matched this hunt; the checklist is general guidance and must be "
+                "validated against local telemetry and policy."
+            )
+            if no_match_limitation not in limitations:
+                limitations.append(no_match_limitation)
+                answer_contract = answer_contract.model_copy(update={"limitations": limitations})
     answer_contract_payload = answer_contract.model_dump() if answer_contract is not None else None
     analyst_response = build_analyst_response_for_live(
         user_query=request.message,
@@ -1085,6 +1178,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             severity_decision=severity_decision,
             session_context_resolution=session_resolution if isinstance(session_resolution, SessionContextResolution) else None,
         )
+    if settings.control_plane_enabled or guided_without_control_plane:
         trace_state = {
             **state,
             "mitre_decision": mitre_decision,
@@ -1273,11 +1367,14 @@ def _dispatch_hooks() -> DispatchHooks:
 
 
 def _uses_rag_only_path(state: ChatPipelineState) -> bool:
-    if not settings.control_plane_enabled:
-        return False
     planning = state.get("planning_decision")
     path_type = planning.get("path_type") if isinstance(planning, dict) else None
-    return _evidence_plan(state).get("answer_mode") == "rag_only" or path_type == "generic_soc_guidance"
+    if path_type == "guided_investigation":
+        return True
+    if not settings.control_plane_enabled:
+        return False
+    answer_mode = _evidence_plan(state).get("answer_mode")
+    return answer_mode in {"rag_only", "guided_investigation"} or path_type == "generic_soc_guidance"
 
 
 def _uses_pre_mcp_rag(state: ChatPipelineState) -> bool:

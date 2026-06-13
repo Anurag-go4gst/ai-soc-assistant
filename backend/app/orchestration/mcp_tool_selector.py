@@ -6,6 +6,7 @@ from app.config import settings
 from app.connectors.mcp.discovery import BLOCKED_TOOL_TOKENS, safe_tool_name
 from app.connectors.mcp.registry import McpRegistryStatus, McpServerStatus, load_mcp_registry_status
 from app.orchestration.human_review import human_review
+from app.splunk.capabilities import RUN_QUERY_ALIASES
 
 EXECUTION_ELIGIBLE_SKILLS = {"attack_discovery", "spl_generation"}
 
@@ -49,7 +50,14 @@ def select_mcp_tool(
 
     if user_requested_mcp_tool:
         requested_tool = safe_tool_name(user_requested_mcp_tool)
-        requested = next((tool for tool in tools if tool.get("name") == requested_tool), None)
+        requested = next(
+            (
+                tool
+                for tool in tools
+                if _tool_names_equivalent(str(tool.get("name") or ""), requested_tool)
+            ),
+            None,
+        )
         if requested is None:
             return _review_result(trace_id, execution_intent, "tool_selection_review", "requested_tool_not_found")
         if requested_tool == "splunk_run_saved_search" and not settings.splunk_allow_run_saved_search:
@@ -124,6 +132,12 @@ def _tool_blocked(tool: dict[str, Any]) -> bool:
 
 def _tool_matches_intent(tool: dict[str, Any], execution_intent: str) -> bool:
     return execution_intent == "spl_search" and tool.get("capability") == "spl_search"
+
+
+def _tool_names_equivalent(discovered_name: str, requested_name: str) -> bool:
+    if discovered_name == requested_name:
+        return True
+    return discovered_name in RUN_QUERY_ALIASES and requested_name in RUN_QUERY_ALIASES
 
 
 def _selected(trace_id: str, execution_intent: str, server: McpServerStatus, tool: dict[str, Any], reason: str) -> dict[str, Any]:
