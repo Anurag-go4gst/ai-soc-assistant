@@ -303,7 +303,7 @@ def test_wiring_enabled_maps_candidate_ready_payload(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
     monkeypatch.setattr(
         "app.chat.pipeline.generate_llm_spl_fallback",
-        lambda *, user_query: LlmSplFallbackResult(
+        lambda *, user_query, **_kw: LlmSplFallbackResult(
             candidate_spl=_APPROVED_SPL,
             approved=True,
             validation={
@@ -340,7 +340,7 @@ def test_wiring_enabled_approved_never_marks_governed_catalog_or_executable(
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
     monkeypatch.setattr(
         "app.chat.pipeline.generate_llm_spl_fallback",
-        lambda *, user_query: LlmSplFallbackResult(
+        lambda *, user_query, **_kw: LlmSplFallbackResult(
             candidate_spl=_APPROVED_SPL,
             approved=True,
             validation={
@@ -369,7 +369,7 @@ def test_wiring_quality_hard_fail_blocks_spl_exposure(monkeypatch: pytest.Monkey
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
     monkeypatch.setattr(
         "app.chat.pipeline.generate_llm_spl_fallback",
-        lambda *, user_query: LlmSplFallbackResult(
+        lambda *, user_query, **_kw: LlmSplFallbackResult(
             candidate_spl="",
             approved=False,
             validation={
@@ -401,7 +401,7 @@ def test_wiring_enabled_propagates_clarification(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
     monkeypatch.setattr(
         "app.chat.pipeline.generate_llm_spl_fallback",
-        lambda *, user_query: LlmSplFallbackResult(
+        lambda *, user_query, **_kw: LlmSplFallbackResult(
             candidate_spl="",
             approved=False,
             validation={
@@ -428,7 +428,7 @@ def test_lab_stage_both_flags_true_maps_separate_candidate(monkeypatch: pytest.M
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
     monkeypatch.setattr(
         "app.chat.pipeline.generate_llm_spl_fallback",
-        lambda *, user_query: LlmSplFallbackResult(
+        lambda *, user_query, **_kw: LlmSplFallbackResult(
             candidate_spl=_APPROVED_SPL,
             approved=True,
             validation={
@@ -487,3 +487,90 @@ def test_chat_message_for_template_spl_keeps_governed_wording() -> None:
         }
     )
     assert "Governed SPL draft ready" in message
+
+
+# --- R5 relevance gate wiring -------------------------------------------------
+_NETWORK_SPL = (
+    "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now "
+    "(dest_port=* OR bytes=*) | eval src_ip_norm=coalesce(src_ip, src) "
+    "| stats sum(bytes) as total by src_ip_norm | sort - total | head 100"
+)
+_DNS_SPL = (
+    "search index=<dns_index> sourcetype=<dns_sourcetype> earliest=-24h latest=now query=* "
+    "| eval src_host_norm=lower(coalesce(src_host, src_ip)) | eval domain_norm=lower(query) "
+    "| stats count as dns_query_count dc(domain_norm) as distinct_domains by src_host_norm "
+    "| sort - dns_query_count | head 100"
+)
+
+
+def _result(spl: str) -> "LlmSplFallbackResult":
+    return LlmSplFallbackResult(
+        candidate_spl=spl,
+        approved=True,
+        validation={
+            "approved": True,
+            "normalized_spl": spl,
+            "reject_reasons": [],
+            "warnings": [],
+            "enforced_limits": {},
+            "policy_version": "v1",
+        },
+        quality_standard=STANDARD_ID,
+        quality_status="passed",
+        hard_fail_count=0,
+    )
+
+
+def test_relevance_gate_blocks_asked_x_got_y(monkeypatch: pytest.MonkeyPatch) -> None:
+    # DNS question, network SPL: validated+safe but not on-question -> not exposed.
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+    monkeypatch.setattr(
+        "app.chat.pipeline.generate_llm_spl_fallback",
+        lambda *, user_query, **_kw: _result(_NETWORK_SPL),
+    )
+    candidate_payload, validation_payload = chat_pipeline._candidate_from_llm_fallback(
+        trace_id="t", skill="attack_discovery",
+        user_query="Which hosts generated the most DNS queries?",
+        telemetry=_Telemetry(), profile=_Profile(), request_enabled=True,
+    )
+    assert validation_payload["approved"] is False
+    assert candidate_payload["candidate_spl"] == ""
+    assert any(r.startswith("relevance_data_source_missing") for r in validation_payload["reject_reasons"])
+
+
+def test_relevance_gate_regenerates_once_and_accepts_relevant(monkeypatch: pytest.MonkeyPatch) -> None:
+    # First attempt irrelevant (network), retry relevant (dns) -> exposed.
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+    calls = {"n": 0}
+
+    def _two_pass(*, user_query, **_kw):
+        calls["n"] += 1
+        return _result(_NETWORK_SPL) if calls["n"] == 1 else _result(_DNS_SPL)
+
+    monkeypatch.setattr("app.chat.pipeline.generate_llm_spl_fallback", _two_pass)
+    candidate_payload, validation_payload = chat_pipeline._candidate_from_llm_fallback(
+        trace_id="t", skill="attack_discovery",
+        user_query="Which hosts generated the most DNS queries?",
+        telemetry=_Telemetry(), profile=_Profile(), request_enabled=True,
+    )
+    assert calls["n"] == 2  # regenerated once
+    assert validation_payload["approved"] is True
+    assert candidate_payload["candidate_spl"] == _DNS_SPL
+
+
+def test_relevance_gate_passes_relevant_first_try(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+    calls = {"n": 0}
+
+    def _once(*, user_query, **_kw):
+        calls["n"] += 1
+        return _result(_DNS_SPL)
+
+    monkeypatch.setattr("app.chat.pipeline.generate_llm_spl_fallback", _once)
+    candidate_payload, validation_payload = chat_pipeline._candidate_from_llm_fallback(
+        trace_id="t", skill="attack_discovery",
+        user_query="Which hosts generated the most DNS queries?",
+        telemetry=_Telemetry(), profile=_Profile(), request_enabled=True,
+    )
+    assert calls["n"] == 1  # no regeneration needed
+    assert validation_payload["approved"] is True

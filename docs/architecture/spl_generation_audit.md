@@ -210,6 +210,41 @@ Deferred (correctly, not gamed):
   questions mis-routed to network — no fitting auth draft family exists), q092/q093
   multi-signal correlation (need multi-source + entity reasoning).
 
+## 7c. Phase C results (LLM-primary failover + relevance gate)
+
+Flag-gated by `ai_soc_llm_spl_fallback_enabled` (default **false** → behaviour
+byte-identical to before; EC `coe_synthetic_fixture` path untouched).
+
+- **R5 relevance gate** (`app/spl/spl_relevance_check.py`): structural check that
+  the SPL's data source, metric/aggregation, and entity match the question. Single
+  source of truth — `scripts/eval_spl_relevance.py` imports it. 10 unit tests.
+- **B01 wiring**: `_should_use_llm_spl_failover()` + `request_enabled` now passed at
+  the call site; the LLM fallback actually runs on the governed candidate path.
+- **B02**: the planned/missing pre-blocks are skipped when the flag is on, so the
+  LLM serves those rows; relevance + validation gate the output.
+- **Gate integration**: LLM output is exposed only when `approved AND relevant`;
+  on mismatch it regenerates **once** with the mismatch feedback, then downgrades
+  to a non-exposed clarification (reason `relevance_*`). Timeout/unavailable client
+  returns a clarification → falls through (latency-safe).
+- **B11/B12 prompt** (`llm_fallback.py`): `correctness_mode` uses a compact
+  correctness block (U01/U02, not the full SOC-STD-SPL-001 C–I list), lifts the
+  `tstats`/`datamodel` ban for the validator-approved CIM datamodels, and injects
+  `primary_skill`/`use_case_id`/`pattern_type`/`required_sources` routing context.
+  `test_validate_spl_cim.py` pins that LLM tstats passes `validate_spl`.
+
+Governance unchanged: candidate-only, `execution_eligible/governed/catalog_approved`
+forced false, validation mandatory, LLM never calls MCP. The control-plane golden
+`test_uncatalogued_spl_generation_uses_lab_only_llm_candidate_metadata` was updated
+to the new contract (governed failover path now carries the lab-only LLM candidate,
+still non-executable) — all governance asserts retained.
+
+Deferred to a Phase C analyst-UX follow-up: **B04/B15** (prefer the LLM candidate
+over the verbose draft in `analyst_response_builder`, single SPL surface) and
+**R1** (ambiguous multi-match → LLM disambiguation in the draft lane). The offline
+relevance eval still reports 97/102 because it measures the deterministic draft
+lane; the 5 deferred mismatches are answered by the LLM at runtime when the flag
+is on (not visible to the no-live-model eval).
+
 ## 8. Baselines recorded (Phase A exit)
 
 | Check | Result |

@@ -42,77 +42,7 @@ REPORT_MD = ROOT / "docs" / "evals" / "spl_relevance_summary.md"
 
 import app.chat  # noqa: E402,F401  — warm the package to resolve the draft_preview import cycle
 from app.spl.draft_preview import build_draft_preview  # noqa: E402
-
-
-# --- Data-source signatures -------------------------------------------------
-# Map a logical data source to (question keywords, SPL body tokens). Relevance
-# requires the SPL body to carry tokens of the source the question asks about.
-DATA_SOURCES: dict[str, dict[str, list[str]]] = {
-    "auth": {
-        "q": ["login", "logon", "authentication", "auth", "failed login", "sign-in",
-              "account lockout", "lockout", "brute force", "password", "credential",
-              "privileged", "4625", "4624", "4740"],
-        "spl": ["authentication", "wineventlog", "win:auth", "eventcode=46", "eventcode=4740",
-                "failed_login", "login", "user=", "user_norm", "src_user", "account"],
-    },
-    "network": {
-        "q": ["traffic", "top talker", "talkers", "bytes", "bandwidth", "connection",
-              "smb", "port", "outbound", "egress", "lateral", "exfil", "data transfer",
-              "vpn", "firewall", "denied", "blocked", "rdp"],
-        "spl": ["network_traffic", "traffic", "dest_ip", "src_ip", "dest_port", "bytes",
-                "conn", "all_traffic", "session", "app=", "src_ip_norm", "dest_ip_norm"],
-    },
-    "dns": {
-        "q": ["dns", "domain", "beacon", "beaconing", "dga", "query", "resolution",
-              "nxdomain", "c2", "command and control"],
-        "spl": ["dns", "query", "network_resolution", "named", "answer", "domain", "query_norm"],
-    },
-    "endpoint": {
-        # Endpoint-specific signals only — generic words like host/service/server are
-        # entities, not a data-source signal, and over-trigger this source.
-        "q": ["process", "powershell", "endpoint detection", "edr", "sysmon",
-              "scheduled task", "persistence", "command line", "command-line",
-              "encoded command", "parent process", "child process", "process creation"],
-        "spl": ["edr", "endpoint", "process", "sysmon", "powershell", "cmdline", "command_line",
-                "image", "parent_process", "schtask"],
-    },
-    "firewall": {
-        "q": ["firewall", "denied", "deny", "blocked", "drop", "egress", "perimeter"],
-        "spl": ["firewall", "action=blocked", "action=denied", "deny", "pan:", "fortinet",
-                "action_norm"],
-    },
-}
-
-# Aggregation/metric is expected when the question asks for a ranked / counted answer.
-METRIC_Q = ["top", "most", "which", "how many", "count", "number of", "spike",
-            "rare", "rarely", "anomaly", "unusual", "highest", "ranking", "rank",
-            "distinct", "per ", "by ", "summary", "trend", "volume"]
-AGG_SPL = ["stats", "tstats", "timechart", "chart", "top ", "rare ", "eventstats", "streamstats"]
-
-# Entity tokens — asked entity should appear in the SPL (filter or by-clause).
-ENTITY_TOKENS: dict[str, list[str]] = {
-    "user": ["user", "account", "username"],
-    "src_ip": ["ip", "source ip", "src", "address", "host"],
-    "host": ["host", "machine", "endpoint", "asset", "device", "workstation", "server"],
-    "dest": ["destination", "dest", "target", "domain"],
-    "port": ["port"],
-}
-
-
-def _norm(text: str) -> str:
-    return " ".join((text or "").lower().split())
-
-
-def _expected_sources(qtext: str, required_sources: list[str] | None) -> set[str]:
-    q = _norm(qtext)
-    found = {src for src, sig in DATA_SOURCES.items() if any(kw in q for kw in sig["q"])}
-    # mcp:splunk is generic; do not infer a source from it. Keyword evidence only.
-    return found
-
-
-def _spl_has_source(spl: str, source: str) -> bool:
-    body = spl.lower()
-    return any(tok in body for tok in DATA_SOURCES[source]["spl"])
+from app.spl.spl_relevance_check import check_spl_relevance  # noqa: E402  shared scorer
 
 
 def score_relevance(
@@ -122,53 +52,15 @@ def score_relevance(
     pattern_type: str | None = None,
     required_sources: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Structural relevance score for one (question, SPL) pair.
-
-    Returns relevant bool + mismatch list. A missing SPL is not relevant unless
-    the question legitimately needs none (handled by caller via pattern_type).
-    """
-    mismatches: list[str] = []
-    if not spl:
-        return {"relevant": False, "mismatches": ["no_spl_generated"], "checks": {}}
-
-    q = _norm(qtext)
-    checks: dict[str, Any] = {}
-
-    # 1. Data source: every source the question names must appear in the SPL body.
-    expected = _expected_sources(qtext, required_sources)
-    checks["expected_sources"] = sorted(expected)
-    src_ok = True
-    if expected:
-        missing = {s for s in expected if not _spl_has_source(spl, s)}
-        if missing:
-            src_ok = False
-            mismatches.append(f"data_source_missing:{','.join(sorted(missing))}")
-    checks["data_source_ok"] = src_ok
-
-    # 2. Metric/aggregation: ranked/counted questions must aggregate.
-    wants_metric = any(kw in q for kw in METRIC_Q)
-    has_agg = any(tok in spl.lower() for tok in AGG_SPL)
-    checks["wants_metric"] = wants_metric
-    checks["has_aggregation"] = has_agg
-    metric_ok = (not wants_metric) or has_agg
-    if not metric_ok:
-        mismatches.append("aggregation_missing")
-
-    # 3. Entity: at least one asked entity must surface in the SPL.
-    asked_entities = {e for e, toks in ENTITY_TOKENS.items() if any(t in q for t in toks)}
-    checks["asked_entities"] = sorted(asked_entities)
-    entity_ok = True
-    if asked_entities:
-        entity_ok = any(
-            any(t in spl.lower() for t in ([e] + ENTITY_TOKENS[e])) for e in asked_entities
-        )
-        if not entity_ok:
-            mismatches.append("entity_missing")
-    checks["entity_ok"] = entity_ok
-
-    # Relevant = source + metric + entity all satisfied.
-    relevant = src_ok and metric_ok and entity_ok
-    return {"relevant": relevant, "mismatches": mismatches, "checks": checks}
+    """Thin wrapper over the production relevance gate (single source of truth)."""
+    result = check_spl_relevance(
+        qtext, spl, required_sources=required_sources, pattern_type=pattern_type
+    )
+    return {
+        "relevant": result.relevant,
+        "mismatches": result.mismatches,
+        "checks": result.checks,
+    }
 
 
 # --- SPL resolution per lane ------------------------------------------------

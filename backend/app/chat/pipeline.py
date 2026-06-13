@@ -58,6 +58,7 @@ from app.spl.draft_preview import (
     build_draft_preview_analyst_message,
 )
 from app.spl.llm_fallback import generate_llm_spl_fallback
+from app.spl.spl_relevance_check import check_spl_relevance
 from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
 from app.answer_guard.runner import run_answer_guard_lab
 from app.synthesis.governed_answer_composer import (
@@ -2181,7 +2182,16 @@ def _candidate_spl_stage(
         )
         return candidate_payload, validation_payload
 
-    if spl_governance and spl_governance.get("spl_template_status") in {"planned", "unavailable", "missing", "unknown", "sop_only"}:
+    llm_failover_enabled = _should_use_llm_spl_failover(skill)
+    # B02: when LLM failover is enabled, do not short-circuit planned/missing
+    # template rows to clarification — let the LLM generate, then the relevance +
+    # validation gates decide. Without failover, preserve the prior clarification.
+    if (
+        not llm_failover_enabled
+        and spl_governance
+        and spl_governance.get("spl_template_status")
+        in {"planned", "unavailable", "missing", "unknown", "sop_only"}
+    ):
         return _candidate_clarification(
             trace_id=trace_id,
             skill=skill,
@@ -2199,6 +2209,13 @@ def _candidate_spl_stage(
         telemetry=telemetry,
         profile=profile,
         spl_governance=spl_governance,
+        request_enabled=llm_failover_enabled,
+        llm_context={
+            "primary_skill": skill,
+            "use_case_id": use_case_id,
+            "pattern_type": (spl_governance or {}).get("pattern_type"),
+            "required_sources": (spl_governance or {}).get("required_sources"),
+        },
     )
     if fallback_candidate is not None:
         return fallback_candidate
@@ -2542,6 +2559,25 @@ def _candidate_clarification(
     return candidate_payload, validation_payload
 
 
+def _gate_llm_spl_relevance(result: Any, user_query: str) -> Any:
+    """Run the structural relevance gate on an LLM fallback result.
+
+    An empty candidate (clarification/blocked/timeout) is not relevant; otherwise
+    the SPL is structurally checked against the question's data source, metric, and
+    entity. Returns the RelevanceResult."""
+    spl = (getattr(result, "candidate_spl", "") or "").strip()
+    return check_spl_relevance(user_query, spl or None)
+
+
+def _should_use_llm_spl_failover(skill: str) -> bool:
+    """LLM-primary failover is available when the flag is on and the skill is an
+    SPL-producing skill. The relevance + validation gates downstream keep any
+    output non-executable and on-question."""
+    if not settings.ai_soc_llm_spl_fallback_enabled:
+        return False
+    return skill in {"attack_discovery", "spl_generation"}
+
+
 def _candidate_from_llm_fallback(
     *,
     trace_id: str,
@@ -2551,6 +2587,7 @@ def _candidate_from_llm_fallback(
     profile: Any,
     spl_governance: dict[str, Any] | None = None,
     request_enabled: bool = False,
+    llm_context: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     """Governed LLM SPL advisory used only when no deterministic template matched.
 
@@ -2562,7 +2599,15 @@ def _candidate_from_llm_fallback(
     """
     if not request_enabled:
         return None
-    if settings.ai_soc_spl_template_governance_enabled and spl_governance:
+    # B02: with LLM failover enabled this pre-block is intentionally skipped so the
+    # LLM can serve planned/missing template rows; the relevance + deterministic
+    # validation gates below keep the output on-question and non-executable. Only
+    # pre-block when failover is disabled.
+    if (
+        not settings.ai_soc_llm_spl_fallback_enabled
+        and settings.ai_soc_spl_template_governance_enabled
+        and spl_governance
+    ):
         status = str(spl_governance.get("spl_template_status") or "unknown")
         allowed_templates = [str(item) for item in spl_governance.get("allowed_spl_templates") or []]
         if status != "active" or allowed_templates:
@@ -2578,14 +2623,41 @@ def _candidate_from_llm_fallback(
     if not settings.ai_soc_llm_spl_fallback_enabled:
         return None
 
-    result = generate_llm_spl_fallback(user_query=user_query)
+    # LLM-primary with a relevance gate: generate, structurally check the SPL
+    # answers the question, and regenerate once with the mismatch feedback before
+    # accepting. A timeout/unavailable client returns a clarification result (no
+    # raw output), which the gate treats as not-relevant and falls through.
+    result = generate_llm_spl_fallback(
+        user_query=user_query, context=llm_context, correctness_mode=True
+    )
     if result is None:
         return None
+    relevance = _gate_llm_spl_relevance(result, user_query)
+    if not relevance.relevant and result.candidate_spl.strip():
+        retry = generate_llm_spl_fallback(
+            user_query=user_query,
+            context=llm_context,
+            correctness_mode=True,
+            relevance_feedback=relevance.mismatches,
+        )
+        if retry is not None:
+            retry_relevance = _gate_llm_spl_relevance(retry, user_query)
+            # Keep the retry only if it improved relevance.
+            if retry_relevance.relevant or not result.candidate_spl.strip():
+                result = retry
+                relevance = retry_relevance
 
     validation = result.validation
     approved = bool(result.approved)
-    expose_spl = approved and bool(result.candidate_spl.strip())
+    # R5: a safe, validated SPL that does not answer the question must not be
+    # exposed. Relevance is required alongside validation before exposure.
+    expose_spl = approved and bool(result.candidate_spl.strip()) and relevance.relevant
     reject_reasons = list(validation.get("reject_reasons") or [])
+    if not relevance.relevant:
+        for mismatch in relevance.mismatches:
+            reason = f"relevance_{mismatch}"
+            if reason not in reject_reasons:
+                reject_reasons.append(reason)
     if result.clarification_reason and result.clarification_reason not in reject_reasons:
         reject_reasons = [*reject_reasons, result.clarification_reason]
     if result.hard_fail_count > 0 and result.quality_findings:
