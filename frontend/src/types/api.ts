@@ -861,6 +861,46 @@ export interface LlmSettingsDraftCheckResult {
   safe_message: string;
 }
 
+export interface SourceProfileSlotDefinition {
+  slot_id: string;
+  label: string;
+  category: string;
+  description: string;
+  example: string;
+}
+
+export interface SourceProfileSettingsResponse {
+  slots: SourceProfileSlotDefinition[];
+  values: Record<string, string>;
+  field_sources: Record<string, string>;
+  effective_profile_preview: Record<string, string>;
+  mcp_discovery_preview: Record<string, string>;
+  mcp_discovery_trace: {
+    tools_called?: string[];
+    errors?: string[];
+    mapped_slots?: string[];
+    [key: string]: unknown;
+  };
+  orchestration_order: string[];
+  conflict_preference: string;
+  updated_at?: string | null;
+  updated_by?: string | null;
+  store_path_configured: boolean;
+}
+
+export interface SourceProfileSaveResponse {
+  saved: boolean;
+  values: Record<string, string>;
+  field_sources: Record<string, string>;
+  updated_at?: string | null;
+  updated_by?: string | null;
+}
+
+export interface SourceProfileDiscoverResponse extends SourceProfileSaveResponse {
+  discovered_slots: string[];
+  mcp_discovery_trace: SourceProfileSettingsResponse['mcp_discovery_trace'];
+}
+
 export interface McpConnectionVerificationResult {
   action: string;
   status: string;

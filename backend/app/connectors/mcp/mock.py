@@ -17,6 +17,25 @@ class MockMcpConnector:
         return mock_discovered_tools("splunk")
 
     def call_tool(self, tool_name: str, arguments: dict[str, Any], server_name: str | None = None) -> dict[str, Any]:
+        if tool_name == "splunk_get_indexes":
+            return {
+                "status": "ok",
+                "mock": True,
+                "indexes": ["pgcil_soc"],
+                "rows": [{"index": "pgcil_soc", "title": "pgcil_soc"}],
+            }
+        if tool_name == "splunk_get_metadata":
+            return {
+                "status": "ok",
+                "mock": True,
+                "sourcetypes": ["pgcil:auth", "pgcil:dns", "pgcil:edr", "aws:cloudtrail"],
+                "rows": [
+                    {"sourcetype": "pgcil:auth"},
+                    {"sourcetype": "pgcil:dns"},
+                    {"sourcetype": "pgcil:edr"},
+                    {"sourcetype": "aws:cloudtrail"},
+                ],
+            }
         if tool_name not in RUN_QUERY_ALIASES:
             return {"status": "blocked", "error": "mock_tool_not_allowlisted", "rows": []}
         query = str(arguments.get("query") or "")

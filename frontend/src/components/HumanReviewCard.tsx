@@ -1,10 +1,13 @@
 import { HelpCircle, ShieldAlert, UserCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type { HumanReviewEnvelope } from '@/types/api';
+import { Button } from '@/components/ui/button';
 
 const REVIEW_META: Record<string, { title: string; icon: typeof ShieldAlert; tone: 'amber' | 'cyan' }> = {
   intent_clarification: { title: 'Clarification needed', icon: HelpCircle, tone: 'cyan' },
   execution_approval: { title: 'Approval required', icon: ShieldAlert, tone: 'amber' },
   analyst_review: { title: 'Analyst review required', icon: ShieldAlert, tone: 'amber' },
+  spl_source_profile_clarification: { title: 'Source profile needed', icon: HelpCircle, tone: 'cyan' },
 };
 
 function humanizeAction(action: string): string {
@@ -19,6 +22,9 @@ export function HumanReviewCard({ review }: { review: HumanReviewEnvelope }) {
       ? 'border-cyan-400/40 bg-cyan-500/[0.08]'
       : 'border-amber-400/45 bg-amber-500/[0.10]';
   const iconTone = meta.tone === 'cyan' ? 'text-cyan-300' : 'text-amber-300';
+  const showSourceProfileLink =
+    review.review_type === 'spl_source_profile_clarification' ||
+    review.allowed_actions.includes('open_source_profile_settings');
 
   return (
     <div className={`rounded-xl border-l-4 ${tone} px-4 py-3.5 shadow-sm`}>
@@ -31,6 +37,13 @@ export function HumanReviewCard({ review }: { review: HumanReviewEnvelope }) {
         </span>
       </div>
       <p className="mt-2 text-sm leading-6 text-slate-100">{review.safe_message_for_user}</p>
+      {showSourceProfileLink ? (
+        <div className="mt-3">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/settings/source-profiles">Open Source Profiles</Link>
+          </Button>
+        </div>
+      ) : null}
       {review.allowed_actions.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {review.allowed_actions.map((action) => (

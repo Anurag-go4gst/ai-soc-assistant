@@ -77,3 +77,45 @@ def test_resolve_missing_slots_returns_hil_review() -> None:
     review = build_spl_source_profile_review(result.missing_slots)
     assert review["review_type"] == "spl_source_profile_clarification"
     assert review["required"] is True
+    assert "open_source_profile_settings" in review["allowed_actions"]
+
+
+def test_mcp_discovery_wins_over_coe_store(monkeypatch, tmp_path) -> None:
+    from app.config import settings
+    from app.spl import source_profile_store as store
+
+    store_path = tmp_path / "source_profile_map.json"
+    monkeypatch.setattr(settings, "ai_soc_source_profile_store_path", str(store_path))
+    store.save_persisted_source_profile(
+        {"auth_index": "wrong_index", "auth_sourcetype": "wrong:st"},
+        updated_by="coe_ui",
+    )
+    spl = (
+        "search index=<auth_index> sourcetype=<auth_sourcetype> action=failure "
+        "earliest=-24h latest=now | stats count by user | sort -count | head 100"
+    )
+    result = resolve_spl_source_profile(spl, user_query="failed login spike")
+    assert result.fully_resolved
+    assert result.resolved_slots["auth_index"] == "pgcil_soc"
+    assert result.slot_sources["auth_index"] == "mcp_discovery"
+    assert "mcp_discovery" in result.tiers_used
+
+
+def test_coe_store_fills_slots_when_mcp_disabled(monkeypatch, tmp_path) -> None:
+    from app.config import settings
+    from app.spl import source_profile_store as store
+
+    store_path = tmp_path / "source_profile_map.json"
+    monkeypatch.setattr(settings, "ai_soc_source_profile_store_path", str(store_path))
+    store.save_persisted_source_profile(
+        {"auth_index": "pgcil_soc", "auth_sourcetype": "pgcil:auth"},
+        updated_by="coe_ui",
+    )
+    spl = (
+        "search index=<auth_index> sourcetype=<auth_sourcetype> action=failure "
+        "earliest=-24h latest=now | stats count by user | sort -count | head 100"
+    )
+    result = resolve_spl_source_profile(spl, user_query="failed login spike", run_mcp_discovery=False)
+    assert result.fully_resolved
+    assert result.slot_sources["auth_index"] == "coe_ui"
+    assert "coe_store" in result.tiers_used

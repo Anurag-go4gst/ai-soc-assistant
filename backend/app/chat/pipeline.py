@@ -635,6 +635,9 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
     session_slots: dict[str, str] = {}
     if isinstance(session_pins, SessionPins):
         session_slots = dict(session_pins.source_profile_slots or {})
+    request = state["request"]
+    if getattr(request, "source_profile_slots", None):
+        session_slots.update({k: str(v) for k, v in request.source_profile_slots.items() if v})
 
     workflow_plan = state.get("workflow_plan") if isinstance(state.get("workflow_plan"), dict) else {}
     required_sources = [str(item) for item in workflow_plan.get("required_sources") or []]
@@ -651,6 +654,8 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
         "resolved_slots": resolve_result.resolved_slots,
         "missing_slots": resolve_result.missing_slots,
         "tiers_used": resolve_result.tiers_used,
+        "slot_sources": resolve_result.slot_sources,
+        "mcp_discovery_trace": resolve_result.mcp_discovery_trace,
         "fully_resolved": resolve_result.fully_resolved,
     }
     updated: dict[str, Any] = {**state, "spl_source_resolve": trace}

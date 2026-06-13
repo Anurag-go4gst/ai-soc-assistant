@@ -32,6 +32,14 @@ from app.connectors.telemetry import get_telemetry_connector, metrics
 from app.knowledge.soc_kb_retriever import soc_kb_status_summary
 from app.llm.registry_settings import build_llm_governance_status
 from app.providers import ProviderType, mock_asset_inventory_profile, splunk_provider_profile
+from app.spl.mcp_source_discovery import run_mcp_source_discovery
+from app.spl.source_profile_catalog import list_source_profile_slot_definitions
+from app.spl.source_profile_resolver import build_policy_derived_profile, merge_profiles
+from app.spl.source_profile_store import (
+    load_persisted_source_profile_document,
+    merge_mcp_discovery_into_store,
+    save_persisted_source_profile,
+)
 from app.splunk.capabilities import build_splunk_capability_profile
 
 router = APIRouter()
@@ -1597,3 +1605,61 @@ def _primary_model_name(registry: object) -> str:
         if getattr(provider, "name", None) == resolved:
             return str(getattr(provider, "model", "") or provider.name)
     return "mock-model"
+
+
+class SourceProfileSaveRequest(BaseModel):
+    values: dict[str, str] = {}
+
+
+@router.get("/settings/source-profiles")
+def get_source_profile_settings() -> dict:
+    document = load_persisted_source_profile_document()
+    values = dict(document.get("values") or {})
+    effective = merge_profiles(build_policy_derived_profile(), values)
+    mcp_preview, mcp_trace = run_mcp_source_discovery()
+    return {
+        "slots": list_source_profile_slot_definitions(),
+        "values": values,
+        "field_sources": dict(document.get("field_sources") or {}),
+        "effective_profile_preview": effective,
+        "mcp_discovery_preview": mcp_preview,
+        "mcp_discovery_trace": mcp_trace,
+        "orchestration_order": [
+            "policy_env",
+            "coe_store",
+            "rag_kb",
+            "chat_session",
+            "mcp_discovery",
+        ],
+        "conflict_preference": "mcp_discovery_over_coe_store",
+        "updated_at": document.get("updated_at"),
+        "updated_by": document.get("updated_by"),
+        "store_path_configured": bool(getattr(settings, "ai_soc_source_profile_store_path", "")),
+    }
+
+
+@router.put("/settings/source-profiles")
+def save_source_profile_settings(payload: SourceProfileSaveRequest) -> dict:
+    document = save_persisted_source_profile(payload.values, updated_by="coe_ui")
+    return {
+        "saved": True,
+        "values": document.get("values") or {},
+        "field_sources": document.get("field_sources") or {},
+        "updated_at": document.get("updated_at"),
+        "updated_by": document.get("updated_by"),
+    }
+
+
+@router.post("/settings/source-profiles/discover-from-mcp")
+def discover_source_profiles_from_mcp() -> dict:
+    discovered, trace = run_mcp_source_discovery()
+    document = merge_mcp_discovery_into_store(discovered, overwrite=True)
+    return {
+        "saved": True,
+        "discovered_slots": list(discovered.keys()),
+        "values": document.get("values") or {},
+        "field_sources": document.get("field_sources") or {},
+        "mcp_discovery_trace": trace,
+        "updated_at": document.get("updated_at"),
+        "updated_by": document.get("updated_by"),
+    }

@@ -12,6 +12,7 @@ from typing import Any
 
 from app.config import settings
 from app.safeguards.spl_validator import load_spl_policy
+from app.spl.source_profile_store import load_persisted_source_profile
 
 _PLACEHOLDER_RE = re.compile(r"<([a-zA-Z0-9_]+)>")
 
@@ -139,6 +140,7 @@ def build_policy_derived_profile() -> dict[str, str]:
 def load_static_source_profile(*, session_slots: dict[str, str] | None = None) -> dict[str, str]:
     profile = build_policy_derived_profile()
     profile.update(_explicit_profile_map())
+    profile.update(load_persisted_source_profile())
     if session_slots:
         profile.update({key: value for key, value in session_slots.items() if value})
     return profile

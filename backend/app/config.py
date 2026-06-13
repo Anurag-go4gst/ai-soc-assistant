@@ -210,6 +210,8 @@ class Settings(BaseSettings):
     ai_soc_llm_spl_failover_retry_enabled: bool = False
     # Optional JSON map of placeholder stem -> index/sourcetype value for Phase H0.
     ai_soc_source_profile_map: str = ""
+    # Persisted COE source profile map (Settings UI). Empty = backend/data/source_profile_map.json
+    ai_soc_source_profile_store_path: str = ""
     ai_soc_llm_template_match_provider: str = ""
     ai_soc_llm_template_match_model: str = ""
     ai_soc_llm_template_render_provider: str = ""

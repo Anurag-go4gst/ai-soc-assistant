@@ -18,6 +18,9 @@ import type {
   ProviderSettingsStatus,
   QualityFlaggedTurnsResponse,
   SettingsStatus,
+  SourceProfileDiscoverResponse,
+  SourceProfileSaveResponse,
+  SourceProfileSettingsResponse,
   KnowledgeExportArtifact,
 } from '../types/api';
 
@@ -233,6 +236,40 @@ export async function verifyLlmConnection(action: 'validate' | 'test' | 'models'
   });
   if (!response.ok) {
     throw new Error(`LLM ${action} failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getSourceProfileSettings(): Promise<SourceProfileSettingsResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/source-profiles`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`Source profile settings failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveSourceProfileSettings(values: Record<string, string>): Promise<SourceProfileSaveResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/source-profiles`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values }),
+  });
+  if (!response.ok) {
+    throw new Error(`Source profile save failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function discoverSourceProfilesFromMcp(): Promise<SourceProfileDiscoverResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/source-profiles/discover-from-mcp`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    throw new Error(`MCP source discovery failed: ${response.status}`);
   }
   return response.json();
 }
