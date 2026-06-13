@@ -26,6 +26,7 @@ CATALOG_PATH = BACKEND / "app" / "use_cases" / "catalog.json"
 REPORT_MD = ROOT / "docs" / "evals" / "llm_template_audit_report.md"
 
 from app.safeguards.spl_validator import validate_spl  # noqa: E402
+from app.spl.policy import SplValidationPolicy, load_spl_policy  # noqa: E402
 from app.spl.spl_relevance_check import check_spl_relevance  # noqa: E402
 from app.spl.template_registry import load_spl_templates  # noqa: E402
 
@@ -51,6 +52,33 @@ def _pipe_count(spl: str) -> int:
     return spl.count("|")
 
 
+def _policy_for_template(template: dict[str, Any]) -> SplValidationPolicy:
+    base = load_spl_policy()
+    rules = template.get("validation_rules") or {}
+
+    def _tuple_field(key: str, fallback: tuple[str, ...]) -> tuple[str, ...]:
+        raw = rules.get(key)
+        if isinstance(raw, list) and raw:
+            return tuple(str(item).strip().lower() for item in raw if str(item).strip())
+        return fallback
+
+    return SplValidationPolicy(
+        enabled=base.enabled,
+        allowed_indexes=_tuple_field("allowed_indexes", base.allowed_indexes),
+        allowed_sourcetypes=_tuple_field("allowed_sourcetypes", base.allowed_sourcetypes),
+        default_earliest=base.default_earliest,
+        default_latest=base.default_latest,
+        max_result_limit=base.max_result_limit,
+        allowed_commands=_tuple_field("allowed_commands", base.allowed_commands),
+        blocked_commands=base.blocked_commands,
+        allow_wildcard_indexes=base.allow_wildcard_indexes,
+        allow_macros=base.allow_macros,
+        allow_subsearches=base.allow_subsearches,
+        allow_external_calls=base.allow_external_calls,
+        policy_version=base.policy_version,
+    )
+
+
 def _deterministic_critique(template: dict[str, Any], use_case: dict[str, Any] | None) -> dict[str, Any]:
     spl = str(template.get("spl_text") or "")
     query = ""
@@ -59,7 +87,7 @@ def _deterministic_critique(template: dict[str, Any], use_case: dict[str, Any] |
         query = str(use_case.get("canonical_question") or use_case.get("title") or "")
         required_sources = [str(item) for item in use_case.get("required_sources") or []]
 
-    validation = validate_spl(spl)
+    validation = validate_spl(spl, policy=_policy_for_template(template))
     relevance = check_spl_relevance(query or "investigation query", spl, required_sources=required_sources or None)
     findings: list[str] = []
     if not validation.get("approved"):
@@ -73,6 +101,7 @@ def _deterministic_critique(template: dict[str, Any], use_case: dict[str, Any] |
     for entity in required_entities:
         if entity.lower() not in lowered and entity not in spl:
             findings.append(f"missing_entity:{entity}")
+    blocking = [item for item in findings if not item.startswith("verbosity_high")]
     return {
         "template_id": template.get("template_id"),
         "use_case_id": template.get("use_case_id"),
@@ -81,7 +110,7 @@ def _deterministic_critique(template: dict[str, Any], use_case: dict[str, Any] |
         "relevant": relevance.relevant if query else None,
         "pipe_count": _pipe_count(spl),
         "findings": findings,
-        "status": "pass" if not findings else "review",
+        "status": "pass" if not blocking else "review",
     }
 
 
@@ -169,7 +198,7 @@ def main() -> int:
         REPORT_MD.parent.mkdir(parents=True, exist_ok=True)
         REPORT_MD.write_text(_render_markdown(report), encoding="utf-8")
     print(json.dumps({"template_count": report["template_count"], "passed": report["passed"], "review_required": report["review_required"]}))
-    return 0 if report["review_required"] == 0 else 0
+    return 0 if report["review_required"] == 0 else 1
 
 
 if __name__ == "__main__":

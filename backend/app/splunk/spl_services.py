@@ -60,6 +60,25 @@ def explain_spl(spl: str, profile: SplunkCapabilityProfile | None = None) -> dic
     }
 
 
+def merge_post_validation_optimization(
+    candidate_spl: str,
+    validation: dict[str, Any],
+    *,
+    profile: SplunkCapabilityProfile | None = None,
+    user_query: str | None = None,
+) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    """Apply Phase E simplifier when revalidation passes; otherwise keep original SPL."""
+    optimization = optimize_spl(candidate_spl, profile=profile, user_query=user_query)
+    final_spl = candidate_spl
+    final_validation = validation
+    if optimization["optimization_applied"] and optimization["revalidation_approved"]:
+        revalidation = optimization["revalidation_status"]
+        if isinstance(revalidation, dict):
+            final_spl = str(optimization["optimized_candidate_spl"])
+            final_validation = revalidation
+    return final_spl, final_validation, optimization
+
+
 def optimize_spl(
     spl: str,
     profile: SplunkCapabilityProfile | None = None,

@@ -14,7 +14,10 @@ def test_map_discovery_to_profile_from_mock_indexes_and_sourcetypes() -> None:
     assert profile["dns_sourcetype"] == "pgcil:dns"
 
 
-def test_run_mcp_source_discovery_uses_mock_connector() -> None:
+def test_run_mcp_source_discovery_uses_mock_connector(monkeypatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "mcp_discovery_enabled", True)
     profile, trace = run_mcp_source_discovery(required_slots=["auth_index", "auth_sourcetype"])
     assert "splunk_get_indexes" in trace.get("tools_called", [])
     assert "splunk_get_metadata" in trace.get("tools_called", [])

@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.config import settings
 from app.orchestration.human_review import human_review
 from app.safeguards.spl_validator import validate_spl
 from app.spl.mcp_source_discovery import run_mcp_source_discovery
@@ -118,7 +119,7 @@ def resolve_spl_source_profile(
         tiers_used.append("chat_session")
 
     mcp_profile: dict[str, str] = {}
-    if run_mcp_discovery:
+    if run_mcp_discovery and settings.mcp_discovery_enabled:
         mcp_profile, mcp_trace = run_mcp_source_discovery(required_slots=required_slots)
         if mcp_profile:
             tiers_used.append("mcp_discovery")

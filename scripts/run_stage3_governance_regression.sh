@@ -124,5 +124,8 @@ python3 scripts/run_soc_clean_answer_eval.py --check \
 (cd backend && python3 -m pytest app/tests/test_soc_clean_answer_eval.py -q) \
   || fail "soc clean answer eval pytest"
 
+section "SPL template audit (Phase F)"
+python3 scripts/llm_template_audit.py --write-report || fail "template audit review findings remain"
+
 section "done"
 echo "stage3_governance_regression: PASS"

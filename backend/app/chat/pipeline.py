@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from typing import Any, TypedDict
 from uuid import uuid4
 
@@ -61,7 +62,12 @@ from app.spl.draft_preview import (
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.spl.spl_relevance_check import check_spl_relevance
 from app.spl.spl_source_resolve import build_spl_source_profile_review, resolve_spl_source_profile
-from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
+from app.splunk.spl_services import (
+    explain_spl,
+    generate_candidate_spl_with_provider,
+    merge_post_validation_optimization,
+    splunk_guidance,
+)
 from app.answer_guard.runner import run_answer_guard_lab
 from app.synthesis.governed_answer_composer import (
     build_composer_runtime_status,
@@ -2397,7 +2403,15 @@ def _candidate_spl_stage(
 
     validation = validate_spl(candidate.candidate_spl)
     explanation = explain_spl(candidate.candidate_spl, profile=profile)
-    optimization = optimize_spl(candidate.candidate_spl, profile=profile, user_query=user_query)
+    final_spl, validation, optimization = merge_post_validation_optimization(
+        candidate.candidate_spl,
+        validation,
+        profile=profile,
+        user_query=user_query,
+    )
+    candidate = replace(candidate, candidate_spl=final_spl)
+    candidate_payload = candidate.model_dump()
+    candidate_payload.update(provider_metadata)
     guidance = splunk_guidance(user_query, profile=profile)
     validation_payload = {
         "approved": validation["approved"],
@@ -2510,11 +2524,18 @@ def _candidate_from_default_template(
         normalized_slots=slot_outcome.normalized_slots,
     )
     validation = validate_spl(rendered_spl)
+    profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
+    final_spl, validation, optimization = merge_post_validation_optimization(
+        rendered_spl,
+        validation,
+        profile=profile,
+        user_query=user_query,
+    )
     candidate_payload = {
         "trace_id": trace_id,
         "skill": skill,
         "user_query": user_query,
-        "candidate_spl": rendered_spl,
+        "candidate_spl": final_spl,
         "generation_mode": "deterministic_template_render",
         "confidence": 0.93,
         "assumptions": [
@@ -2536,14 +2557,12 @@ def _candidate_from_default_template(
         "saia_available": False,
         "fallback_required": False,
         "spl_explanation_provider": "rule_based",
-        "spl_optimization_provider": "rule_based",
+        "spl_optimization_provider": optimization["provider"],
         "spl_guidance_provider": "scd_rag",
-        "optimization_applied": False,
-        "optimization_revalidation_status": None,
-        "optimization_revalidation_approved": False,
-        "capability_profile": build_splunk_capability_profile(
-            required_saia_tool="saia_generate_spl"
-        ).model_dump(),
+        "optimization_applied": optimization["optimization_applied"],
+        "optimization_revalidation_status": optimization["revalidation_status"],
+        "optimization_revalidation_approved": optimization["revalidation_approved"],
+        "capability_profile": profile.model_dump(),
         "template_id": template.template_id,
     }
     _merge_spl_governance(
@@ -2551,7 +2570,7 @@ def _candidate_from_default_template(
         validation_payload,
         spl_governance or _template_spl_governance(template.template_id, template.status, template.is_production_executable()),
     )
-    apply_spl_generation_safety(candidate_payload, validation_payload, spl=rendered_spl)
+    apply_spl_generation_safety(candidate_payload, validation_payload, spl=final_spl)
     _mark_spl_review_status(candidate_payload, validation_payload)
     return candidate_payload, validation_payload
 

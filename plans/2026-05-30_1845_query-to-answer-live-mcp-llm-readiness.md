@@ -1,10 +1,12 @@
 # Plan — Query→Answer Readiness for Live MCP + LLM
 
-**Status:** In Progress (Phase A/C done; Phase B partial — mock search path complete; live COE still required)  
+**Status:** Implementation-ready for bounded multi-call orchestration; live activation remains COE-gated
 **Date:** 2026-05-30 (audited 2026-06-13; updated 2026-06-13)  
 **Commits:** `567fe62`, `ae88760`, orchestration Phase 1 composer
 **Author:** COE review (Anurag + Claude)  
-**Related:** [`2026-06-13_mcp-execution-orchestration-plan.md`](2026-06-13_mcp-execution-orchestration-plan.md), [`contracts/splunk_mcp_connection_contract.md`](../contracts/splunk_mcp_connection_contract.md), [`/root/.cursor/plans/llm_optimization_strategy_3a311ebc.plan.md`](/root/.cursor/plans/llm_optimization_strategy_3a311ebc.plan.md), [`/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md`](/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md) (Phase G/H — SPL lab exposure + placeholder resolution)
+**Related:** [`contracts/splunk_mcp_connection_contract.md`](../contracts/splunk_mcp_connection_contract.md), [`2026-06-13_spl-generation-audit-completion.md`](2026-06-13_spl-generation-audit-completion.md), [`/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md`](/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md) (Phase G/H)
+
+> **Plan management:** MCP orchestration rules live in **Appendix A** below (formerly a separate `2026-06-13_mcp-execution-orchestration-plan.md`). One file for COE tracking; architecture deep-dives remain in `docs/architecture/spl_mcp_execution_controls.md`.
 
 ---
 
@@ -20,17 +22,40 @@ Honest read against current `master` — several plan claims were **stale** when
 | Phase A2 injection defense | `splunk_result_adapter.sanitize_result_envelope` + `mcp_result_safeguard.scan_mcp_preview_rows` → `prompt_injection_filter`; `test_mcp_result_injection_defense.py` (T4.2) green | **Done** |
 | Phase A3 lineage placeholders | `lineage/builder.py` has `llm_raw_output_placeholder`, `adapter_overrides_placeholder`, `guard_overrides_placeholder` | **Done** (placeholders only; not populated on live narration yet) |
 | Phase C scaffold "never called" | `build_governed_synthesis_package` + `run_answer_guard_lab` wired in `pipeline.py` | **Done** behind flags |
-| `mcp_execution_gate.py:164` blocks real mode | Real block is `_gate_review` at **`:239`** (`registry.mode != "mock"`); `NotImplementedError` catch at **`:118`** if gate is bypassed | **Stale line refs** |
+| `mcp_execution_gate.py:164` blocks real mode | Real block is `_gate_review` at **`:276`** (`registry.mode != "mock"`); `NotImplementedError` catch at **`:155`** if gate is bypassed | **Stale line refs** (updated 2026-06-13) |
 | Gate passes only `{"query": normalized_spl}` | **Fixed** — gate uses `splunk_search_tool_arguments()` (`ae88760`) | **Done — B2 scaffold** |
 | Phase D route shadow | `_route_plan_shadow_candidate()` in `pipeline.py` still returns `None`; inject via test monkeypatch or `generate_llm_route_plan_candidate` | **Still valid** |
+
+### Implementation-readiness decision (2026-06-13)
+
+The single-call live adapter work is ready to implement after COE confirms the connection contract. The former orchestration design was **not** ready for investigations that require more than one MCP call. Code review confirms five structural gaps:
+
+| Severity | Finding | Code evidence |
+|----------|---------|---------------|
+| **High** | `PlanStep` has no `depends_on`, call budget, or per-call outcome fields — only one generic `mcp_execution` step is composed | [`resource_plan.py:36`](backend/app/planner/resource_plan.py) `PlanStep`; [`composer.py:313`](backend/app/planner/composer.py) `_mcp_step()` |
+| **High** | `execute_plan_dispatch()` is a one-pass parity dispatcher (spl → optional rag → spl_source_resolve → execution); it annotates step status from a singular `execution` and must not own replanning | [`executor.py:62`](backend/app/planner/executor.py), [`executor.py:145`](backend/app/planner/executor.py) `_resolve_status` reads `state["execution"]` |
+| **High** | `evaluate_mcp_execution()` performs exactly one `call_tool` and returns one execution dict | [`mcp_execution_gate.py:149`](backend/app/orchestration/mcp_execution_gate.py) |
+| **High** | LangGraph omits `graph_node_spl_source_resolve` **and** never uses `execute_plan_dispatch()` — imperative path runs resolve before execution (or via dispatch hooks when a composed plan exists) | [`chat_workflow.py:49`](backend/app/graph/chat_workflow.py) edges; contrast [`pipeline.py:215`](backend/app/chat/pipeline.py) |
+| **Medium** | Pipeline state exposes singular `execution`; lineage/evidence aggregation cannot represent multi-call turns without `mcp_orchestration` envelope | [`pipeline.py:521`](backend/app/chat/pipeline.py) `graph_node_execution` |
+
+This revision makes the target explicit:
+
+- `graph_node_evidence_planning` / `compose_resource_plan()` decide that MCP evidence is needed and may select a governed investigation recipe. They do **not** invoke MCP.
+- A new deterministic `graph_node_resource_scheduler` selects the next ready plan step from explicit dependencies. An MCP step may therefore run before SPL generation, between searches, or after another evidence step.
+- `graph_node_mcp_call_planning` materializes the selected MCP step into a concrete call. Search calls require resolved, approved SPL; metadata/discovery calls use their own deterministic argument validators and may unlock source resolution or another later step.
+- `graph_node_mcp_execute_one` executes exactly one approved call through the existing gate.
+- `graph_node_mcp_result_assess` records the envelope and produced evidence keys; `graph_node_plan_reconcile` then unlocks the next dependent resource step, selects a declared fallback, requests HIL, or stops.
+- The LLM may narrate results or provide a shadow recommendation, but it cannot add a call, choose a tool, write executable SPL, increase a budget, or bypass validation/HIL.
+
+**Plan-ready does not mean production-ready.** Real transport, live schema confirmation, identity/auth, async lifecycle, allowlists, and activation flags remain COE gates.
 
 ### Missed cases (add to scope)
 
 1. **`CONTROL_PLANE_ENABLED` vs live narration.** `lab_runner.py` skips live model narration when `control_plane_enabled` is true — even if both synthesis flags are on. `.env.example` defaults `CONTROL_PLANE_ENABLED=true`. COE must define which composer owns narration before enabling live LLM in production posture.
-2. **LangGraph path.** `routes_chat.py` can delegate to `run_chat_via_langgraph()` when `langgraph_orchestration_enabled`; parity and synthesis wiring must be verified on both paths.
+2. **LangGraph path.** `routes_chat.py` can delegate to `run_chat_via_langgraph()` when `langgraph_orchestration_enabled`; parity gap is **confirmed today** — LangGraph skips `spl_source_resolve` and does not use `execute_plan_dispatch`. Multi-call nodes must be added to both runtimes.
 3. **Two answer validators.** `run_answer_guard_lab` (flag-gated, runs on synthesis draft) vs `final_answer_validator` (deterministic contract validator on composed card). Plan C3 must not conflate them.
 4. **Mock execution HIL.** Successful mock runs can still require analyst review (`ai_soc_require_hil_for_mock_execution`); empty-result and synthesis readiness do not bypass HIL.
-5. **Hybrid / partial MCP evidence.** Empty search is handled (A1); **timeout**, **failed job**, and **envelope schema mismatch** need explicit sufficiency modes — see MCP orchestration plan §interpretation.
+5. **Hybrid / partial MCP evidence.** Empty search is handled (A1); **timeout**, **failed job**, **envelope schema mismatch**, and mixed outcomes across multiple calls — see Appendix A §execution outcomes.
 6. **Contract vs code tool names.** Contract draft uses `splunk.search` / `search_splunk`; gate and registry use `splunk_run_query` alias — B2 must map aliases before COE sign-off.
 7. **Lineage population on live narration.** Placeholders exist but `llm_raw_output_placeholder` stays `None` when narration runs; audit reproducibility gap for Phase C production enablement.
 
@@ -43,7 +68,7 @@ COE review of the live `/chat` pipeline (not the Experience Center / demo early-
 Today the pipeline is **evidence-rich; answer completeness depends on flags**:
 
 - `routes_chat.py` → `build_live_chat_response()` in `app/chat/pipeline.py` routes → plans → generates+validates candidate SPL → `evaluate_mcp_execution` → `_context_stage` (RAG → SourceEvidence → StructuredContext → sufficiency) → severity/MITRE/lineage → **governed synthesis lab** → answer guard → response.
-- `mcp_execution_gate.py` **already calls** `get_mcp_connector().call_tool()` in mock mode. Real execution is blocked at `_gate_review` when `registry.mode != "mock"` (`:239`) and by `NotImplementedError` in the connector (`:118`).
+- `mcp_execution_gate.py` **already calls** `get_mcp_connector().call_tool()` in mock mode. Real execution is blocked at `_gate_review` when `registry.mode != "mock"` (`:276`) and by `NotImplementedError` in the connector (`:155`).
 - **Synthesis defaults off** (`AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED=false`). When enabled, a deterministic draft is composed; live narration is a second flag (`AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED`) and is **suppressed when `CONTROL_PLANE_ENABLED=true`**.
 
 Remaining walls for production query→answer:
@@ -70,6 +95,9 @@ This crosses the CLAUDE.md stage boundary for live synthesis — each enabling p
 | **B** | B2b SPL source resolution | ✅ Done | Settings UI, MCP discovery resolve, orchestration order (`567fe62`) |
 | **B** | B3 cost + allowlist safety | 🟡 Partial | Validator + bounded args at gate; production allowlist = COE env |
 | **B** | B4 per-run approval workflow | ✅ Done (mock path) | `spl_execution_confirmation` HIL + chat confirm/update/reject (`ae88760`) |
+| **B** | B-orch discovery planning (hybrid paths) | ✅ Done | `build_hybrid_mcp_discovery_resource_decisions` (`390e2dc`) — see Appendix A |
+| **B** | B-orch live search adapter | 🟡 Partial | Contract args + confirmation; live `splunk_mcp.py` COE-gated — see Appendix A §O3 |
+| **B** | B-orch dependency-aware resource scheduler | ✅ Design ready / code open | MCP may be prerequisite/intermediate/final; scheduler→resource→reconcile loop — see Appendix A §A.3–A.9 |
 | **C** | C1 wire synthesis scaffold | ✅ Done | `pipeline.py` → `run_governed_synthesis_lab` |
 | **C** | C2 synthesis stage + narration | 🟡 Flag-gated | `lab_runner.py`, `live_narration.py`; CP blocks live narration |
 | **C** | C3 answer guard | 🟡 Flag-gated | `answer_guard/runner.py` wired; default off |
@@ -105,7 +133,7 @@ Draft exists: `contracts/splunk_mcp_connection_contract.md`. COE must confirm: s
 **B2. Implement real `call_tool`.**
 
 - ✅ Gate uses `splunk_search_tool_arguments()` / `build_splunk_search_inputs()` (`ae88760`).
-- ❌ Real transport in `app/connectors/mcp/splunk_mcp.py`; flip `_gate_review` `:239` once COE confirms schema.
+- ❌ Real transport in `app/connectors/mcp/splunk_mcp.py`; flip `_gate_review` `:276` once COE confirms schema.
 - Reuse `live_schema_capture.py` + `discovery.py` for tool discovery.
 - Align tool name aliases (`splunk_run_query` ↔ `search_splunk` ↔ contract `splunk.search`) at live boundary.
 
@@ -119,7 +147,7 @@ Draft exists: `contracts/splunk_mcp_connection_contract.md`. COE must confirm: s
 
 Enforce bounded `earliest/latest` + `SPL_MAX_RESULT_LIMIT` at validation **before** execution (wired via `splunk_search_tool_arguments`). Align `SPL_ALLOWED_INDEXES` / `SPL_ALLOWED_SOURCETYPES` with live Splunk deployment (COE env).
 
-**Missed: discovery vs search.** Orchestration plan separates Step 5 discovery planning (7 tools, never auto-run) from Step 7 `splunk_run_query` execution. B2 covers search only; extend Resource Planner for hybrid/guided paths per orchestration plan.
+**Missed: discovery vs search.** See **Appendix A** — Step 5 discovery planning (planned-only) vs Step 7 `splunk_run_query` execution (gated). B2 covers search; B-orch Phase O1 covers hybrid/spl_review discovery checklists.
 
 **B2b. SPL source resolution (cross-plan — does not replace B2).**
 
@@ -170,6 +198,362 @@ Validate routing governance with supplied route-plan JSON — no live model requ
 
 ---
 
+## Appendix A — MCP execution orchestration (canonical)
+
+*Merged from `2026-06-13_mcp-execution-orchestration-plan.md` (2026-06-13). Governs **who decides**, **plan vs execute**, and **what the analyst sees** for Splunk MCP in live `/chat`.*
+
+### A.1 Design principles
+
+| Principle | Rule |
+|-----------|------|
+| LLM never calls MCP | Backend-only via `evaluate_mcp_execution` / discovery helpers |
+| Deterministic authority | Route, SPL validation, tool selection, execution flags, MITRE, severity stay policy-driven |
+| LLM advisory only | Tool recommendations, narration — never override gates |
+| Fail closed | Missing envelope, timeout, schema mismatch → no fabricated evidence |
+| Separate plan vs execute | Step 5 plans *what could run*; Step 7 executes *only what passed gates* |
+| No route skill for MCP | Resource Planner sub-phase — not a sixth live route skill |
+
+### A.2 MCP tool surface (7 tools)
+
+| Tool | Auto-execute? | Role |
+|------|---------------|------|
+| `splunk_get_indexes`, `splunk_get_metadata`, `splunk_get_index_info`, `splunk_get_knowledge_objects` | **No** (planned checklist) | Discovery planning |
+| `splunk_get_info` | **No** | Registry/status only |
+| `splunk_get_user_info` | **Never** | Blocked |
+| `splunk_run_query` | **Only if all gates pass** | Search execution (Step 7) |
+
+Mutating / SAIA / write tools: discoverable for status, always blocked.
+
+### A.3 Dependency-aware planner model
+
+```text
+Layer 1 — Evidence/resource planning (early planner)
+  Node:   graph_node_evidence_planning / compose_resource_plan
+  Output: governed step graph, evidence gaps, dependencies, policy limits
+  Rule:   no MCP I/O; steps describe capability needs, not user-selected authority
+
+Layer 2 — Runtime resource scheduling
+  Node:   graph_node_resource_scheduler
+  Output: next ready PlanStep or terminal decision
+  Inputs: step dependencies, produced evidence keys, prior outcomes, budgets
+  Rule:   choose only a ready, policy-eligible step; no connector call
+
+Layer 3 — Resource-specific planning and execution
+  MCP:    graph_node_mcp_call_planning -> graph_node_mcp_execute_one -> graph_node_mcp_result_assess
+  Other:  existing RAG / SPL / MITRE / HIL nodes through the same scheduler contract
+  Output: produced evidence keys + step outcome + lineage
+
+Layer 4 — Reconcile and continue
+  Node:   graph_node_plan_reconcile
+  Rule:   mark dependents ready, select governed fallback, request HIL, or stop
+  Loop:   reconcile -> resource_scheduler until terminal or budget exhausted
+```
+
+Discovery remains a distinct call class:
+
+```text
+Discovery planning (Resource Planner)
+  Output: resource_decisions.mcp.planned_discovery_calls[]
+  Execute: never by default; optional only when COE enables discovery execution
+
+Search execution
+  Execute: splunk_run_query only, one call per executor-node visit
+  Repeat:  bounded and serial in v1; no parallel fan-out
+```
+
+**Source-profile resolve (B2b):** `run_mcp_source_discovery()` at placeholder resolve time is separate — MCP > COE store > HIL; not auto-chained into search.
+
+MCP call classes must remain distinct:
+
+| Call class | Example | May run when | What it can unlock |
+|------------|---------|--------------|--------------------|
+| `metadata_discovery` | `splunk_get_indexes`, `splunk_get_metadata` | Plan requires missing source/schema metadata | Source-profile resolution, template selection, clarification |
+| `evidence_search` | `splunk_run_query` | Approved `normalized_spl` and all execution gates pass | SourceEvidence, correlation pivots, sufficiency |
+| `investigation_pivot` | second governed `splunk_run_query` | Recipe dependency and typed bounded outputs from a prior call | Cross-source correlation evidence |
+| `job_lifecycle` | submit/poll/fetch or one server abstraction | Search was accepted asynchronously | Final envelope only; does not count as a new investigation decision |
+
+The planner must distinguish **investigation calls** from **transport lifecycle operations**. A submit plus several polls is one logical `McpCallSpec` and consumes one investigation-call budget, while poll count/time is bounded separately by the connector lifecycle policy.
+
+Search call planning remains post-resolution: the scheduler may select metadata MCP earlier, but it cannot materialize an `evidence_search` or `investigation_pivot` from `candidate_spl`. Those steps stay blocked until source resolution and full SPL validation produce approved `normalized_spl`.
+
+### A.4 Target graph and imperative parity
+
+```text
+resource_scheduler
+  -> metadata MCP ---------> assess -> reconcile ----+
+  -> RAG -------------------> assess -> reconcile ----+
+  -> SPL generation/resolve -> validate -> reconcile -+
+  -> evidence MCP ----------> assess -> reconcile ----+--> resource_scheduler
+  -> HIL/clarification -----> reconcile --------------+
+  -> context_finalize when terminal
+```
+
+The same pure node functions must be used by both runtimes:
+
+- LangGraph uses conditional edges from `resource_scheduler` and `plan_reconcile`.
+- The imperative pipeline uses a bounded driver loop around the same scheduler, resource nodes, and reconcile function.
+- `execute_plan_dispatch()` remains a compatibility dispatcher during migration; it must not become the multi-call planner.
+- Add explicit source-resolution and reconcile stages to the live graph so LangGraph and imperative execution have the same safety order.
+- The existing planner-led fan-out/fan-in shadow graph is a parity baseline, not the final adaptive execution topology. Intermediate MCP dependencies require a scheduler/reconcile loop rather than a fixed terminal MCP branch.
+- LangGraph must adopt the same scheduler/reconcile semantics for the complete resource loop, not only the search stage or `execute_plan_dispatch()` on the imperative side.
+
+### A.5 Authority matrix
+
+| Decision | Authority | LLM role |
+|----------|-----------|----------|
+| Whether MCP is needed | Evidence plan + `path_type` | None |
+| Investigation recipe | Deterministic recipe registry + route/evidence policy | Shadow suggestion only |
+| Next resource step / stop decision | `graph_node_resource_scheduler` + `graph_node_plan_reconcile` | None |
+| MCP capability needed for a step | Step `requires`/`produces` + deterministic evidence-to-capability mapping | None |
+| Concrete MCP tool | Capability mapping + live safe discovery metadata + allowlist + registry health | Advisory only; cannot select |
+| Tool fallback | Predeclared equivalent-capability alternatives with identical/lower authority | None |
+| Discovery tools to *plan* | `plan_splunk_discovery_calls()` + path policy | None |
+| Search tool to *select* | `select_mcp_tool()` | Advisory only if `LLM_TOOL_RECOMMENDATION_ENABLED` (default off) |
+| Whether search may run | `evaluate_mcp_execution` + flags + B4 confirmation | None |
+| Search arguments | `splunk_search_tool_arguments()` + SPL policy env | None |
+| Empty vs failed vs timeout | Envelope validation + context sufficiency | Narration of deterministic conclusion only |
+| MITRE / severity from rows | Deterministic MITRE + severity policy | None |
+
+User-requested MCP server/tool: **preference only** — re-validated by `mcp_tool_selector.py`.
+
+`PlanningDecision.selected_tools` remains route-level planning/trace metadata. It must not authorize execution. `ResourcePlanV2` step capability, runtime registry status, deterministic mapping, argument validation, and the execution gate jointly determine the concrete tool at runtime.
+
+#### MCP decision algorithm
+
+For every scheduler iteration:
+
+1. Recompute unresolved required/optional evidence keys from validated step outcomes.
+2. Find plan steps whose `depends_on` conditions are satisfied and whose outputs are still needed.
+3. If the ready step requires an MCP capability, map the evidence need through `evidence_mcp_mapping.py` and the resource registry.
+4. Intersect mapped tools with live discovered tools, server availability, read-only capability, identity/RBAC, per-server flags, and step policy.
+5. Rank deterministically: exact governed tool binding, then approved equivalent-capability fallback; user/LLM preferences never outrank policy.
+6. Validate arguments with the tool-specific schema. Search tools additionally require approved `normalized_spl`; metadata tools require bounded allowlisted selectors.
+7. If no eligible tool exists, apply the step's declared failover. Otherwise emit one `McpCallSpec`.
+8. After the result, classify the outcome, record produced evidence keys, and reconcile the next step.
+
+### A.6 Multi-call state and contracts
+
+Do not overload the existing singular `execution` object as the source of truth. Add a versioned orchestration envelope:
+
+```text
+mcp_orchestration:
+  schema_version: "1"
+  orchestration_id: <trace-scoped id>
+  recipe_id: <governed recipe or single_search>
+  status: planned|awaiting_approval|running|complete|partial|blocked|failed|budget_exhausted
+  call_budget: {max_calls, calls_planned, calls_started, calls_completed, max_wall_time_ms}
+  unresolved_evidence_keys: []
+  calls: McpCallRecord[]
+  next_call: McpCallSpec|null
+  stop_reason: string|null
+```
+
+`McpCallSpec` must include `call_id`, `sequence`, `depends_on`, `purpose`, server/tool, argument template, normalized SPL hash, required policy checks, and approval state. `McpCallRecord` adds timestamps, outcome classification, redacted arguments, result-envelope reference, result count, warnings, and error type.
+
+Extend `PlanStep` or introduce `ResourcePlanV2` with:
+
+```text
+depends_on[]
+activation_condition
+requires_evidence_keys[]
+produces_evidence_keys[]
+resource_capability
+resource_alternatives[]
+on_unavailable / on_empty / on_error / on_timeout / on_denied
+max_attempts
+```
+
+Fallbacks are edges to other plan steps or terminal policies, not ad hoc exception handling inside the connector.
+
+Compatibility during migration:
+
+- Keep response `execution` as a derived summary of the primary/last search for existing clients.
+- Make `mcp_orchestration.calls[]` authoritative for lineage and new UI.
+- Update evidence adaptation to produce one `SourceEvidence` item per successful/empty call; failed calls produce limitations, never negative evidence.
+- Aggregate sufficiency across call evidence without merging row counts or distinct counts across sources unless an explicit deterministic aggregation policy allows it.
+
+### A.7 Bounded planning and stop rules
+
+Initial defaults are conservative and remain configurable only within hard server-side caps:
+
+- Serial execution only.
+- `MCP_MAX_CALLS_PER_TURN=3` proposed default; hard cap must not be user- or LLM-controlled.
+- One active logical investigation call at a time; each call has its own lifecycle timeout/poll cap and the orchestration has a total wall-clock budget.
+- Every search call requires approved, non-null `normalized_spl` and deterministic validation immediately before execution.
+- Approval binds `orchestration_id`, `call_id`, SPL hash, server, tool, and bounded arguments. Any material change invalidates approval.
+- Default production posture requires approval per search call. A future recipe-level approval may cover multiple calls only if the UI shows every exact query/argument set before approval and COE explicitly enables it.
+
+Stop when any condition is true:
+
+1. Required evidence keys are satisfied.
+2. The governed recipe has no eligible dependent call.
+3. A call is blocked, denied, schema-invalid, or permission-failed.
+4. Timeout/error policy says fail closed; retries are not automatic in v1.
+5. Call or wall-clock budget is exhausted.
+6. Analyst rejects or changes scope.
+
+An empty result may activate a predeclared fallback call only when the recipe explicitly defines that edge. It must never trigger open-ended LLM replanning.
+
+### A.8 Failover policy
+
+| Failure/outcome | Allowed deterministic failover | Prohibited behavior |
+|-----------------|--------------------------------|---------------------|
+| Preferred tool undiscovered/unavailable | Select predeclared equivalent-capability tool on an approved server | Guess a tool name or let LLM choose |
+| Metadata discovery unavailable | Use fresh COE source-profile store, then governed RAG metadata, otherwise HIL clarification | Generate executable SPL with unresolved sources |
+| Search tool unavailable | Stop or use explicitly approved equivalent search tool with same validation/approval | Fall back to SAIA/generative/write/admin tool |
+| Connector/transient error | At most configured retry of the same idempotent lifecycle operation; then partial/review | Generate a different search automatically |
+| Async job still running | Poll within poll/time budget; optionally persist resumable job state | Count each poll as a new investigation or poll indefinitely |
+| Permission denied/RBAC | Stop and request admin/analyst review | Retry with broader service identity |
+| Schema mismatch | Reject envelope, mark evidence unavailable, require adapter/COE review | Pass raw rows to synthesis |
+| Search validation failure | Return to SPL revision/HIL; revalidate after changes | Execute candidate or unvalidated SPL |
+| Successful empty result | Mark scoped negative evidence; follow only explicit `on_empty` recipe edge | Treat as connector failure or broad “no threat” conclusion |
+| Partial/truncated result | Preserve partial evidence and limitation; follow explicit recipe policy | Silently present as complete |
+
+Fallback selection must not increase authority, data scope, time range, result cap, or tool capability. Any fallback that changes executable arguments invalidates prior approval.
+
+### A.9 Governed recipe shape
+
+Multi-call behavior must come from a small deterministic recipe registry, not free-form planner prose. Start with `single_search` and add one COE-approved investigation recipe at a time.
+
+```text
+recipe:
+  recipe_id
+  eligible_skills / path_types
+  max_calls
+  calls[]:
+    call_id, purpose, depends_on, activation_condition
+    call_class, resource_capability, resource_alternatives
+    spl_template_family or deterministic transform
+    required_evidence_keys
+    produces_evidence_keys
+    on_unavailable, on_empty, on_error, on_timeout, on_denied, terminal
+```
+
+Allowed activation conditions in v1: `always`, `previous_ok`, `previous_empty`, `evidence_key_missing`. Conditions operate on normalized envelope metadata, not arbitrary row-content interpretation. Any follow-up SPL produced by a deterministic transform re-enters source resolution and full SPL validation.
+
+### A.10 Execution outcomes (what the analyst sees)
+
+| Outcome | Answer mode | HIL |
+|---------|-------------|-----|
+| Connector error | `analyst_review_required` or partial + limitation | Yes |
+| Timeout | Partial — job did not complete in window | Yes |
+| Permission denied | Blocked + review | Yes |
+| Failed search (validation/schema) | No evidence conclusion | Yes |
+| Success, 0 rows | Honest negative — **not** “no threat” | Optional |
+| Success, truncated | Partial + review truncated preview | Yes |
+| Mock execution | Fixture labeled | Yes (unless demo relax flag) |
+| Mixed multi-call outcomes | Partial answer with per-call limitations | Yes |
+| Budget exhausted | Partial/review-required; list unresolved evidence | Yes |
+
+**Rule:** empty ≠ failed. LLM must not treat failed execution as negative evidence. Same-turn follow-up is allowed only through a predeclared governed recipe, per-call validation, budget checks, and required HIL.
+
+### A.11 Orchestration delivery sub-phases (O0–O7)
+
+| Sub-phase | Scope | Status |
+|-----------|-------|--------|
+| **O0** | Document & align (`details.html`, this appendix) | ✅ |
+| **O1** | Discovery planning for hybrid/spl_review/guided (`composer.py`) | ✅ `390e2dc` |
+| **O2** | Envelope hardening | ✅ (= Phase A) |
+| **O3** | Live `splunk_run_query` adapter | 🟡 (= Phase B2; mock complete, live COE) |
+| **O4** | Optional auto discovery execution | ❌ Proposed (`MCP_DISCOVERY_EXECUTION_ENABLED`) |
+| **O5a** | `ResourcePlanV2` dependency/failover contracts + deterministic recipe registry | ❌ Ready to implement |
+| **O5b** | Resource scheduler + MCP plan/execute-one/assess + reconcile loop | ❌ Ready to implement behind flags |
+| **O5c** | Async lifecycle, evidence aggregation, lineage, UI, parity tests | ❌ Required before live multi-call |
+| **O6** | LLM narration of MCP-informed answers | 🟡 (= Phase C; flag-gated) |
+| **O7** | Live activation and staged rollout | ❌ COE-gated |
+
+### A.12 Configuration flags (MCP + confirmation)
+
+| Flag | Default | Controls |
+|------|---------|----------|
+| `MCP_GLOBAL_EXECUTION_ENABLED` | false | Any live MCP call |
+| `MCP_SERVER_*_EXECUTION_ENABLED` | false | Per-server execution |
+| `MCP_SERVER_MOCK_EXECUTION_ENABLED` | false | Mock search in gate |
+| `AI_SOC_REQUIRE_SPL_EXECUTION_CONFIRMATION` | true | Analyst confirm/update before search |
+| `MCP_DISCOVERY_EXECUTION_ENABLED` | false (proposed) | Auto-run discovery tools |
+| `MCP_MULTI_CALL_ORCHESTRATION_ENABLED` | false (proposed) | Enables bounded recipe loop; false preserves single-call behavior |
+| `MCP_MAX_CALLS_PER_TURN` | 3 (proposed, server-capped) | Maximum started MCP calls in one turn |
+| `MCP_ORCHESTRATION_MAX_WALL_TIME_MS` | COE decision | Total MCP loop wall-clock budget |
+| `MCP_MAX_POLLS_PER_CALL` | COE decision | Async lifecycle poll cap per logical call |
+| `LLM_TOOL_RECOMMENDATION_ENABLED` | false | Advisory tool hints |
+| `SPL_VALIDATION_ENABLED` | true | Required before search |
+
+### A.13 COE decisions before live search (O3/O7)
+
+1. Splunk MCP URL, transport, auth; set `schema_confirmed=true` on contract
+2. Identity model: analyst pass-through vs service account
+3. Async vs sync `splunk_run_query` lifecycle
+4. Whether O4 discovery auto-execution is in scope
+5. Max discovery + search calls per turn and total wall-clock budget
+6. Production index/sourcetype allowlist
+7. Per-call approval vs exact predeclared recipe approval
+8. First governed multi-call recipe and allowed activation conditions
+9. Equivalent-capability tool fallback allowlist per server
+10. Async submit/poll/fetch schema, poll interval, cancellation, and resumability
+
+### A.14 Required tests and acceptance criteria
+
+- Metadata MCP can run before SPL when it is an explicit prerequisite.
+- Search MCP emits no call before source resolution and approved validation.
+- `candidate_spl` can never enter `McpCallSpec`.
+- One executor-node visit performs at most one connector call.
+- Async submit/poll/fetch remains one logical investigation call with bounded polls.
+- Maximum-call and wall-clock limits stop the loop deterministically.
+- Empty, timeout, permission denied, schema mismatch, partial, and mixed outcomes remain distinct.
+- Approval hash mismatch blocks execution after any SPL/argument change.
+- A failed call cannot satisfy an evidence key or become negative evidence.
+- Every call has trace/lineage records; secrets and raw auth never appear.
+- Imperative and LangGraph paths produce equivalent orchestration summaries and evidence for the same fixture.
+- Tool-unavailable, metadata-store, RAG-metadata, HIL, equivalent-tool, and no-fallback paths are independently tested.
+- Fallback cannot increase authority/scope and argument changes invalidate approval.
+- Feature flag off preserves current single-call response contracts and governance baseline.
+- Governance regression, full backend tests, harness 6/6, and frontend build pass.
+
+### A.15 Trace / UI surfaces
+
+- `evidence_plan.resource_plan.provenance.resource_decisions.mcp` — planned discovery + skip reasons
+- `execution` — tool, status, envelope, `result_count`
+- `mcp_orchestration` — recipe, budget, ordered calls, per-call outcome, stop reason
+- `human_review` — gate blocks, `spl_execution_confirmation`, source-profile HIL
+- Settings → **Source Profiles** — COE index/sourcetype map
+- Analyst card: discovery checklist, executed search, limitations on failure
+
+### A.16 Out of scope
+
+Splunk telemetry writes; SAIA/generative tools; free-form or LLM-initiated MCP calls; unbounded retries; parallel MCP fan-out in v1; MCP as sixth route skill.
+
+---
+
+## Final architecture review (2026-06-13)
+
+| Existing architecture contract | Final plan alignment | Implementation consequence |
+|-------------------------------|----------------------|----------------------------|
+| Planner-led control plane chooses paths/branches; LLM is advisory | Early planner creates governed `ResourcePlanV2`; scheduler and reconcile remain deterministic | Do not put MCP invocation or free-form tool choice in an LLM node |
+| `EvidencePlan` owns required/missing evidence keys | Step `requires_evidence_keys` / `produces_evidence_keys` drive readiness and stop decisions | MCP is called only when an unresolved evidence dependency maps to an eligible MCP capability |
+| MCP evidence mapping is report-only today | Promote mapping logic into a gated runtime selector without changing its authority rules | Extend mappings by capability; do not hard-code question text or trust tool suggestions |
+| Resource registry owns capabilities and availability | Concrete tool selection intersects plan capability with safe live discovery and registry policy | Unknown, blocked, mutating, SAIA, and admin tools remain ineligible |
+| Candidate SPL never executes | Only search-class MCP steps consume approved `normalized_spl` | Metadata MCP may run earlier; search MCP remains blocked until validation completes |
+| Multi-step correlation replaces risky subsearches | Typed bounded outputs from Search A may bind governed slots in Search B | Revalidate extracted entities, rendered SPL, scope, and approval before Search B |
+| Splunk may use async jobs | Submit/poll/fetch is one logical call with separate lifecycle bounds | Connector owns polling state; planner sees normalized logical outcome |
+| Planner-led LangGraph shadow is current architecture baseline | New scheduler/reconcile loop extends that architecture for adaptive dependencies | Update imperative and LangGraph paths together and rerun dual parity |
+| Fail closed and preserve empty-vs-failed semantics | Explicit outcome/failover matrix and per-call SourceEvidence | No failed call can unlock evidence-dependent steps or become negative evidence |
+
+### Implementation order
+
+1. **O5a contract commit:** Add `ResourcePlanV2`, dependency/failover fields, `mcp_orchestration` models, recipe registry, and contract tests. No connector behavior change.
+2. **O5b scheduler commit:** Add pure scheduler/reconcile functions and fixture-only resource execution. Keep the feature flag off; prove metadata-MCP-before-SPL and Search-A-to-Search-B paths.
+3. **O5c integration commit:** Wire imperative and LangGraph paths to the same nodes; add source-evidence aggregation, lineage, HIL continuation, async lifecycle fixtures, and parity tests.
+4. **O3 adapter commit:** Implement the COE-confirmed live transport and exact schemas behind existing execution flags. Do not combine this with scheduler contracts.
+5. **O7 activation:** Enable one approved recipe/server in staging, observe budgets/failures, run governance regression, then seek production sign-off.
+
+### Final verdict
+
+The plan is **ready to implement for contracts, scheduler logic, mock/fixture orchestration, and parity work**. It now supports MCP as a prerequisite, intermediate evidence step, multi-search pivot, or final evidence step. It also defines how MCP need is decided, how tools are selected, and how unavailable tools, connector failures, async jobs, empty results, validation failures, RBAC denial, and schema mismatch are handled.
+
+Live MCP activation is **not** ready until the COE decisions in A.13 are closed. Implementation must begin with O5a and keep all new runtime behavior default-off.
+
+---
+
 ## Scope guardrails (per CLAUDE.md)
 
 - One commit per concern; do not combine execution changes with connector-readiness or UI-only changes.
@@ -194,5 +578,7 @@ Validate routing governance with supplied route-plan JSON — no live model requ
 
 ## Plan housekeeping
 
-- SPL generation audit **closed** 2026-06-13 — see [`2026-06-13_spl-generation-audit-completion.md`](2026-06-13_spl-generation-audit-completion.md). B2b + H2 mock discovery + B4 confirmation landed (`567fe62`, `ae88760`).
-- MCP orchestration Phase 1 discovery planning for hybrid paths — see [`2026-06-13_mcp-execution-orchestration-plan.md`](2026-06-13_mcp-execution-orchestration-plan.md).
+- SPL generation audit **closed** — [`2026-06-13_spl-generation-audit-completion.md`](2026-06-13_spl-generation-audit-completion.md).
+- MCP orchestration content is **Appendix A** in this file (standalone orchestration plan superseded 2026-06-13).
+- `plan-reviewer` before non-trivial open work (B2 live, C production enablement).
+- `validator` after each phase.

@@ -1,8 +1,8 @@
 # LLM Template Audit Report (Phase F)
 
-Generated: 2026-06-13T11:28:51.621225+00:00
+Generated: 2026-06-13T13:13:24.019572+00:00
 Active templates: 10
-Pass: 8 · Review: 2
+Pass: 10 · Review: 0
 
 | template_id | use_case_id | approved | relevant | pipes | status | findings |
 |---|---|---:|---:|---:|---|---|
@@ -14,5 +14,5 @@ Pass: 8 · Review: 2
 | aws_console_success_logins_by_user | aws_console_success_logins_by_user | yes | — | 3 | pass | — |
 | aws_iam_policy_modifications | aws_iam_policy_modifications | yes | — | 3 | pass | — |
 | auth_failed_login_top_users_exclude_service_accounts | auth_failed_login_top_users_exclude_service_accounts | yes | — | 3 | pass | — |
-| dns_beaconing_candidate | dns_beaconing_candidate | no | — | 10 | review | validation_failed:disallowed_sourcetype; verbosity_high |
-| edr_powershell_suspicious_command | edr_powershell_suspicious_command | no | — | 5 | review | validation_failed:disallowed_sourcetype |
+| dns_beaconing_candidate | dns_beaconing_candidate | yes | — | 10 | pass | verbosity_high |
+| edr_powershell_suspicious_command | edr_powershell_suspicious_command | yes | — | 5 | pass | — |

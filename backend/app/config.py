@@ -109,6 +109,8 @@ class Settings(BaseSettings):
     mcp_default_server: str = "splunk_soc"
     mcp_global_execution_enabled: bool = False
     mcp_server_mock_execution_enabled: bool = False
+    # Read-only discovery tools (indexes/metadata). Separate from search execution flags.
+    mcp_discovery_enabled: bool = True
     rag_mode: str = "mock"
     soc_kb_retrieval_enabled: bool = False
     soc_kb_collections_path: str = "backend/app/knowledge/fixtures/soc_kb_collections.json"

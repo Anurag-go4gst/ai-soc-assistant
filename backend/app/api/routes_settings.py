@@ -1616,7 +1616,7 @@ def get_source_profile_settings() -> dict:
     document = load_persisted_source_profile_document()
     values = dict(document.get("values") or {})
     effective = merge_profiles(build_policy_derived_profile(), values)
-    mcp_preview, mcp_trace = run_mcp_source_discovery()
+    mcp_preview, mcp_trace = run_mcp_source_discovery(discovery_allowed=True)
     return {
         "slots": list_source_profile_slot_definitions(),
         "values": values,
@@ -1652,7 +1652,7 @@ def save_source_profile_settings(payload: SourceProfileSaveRequest) -> dict:
 
 @router.post("/settings/source-profiles/discover-from-mcp")
 def discover_source_profiles_from_mcp() -> dict:
-    discovered, trace = run_mcp_source_discovery()
+    discovered, trace = run_mcp_source_discovery(discovery_allowed=True)
     document = merge_mcp_discovery_into_store(discovered, overwrite=True)
     return {
         "saved": True,

@@ -8,6 +8,7 @@ from app.connectors.mcp.discovery import McpToolDescriptor
 from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.mcp.splunk_mcp_readiness import (
     ALLOWED_READ_TOOL,
+    SPLUNK_DISCOVERY_TOOLS,
     is_allowed_read_tool,
     is_disallowed_tool,
     plan_splunk_search_call,
@@ -71,8 +72,14 @@ class SplunkMcpConnector:
     def call_tool(self, tool_name: str, arguments: dict[str, Any], server_name: str | None = None) -> dict[str, Any]:
         if is_disallowed_tool(tool_name):
             return {"status": "blocked", "error": "tool_not_allowlisted", "tool_name": tool_name}
-        if not is_allowed_read_tool(tool_name):
+        is_discovery = tool_name in SPLUNK_DISCOVERY_TOOLS
+        if not is_discovery and not is_allowed_read_tool(tool_name):
             return {"status": "blocked", "error": "tool_not_allowlisted", "tool_name": tool_name}
+        if is_discovery:
+            governance = arguments.get("_governance") if isinstance(arguments.get("_governance"), dict) else {}
+            if not settings.mcp_discovery_enabled and governance.get("discovery_allowed") is not True:
+                return {"status": "blocked", "error": "mcp_discovery_disabled", "tool_name": tool_name}
+            raise NotImplementedError("Splunk MCP live discovery remains blocked until COE S5 sign-off.")
         registry = load_mcp_registry_status()
         if not registry.global_execution_enabled:
             return {
