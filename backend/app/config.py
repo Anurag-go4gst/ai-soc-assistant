@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     ai_soc_require_hil_for_mock_execution: bool = True
     ai_soc_allow_mock_execution_without_hil_in_demo: bool = True
     ai_soc_demo_or_lab_execution_mode: bool = False
+    # Require analyst confirm-or-update before splunk_run_query executes (after policy gates pass).
+    ai_soc_require_spl_execution_confirmation: bool = True
     ai_soc_llm_shadow_narration_enabled: bool = False
     ioc_registry_enabled: bool = False
     ioc_registry_path: str = ""

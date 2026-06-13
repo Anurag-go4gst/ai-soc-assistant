@@ -32,6 +32,7 @@ class SessionPins(BaseModel):
     last_context_sufficiency: dict[str, Any] | None = None
     last_execution_status: str | None = None
     last_human_review_status: str | None = None
+    pending_execution_confirmation: dict[str, Any] | None = None
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

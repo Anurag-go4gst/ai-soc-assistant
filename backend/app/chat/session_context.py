@@ -233,6 +233,20 @@ def pins_from_pipeline_state(
     if spl_validation is not None:
         validation_status = "approved" if spl_validation.approved else "rejected"
 
+    pending_execution_confirmation = None
+    state_execution = state.get("execution")
+    if isinstance(state_execution, dict):
+        pending = state_execution.get("pending_execution_confirmation")
+        if isinstance(pending, dict):
+            pending_execution_confirmation = pending
+        elif state_execution.get("status") == "executed":
+            pending_execution_confirmation = None
+    if isinstance(prior_pins, SessionPins) and pending_execution_confirmation is None:
+        if human_review and isinstance(human_review, dict) and human_review.get("review_type") == "spl_execution_confirmation":
+            pending_execution_confirmation = prior_pins.pending_execution_confirmation
+    if human_review and isinstance(human_review, dict) and human_review.get("reason") == "analyst_rejected_execution":
+        pending_execution_confirmation = None
+
     return SessionPins(
         session_id=session_id,
         last_trace_id=trace_id,
@@ -250,6 +264,7 @@ def pins_from_pipeline_state(
         last_context_sufficiency=response.context_sufficiency.model_dump() if response.context_sufficiency else None,
         last_execution_status=execution.status if execution else None,
         last_human_review_status=_human_review_status(human_review),
+        pending_execution_confirmation=pending_execution_confirmation,
         updated_at=datetime.now(UTC),
         expires_at=datetime.now(UTC),
     )

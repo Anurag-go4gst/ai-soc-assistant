@@ -29,6 +29,13 @@ def _blocked_urlopen(*args: object, **kwargs: object) -> object:
 
 
 @pytest.fixture(autouse=True)
+def disable_spl_execution_confirmation_in_tests(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Keep legacy MCP gate tests direct; confirmation flow is covered in test_execution_confirmation."""
+    monkeypatch.setattr("app.config.settings.ai_soc_require_spl_execution_confirmation", False)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def block_live_llm_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Fail any LocalChatClient network call with URLError -> LocalChatError fallback."""
     if os.environ.get(LIVE_LLM_OPT_IN_ENV) == "1":

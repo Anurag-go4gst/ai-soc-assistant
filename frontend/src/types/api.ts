@@ -630,6 +630,16 @@ export interface HumanReviewEnvelope {
   sop_reference?: string | null;
   sop_excerpt?: string | null;
   sop_action_hint?: string | null;
+  proposed_normalized_spl?: string | null;
+  selected_mcp_tool?: string | null;
+  selected_mcp_server?: string | null;
+}
+
+export type ExecutionReviewAction = 'confirm' | 'reject' | 'update_spl';
+
+export interface ChatExecutionReviewOptions {
+  execution_review_action: ExecutionReviewAction;
+  analyst_provided_spl?: string;
 }
 
 export interface SourceEvidenceEnvelope {

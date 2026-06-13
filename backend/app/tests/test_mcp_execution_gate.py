@@ -91,6 +91,7 @@ def test_mock_execution_uses_only_normalized_spl(monkeypatch) -> None:
     # the execution mechanics, not the HIL contract (covered separately).
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_demo_or_lab_execution_mode", True)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_allow_mock_execution_without_hil_in_demo", True)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_require_spl_execution_confirmation", False)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_mcp_connector", lambda: connector)
 
@@ -101,7 +102,7 @@ def test_mock_execution_uses_only_normalized_spl(monkeypatch) -> None:
         spl_validation={**APPROVED_VALIDATION, "candidate_spl": "search index=* | delete"},
     )
 
-    assert connector.arguments == {"query": APPROVED_VALIDATION["normalized_spl"]}
+    assert connector.arguments["search_query"] == APPROVED_VALIDATION["normalized_spl"]
     assert execution["status"] == "executed"
     assert execution["executed_spl"] == APPROVED_VALIDATION["normalized_spl"]
     assert execution["result_count"] == 1

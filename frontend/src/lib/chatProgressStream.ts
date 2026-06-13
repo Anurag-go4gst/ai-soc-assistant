@@ -1,6 +1,6 @@
 import { sendChatMessage } from '@/api/client';
 import { getApiBaseUrl } from '@/lib/runtimeMode';
-import type { PlaceholderResponse } from '@/types/api';
+import type { ChatExecutionReviewOptions, PlaceholderResponse } from '@/types/api';
 
 export type ChatProgressStage =
   | 'queued'
@@ -116,6 +116,7 @@ export async function streamChatMessage(
   signal?: AbortSignal,
   sessionId?: string | null,
   llmSplDraftMode = false,
+  executionReview?: ChatExecutionReviewOptions,
 ): Promise<PlaceholderResponse> {
   const response = await fetch(`${getApiBaseUrl()}/chat/stream`, {
     method: 'POST',
@@ -125,6 +126,7 @@ export async function streamChatMessage(
       message,
       ...(sessionId ? { session_id: sessionId } : {}),
       ...(llmSplDraftMode ? { llm_spl_draft_mode: true } : {}),
+      ...(executionReview ?? {}),
     }),
     signal,
   });
@@ -188,7 +190,7 @@ export async function streamChatMessage(
 
   if (!lastResponse) {
     try {
-      return await sendChatMessage(message, sessionId, llmSplDraftMode);
+      return await sendChatMessage(message, sessionId, llmSplDraftMode, executionReview);
     } catch (fallbackError) {
       const hint =
         fallbackError instanceof Error ? fallbackError.message : 'non-stream request also failed';

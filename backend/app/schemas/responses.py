@@ -178,6 +178,9 @@ class HumanReviewEnvelope(BaseModel):
     sop_reference: str | None = None
     sop_excerpt: str | None = None
     sop_action_hint: str | None = None
+    proposed_normalized_spl: str | None = None
+    selected_mcp_tool: str | None = None
+    selected_mcp_server: str | None = None
 
 
 class SourceEvidenceEnvelope(BaseModel):

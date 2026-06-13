@@ -3,6 +3,7 @@ import type {
   AuthResponse,
   ChatAnswerFeedbackRequest,
   ChatAnswerFeedbackResponse,
+  ChatExecutionReviewOptions,
   DemoScenariosResponse,
   HealthResponse,
   KnowledgeCollection,
@@ -75,6 +76,7 @@ export async function sendChatMessage(
   message: string,
   sessionId?: string | null,
   llmSplDraftMode = false,
+  executionReview?: ChatExecutionReviewOptions,
 ): Promise<PlaceholderResponse> {
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: 'POST',
@@ -86,6 +88,7 @@ export async function sendChatMessage(
       message,
       ...(sessionId ? { session_id: sessionId } : {}),
       ...(llmSplDraftMode ? { llm_spl_draft_mode: true } : {}),
+      ...(executionReview ?? {}),
     }),
   });
   if (!response.ok) {

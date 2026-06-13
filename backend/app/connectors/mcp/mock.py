@@ -38,7 +38,7 @@ class MockMcpConnector:
             }
         if tool_name not in RUN_QUERY_ALIASES:
             return {"status": "blocked", "error": "mock_tool_not_allowlisted", "rows": []}
-        query = str(arguments.get("query") or "")
+        query = str(arguments.get("search_query") or arguments.get("query") or "")
         return self.execute_validated_spl(
             server_name=server_name or "mock",
             tool_name=tool_name,

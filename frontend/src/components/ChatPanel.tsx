@@ -26,7 +26,7 @@ import {
   type InvestigationProgressState,
   type InvestigationProgressStepStatus,
 } from '@/lib/investigationProgress';
-import type { DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
+import type { ChatExecutionReviewOptions, DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
 
 interface ChatPanelProps {
   onTrace?: (response: PlaceholderResponse) => void;
@@ -380,10 +380,11 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     expectedSources?: string[];
     demoMode: boolean;
     userMessage?: string;
+    executionReview?: ChatExecutionReviewOptions;
   }) => {
     const epoch = investigationEpochRef.current;
     const progressId = `progress-${crypto.randomUUID()}`;
-    const { demoMode, fetcher, userMessage } = options;
+    const { demoMode, fetcher, userMessage, executionReview } = options;
     const steps = buildInvestigationProgressSteps({
       expectedSkill: options.expectedSkill,
       expectedSources: options.expectedSources,
@@ -434,6 +435,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
           undefined,
           sessionIdRef.current,
           llmSplDraftMode,
+          executionReview,
         );
         clearFinalizationTimers?.();
         progressSnapshot = settleProgressFromResponse(progressSnapshot, response);
@@ -490,6 +492,12 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     setMessages([welcome]);
     onClear?.();
   }, [onClear, welcome]);
+
+  const handleExecutionReview = async (payload: ChatExecutionReviewOptions, label: string) => {
+    const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: label };
+    setMessages((current) => [...current, userMessage]);
+    await runStagedInvestigation({ demoMode: false, userMessage: label, executionReview: payload });
+  };
 
   const handleSend = async (message: string) => {
     if (isClearChatCommand(message)) {
@@ -555,6 +563,8 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
               <ChatBubble
                 key={message.id}
                 message={message}
+                investigationBusy={loading}
+                onExecutionReview={handleExecutionReview}
                 onRetryFinalSynthesis={
                   message.displayStage === 'progress' && lastUserMessageRef.current
                     ? () => {

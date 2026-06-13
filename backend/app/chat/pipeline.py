@@ -521,16 +521,45 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
 def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("checking_mcp")
     request = state["request"]
-    routed = state["routed"]
+    session_pins = state.get("session_pins")
+    pending_execution = None
+    if isinstance(session_pins, SessionPins):
+        pending_execution = session_pins.pending_execution_confirmation
+
+    spl_validation = state.get("spl_validation")
+    if getattr(request, "execution_review_action", None) == "update_spl" and getattr(request, "analyst_provided_spl", None):
+        analyst_spl = str(request.analyst_provided_spl).strip()
+        if analyst_spl:
+            resolve_result = resolve_spl_source_profile(
+                analyst_spl,
+                user_query=request.message,
+                soc_kb_retrieval=state.get("soc_kb_retrieval"),
+                session_slots=dict(getattr(session_pins, "source_profile_slots", None) or {}),
+            )
+            if resolve_result.fully_resolved and isinstance(resolve_result.validation, dict):
+                spl_validation = resolve_result.validation
+                candidate = state.get("candidate_spl")
+                if isinstance(candidate, dict):
+                    state = {
+                        **state,
+                        "candidate_spl": {**candidate, "candidate_spl": resolve_result.spl},
+                        "spl_validation": spl_validation,
+                    }
+                else:
+                    state = {**state, "spl_validation": spl_validation}
+
     execution, human_review = _execution_stage(
         trace_id=state["trace_id"],
         selected_skill=_effective_routing_skill(state),
         workflow_plan=state["workflow_plan"],
-        spl_validation=state.get("spl_validation"),
+        spl_validation=spl_validation,
         precondition_evaluation=state.get("route_plan_shadow", {}).get("precondition_evaluation"),
         requested_mcp_server=request.requested_mcp_server,
         requested_mcp_tool=request.requested_mcp_tool,
         mcp_allowed=_mcp_allowed(state),
+        execution_review_action=getattr(request, "execution_review_action", None),
+        analyst_provided_spl=getattr(request, "analyst_provided_spl", None),
+        pending_execution=pending_execution,
     )
     emit_mcp_status_from_execution(execution)
     return {**state, "execution": execution, "human_review": human_review}
@@ -3396,6 +3425,9 @@ def _execution_stage(
     requested_mcp_server: str | None,
     requested_mcp_tool: str | None,
     mcp_allowed: bool = True,
+    execution_review_action: str | None = None,
+    analyst_provided_spl: str | None = None,
+    pending_execution: dict[str, Any] | None = None,
 ) -> tuple[dict, dict]:
     if spl_validation is None:
         return (
@@ -3441,6 +3473,9 @@ def _execution_stage(
         precondition_evaluation=precondition_evaluation,
         requested_mcp_server=requested_mcp_server,
         requested_mcp_tool=requested_mcp_tool,
+        execution_review_action=execution_review_action,
+        analyst_provided_spl=analyst_provided_spl,
+        pending_execution=pending_execution,
     )
 
 

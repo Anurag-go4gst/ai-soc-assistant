@@ -320,6 +320,24 @@ def is_disallowed_tool(tool_name: str) -> bool:
     return any(token in lowered for token in ("kvstore", "delete", "write", "admin", "saia"))
 
 
+def splunk_search_tool_arguments(
+    *,
+    normalized_spl: str,
+    trace_id: str | None = None,
+    earliest_time: str | None = None,
+    latest_time: str | None = None,
+    max_results: int | None = None,
+) -> dict[str, Any]:
+    inputs = build_splunk_search_inputs(
+        normalized_spl=normalized_spl,
+        trace_id=trace_id,
+        earliest_time=earliest_time,
+        latest_time=latest_time,
+        max_results=max_results,
+    )
+    return _arguments_dict(inputs)
+
+
 def _arguments_dict(inputs: SplunkSearchInputs) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "search_query": inputs.search_query,

@@ -7,7 +7,12 @@ from app.connectors.mcp import get_mcp_connector
 from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.mcp.splunk_result_adapter import adapt_mcp_search_payload, execution_preview_from_envelope
 from app.config import settings
+from app.connectors.mcp.splunk_mcp_readiness import splunk_search_tool_arguments
 from app.connectors.telemetry import get_telemetry_connector
+from app.orchestration.execution_confirmation import (
+    build_execution_confirmation_review,
+    resolve_execution_spl,
+)
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS, select_mcp_tool
 
@@ -39,6 +44,9 @@ def evaluate_mcp_execution(
     requested_mcp_server: str | None = None,
     requested_mcp_tool: str | None = None,
     llm_tool_recommendation: dict[str, Any] | None = None,
+    execution_review_action: str | None = None,
+    analyst_provided_spl: str | None = None,
+    pending_execution: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     telemetry = get_telemetry_connector()
     precondition_block_reason = _precondition_block_reason(precondition_evaluation)
@@ -101,7 +109,36 @@ def evaluate_mcp_execution(
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
         return execution, review
 
-    normalized_spl = str(spl_validation["normalized_spl"])
+    execution_validation, confirmation_review = resolve_execution_spl(
+        spl_validation=spl_validation or {},
+        execution_review_action=execution_review_action,
+        analyst_provided_spl=analyst_provided_spl,
+        pending_execution=pending_execution,
+    )
+    if confirmation_review is not None:
+        execution = _blocked_execution(selection, "requires_human_review", confirmation_review["reason"])
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=confirmation_review["reason"])
+        return execution, confirmation_review
+    if execution_validation is None:
+        normalized_spl = str(spl_validation["normalized_spl"])
+        review = build_execution_confirmation_review(
+            normalized_spl=normalized_spl,
+            selected_mcp_tool=str(selection["selected_mcp_tool"]),
+            selected_mcp_server=str(selection["selected_mcp_server"]),
+        )
+        execution = _blocked_execution(selection, "requires_human_review", review["reason"])
+        execution["pending_execution_confirmation"] = {
+            "normalized_spl": normalized_spl,
+            "selected_mcp_server": selection["selected_mcp_server"],
+            "selected_mcp_tool": selection["selected_mcp_tool"],
+            "trace_id": trace_id,
+            "selected_skill": selected_skill,
+        }
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
+        return execution, review
+
+    normalized_spl = str(execution_validation["normalized_spl"])
+    tool_arguments = splunk_search_tool_arguments(normalized_spl=normalized_spl, trace_id=trace_id)
     started = perf_counter()
     telemetry.record_mcp_execution(
         trace_id,
@@ -112,7 +149,7 @@ def evaluate_mcp_execution(
     try:
         result = get_mcp_connector().call_tool(
             str(selection["selected_mcp_tool"]),
-            {"query": normalized_spl},
+            tool_arguments,
             server_name=str(selection["selected_mcp_server"]),
         )
     except NotImplementedError:
