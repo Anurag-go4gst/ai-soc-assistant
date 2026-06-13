@@ -167,6 +167,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/AI_SOC_MASTER_PLAN.md` | **Active implementation roadmap** — hardening, skill enrichment, pipeline/LangGraph, GitHub skill intake (Tracks A–D); Batches 2–5 completed, next batch requires explicit scope approval. |
 | `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Logic hierarchy, rules, status tables — agents read for Q1C→Q4 spine context. |
 | `/root/.cursor/plans/guided_investigation_5th_skill_098a0cdf.plan.md` | Done — guided investigation fifth route plus confirmed air-gapped Splunk MCP seven-tool binding; discovery remains planned-only and execution-gated. |
+| `/root/.cursor/plans/spl_generation_audit_30f60bc7.plan.md` | **In Progress** — relevance-first SPL audit + optimization. Phase A done (audit doc `docs/architecture/spl_generation_audit.md`, `eval_spl_relevance.py` baseline 105:81/105, catalogue spl-expected 9/29; governance regression green). Next: Phase B routing-correctness fixes (R1/R2 DNS+PowerShell, R3, B03, B05). |
 
 **All plans:**
 
