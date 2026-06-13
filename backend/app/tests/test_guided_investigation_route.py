@@ -143,6 +143,13 @@ def test_guided_resource_decisions_are_review_only() -> None:
     assert decisions["rag"]["source"] == "soc_kb_rag"
     assert decisions["spl"]["review_only"] is True
     assert decisions["mcp"]["allowed"] is False
+    assert [item["tool_name"] for item in decisions["mcp"]["planned_discovery_calls"]] == [
+        "splunk_get_indexes",
+        "splunk_get_metadata",
+        "splunk_get_knowledge_objects",
+    ]
+    assert all(item["kind"] == "planned_tool_call" for item in decisions["mcp"]["planned_discovery_calls"])
+    assert all(item["failure_mode"] == "execution_disabled" for item in decisions["mcp"]["planned_discovery_calls"])
     assert decisions["hil"]["required"] is True
     assert planning.resource_plan_summary["match_path"] == "out_of_registry"
 

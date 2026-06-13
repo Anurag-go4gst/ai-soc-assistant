@@ -9,7 +9,7 @@
 | Out-of-registry investigation | `out_of_registry` | `guided_investigation` | `guided_investigation` | `guided_investigation` | `guided_investigation` |
 | Unsafe execution | any | existing blocked route | `clarification_required` | `clarification` | `unsafe_blocked` |
 
-`guided_investigation` is a deterministic rescue for SOC-shaped hunt questions that have no 105-question or use-case-catalog match. It does not override registry authority. It returns hypotheses, evidence sources, a manual checklist, limitations, and analyst-review requirements. Candidate SPL remains review-only and is omitted unless an existing deterministic draft family matches. MCP remains disabled.
+`guided_investigation` is a deterministic rescue for SOC-shaped hunt questions that have no 105-question or use-case-catalog match. It does not override registry authority. It returns hypotheses, evidence sources, a manual checklist, limitations, and analyst-review requirements. Candidate SPL remains review-only and is omitted unless an existing deterministic draft family matches. Splunk discovery is recorded as planned-only (`splunk_get_indexes`, `splunk_get_metadata`, optional index detail, and knowledge objects); MCP execution remains disabled.
 
 ## Internal Cybersecurity Skills Library
 

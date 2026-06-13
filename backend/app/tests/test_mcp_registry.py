@@ -10,7 +10,8 @@ def test_default_mock_mode_still_available(monkeypatch) -> None:
     assert status.global_execution_enabled is False
     assert status.servers[0].available is True
     assert status.servers[0].execution_enabled is False
-    assert "run_splunk_query" in status.servers[0].discovered_tools_safe_names
+    assert "splunk_run_query" in status.servers[0].discovered_tools_safe_names
+    assert "splunk_get_user_info" in status.servers[0].blocked_tools_safe_names
     assert "saia_generate_spl" in status.servers[0].discovered_tools_safe_names
 
 
@@ -23,7 +24,10 @@ def test_registry_mode_parses_multiple_servers(monkeypatch) -> None:
     monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_URL", "https://splunk-mcp.example.invalid/mcp")
     monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_AUTH_MODE", "bearer")
     monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN", "super-secret-token")
-    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST", "list_tools,splunk_search,saia_generate_spl")
+    monkeypatch.setenv(
+        "MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST",
+        "splunk_run_query,splunk_get_indexes,splunk_get_metadata,splunk_get_knowledge_objects",
+    )
     monkeypatch.setenv("MCP_SERVER_ASSET_INVENTORY_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVER_ASSET_INVENTORY_TYPE", "asset_inventory")
     monkeypatch.setenv("MCP_SERVER_ASSET_INVENTORY_TRANSPORT", "sse")
@@ -45,8 +49,8 @@ def test_registry_mode_parses_multiple_servers(monkeypatch) -> None:
     assert splunk.saia_spl_generation_allowed is False
     assert splunk.knowledge_object_discovery_allowed is True
     assert splunk.list_tools_allowed is True
-    assert "splunk_search" in splunk.discovered_tools_safe_names
-    assert "saia_generate_spl" in splunk.discovered_tools_safe_names
+    assert "splunk_run_query" in splunk.discovered_tools_safe_names
+    assert "splunk_get_knowledge_objects" in splunk.discovered_tools_safe_names
 
     text = json.dumps(status, default=lambda obj: getattr(obj, "__dict__", str(obj))).lower()
     assert "super-secret-token" not in text

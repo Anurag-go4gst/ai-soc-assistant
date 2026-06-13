@@ -4,7 +4,7 @@ Status: Proposed (rev 3 — executable playbook; per-task pass/fail, tests, git/
 Date: 2026-06-10
 Author: Anurag + Claude
 
-> WS1/WS0 note (2026-06-12): out-of-registry SOC-investigation-shaped questions now have a deterministic `guided_investigation` rescue candidate. Exact/near 105 and catalog authority remain unchanged; the resource plan records governed RAG, optional review-only SPL, skipped MCP, and required analyst validation.
+> WS1/WS0 note (2026-06-12): out-of-registry SOC-investigation-shaped questions now have a deterministic `guided_investigation` rescue candidate. Exact/near 105 and catalog authority remain unchanged; the resource plan records governed RAG, optional review-only SPL, planned-only canonical Splunk discovery, skipped execution, and required analyst validation. The confirmed air-gapped seven-tool binding landed with `splunk_run_query` canonical and all MCP execution gates unchanged.
 
 ---
 
