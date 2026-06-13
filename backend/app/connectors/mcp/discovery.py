@@ -106,9 +106,13 @@ def classify_mcp_tool(name: str, description: str = "", server_type: str = "gene
 
 def mock_discovered_tools(server_type: str = "splunk") -> list[McpToolDescriptor]:
     tools = [
-        classify_mcp_tool("run_splunk_query", "Run validator-approved bounded SPL search.", server_type),
+        classify_mcp_tool("splunk_run_query", "Run validator-approved bounded SPL search.", server_type),
+        classify_mcp_tool("splunk_get_info", "Read Splunk server identity and version.", server_type),
         classify_mcp_tool("splunk_get_indexes", "Read Splunk index list.", server_type),
-        classify_mcp_tool("get_splunk_metadata", "Read Splunk index and sourcetype metadata.", server_type),
+        classify_mcp_tool("splunk_get_index_info", "Read details for one Splunk index.", server_type),
+        classify_mcp_tool("splunk_get_metadata", "Read Splunk host, source, and sourcetype metadata.", server_type),
+        classify_mcp_tool("splunk_get_user_info", "Read the authenticated Splunk user context.", server_type),
+        classify_mcp_tool("splunk_get_knowledge_objects", "Read Splunk knowledge-object metadata.", server_type),
         classify_mcp_tool("saia_generate_spl", "Generate SPL with Splunk AI Assistant.", server_type),
     ]
     return tools

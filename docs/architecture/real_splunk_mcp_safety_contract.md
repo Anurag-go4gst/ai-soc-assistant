@@ -27,6 +27,28 @@ Relevant files inspected for this contract:
 - `backend/app/spl/templates.json`: active templates include status, use case, validation rules, time bounds, and result limits.
 - `.env.example` and `backend/app/config.py`: execution and connector defaults are disabled or placeholders.
 
+## Confirmed Air-Gapped Tool Surface (2026-06-12)
+
+The customer-confirmed Splunk MCP deployment exposes seven canonical `splunk_*` tools:
+
+| Tool | Policy treatment |
+|---|---|
+| `splunk_run_query` | Read-only search; only validator-approved, non-null `normalized_spl` may reach the existing execution gate. |
+| `splunk_get_info` | Read-only readiness discovery; not evidence authority. |
+| `splunk_get_indexes` | Read-only index discovery; results are scoped to the MCP service account's permissions. |
+| `splunk_get_index_info` | Read-only detail for a known index. |
+| `splunk_get_metadata` | Read-only host/source/sourcetype discovery for query preparation. |
+| `splunk_get_user_info` | Sensitive discovery; visible in status, blocked from evidence selection. |
+| `splunk_get_knowledge_objects` | Read-only knowledge-object discovery for checking existing detections and macros. |
+
+Official `splunk_*` names are canonical. Livehybrid-style names such as `search_splunk` and `list_indexes` are aliases only and are not present on this air-gapped server. No SAIA/assistant, write/admin, saved-search-execution, or KV-store tools are part of the confirmed surface.
+
+The deterministic planning order follows the investigation pattern described by Splunk Lantern: retrieve the governed runbook, discover indexes and metadata, prepare a bounded query, then synthesize the evidence. In this application, runbooks come from the governed SOC-KB RAG path, not an Atlassian or Confluence MCP. SOAR may become a future playbook source, but no SOAR connector exists today.
+
+Discovery is represented as planned-only records: `splunk_get_indexes` -> `splunk_get_metadata` -> optional `splunk_get_index_info` -> optional `splunk_get_knowledge_objects`. These records do not call MCP. Guided investigations expose the same sequence as a manual analyst checklist while execution gates remain closed.
+
+The real argument schema for `splunk_run_query` remains unconfirmed. `schema_confirmed=false` stays authoritative until COE captures and approves a sample through `live_schema_capture.py`; no unconfirmed response may be promoted to live evidence.
+
 ## Activation Gates
 
 All of the following gates must pass before any future real Splunk execution is allowed:

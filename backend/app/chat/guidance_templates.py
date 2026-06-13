@@ -174,6 +174,44 @@ def build_investigation_triage_guidance(query: str) -> str:
     return f"SOC review checklist:\n\n{items}"
 
 
+def build_guided_investigation_guidance(query: str, entities: dict | None = None) -> str:
+    """Review-only hunt guidance for out-of-registry SOC investigation shapes."""
+    normalized = " ".join(query.lower().split())
+    _ = entities
+    if any(term in normalized for term in ("ot", "scada", "chatter", "new external", "overnight")):
+        hypotheses = [
+            "Approved vendor or maintenance communication changed.",
+            "A configuration or routing change introduced a new destination.",
+            "An OT asset is beaconing or transferring data unexpectedly.",
+        ]
+        evidence = [
+            "Firewall sessions: source asset, destination, port, bytes, duration, first/last seen.",
+            "DNS/proxy context: resolved name, category, reputation, and peer hosts.",
+            "OT inventory and change records: owner, function, maintenance window, vendor access.",
+            "Endpoint telemetry where available: initiating process, user, and parent process.",
+        ]
+    else:
+        hypotheses = [
+            "Expected operational activity or a recent approved change.",
+            "Telemetry or configuration drift producing an apparent anomaly.",
+            "Suspicious activity that requires corroboration across independent sources.",
+        ]
+        evidence = [
+            "Firewall, DNS, proxy, and endpoint events for a bounded time window.",
+            "Asset ownership, criticality, baseline, and recent change history.",
+            "Peer-host comparison and first-seen or frequency analysis.",
+        ]
+    return (
+        "Guided investigation (review-only)\n\nHypotheses\n- "
+        + "\n- ".join(hypotheses)
+        + "\n\nEvidence to collect\n- "
+        + "\n- ".join(evidence)
+        + "\n\nNext steps\n- Validate scope and time window.\n- Check existing detections and local playbooks."
+        "\n- Corroborate before severity, MITRE, containment, or escalation decisions."
+        "\n\nLimitations: no live query was run; no MITRE technique or incident severity is claimed."
+    )
+
+
 def build_conceptual_mitre_guidance(query: str) -> str:
     """Direct negation + candidate-only MITRE framing for conceptual judgment questions."""
     _ = query  # topic-specific tailoring can be added later; structure stays deterministic.

@@ -66,3 +66,7 @@ class QueryUnderstandingResult(BaseModel):
     registry_consistency: str = "not_evaluated"
     registry_warnings: list[str] = Field(default_factory=list)
     llm_advisory_recommended: bool = False
+    soc_investigation_shaped: bool = False
+    route_skill_candidate: str | None = None
+    intent_candidate: str | None = None
+    triage_signals: dict[str, bool] = Field(default_factory=dict)

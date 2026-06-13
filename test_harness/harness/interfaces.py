@@ -24,7 +24,7 @@ class RoutingDecision:
 
 
 class RoutingClient(Protocol):
-    """Routes an analyst query to one of the four skills."""
+    """Routes an analyst query to one of the five skills."""
 
     def route(self, query: str) -> RoutingDecision:
         ...

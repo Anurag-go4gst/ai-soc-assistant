@@ -7,7 +7,12 @@ from typing import Any
 from app.connectors.mcp.registry import McpRegistryStatus, load_mcp_registry_status
 
 _SAFE_SEARCH_TOOLS = {"splunk_run_query", "run_splunk_query"}
-_SAFE_METADATA_TOOLS = {"splunk_get_indexes", "splunk_get_metadata", "get_splunk_metadata"}
+_SAFE_METADATA_TOOLS = {
+    "splunk_get_indexes",
+    "splunk_get_index_info",
+    "splunk_get_metadata",
+    "get_splunk_metadata",
+}
 
 
 def evaluate_splunk_mcp_live_readiness(

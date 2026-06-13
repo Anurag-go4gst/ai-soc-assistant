@@ -70,6 +70,19 @@ def test_out_of_set_eval_accepts_honest_out_of_catalog() -> None:
     assert severity == "pass", reasons
 
 
+def test_out_of_set_eval_recognizes_guided_investigation_support() -> None:
+    payload = _payload(
+        candidate_spl={},
+        evidence_plan={"answer_mode": "guided_investigation", "needs_spl": False},
+        analyst_response={"spl_draft_preview": {}, "limitations": ["No live query was executed."]},
+    )
+    severity, reasons = classify_row(
+        _row(expected_support_status="guided_investigation"),
+        payload,
+    )
+    assert severity == "pass", reasons
+
+
 def test_out_of_set_eval_flags_mitre_overclaim() -> None:
     payload = _payload(
         answer_contract={"evidence_supported_mitre": ["T1078"], "render_sections": {}}

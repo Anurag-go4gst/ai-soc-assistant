@@ -90,6 +90,8 @@ def validate_final_answer(
     evidence_plan: dict[str, Any] | None,
     mitre_decision: dict[str, Any] | None,
     human_review: dict[str, Any] | None = None,
+    planning_decision: dict[str, Any] | None = None,
+    routing_provenance: dict[str, Any] | None = None,
 ) -> AnswerGuardStatus:
     """Validate the assembled answer against the contract; fail closed on conflict."""
     if analyst_response is None or answer_contract is None:
@@ -115,8 +117,19 @@ def validate_final_answer(
     # 0. WS1 T1.4 fail-closed: an out-of-catalog answer must say so.
     resource_plan = plan.get("resource_plan") if isinstance(plan.get("resource_plan"), dict) else {}
     provenance = resource_plan.get("provenance") if isinstance(resource_plan.get("provenance"), dict) else {}
+    planning_summary = (
+        planning_decision.get("resource_plan_summary")
+        if isinstance(planning_decision, dict) and isinstance(planning_decision.get("resource_plan_summary"), dict)
+        else {}
+    )
+    match_path = str(
+        provenance.get("match_path")
+        or planning_summary.get("match_path")
+        or (routing_provenance or {}).get("deterministic_match_path")
+        or ""
+    )
     if (
-        str(provenance.get("match_path") or "") == "out_of_registry"
+        match_path == "out_of_registry"
         and not contract.get("out_of_catalog_notice")
         # Refusal/HIL turns intentionally carry no notice (they perform no guidance).
         and not bool(contract.get("human_review_required"))

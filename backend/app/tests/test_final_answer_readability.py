@@ -430,6 +430,51 @@ def test_dns_contract_uses_network_limitations_not_auth() -> None:
     assert "jitter — Jitter measurement" in result.required_evidence
 
 
+def test_guided_investigation_uses_review_only_section_card() -> None:
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "guided_investigation",
+            "answer_goal": ["procedural_steps", "analyst_action_guidance"],
+        },
+        evidence_plan={
+            "answer_mode": "guided_investigation",
+            "spl_allowed": False,
+            "mcp_allowed": False,
+            "requires_hil": True,
+            "checklist": ["Validate the host and destination with the asset owner."],
+            "investigation_workflow": ["Review firewall, DNS, proxy, and endpoint telemetry."],
+            "limitations": ["No live query was executed."],
+        },
+        mitre_decision={"answer_visible": False},
+        severity_decision=None,
+        spl_validation=None,
+        execution={"status": "skipped"},
+        human_review={"required": False},
+        match_path="out_of_registry",
+    )
+    envelope = AnalystResponseEnvelope(
+        response_profile="guided_investigation",
+        one_sentence_finding="Use a bounded, review-only hunt to test the OT chatter hypotheses.",
+        severity_label="P2",
+        mitre_mappings=[{"Technique": "T1071", "Status": "Candidate"}],
+        recommended_actions=["Validate the destination with the asset owner."],
+    )
+
+    result = apply_final_answer_readability(envelope, contract)
+
+    assert result.section_order == [
+        "investigation_guidance",
+        "procedural_steps",
+        "analyst_action_guidance",
+        "limitations",
+    ]
+    assert result.render_sections["severity_assessment"] is False
+    assert result.render_sections["mitre_mapping"] is False
+    assert result.severity_label is None
+    assert result.mitre_mappings == []
+    assert "bounded, review-only hunt" in result.direct_answer_summary
+
+
 def test_spl_status_detail_suppresses_redundant_review_notice_when_spl_present() -> None:
     contract = build_answer_contract(
         intent_classification={

@@ -19,7 +19,7 @@
       "cost_class": "expensive",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "livehybrid/splunk-mcp; gated by mcp_execution_gate; schema_confirmed=false"
+      "notes": "Alias only; not present on the confirmed air-gapped Splunk MCP server"
     },
     {
       "resource_id": "mcp_tool:splunk_run_query",
@@ -36,7 +36,93 @@
       "cost_class": "expensive",
       "availability": "fixture_only",
       "policy_tier": 2,
-      "notes": "mock connector; bounded deterministic rows only when both execution flags true"
+      "notes": "Canonical air-gapped read-only search; validator-approved normalized SPL only; mock connector remains fixture-only"
+    },
+    {
+      "resource_id": "mcp_tool:splunk_get_info",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery",
+        "readiness_probe"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2,
+      "notes": "Confirmed air-gapped read-only discovery tool; not evidence authority"
+    },
+    {
+      "resource_id": "mcp_tool:splunk_get_indexes",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery",
+        "index_context"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2,
+      "notes": "Confirmed air-gapped read-only discovery tool; results are service-account permission scoped"
+    },
+    {
+      "resource_id": "mcp_tool:splunk_get_index_info",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery",
+        "index_context"
+      ],
+      "input_contract": {
+        "args": [
+          "index"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2,
+      "notes": "Confirmed air-gapped read-only discovery tool"
+    },
+    {
+      "resource_id": "mcp_tool:splunk_get_metadata",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery",
+        "source_context"
+      ],
+      "input_contract": {
+        "args": [
+          "index"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2,
+      "notes": "Confirmed air-gapped read-only discovery tool"
+    },
+    {
+      "resource_id": "mcp_tool:splunk_get_user_info",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery",
+        "admin_or_sensitive"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "blocked",
+      "policy_tier": 3,
+      "notes": "Confirmed air-gapped sensitive discovery tool; visible but never selectable for evidence"
+    },
+    {
+      "resource_id": "mcp_tool:splunk_get_knowledge_objects",
+      "kind": "mcp_tool",
+      "capabilities": [
+        "metadata_discovery",
+        "knowledge_object_discovery"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2,
+      "notes": "Confirmed air-gapped read-only discovery tool; existing detections and macros are metadata only"
     },
     {
       "resource_id": "mcp_tool:list_indexes",
@@ -47,7 +133,8 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "not_implemented",
-      "policy_tier": 2
+      "policy_tier": 2,
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
     },
     {
       "resource_id": "mcp_tool:get_index_info",
@@ -58,7 +145,8 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "not_implemented",
-      "policy_tier": 2
+      "policy_tier": 2,
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
     },
     {
       "resource_id": "mcp_tool:indexes_and_sourcetypes",
@@ -69,7 +157,8 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "not_implemented",
-      "policy_tier": 2
+      "policy_tier": 2,
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
     },
     {
       "resource_id": "mcp_tool:list_saved_searches",
@@ -80,7 +169,8 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "not_implemented",
-      "policy_tier": 2
+      "policy_tier": 2,
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
     },
     {
       "resource_id": "mcp_tool:health_check",
@@ -91,7 +181,8 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "not_implemented",
-      "policy_tier": 2
+      "policy_tier": 2,
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
     },
     {
       "resource_id": "mcp_tool:ping",
@@ -102,7 +193,8 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "not_implemented",
-      "policy_tier": 2
+      "policy_tier": 2,
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
     },
     {
       "resource_id": "mcp_tool:current_user",
@@ -113,7 +205,8 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "not_implemented",
-      "policy_tier": 2
+      "policy_tier": 2,
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
     },
     {
       "resource_id": "mcp_tool:list_users",
@@ -124,7 +217,8 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "not_implemented",
-      "policy_tier": 2
+      "policy_tier": 2,
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
     },
     {
       "resource_id": "mcp_tool:list_tools",
@@ -135,7 +229,8 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "not_implemented",
-      "policy_tier": 2
+      "policy_tier": 2,
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
     },
     {
       "resource_id": "mcp_tool:list_kvstore_collections",
@@ -146,7 +241,8 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "not_implemented",
-      "policy_tier": 2
+      "policy_tier": 2,
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
     },
     {
       "resource_id": "mcp_tool:create_kvstore_collection",
@@ -763,6 +859,33 @@
         "default_workflow": [
           "knowledge_recall",
           "context_sufficiency"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1
+    },
+    {
+      "resource_id": "skill:guided_investigation",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:governed_rag"
+      ],
+      "input_contract": {
+        "input": "QueryUnderstandingResult",
+        "output": "AnswerContract",
+        "blocked_tools": [
+          "mcp_execution",
+          "remediation",
+          "admin",
+          "write"
+        ],
+        "required_evidence": [],
+        "default_workflow": [
+          "evidence_collection",
+          "context_sufficiency",
+          "synthesis",
+          "answer_guard"
         ]
       },
       "cost_class": "cheap",

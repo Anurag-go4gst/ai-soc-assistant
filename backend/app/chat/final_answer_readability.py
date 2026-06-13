@@ -249,6 +249,7 @@ def apply_final_answer_readability(
         payload = _scrub_draft_preview_contradictions(payload)
         _apply_analytics_draft_severity_guard(payload, presentation)
     payload["direct_answer_summary"] = _direct_answer_summary(envelope, contract)
+    payload = _apply_guided_investigation_card(payload, contract)
     payload = _apply_knowledge_profile_cleanup(payload, contract)
     payload = _dedupe_labels(payload, contract)
     payload = _apply_section_visibility(payload, contract)
@@ -267,6 +268,49 @@ def apply_final_answer_readability(
             contract,
         )
     return AnalystResponseEnvelope.model_validate(payload)
+
+
+def _apply_guided_investigation_card(
+    payload: dict[str, Any],
+    contract: AnswerContract,
+) -> dict[str, Any]:
+    if contract.intent_family != "guided_investigation":
+        return payload
+
+    preferred_order = (
+        "investigation_guidance",
+        "procedural_steps",
+        "analyst_action_guidance",
+        "limitations",
+    )
+    render = dict(payload.get("render_sections") or {})
+    render.update(
+        {
+            "severity_assessment": False,
+            "mitre_mapping": False,
+            "not_claimed": False,
+            "live_results": False,
+            "investigation_guidance": True,
+            "procedural_steps": bool(payload.get("investigation_steps")),
+            "analyst_action_guidance": bool(
+                payload.get("recommended_actions") or payload.get("analyst_checklist")
+            ),
+            "limitations": bool(payload.get("limitations")),
+        }
+    )
+    payload["render_sections"] = render
+    payload["section_order"] = [section for section in preferred_order if render.get(section)]
+    payload["severity_label"] = None
+    payload["severity_confidence"] = None
+    payload["severity_rationale"] = None
+    payload["mitre_mappings"] = []
+    payload["not_claimed"] = []
+    payload["direct_answer_summary"] = str(
+        payload.get("direct_answer_summary")
+        or payload.get("one_sentence_finding")
+        or "Guided investigation prepared for analyst review; no live query was executed."
+    )
+    return payload
 
 
 def _scrub_draft_preview_contradictions(payload: dict[str, Any]) -> dict[str, Any]:

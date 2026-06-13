@@ -16,9 +16,15 @@ from app.connectors.mcp.splunk_result_envelope import SplunkResultEnvelope
 from app.connectors.mcp.splunk_result_fixture import envelope_from_fixture_payload
 
 SPLUNK_MCP_SERVER = "splunk"
-ALLOWED_READ_TOOL = "splunk.search"
+ALLOWED_READ_TOOL = "splunk_run_query"
 ALLOWED_READ_TOOL_ALIASES = frozenset(
-    {ALLOWED_READ_TOOL, "search_splunk", "splunk_run_query", "run_splunk_query"}
+    {ALLOWED_READ_TOOL, "run_splunk_query", "search_splunk", "splunk.search"}
+)
+SPLUNK_DISCOVERY_TOOLS = (
+    "splunk_get_indexes",
+    "splunk_get_metadata",
+    "splunk_get_index_info",
+    "splunk_get_knowledge_objects",
 )
 DISALLOWED_MUTATING_TOOLS = frozenset(
     {
@@ -164,7 +170,7 @@ def plan_splunk_search_call(
                 "global_and_server_execution_flags",
                 "approved_normalized_spl_only",
             ),
-            notes="Planned splunk.search; execution remains blocked until gates open (S5).",
+            notes="Planned splunk_run_query; execution remains blocked until gates open (S5).",
         )
 
     if not registry.configured:
@@ -183,6 +189,42 @@ def plan_splunk_search_call(
         policy_checks=("mcp_execution_gate", "hil_and_coe_approval"),
         notes="Execution flags enabled — still requires gate + HIL before live call (S5).",
     )
+
+
+def plan_splunk_discovery_calls(
+    *,
+    target_index: str | None = None,
+    include_knowledge_objects: bool = True,
+) -> list[McpToolCallRecord]:
+    """Build deterministic discovery records only; never call an MCP connector."""
+    registry = load_mcp_registry_status()
+    execution_disabled = not registry.global_execution_enabled
+    tool_names = ["splunk_get_indexes", "splunk_get_metadata"]
+    if target_index:
+        tool_names.append("splunk_get_index_info")
+    if include_knowledge_objects:
+        tool_names.append("splunk_get_knowledge_objects")
+
+    records: list[McpToolCallRecord] = []
+    for tool_name in tool_names:
+        arguments = {"index": target_index} if target_index and tool_name != "splunk_get_indexes" else {}
+        records.append(
+            McpToolCallRecord(
+                kind="planned_tool_call",
+                server=SPLUNK_MCP_SERVER,
+                tool_name=tool_name,
+                arguments=arguments,
+                block_reason=(
+                    "mcp_global_execution_disabled"
+                    if execution_disabled
+                    else "discovery_planning_only"
+                ),
+                failure_mode="execution_disabled" if execution_disabled else None,
+                policy_checks=("read_only_discovery", "mcp_execution_gate"),
+                notes="Planned discovery only; analyst may run this checklist manually.",
+            )
+        )
+    return records
 
 
 def fixture_splunk_search_call(

@@ -546,7 +546,7 @@ def _spl_payloads(scenario: DemoScenario, trace_id: str) -> tuple[dict[str, Any]
         "saia_usable": scenario.saia_available,
         "saia_configured_mode": "available" if scenario.saia_available else "unavailable",
         "fallback_required": not scenario.saia_available,
-        "available_core_tools": ["splunk.search", "splunk.saved_search.read"],
+        "available_core_tools": ["splunk_run_query", "splunk_get_indexes", "splunk_get_metadata"],
         "available_saia_tools": ["saia_generate_spl"] if scenario.saia_available else [],
         "blocked_tool_categories": ["assistant_write", "admin", "remediation"],
     }

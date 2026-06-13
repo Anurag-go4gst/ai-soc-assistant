@@ -38,6 +38,34 @@ def test_control_plane_trace_contains_phase_outputs_and_redacts_secrets() -> Non
     assert trace["rag_trace"]["dsn"] if "dsn" in trace["rag_trace"] else True
     assert trace["spl_slot_binding"]["missing_bindings"] == ["last_24h"]
     assert trace["source_evidence_refs"] == ["src-1"]
+    assert trace["llm_advisory_trace"] == {
+        "llm_advisory_attempted": False,
+        "llm_called": False,
+        "llm_candidate_present": False,
+        "llm_advisory_used": False,
+        "llm_route_candidate": None,
+        "llm_intent_candidate": None,
+        "llm_dropped_reasons": [],
+        "llm_narration_used": False,
+        "llm_overridden_by_policy": False,
+    }
+
+
+def test_llm_advisory_trace_records_policy_override_without_new_calls() -> None:
+    trace = build_control_plane_trace(
+        {
+            "routed": {
+                "selected_by": "out_of_registry_investigation_rescue",
+                "llm_semantic_advisory": {"skill": "knowledge_recall"},
+            },
+            "query_to_intent": {"llm_intent_assist_status": "rejected"},
+        }
+    )
+    advisory = trace["llm_advisory_trace"]
+    assert advisory["llm_candidate_present"] is True
+    assert advisory["llm_advisory_used"] is True
+    assert advisory["llm_route_candidate"] == "knowledge_recall"
+    assert advisory["llm_overridden_by_policy"] is True
 
 
 def test_chat_control_plane_trace_attaches_when_flag_on(monkeypatch) -> None:

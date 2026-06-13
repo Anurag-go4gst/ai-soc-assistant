@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from app.query_understanding.models import QueryUnderstandingResult
+from app.query_understanding.soc_investigation_shape import detect_soc_investigation_shape
 from app.query_understanding.success_after_failure import detect_success_after_failure
 
 _TECHNIQUE_ID_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
@@ -538,6 +539,17 @@ def extract_query_signals(
         getattr(qu, "mapped_pattern_type", None) in _EXACT_105_HUNT_PATTERNS
     )
 
+    non_soc_or_out_of_scope = any(
+        term in normalized for term in ("hr policy", "vacation policy", "payroll", "expense policy")
+    )
+    soc_investigation_shaped = bool(
+        detect_soc_investigation_shape(query, exact_105_match=exact_105_match)
+        and not block_or_contain
+        and not explicit_run_spl
+        and not sop_show_request
+        and not non_soc_or_out_of_scope
+    )
+
     return {
         "normalized_query": normalized,
         "policy_terms": policy_terms,
@@ -608,6 +620,12 @@ def extract_query_signals(
         "analytics_aggregation": analytics_aggregation,
         "exact_105_analytics": exact_105_analytics,
         "exact_105_hunt_spl": exact_105_hunt_spl,
+        "soc_investigation_shaped": soc_investigation_shaped,
+        "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),
+        "spl_authoring_shaped": bool(spl_generation and not run_execution),
+        "alert_summary_shaped": bool(alert_context_present and not spl_generation),
+        "action_or_containment_shaped": bool(block_or_contain or explicit_run_spl),
+        "non_soc_or_out_of_scope": non_soc_or_out_of_scope,
         "alert_context_present": alert_context_present,
         "hybrid_alert_review": hybrid_alert_review,
         "projected_needs_rag": policy_terms

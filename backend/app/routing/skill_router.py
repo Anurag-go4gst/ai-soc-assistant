@@ -238,6 +238,8 @@ def route_skill(
 def _qu_route_retains_authority(understanding: QueryUnderstandingResult, base_route: dict[str, Any]) -> bool:
     """Exact 105 matches keep query_understanding_105 selected_by; override cannot fire anyway."""
     path = understanding.deterministic_match_path
+    if path == "out_of_registry" and base_route.get("skill") == "guided_investigation":
+        return True
     if path not in {"exact_105_question", "exact_105_plus_use_case_catalog"}:
         return False
     return not _deterministic_uncertain(base_route, understanding)
@@ -290,6 +292,10 @@ def _provenance_from_selection(
 ) -> dict[str, Any]:
     from app.routing.routing_provenance import build_routing_provenance
 
+    rescue_mode = (
+        understanding.deterministic_match_path == "out_of_registry"
+        and selected.get("skill") == "guided_investigation"
+    )
     return build_routing_provenance(
         understanding,
         selected_by=selected_by,
@@ -299,6 +305,12 @@ def _provenance_from_selection(
         confidence=float(selected.get("confidence", 0)),
         qu_failed=qu_failed,
         degraded=degraded,
+        rescue_mode=rescue_mode,
+        why_not_knowledge_recall=(
+            "Query requests an investigation process, not a bounded knowledge lookup."
+            if rescue_mode
+            else None
+        ),
     )
 
 

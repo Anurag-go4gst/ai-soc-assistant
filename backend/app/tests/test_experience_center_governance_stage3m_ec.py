@@ -164,8 +164,8 @@ def test_ec_failed_login_resource_planner_selects_splunk_search_tool() -> None:
     assert gov is not None
     assert gov.resource_planner is not None
     assert gov.resource_planner["selected_capability"] == "auth_failed_login_spike"
-    assert "MCP fixture tool selection: mcp:splunk.search" in gov.resource_planner["selected_resources"]
-    assert any("selected MCP tool is splunk.search" in item for item in gov.resource_planner["resource_decision"])
+    assert "MCP fixture tool selection: mcp:splunk_run_query" in gov.resource_planner["selected_resources"]
+    assert any("selected MCP tool is splunk_run_query" in item for item in gov.resource_planner["resource_decision"])
 
 
 def test_ec_mcp_call_is_fixture_not_live_execution() -> None:

@@ -12,9 +12,9 @@ from app.connectors.mcp.splunk_mcp_readiness import (
 from app.planner.resource_plan import ResourcePlan
 
 _USE_CASE_MCP_HINTS: dict[str, str] = {
-    "auth_failed_login_spike": "splunk.search",
-    "vpn_login_anomaly": "splunk.search",
-    "edr_powershell_suspicious_command": "splunk.search",
+    "auth_failed_login_spike": "splunk_run_query",
+    "vpn_login_anomaly": "splunk_run_query",
+    "edr_powershell_suspicious_command": "splunk_run_query",
 }
 
 _PATHS_WITHOUT_MCP = frozenset(
@@ -24,6 +24,7 @@ _PATHS_WITHOUT_MCP = frozenset(
         "generic_soc_guidance",
         "mitre_context_required",
         "clarification_required",
+        "guided_investigation",
     }
 )
 

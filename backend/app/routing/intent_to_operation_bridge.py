@@ -49,6 +49,7 @@ INTENT_TO_ALLOWED_PRIMARY_SKILLS: Final[dict[str, frozenset[str] | None]] = {
     "spl_generation": None,
     "knowledge_recall": KNOWLEDGE_RECALL_PRIMARY_SKILLS,
     "alert_summary": ALERT_SUMMARY_PRIMARY_SKILLS,
+    "guided_investigation": frozenset(),
 }
 
 

@@ -1029,13 +1029,21 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if not has_guidance:
             analyst_response = None
     final_answer_validation = None
-    if settings.control_plane_enabled:
+    guided_without_control_plane = (
+        isinstance(state.get("planning_decision"), dict)
+        and state["planning_decision"].get("path_type") == "guided_investigation"
+    )
+    if settings.control_plane_enabled or guided_without_control_plane:
         validation = validate_final_answer(
             analyst_response=analyst_response,
             answer_contract=answer_contract_payload,
             evidence_plan=state.get("evidence_plan"),
             mitre_decision=mitre_decision,
             human_review=human_review if isinstance(human_review, dict) else None,
+            planning_decision=state.get("planning_decision"),
+            routing_provenance=(state.get("routed") or {}).get("routing_provenance")
+            if isinstance(state.get("routed"), dict)
+            else None,
         )
         final_answer_validation = validation.model_dump()
         if validation.guard_status == "blocked":
@@ -2828,6 +2836,7 @@ def _chat_message(
     from app.chat.guidance_templates import (
         build_conceptual_mitre_guidance,
         build_investigation_triage_guidance,
+        build_guided_investigation_guidance,
         build_mitre_evidence_threshold_guidance,
         build_policy_escalation_guidance,
         build_spl_execution_refusal_guidance,
@@ -2844,6 +2853,8 @@ def _chat_message(
         if user_query and is_explicit_run_spl_query(user_query):
             return build_spl_execution_refusal_guidance()
         return build_unsafe_action_guidance()
+    if path_type == "guided_investigation" and user_query:
+        return build_guided_investigation_guidance(user_query)
     if user_query and is_policy_escalation_guidance_query(user_query):
         return build_policy_escalation_guidance(user_query)
     if user_query and is_mitre_evidence_threshold_query(user_query):

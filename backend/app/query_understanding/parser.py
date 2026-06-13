@@ -5,6 +5,7 @@ import re
 from app.coverage.question_runtime_map import match_question_runtime_entry, nearest_question_runtime_entry
 from app.coverage.semantic_question_index import semantic_question_match
 from app.query_understanding.models import OutputTemplate, QueryEntities, QueryUnderstandingResult, RequestedOutputType
+from app.query_understanding.soc_investigation_shape import detect_soc_investigation_shape
 from app.query_understanding.time_window import normalize_time_window
 from app.use_cases.registry import load_use_case_catalog, match_use_cases
 
@@ -46,7 +47,7 @@ def understand_query(query: str) -> QueryUnderstandingResult:
         primary_use_case=primary_use_case,
     )
 
-    return QueryUnderstandingResult(
+    result = QueryUnderstandingResult(
         raw_query=query,
         normalized_query=normalized,
         primary_intent=mapped_primary_skill,
@@ -76,6 +77,22 @@ def understand_query(query: str) -> QueryUnderstandingResult:
         registry_consistency=_registry_consistency(primary_use_case, question_registry_entry),
         registry_warnings=registry_warnings,
         llm_advisory_recommended=_llm_advisory_recommended(deterministic_match_path, registry_warnings),
+    )
+    shaped = detect_soc_investigation_shape(
+        query,
+        exact_105_match=deterministic_match_path in {"exact_105_question", "exact_105_plus_use_case_catalog"},
+    ) and deterministic_match_path == "out_of_registry"
+    return result.model_copy(
+        update={
+            "soc_investigation_shaped": shaped,
+            "route_skill_candidate": "guided_investigation" if shaped else None,
+            "intent_candidate": "guided_investigation" if shaped else None,
+            "triage_signals": {
+                "soc_investigation_shaped": shaped,
+                "block_or_contain": False,
+                "explicit_run_spl": False,
+            },
+        }
     )
 
 

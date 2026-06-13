@@ -38,7 +38,7 @@ def select_route_from_understanding(
     if path == "use_case_catalog":
         return _route_catalog_only(understanding, query, keyword_would_have)
     if path == "out_of_registry":
-        return _route_out_of_registry(understanding, keyword_would_have)
+        return _route_out_of_registry(understanding, query, keyword_would_have)
 
     base = dict(LOW_CONFIDENCE_ROUTE)
     base["reasons"] = list(base.get("reasons", [])) + [f"unknown_match_path:{path}"]
@@ -207,8 +207,34 @@ def _route_catalog_only(
 
 def _route_out_of_registry(
     understanding: QueryUnderstandingResult,
+    query: str,
     keyword_would_have: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    # Route rescue is subordinate to the canonical governance action signals.
+    # The shape detector may still recognize the investigation half of a mixed
+    # request, but it must never turn an unsafe action into guided guidance.
+    from app.chat.query_signals import extract_query_signals
+
+    signals = extract_query_signals(query, understanding)
+    if understanding.soc_investigation_shaped and not signals["action_or_containment_shaped"]:
+        base = {
+            "skill": "guided_investigation",
+            "tool_plan": _tool_plan_for_skill("guided_investigation"),
+            "confidence": 0.42,
+            "reasons": ["out_of_registry_soc_investigation_rescue", "execution_disabled"],
+        }
+        provenance = build_routing_provenance(
+            understanding,
+            selected_by="out_of_registry_investigation_rescue",
+            authority_source="guided_investigation_rescue",
+            skill=base["skill"],
+            tool_plan=list(base["tool_plan"]),
+            confidence=float(base["confidence"]),
+            keyword_router_would_have_selected=keyword_would_have,
+            rescue_mode=True,
+            why_not_knowledge_recall="Query requests an investigation process, not a bounded knowledge lookup.",
+        )
+        return base, provenance
     base = dict(LOW_CONFIDENCE_ROUTE)
     base["reasons"] = list(base.get("reasons", [])) + ["out_of_registry_no_105_or_catalog_match"]
     provenance = build_routing_provenance(
