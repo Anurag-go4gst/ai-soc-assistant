@@ -613,9 +613,10 @@ def test_catalogue_use_case_family_fallback(monkeypatch):
 def test_catalogue_use_case_family_fallback_unmapped_returns_none(monkeypatch):
     from app.config import settings as _settings
     monkeypatch.setattr(_settings, "ai_soc_spl_draft_preview_enabled", True)
-    # Unmapped use case (LLM-tail) gets no deterministic draft.
+    # An analyst-workflow use case (no detection family) gets no deterministic
+    # draft via the use_case fallback.
     preview = build_draft_preview(
-        "Investigate credential dumping signal",
-        use_case_id="edr_credential_dumping_signal",
+        "Show the SOP for this alert",
+        use_case_id="soc_show_sop",
     )
     assert preview is None

@@ -5,8 +5,8 @@ data source, metric/aggregation, and entity? No LLM, no app behavior change.
 
 | Corpus | Relevant | Total | % | Lanes |
 |--------|----------|-------|---|-------|
-| 105 canonical | 97 | 102 | 95.1 | {'draft': 102} |
-| Catalogue (spl-expected) | 22 | 31 | 71.0 | {'template': 10, 'none': 9, 'draft': 12} |
+| 105 canonical | 100 | 102 | 98.0 | {'draft': 102} |
+| Catalogue (spl-expected) | 31 | 31 | 100.0 | {'template': 10, 'draft': 21} |
 
 Catalogue row classes: {'spl_expected': 31, 'justified_no_spl': 11, 'deferred': 4} — `justified_no_spl`
 (analyst-workflow / knowledge skills) and `deferred` (OT "later") are
@@ -17,8 +17,8 @@ excluded from the coverage denominator; they are correctly handled without SPL.
 
 ## Top mismatch reasons
 
-- **105**: {'entity_missing': 3, 'data_source_missing:auth': 1, 'data_source_missing:endpoint': 1}
-- **Catalogue**: {'no_spl_generated': 9}
+- **105**: {'entity_missing': 1, 'data_source_missing:endpoint': 1}
+- **Catalogue**: {}
 
 ## Method (caveat)
 

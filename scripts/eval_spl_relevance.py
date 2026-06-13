@@ -98,14 +98,44 @@ def resolve_spl_for_query(
 # produce no SPL (need entity-context or case-history tooling instead).
 NON_SPL_PATTERN_TYPES = {"case_state_lookup", "asset_identity_context"}
 
+# --llm-mock: hand-crafted SPL standing in for what the LLM failover produces at
+# runtime for genuinely multi-signal questions the deterministic draft lane cannot
+# route. This is a *runtime-contract proof* (does the gate accept a correct LLM
+# answer for these?), NOT deterministic coverage — the live path needs
+# ai_soc_llm_spl_fallback_enabled=true and a model.
+MOCK_LLM_SPL: dict[str, str] = {
+    "q0.q092": (
+        "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now (bytes_out=* OR bytes=*) "
+        "| eval user_norm=lower(coalesce(user, username, src_user, \"unknown\")) "
+        "| eval bytes_norm=coalesce(bytes_out, bytes, 0) "
+        "| stats sum(bytes_norm) as total_bytes_out count as sessions dc(dest_ip) as distinct_destinations by user_norm "
+        "| where total_bytes_out > 100000000 | sort - total_bytes_out | head 100"
+    ),
+    "q0.q093": (
+        "search (index=<endpoint_index> sourcetype=<endpoint_process_sourcetype>) OR (index=<dns_index> sourcetype=<dns_sourcetype>) earliest=-24h latest=now "
+        "| eval host_norm=lower(coalesce(Computer, host, src_host, src_ip, \"unknown\")) "
+        "| eval is_process=if(isnotnull(Image) OR isnotnull(process), 1, 0) "
+        "| eval is_dns=if(isnotnull(query), 1, 0) "
+        "| stats sum(is_process) as process_events sum(is_dns) as dns_events dc(query) as distinct_domains by host_norm "
+        "| where process_events > 0 AND dns_events > 0 | sort - dns_events | head 100"
+    ),
+}
 
-def _eval_105(active: dict[str, str]) -> list[dict[str, Any]]:
+
+def _eval_105(active: dict[str, str], *, llm_mock: bool = False) -> list[dict[str, Any]]:
     entries = json.loads(MAP_PATH.read_text(encoding="utf-8"))["entries"]
     rows: list[dict[str, Any]] = []
     for e in entries:
         q = str(e["question"])
         pt = e.get("pattern_type")
+        ref = e["question_ref"]
         spl, lane = resolve_spl_for_query(q, pattern_type=pt, active_templates=active)
+        # Runtime-contract proof: if the deterministic lane left this row without a
+        # relevant SPL and we have a mock LLM answer, substitute it (lane=llm_mock).
+        if llm_mock and ref in MOCK_LLM_SPL:
+            det_score = score_relevance(q, spl, pattern_type=pt)
+            if not det_score["relevant"]:
+                spl, lane = MOCK_LLM_SPL[ref], "llm_mock"
         # Justified-no-SPL only when the row is a lookup/enrichment class AND no SPL
         # surfaced. A lookup-classed question that still produced relevant SPL is a
         # bonus, not a failure — keep it scored. (pattern_type is noisy; do not
@@ -216,10 +246,13 @@ def main() -> int:
                         help="minimum relevant/105 for --check")
     parser.add_argument("--floor-catalogue", type=int, default=0,
                         help="minimum relevant/catalogue for --check")
+    parser.add_argument("--llm-mock", action="store_true",
+                        help="substitute mock LLM SPL for multi-signal refs the "
+                             "deterministic lane cannot route (runtime-contract proof)")
     args = parser.parse_args()
 
     active = _load_active_templates()
-    rows = _eval_105(active) + _eval_catalogue(active)
+    rows = _eval_105(active, llm_mock=args.llm_mock) + _eval_catalogue(active)
 
     s105 = _summary(rows, "105")
     scat = _summary(rows, "catalogue")

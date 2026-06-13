@@ -116,3 +116,33 @@ def test_to_dict_round_trips():
     d = r.to_dict()
     assert d["relevant"] is True
     assert set(d) == {"relevant", "mismatches", "checks", "trace"}
+
+
+import pytest  # noqa: E402
+
+# Phase D.2: every catalogue use case mapped to a lab family must produce a draft
+# whose SPL passes the structural relevance gate for that detection.
+_USE_CASE_QUERY = {
+    "net_firewall_deny_spike": "Investigate firewall deny spike",
+    "net_vpn_login_anomaly": "Investigate VPN login anomaly",
+    "edr_suspicious_process": "Investigate suspicious process execution",
+    "auth_after_hours_critical_asset": "Investigate after-hours login to critical asset",
+    "edr_credential_dumping_signal": "Investigate credential dumping signal",
+    "auth_impossible_travel": "Investigate impossible travel",
+    "net_blocked_region_connection": "Check connection to blocked country",
+    "auth_service_account_abnormal_login": "Investigate service account abnormal login",
+    "auth_disabled_account_login": "Check login from disabled account",
+}
+
+
+@pytest.mark.parametrize("use_case_id,query", list(_USE_CASE_QUERY.items()))
+def test_phase_d2_catalogue_family_draft_is_relevant(monkeypatch, use_case_id, query):
+    import app.chat  # noqa: F401  warm package to resolve draft_preview import cycle
+    from app.spl.draft_preview import build_draft_preview
+
+    from app.config import settings as _settings
+    monkeypatch.setattr(_settings, "ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(query, use_case_id=use_case_id)
+    assert preview is not None, f"{use_case_id} produced no draft"
+    result = check_spl_relevance(query, preview["draft_spl"])
+    assert result.relevant, f"{use_case_id} draft not relevant: {result.mismatches}"

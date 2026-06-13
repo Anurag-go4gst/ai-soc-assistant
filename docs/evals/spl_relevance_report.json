@@ -14,8 +14,8 @@
   "summary": {
     "105": {
       "n": 102,
-      "relevant": 97,
-      "relevant_pct": 95.1,
+      "relevant": 100,
+      "relevant_pct": 98.0,
       "lanes": {
         "draft": 102
       },
@@ -24,28 +24,24 @@
         "justified_no_spl": 3
       },
       "top_mismatches": {
-        "entity_missing": 3,
-        "data_source_missing:auth": 1,
+        "entity_missing": 1,
         "data_source_missing:endpoint": 1
       }
     },
     "catalogue": {
       "n": 31,
-      "relevant": 22,
-      "relevant_pct": 71.0,
+      "relevant": 31,
+      "relevant_pct": 100.0,
       "lanes": {
         "template": 10,
-        "none": 9,
-        "draft": 12
+        "draft": 21
       },
       "classes": {
         "spl_expected": 31,
         "justified_no_spl": 11,
         "deferred": 4
       },
-      "top_mismatches": {
-        "no_spl_generated": 9
-      }
+      "top_mismatches": {}
     }
   },
   "rows": [
@@ -1081,10 +1077,8 @@
       "pattern_type": "new_or_unusual_source",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": false,
-      "mismatches": [
-        "entity_missing"
-      ],
+      "relevant": true,
+      "mismatches": [],
       "checks": {
         "expected_sources": [],
         "data_source_ok": true,
@@ -1093,7 +1087,7 @@
         "asked_entities": [
           "user"
         ],
-        "entity_ok": false
+        "entity_ok": true
       }
     },
     {
@@ -1247,10 +1241,8 @@
       "pattern_type": "new_or_unusual_source",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": false,
-      "mismatches": [
-        "entity_missing"
-      ],
+      "relevant": true,
+      "mismatches": [],
       "checks": {
         "expected_sources": [],
         "data_source_ok": true,
@@ -1259,7 +1251,7 @@
         "asked_entities": [
           "user"
         ],
-        "entity_ok": false
+        "entity_ok": true
       }
     },
     {
@@ -1553,15 +1545,13 @@
       "pattern_type": "threshold_anomaly",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": false,
-      "mismatches": [
-        "data_source_missing:auth"
-      ],
+      "relevant": true,
+      "mismatches": [],
       "checks": {
         "expected_sources": [
           "auth"
         ],
-        "data_source_ok": false,
+        "data_source_ok": true,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
@@ -1624,7 +1614,9 @@
       "relevant": true,
       "mismatches": [],
       "checks": {
-        "expected_sources": [],
+        "expected_sources": [
+          "endpoint"
+        ],
         "data_source_ok": true,
         "wants_metric": true,
         "has_aggregation": true,
@@ -2356,12 +2348,17 @@
       "question": "Investigate impossible travel",
       "pattern_type": "Authentication / Identity",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2391,12 +2388,21 @@
       "question": "Investigate service account abnormal login",
       "pattern_type": "Authentication / Identity",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2444,12 +2450,21 @@
       "question": "Check login from disabled account",
       "pattern_type": "Authentication / Identity",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2457,12 +2472,21 @@
       "question": "Investigate after-hours login to critical asset",
       "pattern_type": "Authentication / Identity",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2470,12 +2494,20 @@
       "question": "Investigate firewall deny spike",
       "pattern_type": "Network / Firewall",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "firewall",
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2547,12 +2579,20 @@
       "question": "Check connection to blocked country",
       "pattern_type": "Network / Firewall",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "firewall",
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2582,12 +2622,20 @@
       "question": "Investigate VPN login anomaly",
       "pattern_type": "Network / Firewall",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth",
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2655,12 +2703,19 @@
       "question": "Investigate suspicious process execution",
       "pattern_type": "Endpoint / EDR",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2692,7 +2747,9 @@
       "relevant": true,
       "mismatches": [],
       "checks": {
-        "expected_sources": [],
+        "expected_sources": [
+          "endpoint"
+        ],
         "data_source_ok": true,
         "wants_metric": false,
         "has_aggregation": true,
@@ -2746,12 +2803,19 @@
       "question": "Investigate credential dumping signal",
       "pattern_type": "Endpoint / EDR",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -3004,10 +3068,19 @@
       "question": "Critical asset after-hours access",
       "pattern_type": "OT / Critical infrastructure later",
       "row_class": "deferred",
-      "lane": "none",
+      "lane": "draft",
       "relevant": true,
       "mismatches": [],
-      "checks": {}
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",

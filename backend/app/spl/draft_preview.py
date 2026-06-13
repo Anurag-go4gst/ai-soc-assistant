@@ -101,6 +101,56 @@ FAMILY_PRESENTATION: dict[str, dict[str, str]] = {
         "review_type": "investigation_review",
         "review_type_display": "Investigation review — lab draft SPL, DNS source profile required, not executed",
     },
+    "firewall_deny_spike": {
+        "title": "Firewall deny/drop spike by source",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, firewall source profile required, not executed",
+    },
+    "vpn_login_anomaly": {
+        "title": "VPN login anomaly (multi-geo / multi-IP)",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, VPN source profile required, not executed",
+    },
+    "endpoint_suspicious_process": {
+        "title": "Suspicious process / LOLBin execution hunt",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, endpoint source profile required, not executed",
+    },
+    "auth_after_hours_login": {
+        "title": "After-hours authentication review",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, auth source profile required, not executed",
+    },
+    "endpoint_credential_dumping": {
+        "title": "Credential-dumping signal hunt (LSASS)",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, endpoint source profile required, not executed",
+    },
+    "auth_impossible_travel": {
+        "title": "Impossible-travel login review",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, auth/geo source profile required, not executed",
+    },
+    "network_blocked_region": {
+        "title": "Connections to blocked region/country",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, network/geo source profile required, not executed",
+    },
+    "auth_service_account_anomaly": {
+        "title": "Service account abnormal login review",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, auth source profile required, not executed",
+    },
+    "auth_password_change_anomaly": {
+        "title": "Repeated password change / reset review",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, auth source profile required, not executed",
+    },
+    "auth_disabled_account_login": {
+        "title": "Disabled-account login attempts",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, auth source profile required, not executed",
+    },
     "endpoint_powershell_suspicious": {
         "title": "Suspicious PowerShell activity hunt",
         "review_type": "investigation_review",
@@ -1183,6 +1233,448 @@ search index=<dns_index> sourcetype=<dns_sourcetype> earliest=-24h latest=now (q
         ),
     ),
     _family(
+        "firewall_deny_spike",
+        pattern_texts=(
+            r"firewall\s+deny",
+            r"deny\s+spike",
+            r"blocked\s+connections?\s+spike",
+            r"spike\s+in\s+(?:denies|denials|blocks)",
+        ),
+        draft_spl="""
+search index=<firewall_index> sourcetype=<firewall_sourcetype> earliest=-24h latest=now (action=blocked OR action=denied OR action=deny OR action=drop)
+| eval src_ip_norm=coalesce(src_ip, src, source, "unknown")
+| eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
+| eval dest_port_norm=coalesce(dest_port, dport, destination_port, "")
+| eval action_norm=lower(coalesce(action, status, disposition, ""))
+| stats
+    count as deny_count
+    dc(dest_ip_norm) as distinct_destinations
+    values(dest_port_norm) as dest_ports
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by src_ip_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| where deny_count > 100
+| sort - deny_count
+| head 100
+""",
+        assumptions=(
+            "Ranks source IPs by firewall deny/drop volume over 24h; the >100 threshold is illustrative — tune per environment.",
+            "Misconfigured clients and scanners dominate deny spikes — validate intent before escalating.",
+            "Replace <firewall_index> and <firewall_sourcetype> from your firewall source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "src_ip", "action", "_time"),
+        required_source_profile_fields=("firewall_index", "firewall_sourcetype"),
+        investigation_checklist=(
+            "Separate scanner/misconfiguration noise from targeted denied traffic.",
+            "Review the destination ports and IPs the source was denied to.",
+            "Correlate with allowed traffic from the same source for context.",
+            "Do not declare an attack from deny volume alone.",
+        ),
+    ),
+    _family(
+        "vpn_login_anomaly",
+        pattern_texts=(
+            r"vpn\s+login\s+anomaly",
+            r"vpn\s+(?:auth|authentication|login)\s+(?:anomaly|spike|failure)",
+            r"unusual\s+vpn\s+(?:login|access)",
+        ),
+        draft_spl="""
+search index=<vpn_index> sourcetype=<vpn_sourcetype> earliest=-24h latest=now (action=success OR action=failure OR action=login)
+| eval user_norm=lower(coalesce(user, username, src_user, "unknown"))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval country_norm=lower(coalesce(src_country, country, geo_country, ""))
+| eval action_norm=lower(coalesce(action, status, result, ""))
+| stats
+    count as vpn_events
+    dc(src_ip_norm) as distinct_source_ips
+    dc(country_norm) as distinct_countries
+    values(country_norm) as countries
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by user_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| where distinct_countries > 1 OR distinct_source_ips > 3
+| sort - vpn_events
+| head 100
+""",
+        assumptions=(
+            "Surfaces VPN users with logins from multiple countries or many source IPs over 24h.",
+            "Travel, mobile carriers, and CGNAT can produce benign multi-IP/multi-country patterns — validate before escalation.",
+            "Replace <vpn_index> and <vpn_sourcetype> from your VPN source profile; geo fields require enrichment.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "user", "src_ip", "_time"),
+        required_source_profile_fields=("vpn_index", "vpn_sourcetype"),
+        investigation_checklist=(
+            "Confirm whether multi-country logins are concurrent (impossible travel) or sequential.",
+            "Check the user's device posture and MFA status for the sessions.",
+            "Correlate with downstream access from the VPN-assigned address.",
+            "Do not declare account compromise from geo spread alone.",
+        ),
+    ),
+    _family(
+        "endpoint_suspicious_process",
+        pattern_texts=(
+            r"suspicious\s+process",
+            r"suspicious\s+(?:binary|executable|execution)",
+            r"unusual\s+process\s+execution",
+            r"lolbin|living[\s-]off[\s-]the[\s-]land",
+        ),
+        draft_spl="""
+search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now (process=* OR Image=* OR New_Process_Name=*)
+| eval host_norm=lower(coalesce(Computer, host, dest, "unknown"))
+| eval user_norm=lower(coalesce(User, user, user_name, "unknown"))
+| eval image_norm=lower(coalesce(Image, New_Process_Name, process, process_name, ""))
+| eval parent_norm=lower(coalesce(ParentImage, parent_process_name, ""))
+| eval command_line_norm=lower(coalesce(CommandLine, process_command_line, cmdline, ""))
+| where like(image_norm, "%powershell.exe") OR like(image_norm, "%cmd.exe") OR like(image_norm, "%wscript.exe") OR like(image_norm, "%cscript.exe") OR like(image_norm, "%mshta.exe") OR like(image_norm, "%rundll32.exe") OR like(image_norm, "%regsvr32.exe") OR like(image_norm, "%certutil.exe") OR like(command_line_norm, "%-enc%") OR like(command_line_norm, "%downloadstring%")
+| stats
+    count as suspicious_events
+    dc(image_norm) as distinct_processes
+    values(image_norm) as processes
+    latest(command_line_norm) as sample_command
+    min(_time) as first_seen_epoch
+    max(_time) as last_seen_epoch
+    by host_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| sort - suspicious_events
+| head 100
+""",
+        assumptions=(
+            "Surfaces hosts running common LOLBins / interpreters with suspicious arguments over 24h.",
+            "Administrative automation legitimately uses these binaries — review command content before judgment.",
+            "Sourcetype placeholder accepts Sysmon EventCode 1, Windows 4688 with command line, or EDR process telemetry.",
+            "Replace <endpoint_index> and <endpoint_process_sourcetype> from your endpoint source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "Image", "CommandLine", "Computer", "_time"),
+        required_source_profile_fields=("endpoint_index", "endpoint_process_sourcetype"),
+        investigation_checklist=(
+            "Decode encoded arguments and validate parent-process lineage.",
+            "Check signing status and prevalence of the binary across the fleet.",
+            "Correlate with follow-on network or file activity from the same host.",
+            "Do not declare compromise from interpreter usage alone.",
+        ),
+    ),
+    _family(
+        "auth_after_hours_login",
+        pattern_texts=(
+            r"after[\s-]hours\s+(?:login|logon|access|activity)",
+            r"out\s+of\s+hours\s+(?:login|access)",
+            r"login\s+outside\s+(?:normal\s+)?(?:business\s+)?hours",
+        ),
+        draft_spl="""
+search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (action=success OR action=failure)
+| eval user_norm=lower(coalesce(user, username, src_user, "unknown"))
+| eval host_norm=lower(coalesce(host, dest, dest_host, "unknown"))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval action_norm=lower(coalesce(action, status, result, ""))
+| where (date_hour < 7) OR (date_hour >= 19)
+| stats
+    count as after_hours_logins
+    dc(host_norm) as distinct_hosts
+    values(host_norm) as hosts
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by user_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| sort - after_hours_logins
+| head 100
+""",
+        assumptions=(
+            "Counts logins outside 07:00-19:00 local using the indexed date_hour field; adjust the window to your business hours and timezone.",
+            "Shift work, on-call, and automation produce legitimate after-hours logins — correlate with the user's role.",
+            "Critical-asset scoping should come from an asset inventory lookup during review; this draft does not assert asset criticality.",
+            "Replace <auth_index> and <auth_sourcetype> from your authentication source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "user", "host", "_time"),
+        required_source_profile_fields=("auth_index", "auth_sourcetype"),
+        investigation_checklist=(
+            "Confirm the login times against the user's expected working pattern.",
+            "Check whether the target host is a critical asset via asset inventory.",
+            "Review source IP and MFA status for the after-hours sessions.",
+            "Do not treat after-hours access as malicious without corroboration.",
+        ),
+    ),
+    _family(
+        "endpoint_credential_dumping",
+        pattern_texts=(
+            r"credential\s+dump",
+            r"credential\s+dumping",
+            r"\blsass\b",
+            r"\bmimikatz\b",
+            r"sekurlsa|procdump|comsvcs",
+        ),
+        draft_spl="""
+search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now (lsass OR mimikatz OR procdump OR comsvcs OR sekurlsa)
+| eval host_norm=lower(coalesce(Computer, host, dest, "unknown"))
+| eval user_norm=lower(coalesce(User, user, user_name, "unknown"))
+| eval image_norm=lower(coalesce(Image, New_Process_Name, process, ""))
+| eval command_line_norm=lower(coalesce(CommandLine, process_command_line, cmdline, ""))
+| eval target_norm=lower(coalesce(TargetImage, target_process_name, target_process_path, ""))
+| where like(command_line_norm, "%lsass%") OR like(command_line_norm, "%mimikatz%") OR like(command_line_norm, "%sekurlsa%") OR like(command_line_norm, "%procdump%") OR like(command_line_norm, "%comsvcs.dll%") OR like(target_norm, "%lsass.exe")
+| stats
+    count as credential_dump_signals
+    values(image_norm) as processes
+    latest(command_line_norm) as sample_command
+    min(_time) as first_seen_epoch
+    max(_time) as last_seen_epoch
+    by host_norm user_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| sort - credential_dump_signals
+| head 100
+""",
+        assumptions=(
+            "Surfaces hosts with LSASS-access / known credential-dumping tool indicators over 24h.",
+            "Legitimate EDR, backup, and diagnostic tools can touch LSASS — validate the process and signer before judgment.",
+            "Detection is signal-based; absence of a hit does not prove no dumping occurred.",
+            "Replace <endpoint_index> and <endpoint_process_sourcetype> from your endpoint source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "Image", "CommandLine", "Computer", "_time"),
+        required_source_profile_fields=("endpoint_index", "endpoint_process_sourcetype"),
+        investigation_checklist=(
+            "Confirm the accessing process, its signer, and command line.",
+            "Check for follow-on lateral movement or new authentications from the host.",
+            "Isolate and preserve volatile memory if dumping is confirmed during review.",
+            "Do not declare compromise from a single tool-name match alone.",
+        ),
+    ),
+    _family(
+        "auth_impossible_travel",
+        pattern_texts=(
+            r"impossible\s+travel",
+            r"impossible\s+locations?",
+            r"login\s+from\s+(?:two|multiple)\s+(?:far|distant)",
+        ),
+        draft_spl="""
+search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now action=success
+| eval user_norm=lower(coalesce(user, username, src_user, "unknown"))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval country_norm=lower(coalesce(src_country, country, geo_country, ""))
+| stats
+    count as login_count
+    dc(country_norm) as distinct_countries
+    dc(src_ip_norm) as distinct_source_ips
+    values(country_norm) as countries
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by user_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| where distinct_countries > 1
+| sort - distinct_countries
+| head 100
+""",
+        assumptions=(
+            "Surfaces users with successful logins from more than one country over 24h; true impossible travel needs login timestamps and geo-distance during review.",
+            "VPNs, proxies, and cloud egress can produce benign multi-country logins — validate source reputation first.",
+            "Geo fields (src_country) require enrichment; map them from your auth source profile.",
+            "Replace <auth_index> and <auth_sourcetype> from your authentication source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "user", "src_ip", "_time"),
+        required_source_profile_fields=("auth_index", "auth_sourcetype"),
+        investigation_checklist=(
+            "Order the logins by time and compute feasibility against geo-distance.",
+            "Separate VPN/proxy egress from genuine end-user geographies.",
+            "Check MFA status and device for each location.",
+            "Do not declare compromise from multi-country logins alone.",
+        ),
+    ),
+    _family(
+        "network_blocked_region",
+        pattern_texts=(
+            r"blocked\s+(?:country|region|geo)",
+            r"connection\s+to\s+(?:a\s+)?(?:blocked|prohibited|sanctioned)\s+(?:country|region)",
+            r"traffic\s+to\s+(?:embargoed|sanctioned)\s+countr",
+        ),
+        draft_spl="""
+search index=<firewall_index> sourcetype=<firewall_sourcetype> earliest=-24h latest=now (action=allowed OR action=permit OR action=accept OR action=blocked OR action=denied)
+| eval src_ip_norm=coalesce(src_ip, src, source, "unknown")
+| eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")
+| eval dest_country_norm=lower(coalesce(dest_country, dest_geo_country, country, ""))
+| eval action_norm=lower(coalesce(action, status, disposition, ""))
+| eval bytes_norm=coalesce(bytes_out, bytes, 0)
+| where dest_country_norm IN ("cn", "ru", "kp", "ir", "sy")
+| stats
+    count as connection_count
+    sum(bytes_norm) as total_bytes
+    dc(dest_ip_norm) as distinct_destinations
+    values(dest_country_norm) as countries
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by src_ip_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| sort - connection_count
+| head 100
+""",
+        assumptions=(
+            "Surfaces internal sources connecting to a placeholder blocked-country list at the firewall/proxy egress; replace the country codes with your organisation's policy list.",
+            "Geo enrichment (dest_country) must be mapped from your firewall/proxy source profile; CDNs can resolve to unexpected geographies.",
+            "Connection to a blocked region is a policy signal, not proof of malice — validate the destination and purpose.",
+            "Replace <firewall_index> and <firewall_sourcetype> from your firewall/proxy source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "src_ip", "dest_ip", "action", "_time"),
+        required_source_profile_fields=("firewall_index", "firewall_sourcetype"),
+        investigation_checklist=(
+            "Confirm the geo mapping and whether the destination is CDN/cloud infrastructure.",
+            "Check the business justification for the source's traffic to the region.",
+            "Review data volume for possible exfiltration alongside the policy hit.",
+            "Do not declare an incident from a geo policy match alone.",
+        ),
+    ),
+    _family(
+        "auth_service_account_anomaly",
+        pattern_texts=(
+            r"service\s+account\s+(?:abnormal|anomal|unusual|interactive)",
+            r"service\s+account\s+(?:login|logon)",
+            r"svc[_\s-]?account\s+(?:anomaly|interactive)",
+        ),
+        draft_spl="""
+search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (action=success OR action=failure)
+| eval user_norm=lower(coalesce(user, username, src_user, "unknown"))
+| eval host_norm=lower(coalesce(host, dest, dest_host, "unknown"))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval logon_type_norm=coalesce(Logon_Type, logon_type, "")
+| where like(user_norm, "svc_%") OR like(user_norm, "svc-%") OR like(user_norm, "%service%") OR like(user_norm, "%$")
+| stats
+    count as login_count
+    dc(host_norm) as distinct_hosts
+    dc(src_ip_norm) as distinct_source_ips
+    values(logon_type_norm) as logon_types
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by user_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| where distinct_hosts > 5 OR distinct_source_ips > 5
+| sort - login_count
+| head 100
+""",
+        assumptions=(
+            "Heuristically identifies service accounts by naming convention (svc_, machine $) — replace with your account taxonomy or an identity lookup.",
+            "Service accounts logging into many hosts or from many IPs, or with interactive logon types, warrant review.",
+            "Logon-type fields are Windows-specific; map equivalents for other auth sources.",
+            "Replace <auth_index> and <auth_sourcetype> from your authentication source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "user", "host", "_time"),
+        required_source_profile_fields=("auth_index", "auth_sourcetype"),
+        investigation_checklist=(
+            "Confirm the account is a service account and its expected host scope.",
+            "Flag interactive (type 2) or remote-interactive (type 10) logons for service accounts.",
+            "Check for source IPs outside the account's expected infrastructure.",
+            "Do not treat broad service-account usage as malicious without baseline comparison.",
+        ),
+    ),
+    _family(
+        "auth_password_change_anomaly",
+        pattern_texts=(
+            r"password\s+chang",
+            r"chang\w*\s+(?:their\s+)?password",
+            r"password\s+reset",
+            r"\b4723\b|\b4724\b",
+        ),
+        draft_spl="""
+search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (EventCode=4723 OR EventCode=4724 OR action=password_change OR action=password_reset)
+| eval user_norm=lower(coalesce(user, username, target_user, Account_Name, "unknown"))
+| eval actor_norm=lower(coalesce(src_user, Subject_Account_Name, actor, "unknown"))
+| eval host_norm=lower(coalesce(host, dest, dest_host, "unknown"))
+| eval action_norm=lower(coalesce(action, EventCode, status, ""))
+| stats
+    count as password_change_count
+    dc(actor_norm) as distinct_actors
+    values(actor_norm) as actors
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by user_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| where password_change_count > 1
+| sort - password_change_count
+| head 100
+""",
+        assumptions=(
+            "Counts password change/reset events (Windows 4723 self-change, 4724 admin-reset) per target user over 24h; map equivalent actions for non-Windows sources.",
+            "Repeated password changes in a short window can indicate account takeover recovery, help-desk churn, or scripted abuse — confirm the actor.",
+            "Distinguish self-service (4723) from administrative reset (4724) during review.",
+            "Replace <auth_index> and <auth_sourcetype> from your authentication source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "user", "EventCode", "_time"),
+        required_source_profile_fields=("auth_index", "auth_sourcetype"),
+        investigation_checklist=(
+            "Identify who initiated each change (self vs administrative reset).",
+            "Correlate with preceding failed logons or lockouts for the same user.",
+            "Check for follow-on privileged access after the password change.",
+            "Do not assume compromise; benign help-desk activity is common.",
+        ),
+    ),
+    _family(
+        "auth_disabled_account_login",
+        pattern_texts=(
+            r"disabled\s+account\s+(?:login|logon|access)",
+            r"login\s+(?:from|to|by)\s+(?:a\s+)?disabled\s+account",
+            r"\b4725\b|\b4722\b|disabled\s+then\s+used",
+        ),
+        draft_spl="""
+search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (action=failure OR EventCode=4625 OR Status="0xC0000072" OR Sub_Status="0xC0000072")
+| eval user_norm=lower(coalesce(user, username, src_user, "unknown"))
+| eval host_norm=lower(coalesce(host, dest, dest_host, "unknown"))
+| eval src_ip_norm=coalesce(src_ip, src, source, "")
+| eval status_norm=lower(coalesce(Sub_Status, Status, result, ""))
+| where like(status_norm, "%0xc0000072%") OR like(status_norm, "%disabled%")
+| stats
+    count as disabled_login_attempts
+    dc(host_norm) as distinct_hosts
+    dc(src_ip_norm) as distinct_source_ips
+    values(host_norm) as hosts
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by user_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| sort - disabled_login_attempts
+| head 100
+""",
+        assumptions=(
+            "Keys on Windows status 0xC0000072 (account disabled) failed logons; map the equivalent disabled-account status for non-Windows auth sources.",
+            "Disabled-account login attempts often indicate stale automation or an attacker probing deprovisioned accounts — confirm during review.",
+            "Status/Sub_Status fields are Windows-specific; adjust for your source profile.",
+            "Replace <auth_index> and <auth_sourcetype> from your authentication source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "user", "Sub_Status", "_time"),
+        required_source_profile_fields=("auth_index", "auth_sourcetype"),
+        investigation_checklist=(
+            "Confirm the account is genuinely disabled in the directory.",
+            "Identify the source host/IP and whether it is stale automation or external.",
+            "Check for any successful authentication by the same identity.",
+            "Do not assume compromise; disabled-account failures are often benign drift.",
+        ),
+    ),
+    _family(
         "network_new_or_rare_behavior",
         pattern_texts=(
             r"unusual\s+protocols?",
@@ -1786,6 +2278,16 @@ CATALOGUE_USE_CASE_FAMILY: dict[str, str] = {
     "net_repeated_critical_asset_connections": "network_threshold_anomaly",
     "net_port_scanning": "network_threshold_anomaly",
     "dns_tunneling_candidate": "dns_beaconing_hunt",
+    # Phase D.2 — dedicated lab families for the previously uncovered nine.
+    "net_firewall_deny_spike": "firewall_deny_spike",
+    "net_vpn_login_anomaly": "vpn_login_anomaly",
+    "edr_suspicious_process": "endpoint_suspicious_process",
+    "auth_after_hours_critical_asset": "auth_after_hours_login",
+    "edr_credential_dumping_signal": "endpoint_credential_dumping",
+    "auth_impossible_travel": "auth_impossible_travel",
+    "net_blocked_region_connection": "network_blocked_region",
+    "auth_service_account_abnormal_login": "auth_service_account_anomaly",
+    "auth_disabled_account_login": "auth_disabled_account_login",
 }
 
 
@@ -1836,6 +2338,19 @@ def match_detection_family(user_query: str) -> str | None:
         r"\b(?:most|top|talkers?|highest|largest|busiest|volume)\b", normalized
     ):
         return "network_smb_top_talkers"
+    # Auth-aware routing (Phase D.2): identity questions that the generic
+    # new/rare network fallback would mis-answer must use an auth family grouped
+    # by user, not network protocol/port rarity.
+    if re.search(r"impossible\s+(?:travel|locations?)", normalized):
+        return "auth_impossible_travel"
+    if re.search(r"(?:outside|after)\b.*\bhours\b|after[\s-]hours", normalized) and re.search(
+        r"\blog(?:ging)?\s*in|logon|sign[\s-]?in|access", normalized
+    ):
+        return "auth_after_hours_login"
+    if re.search(r"password", normalized) and re.search(
+        r"chang|reset|multiple\s+times|repeated", normalized
+    ):
+        return "auth_password_change_anomaly"
     # DNS-aware routing: DNS-volume / domain-spread questions must use a DNS
     # family, not the generic network top-talkers fallback (R2 mis-route fix).
     dns_context = bool(re.search(r"\bdns\b", normalized)) or (

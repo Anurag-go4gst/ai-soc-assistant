@@ -35,8 +35,11 @@ if TYPE_CHECKING:  # avoid import cycle at runtime
 # to appear in the SPL body.
 DATA_SOURCES: dict[str, dict[str, list[str]]] = {
     "auth": {
+        # Note: standalone "credential" is intentionally NOT here — "credential
+        # dumping" is an endpoint technique, not an auth-source signal. Auth-credential
+        # intent is covered by login/logon/authentication/password.
         "q": ["login", "logon", "authentication", "auth", "failed login", "sign-in",
-              "account lockout", "lockout", "brute force", "password", "credential",
+              "account lockout", "lockout", "brute force", "password",
               "privileged", "4625", "4624", "4740"],
         "spl": ["authentication", "wineventlog", "win:auth", "eventcode=46", "eventcode=4740",
                 "failed_login", "login", "user=", "user_norm", "src_user", "account"],
@@ -58,7 +61,8 @@ DATA_SOURCES: dict[str, dict[str, list[str]]] = {
         # entities, not a data-source signal, and over-trigger this source.
         "q": ["process", "powershell", "endpoint detection", "edr", "sysmon",
               "scheduled task", "persistence", "command line", "command-line",
-              "encoded command", "parent process", "child process", "process creation"],
+              "encoded command", "parent process", "child process", "process creation",
+              "credential dump", "credential dumping", "lsass", "mimikatz", "service creation"],
         "spl": ["edr", "endpoint", "process", "sysmon", "powershell", "cmdline", "command_line",
                 "image", "parent_process", "schtask"],
     },

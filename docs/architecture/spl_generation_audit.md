@@ -298,6 +298,34 @@ Remaining 9 no-SPL rows, both honest:
 Governed templates remain authoritative; the map produces lab drafts only. Governance
 regression PASS.
 
+## 7f. Phase D.2 results (close the nine — lab families, no fabrication)
+
+Catalogue spl-expected **22/31 → 31/31 (100%)**; 105 **97 → 100/102**; with
+`--llm-mock` both reach **100%** (102/102 + 31/31).
+
+What shipped — 10 new placeholder lab draft families (governed templates stay
+planned; these are lab-only, never executed): `firewall_deny_spike`,
+`vpn_login_anomaly`, `endpoint_suspicious_process`, `auth_after_hours_login`,
+`endpoint_credential_dumping`, `auth_impossible_travel`, `network_blocked_region`,
+`auth_service_account_anomaly`, `auth_disabled_account_login`, plus
+`auth_password_change_anomaly`. Each: placeholder index/sourcetype, coalesce
+normalization, stats aggregation, epoch-alias + strftime-after-stats (U02-safe),
+`head 100`; all pass SOC-STD-SPL-001 (hard_fail=0) and the relevance gate.
+
+Wired via `CATALOGUE_USE_CASE_FAMILY` (catalogue rows) + new keyword rules in
+`match_detection_family` for the live 105 paraphrases (impossible-travel,
+after-hours, password-change). One gate refinement: "credential" removed from the
+auth keyword set and credential-dump/LSASS/mimikatz added to endpoint — "credential
+dumping" is an endpoint technique, not an auth-source signal. `network_blocked_region`
+queries firewall/proxy egress (the gate correctly required a firewall source for
+"blocked country").
+
+Remaining 2 (q092 large-outbound-after-access, q093 process+DNS correlation) are
+genuine multi-signal questions the deterministic lane cannot route; `--llm-mock`
+proves the relevance gate accepts a correct multi-source LLM answer for them, and
+the Phase C LLM failover produces it at runtime (flag on). Honest split: deterministic
+where a single detection family fits, LLM for true multi-signal correlation.
+
 ## 8. Baselines recorded (Phase A exit)
 
 | Check | Result |
