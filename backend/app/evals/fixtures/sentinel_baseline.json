@@ -191,7 +191,6 @@
     },
     "q0.q002": {
       "analyst_enabled_sections": [
-        "analyst_action_guidance",
         "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
@@ -199,19 +198,17 @@
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "analyst_action_guidance"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
-      "human_review_required": true,
+      "human_review_required": false,
       "intent_family": "spl_generation_only",
       "mapped_question_ref": "q0.q002",
       "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "requires_clarification": false,
-      "response_mode": "clarification_required",
+      "response_mode": "candidate_spl_rejected",
       "route_final": "attack_discovery",
       "selected_skill": "attack_discovery",
       "severity_label": "Not assigned from this question alone",
@@ -246,7 +243,6 @@
     },
     "q0.q006": {
       "analyst_enabled_sections": [
-        "analyst_action_guidance",
         "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
@@ -254,19 +250,17 @@
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "analyst_action_guidance"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
-      "human_review_required": true,
+      "human_review_required": false,
       "intent_family": "spl_generation_only",
       "mapped_question_ref": "q0.q006",
       "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "requires_clarification": false,
-      "response_mode": "clarification_required",
+      "response_mode": "candidate_spl_rejected",
       "route_final": "attack_discovery",
       "selected_skill": "attack_discovery",
       "severity_label": "Not assigned from this question alone",
@@ -275,7 +269,6 @@
     },
     "q0.q009": {
       "analyst_enabled_sections": [
-        "analyst_action_guidance",
         "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
@@ -283,19 +276,17 @@
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "analyst_action_guidance"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
-      "human_review_required": true,
+      "human_review_required": false,
       "intent_family": "spl_generation_only",
       "mapped_question_ref": "q0.q009",
       "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "requires_clarification": false,
-      "response_mode": "clarification_required",
+      "response_mode": "candidate_spl_rejected",
       "route_final": "attack_discovery",
       "selected_skill": "attack_discovery",
       "severity_label": "Not assigned from this question alone",
@@ -304,7 +295,6 @@
     },
     "q0.q010": {
       "analyst_enabled_sections": [
-        "analyst_action_guidance",
         "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
@@ -312,19 +302,17 @@
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "analyst_action_guidance"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
-      "human_review_required": true,
+      "human_review_required": false,
       "intent_family": "spl_generation_only",
       "mapped_question_ref": "q0.q010",
       "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "requires_clarification": false,
-      "response_mode": "clarification_required",
+      "response_mode": "candidate_spl_rejected",
       "route_final": "attack_discovery",
       "selected_skill": "attack_discovery",
       "severity_label": "Not assigned from this question alone",
@@ -333,7 +321,6 @@
     },
     "q0.q013": {
       "analyst_enabled_sections": [
-        "analyst_action_guidance",
         "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
@@ -341,19 +328,17 @@
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "analyst_action_guidance"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
-      "human_review_required": true,
+      "human_review_required": false,
       "intent_family": "spl_generation_only",
       "mapped_question_ref": "q0.q013",
       "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "requires_clarification": false,
-      "response_mode": "clarification_required",
+      "response_mode": "candidate_spl_rejected",
       "route_final": "attack_discovery",
       "selected_skill": "attack_discovery",
       "severity_label": "Not assigned from this question alone",
@@ -362,7 +347,6 @@
     },
     "q0.q015": {
       "analyst_enabled_sections": [
-        "analyst_action_guidance",
         "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
@@ -370,19 +354,17 @@
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [
-        "analyst_action_guidance"
-      ],
+      "enabled_sections": [],
       "execution_eligible": false,
       "execution_status": "skipped",
-      "human_review_required": true,
+      "human_review_required": false,
       "intent_family": "spl_generation_only",
       "mapped_question_ref": "q0.q015",
       "match_path": "exact_105_plus_use_case_catalog",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "requires_clarification": false,
-      "response_mode": "clarification_required",
+      "response_mode": "candidate_spl_rejected",
       "route_final": "attack_discovery",
       "selected_skill": "attack_discovery",
       "severity_label": "Not assigned from this question alone",
