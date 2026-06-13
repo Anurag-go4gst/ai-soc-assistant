@@ -592,3 +592,30 @@ def test_candidate_spl_still_requires_validator_approval(monkeypatch: pytest.Mon
     assert candidate is not None
     assert validation is not None
     assert validation["approved"] is False or candidate.get("candidate_spl") == ""
+
+
+def test_catalogue_use_case_family_fallback(monkeypatch):
+    """Phase D: catalogue rows with no keyword/pattern match resolve to their
+    mapped existing family via use_case_id, instead of returning no SPL."""
+    from app.config import settings as _settings
+    monkeypatch.setattr(_settings, "ai_soc_spl_draft_preview_enabled", True)
+    # 'Investigate lateral movement candidate' does not hit a keyword rule alone.
+    assert match_detection_family("Investigate lateral movement candidate") is None
+    preview = build_draft_preview(
+        "Investigate lateral movement candidate",
+        use_case_id="edr_lateral_movement_candidate",
+    )
+    assert preview is not None
+    assert preview["detection_family"] == "lateral_movement_internal"
+    assert preview["execution_enabled"] is False
+
+
+def test_catalogue_use_case_family_fallback_unmapped_returns_none(monkeypatch):
+    from app.config import settings as _settings
+    monkeypatch.setattr(_settings, "ai_soc_spl_draft_preview_enabled", True)
+    # Unmapped use case (LLM-tail) gets no deterministic draft.
+    preview = build_draft_preview(
+        "Investigate credential dumping signal",
+        use_case_id="edr_credential_dumping_signal",
+    )
+    assert preview is None

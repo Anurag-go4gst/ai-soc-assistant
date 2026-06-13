@@ -87,8 +87,8 @@ def resolve_spl_for_query(
     for key in (default_spl_template, use_case_id):
         if key and key in active:
             return active[key], "template"
-    # Lab draft lane.
-    draft = build_draft_preview(qtext, pattern_type=pattern_type)
+    # Lab draft lane (keyword + pattern_type + catalogue use_case fallback).
+    draft = build_draft_preview(qtext, pattern_type=pattern_type, use_case_id=use_case_id)
     if draft and draft.get("draft_spl"):
         return draft["draft_spl"], "draft"
     return None, "none"

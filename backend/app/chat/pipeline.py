@@ -487,11 +487,18 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         query_understanding, "deterministic_match_path", None
     ) in ("exact_105_question", "exact_105_plus_use_case_catalog"):
         exact_105_pattern = getattr(query_understanding, "mapped_pattern_type", None)
+    mapped_use_case_ids = (
+        getattr(query_understanding, "mapped_use_case_ids", None) or []
+        if query_understanding is not None
+        else []
+    )
+    draft_use_case_id = mapped_use_case_ids[0] if mapped_use_case_ids else None
     spl_draft_preview = build_draft_preview(
         query_text,
         spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
         unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
         pattern_type=exact_105_pattern,
+        use_case_id=draft_use_case_id,
     )
     llm_spl_candidate = _llm_spl_candidate_stage(
         skill=effective_skill,

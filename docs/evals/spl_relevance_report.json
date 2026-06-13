@@ -31,12 +31,12 @@
     },
     "catalogue": {
       "n": 31,
-      "relevant": 12,
-      "relevant_pct": 38.7,
+      "relevant": 22,
+      "relevant_pct": 71.0,
       "lanes": {
         "template": 10,
-        "none": 19,
-        "draft": 2
+        "none": 9,
+        "draft": 12
       },
       "classes": {
         "spl_expected": 31,
@@ -44,7 +44,7 @@
         "deferred": 4
       },
       "top_mismatches": {
-        "no_spl_generated": 19
+        "no_spl_generated": 9
       }
     }
   },
@@ -2369,12 +2369,21 @@
       "question": "Investigate privileged account login anomaly",
       "pattern_type": "Authentication / Identity",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2417,12 +2426,17 @@
       "question": "Investigate MFA failure spike",
       "pattern_type": "Authentication / Identity",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2469,12 +2483,21 @@
       "question": "Find new outbound destinations",
       "pattern_type": "Network / Firewall",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest"
+        ],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2482,12 +2505,21 @@
       "question": "Investigate port scanning",
       "pattern_type": "Network / Firewall",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "port"
+        ],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2495,12 +2527,19 @@
       "question": "Investigate east-west traffic anomaly",
       "pattern_type": "Network / Firewall",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2521,12 +2560,21 @@
       "question": "Repeated connection attempts to critical asset",
       "pattern_type": "Network / Firewall",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2567,12 +2615,19 @@
       "question": "Investigate DNS tunneling candidate",
       "pattern_type": "Network / Firewall",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2633,12 +2688,17 @@
       "question": "Investigate new service creation",
       "pattern_type": "Endpoint / EDR",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2646,12 +2706,19 @@
       "question": "Investigate scheduled task creation",
       "pattern_type": "Endpoint / EDR",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",
@@ -2659,12 +2726,19 @@
       "question": "Investigate lateral movement candidate",
       "pattern_type": "Endpoint / EDR",
       "row_class": "spl_expected",
-      "lane": "none",
-      "relevant": false,
-      "mismatches": [
-        "no_spl_generated"
-      ],
-      "checks": {}
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
     },
     {
       "corpus": "catalogue",

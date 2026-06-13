@@ -1768,6 +1768,27 @@ PATTERN_TYPE_FAMILY_FALLBACK: dict[str, str] = {
 }
 
 
+# Phase D coverage close: catalogue use cases whose detection is genuinely answered
+# by an EXISTING lab draft family. Used only when keyword + pattern_type routing
+# find nothing, so the catalogue row gets a relevant placeholder draft instead of
+# silence. Conservative — only 1:1 fits where the existing family truly covers the
+# use case. Rows with no honest existing-family fit are left to the LLM failover
+# tail (Phase C) rather than force-mapped. Governed templates remain authoritative;
+# these are lab drafts only.
+CATALOGUE_USE_CASE_FAMILY: dict[str, str] = {
+    "auth_mfa_failure_spike": "auth_failed_login_threshold",
+    "auth_privileged_login_anomaly": "windows_identity_privileged_activity",
+    "edr_new_service_creation": "endpoint_persistence_schtask_service",
+    "edr_scheduled_task_creation": "endpoint_persistence_schtask_service",
+    "edr_lateral_movement_candidate": "lateral_movement_internal",
+    "net_new_outbound_destination": "network_new_or_rare_behavior",
+    "net_east_west_anomaly": "network_new_or_rare_behavior",
+    "net_repeated_critical_asset_connections": "network_threshold_anomaly",
+    "net_port_scanning": "network_threshold_anomaly",
+    "dns_tunneling_candidate": "dns_beaconing_hunt",
+}
+
+
 def match_detection_family(user_query: str) -> str | None:
     text = (user_query or "").strip()
     if not text:
@@ -1929,12 +1950,13 @@ def build_draft_preview(
     family_id: str | None = None,
     unsafe_enforcement: bool = False,
     pattern_type: str | None = None,
+    use_case_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Build a lab-only draft preview dict when the flag is enabled and query matches.
 
     Family resolution order: explicit family_id, then the keyword matcher, then the
-    exact-105 registry pattern_type fallback (registry authority for questions the
-    keyword matcher does not know).
+    exact-105 registry pattern_type fallback, then the catalogue use_case fallback
+    (Phase D — catalogue rows whose detection an existing lab family covers).
     """
     if not settings.ai_soc_spl_draft_preview_enabled:
         return None
@@ -1947,6 +1969,8 @@ def build_draft_preview(
     resolved_family = family_id or match_detection_family(user_query)
     if resolved_family is None and pattern_type:
         resolved_family = PATTERN_TYPE_FAMILY_FALLBACK.get(pattern_type)
+    if resolved_family is None and use_case_id:
+        resolved_family = CATALOGUE_USE_CASE_FAMILY.get(use_case_id)
     family = _family_by_id(resolved_family) if resolved_family else None
     if family is None:
         return None

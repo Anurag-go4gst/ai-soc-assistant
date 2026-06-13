@@ -263,6 +263,41 @@ All flag-gated/LLM-lane scoped; governed deterministic behaviour unchanged.
 Governance regression PASS, no sentinel drift. Optional `--llm-mock` before/after
 proof for the 5 deferred refs is a follow-up. B04/B15/R1 close the Phase C plan.
 
+## 7e. Phase D results (coverage close — no fabrication)
+
+Catalogue spl-expected relevance **12/31 → 22/31 (71%)**; no-SPL rows 19 → 9, with
+**zero new fabricated SPL** — pure reuse of existing lab families.
+
+Key finding: deterministic *template promotion* is **not** the lever. The 5 planned
+templates (`privileged_account_failure`, `after_hours_login_critical_asset`,
+`firewall_deny_spike`, `vpn_failure_spike`, `edr_suspicious_process`) carry
+`validation_rules.blocked_until_scd_fields_exist` and active templates encode real
+customer source config (`index=pgcil_soc`). Activating them needs COE-supplied
+source-profile fields — fabricating that is out of bounds, and a governance test
+pins them blocked.
+
+What shipped instead: `CATALOGUE_USE_CASE_FAMILY` — a conservative map from catalogue
+use cases to the **existing** lab draft family that genuinely covers the detection
+(e.g. `edr_lateral_movement_candidate → lateral_movement_internal`,
+`auth_mfa_failure_spike → auth_failed_login_threshold`). Used only when keyword +
+pattern_type routing find nothing; wired into `build_draft_preview(use_case_id=...)`
+and the live pipeline (from `query_understanding.mapped_use_case_ids`). One candidate
+map entry (`net_firewall_deny_spike → network_threshold_anomaly`) was **removed**
+after the relevance gate flagged it as a data-source mis-route (network SPL for a
+firewall question) — exactly the asked-X-got-Y class we fix; better no draft than a
+wrong one.
+
+Remaining 9 no-SPL rows, both honest:
+- **4 COE-gated** (planned templates awaiting source profile): `auth_after_hours_critical_asset`,
+  `net_vpn_login_anomaly`, `edr_suspicious_process`, `net_firewall_deny_spike`.
+- **5 LLM-tail** (no honest existing-family fit; answered by Phase C LLM at runtime):
+  `auth_impossible_travel`, `auth_service_account_abnormal_login`,
+  `auth_disabled_account_login`, `net_blocked_region_connection`,
+  `edr_credential_dumping_signal`.
+
+Governed templates remain authoritative; the map produces lab drafts only. Governance
+regression PASS.
+
 ## 8. Baselines recorded (Phase A exit)
 
 | Check | Result |
