@@ -1,4 +1,4 @@
-import { ClipboardCopy, DatabaseZap, Download, FileCheck2, GitBranch, Search, Sparkles } from 'lucide-react';
+import { BookOpen, ClipboardCopy, DatabaseZap, Download, FileCheck2, GitBranch, Search, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   getKnowledgeCollections,
@@ -25,6 +25,7 @@ import type {
   KnowledgeExportArtifact,
   SettingsStatus,
 } from '@/types/api';
+import { ARCHITECTURE_QUERY_FLOW_DOC_HREF } from '@/lib/architectureDoc';
 
 const EXPORT_FILENAMES: Record<KnowledgeExportArtifact, string> = {
   question_runtime_map: 'ai_soc_question_runtime_map_105',
@@ -154,15 +155,23 @@ export function KnowledgePage() {
   return (
     <ScrollArea className="h-full">
       <div className="space-y-4 p-4 lg:p-6">
-        <header>
-          <p className="soc-eyebrow text-cyan-400">Knowledge</p>
-          <h2 className="mt-1 flex items-center gap-2 text-lg font-semibold">
-            <DatabaseZap className="h-4 w-4 text-cyan-400" />
-            Governed SOC KB Operations
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Admin-managed JSON lifecycle for governed retrieval. Runtime uses only current approved documents. LLM-extracted content is draft-only until human publish.
-          </p>
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="soc-eyebrow text-cyan-400">Knowledge</p>
+            <h2 className="mt-1 flex items-center gap-2 text-lg font-semibold">
+              <DatabaseZap className="h-4 w-4 text-cyan-400" />
+              Governed SOC KB Operations
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Admin-managed JSON lifecycle for governed retrieval. Runtime uses only current approved documents. LLM-extracted content is draft-only until human publish.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" asChild className="shrink-0">
+            <a href={ARCHITECTURE_QUERY_FLOW_DOC_HREF} target="_blank" rel="noopener noreferrer">
+              <BookOpen className="h-3.5 w-3.5" />
+              Query flow guide
+            </a>
+          </Button>
         </header>
         {error ? <Badge variant="destructive">{error}</Badge> : null}
 

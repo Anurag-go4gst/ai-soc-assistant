@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "sync:architecture-doc": "mkdir -p public/docs/architecture && cp ../docs/architecture/details.html public/docs/architecture/details.html",
+    "predev": "npm run sync:architecture-doc",
+    "prebuild": "npm run sync:architecture-doc",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"

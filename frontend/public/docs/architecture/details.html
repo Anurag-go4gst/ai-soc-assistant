@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI SOC Assistant — Query Flow Explainer</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1e293b;
+      --card: #ffffff;
+      --muted: #64748b;
+      --text: #0f172a;
+      --white: #f8fafc;
+      --accent: #2563eb;
+      --accent-2: #0891b2;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+      --purple: #7c3aed;
+      --border: #e2e8f0;
+      --soft-blue: #eff6ff;
+      --soft-green: #ecfdf5;
+      --soft-amber: #fffbeb;
+      --soft-red: #fef2f2;
+      --soft-purple: #f5f3ff;
+      --soft-cyan: #ecfeff;
+      --shadow: 0 14px 40px rgba(15, 23, 42, 0.12);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f8fafc;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    header {
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.45), transparent 35%),
+        radial-gradient(circle at top right, rgba(8, 145, 178, 0.35), transparent 35%),
+        linear-gradient(135deg, #0f172a 0%, #111827 55%, #1e293b 100%);
+      color: var(--white);
+      padding: 56px 28px 42px;
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 0.65fr;
+      gap: 28px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      font-weight: 700;
+      font-size: 13px;
+      color: #bfdbfe;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 1.03;
+      margin: 0 0 18px;
+      letter-spacing: -0.045em;
+    }
+
+    .subtitle {
+      font-size: 20px;
+      color: #cbd5e1;
+      max-width: 820px;
+      margin: 0;
+    }
+
+    .hero-card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: var(--radius);
+      padding: 22px;
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-card h3 {
+      margin: 0 0 10px;
+      color: #ffffff;
+      font-size: 18px;
+    }
+
+    .hero-card p {
+      color: #dbeafe;
+      margin: 0 0 14px;
+      font-size: 15px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.11);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e0f2fe;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    main {
+      padding: 36px 28px 70px;
+    }
+
+    section {
+      margin: 0 auto 34px;
+      max-width: 1180px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 18px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: -0.03em;
+    }
+
+    .section-title p {
+      margin: 4px 0 0;
+      max-width: 650px;
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    .note {
+      border-left: 5px solid var(--accent);
+      background: var(--soft-blue);
+      padding: 16px 18px;
+      border-radius: 14px;
+      color: #1e3a8a;
+      font-weight: 650;
+    }
+
+    .success-note {
+      border-left: 5px solid var(--green);
+      background: var(--soft-green);
+      color: #14532d;
+    }
+
+    .warn-note {
+      border-left: 5px solid var(--amber);
+      background: var(--soft-amber);
+      color: #78350f;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .flow-step {
+      position: relative;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 14px;
+      min-height: 150px;
+    }
+
+    .flow-step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #94a3b8;
+      font-size: 22px;
+      font-weight: 800;
+      z-index: 2;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .flow-step h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+
+    .flow-step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .grid-5 {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .mini-card {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      background: #ffffff;
+    }
+
+    .mini-card h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+    }
+
+    .mini-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .blue { background: var(--soft-blue); border-color: #bfdbfe; }
+    .green { background: var(--soft-green); border-color: #bbf7d0; }
+    .amber { background: var(--soft-amber); border-color: #fde68a; }
+    .red { background: var(--soft-red); border-color: #fecaca; }
+    .purple { background: var(--soft-purple); border-color: #ddd6fe; }
+    .cyan { background: var(--soft-cyan); border-color: #a5f3fc; }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: white;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    td {
+      color: #334155;
+      font-size: 14px;
+    }
+
+    code, .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.93em;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 7px;
+      color: #0f172a;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 16px;
+      padding: 18px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: #334155;
+      padding: 10px 13px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .tab.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .example-header {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .tag {
+      display: inline-flex;
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .tag.blue-tag { background: #dbeafe; color: #1e40af; }
+    .tag.green-tag { background: #dcfce7; color: #166534; }
+    .tag.amber-tag { background: #fef3c7; color: #92400e; }
+    .tag.red-tag { background: #fee2e2; color: #991b1b; }
+    .tag.purple-tag { background: #ede9fe; color: #5b21b6; }
+
+    .answer-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 18px;
+      overflow: hidden;
+      background: white;
+    }
+
+    .answer-card .answer-head {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 18px 20px;
+    }
+
+    .answer-card .answer-head h3 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .answer-card .answer-head p {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    .answer-body {
+      padding: 20px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .answer-row {
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+
+    .answer-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .answer-label {
+      font-weight: 900;
+      color: #334155;
+    }
+
+    .answer-content {
+      color: #475569;
+    }
+
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .footer {
+      color: #64748b;
+      font-size: 13px;
+      text-align: center;
+      padding: 28px 0 10px;
+    }
+
+
+    .arch-diagram {
+      display: grid;
+      gap: 14px;
+    }
+
+    .arch-row {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr 1fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .arch-box {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #ffffff;
+      padding: 16px 16px 16px 58px;
+      position: relative;
+    }
+
+    .arch-box h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .arch-box p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .arch-seq {
+      position: absolute;
+      left: 16px;
+      top: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .arch-seq.branch {
+      background: #64748b;
+      font-size: 12px;
+    }
+
+    .arch-branch-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-left: 24px;
+      padding-left: 16px;
+      border-left: 3px solid #cbd5e1;
+    }
+
+    .arch-branch-row.two-up {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .arch-box.branch-box {
+      padding-left: 52px;
+    }
+
+    .arch-box.branch-box .arch-seq {
+      width: 28px;
+      height: 28px;
+      font-size: 11px;
+      background: #475569;
+    }
+
+    .see-section {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .diagram-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .arch-arrow {
+      text-align: center;
+      color: #64748b;
+      font-weight: 900;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .compact-list {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: #475569;
+      font-size: 14px;
+    }
+
+    .question-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .question {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: #ffffff;
+      font-size: 14px;
+      color: #334155;
+    }
+
+    .question strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #0f172a;
+    }
+
+    .stage-chip {
+      display: inline-flex;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #155e75;
+      font-weight: 800;
+      font-size: 12px;
+      margin: 2px 3px 2px 0;
+    }
+
+    @media (max-width: 1000px) {
+      .arch-row,
+      .arch-branch-row,
+      .question-list {
+        grid-template-columns: 1fr;
+      }
+
+      .arch-branch-row {
+        margin-left: 0;
+        padding-left: 0;
+        border-left: none;
+      }
+    }
+
+    @media (max-width: 1000px) {
+      .hero-grid,
+      .grid-2,
+      .grid-3,
+      .grid-5 {
+        grid-template-columns: 1fr;
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-step:not(:last-child)::after {
+        content: "↓";
+        right: 50%;
+        top: auto;
+        bottom: -22px;
+        transform: translateX(50%);
+      }
+
+      .answer-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      header {
+        background: #0f172a !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .tab {
+        display: none;
+      }
+
+      .tab-panel {
+        display: block !important;
+        margin-bottom: 22px;
+      }
+
+      .card {
+        box-shadow: none;
+      }
+
+      main {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container hero-grid">
+      <div>
+        <div class="eyebrow">AI SOC Assistant · Query Flow Explainer</div>
+        <h1>How a SOC question travels through the governed assistant</h1>
+        <p class="subtitle">
+          Implementation-accurate walkthrough of the live <code>/chat</code> pipeline: Query Understanding, 105 taxonomy, use-case catalog,
+          five route skills (including guided investigation rescue), resource planning, safety gates, and analyst answer cards.
+        </p>
+      </div>
+      <div class="hero-card">
+        <h3>Core principle</h3>
+        <p>
+          The assistant is not a free-form autonomous agent. Deterministic policy controls routing, SPL validation, MCP execution,
+          MITRE status, severity, and final answer safety.
+        </p>
+        <div class="pill-row">
+          <span class="pill">LLM advisory</span>
+          <span class="pill">SPL review-only</span>
+          <span class="pill">MCP gated</span>
+          <span class="pill">MITRE governed</span>
+          <span class="pill">HIL protected</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>1. The complete traversal</h2>
+          <p>Eight pipeline stages on every live <code>/chat</code> request. Section 2 shows the same sequence with route and execute branches.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="flow">
+          <div class="flow-step">
+            <div class="step-num">1</div>
+            <h3>User Query</h3>
+            <p>Analyst asks a SOC question in natural language. Session context may refine follow-ups.</p>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">2</div>
+            <h3>Query Understanding</h3>
+            <p>Matches 105 / catalog, extracts entities, and sets signals such as <code>soc_investigation_shaped</code>.</p>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">3</div>
+            <h3>Route Skill</h3>
+            <p>Deterministic route from five live skills. OOD hunt rescue sets <code>guided_investigation</code> and <code>rescue_mode</code>.</p>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">4</div>
+            <h3>Intent</h3>
+            <p>Exact goal: SOP, SPL, investigation, summary, guided hunt, clarification, or unsafe block.</p>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">5</div>
+            <h3>Evidence + Plan</h3>
+            <p>Evidence plan (CP on) and planning path. CP off still returns <code>resource_plan_summary</code> for guided hunts.</p>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">6</div>
+            <h3>Route Adjudication</h3>
+            <p>CP on: deterministic policy confirms or overrides LLM route hints. Guided rescue is preserved explicitly.</p>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">7</div>
+            <h3>Execute Branch</h3>
+            <p>Guided / RAG-only: SOC-KB lookup. Known paths: SPL validation and gated MCP read. MCP execution stays off by default.</p>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">8</div>
+            <h3>Finalize</h3>
+            <p>Answer contract, fail-closed validator, optional LLM narration, control-plane trace, analyst card.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>2. Architecture diagram with decision branches</h2>
+          <p>
+            Numbered steps match section 1 and the live pipeline in <code>pipeline.py</code>. Each box is a label only — details live in the section cited below.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="arch-diagram">
+          <div class="arch-box blue">
+            <span class="arch-seq">1</span>
+            <h3>User query</h3>
+            <p>Natural-language SOC question. Session context may refine follow-up turns.</p>
+            <span class="see-section">Details → §10 sample questions</span>
+          </div>
+          <div class="arch-arrow">↓</div>
+
+          <div class="arch-box">
+            <span class="arch-seq">2</span>
+            <h3>Query Understanding</h3>
+            <p>Deterministic match against 105 taxonomy and use-case catalog. Emits <code>deterministic_match_path</code>, entities, and signals.</p>
+            <span class="see-section">Details → §4 (105 vs catalog), §5 (match outcomes)</span>
+          </div>
+          <div class="arch-arrow">↓</div>
+
+          <div class="arch-box amber">
+            <span class="arch-seq">3</span>
+            <h3>Route skill — deterministic triage</h3>
+            <p>Selects one of five live route skills. No LLM authority at this step.</p>
+            <span class="see-section">Details → §5, §6 (five skills)</span>
+          </div>
+          <div class="arch-arrow">↓ one of four outcomes</div>
+
+          <div class="arch-branch-row">
+            <div class="arch-box branch-box green">
+              <span class="arch-seq branch">3A</span>
+              <h3>Known governed</h3>
+              <p><code>exact_105_question</code> or <code>use_case_catalog</code> → <code>attack_discovery</code>, <code>knowledge_recall</code>, <code>spl_generation</code>, or <code>alert_summary</code>.</p>
+              <span class="see-section">Examples → §11 tabs 1–5</span>
+            </div>
+            <div class="arch-box branch-box cyan">
+              <span class="arch-seq branch">3B</span>
+              <h3>Guided rescue</h3>
+              <p><code>out_of_registry</code> + <code>soc_investigation_shaped</code> + not unsafe → <code>guided_investigation</code>, <code>rescue_mode=true</code>.</p>
+              <span class="see-section">Full walkthrough → §11 tab 6, §12 answer card</span>
+            </div>
+            <div class="arch-box branch-box red">
+              <span class="arch-seq branch">3C</span>
+              <h3>Unsafe / containment</h3>
+              <p>Block, quarantine, or explicit run-SPL mixed with unsafe action → guided rescue is suppressed at step 3. Planning sets <code>path_type=unsafe_blocked</code> at step 5.</p>
+              <span class="see-section">Example → §11 tab 7</span>
+            </div>
+            <div class="arch-box branch-box">
+              <span class="arch-seq branch">3D</span>
+              <h3>Weak / unclear</h3>
+              <p>No registry match and not investigation-shaped → low-confidence <code>knowledge_recall</code> or clarification. Not a sixth skill.</p>
+              <span class="see-section">Details → §5 last row</span>
+            </div>
+          </div>
+          <div class="arch-arrow">↓ all paths continue</div>
+
+          <div class="arch-box purple">
+            <span class="arch-seq">4</span>
+            <h3>Intent classification</h3>
+            <p>Exact user goal: SOP, SPL-only, hybrid investigation, alert summary, guided hunt, clarification, or unsafe block.</p>
+            <span class="see-section">Details → §3 (layer table)</span>
+          </div>
+          <div class="arch-arrow">↓</div>
+
+          <div class="arch-box">
+            <span class="arch-seq">5</span>
+            <h3>Evidence plan + planning path</h3>
+            <p>Control plane on: full evidence plan and composed resource plan. Control plane off: planning decision + <code>resource_plan_summary</code> (guided hunts still get RAG path).</p>
+            <span class="see-section">Details → §7 (skills library), §9 (resource_decisions JSON)</span>
+          </div>
+          <div class="arch-arrow">↓</div>
+
+          <div class="arch-box">
+            <span class="arch-seq">6</span>
+            <h3>Route adjudication + shadow enrichment</h3>
+            <p>Control plane on: confirms or overrides LLM route hints; explicit branch preserves <code>guided_investigation</code>. Records advisory trace metadata.</p>
+            <span class="see-section">Details → §8b (trace blocks)</span>
+          </div>
+          <div class="arch-arrow">↓</div>
+
+          <div class="arch-box amber">
+            <span class="arch-seq">7</span>
+            <h3>Execute branch</h3>
+            <p>Pipeline picks one execution path. MCP global execution stays off unless explicitly enabled elsewhere.</p>
+            <span class="see-section">MCP policy → §9</span>
+          </div>
+          <div class="arch-arrow">↓ one of two paths</div>
+
+          <div class="arch-branch-row two-up">
+            <div class="arch-box branch-box green">
+              <span class="arch-seq branch">7A</span>
+              <h3>RAG-first path</h3>
+              <p><code>guided_investigation</code>, <code>rag_only</code>, or weak knowledge → <code>prepare_rag_only</code> + governed SOC-KB retrieval. Works with control plane on or off.</p>
+              <span class="see-section">Guided JSON → §9 · Card → §12</span>
+            </div>
+            <div class="arch-box branch-box">
+              <span class="arch-seq branch">7B</span>
+              <h3>Investigation path</h3>
+              <p>Known governed routes → candidate SPL, deterministic validation, optional gated MCP read (<code>splunk_run_query</code> only after approval).</p>
+              <span class="see-section">Examples → §11 tabs 1–5</span>
+            </div>
+          </div>
+          <div class="arch-arrow">↓</div>
+
+          <div class="arch-box green">
+            <span class="arch-seq">8</span>
+            <h3>Finalize answer</h3>
+            <p>Answer contract, fail-closed validator, optional LLM narration of prose only, analyst response card, control-plane trace when enabled.</p>
+            <span class="see-section">Answer shape → §12 · Trace → §8b</span>
+          </div>
+        </div>
+
+        <div class="diagram-legend">
+          <span class="legend-item"><span class="dot"></span> Steps 1–8 = same order as §1</span>
+          <span class="legend-item"><span class="dot" style="background:#475569"></span> 3A–3D = route triage (step 3)</span>
+          <span class="legend-item"><span class="dot" style="background:#16a34a"></span> 7A–7B = execute branch (step 7)</span>
+        </div>
+
+        <div class="note warn-note" style="margin-top: 18px;">
+          <strong>Implementation notes:</strong> Guided rescue requires <code>primary_intent=investigation_guidance</code> (not <code>human_review</code>). <code>requires_hil=true</code> is an analyst-validation flag on the card, not a turn-blocking HIL gate. Guided hunts never emit a blocking <code>human_review</code> payload — that would suppress the required out-of-catalog notice.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>3. What each major layer answers</h2>
+          <p>This is the simplest way to remove confusion between Query Understanding, Route Skill, Intent, and Resource Planner.</p>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Layer</th>
+            <th>Question it answers</th>
+            <th>Example output</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Query Understanding</strong></td>
+            <td>What kind of question is this, and did we recognize it?</td>
+            <td><code>match_path=out_of_registry</code>, <code>soc_investigation_shaped=true</code></td>
+          </tr>
+          <tr>
+            <td><strong>Route Skill</strong></td>
+            <td>Which broad governed work mode should own it?</td>
+            <td><code>guided_investigation</code></td>
+          </tr>
+          <tr>
+            <td><strong>Intent</strong></td>
+            <td>What exactly does the user want done?</td>
+            <td><code>intent_family=guided_investigation</code></td>
+          </tr>
+          <tr>
+            <td><strong>Resource Planner</strong></td>
+            <td>Which resources are needed, allowed, or skipped?</td>
+            <td>RAG needed (SOC-KB), SPL optional review-only, MCP planned discovery only (not executed), MITRE/severity skipped, HIL required</td>
+          </tr>
+          <tr>
+            <td><strong>Planning Path</strong></td>
+            <td>Which branch should run?</td>
+            <td><code>path_type=guided_investigation</code></td>
+          </tr>
+          <tr>
+            <td><strong>Route Adjudication</strong></td>
+            <td>Does deterministic policy keep the routed skill? (control plane on)</td>
+            <td><code>final_route=guided_investigation</code>, <code>authority_source=guided_investigation_rescue</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>4. What is in the 105 and the 46 catalog?</h2>
+          <p>The 105 and catalog are different layers. They are not duplicates.</p>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card blue">
+          <h3>105 SOC question taxonomy</h3>
+          <p>
+            The 105 questions are the calibration and regression question bank. They help the system identify whether a user
+            question is a known SOC question pattern.
+          </p>
+          <pre>Example:
+"Which hosts are generating the most SMB traffic?"
+
+Possible result:
+match_path = exact_105_question
+question_ref = q0.q010
+pattern_type = top_n_aggregation</pre>
+        </div>
+        <div class="card green">
+          <h3>46 use-case catalog</h3>
+          <p>
+            The catalog is a governed behavior contract library. A catalog row defines what the assistant is allowed to do
+            for a class of SOC request.
+          </p>
+          <pre>Catalog row can define:
+use_case_id
+primary_skill
+SPL template
+RAG collections
+MITRE candidates
+severity policy
+action tier
+output template</pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>5. What happens when matching succeeds or fails?</h2>
+          <p>The assistant should never hallucinate governance. Unknown investigation-shaped questions go to the fifth skill.</p>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Match case</th>
+            <th>Meaning</th>
+            <th>Typical route</th>
+            <th>Behavior</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>105 + catalog match</strong></td>
+            <td>Best case: known question and governed contract</td>
+            <td><code>attack_discovery</code> / other governed route</td>
+            <td>Use template, MITRE policy, severity policy, output contract</td>
+          </tr>
+          <tr>
+            <td><strong>Only 105 match</strong></td>
+            <td>Known question pattern, contract may be partial</td>
+            <td>Usually route hint from 105</td>
+            <td>Use draft/template if available, review-only, limitations if needed</td>
+          </tr>
+          <tr>
+            <td><strong>Only catalog match</strong></td>
+            <td>Known behavior class, even if not exact 105</td>
+            <td>Catalog primary skill</td>
+            <td>Use catalog contract: RAG/SPL/MITRE/severity as allowed</td>
+          </tr>
+          <tr>
+            <td><strong>Nothing maps + investigation-shaped</strong></td>
+            <td>Unknown but clearly asks for hunt/investigation guidance</td>
+            <td><code>guided_investigation</code></td>
+            <td>Safe hunt plan, evidence checklist, limitations, no fake evidence</td>
+          </tr>
+          <tr>
+            <td><strong>Nothing maps + unclear/non-SOC</strong></td>
+            <td>Not enough signal to help safely</td>
+            <td>clarification / out_of_scope</td>
+            <td>Ask clarification or state limitation</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="card" style="margin-top: 18px;">
+        <h3 style="margin-top:0;">Canonical route mapping (implemented)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Case</th>
+              <th>match_path</th>
+              <th>route_skill</th>
+              <th>path_type</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>105 analytics</td>
+              <td><code>exact_105_question</code></td>
+              <td><code>attack_discovery</code></td>
+              <td><code>spl_review</code></td>
+            </tr>
+            <tr>
+              <td>Catalog SOP</td>
+              <td><code>use_case_catalog</code></td>
+              <td><code>knowledge_recall</code></td>
+              <td><code>rag_only</code></td>
+            </tr>
+            <tr>
+              <td>OOD investigation</td>
+              <td><code>out_of_registry</code></td>
+              <td><code>guided_investigation</code></td>
+              <td><code>guided_investigation</code></td>
+            </tr>
+            <tr>
+              <td>Unsafe execution</td>
+              <td>any</td>
+              <td>blocked route</td>
+              <td><code>unsafe_blocked</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>6. The five live route skills</h2>
+          <p>Route skills are broad work modes, not the full taxonomy of all possible SOC questions.</p>
+        </div>
+      </div>
+      <div class="grid-5">
+        <div class="mini-card blue">
+          <h3>attack_discovery</h3>
+          <p>Governed investigation path for known attack or detection use cases.</p>
+        </div>
+        <div class="mini-card green">
+          <h3>spl_generation</h3>
+          <p>SPL authoring and validation path. Output is review-only unless gated.</p>
+        </div>
+        <div class="mini-card amber">
+          <h3>knowledge_recall</h3>
+          <p>SOP, playbook, explain, policy, and RAG-based answers.</p>
+        </div>
+        <div class="mini-card purple">
+          <h3>alert_summary</h3>
+          <p>Summarizes existing alert evidence and highlights analyst next steps.</p>
+        </div>
+        <div class="mini-card cyan">
+          <h3>guided_investigation</h3>
+          <p>Deterministic rescue for <code>out_of_registry</code> + hunt-shaped questions. Review-only guidance; no MCP execution.</p>
+        </div>
+      </div>
+      <div class="note success-note" style="margin-top: 18px;">
+        <strong>Key rule:</strong> low confidence is not a skill. <code>guided_investigation</code> is a skill. Low confidence remains metadata.
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>7. Internal cybersecurity skills library</h2>
+          <p>
+            The internal skills library is active mainly inside Resource Planner, but it touches multiple nodes.
+            Assume these skills are already built into the product as governed internal capabilities.
+          </p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="note success-note">
+          <strong>Simple explanation:</strong> Route Skill decides the broad mode. Resource Planner then chooses which internal skills should shape the answer, which resources should be used, and which actions must be skipped or reviewed.
+        </div>
+
+        <h3 style="margin-top: 24px;">Where the skills library touches the flow</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Node</th>
+              <th>How internal skills contribute</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Query Understanding</strong></td>
+              <td>Detects skill-related signals such as failed-login, SOP request, SPL request, OT/network anomaly, MITRE request, or unsafe action.</td>
+              <td><code>soc_investigation_shaped=true</code> for “anything to hunt?”</td>
+            </tr>
+            <tr>
+              <td><strong>Route Skill</strong></td>
+              <td>Selects one live route skill from the controlled set. It does not execute the skill; it selects the work mode.</td>
+              <td><code>guided_investigation</code> for unmapped hunt-shaped query</td>
+            </tr>
+            <tr>
+              <td><strong>Intent</strong></td>
+              <td>Confirms the exact user goal, such as SOP retrieval, SPL-only, hybrid investigation, alert summary, or guided investigation.</td>
+              <td><code>intent_family=guided_investigation</code></td>
+            </tr>
+            <tr>
+              <td><strong>Resource Planner</strong></td>
+              <td>Selects the internal skill chain and maps RAG, SPL, MCP, MITRE, severity, HIL, and skip reasons.</td>
+              <td><code>guided_investigation → evidence_collection → context_sufficiency → synthesis → answer_guard</code></td>
+            </tr>
+            <tr>
+              <td><strong>Finalize Answer</strong></td>
+              <td>Uses selected skills to shape the final card: hypotheses, evidence checklist, SPL section, limitations, next steps, and safety notes.</td>
+              <td>Answer includes “No live query executed”, “MITRE not claimed”, “Severity not assigned”</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin-top: 24px;">How many skills are there?</h3>
+        <div class="grid-3">
+          <div class="mini-card blue">
+            <h3>5 live route skills</h3>
+            <p>These are the runtime work modes: attack discovery, SPL generation, knowledge recall, alert summary, and guided investigation.</p>
+          </div>
+          <div class="mini-card green">
+            <h3>8 routable registry skills</h3>
+            <p>These are user-facing registry intents after adding guided investigation. Some are live route skills, while some collapse or are handled through policy.</p>
+          </div>
+          <div class="mini-card purple">
+            <h3>19 catalog skills</h3>
+            <p>Current <code>catalog.json</code> count: five live route skills plus pipeline-stage and support skills such as SPL validation, evidence collection, context sufficiency, synthesis, and answer guard.</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 24px;">8 routable registry skills and where they touch nodes</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Registry skill</th>
+              <th>Live route?</th>
+              <th>Where it touches the flow</th>
+              <th>What it contributes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>attack_discovery</code></td>
+              <td>Yes</td>
+              <td>Route Skill → Resource Planner → SPL/evidence/MITRE/severity</td>
+              <td>Known investigation workflow, evidence checklist, SPL template/draft, MITRE Candidate, severity policy.</td>
+            </tr>
+            <tr>
+              <td><code>spl_generation</code></td>
+              <td>Yes</td>
+              <td>Route Skill → SPL workflow → SPL validation</td>
+              <td>Review-only SPL generation, slot validation, unsafe SPL prevention, assumptions and fields to validate.</td>
+            </tr>
+            <tr>
+              <td><code>knowledge_recall</code></td>
+              <td>Yes</td>
+              <td>Route Skill → RAG branch → Answer card</td>
+              <td>SOP/playbook retrieval, policy explanation, source-grounded procedure, no unnecessary SPL.</td>
+            </tr>
+            <tr>
+              <td><code>alert_summary</code></td>
+              <td>Yes</td>
+              <td>Route Skill → summary path → Final answer</td>
+              <td>Summarizes provided evidence, extracts key entities, lists analyst next steps and gaps.</td>
+            </tr>
+            <tr>
+              <td><code>guided_investigation</code></td>
+              <td>Yes</td>
+              <td>Route Skill for OOD investigation → Resource Planner → Guided answer</td>
+              <td>Safe rescue for unmapped hunt-shaped questions: hypotheses, data sources, evidence checklist, limitations.</td>
+            </tr>
+            <tr>
+              <td><code>mitre_mapping</code></td>
+              <td>No / governed</td>
+              <td>Intent + MITRE decision branch inside Resource Planner / Finalize</td>
+              <td>Maps only as Candidate / Not Claimed / Blocked based on registry and evidence. Does not freely claim techniques.</td>
+            </tr>
+            <tr>
+              <td><code>investigation_notes</code></td>
+              <td>No / support skill</td>
+              <td>Resource Planner → Final answer sections</td>
+              <td>Creates structured analyst notes, investigation summary, assumptions, missing evidence, and handoff points.</td>
+            </tr>
+            <tr>
+              <td><code>out_of_scope</code></td>
+              <td>No / policy path</td>
+              <td>Query Understanding → Route/Triage → Clarification or blocked path</td>
+              <td>Prevents non-SOC or unsupported requests from receiving fabricated SOC answers.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin-top: 24px;">Examples of how skills improve answers</h3>
+        <div class="grid-3">
+          <div class="mini-card blue">
+            <h3>Example 1: Failed-login spike</h3>
+            <p><strong>Question:</strong> “Investigate failed login spike on APP-01.”</p>
+            <p><strong>Skills used:</strong> attack_discovery, spl_generation, spl_validation, evidence_collection, context_sufficiency, answer_guard.</p>
+            <p><strong>Improvement:</strong> The answer includes SPL, failed-login volume checks, success-after-failure correlation, affected users, MITRE Candidate caution, severity policy, and analyst next steps.</p>
+          </div>
+          <div class="mini-card cyan">
+            <h3>Example 2: OT chatter</h3>
+            <p><strong>Question:</strong> “Strange OT chatter to a brand new external host overnight, anything to hunt?”</p>
+            <p><strong>Skills used:</strong> guided_investigation, evidence_collection, context_sufficiency, synthesis, answer_guard.</p>
+            <p><strong>Improvement:</strong> Instead of low-confidence knowledge recall, the answer gives hunt hypotheses, data sources, baseline checks, vendor/CDN validation, and clear limitations.</p>
+          </div>
+          <div class="mini-card green">
+            <h3>Example 3: Brute-force SOP</h3>
+            <p><strong>Question:</strong> “Show me the brute-force login SOP.”</p>
+            <p><strong>Skills used:</strong> knowledge_recall, context_sufficiency, synthesis, answer_guard.</p>
+            <p><strong>Improvement:</strong> The answer stays RAG-only and gives procedure, escalation criteria, and policy citations instead of wrongly generating SPL.</p>
+          </div>
+        </div>
+
+        <div class="warn-note note" style="margin-top: 18px;">
+          <strong>Important:</strong> Skills shape the plan and the answer. They do not execute tools by themselves.
+          MCP, SPL execution, MITRE status, severity, and actions remain under deterministic gates.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>8. LLM usage</h2>
+          <p>The LLM helps understand and narrate. It does not own policy or tool execution.</p>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card green">
+          <h3>LLM can help with (advisory only)</h3>
+          <ul>
+            <li>Route and intent candidate suggestions in shadow / assist modes</li>
+            <li>Clarification question wording</li>
+            <li>Review-only SPL draft suggestions on governed paths</li>
+            <li>Readable narration of deterministic analyst-summary prose</li>
+          </ul>
+          <p style="margin:12px 0 0;color:var(--muted);font-size:14px;">Guided investigation content (hypotheses, checklist, limitations) is deterministic from <code>guidance_templates.py</code>, not live LLM authority.</p>
+        </div>
+        <div class="card red">
+          <h3>LLM cannot do</h3>
+          <ul>
+            <li>Override exact 105 or catalog authority</li>
+            <li>Approve SPL or execute MCP</li>
+            <li>Call tools directly</li>
+            <li>Claim MITRE without evidence</li>
+            <li>Assign severity without policy</li>
+            <li>Invent indexes, sourcetypes, fields, or live results</li>
+            <li>Bypass human approval</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>8b. Control-plane trace (live /chat, CP on)</h2>
+          <p>When control plane is enabled, the response includes a technical trace for auditors and demo reviewers.</p>
+        </div>
+      </div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Trace block</th>
+              <th>What it shows</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>routing_provenance</code></td>
+              <td>Deterministic match path, selected skill, <code>rescue_mode</code>, and why knowledge recall was not used.</td>
+            </tr>
+            <tr>
+              <td><code>route_adjudication</code></td>
+              <td>Final route after CP phase 4. Guided rescue uses authority <code>guided_investigation_rescue</code>.</td>
+            </tr>
+            <tr>
+              <td><code>evidence_plan.resource_plan.provenance.resource_decisions</code></td>
+              <td>Why RAG, SPL, MCP, MITRE, severity, and HIL were used or skipped (CP on).</td>
+            </tr>
+            <tr>
+              <td><code>planning_decision.resource_plan_summary</code></td>
+              <td>Same decision map when CP is off — guided hunts still carry resource skip reasons.</td>
+            </tr>
+            <tr>
+              <td><code>llm_advisory_trace</code></td>
+              <td>Whether route/intent/narration advisories ran, what the LLM suggested, and whether policy overrode it. No new LLM calls are made to build this block.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>9. Resource Planner — guided investigation example</h2>
+          <p>What <code>resource_decisions</code> records for branch 3B. MCP discovery is planned-only; the analyst runs the checklist manually while gates stay closed.</p>
+        </div>
+      </div>
+      <div class="card">
+        <pre>{
+  "match_path": "out_of_registry",
+  "selected_skill": "guided_investigation",
+  "answer_mode": "guided_investigation",
+  "path_type": "guided_investigation",
+  "execution_enabled": false,
+  "rag": {
+    "needed": true,
+    "source": "soc_kb_rag",
+    "no_match_behavior": "general_guidance_allowed",
+    "match_status": "no_match"
+  },
+  "spl": {
+    "needed": "optional",
+    "review_only": true,
+    "status": "skipped_no_deterministic_family_match"
+  },
+  "mcp": {
+    "needed": false,
+    "allowed": false,
+    "skip_reason": "Execution gates closed; checklist runnable manually by analyst",
+    "planned_discovery": [
+      "splunk_get_indexes",
+      "splunk_get_metadata",
+      "splunk_get_knowledge_objects"
+    ]
+  },
+  "mitre": {
+    "allowed": false,
+    "skip_reason": "No evidence-supported technique claim is available."
+  },
+  "severity": {
+    "allowed": false,
+    "skip_reason": "No grounded incident severity is available."
+  },
+  "hil": {
+    "required": true,
+    "reason": "Analyst validates hypotheses and local data scope."
+  },
+  "limitations": [
+    "No live query was executed.",
+    "No governed playbook matched this hunt; general guidance only."
+  ]
+}</pre>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>10. Question cheat sheet for presenters</h2>
+          <p>Use these sample questions when you forget examples during the explanation.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="question-list">
+          <div class="question">
+            <strong>105 analytics</strong>
+            “Which hosts are generating the most SMB traffic?”<br/>
+            “Show top talkers for SMB traffic.”
+          </div>
+          <div class="question">
+            <strong>Catalog SOP</strong>
+            “Show me the brute-force login SOP.”<br/>
+            “What is the playbook for failed login investigation?”
+          </div>
+          <div class="question">
+            <strong>Known investigation</strong>
+            “Investigate failed login spike on APP-01.”<br/>
+            “Check success after repeated failures for this user.”
+          </div>
+          <div class="question">
+            <strong>SPL generation</strong>
+            “Write SPL to find VPN logins from new countries.”<br/>
+            “Draft a Splunk search for failed VPN logins.”
+          </div>
+          <div class="question">
+            <strong>Alert summary</strong>
+            “Summarize this alert evidence.”<br/>
+            “What are the key entities in this alert?”
+          </div>
+          <div class="question">
+            <strong>Guided investigation</strong>
+            “Strange OT chatter to a brand new external host overnight, anything to hunt?”<br/>
+            “Unknown outbound traffic from OT subnet, where should I start?”
+          </div>
+          <div class="question">
+            <strong>MITRE mapping</strong>
+            “Map this alert to MITRE.”<br/>
+            “Is this T1110 or valid accounts?”<br/>
+            <em>Requires alert/evidence context. Otherwise it stays Candidate/Not Claimed or asks for clarification.</em>
+          </div>
+          <div class="question">
+            <strong>Unsafe action</strong>
+            “Block this IP on the firewall now.”<br/>
+            “Quarantine this host immediately.”<br/>
+            <em>Execution is blocked and moved to HIL/approval guidance.</em>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>11. Examples by use case</h2>
+          <p>Use these tabs in team discussions to show how different questions traverse the same pipeline.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="ex1">105 analytics</button>
+          <button class="tab" data-tab="ex2">Catalog SOP</button>
+          <button class="tab" data-tab="ex3">Known investigation</button>
+          <button class="tab" data-tab="ex4">SPL only</button>
+          <button class="tab" data-tab="ex5">Alert summary</button>
+          <button class="tab" data-tab="ex6">Guided investigation</button>
+          <button class="tab" data-tab="ex7">Unsafe action</button>
+        </div>
+
+        <div id="ex1" class="tab-panel active">
+          <div class="example-header">
+            <span class="tag blue-tag">Exact 105</span>
+            <span class="tag">Question: Which hosts are generating the most SMB traffic?</span>
+          </div>
+          <table>
+            <tr><th>Stage</th><th>Result</th></tr>
+            <tr><td>Query Understanding</td><td><code>exact_105_question</code>, top-N aggregation</td></tr>
+            <tr><td>Route Skill</td><td><code>attack_discovery</code></td></tr>
+            <tr><td>Intent</td><td><code>analytics_spl_review</code></td></tr>
+            <tr><td>Resource Planner</td><td>SPL needed, RAG skipped, MCP skipped, severity not assigned from analytics alone</td></tr>
+            <tr><td>Final answer</td><td>Review-only SPL + explanation + limitations</td></tr>
+          </table>
+        </div>
+
+        <div id="ex2" class="tab-panel">
+          <div class="example-header">
+            <span class="tag green-tag">Catalog SOP</span>
+            <span class="tag">Question: Show me the brute-force login SOP.</span>
+          </div>
+          <table>
+            <tr><th>Stage</th><th>Result</th></tr>
+            <tr><td>Query Understanding</td><td><code>use_case_catalog</code>, <code>soc_show_sop</code></td></tr>
+            <tr><td>Route Skill</td><td><code>knowledge_recall</code></td></tr>
+            <tr><td>Intent</td><td><code>sop_or_playbook</code></td></tr>
+            <tr><td>Resource Planner</td><td>RAG needed, SPL skipped, MCP skipped, MITRE skipped, severity skipped</td></tr>
+            <tr><td>Final answer</td><td>Procedure from governed SOC knowledge base</td></tr>
+          </table>
+        </div>
+
+        <div id="ex3" class="tab-panel">
+          <div class="example-header">
+            <span class="tag purple-tag">Known investigation</span>
+            <span class="tag">Question: Investigate failed login spike on APP-01.</span>
+          </div>
+          <table>
+            <tr><th>Stage</th><th>Result</th></tr>
+            <tr><td>Query Understanding</td><td>105/catalog match, <code>auth_failed_login_spike</code>, entity APP-01</td></tr>
+            <tr><td>Route Skill</td><td><code>attack_discovery</code></td></tr>
+            <tr><td>Intent</td><td><code>hybrid_investigation</code></td></tr>
+            <tr><td>Resource Planner</td><td>SPL template, possible RAG checklist, MITRE candidate allowed, severity policy allowed</td></tr>
+            <tr><td>Final answer</td><td>Investigation card + review-only SPL + MITRE Candidate + severity if policy supports</td></tr>
+          </table>
+        </div>
+
+        <div id="ex4" class="tab-panel">
+          <div class="example-header">
+            <span class="tag blue-tag">SPL only</span>
+            <span class="tag">Question: Write SPL to find VPN logins from new countries.</span>
+          </div>
+          <table>
+            <tr><th>Stage</th><th>Result</th></tr>
+            <tr><td>Query Understanding</td><td>SPL authoring shaped, VPN anomaly signals</td></tr>
+            <tr><td>Route Skill</td><td><code>spl_generation</code></td></tr>
+            <tr><td>Intent</td><td><code>spl_generation_only</code></td></tr>
+            <tr><td>Resource Planner</td><td>SPL needed, RAG skipped, MCP skipped, MITRE skipped, severity skipped</td></tr>
+            <tr><td>Final answer</td><td>Review-only SPL + assumptions + fields to validate</td></tr>
+          </table>
+        </div>
+
+        <div id="ex5" class="tab-panel">
+          <div class="example-header">
+            <span class="tag amber-tag">Alert summary</span>
+            <span class="tag">Question: Summarize this alert evidence.</span>
+          </div>
+          <table>
+            <tr><th>Stage</th><th>Result</th></tr>
+            <tr><td>Query Understanding</td><td>Alert summary shaped, alert/evidence context if provided</td></tr>
+            <tr><td>Route Skill</td><td><code>alert_summary</code></td></tr>
+            <tr><td>Intent</td><td><code>alert_summary</code></td></tr>
+            <tr><td>Resource Planner</td><td>Summarize provided evidence, SPL/MCP skipped unless explicitly needed and allowed</td></tr>
+            <tr><td>Final answer</td><td>Concise summary + key entities + recommended next steps</td></tr>
+          </table>
+        </div>
+
+        <div id="ex6" class="tab-panel">
+          <div class="example-header">
+            <span class="tag purple-tag">Guided investigation</span>
+            <span class="tag">Question: Strange OT chatter to a brand new external host overnight, anything to hunt?</span>
+          </div>
+          <p style="color:var(--muted);font-size:14px;margin:0 0 14px;">Full stage-by-stage walkthrough for branch <strong>3B → 7A</strong> in §2. This is the only path that uses the fifth live route skill.</p>
+          <table>
+            <tr><th>Stage</th><th>Result</th></tr>
+            <tr><td>1 · User query</td><td>OT/external-host hunt phrasing; no 105 or catalog match</td></tr>
+            <tr><td>2 · Query Understanding</td><td><code>out_of_registry</code>, <code>soc_investigation_shaped=true</code></td></tr>
+            <tr><td>3 · Route skill</td><td><code>guided_investigation</code>, <code>rescue_mode=true</code>, confidence ≈ 0.42</td></tr>
+            <tr><td>4 · Intent</td><td><code>guided_investigation</code>, <code>primary_intent=investigation_guidance</code>, <code>requires_clarification=false</code></td></tr>
+            <tr><td>5 · Evidence + planning</td><td><code>needs_rag=true</code>, <code>spl_allowed=true</code> (optional draft only), <code>needs_mcp=false</code>, <code>execution_enabled=false</code></td></tr>
+            <tr><td>6 · Route adjudication</td><td><code>final_route=guided_investigation</code>, <code>authority_source=guided_investigation_rescue</code> (CP on)</td></tr>
+            <tr><td>7 · Execute branch</td><td>7A RAG-first: SOC-KB lookup (CP on and CP off); planned MCP discovery checklist only; no execution</td></tr>
+            <tr><td>8 · Finalize</td><td><code>out_of_catalog_notice</code> + hypotheses + checklist + limitations; no MITRE/severity claim; validator fail-closed</td></tr>
+          </table>
+        </div>
+
+        <div id="ex7" class="tab-panel">
+          <div class="example-header">
+            <span class="tag red-tag">Unsafe action</span>
+            <span class="tag">Question: Block this IP on the firewall now.</span>
+          </div>
+          <p style="color:var(--muted);font-size:14px;margin:0 0 14px;">Walkthrough for branch <strong>3C</strong> in §2 — guided rescue never applies; planning blocks execution.</p>
+          <table>
+            <tr><th>Stage</th><th>Result</th></tr>
+            <tr><td>1 · User query</td><td>Containment / enforcement phrasing</td></tr>
+            <tr><td>2 · Query Understanding</td><td><code>action_or_containment_shaped=true</code></td></tr>
+            <tr><td>3 · Route skill</td><td>Not <code>guided_investigation</code> — rescue suppressed</td></tr>
+            <tr><td>4 · Intent</td><td><code>primary_intent=human_review</code>, blocked action family</td></tr>
+            <tr><td>5 · Evidence + planning</td><td><code>path_type=unsafe_blocked</code>, <code>execution_enabled=false</code>, HIL required</td></tr>
+            <tr><td>6 · Route adjudication</td><td>Policy keeps blocked path (CP on)</td></tr>
+            <tr><td>7 · Execute branch</td><td>No MCP write or enforcement; approval checklist only</td></tr>
+            <tr><td>8 · Finalize</td><td>Execution blocked message + human review payload</td></tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>12. How the final answer should look</h2>
+          <p>The output is an analyst response card, not raw LLM prose.</p>
+        </div>
+      </div>
+
+      <div class="answer-card">
+        <div class="answer-head">
+          <h3>Analyst Response Card</h3>
+          <p>Example shape for a guided investigation answer.</p>
+        </div>
+        <div class="answer-body">
+          <div class="answer-row">
+            <div class="answer-label">Understanding</div>
+            <div class="answer-content">This looks like an OT-to-external communication hunt.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Mode</div>
+            <div class="answer-content"><code>guided_investigation</code> because no 105/catalog contract matched, but the query is investigation-shaped.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Out-of-catalog notice</div>
+            <div class="answer-content">Explicit notice that the question is outside the governed 105/catalog. Nearest governed questions may be suggested.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Suggested hunt</div>
+            <div class="answer-content">
+              Check outbound firewall, proxy, DNS, and EDR telemetry from OT ranges. Compare the external destination against baseline and vendor/maintenance activity.
+            </div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Manual Splunk discovery</div>
+            <div class="answer-content">Planned-only checklist: <code>splunk_get_indexes</code>, <code>splunk_get_metadata</code>, <code>splunk_get_knowledge_objects</code>. Analyst runs these manually; MCP execution stays disabled.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">SPL</div>
+            <div class="answer-content">Optional review-only SPL only if a deterministic draft family matches. No live query is executed.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">MITRE</div>
+            <div class="answer-content">No technique claimed. MITRE may be discussed only as Candidate/Not Claimed when evidence supports.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Severity</div>
+            <div class="answer-content">Not assigned from this question alone. Requires evidence, policy, and business impact.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Limitations</div>
+            <div class="answer-content">No live MCP evidence retrieved. No catalog contract matched. If SOC-KB has no playbook match, general hunt guidance is shown with an explicit limitation. Analyst validation required.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Next steps</div>
+            <div class="answer-content">Validate destination ownership, source asset role, traffic frequency, volume, process context, and whether communication is expected.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>Meeting script</h2>
+        <p>
+          “Every SOC question follows the same eight steps in section 1. Section 2 shows where the pipeline branches: at step 3 for route triage, and at step 7 for RAG-first versus investigation execution.
+        </p>
+        <p>
+          Query Understanding checks the 105 taxonomy and catalog. If the question matches, we use a governed route. If it is out-of-registry but clearly asks for a hunt, step 3B selects <code>guided_investigation</code> — not weak knowledge recall. Unsafe requests go to step 3C and never enter guided mode.
+        </p>
+        <p>
+          Steps 4–6 set intent, resource decisions, and — when control plane is on — route adjudication. Guided hunts always take step 7A: governed SOC-KB RAG, optional review-only SPL if a draft family matches, and a planned Splunk discovery checklist that is never auto-executed.
+        </p>
+        <p>
+          Step 8 produces a governed analyst card with an out-of-catalog notice when needed. The LLM may narrate prose, but severity, MITRE, SPL execution, and MCP remain under deterministic policy.”
+        </p>
+      </div>
+    </section>
+
+    <div class="footer">
+      AI SOC Assistant — Query Flow Explainer · Self-contained HTML
+    </div>
+  </main>
+
+  <script>
+    const tabs = document.querySelectorAll(".tab");
+    const panels = document.querySelectorAll(".tab-panel");
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((t) => t.classList.remove("active"));
+        panels.forEach((p) => p.classList.remove("active"));
+        tab.classList.add("active");
+        const target = document.getElementById(tab.dataset.tab);
+        if (target) target.classList.add("active");
+      });
+    });
+  </script>
+</body>
+</html>
