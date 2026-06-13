@@ -245,6 +245,24 @@ relevance eval still reports 97/102 because it measures the deterministic draft
 lane; the 5 deferred mismatches are answered by the LLM at runtime when the flag
 is on (not visible to the no-live-model eval).
 
+## 7d. Phase C.2 results (analyst UX precedence + ambiguous routing)
+
+- **B15 single SPL surface** (`analyst_response_builder.py`): when an LLM-relevant
+  candidate SPL is exposed, the lab draft preview is suppressed so the analyst sees
+  one SPL block, not two. Scoped to the LLM lane only — governed template SPL keeps
+  its existing surfaces (no sentinel/golden disturbance).
+- **B04 last-resort draft**: when the LLM was attempted but produced no exposed
+  candidate (relevance/clarification fail), the draft survives as a labelled
+  last-resort (`fallback_after_llm`, `fallback_notice`).
+- **R1 ambiguous routing** (`candidate_detection_families` + `_ambiguous_families`):
+  when >1 detection family matches the query, the candidate family list is passed to
+  the LLM as disambiguation context instead of the deterministic first-match silently
+  winning. Single-match queries pass no extra context (prompt stays clean).
+
+All flag-gated/LLM-lane scoped; governed deterministic behaviour unchanged.
+Governance regression PASS, no sentinel drift. Optional `--llm-mock` before/after
+proof for the 5 deferred refs is a follow-up. B04/B15/R1 close the Phase C plan.
+
 ## 8. Baselines recorded (Phase A exit)
 
 | Check | Result |

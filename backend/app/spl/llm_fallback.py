@@ -479,6 +479,12 @@ def _user_prompt(
         sources = context.get("required_sources")
         if sources:
             ctx_lines.append(f"- required_sources: {', '.join(str(s) for s in sources)}")
+        families = context.get("candidate_families")
+        if families:
+            ctx_lines.append(
+                "- routing is ambiguous; candidate detection families (pick the one that "
+                f"matches the question, or combine correctly): {', '.join(str(f) for f in families)}"
+            )
         if ctx_lines:
             parts.append("Routing context (use it to anchor the data source and entity):")
             parts.extend(ctx_lines)

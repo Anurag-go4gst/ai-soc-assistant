@@ -1849,6 +1849,25 @@ def match_detection_family(user_query: str) -> str | None:
     return best_id
 
 
+def candidate_detection_families(user_query: str, *, limit: int = 4) -> list[str]:
+    """All detection families whose patterns match the query, best-first.
+
+    The keyword matcher (`match_detection_family`) returns a single first-match
+    family; this returns the full candidate set so the LLM failover can be given
+    disambiguation context when routing is ambiguous (R1). Returns [] when nothing
+    matches (the LLM then works from the query + routing context alone)."""
+    text = (user_query or "").strip()
+    if not text:
+        return []
+    scored: list[tuple[int, str]] = []
+    for family in DETECTION_FAMILIES:
+        score = sum(1 for pattern in family.patterns if pattern.search(text))
+        if score > 0:
+            scored.append((score, family.family_id))
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    return [family_id for _, family_id in scored[:limit]]
+
+
 def _family_by_id(family_id: str) -> DetectionFamily | None:
     for family in DETECTION_FAMILIES:
         if family.family_id == family_id:

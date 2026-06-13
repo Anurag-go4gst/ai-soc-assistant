@@ -182,3 +182,68 @@ def test_build_analyst_response_prefers_approved_normalized_spl(
         "    count\n"
         "| head 100"
     )
+
+
+# --- C.2: single SPL surface (B15) + ambiguous routing (R1) -------------------
+def _minimal_envelope(**overrides):
+    base = dict(
+        user_query="Which hosts generated the most DNS queries?",
+        message="msg",
+        analyst_summary="summary",
+        source_evidence=[],
+        mitre_mappings=[],
+        severity_label=None,
+        synthesis_draft=None,
+        human_review=None,
+    )
+    base.update(overrides)
+    return build_analyst_response_for_live(**base)
+
+
+def test_b15_candidate_spl_suppresses_lab_draft():
+    envelope = _minimal_envelope(
+        candidate_spl={
+            "candidate_spl": "search index=<dns_index> sourcetype=<dns_sourcetype> query=* | stats count by src_host | head 100",
+            "generation_mode": "llm_spl_advisory_fallback",
+        },
+        spl_draft_preview={"draft_spl": "search index=<network_index> | stats count by src | head 100"},
+    )
+    assert envelope is not None
+    assert envelope.spl_code is not None
+    # Lab draft suppressed — single SPL surface (LLM lane).
+    assert envelope.draft_spl_code is None
+    assert envelope.spl_draft_preview is None
+
+
+def test_b15_governed_template_keeps_draft_surfaces():
+    # Governed template SPL is out of B15 scope — existing surfaces unchanged.
+    envelope = _minimal_envelope(
+        candidate_spl={
+            "candidate_spl": "search index=<edr_index> foo | stats count by host | head 100",
+            "generation_mode": "deterministic_template_render",
+        },
+        spl_draft_preview={"draft_spl": "search index=<edr_index> | stats count by host | head 100"},
+    )
+    assert envelope is not None
+    assert envelope.draft_spl_code is not None  # not suppressed for governed templates
+
+
+def test_b15_draft_kept_as_last_resort_when_llm_failed():
+    envelope = _minimal_envelope(
+        candidate_spl={"candidate_spl": "", "llm_fallback_used": True, "llm_fallback_status": "clarification_required"},
+        spl_draft_preview={"draft_spl": "search index=<dns_index> query=* | stats count by src_host | head 100"},
+    )
+    assert envelope is not None
+    # No candidate SPL exposed -> draft survives as the last-resort surface.
+    assert envelope.draft_spl_code is not None
+    assert envelope.spl_draft_preview is not None
+    assert envelope.spl_draft_preview.get("fallback_after_llm") is True
+
+
+def test_r1_ambiguous_families_helper():
+    from app.spl.draft_preview import candidate_detection_families
+
+    ambiguous = candidate_detection_families("Which hosts generate the most SMB traffic and biggest uploads?")
+    assert len(ambiguous) > 1  # SMB top-talkers + exfil/lateral both plausible
+    single = candidate_detection_families("Which hosts generated the most DNS queries?")
+    assert len(single) <= 1

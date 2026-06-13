@@ -63,6 +63,26 @@ def build_analyst_response_for_live(
     llm_candidate = llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None
     draft_spl_code = str(draft_preview.get("draft_spl") or "") or None if draft_preview else None
     spl_code = _candidate_spl_text(candidate_spl, spl_validation, draft)
+    # B15: one SPL surface for the LLM failover path. When an LLM-relevant candidate
+    # SPL is exposed, suppress the lab draft preview so the analyst never sees two
+    # parallel SPL blocks. The draft survives only as a last-resort when the LLM was
+    # attempted but produced no exposed candidate (relevance/clarification fail), and
+    # is then labelled as such. Governed template SPL keeps its existing surfaces —
+    # this precedence is scoped to the LLM lane only.
+    candidate_meta = candidate_spl if isinstance(candidate_spl, dict) else {}
+    is_llm_candidate = candidate_meta.get("generation_mode") == "llm_spl_advisory_fallback"
+    llm_exposed = is_llm_candidate and bool(str(candidate_meta.get("candidate_spl") or "").strip())
+    llm_attempted_failed = bool(candidate_meta.get("llm_fallback_used")) and not llm_exposed
+    if llm_exposed and spl_code and draft_preview is not None:
+        draft_preview = None
+        draft_spl_code = None
+    elif draft_preview is not None and llm_attempted_failed:
+        draft_preview = {
+            **draft_preview,
+            "fallback_after_llm": True,
+            "fallback_notice": "Last-resort lab draft — the LLM candidate did not "
+            "pass the relevance/validation gate for this question.",
+        }
     table: list[dict[str, Any]] = []
     if execution_payload.get("status") == "executed":
         table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(draft.get("splunk_results_table"))

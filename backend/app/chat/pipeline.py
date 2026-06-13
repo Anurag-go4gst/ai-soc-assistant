@@ -56,6 +56,7 @@ from app.spl.draft_preview import (
     DRAFT_PREVIEW_STATUS_MESSAGE,
     build_draft_preview,
     build_draft_preview_analyst_message,
+    candidate_detection_families,
 )
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.spl.spl_relevance_check import check_spl_relevance
@@ -2215,6 +2216,12 @@ def _candidate_spl_stage(
             "use_case_id": use_case_id,
             "pattern_type": (spl_governance or {}).get("pattern_type"),
             "required_sources": (spl_governance or {}).get("required_sources"),
+            # R1: when keyword routing is ambiguous (>1 family matches), give the
+            # LLM the candidate family list so it disambiguates rather than the
+            # deterministic first-match silently winning.
+            "candidate_families": (
+                _ambiguous_families(user_query) if llm_failover_enabled else None
+            ),
         },
     )
     if fallback_candidate is not None:
@@ -2567,6 +2574,15 @@ def _gate_llm_spl_relevance(result: Any, user_query: str) -> Any:
     entity. Returns the RelevanceResult."""
     spl = (getattr(result, "candidate_spl", "") or "").strip()
     return check_spl_relevance(user_query, spl or None)
+
+
+def _ambiguous_families(user_query: str) -> list[str] | None:
+    """Return the candidate family list only when routing is ambiguous (>1 match).
+
+    Used as LLM disambiguation context (R1); None when routing is unambiguous so
+    the prompt is not cluttered for the common single-match case."""
+    families = candidate_detection_families(user_query)
+    return families if len(families) > 1 else None
 
 
 def _should_use_llm_spl_failover(skill: str) -> bool:
