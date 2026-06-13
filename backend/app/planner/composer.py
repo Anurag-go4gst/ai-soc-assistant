@@ -123,6 +123,16 @@ def compose_resource_plan(
             evidence_plan,
             match_path=match_path,
         )
+    elif _should_emit_hybrid_discovery_plan(
+        evidence_plan,
+        intent_family=intent_family,
+        skill_id=skill_id,
+    ):
+        provenance["resource_decisions"] = build_hybrid_mcp_discovery_resource_decisions(
+            evidence_plan,
+            path_type=_infer_path_type_for_discovery(evidence_plan, intent_family=intent_family),
+            match_path=match_path,
+        )
     return ResourcePlan(
         steps=steps,
         plan_source="deterministic",
@@ -152,29 +162,107 @@ def build_guided_investigation_resource_decisions(
             "review_only": True,
             "skip_reason": "No existing deterministic draft family matched this out-of-registry hunt.",
         },
-        "mcp": {
-            "needed": False,
-            "allowed": False,
-            "skip_reason": "Execution gates closed; checklist runnable manually by analyst.",
-            "planned_discovery": [record.tool_name for record in discovery_calls],
-            "planned_discovery_calls": [
-                {
-                    "kind": record.kind,
-                    "server": record.server,
-                    "tool_name": record.tool_name,
-                    "arguments": dict(record.arguments),
-                    "block_reason": record.block_reason,
-                    "failure_mode": record.failure_mode,
-                    "policy_checks": list(record.policy_checks),
-                }
-                for record in discovery_calls
-            ],
-        },
+        "mcp": _mcp_discovery_decision_block(discovery_calls, needed=False, allowed=False),
         "mitre": {"allowed": False, "skip_reason": "No evidence-supported technique claim is available."},
         "severity": {"allowed": False, "skip_reason": "No grounded incident severity is available."},
         "hil": {"required": True, "reason": "Analyst validates hypotheses and local data scope."},
         "limitations": limitations,
     }
+
+
+def build_hybrid_mcp_discovery_resource_decisions(
+    evidence_plan: Any | None,
+    *,
+    path_type: str | None = None,
+    match_path: str | None = None,
+) -> dict[str, Any]:
+    """Phase A discovery planning for hybrid / spl_review paths — planned-only, no live I/O."""
+    discovery_calls = plan_splunk_discovery_calls(include_knowledge_objects=True)
+    needs_mcp = bool(getattr(evidence_plan, "needs_mcp", False))
+    needs_spl = bool(getattr(evidence_plan, "needs_spl", False))
+    needs_rag = bool(getattr(evidence_plan, "needs_rag", False))
+    return {
+        "match_path": match_path,
+        "path_type": path_type,
+        "rag": {"needed": needs_rag, "source": "soc_kb_rag"},
+        "spl": {
+            "needed": needs_spl,
+            "review_only": path_type in {"spl_review", "spl_review_plus_rag", None},
+            "skip_reason": None if needs_spl else "spl_not_required_for_path",
+        },
+        "mcp": _mcp_discovery_decision_block(
+            discovery_calls,
+            needed=needs_mcp,
+            allowed=False,
+            skip_reason="Search execution gated; discovery checklist is planned-only until COE enables.",
+        ),
+        "mitre": {"allowed": bool(getattr(evidence_plan, "needs_mitre", False))},
+        "severity": {"allowed": bool(getattr(evidence_plan, "needs_mitre", False))},
+        "hil": {"required": True, "reason": "Analyst confirms SPL and approves any search execution."},
+        "limitations": list(getattr(evidence_plan, "limitations", []) or []),
+    }
+
+
+def _mcp_discovery_decision_block(
+    discovery_calls: list[Any],
+    *,
+    needed: bool,
+    allowed: bool,
+    skip_reason: str = "Execution gates closed; checklist runnable manually by analyst.",
+) -> dict[str, Any]:
+    return {
+        "needed": needed,
+        "allowed": allowed,
+        "skip_reason": skip_reason,
+        "planned_discovery": [record.tool_name for record in discovery_calls],
+        "planned_discovery_calls": [
+            {
+                "kind": record.kind,
+                "server": record.server,
+                "tool_name": record.tool_name,
+                "arguments": dict(record.arguments),
+                "block_reason": record.block_reason,
+                "failure_mode": record.failure_mode,
+                "policy_checks": list(record.policy_checks),
+            }
+            for record in discovery_calls
+        ],
+    }
+
+
+def _should_emit_hybrid_discovery_plan(
+    evidence_plan: Any,
+    *,
+    intent_family: str | None,
+    skill_id: str | None,
+) -> bool:
+    if intent_family == "guided_investigation" or skill_id == "guided_investigation":
+        return False
+    answer_mode = str(getattr(evidence_plan, "answer_mode", "") or "")
+    if answer_mode == "hybrid":
+        return True
+    if getattr(evidence_plan, "needs_spl", False) and getattr(evidence_plan, "needs_rag", False):
+        return True
+    if getattr(evidence_plan, "needs_spl", False) and getattr(evidence_plan, "needs_mitre", False):
+        return True
+    if getattr(evidence_plan, "needs_spl", False) and getattr(evidence_plan, "needs_mcp", False):
+        return True
+    return False
+
+
+def _infer_path_type_for_discovery(
+    evidence_plan: Any,
+    *,
+    intent_family: str | None,
+) -> str | None:
+    answer_mode = str(getattr(evidence_plan, "answer_mode", "") or "")
+    if answer_mode == "hybrid" or intent_family == "hybrid_investigation_plus_policy":
+        return "hybrid_investigation"
+    if getattr(evidence_plan, "needs_spl", False) and getattr(evidence_plan, "needs_rag", False):
+        return "spl_review_plus_rag"
+    if getattr(evidence_plan, "needs_spl", False):
+        return "spl_review"
+    return None
 
 
 def _rag_step(evidence_plan: Any) -> PlanStep:

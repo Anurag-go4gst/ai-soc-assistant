@@ -82,6 +82,25 @@ def test_full_alert_investigation_produces_hybrid_investigation_without_executio
     assert planning.path_type == "hybrid_investigation"
     assert set(planning.branches) >= {"spl", "mitre", "severity"}
     assert planning.execution_enabled is False
+    assert planning.resource_plan_summary is not None
+    discovery = planning.resource_plan_summary["mcp"]["planned_discovery_calls"]
+    assert [item["tool_name"] for item in discovery] == [
+        "splunk_get_indexes",
+        "splunk_get_metadata",
+        "splunk_get_knowledge_objects",
+    ]
+
+
+def test_spl_review_plus_rag_carries_mcp_discovery_checklist(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_planner_path_selection_enabled", True)
+    planning = _plan(
+        "Investigate failed logins and show the playbook steps for escalation policy",
+        routed_skill="attack_discovery",
+        monkeypatch=monkeypatch,
+    )
+    assert planning.path_type == "spl_review_plus_rag"
+    assert planning.resource_plan_summary is not None
+    assert planning.resource_plan_summary["mcp"]["planned_discovery_calls"]
 
 
 def test_mitre_only_without_alert_context_requires_clarification(monkeypatch) -> None:

@@ -44,12 +44,23 @@ Brevity (Phase E) and offline template QA (Phase F) shipped. Lab-tier LLM exposu
 
 ## What remains outside this plan (explicit deferrals)
 
-These are **not** SPL-audit failures — they belong to downstream COE / MCP plans:
+These are **not** SPL-audit failures — downstream COE / live MCP only:
 
-1. **H2 MCP discovery execution** — scaffold only (`try_mcp_source_discovery`); real `splunk_get_indexes` execution waits on COE + [`2026-06-13_mcp-execution-orchestration-plan.md`](2026-06-13_mcp-execution-orchestration-plan.md) §6.
-2. **Governed template promotion** — 5 planned templates stay blocked (`blocked_until_scd_fields_exist`); COE source profile required.
-3. **Phase F template fixes** — 2/10 active templates flagged `review` in `llm_template_audit_report.md`; fixes land deterministically in `templates.json` when COE reviews.
-4. **Real MCP search (query→answer B2)** — `normalized_spl` can now be produced after H resolution; gate still sends `{"query": normalized_spl}` only until B2 ships.
+1. **Live Splunk MCP search (query→answer B2 live)** — mock path complete (`ae88760`); `SplunkMcpConnector.call_tool` HTTP transport + `schema_confirmed=true` still COE.
+2. **Governed template promotion** — 5 planned templates stay blocked (`blocked_until_scd_fields_exist`); COE source profile in Settings can unblock.
+3. **Phase F template fixes** — 2/10 active templates flagged `review` in `llm_template_audit_report.md`.
+4. **Orchestration Phase 4** — optional auto-execution of discovery tools in chat (separate from source-profile resolve-time discovery).
+
+### Source resolution — updated (commits `567fe62`, `ae88760`)
+
+| Tier | Module | Status |
+|------|--------|--------|
+| H0 | Config + **Settings UI** persisted map | ✅ |
+| H1 | RAG bridge | ✅ |
+| H2 | `run_mcp_source_discovery()` at resolve time | ✅ mock; MCP wins on conflict |
+| H3 | HIL + session/chat slots | ✅ |
+| H4 | `validate_spl` → MCP gate | ✅ when resolved |
+| B4 | Analyst confirm/update SPL before execute | ✅ `spl_execution_confirmation` |
 
 ---
 
@@ -74,7 +85,7 @@ workflow_spl → [rag_early] → spl_source_resolve → execution → context_fi
 |------|--------|-----------|
 | H0 | `source_profile_resolver.py` + `AI_SOC_SOURCE_PROFILE_MAP` | Config only |
 | H1 | `rag_source_profile_bridge.py` | RAG retrieval yes; substitution deterministic |
-| H2 | `try_mcp_source_discovery()` | Mock scaffold only until COE |
+| H2 | `run_mcp_source_discovery()` | ✅ Mock + COE UI (`567fe62`) |
 | H3 | `spl_source_profile_clarification` HIL + session `source_profile_slots` | Analyst input |
 | H4 | `validate_spl` → feeds MCP gate | When fully resolved |
 
