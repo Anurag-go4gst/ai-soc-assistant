@@ -106,11 +106,19 @@ def _stem_matches_index(stem: str, index_name: str) -> bool:
 
 
 def _pick_sourcetype(sourcetypes: list[str], keywords: tuple[str, ...]) -> str | None:
+    """Family-aware match: return a sourcetype only when a keyword actually matches.
+
+    No blanket `sourcetypes[0]` fallback — substituting e.g. `pgcil:auth` for a
+    `<network_traffic_sourcetype>` / `<internal_traffic_sourcetype>` / `<dns_sourcetype>`
+    placeholder yields an on-the-wrong-data-source SPL. An unmatched family stays a
+    missing slot so the lab draft remains review-only and HIL asks for the COE
+    sourcetype.
+    """
     for sourcetype in sourcetypes:
         lowered = sourcetype.lower()
         if any(keyword in lowered for keyword in keywords):
             return sourcetype
-    return sourcetypes[0] if sourcetypes else None
+    return None
 
 
 def build_policy_derived_profile() -> dict[str, str]:
