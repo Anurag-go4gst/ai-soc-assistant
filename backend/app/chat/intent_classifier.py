@@ -18,10 +18,34 @@ from app.chat.query_signals import extract_query_signals
 from app.query_understanding.models import QueryUnderstandingResult
 
 
+_CATALOG_MATCH_PATHS = frozenset({"use_case_catalog", "exact_105_plus_use_case_catalog"})
+
+
+def _effective_match_path(
+    query_understanding: QueryUnderstandingResult,
+    *,
+    routed_skill: str | None = None,
+    routing_provenance: dict[str, Any] | None = None,
+) -> str:
+    path = query_understanding.deterministic_match_path or "out_of_registry"
+    if isinstance(routing_provenance, dict):
+        rescued = routing_provenance.get("deterministic_match_path")
+        if isinstance(rescued, str) and rescued:
+            return rescued
+    if (
+        routed_skill == "guided_investigation"
+        and query_understanding.route_skill_candidate == "guided_investigation"
+        and path in _CATALOG_MATCH_PATHS
+    ):
+        return "out_of_registry"
+    return path
+
+
 def build_candidate_mappings(
     query_understanding: QueryUnderstandingResult | None,
     *,
     routed_skill: str | None = None,
+    routing_provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if query_understanding is None:
         return {
@@ -33,7 +57,11 @@ def build_candidate_mappings(
     return {
         "question_ref": query_understanding.mapped_question_ref,
         "use_case_ids": list(query_understanding.mapped_use_case_ids or []),
-        "match_path": query_understanding.deterministic_match_path or "out_of_registry",
+        "match_path": _effective_match_path(
+            query_understanding,
+            routed_skill=routed_skill,
+            routing_provenance=routing_provenance,
+        ),
         "legacy_skill_hint": routed_skill or query_understanding.mapped_primary_skill,
     }
 
@@ -71,6 +99,32 @@ def classify_intent(
             action_mode="recommend_only",
             reason="Destructive or containment action requires human review and overrides SPL generation.",
             requested_output_type="ACTION_PLAN",
+        )
+
+    if (
+        (
+            signals.get("investigation_hypothesis_guidance")
+            or (
+                signals.get("soc_investigation_shaped")
+                and str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+            )
+        )
+        and str(candidate_mappings.get("legacy_skill_hint") or "") == "guided_investigation"
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+        and not signals.get("spl_generation")
+    ):
+        return _build_classification(
+            intent_family="guided_investigation",
+            primary_intent="investigation_guidance",
+            query_type="investigation_with_guidance",
+            answer_goal=["procedural_steps", "analyst_action_guidance"],
+            confidence=0.52,
+            requires_clarification=False,
+            requires_hil=True,
+            action_mode="recommend_only",
+            reason="Investigation-guidance request receives governed, review-only hunt guidance instead of catalog SPL.",
+            requested_output_type="INVESTIGATION",
         )
 
     if (
@@ -429,10 +483,15 @@ def build_query_to_intent(
     query: str,
     query_understanding: QueryUnderstandingResult | None = None,
     routed_skill: str | None = None,
+    routing_provenance: dict[str, Any] | None = None,
     llm_intent_advisory: LLMIntentAdvisory | None = None,
 ) -> QueryToIntentResult:
     signals = extract_query_signals(query, query_understanding)
-    candidate_mappings = build_candidate_mappings(query_understanding, routed_skill=routed_skill)
+    candidate_mappings = build_candidate_mappings(
+        query_understanding,
+        routed_skill=routed_skill,
+        routing_provenance=routing_provenance,
+    )
     intent = classify_intent(
         query=query,
         signals=signals,

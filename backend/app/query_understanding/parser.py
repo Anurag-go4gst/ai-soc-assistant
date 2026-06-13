@@ -5,7 +5,11 @@ import re
 from app.coverage.question_runtime_map import match_question_runtime_entry, nearest_question_runtime_entry
 from app.coverage.semantic_question_index import semantic_question_match
 from app.query_understanding.models import OutputTemplate, QueryEntities, QueryUnderstandingResult, RequestedOutputType
-from app.query_understanding.soc_investigation_shape import detect_soc_investigation_shape
+from app.query_understanding.soc_investigation_shape import (
+    detect_investigation_hypothesis_guidance,
+    detect_soc_investigation_shape,
+    prefers_guided_investigation_over_catalog,
+)
 from app.query_understanding.time_window import normalize_time_window
 from app.use_cases.registry import load_use_case_catalog, match_use_cases
 
@@ -78,15 +82,22 @@ def understand_query(query: str) -> QueryUnderstandingResult:
         registry_warnings=registry_warnings,
         llm_advisory_recommended=_llm_advisory_recommended(deterministic_match_path, registry_warnings),
     )
-    shaped = detect_soc_investigation_shape(
-        query,
-        exact_105_match=deterministic_match_path in {"exact_105_question", "exact_105_plus_use_case_catalog"},
-    ) and deterministic_match_path == "out_of_registry"
+    shaped = (
+        detect_investigation_hypothesis_guidance(query)
+        or detect_soc_investigation_shape(
+            query,
+            exact_105_match=deterministic_match_path in {"exact_105_question", "exact_105_plus_use_case_catalog"},
+        )
+    ) and deterministic_match_path in {"out_of_registry", "use_case_catalog"}
+    rescue_guided = shaped and (
+        deterministic_match_path == "out_of_registry"
+        or prefers_guided_investigation_over_catalog(query)
+    )
     return result.model_copy(
         update={
             "soc_investigation_shaped": shaped,
-            "route_skill_candidate": "guided_investigation" if shaped else None,
-            "intent_candidate": "guided_investigation" if shaped else None,
+            "route_skill_candidate": "guided_investigation" if rescue_guided else None,
+            "intent_candidate": "guided_investigation" if rescue_guided else None,
             "triage_signals": {
                 "soc_investigation_shaped": shaped,
                 "block_or_contain": False,

@@ -293,11 +293,17 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         query=query_text,
         query_understanding=query_understanding,
         routed_skill=routed_skill,
+        routing_provenance=routed.get("routing_provenance")
+        if isinstance(routed.get("routing_provenance"), dict)
+        else None,
         llm_intent_advisory=llm_advisory,
     )
     payload = result.model_dump()
     signals = payload.get("query_signals") if isinstance(payload.get("query_signals"), dict) else None
-    selected_use_case = _selected_use_case(query_text, query_signals=signals)
+    if routed_skill == "guided_investigation":
+        selected_use_case = None
+    else:
+        selected_use_case = _selected_use_case(query_text, query_signals=signals)
     return {
         **state,
         "query_to_intent": payload,
@@ -2154,6 +2160,13 @@ def _effective_routing_skill(state: ChatPipelineState) -> str:
 
 
 def _candidate_match_path(state: ChatPipelineState) -> str | None:
+    routed = state.get("routed")
+    if isinstance(routed, dict):
+        provenance = routed.get("routing_provenance")
+        if isinstance(provenance, dict):
+            value = provenance.get("deterministic_match_path")
+            if isinstance(value, str) and value:
+                return value
     query_to_intent = state.get("query_to_intent")
     if isinstance(query_to_intent, dict):
         mappings = query_to_intent.get("candidate_mappings")

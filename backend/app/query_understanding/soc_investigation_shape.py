@@ -2,6 +2,49 @@
 
 from __future__ import annotations
 
+_HYPOTHESIS_GUIDANCE_MARKERS = (
+    "hunting hypotheses",
+    "hypotheses should",
+    "what hypotheses",
+    "what should i validate",
+    "what should we validate",
+    "without a known ioc",
+    "without known ioc",
+    "no known ioc",
+    "without an ioc",
+    "no ioc list",
+)
+
+_CONCRETE_SPL_CATALOG_MARKERS = (
+    "failed login",
+    "failed logins",
+    "login spike",
+    "last 24 hours",
+    "last 24h",
+    "past 24 hours",
+    "top ",
+    "exclude service account",
+    "write spl",
+    "generate spl",
+    "show spl",
+    "run spl",
+    "execute spl",
+)
+
+
+def detect_investigation_hypothesis_guidance(query: str) -> bool:
+    """Analyst asks what to validate/hunt without requesting governed template SPL."""
+    normalized = " ".join(query.lower().split())
+    return any(term in normalized for term in _HYPOTHESIS_GUIDANCE_MARKERS)
+
+
+def prefers_guided_investigation_over_catalog(query: str) -> bool:
+    """Catalog keyword overlap must not override hypothesis/guidance-only hunt asks."""
+    if not detect_investigation_hypothesis_guidance(query):
+        return False
+    normalized = " ".join(query.lower().split())
+    return not any(term in normalized for term in _CONCRETE_SPL_CATALOG_MARKERS)
+
 
 def detect_soc_investigation_shape(query: str, *, exact_105_match: bool = False) -> bool:
     normalized = " ".join(query.lower().split())

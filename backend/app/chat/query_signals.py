@@ -6,7 +6,10 @@ import re
 from typing import Any
 
 from app.query_understanding.models import QueryUnderstandingResult
-from app.query_understanding.soc_investigation_shape import detect_soc_investigation_shape
+from app.query_understanding.soc_investigation_shape import (
+    detect_investigation_hypothesis_guidance,
+    detect_soc_investigation_shape,
+)
 from app.query_understanding.success_after_failure import detect_success_after_failure
 
 _TECHNIQUE_ID_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
@@ -426,6 +429,7 @@ def extract_query_signals(
             "engineering workstation",
         )
     )
+    investigation_hypothesis_guidance = detect_investigation_hypothesis_guidance(query)
     investigation_triage_guidance = any(
         term in normalized
         for term in (
@@ -451,8 +455,11 @@ def extract_query_signals(
             "what should the analyst review",
             "what should l1",
             "what should l1 check",
+            "hunting hypotheses",
+            "what should i validate",
+            "what should we validate",
         )
-    )
+    ) or investigation_hypothesis_guidance
     guidance_alert_context = alert_context_present and investigation_triage_guidance
     use_case_review_guidance = (
         conceptual_mitre_judgment
@@ -583,6 +590,7 @@ def extract_query_signals(
         "mitre_requires_alert_context": mitre_requires_alert_context,
         "explicit_log_search": explicit_log_search,
         "explicit_search_intent": explicit_search_intent,
+        "investigation_hypothesis_guidance": investigation_hypothesis_guidance,
         "investigation_triage_guidance": investigation_triage_guidance,
         "security_log_investigation": security_log_investigation,
         "success_after_failure": success_after_failure,
