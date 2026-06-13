@@ -72,6 +72,53 @@ class ResourcePlan(BaseModel):
         }
 
 
+# --- ResourcePlanV2 (O5a contract) --------------------------------------------
+# Additive dependency/failover fields for the multi-call scheduler/reconcile
+# loop (plan A.6). V1 PlanStep/ResourcePlan remain the live wire contract; V2 is
+# not wired into the pipeline until O5b/O5c (behind a default-off flag).
+
+# Each failover edge targets another step_id or a terminal policy.
+FailoverTarget = str  # step_id | "terminal" | "hil"
+
+
+class PlanStepV2(BaseModel):
+    step_id: str
+    resource_id: str
+    purpose: str
+    args_template: dict[str, Any] = Field(default_factory=dict)
+    depends_on: list[str] = Field(default_factory=list)
+    activation_condition: Literal[
+        "always", "previous_ok", "previous_empty", "evidence_key_missing"
+    ] = "always"
+    requires_evidence_keys: list[str] = Field(default_factory=list)
+    produces_evidence_keys: list[str] = Field(default_factory=list)
+    resource_capability: str | None = None
+    resource_alternatives: list[str] = Field(default_factory=list)
+    on_unavailable: FailoverTarget = "hil"
+    on_empty: FailoverTarget = "terminal"
+    on_error: FailoverTarget = "hil"
+    on_timeout: FailoverTarget = "hil"
+    on_denied: FailoverTarget = "hil"
+    policy_checks: list[str] = Field(default_factory=list)
+    max_attempts: int = 1
+    status: StepStatus = "planned"
+    status_reason: str | None = None
+
+
+class ResourcePlanV2(BaseModel):
+    schema_version: str = "2"
+    recipe_id: str = "single_search"
+    steps: list[PlanStepV2] = Field(default_factory=list)
+    plan_source: PlanSource = "deterministic"
+    provenance: dict[str, Any] = Field(default_factory=dict)
+
+    def step_by_id(self, step_id: str) -> PlanStepV2 | None:
+        for step in self.steps:
+            if step.step_id == step_id:
+                return step
+        return None
+
+
 def project_booleans(plan: ResourcePlan) -> dict[str, bool]:
     """Derive the legacy `needs_*` EvidencePlan booleans from a composed plan.
 

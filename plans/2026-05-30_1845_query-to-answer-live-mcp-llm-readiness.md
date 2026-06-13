@@ -5,6 +5,7 @@
 **Commits:** `567fe62`, `ae88760`, orchestration Phase 1 composer
 **Author:** COE review (Anurag + Claude)  
 **Related:** [`contracts/splunk_mcp_connection_contract.md`](../contracts/splunk_mcp_connection_contract.md), [`2026-06-13_spl-generation-audit-completion.md`](2026-06-13_spl-generation-audit-completion.md), [`/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md`](/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md) (Phase G/H)
+**External sources reconciled (A.17):** Splunk Lantern — [LLM reasoning + ML for Jira alert investigations](https://lantern.splunk.com/Security_Use_Cases/Automation_and_Orchestration/Leveraging_LLM_reasoning_and_ML_capabilities_for_Jira_alert_investigations), [Automating alert investigations with LLMs + Splunk + Confluence](https://lantern.splunk.com/Observability_Use_Cases/Troubleshoot/Automating_alert_investigations_by_integrating_LLMs_with_the_Splunk_platform_and_Confluence)
 
 > **Plan management:** MCP orchestration rules live in **Appendix A** below (formerly a separate `2026-06-13_mcp-execution-orchestration-plan.md`). One file for COE tracking; architecture deep-dives remain in `docs/architecture/spl_mcp_execution_controls.md`.
 
@@ -392,7 +393,7 @@ Stop when any condition is true:
 5. Call or wall-clock budget is exhausted.
 6. Analyst rejects or changes scope.
 
-An empty result may activate a predeclared fallback call only when the recipe explicitly defines that edge. It must never trigger open-ended LLM replanning.
+An empty result may activate a predeclared fallback call only when the recipe explicitly defines that edge. It must never trigger open-ended LLM replanning. The LLM *may* propose the broadened query content on such an edge (see A.17 `broaden_scope_on_empty`) — bounded by validation, allowlist, budget, and per-call approval. "Bounded LLM-proposed retry" is permitted; "open-ended LLM replanning" (LLM adds calls, raises budget, leaves allowlist, or re-plans the investigation) is not.
 
 ### A.8 Failover policy
 
@@ -456,7 +457,7 @@ Allowed activation conditions in v1: `always`, `previous_ok`, `previous_empty`, 
 | **O2** | Envelope hardening | ✅ (= Phase A) |
 | **O3** | Live `splunk_run_query` adapter | 🟡 (= Phase B2; mock complete, live COE) |
 | **O4** | Optional auto discovery execution | ❌ Proposed (`MCP_DISCOVERY_EXECUTION_ENABLED`) |
-| **O5a** | `ResourcePlanV2` dependency/failover contracts + deterministic recipe registry | ❌ Ready to implement |
+| **O5a** | `ResourcePlanV2` dependency/failover contracts + deterministic recipe registry | ✅ Contract landed — `app/planner/recipe_registry.py` (`single_search`, `broaden_scope_on_empty`), `app/orchestration/mcp_orchestration.py` (envelope + HIL-approval gate `can_execute_call`/`approve_call`), `ResourcePlanV2` in `resource_plan.py`; `test_recipe_registry_contract.py` (15 tests). No connector change; default-off |
 | **O5b** | Resource scheduler + MCP plan/execute-one/assess + reconcile loop | ❌ Ready to implement behind flags |
 | **O5c** | Async lifecycle, evidence aggregation, lineage, UI, parity tests | ❌ Required before live multi-call |
 | **O6** | LLM narration of MCP-informed answers | 🟡 (= Phase C; flag-gated) |
@@ -490,6 +491,7 @@ Allowed activation conditions in v1: `always`, `previous_ok`, `previous_empty`, 
 8. First governed multi-call recipe and allowed activation conditions
 9. Equivalent-capability tool fallback allowlist per server
 10. Async submit/poll/fetch schema, poll interval, cancellation, and resumability
+11. Whether ML-model-application MCP tools (Lantern Cloud Platform pattern, A.17 #2) enter scope; if so, model-discovery + apply call classes under the same authority matrix
 
 ### A.14 Required tests and acceptance criteria
 
@@ -522,6 +524,52 @@ Allowed activation conditions in v1: `always`, `previous_ok`, `previous_empty`, 
 
 Splunk telemetry writes; SAIA/generative tools; free-form or LLM-initiated MCP calls; unbounded retries; parallel MCP fan-out in v1; MCP as sixth route skill.
 
+### A.17 External guidance reconciliation — Splunk Lantern (2026-06-13)
+
+Reviewed two Lantern MCP-investigation playbooks:
+
+- Security / Automation: *Leveraging LLM reasoning and ML capabilities for Jira alert investigations* (Splunk MCP server for Cloud Platform + Jira; applies pre-existing ML models so users skip writing the SPL needed to run them).
+- Observability / Troubleshoot: *Automating alert investigations by integrating LLMs with the Splunk platform and Confluence* (Atlassian MCP `searchConfluenceUsingCql`/`getConfluencePage` for runbooks; Splunk MCP `run_splunk_query`/`get_indexes`/`get_metadata`; Plan-Run-Adapt-Re-run loop; "stop and ask me for guidance" HIL; one-time auth).
+
+Most guidance already matches this plan (discovery-before-query, runbook→plan→query, per-call approval, HIL, tool surface, secret-safe auth). Three deliberate divergences and one capability gap:
+
+| # | Lantern pattern | Our governed stance | Resolution |
+|---|-----------------|---------------------|------------|
+| 1 | **Plan-Run-Adapt-Re-run** — on empty results the LLM autonomously widens the time window / tries alternative sourcetypes and re-runs | A.7 forbids *open-ended* LLM replanning; A.9 `on_empty` activation must be predeclared | **Adopt the value, govern the loop — LLM proposes, deterministic validates.** Add a `broaden_scope_on_empty` recipe whose retry edge is *triggered* deterministically (`previous_empty`) but whose broadened query is *proposed by the LLM* through the existing LLM-primary SPL failover path. The proposal is a lab-tier candidate — it re-enters R5 relevance → source resolve → `validate_spl` → allowlist → per-call approval before it can run. Adaptive intelligence kept; authority not ceded. Not a closed rigid transform. |
+| 2 | **ML-model application without SPL** (Cloud Platform MCP runs pre-existing ML models) | Plan is SPL-search-centric; air-gapped 7-tool surface (A.2) has no model-apply tool | **Forward note only.** Treat `apply_ml_model` / model-discovery as a future call class behind the same authority matrix (capability mapping → discovery → allowlist → approval). Not in the 7-tool air-gapped surface; raise as COE decision A.13 #11. Out of v1 scope (A.16). |
+| 3 | Prompt gives **contextual hints, no exact tool prescription**; LLM may steer toward an MCP | LLM is fully out of tool selection; selection is deterministic (A.5) | **No change to authority.** Contextual hints are fine *for narration only* (C2). Tool choice stays deterministic; LLM hints never authorize a call. Documented divergence — intentional, stricter than Lantern. |
+| 4 | Atlassian MCP for runbook retrieval | Our runbooks live in governed SOC-KB RAG (H1), not a live Confluence MCP | **No change.** RAG path is the air-gapped equivalent; no live Confluence MCP. If COE later wants live Confluence, it enters as a separate read-only MCP under the same registry, never an LLM-direct path. |
+
+**Governed `broaden_scope_on_empty` recipe (delta 1 — the one concrete addition):**
+
+```text
+recipe:
+  recipe_id: broaden_scope_on_empty
+  eligible_skills: [spl_generation, guided_investigation]   # COE to confirm
+  max_calls: 2
+  calls:
+    - call_id: c1_primary_search
+      call_class: evidence_search
+      activation_condition: always
+      spl_template_family: <route-bound family>
+      produces_evidence_keys: [primary_search_rows]
+    - call_id: c2_broadened_search
+      call_class: evidence_search
+      depends_on: [c1_primary_search]
+      activation_condition: previous_empty   # deterministic TRIGGER
+      # broadened query is LLM-PROPOSED, deterministically validated:
+      spl_source: llm_failover_candidate     # reuses AI_SOC_LLM_SPL_FALLBACK path
+      proposal_context:
+        - empty_primary_query + route + evidence gap (no raw rows to LLM)
+        - allowed indexes/sourcetypes + earliest cap (LLM proposes WITHIN bounds)
+      validation_chain: [r5_relevance, source_resolve, validate_spl, allowlist, approval]
+      produces_evidence_keys: [broadened_search_rows]
+      on_empty: terminal   # honest negative; never "no threat"
+      on_invalid_proposal: terminal   # LLM proposal fails any gate -> stop, HIL
+```
+
+**LLM-assisted failover loop (why this is not a closed rigid solution).** On `previous_empty`, the recipe invokes the existing LLM-primary SPL failover (`AI_SOC_LLM_SPL_FALLBACK_ENABLED`, default off) — *no new flag*. The LLM reasons about *why* the primary returned empty (wrong sourcetype, time window too tight for a slow attack, over-narrow filter) and proposes a broadened/alternative SPL. That proposal is **advisory and non-executable**: it enters as a lab-tier candidate (`validate_spl_lab_candidate`), passes the R5 `spl_relevance_check`, resolves sources, runs full `validate_spl`, and consumes a **fresh per-call approval** before any execution. The deterministic layer owns the bounds (LLM cannot exceed `SPL_DEFAULT_EARLIEST`, leave `SPL_ALLOWED_INDEXES`/`_SOURCETYPES`, raise the result cap, or select a blocked tool); the LLM owns the *judgment* of what to try. Scope change invalidates the prior approval hash; the call counts against `MCP_MAX_CALLS_PER_TURN`; raw rows never reach the prompt. A still-empty or gate-failed result is an honest terminal outcome — not connector failure, not "no threat." This is the governed analog of Lantern's adapt step: **LLM intelligence in the loop, deterministic authority around it.**
+
 ---
 
 ## Final architecture review (2026-06-13)
@@ -540,7 +588,7 @@ Splunk telemetry writes; SAIA/generative tools; free-form or LLM-initiated MCP c
 
 ### Implementation order
 
-1. **O5a contract commit:** Add `ResourcePlanV2`, dependency/failover fields, `mcp_orchestration` models, recipe registry, and contract tests. No connector behavior change.
+1. **O5a contract commit:** ✅ **Done** — `ResourcePlanV2` + dependency/failover fields (`resource_plan.py`), `mcp_orchestration` models + HIL-approval gate (`mcp_orchestration.py`), recipe registry with `single_search` + `broaden_scope_on_empty` (`recipe_registry.py`), contract tests (`test_recipe_registry_contract.py`, 15 green). No connector behavior change; nothing wired into live pipeline. The broadened call is LLM-proposed, full-validation-chained, and HIL-gated: `can_execute_call` blocks until `approve_call` flips approval to `approved` — "if HIL approves, execute."
 2. **O5b scheduler commit:** Add pure scheduler/reconcile functions and fixture-only resource execution. Keep the feature flag off; prove metadata-MCP-before-SPL and Search-A-to-Search-B paths.
 3. **O5c integration commit:** Wire imperative and LangGraph paths to the same nodes; add source-evidence aggregation, lineage, HIL continuation, async lifecycle fixtures, and parity tests.
 4. **O3 adapter commit:** Implement the COE-confirmed live transport and exact schemas behind existing execution flags. Do not combine this with scheduler contracts.
