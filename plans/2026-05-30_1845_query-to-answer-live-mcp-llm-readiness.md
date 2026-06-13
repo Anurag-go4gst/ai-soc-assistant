@@ -458,8 +458,8 @@ Allowed activation conditions in v1: `always`, `previous_ok`, `previous_empty`, 
 | **O3** | Live `splunk_run_query` adapter | 🟡 (= Phase B2; mock complete, live COE) |
 | **O4** | Optional auto discovery execution | ❌ Proposed (`MCP_DISCOVERY_EXECUTION_ENABLED`) |
 | **O5a** | `ResourcePlanV2` dependency/failover contracts + deterministic recipe registry | ✅ Contract landed — `app/planner/recipe_registry.py` (`single_search`, `broaden_scope_on_empty`), `app/orchestration/mcp_orchestration.py` (envelope + HIL-approval gate `can_execute_call`/`approve_call`), `ResourcePlanV2` in `resource_plan.py`; `test_recipe_registry_contract.py` (15 tests). No connector change; default-off |
-| **O5b** | Resource scheduler + MCP plan/execute-one/assess + reconcile loop | ❌ Ready to implement behind flags |
-| **O5c** | Async lifecycle, evidence aggregation, lineage, UI, parity tests | ❌ Required before live multi-call |
+| **O5b** | Resource scheduler + MCP plan/execute-one/assess + reconcile loop | ✅ Pure functions landed — `app/planner/orchestration_scheduler.py` (`schedule_next`, `outcome_edge`, evidence-key helpers); `test_orchestration_scheduler.py` (9 tests, fixture-only) proves metadata-before-SPL + Search-A→Search-B. Not wired beyond O5c-core below |
+| **O5c** | Async lifecycle, evidence aggregation, lineage, UI, parity tests | 🟡 **Core landed** — `app/orchestration/broaden_orchestration.py` wired into `graph_node_execution`: empty primary + `broaden_scope_on_empty` + `AI_SOC_LLM_SPL_FALLBACK_ENABLED` → LLM-proposed broadened SPL → new `spl_broaden_confirmation` HIL → approve rides existing `pending_execution_confirmation` gate (B4) → executes. `mcp_orchestration` envelope attached. **No new flag** (gated on existing execution + LLM-fallback flags; default-off = unchanged single-call). `test_broaden_orchestration.py` (10 tests). **Deferred (O5c-2):** full LangGraph parity, async submit/poll/fetch lifecycle, cross-turn envelope continuity, dedicated frontend card (generic HIL renderer handles it today), per-call SourceEvidence aggregation across both calls |
 | **O6** | LLM narration of MCP-informed answers | 🟡 (= Phase C; flag-gated) |
 | **O7** | Live activation and staged rollout | ❌ COE-gated |
 
@@ -472,7 +472,7 @@ Allowed activation conditions in v1: `always`, `previous_ok`, `previous_empty`, 
 | `MCP_SERVER_MOCK_EXECUTION_ENABLED` | false | Mock search in gate |
 | `AI_SOC_REQUIRE_SPL_EXECUTION_CONFIRMATION` | true | Analyst confirm/update before search |
 | `MCP_DISCOVERY_EXECUTION_ENABLED` | false (proposed) | Auto-run discovery tools |
-| `MCP_MULTI_CALL_ORCHESTRATION_ENABLED` | false (proposed) | Enables bounded recipe loop; false preserves single-call behavior |
+| `MCP_MULTI_CALL_ORCHESTRATION_ENABLED` | ~~proposed~~ **dropped** | COE decision 2026-06-13: **no new flag.** Broaden-on-empty orchestration gates on existing `MCP_*_EXECUTION_ENABLED` + `AI_SOC_LLM_SPL_FALLBACK_ENABLED`; default-off = unchanged single-call |
 | `MCP_MAX_CALLS_PER_TURN` | 3 (proposed, server-capped) | Maximum started MCP calls in one turn |
 | `MCP_ORCHESTRATION_MAX_WALL_TIME_MS` | COE decision | Total MCP loop wall-clock budget |
 | `MCP_MAX_POLLS_PER_CALL` | COE decision | Async lifecycle poll cap per logical call |
@@ -589,8 +589,8 @@ recipe:
 ### Implementation order
 
 1. **O5a contract commit:** ✅ **Done** — `ResourcePlanV2` + dependency/failover fields (`resource_plan.py`), `mcp_orchestration` models + HIL-approval gate (`mcp_orchestration.py`), recipe registry with `single_search` + `broaden_scope_on_empty` (`recipe_registry.py`), contract tests (`test_recipe_registry_contract.py`, 15 green). No connector behavior change; nothing wired into live pipeline. The broadened call is LLM-proposed, full-validation-chained, and HIL-gated: `can_execute_call` blocks until `approve_call` flips approval to `approved` — "if HIL approves, execute."
-2. **O5b scheduler commit:** Add pure scheduler/reconcile functions and fixture-only resource execution. Keep the feature flag off; prove metadata-MCP-before-SPL and Search-A-to-Search-B paths.
-3. **O5c integration commit:** Wire imperative and LangGraph paths to the same nodes; add source-evidence aggregation, lineage, HIL continuation, async lifecycle fixtures, and parity tests.
+2. **O5b scheduler commit:** ✅ **Done** — pure `schedule_next`/`outcome_edge`/evidence-key helpers (`orchestration_scheduler.py`), fixture-only (`test_orchestration_scheduler.py`). Proves metadata-MCP-before-SPL and Search-A→Search-B. No wiring.
+3. **O5c integration commit:** 🟡 **Core done** — broaden-on-empty wired into the imperative pipeline (`broaden_orchestration.py` → `graph_node_execution`), HIL via new `spl_broaden_confirmation` riding the existing `pending_execution_confirmation` gate, `mcp_orchestration` envelope attached, **no new flag** (COE decision: gate on existing execution + `AI_SOC_LLM_SPL_FALLBACK_ENABLED` flags; default-off = unchanged single-call). `test_broaden_orchestration.py`. **Remaining (O5c-2):** LangGraph parity, async submit/poll/fetch lifecycle, cross-turn envelope continuity, per-call SourceEvidence aggregation, dedicated frontend broaden card.
 4. **O3 adapter commit:** Implement the COE-confirmed live transport and exact schemas behind existing execution flags. Do not combine this with scheduler contracts.
 5. **O7 activation:** Enable one approved recipe/server in staging, observe budgets/failures, run governance regression, then seek production sign-off.
 

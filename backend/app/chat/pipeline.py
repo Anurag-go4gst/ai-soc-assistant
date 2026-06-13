@@ -16,6 +16,10 @@ from app.evidence.source_evidence import build_source_evidence
 from app.knowledge.rag_evidence_lineage import resolve_answer_readiness, resolve_response_evidence_origin
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.lineage.builder import build_investigation_lineage
+from app.orchestration.broaden_orchestration import (
+    maybe_build_broaden_decision,
+    should_attempt_broaden,
+)
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.workflow_planner import plan_workflow
@@ -469,6 +473,12 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         trace_id=trace_id,
     )
     query_text = state.get("effective_query") or request.message
+    query_understanding = state.get("query_understanding")
+    candidate_mapped_pattern = None
+    if query_understanding is not None and getattr(
+        query_understanding, "deterministic_match_path", None
+    ) in ("exact_105_question", "exact_105_plus_use_case_catalog"):
+        candidate_mapped_pattern = getattr(query_understanding, "mapped_pattern_type", None)
     session_refined = _session_spl_refine_stage(
         state=state,
         trace_id=trace_id,
@@ -495,13 +505,9 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
                 else None
             ),
             slot_binding_enabled=settings.control_plane_enabled,
+            mapped_pattern_type=candidate_mapped_pattern,
         )
-    query_understanding = state.get("query_understanding")
-    exact_105_pattern = None
-    if query_understanding is not None and getattr(
-        query_understanding, "deterministic_match_path", None
-    ) in ("exact_105_question", "exact_105_plus_use_case_catalog"):
-        exact_105_pattern = getattr(query_understanding, "mapped_pattern_type", None)
+    exact_105_pattern = candidate_mapped_pattern
     mapped_use_case_ids = (
         getattr(query_understanding, "mapped_use_case_ids", None) or []
         if query_understanding is not None
@@ -574,6 +580,46 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         pending_execution=pending_execution,
     )
     emit_mcp_status_from_execution(execution)
+    # Source-profile clarification wins over the execution-stage HIL: a lab/draft
+    # candidate whose index/sourcetype could not be resolved must surface the
+    # "provide source profile" ask, not an execution-approval gate on an
+    # unresolved placeholder SPL. (Governed templates never hit this — they carry
+    # concrete sources, so source-resolve produces no missing slots.)
+    prior_review = state.get("human_review")
+    if (
+        isinstance(prior_review, dict)
+        and prior_review.get("required")
+        and prior_review.get("review_type") == "spl_source_profile_clarification"
+    ):
+        return {**state, "execution": execution, "human_review": prior_review}
+
+    # O5c: broaden-on-empty. When a primary search executed with zero rows and
+    # the broaden recipe + LLM fallback are enabled, offer one bounded,
+    # HIL-gated, LLM-proposed broadened retry. Default-off (both flags off) =>
+    # this is skipped and the single-call result stands unchanged.
+    if should_attempt_broaden(
+        selected_skill=_effective_routing_skill(state),
+        execution=execution,
+        has_incoming_review_action=bool(getattr(request, "execution_review_action", None)),
+    ):
+        decision = maybe_build_broaden_decision(
+            trace_id=state["trace_id"],
+            user_query=state.get("effective_query") or request.message,
+            execution=execution,
+        )
+        if decision is not None:
+            execution = {
+                **execution,
+                "pending_execution_confirmation": decision.pending_execution_confirmation,
+                "mcp_orchestration": decision.orchestration,
+            }
+            return {
+                **state,
+                "execution": execution,
+                "human_review": decision.review,
+                "mcp_orchestration": decision.orchestration,
+            }
+
     return {**state, "execution": execution, "human_review": human_review}
 
 
@@ -700,8 +746,25 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
         "fully_resolved": resolve_result.fully_resolved,
     }
     updated: dict[str, Any] = {**state, "spl_source_resolve": trace}
+    is_lab_tier = bool(candidate.get("lab_tier_exposure"))
 
     if resolve_result.fully_resolved and isinstance(resolve_result.validation, dict):
+        # Lab-tier candidates (non-governed LLM/lab drafts) stay review-only: even
+        # when placeholders fully resolve and validate, we never flip them to
+        # execution_validated/approved. The analyst sees the substituted SPL for
+        # review, but approved/normalized_spl stay false/null so the MCP gate cannot
+        # run it. Governed candidates promote as before.
+        if is_lab_tier:
+            updated["candidate_spl"] = {
+                **candidate,
+                "candidate_spl": resolve_result.spl,
+                "source_resolve_tiers": resolve_result.tiers_used,
+            }
+            updated["spl_validation"] = {
+                **validation,
+                "source_resolve_tiers": resolve_result.tiers_used,
+            }
+            return updated
         resolved_validation = {
             **validation,
             **resolve_result.validation,
@@ -2276,6 +2339,7 @@ def _candidate_spl_stage(
     template_id: str | None = None,
     use_case_id: str | None = None,
     slot_binding_enabled: bool = False,
+    mapped_pattern_type: str | None = None,
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
@@ -2368,7 +2432,7 @@ def _candidate_spl_stage(
         llm_context={
             "primary_skill": skill,
             "use_case_id": use_case_id,
-            "pattern_type": (spl_governance or {}).get("pattern_type"),
+            "pattern_type": (spl_governance or {}).get("pattern_type") or mapped_pattern_type,
             "required_sources": (spl_governance or {}).get("required_sources"),
             # R1: when keyword routing is ambiguous (>1 family matches), give the
             # LLM the candidate family list so it disambiguates rather than the
@@ -2761,6 +2825,124 @@ def _should_use_llm_spl_failover(skill: str) -> bool:
     return skill in {"attack_discovery", "spl_generation"}
 
 
+def _candidate_from_lab_draft(
+    *,
+    trace_id: str,
+    skill: str,
+    user_query: str,
+    telemetry: Any,
+    profile: Any,
+    spl_governance: dict[str, Any] | None,
+    pattern_type: str | None,
+    use_case_id: str | None,
+    llm_fallback_reason: str | None,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """Deterministic lab-draft last resort for the LLM-failover degrade chain.
+
+    Called only when the LLM advisory produced nothing exposable. Returns a
+    review-only lab-tier candidate (placeholder index/sourcetype, approved=false,
+    normalized_spl=null, execution disabled) so the analyst still gets an
+    on-question draft. The lab-tier guard in graph_node_spl_source_resolve keeps it
+    approved=false even if placeholders later resolve. Returns None when no draft
+    family matches, preserving the prior clarification path.
+    """
+    draft = build_draft_preview(
+        user_query,
+        pattern_type=pattern_type,
+        use_case_id=use_case_id,
+    )
+    draft_spl = (draft or {}).get("draft_spl")
+    if not draft or not isinstance(draft_spl, str) or not draft_spl.strip():
+        return None
+
+    lab_labels = {
+        "governed": False,
+        "catalog_approved": bool(draft.get("catalog_approved")),
+        "execution_enabled": False,
+        "execution_eligible": False,
+        "review_required": True,
+    }
+    candidate_payload = {
+        "trace_id": trace_id,
+        "skill": skill,
+        "user_query": user_query,
+        "candidate_spl": draft_spl,
+        "generation_mode": "deterministic_lab_draft",
+        "confidence": 0.5,
+        "assumptions": [
+            *list(draft.get("assumptions") or []),
+            "Deterministic lab SPL draft — not governed, not catalog-approved, not executable.",
+            "Placeholder index/sourcetype require a source profile before validation or execution.",
+        ],
+        "warnings": ["lab_draft_requires_source_profile"],
+        "selected_candidate_spl_provider": "deterministic_lab_draft",
+        "fallback_required": True,
+        "candidate_spl_generated": True,
+        "validation_required": True,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "llm_supported": True,
+        "llm_fallback_used": True,
+        "llm_fallback_status": "lab_draft_fallback",
+        "llm_fallback_reason": llm_fallback_reason,
+        "exposure_tier": "lab_candidate",
+        "lab_tier_exposure": True,
+        "detection_family": draft.get("detection_family"),
+        **lab_labels,
+    }
+    validation_payload = {
+        # Fail-closed: the analyst sees the draft, but approved/normalized_spl stay
+        # false/null so the MCP execution gate can never run a placeholder draft.
+        "approved": False,
+        "normalized_spl": None,
+        "exposure_tier": "lab_candidate",
+        "lab_tier_exposure": True,
+        "reject_reasons": list(draft.get("validator_reject_reasons") or ["lab_draft_source_profile_missing"]),
+        "warnings": ["lab_draft_requires_source_profile"],
+        "enforced_limits": validate_spl("").get("enforced_limits") or {},
+        "policy_version": validate_spl("").get("policy_version"),
+        "selected_candidate_spl_provider": "deterministic_lab_draft",
+        "candidate_provider_reason": "llm_fallback_degraded_to_lab_draft",
+        "saia_available": False,
+        "fallback_required": True,
+        "spl_explanation_provider": "rule_based",
+        "spl_optimization_provider": "rule_based",
+        "spl_guidance_provider": "scd_rag",
+        "optimization_applied": False,
+        "optimization_revalidation_status": None,
+        "optimization_revalidation_approved": False,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "llm_supported": True,
+        "llm_fallback_used": True,
+        "llm_fallback_status": "lab_draft_fallback",
+        "llm_fallback_reason": llm_fallback_reason,
+        **lab_labels,
+    }
+    _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
+    _mark_spl_review_status(candidate_payload, validation_payload)
+    telemetry.record_step(
+        trace_id,
+        "candidate_spl_generated",
+        "completed",
+        skill=skill,
+        generation_mode=candidate_payload["generation_mode"],
+        confidence=candidate_payload["confidence"],
+        warnings=candidate_payload["warnings"],
+        selected_candidate_spl_provider="deterministic_lab_draft",
+        fallback_required=True,
+    )
+    telemetry.record_spl_validation(
+        trace_id,
+        stage="spl_validation_result",
+        approved=False,
+        reject_reasons=validation_payload["reject_reasons"],
+        warnings=validation_payload["warnings"],
+        policy_version=validation_payload["policy_version"],
+    )
+    return candidate_payload, validation_payload
+
+
 def _candidate_from_llm_fallback(
     *,
     trace_id: str,
@@ -2845,6 +3027,25 @@ def _candidate_from_llm_fallback(
     # execution-validated OR a placeholder-only lab candidate. Lab-tier is shown to
     # the analyst (review-only) but execution stays fail-closed below.
     expose_spl = bool(result.candidate_spl.strip()) and relevance.relevant and (approved or lab_tier)
+    # Degrade chain last resort: when the LLM advisory produced nothing exposable
+    # (client unavailable, off-question, or quality hard-fail), fall through to the
+    # deterministic lab-draft family instead of dead-ending at clarification. The
+    # draft is review-only lab-tier (approved=false, normalized_spl=null) so the MCP
+    # execution gate still cannot run it.
+    if not expose_spl:
+        lab_draft_candidate = _candidate_from_lab_draft(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+            pattern_type=(llm_context or {}).get("pattern_type"),
+            use_case_id=(llm_context or {}).get("use_case_id"),
+            llm_fallback_reason=result.clarification_reason,
+        )
+        if lab_draft_candidate is not None:
+            return lab_draft_candidate
     reject_reasons = list(validation.get("reject_reasons") or [])
     if not relevance.relevant:
         for mismatch in relevance.mismatches:
