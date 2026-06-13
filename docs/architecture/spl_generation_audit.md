@@ -175,6 +175,41 @@ Active templates today: `auth_failed_login_spike`, `auth_success_after_failure`,
 
 ---
 
+## 7b. Phase B results (routing correctness, deterministic, no LLM)
+
+| Metric | Phase A | Phase B |
+|--------|---------|---------|
+| 105 spl-expected relevant | 81/105 (raw) | **97/102 (95.1%)** |
+| Catalogue spl-expected relevant | 9/29 | 12/31 (38.7%) |
+
+Fixes landed:
+- **PowerShell aggregation (+11):** `endpoint_powershell_suspicious` now rolls up
+  `stats ... by host_norm` so "which hosts ran X" returns a host ranking, not a raw
+  event dump.
+- **DNS-aware routing R2 (+5):** two new families `dns_query_volume` (by host) and
+  `dns_domain_spread` (by domain, dc hosts), plus hardcoded DNS routing in
+  `match_detection_family` before the generic network fallback. DNS questions no
+  longer get `network_traffic_top_talkers`.
+- **B03:** `generation_mode` for the internal-LLM provider relabelled `stub` (body
+  is the deterministic StubSplGenerator; no live LLM on that path).
+- **Justified-no-SPL classification** added to the eval (lane-guarded): lookup /
+  enrichment rows (`case_state_lookup`, `asset_identity_context` with no SPL;
+  catalogue `soc_*` / knowledge skills) are excluded from the coverage denominator
+  only when they produce no SPL — a lookup-classed question that still yields
+  relevant SPL stays scored.
+
+Deferred (correctly, not gamed):
+- **B05** (SMB redundant `where`) → Phase E: its `like(app_norm,"%smb%")` adds
+  wildcard breadth beyond the base search and has a contract test; belongs with the
+  simplifier + test update.
+- **R1** (ambiguous multi-match → clarification) → Phase C: without the LLM
+  re-route destination, forcing ambiguous matches to clarification only adds
+  regressions.
+- **5 remaining 105 mismatches are genuine Phase C LLM cases**, not fabricated
+  families: q048 impossible-travel, q056 after-hours, q070 password-change (auth
+  questions mis-routed to network — no fitting auth draft family exists), q092/q093
+  multi-signal correlation (need multi-source + entity reasoning).
+
 ## 8. Baselines recorded (Phase A exit)
 
 | Check | Result |

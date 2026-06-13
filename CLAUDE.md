@@ -167,7 +167,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/AI_SOC_MASTER_PLAN.md` | **Active implementation roadmap** — hardening, skill enrichment, pipeline/LangGraph, GitHub skill intake (Tracks A–D); Batches 2–5 completed, next batch requires explicit scope approval. |
 | `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Logic hierarchy, rules, status tables — agents read for Q1C→Q4 spine context. |
 | `/root/.cursor/plans/guided_investigation_5th_skill_098a0cdf.plan.md` | Done — guided investigation fifth route plus confirmed air-gapped Splunk MCP seven-tool binding; discovery remains planned-only and execution-gated. |
-| `/root/.cursor/plans/spl_generation_audit_30f60bc7.plan.md` | **In Progress** — relevance-first SPL audit + optimization. Phase A done (audit doc `docs/architecture/spl_generation_audit.md`, `eval_spl_relevance.py` baseline 105:81/105, catalogue spl-expected 9/29; governance regression green). Next: Phase B routing-correctness fixes (R1/R2 DNS+PowerShell, R3, B03, B05). |
+| `/root/.cursor/plans/spl_generation_audit_30f60bc7.plan.md` | **In Progress** — relevance-first SPL audit + optimization. Phase A done (audit doc `docs/architecture/spl_generation_audit.md`, `eval_spl_relevance.py` baseline). Phase B done (routing correctness, deterministic): PowerShell host rollup (+11), DNS families `dns_query_volume`/`dns_domain_spread` + DNS-aware routing R2 (+5), B03 label honesty; 105 spl-expected 97/102 (95.1%); governance regression green. B05→Phase E, R1 + 5 auth/multi-signal mismatches→Phase C LLM. Next: Phase C LLM-primary failover + `spl_relevance_check` gate. |
 
 **All plans:**
 

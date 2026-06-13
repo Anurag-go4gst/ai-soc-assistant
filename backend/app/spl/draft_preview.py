@@ -91,6 +91,16 @@ FAMILY_PRESENTATION: dict[str, dict[str, str]] = {
         "review_type": "investigation_review",
         "review_type_display": "Investigation review — lab draft SPL, DNS source profile required, not executed",
     },
+    "dns_query_volume": {
+        "title": "DNS query-volume top talkers",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, DNS source profile required, not executed",
+    },
+    "dns_domain_spread": {
+        "title": "DNS domains queried by multiple hosts",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — lab draft SPL, DNS source profile required, not executed",
+    },
     "endpoint_powershell_suspicious": {
         "title": "Suspicious PowerShell activity hunt",
         "review_type": "investigation_review",
@@ -1089,6 +1099,90 @@ search index=<dns_index> sourcetype=<dns_sourcetype> earliest=-24h latest=now (q
         ),
     ),
     _family(
+        "dns_query_volume",
+        pattern_texts=(
+            r"most\s+dns\s+quer",
+            r"dns\s+quer\w*\s+volume",
+            r"largest\s+dns\s+response",
+            r"unusual\s+dns\s+quer",
+        ),
+        draft_spl="""
+search index=<dns_index> sourcetype=<dns_sourcetype> earliest=-24h latest=now (query=* OR question=*)
+| eval src_host_norm=lower(coalesce(src_host, src, src_ip, host, "unknown"))
+| eval domain_norm=lower(coalesce(query, question, domain, ""))
+| eval response_bytes_norm=coalesce(answer_size, reply_size, bytes, bytes_in, 0)
+| stats
+    count as dns_query_count
+    dc(domain_norm) as distinct_domains
+    sum(response_bytes_norm) as total_response_bytes
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by src_host_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| table src_host_norm dns_query_count distinct_domains total_response_bytes first_seen last_seen
+| sort - dns_query_count
+| head 100
+""",
+        assumptions=(
+            "Ranks hosts by DNS query volume and distinct domains over 24h; high volume is not inherently malicious.",
+            "Response-volume questions reuse the same rollup via total_response_bytes — map your DNS size field during review.",
+            "Recursive resolvers and proxies can dominate this list — exclude infrastructure hosts before judgment.",
+            "Replace <dns_index> and <dns_sourcetype> from your DNS source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "src_ip", "query", "_time"),
+        required_source_profile_fields=("dns_index", "dns_sourcetype"),
+        investigation_checklist=(
+            "Separate resolver/proxy infrastructure from end-host DNS behavior.",
+            "Review the distinct-domain spread, not just raw query count.",
+            "Correlate top talkers with proxy/firewall egress for follow-on activity.",
+            "Do not declare exfiltration or C2 from DNS query volume alone.",
+        ),
+    ),
+    _family(
+        "dns_domain_spread",
+        pattern_texts=(
+            r"domains?\s+queried\s+by\s+(?:multiple|many|several)",
+            r"(?:multiple|many)\s+hosts?\s+quer\w*\s+(?:the\s+)?same\s+domain",
+            r"domains?\s+.{0,30}quer\w*\s+by\s+(?:multiple|many|several)\s+hosts?",
+        ),
+        draft_spl="""
+search index=<dns_index> sourcetype=<dns_sourcetype> earliest=-24h latest=now (query=* OR question=*)
+| eval src_host_norm=lower(coalesce(src_host, src, src_ip, host, "unknown"))
+| eval domain_norm=lower(coalesce(query, question, domain, ""))
+| stats
+    dc(src_host_norm) as distinct_hosts
+    count as dns_query_count
+    earliest(_time) as first_seen_epoch
+    latest(_time) as last_seen_epoch
+    by domain_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| where distinct_hosts>1
+| table domain_norm distinct_hosts dns_query_count first_seen last_seen
+| sort - distinct_hosts
+| head 100
+""",
+        assumptions=(
+            "Surfaces domains queried by more than one host over 24h, ranked by host spread.",
+            "Widely shared domains (CDN, OS telemetry, security vendors) are common false positives — check reputation first.",
+            "Short-period clustering needs timing review; narrow the window during analysis.",
+            "Replace <dns_index> and <dns_sourcetype> from your DNS source profile.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "src_ip", "query", "_time"),
+        required_source_profile_fields=("dns_index", "dns_sourcetype"),
+        investigation_checklist=(
+            "Check domain reputation and category before treating shared use as suspicious.",
+            "Identify whether the shared domain maps to known infrastructure or SaaS.",
+            "Review per-host query timing for coordinated patterns.",
+            "Do not declare C2 from shared-domain access alone.",
+        ),
+    ),
+    _family(
         "network_new_or_rare_behavior",
         pattern_texts=(
             r"unusual\s+protocols?",
@@ -1223,9 +1317,18 @@ search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=
     OR like(parent_image_norm, "%outlook.exe")
     OR like(parent_image_norm, "%wscript.exe")
     OR like(parent_image_norm, "%mshta.exe")
-| sort 0 - _time
-| eval event_time=strftime(_time, "%Y-%m-%d %H:%M:%S")
-| table event_time host_norm user_norm parent_image_norm command_line_norm
+| stats
+    count as suspicious_events
+    dc(command_line_norm) as distinct_commands
+    values(user_norm) as users
+    values(parent_image_norm) as parent_processes
+    latest(command_line_norm) as sample_command
+    min(_time) as first_seen
+    max(_time) as last_seen
+    by host_norm
+| eval first_seen=strftime(first_seen, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+| sort 0 - suspicious_events
 | head 100
 """,
         assumptions=(
@@ -1712,6 +1815,19 @@ def match_detection_family(user_query: str) -> str | None:
         r"\b(?:most|top|talkers?|highest|largest|busiest|volume)\b", normalized
     ):
         return "network_smb_top_talkers"
+    # DNS-aware routing: DNS-volume / domain-spread questions must use a DNS
+    # family, not the generic network top-talkers fallback (R2 mis-route fix).
+    dns_context = bool(re.search(r"\bdns\b", normalized)) or (
+        "domain" in normalized and re.search(r"\bquer(?:y|ies|ied)\b", normalized)
+    )
+    if dns_context:
+        if re.search(r"domains?\b", normalized) and re.search(
+            r"\b(?:multiple|many|several)\b.*\bhosts?\b|\bhosts?\b.*\b(?:multiple|many|several)\b",
+            normalized,
+        ):
+            return "dns_domain_spread"
+        if re.search(r"\b(?:most|top|largest|highest|unusual|volume|spike|busiest)\b", normalized):
+            return "dns_query_volume"
     best_id: str | None = None
     best_score = 0
     for family in DETECTION_FAMILIES:

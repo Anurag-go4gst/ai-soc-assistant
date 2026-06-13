@@ -18,7 +18,10 @@ def generate_candidate_spl_with_provider(trace_id: str, skill: str, user_query: 
     elif provider == "template":
         candidate = replace(candidate, generation_mode="template", assumptions=[*candidate.assumptions, "AI-SOC template fallback used because SAIA is unavailable or disabled."])
     elif provider == "internal_llm":
-        candidate = replace(candidate, generation_mode="internal_llm", assumptions=[*candidate.assumptions, "Internal LLM fallback output is candidate SPL only and requires validation."])
+        # The body here is always the deterministic StubSplGenerator — no live LLM
+        # call happens on this path (real LLM failover lands in Phase C). Label the
+        # generation_mode honestly as `stub` so the trace does not claim LLM output.
+        candidate = replace(candidate, generation_mode="stub", assumptions=[*candidate.assumptions, "Internal LLM provider selected, but live LLM generation is not wired; body is a deterministic stub and requires validation."])
     else:
         candidate = CandidateSpl(
             trace_id=trace_id,

@@ -202,6 +202,11 @@ def resolve_spl_for_query(
     return None, "none"
 
 
+# pattern_types that are lookup / enrichment, not detection — they correctly
+# produce no SPL (need entity-context or case-history tooling instead).
+NON_SPL_PATTERN_TYPES = {"case_state_lookup", "asset_identity_context"}
+
+
 def _eval_105(active: dict[str, str]) -> list[dict[str, Any]]:
     entries = json.loads(MAP_PATH.read_text(encoding="utf-8"))["entries"]
     rows: list[dict[str, Any]] = []
@@ -209,15 +214,25 @@ def _eval_105(active: dict[str, str]) -> list[dict[str, Any]]:
         q = str(e["question"])
         pt = e.get("pattern_type")
         spl, lane = resolve_spl_for_query(q, pattern_type=pt, active_templates=active)
+        # Justified-no-SPL only when the row is a lookup/enrichment class AND no SPL
+        # surfaced. A lookup-classed question that still produced relevant SPL is a
+        # bonus, not a failure — keep it scored. (pattern_type is noisy; do not
+        # blanket-exclude.)
+        row_class = (
+            "justified_no_spl"
+            if pt in NON_SPL_PATTERN_TYPES and lane == "none"
+            else "spl_expected"
+        )
         score = score_relevance(q, spl, pattern_type=pt)
         rows.append({
             "corpus": "105",
             "ref": e["question_ref"],
             "question": q,
             "pattern_type": pt,
+            "row_class": row_class,
             "lane": lane,
-            "relevant": score["relevant"],
-            "mismatches": score["mismatches"],
+            "relevant": score["relevant"] if row_class == "spl_expected" else True,
+            "mismatches": score["mismatches"] if row_class == "spl_expected" else [],
             "checks": score["checks"],
         })
     return rows
@@ -232,14 +247,18 @@ NON_SPL_SKILLS = {
 }
 
 
-def classify_catalogue_row(r: dict[str, Any]) -> str:
-    """spl_expected | justified_no_spl | deferred."""
+def classify_catalogue_row(r: dict[str, Any], lane: str = "none") -> str:
+    """spl_expected | justified_no_spl | deferred.
+
+    Workflow/knowledge rows are justified-no-SPL only when no SPL surfaced; a
+    row that produced relevant SPL stays scored.
+    """
     uid = (r.get("use_case_id") or r.get("id") or "")
     category = (r.get("category") or "").lower()
     skill = r.get("primary_skill")
     if "later" in category:  # OT rows explicitly marked "later"
         return "deferred"
-    if uid.startswith("soc_") or skill in NON_SPL_SKILLS:
+    if (uid.startswith("soc_") or skill in NON_SPL_SKILLS) and lane == "none":
         return "justified_no_spl"
     return "spl_expected"
 
@@ -252,13 +271,13 @@ def _eval_catalogue(active: dict[str, str]) -> list[dict[str, Any]]:
         uid = r.get("use_case_id") or r.get("id")
         examples = r.get("example_queries") or []
         q = examples[0] if examples else (r.get("display_name") or uid)
-        row_class = classify_catalogue_row(r)
         spl, lane = resolve_spl_for_query(
             q,
             use_case_id=uid,
             default_spl_template=r.get("default_spl_template"),
             active_templates=active,
         )
+        row_class = classify_catalogue_row(r, lane)
         score = score_relevance(q, spl, required_sources=r.get("required_sources"))
         rows.append({
             "corpus": "catalogue",
@@ -279,12 +298,8 @@ def _summary(rows: list[dict[str, Any]], corpus: str) -> dict[str, Any]:
     sub = [r for r in rows if r["corpus"] == corpus]
     # For catalogue, the coverage denominator is the SPL-expected rows only;
     # justified-no-SPL and deferred rows are excluded from the %.
-    if corpus == "catalogue":
-        scored = [r for r in sub if r.get("row_class") == "spl_expected"]
-        classes = Counter(r.get("row_class") for r in sub)
-    else:
-        scored = sub
-        classes = {}
+    scored = [r for r in sub if r.get("row_class", "spl_expected") == "spl_expected"]
+    classes = Counter(r.get("row_class", "spl_expected") for r in sub)
     n = len(scored)
     relevant = sum(1 for r in scored if r["relevant"])
     lanes = Counter(r["lane"] for r in scored)
@@ -327,8 +342,8 @@ def main() -> int:
     _write_md(report)
 
     print("SPL RELEVANCE BASELINE")
-    print(f"  105 canonical : {s105['relevant']}/{s105['n']} relevant "
-          f"({s105['relevant_pct']}%)  lanes={s105['lanes']}")
+    print(f"  105 canonical : {s105['relevant']}/{s105['n']} spl-expected relevant "
+          f"({s105['relevant_pct']}%)  classes={s105['classes']}  lanes={s105['lanes']}")
     print(f"  catalogue     : {scat['relevant']}/{scat['n']} spl-expected relevant "
           f"({scat['relevant_pct']}%)  classes={scat['classes']}  lanes={scat['lanes']}")
     print(f"  105 top mismatches      : {s105['top_mismatches']}")
