@@ -17,10 +17,11 @@ Current implementation is governed candidate generation and gated execution cont
 - `/chat` returns routing results and a `workflow_plan`.
 - Workflow steps stay `not_started`.
 - Workflow `execution_enabled` stays `false`.
-- Candidate SPL generation is allowed only through the Stage 3C stub generator.
-- SPL validation is deterministic; rejected SPL must have `normalized_spl=null`.
+- Candidate SPL is generated through governed templates, lab draft preview, Stage 3C stub (legacy), or flag-gated LLM failover (`AI_SOC_LLM_SPL_FALLBACK_ENABLED`); all paths are candidate-only.
+- SPL validation is deterministic; rejected SPL and lab-tier LLM SPL must have `normalized_spl=null`. Lab-tier exposure (`validate_spl_lab_candidate`) may show placeholder SPL to analysts with `spl_validation.approved=false`.
 - `candidate_spl` must never be executed.
-- Only `spl_validation.approved=true` and non-null `normalized_spl` may reach the MCP execution gate.
+- Only `spl_validation.approved=true` and non-null `normalized_spl` may reach the MCP execution gate. `graph_node_spl_source_resolve` substitutes placeholders from config/RAG/session before re-validation.
+- Structural SPL relevance gate (`app/spl/spl_relevance_check.py`) runs on non-template candidates; LLM failover retry defaults off (`AI_SOC_LLM_SPL_FAILOVER_RETRY_ENABLED=false`).
 - MCP tool discovery, deterministic tool selection, human review, and mock gated execution are Stage 3D control-layer behavior.
 - MCP execution defaults disabled globally and per server.
 - Mock MCP execution is allowed only when explicitly enabled through `MCP_GLOBAL_EXECUTION_ENABLED=true` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=true`.
@@ -103,13 +104,8 @@ Preferred grouping:
 
 Recent stage commits:
 
-- `7a35038 Add MCP discovery, HIL, and gated SPL execution`
-- `a47785d Add Stage 3D trace pipeline UI`
-- `80d8e35 Wire governed RAG into chat context and trace UI`
-- `a0ba56f Stage 3J: Add context sufficiency gate`
-- `c3d13cc Stage 3J-B: Add LLM registry settings and status UI`
-- `Stage 3J-C Improve analyst chat UX and starter intent handling`
-- `db37003 / 5cf271e / 9ba7ab7 Stage 3J-I.1/.2/.3: Guarded LLM adapter, dormant semantic guards, prompt contracts`
-- `2fefd10 Calibrate Experience Center responses to governed LLM behavior`
-- `05c95bc Stage 3J-K0: Govern LLM-assisted routing and tool selection`
-- `91f7b0e Stage 3J-J.2: Surface investigation lineage reveal in chat UI`
+- `911eed6` Fix SPL routing relevance bugs (Phase B)
+- `ad29958` Wire LLM-primary SPL failover and relevance gate (Phase C)
+- `35b42b0` Single SPL surface and ambiguous-route disambiguation (Phase C.2)
+- `1b86da2` / `22cbbc3` Close catalogue SPL coverage (Phases D / D.2)
+- `8f44eee` Complete SPL audit phases G/E/F/H (lab-tier exposure, simplifier, template audit, source resolve)

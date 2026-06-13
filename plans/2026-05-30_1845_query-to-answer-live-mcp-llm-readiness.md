@@ -1,6 +1,6 @@
 # Plan — Query→Answer Readiness for Live MCP + LLM
 
-**Status:** In Progress (Phase A done; Phase C partially landed; Phase B blocked on COE)  
+**Status:** In Progress (Phase A done; Phase C partially landed; SPL audit H done; Phase B blocked on COE)  
 **Date:** 2026-05-30 (audited 2026-06-13)  
 **Author:** COE review (Anurag + Claude)  
 **Related:** [`2026-06-13_mcp-execution-orchestration-plan.md`](2026-06-13_mcp-execution-orchestration-plan.md), [`contracts/splunk_mcp_connection_contract.md`](../contracts/splunk_mcp_connection_contract.md), [`/root/.cursor/plans/llm_optimization_strategy_3a311ebc.plan.md`](/root/.cursor/plans/llm_optimization_strategy_3a311ebc.plan.md), [`/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md`](/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md) (Phase G/H — SPL lab exposure + placeholder resolution)
@@ -66,7 +66,7 @@ This crosses the CLAUDE.md stage boundary for live synthesis — each enabling p
 | **A** | A3 audit lineage hooks | ✅ Placeholders | `lineage/builder.py` synthesis/answer_guard stages |
 | **B** | B1 COE connection contract | 🟡 Draft | `contracts/splunk_mcp_connection_contract.md` (`schema_confirmed=false`) |
 | **B** | B2 real `call_tool` + arg schema | ❌ Open | Gate still sends `{"query": normalized_spl}` only |
-| **B** | B2b SPL source resolution (config + RAG + optional discovery exec) | ❌ Open | See cross-plan § below; prerequisite for runnable LLM SPL |
+| **B** | B2b SPL source resolution (config + RAG + optional discovery exec) | 🟡 Scaffold done | `graph_node_spl_source_resolve`, `source_profile_resolver.py`, `rag_source_profile_bridge.py` (`8f44eee`); H2 MCP discovery exec still COE-gated |
 | **B** | B3 cost + allowlist safety | 🟡 Partial | `spl_validator.py` + `build_splunk_search_inputs()` exist; not wired to gate |
 | **B** | B4 per-run approval workflow | 🟡 Partial | `_gate_review` + HIL reasons exist; COE SLA/UI TBD |
 | **C** | C1 wire synthesis scaffold | ✅ Done | `pipeline.py` → `run_governed_synthesis_lab` |
@@ -124,12 +124,12 @@ Prerequisite for LLM-generated SPL to reach `normalized_spl` and enter the searc
 
 | Step | Source | Pipeline node | Executes? |
 |------|--------|---------------|-----------|
-| G | Lab-tier LLM SPL exposure (placeholders visible) | `graph_node_workflow_spl` | LLM only |
-| H0 | Config / skills / `SPL_ALLOWED_*` env map | **new** `graph_node_spl_source_resolve` | No |
-| H1 | **RAG / playbook** — KB `splunk_indexes`, `sourcetypes`, `fields` on retrieved entries | After `graph_node_rag_early` (or bounded env_fact fetch inside resolve node) | RAG yes; substitution deterministic |
-| H2 | MCP discovery **execution** (`splunk_get_indexes`, `splunk_get_metadata`) | Same resolve node; COE-gated | Yes when flags + orchestration §6 `execute_planned_discovery` enabled |
-| H3 | HIL `spl_source_profile_clarification` | resolve node → `human_review` | Analyst input |
-| H4 | `validate_spl` → `normalized_spl` | resolve node output feeds `graph_node_execution` | Feeds B2 search |
+| G | Lab-tier LLM SPL exposure (placeholders visible) | ✅ Done | `validate_spl_lab_candidate`, pipeline exposure split (`8f44eee`) |
+| H0 | Config / skills / `SPL_ALLOWED_*` env map | ✅ Done | `source_profile_resolver.py`, `AI_SOC_SOURCE_PROFILE_MAP` |
+| H1 | **RAG / playbook** — KB `splunk_indexes`, `sourcetypes`, `fields` | ✅ Done | `rag_source_profile_bridge.py` |
+| H2 | MCP discovery **execution** (`splunk_get_indexes`, `splunk_get_metadata`) | 🟡 Scaffold | `try_mcp_source_discovery()` — mock-only until COE + orchestration §6 |
+| H3 | HIL `spl_source_profile_clarification` | ✅ Done | `build_spl_source_profile_review`, session `source_profile_slots` |
+| H4 | `validate_spl` → `normalized_spl` | ✅ Done | Feeds `graph_node_execution`; B2 search adapter still open |
 
 **Alignment rules (no contradiction with scope guardrails below):**
 - Step 5 discovery **planning** (`plan_splunk_discovery_calls`) stays plan-only by default — unchanged.
@@ -191,6 +191,7 @@ Validate routing governance with supplied route-plan JSON — no live model requ
 
 ## Plan housekeeping
 
+- SPL generation audit **closed** 2026-06-13 — see [`2026-06-13_spl-generation-audit-completion.md`](2026-06-13_spl-generation-audit-completion.md). B2b scaffold done; H2 discovery execution remains COE.
 - `plan-reviewer` subagent before executing any non-trivial open phase (B2, C production enablement).
 - `validator` after each phase.
 - Keep MCP orchestration plan and this plan in sync on execution vs discovery semantics.

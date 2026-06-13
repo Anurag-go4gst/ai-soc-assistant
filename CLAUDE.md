@@ -34,6 +34,7 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - Experience Center calibration (Stage 3J-J): demo golden answers in `app/demo/scenarios.py` are calibrated to governed Foundation-sec behavior — valid template SPL, per-source "Distinct users by source" (no summed global count), explicit MITRE `Status`, P1–P4 action priorities, `execution_eligible=false`. Each answer carries an investigation-lineage reveal ("How this answer was produced") collapsed by default in the chat UI. Answers are deterministic/`coe_synthetic_fixture`, not produced by a live model.
 - LLM-assisted routing governance (Stage 3J-K0): routing modes `deterministic_only`, `llm_shadow_only`, `llm_assisted_semantic`, `llm_primary_lab`. LLM route suggestions are advisory only, normalized through deterministic registries and clarification policy; final route selection stays deterministic. Evidence-need→MCP-tool mapping is a deterministic record only (no execution). The SPL optimizer field `execution_eligible` is renamed `revalidation_approved`; candidate SPL remains non-executable.
 - Five live router skills are available: `alert_summary`, `spl_generation`, `attack_discovery`, `knowledge_recall`, and `guided_investigation`. `guided_investigation` is a deterministic rescue only for out-of-registry SOC hunt questions; it provides review-only guidance with an out-of-catalog notice and keeps MCP execution disabled.
+- SPL generation audit (2026-06-13, **Done**): relevance-first path — governed templates (10 active) → LLM-primary failover when `AI_SOC_LLM_SPL_FALLBACK_ENABLED=true` (default off) → lab draft last resort. R5 `spl_relevance_check` gate on all non-template candidates. Lab-tier LLM SPL (`validate_spl_lab_candidate`) exposes placeholder index/sourcetype for analyst review with `approved=false` and `normalized_spl=null`; MCP gate unchanged. `graph_node_spl_source_resolve` substitutes placeholders from `AI_SOC_SOURCE_PROFILE_MAP`, SOC-KB RAG, and session pins → `normalized_spl` when fully resolved; HIL `spl_source_profile_clarification` for missing slots. Post-validation `spl_simplifier` in `optimize_spl()`. Offline template QA: `scripts/llm_template_audit.py`. See `docs/architecture/spl_generation_audit.md` and `plans/2026-06-13_spl-generation-audit-completion.md`.
 - Live LLM synthesis (live chat only): the live `/chat` path may narrate the analyst-summary prose with a real on-prem model (llama.cpp Foundation-Sec) when `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED` are both true and a `local`/`openai_compatible` endpoint is configured. All facts (severity, MITRE+status, actions, SPL, `execution_eligible=false`) stay deterministic authority; the model only rewrites prose; any failure falls back to the deterministic draft. The Answer Guard (`AI_SOC_LLM_ANSWER_GUARD_ENABLED`) runs on the resulting draft. The Experience Center fixture path (`coe_synthetic_fixture`) is isolated by the demo-scenario early-return in `routes_chat.py` and never calls a live model. The model never calls MCP; no raw events reach the prompt.
 - Do not add Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless a later stage explicitly asks for it. Do not route live synthesis through the Experience Center path.
 - Do not execute raw `candidate_spl`; never pass prompts, reasoning, credentials, RAG chunks, or raw workflow internals to MCP.
@@ -167,7 +168,8 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/AI_SOC_MASTER_PLAN.md` | **Active implementation roadmap** — hardening, skill enrichment, pipeline/LangGraph, GitHub skill intake (Tracks A–D); Batches 2–5 completed, next batch requires explicit scope approval. |
 | `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Logic hierarchy, rules, status tables — agents read for Q1C→Q4 spine context. |
 | `/root/.cursor/plans/guided_investigation_5th_skill_098a0cdf.plan.md` | Done — guided investigation fifth route plus confirmed air-gapped Splunk MCP seven-tool binding; discovery remains planned-only and execution-gated. |
-| `/root/.cursor/plans/spl_generation_audit_30f60bc7.plan.md` | **In Progress** — relevance-first SPL audit + optimization. Phase A done (audit doc `docs/architecture/spl_generation_audit.md`, `eval_spl_relevance.py` baseline). Phase B done (routing correctness, deterministic): PowerShell host rollup (+11), DNS families `dns_query_volume`/`dns_domain_spread` + DNS-aware routing R2 (+5), B03 label honesty; 105 spl-expected 97/102 (95.1%); governance regression green. B05→Phase E, R1 + 5 auth/multi-signal mismatches→Phase C LLM. Phase C done (flag-gated `ai_soc_llm_spl_fallback_enabled`, default off): R5 `spl_relevance_check` gate (structural, shared with eval), B01/B02 LLM-primary failover wiring, regenerate-once-then-downgrade, B11/B12 correctness prompt + CIM tstats lift; governance regression green, EC isolation intact. Phase C.2 done: B15 single SPL surface (LLM lane only — governed templates untouched), B04 last-resort labelled draft, R1 ambiguous-family → LLM disambiguation context; governance regression green, no sentinel drift. Phase D done: catalogue spl-expected 12→22/31 (71%) via `CATALOGUE_USE_CASE_FAMILY` (reuse existing lab families, zero fabricated SPL); template promotion found COE-gated (`blocked_until_scd_fields_exist` + real customer source config). Phase D.2 done: 10 new placeholder lab families closed all nine + paraphrase routing → catalogue 31/31 (100%), 105 100/102; `--llm-mock` proves 102/102 + 31/31 for the 2 genuine multi-signal refs at runtime. Governed templates stay planned (COE). Governance regression green. Next: Phase E simplifier, Phase F offline template QA. |
+| `/root/.cursor/plans/spl_generation_audit_30f60bc7.plan.md` | **Done** — relevance-first SPL audit (Phases A–H). Final: 105 100/102 deterministic (102/102 with `--llm-mock`), catalogue 31/31, governance green. G: lab-tier LLM exposure; E: `spl_simplifier`; F: offline template audit; H: `graph_node_spl_source_resolve`. Completion review: `plans/2026-06-13_spl-generation-audit-completion.md`. Commit `8f44eee`. |
+| `/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md` | **Done** — merged into SPL audit close (`8f44eee`). Lab-tier exposure + H0–H4 source resolve; H2 MCP discovery scaffold only until COE. |
 
 **All plans:**
 
@@ -193,7 +195,8 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-28_0523_stage-3k-q2-local-ioc-lookup.md` | Proposed |
 | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Proposed |
 | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Proposed |
-| `plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md` | Proposed — COE review: live MCP adapter + synthesis enablement, query→answer |
+| `plans/2026-06-13_spl-generation-audit-completion.md` | **Done** — closure review for SPL audit Phases A–H; metrics, deferrals (H2 COE, template promotion), verification commands |
+| `plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md` | In Progress — Phase A done; Phase C partially landed; Phase B blocked on COE; B2b source resolution scaffold done (H0–H1/H3–H4) |
 | `plans/2026-06-03_1609_local-llama-instruct-synthesis-client.md` | In Progress — live-chat narration (P2/P3) landed: real client + summary narration, EC isolated, guard on, deterministic fallback. P4 latency UX + P5 live-MCP-into-prompt pending |
 | `plans/2026-06-04_0703_general-soc-reasoning-answer-contract.md` | Done — general SOC reasoning layer (Agent A): data-driven MITRE evidence-preconditions (replaces per-use-case not-claimed hardcoding), AnswerContract read-model wired into finalize, contract-driven builder, fail-closed final-answer validator, 32-case behavior matrix. Flag-gated; suite + governance regression green |
 | `plans/2026-06-04_0720_answer-quality-golden-regression-and-feedback-ledger.md` | Done — answer-quality ledger, feedback API, review queue, promote-golden, expectation matrix (105+46), Tier 0–2 golden JSONL + runner (Tier 0 in governance regression), Quality page summary |
@@ -205,17 +208,11 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 ## Git Notes
 
 Recent stage split:
-- `8afd560 Add candidate SPL generation and deterministic validation`
-- `7a35038 Add MCP discovery, HIL, and gated SPL execution`
-- `a47785d Add Stage 3D trace pipeline UI`
-- `80d8e35 Wire governed RAG into chat context and trace UI`
-- `a0ba56f Stage 3J: Add context sufficiency gate`
-- `c3d13cc Stage 3J-B: Add LLM registry settings and status UI`
-- `db37003 Stage 3J-I.1: Add guarded LLM adapter and active overrides`
-- `5cf271e Stage 3J-I.2: Add dormant semantic LLM guard rules`
-- `9ba7ab7 Stage 3J-I.3: Update LLM prompt contracts and role suitability`
-- `2fefd10 Calibrate Experience Center responses to governed LLM behavior`
-- `05c95bc Stage 3J-K0: Govern LLM-assisted routing and tool selection`
-- `91f7b0e Stage 3J-J.2: Surface investigation lineage reveal in chat UI`
+- `911eed6` Fix SPL routing relevance bugs (Phase B)
+- `ad29958` Wire LLM-primary SPL failover and relevance gate (Phase C)
+- `35b42b0` Single SPL surface and ambiguous-route disambiguation (Phase C.2)
+- `1b86da2` Close catalogue SPL coverage via existing-family reuse (Phase D)
+- `22cbbc3` Close the nine uncovered catalogue use cases with lab families (Phase D.2)
+- `8f44eee` Complete SPL audit phases G/E/F/H for lab exposure and source resolve
 
 Keep future changes similarly scoped. Do not combine workflow execution changes with connection-readiness or UI-only changes unless explicitly requested.

@@ -413,4 +413,6 @@ LLM never calls MCP; RAG values substituted deterministically.
 | `run_stage3_governance_regression.sh` | **PASS** |
 
 No app code changed in Phase A — two eval scripts added under `scripts/`, this
-doc, and the two eval reports under `docs/evals/`. Phases B–E follow the plan.
+doc, and the two eval reports under `docs/evals/`. Phases B–H completed
+2026-06-13 (`8f44eee`). Closure review:
+[`plans/2026-06-13_spl-generation-audit-completion.md`](../plans/2026-06-13_spl-generation-audit-completion.md).
