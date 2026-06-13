@@ -7,7 +7,11 @@ from typing import Any, Callable
 from app.config import settings
 from app.llm.adapter import adapt_llm_output
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
-from app.safeguards.spl_validator import validate_spl
+from app.safeguards.spl_validator import (
+    lab_validation_eligible,
+    validate_spl,
+    validate_spl_lab_candidate,
+)
 from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
 from app.spl.family_engineering import full_engineering_prompt, universal_engineering_prompt
 
@@ -47,6 +51,7 @@ class LlmSplFallbackResult:
     quality_status: str | None = None
     quality_findings: list[dict[str, Any]] = field(default_factory=list)
     hard_fail_count: int = 0
+    lab_tier: bool = False
 
 
 def generate_llm_spl_fallback(
@@ -229,6 +234,45 @@ def generate_llm_spl_fallback(
         )
 
     approved = bool(validation.get("approved"))
+    # Lab-tier exposure: quality passed but the execution validator rejected the SPL
+    # only because of placeholder index/sourcetype (it cannot know customer source
+    # config). Surface it as a review-only lab candidate — same contract as the
+    # deterministic draft families — never executable. `approved=True` here means
+    # ANALYST EXPOSURE is OK; execution stays fail-closed downstream (the pipeline
+    # keeps validation.approved=False and normalized_spl=None for lab-tier).
+    if (
+        not approved
+        and candidate_spl
+        and status == "candidate_generated"
+        and lab_validation_eligible(list(validation.get("reject_reasons") or []), candidate_spl)
+    ):
+        lab = validate_spl_lab_candidate(candidate_spl)
+        if lab.get("lab_candidate_eligible"):
+            return LlmSplFallbackResult(
+                candidate_spl=candidate_spl,
+                approved=True,
+                lab_tier=True,
+                validation={**lab, "approved": False, "normalized_spl": None},
+                status="candidate_generated",
+                confidence_score=confidence_score,
+                confidence_label=confidence_label,
+                detection_family=detection_family,
+                assumptions=assumptions,
+                required_fields=required_fields,
+                missing_details=missing_details,
+                clarifying_questions=clarifying_questions,
+                validation_notes=validation_notes,
+                soc_std_rules_applied=soc_std_rules_applied,
+                risk_notes=risk_notes,
+                model=model,
+                latency_ms=latency_ms,
+                clarification_required=False,
+                clarification_reason=None,
+                quality_standard=STANDARD_ID,
+                quality_status=quality_payload["quality_status"],
+                quality_findings=quality_findings,
+                hard_fail_count=quality.hard_fail_count,
+            )
     if not approved:
         return LlmSplFallbackResult(
             candidate_spl="",

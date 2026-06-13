@@ -538,9 +538,10 @@ def test_relevance_gate_blocks_asked_x_got_y(monkeypatch: pytest.MonkeyPatch) ->
     assert any(r.startswith("relevance_data_source_missing") for r in validation_payload["reject_reasons"])
 
 
-def test_relevance_gate_regenerates_once_and_accepts_relevant(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_relevance_gate_regenerates_once_when_retry_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     # First attempt irrelevant (network), retry relevant (dns) -> exposed.
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_failover_retry_enabled", True)
     calls = {"n": 0}
 
     def _two_pass(*, user_query, **_kw):
@@ -556,6 +557,26 @@ def test_relevance_gate_regenerates_once_and_accepts_relevant(monkeypatch: pytes
     assert calls["n"] == 2  # regenerated once
     assert validation_payload["approved"] is True
     assert candidate_payload["candidate_spl"] == _DNS_SPL
+
+
+def test_relevance_gate_retry_off_by_default_one_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Default off: irrelevant first pass is NOT retried (single LLM call).
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_failover_retry_enabled", False)
+    calls = {"n": 0}
+
+    def _irrelevant(*, user_query, **_kw):
+        calls["n"] += 1
+        return _result(_NETWORK_SPL)
+
+    monkeypatch.setattr("app.chat.pipeline.generate_llm_spl_fallback", _irrelevant)
+    _candidate_payload, validation_payload = chat_pipeline._candidate_from_llm_fallback(
+        trace_id="t", skill="attack_discovery",
+        user_query="Which hosts generated the most DNS queries?",
+        telemetry=_Telemetry(), profile=_Profile(), request_enabled=True,
+    )
+    assert calls["n"] == 1  # no retry
+    assert validation_payload["approved"] is False  # irrelevant network SPL not exposed
 
 
 def test_relevance_gate_passes_relevant_first_try(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -574,3 +595,65 @@ def test_relevance_gate_passes_relevant_first_try(monkeypatch: pytest.MonkeyPatc
     )
     assert calls["n"] == 1  # no regeneration needed
     assert validation_payload["approved"] is True
+
+
+# --- Phase G: lab-tier exposure of placeholder SPL ---------------------------
+_PLACEHOLDER_SPL = (
+    "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-60m latest=now "
+    "action=failure | stats count as fail_count by src_ip | sort -fail_count | head 100"
+)
+
+
+def test_fallback_placeholder_spl_surfaces_as_lab_tier(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The real model emits placeholder indexes; full validation rejects them, but
+    # the SPL must surface as a review-only lab candidate (not a clarification).
+    _enable(monkeypatch)
+    result = generate_llm_spl_fallback(
+        user_query="x", llm_raw_output_provider=lambda: _raw(_PLACEHOLDER_SPL)
+    )
+    assert result is not None
+    assert result.lab_tier is True
+    assert result.candidate_spl == _PLACEHOLDER_SPL
+    assert result.status == "candidate_generated"
+    # Exposure OK, execution stays fail-closed.
+    assert result.approved is True
+    assert result.validation["approved"] is False
+    assert result.validation["normalized_spl"] is None
+    assert result.validation["exposure_tier"] == "lab_candidate"
+
+
+def test_pipeline_lab_tier_exposes_spl_but_blocks_execution(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+    monkeypatch.setattr(
+        "app.chat.pipeline.generate_llm_spl_fallback",
+        lambda *, user_query, **_kw: LlmSplFallbackResult(
+            candidate_spl=_PLACEHOLDER_SPL,
+            approved=True,
+            lab_tier=True,
+            validation={
+                "approved": False,
+                "normalized_spl": None,
+                "reject_reasons": ["disallowed_index", "disallowed_sourcetype"],
+                "warnings": [],
+                "enforced_limits": {},
+                "policy_version": "v1",
+                "exposure_tier": "lab_candidate",
+            },
+            quality_standard=STANDARD_ID,
+            quality_status="passed",
+            hard_fail_count=0,
+        ),
+    )
+    candidate_payload, validation_payload = chat_pipeline._candidate_from_llm_fallback(
+        trace_id="t", skill="attack_discovery", user_query="Show failed logins by source IP",
+        telemetry=_Telemetry(), profile=_Profile(), request_enabled=True,
+    )
+    # Analyst sees the SPL...
+    assert candidate_payload["candidate_spl"] == _PLACEHOLDER_SPL
+    assert candidate_payload["exposure_tier"] == "lab_candidate"
+    assert candidate_payload["lab_tier_exposure"] is True
+    # ...but execution is fail-closed: MCP gate requires approved + normalized_spl.
+    assert validation_payload["approved"] is False
+    assert validation_payload["normalized_spl"] is None
+    assert validation_payload["execution_eligible"] is False
+    assert validation_payload["exposure_tier"] == "lab_candidate"

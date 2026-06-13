@@ -6,6 +6,7 @@ from typing import Any
 from app.config import settings
 from app.safeguards.spl_validator import validate_spl
 from app.spl.generator import CandidateSpl, StubSplGenerator
+from app.spl.spl_simplifier import simplify_spl_safe
 from app.splunk.capabilities import SplunkCapabilityProfile, build_splunk_capability_profile
 
 
@@ -59,18 +60,27 @@ def explain_spl(spl: str, profile: SplunkCapabilityProfile | None = None) -> dic
     }
 
 
-def optimize_spl(spl: str, profile: SplunkCapabilityProfile | None = None) -> dict[str, Any]:
+def optimize_spl(
+    spl: str,
+    profile: SplunkCapabilityProfile | None = None,
+    *,
+    user_query: str | None = None,
+) -> dict[str, Any]:
     profile = profile or build_splunk_capability_profile(required_saia_tool="saia_optimize_spl")
     provider = "saia_optimize_spl" if profile.saia_usable and profile.saia_optimize_spl_available and settings.splunk_use_saia_optimize_spl else "rule_based"
-    optimized = _rule_based_optimize(spl)
-    revalidation = validate_spl(optimized) if optimized != spl else None
+    simplification = simplify_spl_safe(spl, user_query=user_query)
+    optimized = simplification.simplified_spl
+    revalidation = validate_spl(optimized) if simplification.applied else None
     return {
         "provider": provider,
-        "optimization_applied": optimized != spl,
+        "optimization_applied": simplification.applied,
         "optimized_candidate_spl": optimized,
-        "requires_revalidation": optimized != spl,
+        "requires_revalidation": simplification.applied,
         "revalidation_status": revalidation,
         "revalidation_approved": bool(revalidation and revalidation.get("approved")),
+        "simplification_steps": simplification.steps,
+        "simplification_rejected": simplification.rejected,
+        "simplification_reject_reason": simplification.reject_reason,
     }
 
 

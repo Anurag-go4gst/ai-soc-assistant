@@ -23,6 +23,7 @@ class SessionPins(BaseModel):
     last_selected_live_execution_skill: str | None = None
     last_planning_or_analytic_skill: str | None = None
     last_entities: dict[str, Any] = Field(default_factory=dict)
+    source_profile_slots: dict[str, str] = Field(default_factory=dict)
     last_candidate_spl: str | None = None
     last_spl_validation_status: str | None = None
     last_spl_template_status: str | None = None

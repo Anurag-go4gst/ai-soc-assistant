@@ -326,6 +326,82 @@ proves the relevance gate accepts a correct multi-source LLM answer for them, an
 the Phase C LLM failover produces it at runtime (flag on). Honest split: deterministic
 where a single detection family fits, LLM for true multi-signal correlation.
 
+## 7g. Phase G results (lab-tier LLM SPL exposure + latency)
+
+**Problem (live test):** With `ai_soc_llm_spl_fallback_enabled=true`, the on-prem
+model produced correct, relevant placeholder SPL (`index=<auth_index>`), but the
+failover path stripped it: `validate_spl()` rejected `disallowed_index`, so
+`expose_spl` stayed false and analysts saw clarification only.
+
+**Decisions:**
+- **Blocker B — Option 1 (lab-tier exposure):** Show LLM SPL as a review-only lab
+  candidate when relevance + draft-quality pass. Same contract as deterministic
+  lab drafts — not governed, not executable.
+- **Blocker A — Option 2 (latency):** `AI_SOC_LLM_SPL_FAILOVER_RETRY_ENABLED=false`
+  (default) — one LLM call per failover turn; regenerate-once opt-in only.
+
+**What shipped:**
+- `validate_spl_lab_candidate()` — full safety checks; accepts
+  `index=<placeholder>` / `sourcetype=<placeholder>`; always returns
+  `approved=false`, `normalized_spl=null`.
+- `llm_fallback.py` — lab path sets `lab_tier=True`, `approved=True` (analyst
+  exposure only).
+- `pipeline.py` — `expose_spl` when `lab_tier` + relevant; `validation.approved`
+  stays false for lab-tier so the MCP gate cannot execute placeholders.
+- R5 extension — placeholder index/sourcetype stems in `DATA_SOURCES.spl`
+  (`auth_index`, `windows_index`, `sysmon_index`, …) so relevance does not
+  reject lab/LLM SPL before COE fills real source config.
+- `lab_validation_eligible()` — credential-dump hunt filters allowed on lab path
+  (`credential_or_secret_pattern` benign when not a real secret).
+
+**Analyst contract:**
+
+| Field | Lab-tier LLM SPL | Governed template |
+|-------|------------------|-------------------|
+| Analyst sees SPL | Yes (`candidate_spl`) | Yes (`normalized_spl`) |
+| `spl_validation.approved` | **false** | true |
+| `normalized_spl` | **null** | set |
+| MCP search execution | Blocked | Blocked unless flags + HIL |
+
+**Next:** Phase H (config + RAG placeholder resolution → `normalized_spl`) ships
+in §7j below. MCP discovery execution (H2) remains COE-gated.
+
+## 7h. Phase E results (post-validation SPL simplifier)
+
+`app/spl/spl_simplifier.py` runs **after** validation on the optimization path
+(`optimize_spl` in `spl_services.py`). Rules: normalize whitespace, drop
+`| table` before `| stats`, drop redundant SMB `where` when the base search
+already scopes SMB, append default time bounds / `head` after `sort` when missing.
+
+Every simplification is re-validated and re-checked for relevance; regressions
+reject the change and return the original SPL. `test_spl_simplifier.py` pins
+validation + relevance safety.
+
+## 7i. Phase F results (offline template audit)
+
+`scripts/llm_template_audit.py` critiques each **active** governed template
+offline — deterministic validation + relevance + pipe-count / entity checks;
+optional live LLM critique with `AI_SOC_TESTS_ALLOW_LIVE_LLM=1`. Output:
+`docs/evals/llm_template_audit_report.md` via `--write-report`. Never imported
+by `/chat`.
+
+## 7j. Phase H results (placeholder resolution → normalized SPL)
+
+New pipeline node `graph_node_spl_source_resolve` runs after `rag_early` and
+before `execution` (composed-plan dispatch included via `DispatchHooks`).
+
+Resolution ladder (`app/spl/spl_source_resolve.py`):
+- **H0** — `source_profile_resolver.py`: `AI_SOC_SOURCE_PROFILE_MAP` JSON +
+  `SPL_ALLOWED_*` policy heuristics.
+- **H1** — `rag_source_profile_bridge.py`: SOC-KB `splunk_indexes` / `sourcetypes`.
+- **H2** — MCP discovery scaffold (mock + global execution only; no COE real exec).
+- **H3** — session `source_profile_slots` + HIL `spl_source_profile_clarification`.
+- **H4** — substituted SPL → `validate_spl` → `normalized_spl` when fully resolved.
+
+Lab-tier placeholder SPL can upgrade to `execution_validated` when all slots
+resolve; MCP gate unchanged (`approved=true` + non-null `normalized_spl` only).
+LLM never calls MCP; RAG values substituted deterministically.
+
 ## 8. Baselines recorded (Phase A exit)
 
 | Check | Result |

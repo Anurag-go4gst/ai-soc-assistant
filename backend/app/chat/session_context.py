@@ -211,6 +211,15 @@ def pins_from_pipeline_state(
     query_text = response.user_query or (request.message if isinstance(request, ChatRequest) else "")
     alert_id = _extract_alert_id(query_text)
     prior_pins = state.get("session_pins")
+    source_profile_slots: dict[str, str] = {}
+    if isinstance(prior_pins, SessionPins):
+        source_profile_slots = dict(prior_pins.source_profile_slots or {})
+    resolve_trace = state.get("spl_source_resolve")
+    if isinstance(resolve_trace, dict):
+        resolved = resolve_trace.get("resolved_slots")
+        if isinstance(resolved, dict):
+            source_profile_slots.update({str(k): str(v) for k, v in resolved.items() if v})
+
     if alert_id is None and isinstance(prior_pins, SessionPins):
         alert_id = prior_pins.last_alert_id
 
@@ -232,6 +241,7 @@ def pins_from_pipeline_state(
         last_selected_live_execution_skill=response.selected_skill,
         last_planning_or_analytic_skill=_planning_skill(state),
         last_entities=_entity_summary(state),
+        source_profile_slots=source_profile_slots,
         last_candidate_spl=spl_text,
         last_spl_validation_status=validation_status,
         last_spl_template_status=response.spl_template_status,

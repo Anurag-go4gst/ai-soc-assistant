@@ -60,6 +60,7 @@ from app.spl.draft_preview import (
 )
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.spl.spl_relevance_check import check_spl_relevance
+from app.spl.spl_source_resolve import build_spl_source_profile_review, resolve_spl_source_profile
 from app.splunk.spl_services import explain_spl, generate_candidate_spl_with_provider, optimize_spl, splunk_guidance
 from app.answer_guard.runner import run_answer_guard_lab
 from app.synthesis.governed_answer_composer import (
@@ -96,6 +97,7 @@ from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.pipeline_visibility import build_pipeline_visibility
 from app.chat.session_context import (
     SessionContextResolution,
+    SessionPins,
     clear_session,
     persist_session_pins,
     pins_from_pipeline_state,
@@ -210,6 +212,7 @@ def _build_live_chat_response_inner(request: ChatRequest) -> PlaceholderResponse
         state = graph_node_workflow_spl(state)
         if _uses_pre_mcp_rag(state):
             state = graph_node_rag_early(state)
+        state = graph_node_spl_source_resolve(state)
         state = graph_node_execution(state)
     state = graph_node_context_finalize(state)
     response = state.get("response")
@@ -601,6 +604,96 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
     updated = {**state, "soc_kb_retrieval": retrieval}
     if _path_type(updated) == "guided_investigation" and _rag_no_match(retrieval):
         updated = _record_guided_resource_outcome(updated, rag_no_match=True)
+    return updated
+
+
+def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState:
+    candidate = state.get("candidate_spl")
+    validation = state.get("spl_validation")
+    if not isinstance(candidate, dict) or not isinstance(validation, dict):
+        return state
+
+    spl = str(candidate.get("candidate_spl") or "").strip()
+    if not spl or "<" not in spl:
+        return state
+
+    soc_kb_retrieval = state.get("soc_kb_retrieval") if isinstance(state.get("soc_kb_retrieval"), dict) else None
+    if soc_kb_retrieval is None:
+        request = state["request"]
+        workflow_plan = state.get("workflow_plan") if isinstance(state.get("workflow_plan"), dict) else {}
+        soc_kb_retrieval = retrieve_soc_kb(
+            query=request.message,
+            selected_skill=_context_selected_skill(state),
+            workflow_stage="spl_source_resolve",
+            workflow_plan=workflow_plan,
+            required_sources=[str(item) for item in workflow_plan.get("required_sources") or []],
+            execution_block_reason=None,
+        )
+        state = {**state, "soc_kb_retrieval": soc_kb_retrieval}
+
+    session_pins = state.get("session_pins")
+    session_slots: dict[str, str] = {}
+    if isinstance(session_pins, SessionPins):
+        session_slots = dict(session_pins.source_profile_slots or {})
+
+    workflow_plan = state.get("workflow_plan") if isinstance(state.get("workflow_plan"), dict) else {}
+    required_sources = [str(item) for item in workflow_plan.get("required_sources") or []]
+    query_text = state.get("effective_query") or state["request"].message
+
+    resolve_result = resolve_spl_source_profile(
+        spl,
+        user_query=query_text,
+        soc_kb_retrieval=soc_kb_retrieval,
+        session_slots=session_slots,
+        required_sources=required_sources,
+    )
+    trace = {
+        "resolved_slots": resolve_result.resolved_slots,
+        "missing_slots": resolve_result.missing_slots,
+        "tiers_used": resolve_result.tiers_used,
+        "fully_resolved": resolve_result.fully_resolved,
+    }
+    updated: dict[str, Any] = {**state, "spl_source_resolve": trace}
+
+    if resolve_result.fully_resolved and isinstance(resolve_result.validation, dict):
+        resolved_validation = {
+            **validation,
+            **resolve_result.validation,
+            "lab_tier_exposure": False,
+            "exposure_tier": "execution_validated",
+            "source_resolve_tiers": resolve_result.tiers_used,
+            "review_required_reason": None,
+        }
+        resolved_candidate = {
+            **candidate,
+            "candidate_spl": resolve_result.spl,
+            "lab_tier_exposure": False,
+            "exposure_tier": "execution_validated",
+            "source_resolve_tiers": resolve_result.tiers_used,
+        }
+        updated["candidate_spl"] = resolved_candidate
+        updated["spl_validation"] = resolved_validation
+        return updated
+
+    if resolve_result.missing_slots:
+        review = build_spl_source_profile_review(resolve_result.missing_slots)
+        existing_review = state.get("human_review")
+        if isinstance(existing_review, dict) and existing_review.get("required"):
+            review = {
+                **existing_review,
+                "review_type": review["review_type"],
+                "reason": review["reason"],
+                "safe_message_for_user": review["safe_message_for_user"],
+                "allowed_actions": review["allowed_actions"],
+            }
+        updated["human_review"] = review
+        updated_spl_validation = {
+            **validation,
+            "review_required_reason": "spl_source_profile_clarification",
+            "source_profile_missing_slots": resolve_result.missing_slots,
+            "source_resolve_tiers": resolve_result.tiers_used,
+        }
+        updated["spl_validation"] = updated_spl_validation
     return updated
 
 
@@ -1370,6 +1463,7 @@ def _dispatch_hooks() -> DispatchHooks:
         uses_pre_mcp_rag=_uses_pre_mcp_rag,
         prepare_rag_only=graph_node_prepare_rag_only,
         rag_early=graph_node_rag_early,
+        spl_source_resolve=graph_node_spl_source_resolve,
         workflow_spl=graph_node_workflow_spl,
         execution=graph_node_execution,
     )
@@ -2269,7 +2363,7 @@ def _candidate_spl_stage(
 
     validation = validate_spl(candidate.candidate_spl)
     explanation = explain_spl(candidate.candidate_spl, profile=profile)
-    optimization = optimize_spl(candidate.candidate_spl, profile=profile)
+    optimization = optimize_spl(candidate.candidate_spl, profile=profile, user_query=user_query)
     guidance = splunk_guidance(user_query, profile=profile)
     validation_payload = {
         "approved": validation["approved"],
@@ -2656,7 +2750,15 @@ def _candidate_from_llm_fallback(
     if result is None:
         return None
     relevance = _gate_llm_spl_relevance(result, user_query)
-    if not relevance.relevant and result.candidate_spl.strip():
+    # Regenerate-once is OFF by default (ai_soc_llm_spl_failover_retry_enabled) to
+    # keep one LLM call per failover turn — on slow on-prem hardware a second call
+    # doubles the worst-case latency. The relevance gate still rejects bad SPL; the
+    # deterministic draft remains the last resort.
+    if (
+        settings.ai_soc_llm_spl_failover_retry_enabled
+        and not relevance.relevant
+        and result.candidate_spl.strip()
+    ):
         retry = generate_llm_spl_fallback(
             user_query=user_query,
             context=llm_context,
@@ -2672,9 +2774,11 @@ def _candidate_from_llm_fallback(
 
     validation = result.validation
     approved = bool(result.approved)
-    # R5: a safe, validated SPL that does not answer the question must not be
-    # exposed. Relevance is required alongside validation before exposure.
-    expose_spl = approved and bool(result.candidate_spl.strip()) and relevance.relevant
+    lab_tier = bool(getattr(result, "lab_tier", False))
+    # R5 + lab-tier exposure: expose SPL when it is on-question AND either fully
+    # execution-validated OR a placeholder-only lab candidate. Lab-tier is shown to
+    # the analyst (review-only) but execution stays fail-closed below.
+    expose_spl = bool(result.candidate_spl.strip()) and relevance.relevant and (approved or lab_tier)
     reject_reasons = list(validation.get("reject_reasons") or [])
     if not relevance.relevant:
         for mismatch in relevance.mismatches:
@@ -2722,14 +2826,27 @@ def _candidate_from_llm_fallback(
         "llm_fallback_reason": result.clarification_reason,
         "llm_model": result.model,
         "llm_latency_ms": result.latency_ms,
+        "exposure_tier": "lab_candidate" if lab_tier else (
+            "execution_validated" if expose_spl else "not_exposed"
+        ),
+        "lab_tier_exposure": lab_tier,
         "quality_standard": result.quality_standard,
         "quality_status": result.quality_status,
         "quality_findings": list(result.quality_findings),
         **llm_lab_labels,
     }
     validation_payload = {
-        "approved": expose_spl,
-        "normalized_spl": validation.get("normalized_spl") if expose_spl else None,
+        # Execution validation is fail-closed for lab-tier: the analyst sees the
+        # SPL, but approved/normalized_spl stay false/null so the MCP execution gate
+        # (which requires both) can never run a placeholder lab candidate.
+        "approved": False if lab_tier else expose_spl,
+        "normalized_spl": None if lab_tier else (
+            validation.get("normalized_spl") if expose_spl else None
+        ),
+        "exposure_tier": "lab_candidate" if lab_tier else (
+            "execution_validated" if expose_spl else "not_exposed"
+        ),
+        "lab_tier_exposure": lab_tier,
         "reject_reasons": reject_reasons,
         "warnings": list(validation.get("warnings") or []),
         "enforced_limits": validation.get("enforced_limits"),

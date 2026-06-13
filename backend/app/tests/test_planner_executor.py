@@ -37,6 +37,7 @@ def _hooks(calls: list[str], *, rag_only: bool = False, pre_mcp: bool = False) -
         uses_pre_mcp_rag=lambda state: pre_mcp,
         prepare_rag_only=node("prepare_rag_only"),
         rag_early=node("rag_early"),
+        spl_source_resolve=node("spl_source_resolve"),
         workflow_spl=node("workflow_spl"),
         execution=node("execution"),
     )
@@ -51,7 +52,7 @@ def test_dispatch_matches_legacy_live_branch_order() -> None:
         ]
     )
     execute_plan_dispatch(state, _hooks(calls, pre_mcp=True))
-    assert calls == ["workflow_spl", "rag_early", "execution"]
+    assert calls == ["workflow_spl", "rag_early", "spl_source_resolve", "execution"]
 
 
 def test_dispatch_matches_legacy_rag_only_branch() -> None:
@@ -89,7 +90,7 @@ def test_execution_stage_always_runs_on_live_branch() -> None:
         [{"step_id": "spl", "resource_id": "skill:spl_generation", "purpose": "spl_artifact"}]
     )
     execute_plan_dispatch(state, _hooks(calls))
-    assert calls[-1] == "execution"
+    assert calls == ["workflow_spl", "spl_source_resolve", "execution"]
 
 
 def test_annotate_statuses_executed_fallback_blocked() -> None:

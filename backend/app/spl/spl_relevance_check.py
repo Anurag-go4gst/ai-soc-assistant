@@ -41,20 +41,29 @@ DATA_SOURCES: dict[str, dict[str, list[str]]] = {
         "q": ["login", "logon", "authentication", "auth", "failed login", "sign-in",
               "account lockout", "lockout", "brute force", "password",
               "privileged", "4625", "4624", "4740"],
+        # Includes placeholder index/sourcetype stems — lab / LLM SPL is
+        # placeholder-based (index=<auth_index>), and that is a valid auth-source
+        # signal even before COE fills real source config.
         "spl": ["authentication", "wineventlog", "win:auth", "eventcode=46", "eventcode=4740",
-                "failed_login", "login", "user=", "user_norm", "src_user", "account"],
+                "failed_login", "login", "user=", "user_norm", "src_user", "account",
+                "auth_index", "auth_sourcetype",
+                # LLM failover prompt + Windows lab families use these stems.
+                "windows_index", "windows_security_sourcetype",
+                "windows_security_or_system_sourcetype"],
     },
     "network": {
         "q": ["traffic", "top talker", "talkers", "bytes", "bandwidth", "connection",
               "smb", "port", "outbound", "egress", "lateral", "exfil", "data transfer",
               "vpn", "firewall", "denied", "blocked", "rdp"],
         "spl": ["network_traffic", "traffic", "dest_ip", "src_ip", "dest_port", "bytes",
-                "conn", "all_traffic", "session", "app=", "src_ip_norm", "dest_ip_norm"],
+                "conn", "all_traffic", "session", "app=", "src_ip_norm", "dest_ip_norm",
+                "network_index", "network_traffic_sourcetype", "vpn_index", "vpn_sourcetype"],
     },
     "dns": {
         "q": ["dns", "domain", "beacon", "beaconing", "dga", "query", "resolution",
               "nxdomain", "c2", "command and control"],
-        "spl": ["dns", "query", "network_resolution", "named", "answer", "domain", "query_norm"],
+        "spl": ["dns", "query", "network_resolution", "named", "answer", "domain", "query_norm",
+                "dns_index", "dns_sourcetype"],
     },
     "endpoint": {
         # Endpoint-specific signals only — generic words like host/service/server are
@@ -64,12 +73,13 @@ DATA_SOURCES: dict[str, dict[str, list[str]]] = {
               "encoded command", "parent process", "child process", "process creation",
               "credential dump", "credential dumping", "lsass", "mimikatz", "service creation"],
         "spl": ["edr", "endpoint", "process", "sysmon", "powershell", "cmdline", "command_line",
-                "image", "parent_process", "schtask"],
+                "image", "parent_process", "schtask", "endpoint_index", "endpoint_process_sourcetype",
+                "sysmon_index", "sysmon_sourcetype"],
     },
     "firewall": {
         "q": ["firewall", "denied", "deny", "blocked", "drop", "egress", "perimeter"],
         "spl": ["firewall", "action=blocked", "action=denied", "deny", "pan:", "fortinet",
-                "action_norm"],
+                "action_norm", "firewall_index", "firewall_sourcetype"],
     },
 }
 

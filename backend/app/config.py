@@ -205,6 +205,11 @@ class Settings(BaseSettings):
     ai_soc_llm_spl_advisory_provider: str = ""
     ai_soc_llm_spl_advisory_model: str = ""
     ai_soc_llm_spl_fallback_enabled: bool = False
+    # Regenerate-once on the SPL failover relevance gate. Default off: one LLM call
+    # per failover turn so slow on-prem hardware does not double worst-case latency.
+    ai_soc_llm_spl_failover_retry_enabled: bool = False
+    # Optional JSON map of placeholder stem -> index/sourcetype value for Phase H0.
+    ai_soc_source_profile_map: str = ""
     ai_soc_llm_template_match_provider: str = ""
     ai_soc_llm_template_match_model: str = ""
     ai_soc_llm_template_render_provider: str = ""

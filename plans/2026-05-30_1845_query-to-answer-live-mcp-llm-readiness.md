@@ -1,113 +1,169 @@
 # Plan — Query→Answer Readiness for Live MCP + LLM
 
-Status: Proposed
-Date: 2026-05-30
-Author: COE review (Anurag + Claude)
+**Status:** In Progress (Phase A done; Phase C partially landed; Phase B blocked on COE)  
+**Date:** 2026-05-30 (audited 2026-06-13)  
+**Author:** COE review (Anurag + Claude)  
+**Related:** [`2026-06-13_mcp-execution-orchestration-plan.md`](2026-06-13_mcp-execution-orchestration-plan.md), [`contracts/splunk_mcp_connection_contract.md`](../contracts/splunk_mcp_connection_contract.md), [`/root/.cursor/plans/llm_optimization_strategy_3a311ebc.plan.md`](/root/.cursor/plans/llm_optimization_strategy_3a311ebc.plan.md), [`/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md`](/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md) (Phase G/H — SPL lab exposure + placeholder resolution)
+
+---
+
+## Audit summary (2026-06-13)
+
+Honest read against current `master` — several plan claims were **stale** when written; some work landed under WS-PRE / Stage 3M / P6 without updating this doc.
+
+| Claim in original plan | Actual state | Verdict |
+|------------------------|--------------|---------|
+| `routes_chat.py:114` hard-disables synthesis | Live path is `build_live_chat_response()` → `app/chat/pipeline.py`; synthesis runs via `run_governed_synthesis_lab()` when flagged | **Outdated** |
+| "No answer sentence is ever composed" | Deterministic analyst draft always built when `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED=true`; optional live narration when `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED=true` | **Outdated** (default flags still off) |
+| Phase A1 empty-result bug | Rule 3b in `context_sufficiency.py`; `test_negative_result_sufficiency.py` (T4.1) green | **Done** |
+| Phase A2 injection defense | `splunk_result_adapter.sanitize_result_envelope` + `mcp_result_safeguard.scan_mcp_preview_rows` → `prompt_injection_filter`; `test_mcp_result_injection_defense.py` (T4.2) green | **Done** |
+| Phase A3 lineage placeholders | `lineage/builder.py` has `llm_raw_output_placeholder`, `adapter_overrides_placeholder`, `guard_overrides_placeholder` | **Done** (placeholders only; not populated on live narration yet) |
+| Phase C scaffold "never called" | `build_governed_synthesis_package` + `run_answer_guard_lab` wired in `pipeline.py` | **Done** behind flags |
+| `mcp_execution_gate.py:164` blocks real mode | Real block is `_gate_review` at **`:239`** (`registry.mode != "mock"`); `NotImplementedError` catch at **`:118`** if gate is bypassed | **Stale line refs** |
+| Gate passes only `{"query": normalized_spl}` | Still true at `mcp_execution_gate.py:115`; `build_splunk_search_inputs()` exists in `splunk_mcp_readiness.py` but is **not** used by the gate yet | **Open — B2** |
+| Phase D route shadow | `_route_plan_shadow_candidate()` in `pipeline.py` still returns `None`; inject via test monkeypatch or `generate_llm_route_plan_candidate` | **Still valid** |
+
+### Missed cases (add to scope)
+
+1. **`CONTROL_PLANE_ENABLED` vs live narration.** `lab_runner.py` skips live model narration when `control_plane_enabled` is true — even if both synthesis flags are on. `.env.example` defaults `CONTROL_PLANE_ENABLED=true`. COE must define which composer owns narration before enabling live LLM in production posture.
+2. **LangGraph path.** `routes_chat.py` can delegate to `run_chat_via_langgraph()` when `langgraph_orchestration_enabled`; parity and synthesis wiring must be verified on both paths.
+3. **Two answer validators.** `run_answer_guard_lab` (flag-gated, runs on synthesis draft) vs `final_answer_validator` (deterministic contract validator on composed card). Plan C3 must not conflate them.
+4. **Mock execution HIL.** Successful mock runs can still require analyst review (`ai_soc_require_hil_for_mock_execution`); empty-result and synthesis readiness do not bypass HIL.
+5. **Hybrid / partial MCP evidence.** Empty search is handled (A1); **timeout**, **failed job**, and **envelope schema mismatch** need explicit sufficiency modes — see MCP orchestration plan §interpretation.
+6. **Contract vs code tool names.** Contract draft uses `splunk.search` / `search_splunk`; gate and registry use `splunk_run_query` alias — B2 must map aliases before COE sign-off.
+7. **Lineage population on live narration.** Placeholders exist but `llm_raw_output_placeholder` stays `None` when narration runs; audit reproducibility gap for Phase C production enablement.
+
+---
 
 ## Context
 
-COE review of the live `/chat` pipeline (not the demo path). Goal: make the system
-produce a **grounded final answer** when MCP (Splunk) and the LLM go live — safely,
-auditable, reviewable.
+COE review of the live `/chat` pipeline (not the Experience Center / demo early-return path). Goal: make the system produce a **grounded final answer** when MCP (Splunk) and the LLM go live — safely, auditable, reviewable.
 
-Today the pipeline is **evidence-complete but answer-incomplete**:
+Today the pipeline is **evidence-rich; answer completeness depends on flags**:
 
-- `routes_chat.py:chat()` routes → plans → generates+validates candidate SPL →
-  `evaluate_mcp_execution` → `_context_stage` (RAG → SourceEvidence → StructuredContext →
-  sufficiency) → severity/MITRE/lineage → response.
-- `mcp_execution_gate.py:72` **already calls** `get_mcp_connector().call_tool()` and threads
-  results into evidence. The block is only `:164 registry.mode != "mock"` and `:77 NotImplementedError`.
-- `routes_chat.py:114` hard-sets `SynthesisStatus(enabled=False)`; `synthesis_allowed=False`
-  everywhere. So **no answer sentence is ever composed** — user gets rows + status + `human_review`.
+- `routes_chat.py` → `build_live_chat_response()` in `app/chat/pipeline.py` routes → plans → generates+validates candidate SPL → `evaluate_mcp_execution` → `_context_stage` (RAG → SourceEvidence → StructuredContext → sufficiency) → severity/MITRE/lineage → **governed synthesis lab** → answer guard → response.
+- `mcp_execution_gate.py` **already calls** `get_mcp_connector().call_tool()` in mock mode. Real execution is blocked at `_gate_review` when `registry.mode != "mock"` (`:239`) and by `NotImplementedError` in the connector (`:118`).
+- **Synthesis defaults off** (`AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED=false`). When enabled, a deterministic draft is composed; live narration is a second flag (`AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED`) and is **suppressed when `CONTROL_PLANE_ENABLED=true`**.
 
-Two walls block a real answer: **(1)** no real MCP adapter, **(2)** synthesis disabled.
-Plus COE risks: prompt-injection via Splunk result fields, empty-result misclassification,
-SPL coverage ceiling, cost/time-window controls, per-run approval, audit reproducibility.
+Remaining walls for production query→answer:
 
-This crosses the current CLAUDE.md stage boundary ("do not add final LLM synthesis / answer
-guard / real LLM calls unless a later stage explicitly asks"). This plan **is** that staged
-ask — each live-enabling phase stays behind an explicit flag and needs sign-off before merge.
+| Wall | Blocker | Status |
+|------|---------|--------|
+| **1 — Real MCP** | COE contract + real `call_tool` + gate arg mapping | Blocked |
+| **2 — Production synthesis** | COE sign-off on flags, narration path vs control plane, lineage population | Partially implemented |
+| **3 — Security / audit** | A1/A2 done; lineage fill + multi-path parity pending | Mostly done |
+
+This crosses the CLAUDE.md stage boundary for live synthesis — each enabling phase stays behind explicit flags and needs sign-off before production merge.
+
+---
+
+## Phase completion tracker
+
+| Phase | Item | Status | Evidence |
+|-------|------|--------|----------|
+| **A** | A1 empty-result correctness | ✅ Done | `context_sufficiency.py` Rule 3b; `test_negative_result_sufficiency.py` |
+| **A** | A2 results→evidence injection defense | ✅ Done | `splunk_result_adapter.py`, `mcp_result_safeguard.py`; `test_mcp_result_injection_defense.py` |
+| **A** | A3 audit lineage hooks | ✅ Placeholders | `lineage/builder.py` synthesis/answer_guard stages |
+| **B** | B1 COE connection contract | 🟡 Draft | `contracts/splunk_mcp_connection_contract.md` (`schema_confirmed=false`) |
+| **B** | B2 real `call_tool` + arg schema | ❌ Open | Gate still sends `{"query": normalized_spl}` only |
+| **B** | B2b SPL source resolution (config + RAG + optional discovery exec) | ❌ Open | See cross-plan § below; prerequisite for runnable LLM SPL |
+| **B** | B3 cost + allowlist safety | 🟡 Partial | `spl_validator.py` + `build_splunk_search_inputs()` exist; not wired to gate |
+| **B** | B4 per-run approval workflow | 🟡 Partial | `_gate_review` + HIL reasons exist; COE SLA/UI TBD |
+| **C** | C1 wire synthesis scaffold | ✅ Done | `pipeline.py` → `run_governed_synthesis_lab` |
+| **C** | C2 synthesis stage + narration | 🟡 Flag-gated | `lab_runner.py`, `live_narration.py`; CP blocks live narration |
+| **C** | C3 answer guard | 🟡 Flag-gated | `answer_guard/runner.py` wired; default off |
+| **C** | C4 kill switches | ✅ Done | Flags + `AI_SOC_LLM_MODE=disabled` + air-gap |
+| **D** | Route-plan shadow exercise | 🟡 Testable | Default hook returns `None`; tests inject candidates |
 
 ---
 
 ## Phases (ordered by dependency + risk)
 
-### Phase A — Pre-live hardening (no live deps; do first)
+### Phase A — Pre-live hardening ✅ (complete; maintain regression)
 
-**A1. Empty-result correctness.**
-Problem: `context_sufficiency.py:109` Rule 4 `if not collected → INSUFFICIENT_EVIDENCE`. A query
-that *ran and returned 0 rows* is a valid negative answer ("no failed logins"), not insufficient
-evidence. Must distinguish *query-didn't-run* from *query-ran-empty*.
-- Verify `build_source_evidence` (`app/evidence/source_evidence.py`) marks executed-but-empty
-  execution with `collection_status="collected"` and a `result_count=0` marker.
-- Add sufficiency branch: collected execution evidence with 0 rows → `FULL_ANSWER`/`PARTIAL_ANSWER`
-  carrying a `negative_result` reason, never `INSUFFICIENT_EVIDENCE`.
-- Files: `app/evidence/source_evidence.py`, `app/evidence/context_sufficiency.py`.
+**A1. Empty-result correctness** — **DONE**
 
-**A2. Results→evidence injection defense (security-critical, pre-req for any synthesis).**
-Real Splunk events carry attacker-controlled fields (`cmdline`, `url`, `user_agent`, `process`).
-Today `data_minimizer` + `prompt_injection_filter` guard *user input*; they must also run on the
-**MCP-results→evidence** path before any text can reach an LLM.
-- Apply `app/safeguards/data_minimizer.py` + `app/safeguards/prompt_injection_filter.py` inside
-  `splunk_result_adapter.adapt_mcp_search_payload` (or `build_source_evidence` ingest of execution).
-- Result preview rows that fail the filter → `sensitivity_flags` set → sufficiency Rule 1
-  (`:81`) already converts to `BLOCKED_BY_POLICY`. Confirm that path fires.
-- Files: `app/connectors/mcp/splunk_result_adapter.py`, `app/evidence/source_evidence.py`.
+Executed-but-empty MCP results → `full_answer`/`partial_answer` with `execution_negative_result`, never `insufficient_evidence`. Verified: `build_source_evidence` sets `collection_status=collected`, `result_count=0`, `execution_outcome=negative_result`.
 
-**A3. Audit lineage hooks.**
-Lineage already captures `executed_spl` + envelope + `route_plan_shadow`. Add placeholders for
-LLM raw output + adapter overrides so Phase C/D fills them (reproducibility for SOC audit).
-- Files: `app/lineage/builder.py`.
+**A2. Results→evidence injection defense** — **DONE**
 
-### Phase B — Real MCP adapter (Wall 1)
+Defense at adapter boundary: `data_minimizer` + `scan_mcp_preview_rows` (wraps `prompt_injection_filter`). Sensitivity flags → sufficiency Rule 1 → `blocked_by_policy`.
 
-**B1. COE connection contract (gate; blocks B2).** Collect from COE before code:
-server URL, transport, auth method, discovered tool names, **exact arg schema**, approval workflow.
-Deliverable: a filled contract doc under `contracts/`.
+**A3. Audit lineage hooks** — **PLACEHOLDERS ONLY**
+
+Populate `llm_raw_output_placeholder` / `adapter_overrides_placeholder` when live narration or guarded adapter runs (follow-up under Phase C production enablement).
+
+---
+
+### Phase B — Real MCP adapter (Wall 1) ❌ COE-gated
+
+**B1. COE connection contract (gate; blocks B2).**
+
+Draft exists: `contracts/splunk_mcp_connection_contract.md`. COE must confirm: server URL, transport, auth, discovered tool names, **exact arg schema** (`search_query`, `earliest_time`, `latest_time`, `max_results`), approval workflow. Set `schema_confirmed=true` after S5 sign-off.
 
 **B2. Implement real `call_tool`.**
-Gate passes `{"query": normalized_spl}` only — real Splunk MCP likely needs
-`earliest`/`latest`/`output_mode`. Map validated SPL + time window into the real arg schema.
-- `app/connectors/mcp/splunk_mcp.py` (real transport), `registry.py` (`mode=registry/live` path).
-- Reuse `app/connectors/mcp/live_schema_capture.py` (discovery) + `discovery.py`.
-- `mcp_execution_gate.py:164` real-mode branch flips from block → execute once adapter exists.
+
+- Replace `{"query": normalized_spl}` in `mcp_execution_gate.py` with `build_splunk_search_inputs()` from `splunk_mcp_readiness.py` mapped to COE schema.
+- Implement real transport in `app/connectors/mcp/splunk_mcp.py`; flip `_gate_review` `:239` branch once adapter + envelope validation pass.
+- Reuse `live_schema_capture.py` + `discovery.py` for tool discovery.
+- Align tool name aliases (`splunk_run_query` ↔ `search_splunk` ↔ contract `splunk.search`).
 
 **B3. Cost + allowlist safety.**
-- Enforce bounded `earliest/latest` (never silent all-time) + `SPL_MAX_RESULT_LIMIT` at
-  `spl_validator.py` *before* execution.
-- Align `SPL_ALLOWED_INDEXES` / `SPL_ALLOWED_SOURCETYPES` with the live Splunk deployment, else
-  every real query rejects at validation. Files: `app/safeguards/spl_validator.py`, `.env`.
+
+Enforce bounded `earliest/latest` + `SPL_MAX_RESULT_LIMIT` at validation **before** execution. Align `SPL_ALLOWED_INDEXES` / `SPL_ALLOWED_SOURCETYPES` with live Splunk deployment.
 
 **B4. Per-run approval workflow.**
-`_gate_review` already requires `soc_lead` approval. Define who approves + SLA + UI surface so live
-queries don't stall. Files: gate review reasons + frontend HIL panel.
 
-### Phase C — Synthesis stage (Wall 2; flag-gated, needs sign-off)
+`_gate_review` already requires `soc_lead` approval when execution flags are off. Define COE SLA + frontend HIL surface so live queries do not stall. Coordinate with [`2026-06-13_mcp-execution-orchestration-plan.md`](2026-06-13_mcp-execution-orchestration-plan.md) Phase B execution semantics.
 
-**C1. Wire the existing scaffold.** `synthesis/models.py:build_governed_synthesis_package` already
-builds a governed package (precomputed aggregates, missing-evidence wording, permitted MITRE,
-permitted actions, `SynthesisGuardConstraints`) but is **never called**. Wire it into `chat()`
-after `_context_stage`.
+**Missed: discovery vs search.** Orchestration plan separates Step 5 discovery planning (7 tools, never auto-run) from Step 7 `splunk_run_query` execution. B2 covers search only; extend Resource Planner for hybrid/guided paths per orchestration plan.
 
-**C2. Build synthesis stage.** Reads `GovernedSynthesisPackage` **only** (never raw events).
-Runs only when `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED=true` **and** sufficiency mode in
-`_READY_MODES` (`full_answer`/`partial_answer`/`knowledge_only_answer`). Honors guard constraints
-(no global aggregates, no absence-inference, MITRE from permitted set only, max action tier 1).
+**B2b. SPL source resolution (cross-plan — does not replace B2).**
 
-**C3. Answer guard.** `app/answer_guard/rules.py` (13 dormant `guard.*` ids) validates the generated
-answer before return; gated by `AI_SOC_LLM_ANSWER_GUARD_ENABLED`. Reuse `app/llm/adapter/` for
-schema + authority overrides.
+Prerequisite for LLM-generated SPL to reach `normalized_spl` and enter the search gate. Documented in [`llm_lab-tier_spl_exposure` plan](/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md) Phase H; **extends** this plan, does not contradict it.
 
-**C4. Flags = kill switches.** Both flags default false. `AI_SOC_LLM_MODE=disabled` forces off;
-air-gap overrides cloud allowance (existing governance).
+| Step | Source | Pipeline node | Executes? |
+|------|--------|---------------|-----------|
+| G | Lab-tier LLM SPL exposure (placeholders visible) | `graph_node_workflow_spl` | LLM only |
+| H0 | Config / skills / `SPL_ALLOWED_*` env map | **new** `graph_node_spl_source_resolve` | No |
+| H1 | **RAG / playbook** — KB `splunk_indexes`, `sourcetypes`, `fields` on retrieved entries | After `graph_node_rag_early` (or bounded env_fact fetch inside resolve node) | RAG yes; substitution deterministic |
+| H2 | MCP discovery **execution** (`splunk_get_indexes`, `splunk_get_metadata`) | Same resolve node; COE-gated | Yes when flags + orchestration §6 `execute_planned_discovery` enabled |
+| H3 | HIL `spl_source_profile_clarification` | resolve node → `human_review` | Analyst input |
+| H4 | `validate_spl` → `normalized_spl` | resolve node output feeds `graph_node_execution` | Feeds B2 search |
 
-### Phase D — Route-suggestion LLM exercise (testable now, lowest risk)
+**Alignment rules (no contradiction with scope guardrails below):**
+- Step 5 discovery **planning** (`plan_splunk_discovery_calls`) stays plan-only by default — unchanged.
+- H2 discovery **execution** is the orchestration plan's optional Phase C executor — separate from B2 search.
+- RAG slot values flow only through governed `SourceEvidence` / deterministic resolver — **no RAG→LLM direct path** for index substitution.
+- B3 allowlist enforcement applies **after** substitution (resolved index must be in `SPL_ALLOWED_INDEXES`).
+- B4 HIL reused for unresolved slots and execution approval.
 
-Validate routing governance with a user-supplied LLM route-plan JSON, no live model needed.
-- Inject via `generate_llm_route_plan_candidate` (`app/routing/llm_route_plan_candidate.py`) test hook
-  or `_route_plan_shadow_candidate` (`routes_chat.py:367`, currently returns None).
-- Confirm: `validate_route_plan_candidate` normalizes → `deterministic_route_plan_wins=True` →
-  `disagreements` recorded → deterministic skill still reaches user. Shadow only; no execution.
+---
+
+### Phase C — Synthesis stage (Wall 2) 🟡 partially landed
+
+**C1. Wire scaffold** — **DONE** (`pipeline.py` after context stage).
+
+**C2. Synthesis + narration** — **FLAG-GATED**
+
+- `run_governed_synthesis_lab` builds `GovernedSynthesisPackage` and deterministic draft.
+- Live narration: `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` + `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED` + sufficiency in `_LAB_READY_MODES` + **not** `CONTROL_PLANE_ENABLED`.
+- **Gap:** populate lineage placeholders; resolve CP vs legacy narration ownership for production.
+
+**C3. Answer guard** — **FLAG-GATED, WIRED**
+
+`run_answer_guard_lab` runs dormant semantic guards when `AI_SOC_LLM_ANSWER_GUARD_ENABLED=true`. Distinct from `final_answer_validator` (always-on contract check on composed card).
+
+**C4. Kill switches** — **DONE** (defaults false).
+
+---
+
+### Phase D — Route-suggestion LLM exercise (testable now, lowest risk) 🟡
+
+Validate routing governance with supplied route-plan JSON — no live model required.
+
+- Inject via `generate_llm_route_plan_candidate` or monkeypatch `_route_plan_shadow_candidate` (default `None` in `pipeline.py`).
+- Confirm: `validate_route_plan_candidate` → `deterministic_route_plan_wins=True` → `disagreements` logged → deterministic skill reaches user. Shadow only.
 
 ---
 
@@ -117,20 +173,24 @@ Validate routing governance with a user-supplied LLM route-plan JSON, no live mo
 - Candidate SPL stays non-executable; only approved `normalized_spl` enters the gate.
 - LLM never calls MCP directly; backend mediates.
 - All MCP/LLM status output redacts secrets (`url_configured`/`auth_configured` booleans only).
-- Phases C/D stay flag-gated and default-off until explicit sign-off.
+- Phases B/C production enablement stay flag-gated and need explicit COE sign-off.
+- Experience Center (`coe_synthetic_fixture`) stays isolated — never route live synthesis through demo path.
 
 ## Verification (end-to-end)
 
 - Governance regression: `./scripts/run_stage3_governance_regression.sh` → PASS, harness 6/6.
 - Backend: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest`.
 - Frontend: `cd frontend && npm run build`.
-- Per phase: A1 — unit test 0-row execution → `full_answer`+`negative_result`, not insufficient.
-  A2 — feed event with injection string → `sensitivity_flags` → `BLOCKED_BY_POLICY`.
-  B2 — mock real transport, assert arg schema mapping + executed envelope.
-  C2/C3 — flag off = no synthesis (current behavior preserved); flag on in lab = guarded answer only.
-  D — supplied route-plan JSON → deterministic wins + disagreement logged in trace.
+- Per phase:
+  - A1/A2 — `test_negative_result_sufficiency.py`, `test_mcp_result_injection_defense.py` (regression pins).
+  - B2 — mock real transport; assert `build_splunk_search_inputs` arg mapping + envelope validation.
+  - B2b — placeholder SPL → RAG/config resolution → `normalized_spl`; MCP discovery exec mock; HIL on ambiguous RAG.
+  - C2/C3 — flag off = deterministic-only; flag on in lab = guarded answer; **also test `CONTROL_PLANE_ENABLED=true` blocks live narration**.
+  - D — supplied route-plan JSON → deterministic wins + disagreement in trace.
+  - Parity — repeat C/D checks on LangGraph path when `langgraph_orchestration_enabled`.
 
 ## Plan housekeeping
 
-- `plan-reviewer` subagent before executing any non-trivial phase; `validator` after each phase.
-- Mirror of this plan also at `~/.claude/plans/purring-swinging-sunrise.md`.
+- `plan-reviewer` subagent before executing any non-trivial open phase (B2, C production enablement).
+- `validator` after each phase.
+- Keep MCP orchestration plan and this plan in sync on execution vs discovery semantics.

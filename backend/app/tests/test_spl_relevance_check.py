@@ -84,6 +84,38 @@ def test_auth_question_with_auth_spl_is_relevant():
     assert r.relevant is True
 
 
+def test_placeholder_auth_index_counts_as_auth_source():
+    # Phase G: lab / LLM SPL uses index=<auth_index>; R5 must not reject as missing auth.
+    spl = (
+        "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-60m latest=now "
+        "action=failure | stats count by src_ip | head 100"
+    )
+    r = check_spl_relevance("Show failed logins by source IP", spl)
+    assert r.relevant is True
+    assert "data_source_missing:auth" not in r.mismatches
+
+
+def test_llm_windows_placeholder_stems_count_as_auth_source():
+    # LLM failover prompt prefers windows_* placeholder names over auth_*.
+    spl = (
+        "search index=<windows_index> sourcetype=<windows_security_sourcetype> earliest=-60m latest=now "
+        "EventCode=4625 | stats count by user | head 100"
+    )
+    r = check_spl_relevance("Which accounts had failed logins?", spl)
+    assert r.relevant is True
+    assert "data_source_missing:auth" not in r.mismatches
+
+
+def test_llm_sysmon_placeholder_stems_count_as_endpoint_source():
+    spl = (
+        "search index=<sysmon_index> sourcetype=<sysmon_sourcetype> earliest=-24h latest=now "
+        "EventCode=1 (powershell OR pwsh) | stats count by host | head 100"
+    )
+    r = check_spl_relevance("Which hosts ran suspicious PowerShell?", spl)
+    assert r.relevant is True
+    assert "data_source_missing:endpoint" not in r.mismatches
+
+
 def test_missing_spl_is_never_relevant():
     r = check_spl_relevance("Which hosts generated the most DNS queries?", None)
     assert r.relevant is False
