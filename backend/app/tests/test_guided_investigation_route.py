@@ -8,6 +8,7 @@ from app.chat.planning_decision import plan_path_and_tools
 from app.query_understanding.parser import understand_query
 from app.routing.route_adjudication import adjudicate_route
 from app.routing.select_route_from_understanding import select_route_from_understanding
+from app.routing.skill_router import route_skill
 from app.api.routes_chat import chat
 from app.schemas.requests import ChatRequest
 
@@ -127,6 +128,13 @@ def test_guided_route_survives_control_plane_adjudication() -> None:
     )
     assert result.final_route == "guided_investigation"
     assert result.authority_source == "guided_investigation_rescue"
+
+
+def test_live_router_preserves_guided_rescue_provenance() -> None:
+    routed = route_skill(POSITIVE_QUERIES[0])
+    assert routed["skill"] == "guided_investigation"
+    assert routed["routing_provenance"]["rescue_mode"] is True
+    assert routed["routing_provenance"]["why_not_knowledge_recall"]
 
 
 def test_guided_resource_decisions_are_review_only() -> None:

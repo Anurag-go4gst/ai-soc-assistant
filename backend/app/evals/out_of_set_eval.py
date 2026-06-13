@@ -86,6 +86,8 @@ def _support_status_observed(payload: dict[str, Any]) -> set[str]:
         "retrieval_status"
     ) == "retrieved":
         statuses.add("rag_only")
+    if str(plan.get("answer_mode") or "") == "guided_investigation":
+        statuses.add("guided_investigation")
     if draft.get("draft_spl"):
         statuses.add("draft_spl_only")
     if contract.get("out_of_catalog_notice"):
