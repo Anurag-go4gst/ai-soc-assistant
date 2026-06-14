@@ -101,7 +101,52 @@ def build_source_evidence(
             provenance="ai_soc_validated_execution_gate",
         )
     )
+
+    # O5c Step 2: per-call evidence. On a completed broaden turn the singular
+    # `execution` above is the broadened (c2) search; emit a separate honest
+    # negative-result item for the empty primary (c1) so sufficiency sees both
+    # logical calls rather than only the broadened one.
+    _append_broaden_primary_evidence(evidence, trace_id, query, selected_skill, execution)
     return evidence
+
+
+def _append_broaden_primary_evidence(
+    evidence: list[dict[str, Any]],
+    trace_id: str,
+    query: str,
+    selected_skill: str,
+    execution: dict[str, Any],
+) -> None:
+    orchestration = execution.get("mcp_orchestration")
+    if not isinstance(orchestration, dict) or orchestration.get("recipe_id") != "broaden_scope_on_empty":
+        return
+    calls = orchestration.get("calls")
+    if not isinstance(calls, list) or len(calls) < 2:
+        return
+    primary = calls[0]
+    if not isinstance(primary, dict) or primary.get("outcome") != "empty":
+        return
+    primary_spl = str(primary.get("result_envelope_ref") or "") or None
+    item = _evidence(
+        trace_id=trace_id,
+        source_type="splunk_mcp",
+        source_name=str(execution.get("selected_mcp_server") or "mcp_splunk"),
+        tool_name=execution.get("selected_mcp_tool"),
+        collection_status="collected",
+        query_or_request_summary=_request_summary(selected_skill, query, execution),
+        executed_spl=primary_spl,
+        result_count=0,
+        execution_outcome="negative_result",
+        warnings=["execution_completed_zero_rows", "broaden_primary_call"],
+        tool_category=_tool_category(execution.get("selected_mcp_tool")),
+        provider_used="splunk_run_query" if primary_spl else None,
+        provenance="ai_soc_validated_execution_gate",
+    )
+    # The broadened (c2) item above shares source/tool/status with this primary
+    # (c1) item, so disambiguate the id and link it to the c1 plan step.
+    item["evidence_id"] = f"{item['evidence_id']}_c1"
+    item["plan_step_ref"] = "c1_primary_search"
+    evidence.append(item)
 
 
 def build_provider_source_evidence(

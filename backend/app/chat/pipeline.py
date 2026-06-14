@@ -17,6 +17,8 @@ from app.knowledge.rag_evidence_lineage import resolve_answer_readiness, resolve
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.lineage.builder import build_investigation_lineage
 from app.orchestration.broaden_orchestration import (
+    finalize_broaden_orchestration,
+    is_broaden_pending,
     maybe_build_broaden_decision,
     should_attempt_broaden,
 )
@@ -579,6 +581,24 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         analyst_provided_spl=getattr(request, "analyst_provided_spl", None),
         pending_execution=pending_execution,
     )
+    # O5c Step 2: the broaden confirm turn executed the approved broadened
+    # search. Attach the two-call cross-turn envelope (empty primary + broadened
+    # outcome) so lineage/evidence represent both logical calls, not just the
+    # singular c2 execution.
+    if (
+        is_broaden_pending(pending_execution)
+        and isinstance(execution, dict)
+        and execution.get("status") == "executed"
+    ):
+        execution = {
+            **execution,
+            "mcp_orchestration": finalize_broaden_orchestration(
+                trace_id=state["trace_id"],
+                pending=pending_execution,
+                broadened_execution=execution,
+            ),
+        }
+
     emit_mcp_status_from_execution(execution)
     # Source-profile clarification wins over the execution-stage HIL: a lab/draft
     # candidate whose index/sourcetype could not be resolved must surface the
