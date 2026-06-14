@@ -1,13 +1,130 @@
 # Plan — Query→Answer Readiness for Live MCP + LLM
 
-**Status:** Implementation-ready for bounded multi-call orchestration; live activation remains COE-gated
-**Date:** 2026-05-30 (audited 2026-06-13; updated 2026-06-13)  
-**Commits:** `567fe62`, `ae88760`, orchestration Phase 1 composer
+**Status:** O5a–O5c-core done; three steps remain before credential drop-in (LangGraph parity → per-call evidence → production async adapter)  
+**Date:** 2026-05-30 (audited 2026-06-13; consolidated 2026-06-13)  
+**Branch tip:** `spl-generation-audit` @ `5bfc025`  
+**Commits (orchestration spine):** `567fe62`, `ae88760`, `390e2dc`, `40d3251`, `4cbc8ec`, `f958aab`, `3a39ed2`, `5bfc025`
 **Author:** COE review (Anurag + Claude)  
 **Related:** [`contracts/splunk_mcp_connection_contract.md`](../contracts/splunk_mcp_connection_contract.md), [`2026-06-13_spl-generation-audit-completion.md`](2026-06-13_spl-generation-audit-completion.md), [`/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md`](/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md) (Phase G/H)
+
+> **Single plan file.** All MCP orchestration rules, next implementation steps, and credential drop-in architecture live in **this document** (Appendix A + §Next implementation below). Do not maintain parallel handoff plans.
 **External sources reconciled (A.17):** Splunk Lantern — [LLM reasoning + ML for Jira alert investigations](https://lantern.splunk.com/Security_Use_Cases/Automation_and_Orchestration/Leveraging_LLM_reasoning_and_ML_capabilities_for_Jira_alert_investigations), [Automating alert investigations with LLMs + Splunk + Confluence](https://lantern.splunk.com/Observability_Use_Cases/Troubleshoot/Automating_alert_investigations_by_integrating_LLMs_with_the_Splunk_platform_and_Confluence)
 
 > **Plan management:** MCP orchestration rules live in **Appendix A** below (formerly a separate `2026-06-13_mcp-execution-orchestration-plan.md`). One file for COE tracking; architecture deep-dives remain in `docs/architecture/spl_mcp_execution_controls.md`.
+
+---
+
+## Status at a glance (2026-06-13)
+
+### What is done
+
+Work completed on `spl-generation-audit` that this plan depends on. **Do not redo these.**
+
+| Area | What shipped | Why it matters | Evidence |
+|------|--------------|----------------|----------|
+| **Security hardening (Phase A)** | Empty-result ≠ insufficient evidence; MCP result injection defense | Honest negative results; no prompt injection via Splunk rows | `context_sufficiency.py` Rule 3b; `splunk_result_adapter.py`, `mcp_result_safeguard.py` |
+| **SPL source resolution (B2b / Phase H)** | Config map, RAG bridge, MCP discovery resolve, HIL clarification, family-aware sourcetype pick | LLM/template SPL can reach `normalized_spl` before any search | `source_profile_resolver.py` (`3a39ed2`); Settings UI (`567fe62`) |
+| **Execution gate scaffold (B2 partial)** | Bounded arg mapping, per-run SPL confirmation HIL, mock search path | Gate knows *what* to send to Splunk; analyst must approve | `splunk_search_tool_arguments()` (`ae88760`); `spl_execution_confirmation` |
+| **SPL generation audit** | Relevance-first routing, LLM failover, catalogue coverage, post-validation simplifier | Correct SPL for asked questions before MCP runs | Closed in [`2026-06-13_spl-generation-audit-completion.md`](2026-06-13_spl-generation-audit-completion.md) |
+| **O5a — orchestration contracts** | `ResourcePlanV2`, `mcp_orchestration` envelope, recipe registry (`single_search`, `broaden_scope_on_empty`), HIL approval gate | Multi-call turns have a governed data model | `40d3251`; 15 contract tests |
+| **O5b — scheduler logic** | Pure `schedule_next` / `outcome_edge` — metadata-before-SPL, Search-A→Search-B | Proves dependency ordering without live Splunk | `4cbc8ec`; 9 fixture tests |
+| **O5c-core — broaden on empty** | Imperative pipeline hook: empty primary → LLM-proposed broaden → validate → HIL → second search | Governed Lantern-style adapt loop; no open-ended LLM replanning | `f958aab`; `broaden_orchestration.py`; 10 tests |
+| **Discovery planning (O1)** | Hybrid/spl_review/guided discovery checklists in resource plan | Analyst sees what discovery *could* run; no auto-execute | `390e2dc` |
+| **Synthesis scaffold (Phase C partial)** | Governed synthesis lab + answer guard wired behind flags | Query→answer narration ready when flags enabled | `pipeline.py` → `run_governed_synthesis_lab` |
+| **Regression baseline** | Governance regression PASS; sentinel 17/17 | Safe to continue on this branch | `5bfc025` |
+
+**Governance decisions already locked (do not reopen without explicit approval):**
+
+- No new orchestration flag — broaden gates on existing `MCP_*_EXECUTION_ENABLED` + `AI_SOC_LLM_SPL_FALLBACK_ENABLED`.
+- LLM never calls MCP; broaden proposal is advisory → validate → HIL → gate.
+- `candidate_spl` never executes; only approved `normalized_spl`.
+- `.env.example` stays **default-off** (safe for every clone). The live flag set lives in a dedicated committed **`.env.splunk-live.example`** (Step 3) — go-live copies it and drops two secrets.
+- Splunk search is **async** — submit/poll/fetch lives inside the connector, not the gate.
+- **No external COE dependency.** Go-live decisions are **operator-owned** (this team). `schema_confirmed=true` flips after our own staging smoke. Identity model = **service-account bearer token** (`SPLUNK_MCP_TOKEN`). See §Go-live decisions (A.13).
+
+### What remains (Step 0 + three steps — in order)
+
+| Step | Work | Blocker it removes |
+|------|------|-------------------|
+| **0** | Plan honesty pass — reframe COE→operator-owned; bake go-live decisions (A.13); record canonical tool name + identity model; declare `.env.splunk-live.example` + poll flags as Step 3 deliverables | "Credentials-only" is not yet true — undecided items would also be pending |
+| **1** | LangGraph `spl_source_resolve` before `execution` | Runtime safety gap — wrong index/sourcetype on LangGraph path only |
+| **2** | Per-call `SourceEvidence` + cross-turn `mcp_orchestration` envelope | Two-call broaden cannot be honest with singular `execution` |
+| **3** | Production `splunk_mcp.py` with **async lifecycle inside `call_tool`**; poll flags in `config.py`; committed `.env.splunk-live.example` | Credential drop-in — no adapter rebuild when URL/auth arrive |
+
+**After Step 3 — go-live is configuration only:** copy `.env.splunk-live.example` → `.env`, set `SPLUNK_MCP_BASE_URL` + `SPLUNK_MCP_TOKEN`, set `schema_confirmed=true` after staging smoke, restart. No code change.
+
+**Already decided (no longer pending):**
+- Canonical search tool = **`splunk_run_query`** (the `splunk_*` 7-tool air-gapped surface from the Splunk MCP docs; `search_splunk`/`splunk.search` are contract aliases only).
+- Identity = **service-account bearer token** (`SPLUNK_MCP_TOKEN`).
+- Transport lifecycle = **async** submit/poll/fetch inside the connector.
+
+### What is later (not blocking credentials)
+
+| Item | Reason it can wait |
+|------|-------------------|
+| Full scheduler/reconcile graph (O5d) | Broaden already works via imperative hook; full loop is scale-up |
+| Dedicated frontend broaden diff card | Generic HIL renderer is sufficient for v1 |
+| O4 discovery auto-execution in chat | Separate COE decision; Settings discover already works |
+| Phase C production synthesis enablement | Flag-gated; independent of MCP transport |
+| O7 ops rollout playbook | Written after Step 3 staging smoke |
+
+---
+
+## Rationale — why this approach going forward
+
+We are at a junction where one wrong choice (sync stub, parallel plans, deferring async, or rebuilding the adapter when credentials arrive) would break the whole governed pipeline. This section records **why** the remaining work is ordered and shaped this way.
+
+### 1. One plan file, one implementation spine
+
+Parallel handoff docs caused confusion about what was done, what was deferred, and what was “crucial.” Everything now lives in **this file**: status, rationale, next steps (§Next implementation), and orchestration rules (Appendix A). One place to manage, review, and commit against.
+
+### 2. Build for credential drop-in, not “stub now, rebuild later”
+
+The goal is not a demo adapter that gets thrown away. When COE supplies Splunk MCP URL and auth:
+
+- Flip env flags and set `schema_confirmed=true`.
+- Restart the backend.
+- **Same code** runs live searches.
+
+That requires Step 3 to ship a **production connector** — HTTP/MCP transport, error classification, envelope mapping, and async job lifecycle — behind default-off flags. Mock stays inline-sync for CI only.
+
+### 3. Splunk search is async — not optional, not a follow-up phase
+
+Splunk searches exceed normal HTTP timeouts. The architecture doc (`spl_mcp_execution_controls.md` §4) and Splunk MCP reality both require submit → bounded poll → fetch.
+
+**Our model:** the gate calls `call_tool` **once** per investigation call; the **connector** runs the async lifecycle internally. Polls do not count as new investigation calls and do not touch the planner. A prior “sync v1, defer async” note was wrong and is removed.
+
+### 4. Safety order: parity → evidence → transport
+
+| Order | Reason |
+|-------|--------|
+| **Step 1 LangGraph parity first** | Two runtimes exist today. Fixing the adapter before parity means live searches could run on a graph that skips source resolution — different behavior per runtime. |
+| **Step 2 evidence second** | `broaden_scope_on_empty` is already wired (O5c-core). Without per-call evidence, a two-search turn lies to sufficiency and the analyst card. |
+| **Step 3 transport last** | Transport is useless if evidence and parity are wrong. But it must be **complete** (async included) when built — not a thin stub. |
+
+### 5. Deterministic authority around adaptive intelligence
+
+Lantern-style “adapt on empty” is valuable, but authority cannot move to the LLM:
+
+- **Deterministic layer owns:** route, recipe trigger (`previous_empty`), bounds (indexes, sourcetypes, time cap, result cap), tool selection, validation, HIL, execution flags.
+- **LLM owns:** *judgment* on what broadened SPL to propose within those bounds.
+- **No open-ended replanning:** LLM cannot add calls, raise budgets, or pick tools.
+
+This is why O5a–O5c-core landed before the live adapter — contracts and broaden hook exist; transport plugs into a governed loop.
+
+### 6. Default-off preserves production safety
+
+All new runtime behavior stays behind existing flags (`MCP_GLOBAL_EXECUTION_ENABLED`, per-server execution, mock execution, `AI_SOC_LLM_SPL_FALLBACK_ENABLED`). Default path stays byte-identical single-call mock-off. Governance regression must stay green after every commit.
+
+### 7. What we are not doing (and why)
+
+| Avoided | Why |
+|---------|-----|
+| New `MCP_MULTI_CALL_ORCHESTRATION_ENABLED` flag | Broaden already gates correctly; another flag adds confusion |
+| LLM → MCP direct access | Stage boundary; backend gate is the only execution path |
+| Sync live adapter | Would fail on real Splunk timeouts; would require rebuild |
+| Full O5d scheduler graph before adapter | Broaden works today; scheduler is scale-up, not prerequisite for first live search |
+| Enabling mock/execution in `.env.example` | Would change default posture for all deployments |
 
 ---
 
@@ -48,7 +165,53 @@ This revision makes the target explicit:
 - `graph_node_mcp_result_assess` records the envelope and produced evidence keys; `graph_node_plan_reconcile` then unlocks the next dependent resource step, selects a declared fallback, requests HIL, or stops.
 - The LLM may narrate results or provide a shadow recommendation, but it cannot add a call, choose a tool, write executable SPL, increase a budget, or bypass validation/HIL.
 
-**Plan-ready does not mean production-ready.** Real transport, live schema confirmation, identity/auth, async lifecycle, allowlists, and activation flags remain COE gates.
+### Production-ready posture (credential drop-in — no rebuild)
+
+When COE supplies Splunk MCP URL, auth, and confirms the binding target, **activation is configuration only**:
+
+1. Set env: `SPLUNK_MCP_BASE_URL`, `SPLUNK_MCP_TOKEN` (or equivalent), `MCP_GLOBAL_EXECUTION_ENABLED=true`, per-server execution flag.
+2. Set `schema_confirmed=true` on [`contracts/splunk_mcp_connection_contract.md`](../contracts/splunk_mcp_connection_contract.md) after staging smoke test.
+3. Restart backend — **no adapter rewrite**, no gate rewrite, no pipeline rewrite.
+
+Code we build **now** must include:
+
+| Layer | Responsibility | Must ship before credentials |
+|-------|----------------|------------------------------|
+| **Gate** (`mcp_execution_gate.py`) | One logical `call_tool` per investigation call; validation, HIL, arg mapping | ✅ Already wired |
+| **Connector** (`splunk_mcp.py`) | **Async search lifecycle inside `call_tool`**: submit job → bounded poll → fetch envelope. Gate stays sync at the API boundary. | ❌ Build in Step 3 below |
+| **Adapter** (`splunk_result_adapter.py`) | Normalize live JSON → `SplunkResultEnvelope` | ✅ Exists; extend for job states |
+| **Orchestration** (`mcp_orchestration.py`) | One `McpCallRecord` per investigation call; polls are connector-internal, not new calls | ✅ Contract landed |
+| **Evidence** | One `SourceEvidence` per logical call | ❌ Step 2 below |
+| **LangGraph** | Same node order as imperative path | ❌ Step 1 below |
+
+**What blocks activation (config only, not code):** missing URL/token, `schema_confirmed=false`, execution flags off, production allowlist env not aligned.
+
+**What is NOT required for credential drop-in:** full scheduler/reconcile graph (O5d), dedicated frontend broaden card, COE ceremony doc.
+
+### Splunk search is async (locked decision)
+
+**Correction:** A prior handoff draft wrongly assumed “sync v1, defer async to Phase 4.” That was incorrect.
+
+| Fact | Source |
+|------|--------|
+| Splunk searches exceed HTTP/agent timeouts | [`docs/architecture/spl_mcp_execution_controls.md`](../docs/architecture/spl_mcp_execution_controls.md) §4 |
+| Planner must not assume `search_splunk` is one synchronous HTTP round-trip | Same doc: “The planner must not assume that `search_splunk` is a single synchronous call.” |
+| Submit + polls = **one** logical investigation call | Appendix A §A.3 `job_lifecycle`; `mcp_orchestration.py` `McpCallRecord` comment |
+| Mock path returns inline rows | Test convenience only — **not** the live transport model |
+
+**Architecture (production):**
+
+```text
+evaluate_mcp_execution()
+  └─ call_tool("splunk_run_query", args)     # ONE gate invocation
+       └─ SplunkMcpConnector (live):
+            submit_search_job → job_id
+            poll_search_results (bounded: MCP_MAX_POLLS_PER_CALL, MCP_SEARCH_JOB_TIMEOUT_MS)
+            fetch final rows → SplunkResultEnvelope
+            return completed | empty | timeout | failed | denied
+```
+
+The gate does **not** implement polling. The connector does. Mock connector may keep inline results for CI; live connector **must** implement async lifecycle in the same `call_tool` method we ship in Step 3.
 
 ### Missed cases (add to scope)
 
@@ -76,9 +239,9 @@ Remaining walls for production query→answer:
 
 | Wall | Blocker | Status |
 |------|---------|--------|
-| **1 — Real MCP** | COE contract + real `call_tool` + gate arg mapping | Blocked |
-| **2 — Production synthesis** | COE sign-off on flags, narration path vs control plane, lineage population | Partially implemented |
-| **3 — Security / audit** | A1/A2 done; lineage fill + multi-path parity pending | Mostly done |
+| **1 — Real MCP** | Production async adapter + credential config | **3 steps remain** — gate scaffold done; `splunk_mcp.py` still `NotImplementedError` |
+| **2 — Production synthesis** | Flag enablement + CP vs narration ownership + lineage fill | Partially implemented; independent of MCP Steps 1–3 |
+| **3 — Security / audit** | A1/A2 done; LangGraph parity + per-call evidence pending | Mostly done |
 
 This crosses the CLAUDE.md stage boundary for live synthesis — each enabling phase stays behind explicit flags and needs sign-off before production merge.
 
@@ -92,7 +255,7 @@ This crosses the CLAUDE.md stage boundary for live synthesis — each enabling p
 | **A** | A2 results→evidence injection defense | ✅ Done | `splunk_result_adapter.py`, `mcp_result_safeguard.py`; `test_mcp_result_injection_defense.py` |
 | **A** | A3 audit lineage hooks | ✅ Placeholders | `lineage/builder.py` synthesis/answer_guard stages |
 | **B** | B1 COE connection contract | 🟡 Draft | `contracts/splunk_mcp_connection_contract.md` (`schema_confirmed=false`) |
-| **B** | B2 real `call_tool` + arg schema | 🟡 Mock complete / live COE | Contract args + confirmation gate (`ae88760`); `splunk_mcp.py` transport still `NotImplementedError` |
+| **B** | B2 real `call_tool` + arg schema | 🟡 Gate done; adapter open | Args + HIL (`ae88760`); live `splunk_mcp.py` = Step 3 (async inside connector) |
 | **B** | B2b SPL source resolution | ✅ Done | Settings UI, MCP discovery resolve, orchestration order (`567fe62`) |
 | **B** | B3 cost + allowlist safety | 🟡 Partial | Validator + bounded args at gate; production allowlist = COE env |
 | **B** | B4 per-run approval workflow | ✅ Done (mock path) | `spl_execution_confirmation` HIL + chat confirm/update/reject (`ae88760`) |
@@ -104,6 +267,123 @@ This crosses the CLAUDE.md stage boundary for live synthesis — each enabling p
 | **C** | C3 answer guard | 🟡 Flag-gated | `answer_guard/runner.py` wired; default off |
 | **C** | C4 kill switches | ✅ Done | Flags + `AI_SOC_LLM_MODE=disabled` + air-gap |
 | **D** | Route-plan shadow exercise | 🟡 Testable | Default hook returns `None`; tests inject candidates |
+
+---
+
+## Next implementation (ordered — one plan, three commits)
+
+> **Pointers:** Full “what is done” → §Status at a glance. **Why this order** → §Rationale.
+
+**Branch:** `spl-generation-audit` @ `5bfc025`  
+**Baseline:** governance regression PASS, pytest green, frontend build PASS  
+**Governance:** flags default-off; no new orchestration flag; LLM never calls MCP
+
+Do **not** split this into parallel plan files. Execute in order; one commit per step; run `./scripts/run_stage3_governance_regression.sh` after each.
+
+### Already landed (do not redo)
+
+See §Status at a glance for full context. Commits on this spine:
+
+| Commit | Deliverable |
+|--------|-------------|
+| `40d3251` | O5a: `recipe_registry.py`, `mcp_orchestration.py`, `ResourcePlanV2`, 15 tests |
+| `4cbc8ec` | O5b: `orchestration_scheduler.py`, 9 fixture tests |
+| `f958aab` | O5c-core: `broaden_orchestration.py`, `spl_broaden_confirmation` HIL, 10 tests |
+| `3a39ed2` | Family-aware `source_profile_resolver.py` |
+| `5bfc025` | Sentinel baseline |
+
+### Step 0 — Plan honesty pass (no external COE)
+
+**Why crucial:** "Go-live = credentials only" is only true if every other decision is already baked. With no COE to answer, undecided A.13 items would silently become go-live blockers.
+
+Done in this revision (doc-only, no code):
+- A.13 reframed COE→**operator-owned**; every item baked to Config / Decided / Later.
+- Canonical search tool pinned: `splunk_run_query`. Identity = service-account bearer. Lifecycle = async.
+- `.env.splunk-live.example` + poll flags declared as **Step 3** deliverables (not a parallel file pre-built against non-existent vars).
+- `.env.example` stays default-off; live values live in the dedicated template.
+
+**Commit:** `Bake go-live decisions; reframe COE to operator-owned (Step 0)`
+
+### Step 1 — LangGraph parity (safety gap)
+
+**Why crucial:** Imperative path runs `graph_node_spl_source_resolve` before `graph_node_execution`; LangGraph skips it. Wrong sourcetype/index can reach execution on one runtime only.
+
+**Graph edge (non-rag-only):** `workflow_spl` → `spl_source_resolve` → `execution` → `context_finalize`
+
+| File | Change |
+|------|--------|
+| `backend/app/graph/chat_workflow.py` | Add `spl_source_resolve` node and edges |
+| `backend/app/tests/test_langgraph_dual_parity_phase13.py` | Assert resolve trace on LangGraph path |
+| `backend/app/tests/test_spl_source_resolve.py` | Imperative vs LangGraph parity |
+
+**Commit:** `Add LangGraph spl_source_resolve parity before execution`
+
+### Step 2 — Per-call evidence + cross-turn envelope
+
+**Why crucial:** `broaden_scope_on_empty` is two logical searches. Singular `execution` cannot represent both; broaden HIL spans turns.
+
+| File | Change |
+|------|--------|
+| `backend/app/evidence/source_evidence.py` | One `SourceEvidence` per `mcp_orchestration.calls[]` entry |
+| `backend/app/chat/pipeline.py` | Append call records on broaden second execution |
+| `backend/app/lineage/builder.py` | Per-call orchestration lineage |
+| `backend/app/chat/session_context.py` | Persist `mcp_orchestration` + pending confirm across broaden HIL |
+| `backend/app/tests/test_broaden_orchestration.py` | Two-call + cross-turn fixtures |
+| **New** `backend/app/tests/test_mcp_orchestration_evidence.py` | Empty/failed/mixed outcomes |
+
+**Commit:** `Aggregate per-call MCP evidence and cross-turn orchestration envelope`
+
+### Step 3 — Production Splunk MCP adapter (async lifecycle included)
+
+**Why crucial:** This is the credential drop-in layer. Must ship **with async submit/poll/fetch inside `call_tool`** — not a follow-up phase.
+
+| File | Change |
+|------|--------|
+| `backend/app/config.py` | Add `mcp_max_polls_per_call=60`, `mcp_search_job_timeout_ms=120000`, `mcp_search_poll_interval_ms=2000` |
+| `backend/app/connectors/mcp/splunk_search_lifecycle.py` | **New** — pure async poll state machine (`submitted`/`running`/`completed`/`completed_empty`/`failed`/`timed_out`/`cancelled`/`permission_denied`/`schema_invalid`); bounded by the three config flags; transport calls injected so it is unit-testable without a live server |
+| `backend/app/connectors/mcp/splunk_mcp.py` | Live `call_tool` for canonical `splunk_run_query`: streamable_http transport (bearer `SPLUNK_MCP_TOKEN`), drive lifecycle **submit → bounded poll → fetch**, map to `SplunkResultEnvelope`. Aliases (`search_splunk`/`splunk.search`) normalized to `splunk_run_query` at the boundary |
+| `backend/app/orchestration/mcp_execution_gate.py` | `_gate_review` `:276` allows `registry.mode == "registry"` when adapter ready + `schema_confirmed` + exec flags; set `evidence_source: live` on real runs |
+| `.env.splunk-live.example` | **New committed template** — every flag at live values (`MCP_MODE=registry`, `MCP_GLOBAL_EXECUTION_ENABLED=true`, per-server execution on, poll flags, `AI_SOC_LLM_SPL_FALLBACK_ENABLED=true`, `AI_SOC_REQUIRE_SPL_EXECUTION_CONFIRMATION=true`); only `SPLUNK_MCP_BASE_URL` + `SPLUNK_MCP_TOKEN` blank |
+| `contracts/splunk_mcp_connection_contract.md` | Document async job states + poll caps; operator `schema_confirmed` checklist |
+| `backend/app/tests/test_splunk_mcp_transport.py` | **New** — injected transport: submit, poll running→complete, empty, timeout, denied, schema-invalid → envelope outcomes |
+| `backend/app/tests/test_ws4cd_mcp_adapter_readiness.py` | Extend arg mapping + flag gates |
+
+**Mock stays sync inline** for CI. Live path uses async lifecycle. Same `call_tool` signature — gate unchanged.
+
+**Activation when credentials arrive (no code change):**
+
+```bash
+SPLUNK_MCP_ENABLED=true
+SPLUNK_MCP_BASE_URL=https://<coe-host>
+SPLUNK_MCP_TOKEN=<secret>
+MCP_MODE=registry
+MCP_GLOBAL_EXECUTION_ENABLED=true
+MCP_SERVER_<NAME>_EXECUTION_ENABLED=true
+# contract: schema_confirmed=true after staging smoke
+```
+
+**Commit:** `Implement production Splunk MCP adapter with async search lifecycle`
+
+### Later (not blocking credential drop-in)
+
+| Item | Why deferred |
+|------|--------------|
+| Full scheduler/reconcile graph (O5d) | Broaden works via imperative hook today; full loop is scale-up |
+| Dedicated frontend broaden diff card | Generic HIL + `safe_message_for_user` sufficient for v1 |
+| O4 discovery auto-execution | Separate COE decision |
+| O7 staged rollout playbook | Ops doc after Step 3 smoke test |
+
+### Verification (every step)
+
+```bash
+./scripts/run_stage3_governance_regression.sh
+cd backend && PYTHONPATH=../backend:.. python3 -m pytest \
+  app/tests/test_broaden_orchestration.py \
+  app/tests/test_orchestration_scheduler.py \
+  app/tests/test_recipe_registry_contract.py \
+  app/tests/test_langgraph_dual_parity_phase13.py -q
+cd frontend && npm run build
+```
 
 ---
 
@@ -125,18 +405,20 @@ Populate `llm_raw_output_placeholder` / `adapter_overrides_placeholder` when liv
 
 ---
 
-### Phase B — Real MCP adapter (Wall 1) ❌ COE-gated
+### Phase B — Real MCP adapter (Wall 1) 🟡 Step 3 (operator-owned)
 
-**B1. COE connection contract (gate; blocks B2).**
+**B1. Connection contract (operator-owned; no external COE).**
 
-Draft exists: `contracts/splunk_mcp_connection_contract.md`. COE must confirm: server URL, transport, auth, discovered tool names, **exact arg schema** (`search_query`, `earliest_time`, `latest_time`, `max_results`), approval workflow. Set `schema_confirmed=true` after S5 sign-off.
+Contract: `contracts/splunk_mcp_connection_contract.md`. Values are now **decided/config** (see §Go-live decisions A.13): URL/auth = deploy config; transport `streamable_http`; canonical tool `splunk_run_query`; arg schema `search_query`/`earliest_time`/`latest_time`/`max_results`; per-call approval. Operator sets `schema_confirmed=true` after our own staging smoke.
 
-**B2. Implement real `call_tool`.**
+**B2. Implement real `call_tool` (production adapter — async lifecycle included).**
 
 - ✅ Gate uses `splunk_search_tool_arguments()` / `build_splunk_search_inputs()` (`ae88760`).
-- ❌ Real transport in `app/connectors/mcp/splunk_mcp.py`; flip `_gate_review` `:276` once COE confirms schema.
+- ❌ Live transport in `app/connectors/mcp/splunk_mcp.py` — **must implement async submit/poll/fetch inside `call_tool`**, not a sync stub. See §Next implementation Step 3.
+- Flip `_gate_review` `:276` once adapter + `schema_confirmed=true` + exec flags.
 - Reuse `live_schema_capture.py` + `discovery.py` for tool discovery.
 - Align tool name aliases (`splunk_run_query` ↔ `search_splunk` ↔ contract `splunk.search`) at live boundary.
+- **Credential drop-in:** when URL/auth supplied, activation is env + `schema_confirmed` only — no adapter rebuild.
 
 **B4. Per-run approval workflow.**
 
@@ -459,7 +741,7 @@ Allowed activation conditions in v1: `always`, `previous_ok`, `previous_empty`, 
 | **O4** | Optional auto discovery execution | ❌ Proposed (`MCP_DISCOVERY_EXECUTION_ENABLED`) |
 | **O5a** | `ResourcePlanV2` dependency/failover contracts + deterministic recipe registry | ✅ Contract landed — `app/planner/recipe_registry.py` (`single_search`, `broaden_scope_on_empty`), `app/orchestration/mcp_orchestration.py` (envelope + HIL-approval gate `can_execute_call`/`approve_call`), `ResourcePlanV2` in `resource_plan.py`; `test_recipe_registry_contract.py` (15 tests). No connector change; default-off |
 | **O5b** | Resource scheduler + MCP plan/execute-one/assess + reconcile loop | ✅ Pure functions landed — `app/planner/orchestration_scheduler.py` (`schedule_next`, `outcome_edge`, evidence-key helpers); `test_orchestration_scheduler.py` (9 tests, fixture-only) proves metadata-before-SPL + Search-A→Search-B. Not wired beyond O5c-core below |
-| **O5c** | Async lifecycle, evidence aggregation, lineage, UI, parity tests | 🟡 **Core landed** — `app/orchestration/broaden_orchestration.py` wired into `graph_node_execution`: empty primary + `broaden_scope_on_empty` + `AI_SOC_LLM_SPL_FALLBACK_ENABLED` → LLM-proposed broadened SPL → new `spl_broaden_confirmation` HIL → approve rides existing `pending_execution_confirmation` gate (B4) → executes. `mcp_orchestration` envelope attached. **No new flag** (gated on existing execution + LLM-fallback flags; default-off = unchanged single-call). `test_broaden_orchestration.py` (10 tests). **Deferred (O5c-2):** full LangGraph parity, async submit/poll/fetch lifecycle, cross-turn envelope continuity, dedicated frontend card (generic HIL renderer handles it today), per-call SourceEvidence aggregation across both calls |
+| **O5c** | Async lifecycle, evidence aggregation, lineage, UI, parity tests | 🟡 **Core landed** — `broaden_orchestration.py` in `graph_node_execution`; `spl_broaden_confirmation` HIL; `mcp_orchestration` envelope; 10 tests. **Remaining in §Next implementation:** Step 1 LangGraph parity, Step 2 per-call evidence, Step 3 production adapter **with async lifecycle inside connector** (not a separate phase). Frontend broaden card = later only. |
 | **O6** | LLM narration of MCP-informed answers | 🟡 (= Phase C; flag-gated) |
 | **O7** | Live activation and staged rollout | ❌ COE-gated |
 
@@ -475,23 +757,30 @@ Allowed activation conditions in v1: `always`, `previous_ok`, `previous_empty`, 
 | `MCP_MULTI_CALL_ORCHESTRATION_ENABLED` | ~~proposed~~ **dropped** | COE decision 2026-06-13: **no new flag.** Broaden-on-empty orchestration gates on existing `MCP_*_EXECUTION_ENABLED` + `AI_SOC_LLM_SPL_FALLBACK_ENABLED`; default-off = unchanged single-call |
 | `MCP_MAX_CALLS_PER_TURN` | 3 (proposed, server-capped) | Maximum started MCP calls in one turn |
 | `MCP_ORCHESTRATION_MAX_WALL_TIME_MS` | COE decision | Total MCP loop wall-clock budget |
-| `MCP_MAX_POLLS_PER_CALL` | COE decision | Async lifecycle poll cap per logical call |
+| `MCP_MAX_POLLS_PER_CALL` | 60 (**Step 3 → `config.py`**, server-capped) | Async lifecycle poll cap **per logical call** (connector-internal) |
+| `MCP_SEARCH_JOB_TIMEOUT_MS` | 120000 (**Step 3 → `config.py`**) | Max wall time for one search job |
+| `MCP_SEARCH_POLL_INTERVAL_MS` | 2000 (**Step 3 → `config.py`**) | Poll interval between status checks |
 | `LLM_TOOL_RECOMMENDATION_ENABLED` | false | Advisory tool hints |
 | `SPL_VALIDATION_ENABLED` | true | Required before search |
 
-### A.13 COE decisions before live search (O3/O7)
+### A.13 Go-live decisions (operator-owned — no external COE)
 
-1. Splunk MCP URL, transport, auth; set `schema_confirmed=true` on contract
-2. Identity model: analyst pass-through vs service account
-3. Async vs sync `splunk_run_query` lifecycle
-4. Whether O4 discovery auto-execution is in scope
-5. Max discovery + search calls per turn and total wall-clock budget
-6. Production index/sourcetype allowlist
-7. Per-call approval vs exact predeclared recipe approval
-8. First governed multi-call recipe and allowed activation conditions
-9. Equivalent-capability tool fallback allowlist per server
-10. Async submit/poll/fetch schema, poll interval, cancellation, and resumability
-11. Whether ML-model-application MCP tools (Lantern Cloud Platform pattern, A.17 #2) enter scope; if so, model-discovery + apply call classes under the same authority matrix
+No external COE will respond; these are **our** decisions. Each is now baked to a default so go-live is credentials-only. "Config" = supply at deploy time; "Decided" = locked here; "Later" = not blocking first live search.
+
+| # | Decision | Status | Value / default |
+|---|----------|--------|-----------------|
+| 1 | Splunk MCP URL, transport, auth | **Config** | `SPLUNK_MCP_BASE_URL` + `SPLUNK_MCP_TOKEN` at deploy; `MCP_MODE=registry`; transport `streamable_http` |
+| 2 | Identity model | **Decided** | Service-account bearer token (`SPLUNK_MCP_TOKEN`); not analyst pass-through in v1 |
+| 3 | `splunk_run_query` lifecycle | **Decided** | **Async** submit/poll/fetch inside connector; gate = one logical call |
+| 4 | Canonical search tool name | **Decided** | `splunk_run_query` (`splunk_*` surface; aliases mapped at boundary) |
+| 5 | Max calls per turn + wall-clock | **Decided** | `MCP_MAX_CALLS_PER_TURN=3`, `MCP_SEARCH_JOB_TIMEOUT_MS=120000` (override per deploy) |
+| 6 | Production index/sourcetype allowlist | **Config** | `SPL_ALLOWED_INDEXES` / `SPL_ALLOWED_SOURCETYPES` per deployment |
+| 7 | Per-call vs recipe approval | **Decided** | Per-call approval (`AI_SOC_REQUIRE_SPL_EXECUTION_CONFIRMATION=true`) |
+| 8 | First governed multi-call recipe | **Decided** | `broaden_scope_on_empty` (already shipped O5a/O5c-core) |
+| 9 | Equivalent-capability tool fallback allowlist | **Later** | None in v1; single search tool, no fallback tool |
+| 10 | Poll interval / cancellation / resumability | **Decided** | `MCP_SEARCH_POLL_INTERVAL_MS=2000`, `MCP_MAX_POLLS_PER_CALL=60`; no resumable jobs in v1 |
+| 11 | ML-model-application MCP tools | **Later** | Out of v1 scope (A.16) |
+| 12 | `schema_confirmed=true` sign-off | **Operator** | Flip after our own staging smoke; no external body |
 
 ### A.14 Required tests and acceptance criteria
 
@@ -588,17 +877,18 @@ recipe:
 
 ### Implementation order
 
-1. **O5a contract commit:** ✅ **Done** — `ResourcePlanV2` + dependency/failover fields (`resource_plan.py`), `mcp_orchestration` models + HIL-approval gate (`mcp_orchestration.py`), recipe registry with `single_search` + `broaden_scope_on_empty` (`recipe_registry.py`), contract tests (`test_recipe_registry_contract.py`, 15 green). No connector behavior change; nothing wired into live pipeline. The broadened call is LLM-proposed, full-validation-chained, and HIL-gated: `can_execute_call` blocks until `approve_call` flips approval to `approved` — "if HIL approves, execute."
-2. **O5b scheduler commit:** ✅ **Done** — pure `schedule_next`/`outcome_edge`/evidence-key helpers (`orchestration_scheduler.py`), fixture-only (`test_orchestration_scheduler.py`). Proves metadata-MCP-before-SPL and Search-A→Search-B. No wiring.
-3. **O5c integration commit:** 🟡 **Core done** — broaden-on-empty wired into the imperative pipeline (`broaden_orchestration.py` → `graph_node_execution`), HIL via new `spl_broaden_confirmation` riding the existing `pending_execution_confirmation` gate, `mcp_orchestration` envelope attached, **no new flag** (COE decision: gate on existing execution + `AI_SOC_LLM_SPL_FALLBACK_ENABLED` flags; default-off = unchanged single-call). `test_broaden_orchestration.py`. **Remaining (O5c-2):** LangGraph parity, async submit/poll/fetch lifecycle, cross-turn envelope continuity, per-call SourceEvidence aggregation, dedicated frontend broaden card.
-4. **O3 adapter commit:** Implement the COE-confirmed live transport and exact schemas behind existing execution flags. Do not combine this with scheduler contracts.
-5. **O7 activation:** Enable one approved recipe/server in staging, observe budgets/failures, run governance regression, then seek production sign-off.
+1. **O5a contract commit:** ✅ **Done** — `ResourcePlanV2`, `mcp_orchestration`, recipe registry, 15 tests.
+2. **O5b scheduler commit:** ✅ **Done** — `orchestration_scheduler.py`, 9 fixture tests.
+3. **O5c-core integration:** ✅ **Done** — broaden-on-empty in imperative pipeline, HIL, envelope, 10 tests.
+4. **Step 1 LangGraph parity:** ❌ Next — see §Next implementation.
+5. **Step 2 per-call evidence:** ❌ Next — see §Next implementation.
+6. **Step 3 production adapter (async lifecycle in connector):** ❌ Next — credential drop-in layer; not a stub to rebuild later.
+7. **O5d scheduler/reconcile graph:** Later — not blocking credential drop-in.
+8. **O7 activation:** Config + flags after Step 3 staging smoke; no code rebuild.
 
 ### Final verdict
 
-The plan is **ready to implement for contracts, scheduler logic, mock/fixture orchestration, and parity work**. It now supports MCP as a prerequisite, intermediate evidence step, multi-search pivot, or final evidence step. It also defines how MCP need is decided, how tools are selected, and how unavailable tools, connector failures, async jobs, empty results, validation failures, RBAC denial, and schema mismatch are handled.
-
-Live MCP activation is **not** ready until the COE decisions in A.13 are closed. Implementation must begin with O5a and keep all new runtime behavior default-off.
+The plan is **ready to implement** for the three remaining steps in §Next implementation. Live MCP activation requires **configuration only** once Step 3 ships — URL, auth, `schema_confirmed=true`, execution flags. Async search lifecycle is **part of Step 3**, not a follow-on.
 
 ---
 
@@ -608,7 +898,7 @@ Live MCP activation is **not** ready until the COE decisions in A.13 are closed.
 - Candidate SPL stays non-executable; only approved `normalized_spl` enters the gate.
 - LLM never calls MCP directly; backend mediates.
 - All MCP/LLM status output redacts secrets (`url_configured`/`auth_configured` booleans only).
-- Phases B/C production enablement stay flag-gated and need explicit COE sign-off.
+- Phases B/C production enablement stay flag-gated; go-live sign-off is operator-owned (no external COE) — flip `schema_confirmed=true` after staging smoke.
 - Experience Center (`coe_synthetic_fixture`) stays isolated — never route live synthesis through demo path.
 
 ## Verification (end-to-end)
@@ -628,5 +918,6 @@ Live MCP activation is **not** ready until the COE decisions in A.13 are closed.
 
 - SPL generation audit **closed** — [`2026-06-13_spl-generation-audit-completion.md`](2026-06-13_spl-generation-audit-completion.md).
 - MCP orchestration content is **Appendix A** in this file (standalone orchestration plan superseded 2026-06-13).
+- `2026-06-13_o5c2-mcp-implementation-instructions.md` **superseded** — content merged into §Next implementation here (2026-06-13).
 - `plan-reviewer` before non-trivial open work (B2 live, C production enablement).
 - `validator` after each phase.
