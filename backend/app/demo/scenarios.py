@@ -895,6 +895,8 @@ SUCCESS_AFTER_FAILURES_SPL = _scoped_template_spl("auth_success_after_failure", 
 SUCCESS_AFTER_FAILURES_VISIBLE_SPL = _pretty_spl(SUCCESS_AFTER_FAILURES_SPL)
 LOCKOUT_SPL = _scoped_template_spl("auth_account_lockout_trend")
 LOCKOUT_VISIBLE_SPL = _pretty_spl(LOCKOUT_SPL)
+DNS_BEACONING_SPL = _scoped_template_spl("dns_beaconing_candidate")
+DNS_BEACONING_VISIBLE_SPL = _pretty_spl(DNS_BEACONING_SPL)
 
 
 def _playbook_payload() -> dict[str, object]:
@@ -1053,7 +1055,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "P2: Check CMDB criticality for APP-01.",
             ],
         }
-    if scenario.scenario_id in {"brute_force_sop_guidance", "failed_login_playbook"}:
+    if scenario.scenario_id == "brute_force_sop_guidance":
         return {
             **base,
             "retrieved_playbook": playbook,
@@ -1227,6 +1229,65 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "P3: Generate SPL only after actual index and sourcetype evidence is available.",
             ],
             "review_notice": "Discovery result required before SPL generation.",
+        }
+    if scenario.scenario_id == "dns_beaconing_c2_hunt":
+        return attach_evidence_summary({
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "severity_label": "P3 Medium",
+            "finding_title": "DNS beaconing / C2 candidate across three internal hosts",
+            "one_sentence_finding": "DNS evidence shows three hosts querying rare domains at fixed 5-15 minute intervals with steady small payloads. Foundation-sec flags a C2 beaconing pattern; V.AI SOC keeps it candidate-only (T1071.004) until jitter and domain reputation are confirmed.",
+            "splunk_status_line": "Splunk MCP fixture search result [index=pgcil_soc sourcetype=pgcil:dns] · last 24 hours · 3 rows",
+            "splunk_results_table": [
+                {"Source": "10.20.3.41", "Domain": "a3f9k2.update-cdn.net", "Queries": 288, "Periodicity (s)": 300, "Bytes out": 41216, "Rare domain": "review"},
+                {"Source": "10.20.7.12", "Domain": "sync.metric-telemetry.io", "Queries": 144, "Periodicity (s)": 600, "Bytes out": 20992, "Rare domain": "review"},
+                {"Source": "10.20.5.88", "Domain": "cdn.win-update-cache.com", "Queries": 96, "Periodicity (s)": 900, "Bytes out": 13440, "Rare domain": "review"},
+            ],
+            "spl_code": DNS_BEACONING_VISIBLE_SPL,
+            "key_fields": [
+                "src - internal host generating the periodic DNS queries",
+                "domain - queried domain (rare/low-reputation candidate)",
+                "DNS_query_count - query volume in the window",
+                "periodicity - mean seconds between queries (beaconing signal)",
+                "bytes_out - payload steadiness indicator",
+                "rare_domain_indicator - low-cardinality + high-volume flag",
+            ],
+            "mitre_mappings": [
+                {"Technique": "T1071.004", "Name": "Application Layer Protocol: DNS", "Tactic": "Command and Control", "Status": "Candidate", "Evidence": "Fixed-interval DNS queries to rare domains with steady payloads", "Validation needed": "Confirm jitter, domain reputation, and process/owner of the querying host."},
+            ],
+            "foundation_sec_analysis": "Foundation-sec contributes an advisory C2-beaconing signal from the fixed-interval, rare-domain pattern. V.AI SOC keeps the mapping candidate-only: periodicity alone is not C2; jitter, domain reputation, and the querying process must be confirmed.",
+            "recommended_actions": [
+                "P2: Confirm beaconing by checking jitter (variance around the interval) and whether the domains are newly registered or low-reputation.",
+                "P2: Identify the process and user on 10.20.3.41, 10.20.7.12, and 10.20.5.88 generating the DNS queries.",
+                "P3: Pivot proxy/firewall egress for the resolved IPs to confirm an established channel and payload direction.",
+                "P3: Document and close as benign if domains are reputable CDNs/telemetry with business justification.",
+            ],
+            "review_notice": "Candidate beaconing pattern. SPL is review-only; MCP execution stays gated.",
+        })
+    if scenario.scenario_id == "guided_investigation_supply_chain":
+        return {
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "status_badge": "Out-of-catalog - guided review only",
+            "finding_title": "Guided hunt: CI/CD supply-chain compromise (out of vetted catalog)",
+            "one_sentence_finding": "This hunt is outside the vetted use-case catalog, so V.AI SOC returns a review-only guided hunt plan with an out-of-catalog notice rather than auto-generating SPL.",
+            "out_of_catalog_notice": "No vetted use-case or governed SPL template covers a CI/CD supply-chain hunt. Guidance below is review-only; any SPL must be analyst-authored and validated before use.",
+            "foundation_sec_analysis": "Foundation-sec proposes hunt directions, but with no governed template the resource planner degrades to RAG hunt patterns and review-only guidance. MCP execution stays gated and no SPL is auto-run.",
+            "key_fields": [
+                "Unsigned or unexpected build artifacts in the pipeline output",
+                "New outbound destinations from build agents / CI runners",
+                "Modified pipeline definitions or build scripts",
+                "Credential access or secret reads from CI runners",
+            ],
+            "recommended_actions": [
+                "P2: Review build-agent egress for new or rare outbound destinations over the suspected window.",
+                "P2: Diff pipeline definitions and build scripts against the last known-good revision.",
+                "P3: Audit CI runner secret/credential access and artifact signing status.",
+                "P3: Author and validate targeted SPL per data source before any execution; this hunt has no vetted template.",
+            ],
+            "review_notice": "Out-of-catalog guided review. No vetted template; SPL must be analyst-authored and validated. MCP execution stays gated.",
         }
     return {
         **base,
@@ -1612,34 +1673,6 @@ SCENARIOS: dict[str, DemoScenario] = {
             refs=["ev-rag-sop-only"],
         ),
     ),
-    "failed_login_playbook": DemoScenario(
-        scenario_id="failed_login_playbook",
-        label="Failed login playbook",
-        category="Knowledge / SOP",
-        query="Show the failed login playbook",
-        environment_mode="knowledge_only_coe_demo",
-        expected_skill="knowledge_recall",
-        expected_sources=["rag:sop"],
-        expected_sufficiency_mode="knowledge_only_answer",
-        mcp_execution_mode="not_required",
-        saia_available=True,
-        rag_available=True,
-        analyst_summary="Approved failed-login playbook guidance is returned without SPL generation.",
-        trace_explanation=[
-            "Routes to knowledge_recall for playbook guidance.",
-            "No candidate SPL is generated unless the analyst asks for SPL or investigation.",
-            "Governed SOC KB evidence remains available in the technical evidence path.",
-        ],
-        source_evidence=[
-            _evidence("ev-rag-failed-login-playbook", "rag", "SOC KB fixture", 1, ["entry_id", "document_type", "source_excerpt", "source_refs"], [_rag_row("sop-auth-004", "Failed login playbook", "Confirm scope, identify source distribution, validate success-after-failure, and escalate critical accounts.", ["SOC-SOP-AUTH-001#failed-login"])], tool_name="retrieve_soc_kb", provider_used="governed_rag_fixture"),
-        ],
-        structured_context=_context(
-            "failed_login_playbook",
-            "knowledge_recall",
-            [_fact("fact-failed-login-playbook", "Approved failed-login playbook guidance is available from the governed SOC KB fixture.", ["ev-rag-failed-login-playbook"])],
-            refs=["ev-rag-failed-login-playbook"],
-        ),
-    ),
     "account_lockouts_over_time_spl": DemoScenario(
         scenario_id="account_lockouts_over_time_spl",
         label="Account lockouts over time SPL",
@@ -1794,6 +1827,112 @@ SCENARIOS: dict[str, DemoScenario] = {
             metrics={"successful_logins": 1, "failed_logins": 58, "saia_available": False, "fallback_active": True},
             refs=["ev-splunk-airgap-metadata"],
             fallback=True,
+            quality="partial",
+        ),
+    ),
+    "dns_beaconing_c2_hunt": DemoScenario(
+        scenario_id="dns_beaconing_c2_hunt",
+        label="DNS beaconing / C2 hunt",
+        category="Investigate",
+        query="Hunt for possible DNS beaconing or C2 from internal hosts in the last 24 hours",
+        environment_mode="connected_coe_demo",
+        expected_skill="attack_discovery",
+        selected_use_case_id="dns_beaconing_candidate",
+        expected_sources=["mcp:splunk", "rag:sop"],
+        expected_sufficiency_mode="partial_answer",
+        mcp_execution_mode="disabled",
+        saia_available=True,
+        rag_available=True,
+        candidate_spl=DNS_BEACONING_SPL,
+        analyst_summary="Beaconing-candidate SPL aggregates DNS query periodicity, rare-domain ratio, and bytes-out per source. Foundation-sec flags a C2 pattern; V.AI SOC keeps it candidate-only until jitter and domain reputation are confirmed.",
+        trace_explanation=[
+            "Routed to attack_discovery for a cross-host DNS beaconing hunt beyond authentication.",
+            "Governed dns_beaconing_candidate template computes periodicity/jitter/rare-domain signals deterministically.",
+            "Threat-intel SOC-KB guidance is attached as SourceEvidence; MITRE T1071.004 stays candidate-only pending jitter + reputation.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-splunk-dns-beacon",
+                "splunk_mcp",
+                "Splunk DNS fixture",
+                3,
+                ["src", "dest", "domain", "DNS_query_count", "periodicity", "rare_domain_indicator", "bytes_out"],
+                [
+                    {"src": "10.20.3.41", "dest": "8.8.8.8", "domain": "a3f9k2.update-cdn.net", "DNS_query_count": 288, "periodicity": 300.0, "rare_domain_indicator": "review", "bytes_out": 41216},
+                    {"src": "10.20.7.12", "dest": "1.1.1.1", "domain": "sync.metric-telemetry.io", "DNS_query_count": 144, "periodicity": 600.0, "rare_domain_indicator": "review", "bytes_out": 20992},
+                    {"src": "10.20.5.88", "dest": "8.8.4.4", "domain": "cdn.win-update-cache.com", "DNS_query_count": 96, "periodicity": 900.0, "rare_domain_indicator": "review", "bytes_out": 13440},
+                ],
+                tool_name="search",
+                query_or_request_summary="DNS beaconing-candidate aggregation in pgcil_soc/pgcil:dns over 24h.",
+                executed_spl=None,
+                provider_used="splunk_mcp_fixture",
+            ),
+            _evidence(
+                "ev-rag-c2-ti",
+                "rag",
+                "SOC KB fixture",
+                1,
+                ["entry_id", "document_type", "source_excerpt", "source_refs"],
+                [_rag_row("ti-dns-002", "Beaconing triage", "Confirm fixed-interval periodicity, low jitter, rare/low-reputation domains, and steady small payloads before declaring C2.", ["SOC-TI-DNS-002#beaconing"])],
+                tool_name="retrieve_soc_kb",
+                query_or_request_summary="Approved DNS beaconing / C2 triage guidance.",
+                provider_used="governed_rag_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "dns_beaconing_c2_hunt",
+            "attack_discovery",
+            [
+                _fact("fact-dns-periodicity", "Three internal hosts show fixed-interval DNS queries to rare domains with steady small payloads.", ["ev-splunk-dns-beacon"]),
+                _fact("fact-c2-candidate", "MITRE T1071.004 is a candidate for the periodic DNS pattern; jitter and domain reputation are not yet confirmed.", ["ev-splunk-dns-beacon", "ev-rag-c2-ti"], 0.7),
+            ],
+            metrics={"beaconing_hosts": 3, "max_query_count": 288, "min_periodicity_seconds": 300},
+            mitre=[{"technique_id": "T1071.004", "name": "Application Layer Protocol: DNS", "support": "analyst_review", "source_refs": ["ev-splunk-dns-beacon"]}],
+            refs=["ev-splunk-dns-beacon", "ev-rag-c2-ti"],
+            quality="partial",
+        ),
+    ),
+    "guided_investigation_supply_chain": DemoScenario(
+        scenario_id="guided_investigation_supply_chain",
+        label="Guided hunt: build-server supply chain",
+        category="Guided Investigation",
+        query="Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+        environment_mode="connected_coe_demo",
+        expected_skill="guided_investigation",
+        expected_sources=["rag:sop"],
+        expected_sufficiency_mode="analyst_review_required",
+        mcp_execution_mode="disabled",
+        saia_available=True,
+        rag_available=True,
+        analyst_summary="This hunt is out of the vetted use-case catalog, so V.AI SOC returns review-only guided guidance: a structured hunt plan, candidate data sources, and an out-of-catalog notice. No SPL is auto-executed.",
+        trace_explanation=[
+            "No vetted use-case or governed template matches a supply-chain build-server hunt.",
+            "The guided_investigation rescue provides a review-only hunt plan with an out-of-catalog notice instead of guessing SPL.",
+            "The resource planner degrades gracefully: RAG hunt patterns are used; MCP execution stays disabled and SPL is analyst-authored.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-rag-supply-chain-hunt",
+                "rag",
+                "SOC KB fixture",
+                1,
+                ["entry_id", "document_type", "source_excerpt", "source_refs"],
+                [_rag_row("hunt-scm-001", "Supply-chain hunt patterns", "Check for unsigned build artifacts, new outbound destinations from build agents, modified pipeline definitions, and credential access from CI runners.", ["SOC-HUNT-SCM-001#patterns"])],
+                tool_name="retrieve_soc_kb",
+                query_or_request_summary="Approved supply-chain hunt patterns for out-of-catalog guidance.",
+                provider_used="governed_rag_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "guided_investigation_supply_chain",
+            "guided_investigation",
+            [
+                _fact("fact-out-of-catalog", "No vetted use-case or governed SPL template matches a CI/CD supply-chain hunt; review-only guidance is returned.", ["ev-rag-supply-chain-hunt"]),
+                _fact("fact-hunt-plan", "Approved hunt patterns cover unsigned artifacts, new build-agent egress, pipeline tampering, and CI credential access.", ["ev-rag-supply-chain-hunt"]),
+            ],
+            metrics={"out_of_catalog": True, "hunt_patterns": 4},
+            mitre=[],
+            refs=["ev-rag-supply-chain-hunt"],
             quality="partial",
         ),
     ),

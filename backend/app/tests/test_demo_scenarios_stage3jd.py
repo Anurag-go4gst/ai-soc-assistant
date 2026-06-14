@@ -86,12 +86,13 @@ def test_get_demo_scenarios_returns_all_stage3jd_scenarios() -> None:
         "successful_login_after_failures",
         "successful_login_after_failures_run",
         "brute_force_sop_guidance",
-        "failed_login_playbook",
         "account_lockouts_over_time_spl",
         "mitre_mapping_auth_alert",
         "mitre_mapping_requires_context",
         "mcp_metadata_discovery_app01",
         "airgapped_no_saia_success_after_failures",
+        "dns_beaconing_c2_hunt",
+        "guided_investigation_supply_chain",
     }
 
 
