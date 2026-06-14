@@ -118,6 +118,8 @@ from app.llm.missing_evidence_reasoner import (
     MissingEvidenceReasonerResult,
     run_missing_evidence_reasoner,
 )
+from app.llm.mitre_risk_rationale import run_mitre_risk_rationale
+from app.planner.resource_plan_shadow import run_resource_plan_shadow
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
@@ -1373,6 +1375,51 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
         llm_spl_candidate=llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None,
     )
+    mitre_risk_rationale_trace: dict[str, Any] | None = None
+    resource_plan_shadow_trace: dict[str, Any] | None = None
+    if answer_contract is not None and analyst_response is not None:
+        budget = state.get("llm_turn_budget") or TurnLlmBudget()
+        rationale_result = run_mitre_risk_rationale(
+            contract=answer_contract,
+            query=request.message,
+            severity_decision=severity_decision,
+            mitre_decision=mitre_decision if isinstance(mitre_decision, dict) else None,
+            mitre_branch_result=mitre_branch_payload if isinstance(mitre_branch_payload, dict) else None,
+            budget_exhausted=budget.sidecar_budget_exhausted(),
+        )
+        mitre_risk_rationale_trace = rationale_result.to_trace_dict()
+        if rationale_result.llm_called:
+            budget.record_sidecar(
+                role="mitre_risk_rationale",
+                provider_label=rationale_result.provider_label,
+                outcome="completed",
+            )
+        rationale_updates: dict[str, Any] = {}
+        if rationale_result.severity_rationale_prose:
+            rationale_updates["severity_rationale"] = rationale_result.severity_rationale_prose
+        if rationale_result.mitre_rationale_prose:
+            rationale_updates["foundation_sec_analysis"] = rationale_result.mitre_rationale_prose
+        if rationale_updates:
+            analyst_response = analyst_response.model_copy(update=rationale_updates)
+        if llm_turn_budget_trace is not None:
+            llm_turn_budget_trace = budget.to_trace_dict()
+
+        evidence_plan_payload = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
+        live_plan_source = None
+        if isinstance(evidence_plan_payload, dict):
+            live_resource_plan = evidence_plan_payload.get("resource_plan")
+            if isinstance(live_resource_plan, dict):
+                live_plan_source = live_resource_plan.get("plan_source")
+        shadow_result = run_resource_plan_shadow(
+            query=request.message,
+            match_path=_match_path_from_state(state),
+            evidence_plan=evidence_plan_payload,
+        )
+        resource_plan_shadow_trace = shadow_result.to_trace_dict()
+        if isinstance(evidence_plan_payload, dict):
+            after_source = (evidence_plan_payload.get("resource_plan") or {}).get("plan_source")
+            if live_plan_source is not None:
+                resource_plan_shadow_trace["live_plan_source_unchanged"] = after_source == live_plan_source
     composer_trace: dict[str, Any] = build_composer_runtime_status()
     from app.chat.guidance_templates import should_skip_llm_composer
 
@@ -1592,6 +1639,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         control_plane_trace["llm_composer"] = composer_trace
         if missing_evidence_reasoning_trace is not None:
             control_plane_trace["missing_evidence_reasoning"] = missing_evidence_reasoning_trace
+        if mitre_risk_rationale_trace is not None:
+            control_plane_trace["mitre_risk_rationale"] = mitre_risk_rationale_trace
+        if resource_plan_shadow_trace is not None:
+            control_plane_trace["resource_plan_shadow"] = resource_plan_shadow_trace
         if llm_turn_budget_trace is not None:
             control_plane_trace["llm_turn_budget"] = llm_turn_budget_trace
 

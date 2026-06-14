@@ -136,11 +136,13 @@ def _grounding_no_orphan_claims(
         severity_prose = f"{payload['message']}\n{severity_prose}"
     for claim in _SEVERITY_CLAIM.finditer(severity_prose):
         if not decided_p or claim.group(1) != decided_p.group(1):
-            return CheckResult(
-                check_id,
-                False,
-                f"prose claims severity P{claim.group(1)} but decided severity is {decided or 'unset'}",
-            )
+            token = f"P{claim.group(1)}"
+            if claim_patterns.severity_token_is_upgrade_claim(severity_prose, token):
+                return CheckResult(
+                    check_id,
+                    False,
+                    f"prose claims severity P{claim.group(1)} but decided severity is {decided or 'unset'}",
+                )
 
     allowed = _allowed_mitre_ids(payload, analyst)
     for match in _MITRE_ID.finditer(prose):

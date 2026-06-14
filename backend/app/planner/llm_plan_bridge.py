@@ -99,11 +99,12 @@ def propose_validated_llm_plan(
     mcp_allowed: bool,
     client: Any | None = None,
     registry: ResourceRegistry | None = None,
+    require_bridge_flags: bool = True,
 ) -> ResourcePlan | None:
     """Return a validated LLM-proposed plan, or None (caller keeps deterministic)."""
     if str(match_path or "") not in _TRIGGER_MATCH_PATHS:
         return None
-    if not bridge_enabled():
+    if require_bridge_flags and not bridge_enabled():
         return None
     try:
         registry = registry or load_resource_registry()

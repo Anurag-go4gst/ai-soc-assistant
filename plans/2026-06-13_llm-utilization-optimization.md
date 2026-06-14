@@ -1,6 +1,6 @@
 # Plan — Governed LLM Utilization Optimization
 
-**Status:** Active — **Phase 1.5 implemented 2026-06-14** (real sidecar timeout, T0 skip gates, budget enforcement, failover label, timeout→Instruct retry)  
+**Status:** Active — **Phase 3 implemented 2026-06-14** (MITRE/risk rationale sidecars + resource-plan shadow; authority invariant)  
 **Date:** 2026-06-13 (post-review + Phase 1.5: 2026-06-14)  
 **Owner:** Anurag + implementation agents  
 **Cursor working copy:** `/root/.cursor/plans/llm_optimization_strategy_3a311ebc.plan.md` (recreate in Cursor if missing)  
@@ -728,6 +728,8 @@ cd /var/www/ai-soc-assistant && ./scripts/run_stage3_governance_regression.sh
 
 - MITRE/risk rationale from decision dumps only (fixed decision object in → prose out; never sets status/severity)
 - LLM resource-plan propose → deterministic validate in composer (shadow flag, no live promotion)
+
+**Status 2026-06-14:** **DONE** — `mitre_risk_rationale.py` + `resource_plan_shadow.py` wired in `pipeline.py` finalize; updates `severity_rationale` / `foundation_sec_analysis` only (never `severity_label`, MITRE status, or execution). Shadow resource plan logged under `control_plane_trace["resource_plan_shadow"]` with `promotion_blocked=true`. Shared `severity_token_is_upgrade_claim()` in `claim_patterns.py` allows why-not-higher P-token mentions in rationale without tripping Tier-D grounding. Governance regression PASS.
 
 **Test gate (green before Phase 4):**
 - New `app/tests/test_mitre_risk_rationale.py`: rationale prose generated from a fixed MITRE/severity decision dump; authority fields (`mitre_status`, `severity_label`, `execution_eligible`) **unchanged** vs deterministic; on guard reject → deterministic rationale.

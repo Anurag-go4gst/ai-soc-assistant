@@ -53,6 +53,14 @@ def test_grounding_fails_on_severity_mismatch_in_prose() -> None:
     assert not _result(payload, "grounding_no_orphan_claims").passed
 
 
+def test_grounding_allows_why_not_higher_severity_in_rationale() -> None:
+    payload = _payload()
+    payload["analyst_response"]["severity_rationale"] = (
+        "Why not higher: P1 requires confirmed success evidence."
+    )
+    assert _result(payload, "grounding_no_orphan_claims").passed
+
+
 def test_grounding_fails_on_orphan_mitre_id() -> None:
     payload = _payload()
     payload["analyst_response"]["mitre_status_summary"] = "Maps to T1566.001."
