@@ -31,12 +31,11 @@
       "invocations": 3,
       "fallbacks": 0,
       "timeouts": 0,
-      "disagreements": 2,
+      "disagreements": 1,
       "fallback_rate": 0.0,
-      "agreement_rate": 0.333,
+      "agreement_rate": 0.667,
       "disagreement_reasons": [
-        "Composed prose dropped the required out-of-catalog notice.",
-        "Composed prose introduces unsupported MITRE technique T1110."
+        "Composed prose dropped the required out-of-catalog notice."
       ],
       "verdict": "INSUFFICIENT_DATA"
     },
