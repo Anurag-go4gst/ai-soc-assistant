@@ -25,7 +25,7 @@ Current implementation is governed candidate generation and gated execution cont
 - MCP tool discovery, deterministic tool selection, human review, and mock gated execution are Stage 3D control-layer behavior.
 - MCP execution defaults disabled globally and per server.
 - Mock MCP execution is allowed only when explicitly enabled through `MCP_GLOBAL_EXECUTION_ENABLED=true` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=true`.
-- Real MCP execution adapter shape exists, but real execution remains blocked/not implemented until COE MCP URL, transport, auth, tool names, argument schema, and approval workflow are supplied.
+- Real Splunk MCP search adapter is implemented (`splunk_mcp.py`, async lifecycle). Live execution stays **default-off** until operator sets URL/token + execution flags per `CLAUDE.md` §Splunk MCP go-live.
 - Governed RAG retrieval is wired: SOC KB results flow only through `SourceEvidence` and `StructuredContext`. There is no direct RAG-to-LLM path.
 - The Context Sufficiency Gate (Stage 3J) classifies the evidence package into one answer mode and computes `synthesis_readiness`. `synthesis_allowed` stays `false`.
 - No final LLM synthesis runs. `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert config flags (Stage 3J-B), default false. Answer Guard execution stays disabled.

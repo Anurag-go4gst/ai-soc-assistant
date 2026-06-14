@@ -20,7 +20,7 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - Candidate SPL is never executable. Only an approved validation result with non-null `normalized_spl` may enter the MCP execution gate.
 - MCP is a generic multi-server registry. Splunk MCP is the first target MCP server type, not the whole framework.
 - MCP execution is disabled by default globally and per server. Mock execution requires both `MCP_GLOBAL_EXECUTION_ENABLED=true` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=true`.
-- Real MCP execution remains not implemented until COE supplies server URL, transport, auth, discovered tool names, exact argument schema, and an approval workflow.
+- **Live Splunk MCP search is implemented** (`splunk_mcp.py` + `splunk_search_lifecycle.py`, Steps 0–3 on `spl-generation-audit`). Default posture stays off; activation is env + credentials only. Wire framing (`_StreamableHttpSearchTransport`) is verified at first connect — see **Splunk MCP go-live** below.
 - Tool selection is deterministic; user-requested MCP server/tool values are preferences only. LLM recommendations are disabled by default and advisory only if later enabled.
 - LLM is a provider/model registry. Cisco/Foundation-Sec is one family, not the only supported LLM option.
 - Open-weight/local models are configured through provider types such as `openai_compatible`, `ollama`, `vllm`, `sglang`, `tgi`, `llamacpp`, and `custom_http`.
@@ -151,12 +151,66 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 - Auth migration is recent: app-level FastAPI session login replaces the old Nginx basic auth. Don't reintroduce basic-auth assumptions.
 - CORS origin is hardcoded to `http://127.0.0.1:3010` in the FastAPI middleware — update when deploying or changing dev ports.
 - `MCP_MODE=mock` must keep mock behavior. It may execute bounded deterministic mock rows only when both execution flags are explicitly enabled.
-- `MCP_MODE=registry` may report configured/available/discovered-tool status. Real MCP execution must remain blocked/not implemented until the COE connection and argument schema are supplied.
+- `MCP_MODE=registry` with `SPLUNK_MCP_BASE_URL` + `SPLUNK_MCP_TOKEN` routes to the live Splunk connector when execution flags are on. Without credentials it fails closed (`splunk_mcp_not_configured`). Mock mode unchanged.
 - All MCP and LLM settings/status output must redact secrets. Expose only booleans such as `url_configured`, `auth_configured`, `api_key_configured`.
 - Splunk MCP App ID `7931` is the first target. Splunk search tools can only be selected for `spl_search` after deterministic policy checks; SAIA/generative/assistant/write/admin tools must remain blocked.
 - LLM `supports_tool_calling` must remain false for now because direct LLM-to-MCP access is not allowed.
 - Frontend visual system was adapted from a separate Support Buddy app as a read-only UI reference. No Support Buddy secrets, auth logic, or runtime config are reused — don't import them.
 - Production traffic goes through Nginx at `cisco-vai.vnudge.com` serving `frontend/dist` and proxying `/api/` + `/health` to the backend. Don't expose Docker ports.
+
+## Splunk MCP go-live (when endpoint is available)
+
+**Canonical docs:** [`contracts/splunk_mcp_connection_contract.md`](contracts/splunk_mcp_connection_contract.md), [`plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md`](plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md), [`.env.splunk-live.example`](.env.splunk-live.example).
+
+### What is already built (no code change at connect time)
+
+- Async search lifecycle inside the connector: submit → bounded poll → fetch; gate calls `call_tool` once.
+- Gate: live provenance (`evidence_source: live`), real envelope adapter, honest failed/timeout/denied outcomes.
+- Per-call SPL confirmation (B4), SPL validation/allowlist, injection defense, broaden-on-empty orchestration.
+- Poll bounds: `MCP_MAX_POLLS_PER_CALL`, `MCP_SEARCH_JOB_TIMEOUT_MS`, `MCP_SEARCH_POLL_INTERVAL_MS`.
+
+### Operator steps (config only)
+
+1. `cp .env.splunk-live.example .env` (or merge live flags into existing `.env`).
+2. Set `SPLUNK_MCP_BASE_URL` and `SPLUNK_MCP_TOKEN` (bearer service account).
+3. Align `SPL_ALLOWED_INDEXES` / `SPL_ALLOWED_SOURCETYPES` to the deployment.
+4. `docker compose up -d` (or restart backend).
+5. Staging smoke — one approved search through `/chat` (confirm SPL → verify rows or honest empty).
+6. Set `schema_confirmed=true` in the contract doc after smoke passes (operator sign-off).
+7. Run `./scripts/run_stage3_governance_regression.sh`.
+
+### What must be verified at first live connect (may need a small transport patch)
+
+The lifecycle/gate/envelope layers are production-ready. **Only `_StreamableHttpSearchTransport` in `splunk_mcp.py` assumes:**
+
+| Assumption | Current code | If wrong at connect |
+|------------|--------------|---------------------|
+| Endpoint | `{BASE_URL}/mcp` | Change URL path in transport only |
+| Protocol | JSON-RPC `tools/call` with `name: splunk_run_query` | Adjust method/params in transport only |
+| Response shape | Inline rows in `result.rows` / `results` / `structuredContent` | Extend `_rows_from_mcp_result` or add job-id poll transport |
+| Auth | `Authorization: Bearer <token>` | Adjust headers in transport only |
+
+If the server uses a **true job protocol** (submit returns `job_id`, separate poll/fetch endpoints), replace only `_StreamableHttpSearchTransport` — `splunk_search_lifecycle.py`, gate, and evidence paths stay unchanged.
+
+### What you can test **now** (no live MCP)
+
+| Test | How |
+|------|-----|
+| Lifecycle state machine | `pytest app/tests/test_splunk_mcp_transport.py` (FakeTransport) |
+| Full gate live path | Same file — `test_gate_live_run_*` (injected transport) |
+| Result shape tolerance | `test_rows_from_mcp_result_tolerates_shapes` |
+| Governance regression | `./scripts/run_stage3_governance_regression.sh` |
+
+**Optional before connect:** add httpx-mocked unit tests for `_StreamableHttpSearchTransport` using a recorded JSON-RPC fixture (paste from staging or vendor docs into `backend/app/tests/fixtures/splunk_mcp/`). Script `scripts/capture_stage3m_s5_live_mcp_schema.py` accepts `STAGE3M_S5_RAW_FIXTURE_PATH` to normalize a captured payload offline.
+
+### What **requires** a live MCP endpoint
+
+- Confirm `/mcp` path, auth, and JSON-RPC framing.
+- Confirm inline vs job-based search semantics.
+- End-to-end `/chat` smoke with real Splunk rows.
+- Flip `schema_confirmed=true` only after that smoke.
+
+Until staging smoke passes, live envelopes carry `real_schema_unverified` (adapter warning) — evidence still flows, but operator has not signed off the wire contract.
 
 ## Plans
 
@@ -196,7 +250,7 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Proposed |
 | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Proposed |
 | `plans/2026-06-13_spl-generation-audit-completion.md` | **Done** — closure review for SPL audit Phases A–H; metrics, deferrals (H2 COE, template promotion), verification commands |
-| `plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md` | In Progress — Phase A done; Phase C partially landed; Phase B blocked on COE; B2b source resolution scaffold done (H0–H1/H3–H4) |
+| `plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md` | **Done (Steps 0–3)** — live Splunk MCP credential drop-in; wire framing verified at first connect. See §Splunk MCP go-live. |
 | `plans/2026-06-03_1609_local-llama-instruct-synthesis-client.md` | In Progress — live-chat narration (P2/P3) landed: real client + summary narration, EC isolated, guard on, deterministic fallback. P4 latency UX + P5 live-MCP-into-prompt pending |
 | `plans/2026-06-04_0703_general-soc-reasoning-answer-contract.md` | Done — general SOC reasoning layer (Agent A): data-driven MITRE evidence-preconditions (replaces per-use-case not-claimed hardcoding), AnswerContract read-model wired into finalize, contract-driven builder, fail-closed final-answer validator, 32-case behavior matrix. Flag-gated; suite + governance regression green |
 | `plans/2026-06-04_0720_answer-quality-golden-regression-and-feedback-ledger.md` | Done — answer-quality ledger, feedback API, review queue, promote-golden, expectation matrix (105+46), Tier 0–2 golden JSONL + runner (Tier 0 in governance regression), Quality page summary |
