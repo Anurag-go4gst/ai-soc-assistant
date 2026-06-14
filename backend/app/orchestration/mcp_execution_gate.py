@@ -164,6 +164,15 @@ def evaluate_mcp_execution(
         return execution, review
 
     duration_ms = int((perf_counter() - started) * 1000)
+    # A.10 honest outcomes: a live job can fail / time out / be denied / return a
+    # bad envelope. Empty (status ok, 0 rows) is NOT a failure — it falls through
+    # to the executed/negative-result path below.
+    result_status = str(result.get("status") or "ok").strip().lower()
+    if result_status not in {"ok", "completed", "success"}:
+        outcome_review, exec_status = _classify_failed_call(result_status, result)
+        execution = _blocked_execution(selection, exec_status, str(result.get("error") or result_status))
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=result_status)
+        return execution, outcome_review
     envelope = adapt_mcp_search_payload(
         result,
         mcp_mode=registry.mode,
@@ -273,9 +282,39 @@ def _gate_review(
         return _review("execution_approval", "saved_search_execution_disabled", "soc_lead", ["approve_execution_after_policy_check", "reject_execution"])
     if tool.get("capability") != "spl_search":
         return _review("tool_selection_review", "selected_tool_not_spl_search")
-    if registry.mode != "mock":
+    if registry.mode not in {"mock", "registry"}:
         return _review("admin_action_required", "real_mcp_adapter_not_implemented", "platform_admin", ["configure_connector", "reject_execution"])
+    # Live (registry) search needs a configured Splunk MCP endpoint + token. The
+    # adapter is implemented (Step 3); "schema_confirmed" is operator doc
+    # sign-off, not a runtime flag. Until URL/token are set, fail closed.
+    if registry.mode == "registry" and not (
+        settings.splunk_mcp_enabled and settings.splunk_mcp_base_url.strip() and settings.splunk_mcp_token.strip()
+    ):
+        return _review("connector_configuration", "splunk_mcp_not_configured", "platform_admin", ["configure_connector", "reject_execution"])
     return no_human_review()
+
+
+def _classify_failed_call(result_status: str, result: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    """Map a non-ok live call payload to (review, execution_status)."""
+    if result_status in {"denied", "permission_denied", "blocked", "forbidden"}:
+        return (
+            _review("policy_exception_request", str(result.get("error") or "permission_denied"), "security_admin", ["request_policy_exception", "reject_execution"]),
+            "blocked",
+        )
+    if result_status == "timeout":
+        return (
+            _review("admin_action_required", "mcp_search_timed_out", "platform_admin", ["configure_connector", "reject_execution"]),
+            "failed",
+        )
+    if result_status == "schema_invalid":
+        return (
+            _review("admin_action_required", "mcp_result_schema_invalid", "platform_admin", ["configure_connector", "reject_execution"]),
+            "failed",
+        )
+    return (
+        _review("admin_action_required", "mcp_execution_failed", "platform_admin", ["configure_connector", "reject_execution"]),
+        "failed",
+    )
 
 
 def _blocked_execution(selection: dict[str, Any], status: str, reason: str) -> dict[str, Any]:

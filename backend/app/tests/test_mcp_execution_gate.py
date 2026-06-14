@@ -227,7 +227,9 @@ def test_llm_recommendation_cannot_override_policy(monkeypatch) -> None:
     assert selection["blocked_reason"] == "requested_tool_intent_mismatch"
 
 
-def test_real_adapter_unavailable_returns_human_review(monkeypatch) -> None:
+def test_registry_mode_without_credentials_blocks_for_config(monkeypatch) -> None:
+    # Step 3: the live adapter is implemented, so registry mode no longer reports
+    # "not implemented". Without URL/token it fails closed on configuration.
     monkeypatch.setenv("MCP_MODE", "registry")
     monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVERS", "splunk_soc")
@@ -248,8 +250,8 @@ def test_real_adapter_unavailable_returns_human_review(monkeypatch) -> None:
     )
 
     assert execution["executed_spl"] is None
-    assert execution["block_reason"] == "real_mcp_adapter_not_implemented"
-    assert review["review_type"] == "admin_action_required"
+    assert execution["block_reason"] == "splunk_mcp_not_configured"
+    assert review["review_type"] == "connector_configuration"
 
 
 def test_saved_search_is_blocked_at_execution_gate() -> None:

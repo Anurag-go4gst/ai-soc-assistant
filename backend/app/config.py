@@ -111,6 +111,11 @@ class Settings(BaseSettings):
     mcp_server_mock_execution_enabled: bool = False
     # Read-only discovery tools (indexes/metadata). Separate from search execution flags.
     mcp_discovery_enabled: bool = True
+    # Step 3 — async Splunk search job lifecycle bounds (connector-internal).
+    # A submit + bounded polls is ONE logical investigation call.
+    mcp_max_polls_per_call: int = 60
+    mcp_search_job_timeout_ms: int = 120000
+    mcp_search_poll_interval_ms: int = 2000
     rag_mode: str = "mock"
     soc_kb_retrieval_enabled: bool = False
     soc_kb_collections_path: str = "backend/app/knowledge/fixtures/soc_kb_collections.json"

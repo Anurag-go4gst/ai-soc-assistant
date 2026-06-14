@@ -160,4 +160,7 @@ def test_real_mcp_mode_returns_admin_action_required(monkeypatch) -> None:
     assert execution["executed_spl"] is None
     assert execution["evidence_source"] == "unavailable"
     assert execution["execution_status_label"] == "not_executed"
-    assert review["review_type"] == "admin_action_required"
+    # Step 3: live adapter is implemented; registry mode without URL/token fails
+    # closed on configuration (operator supplies credentials at go-live).
+    assert execution["block_reason"] == "splunk_mcp_not_configured"
+    assert review["review_type"] == "connector_configuration"

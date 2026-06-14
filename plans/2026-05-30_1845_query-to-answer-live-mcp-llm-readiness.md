@@ -1,6 +1,6 @@
 # Plan — Query→Answer Readiness for Live MCP + LLM
 
-**Status:** O5a–O5c-core done; three steps remain before credential drop-in (LangGraph parity → per-call evidence → production async adapter)  
+**Status:** ✅ COMPLETE — O5a/b/c + Steps 0–3 landed. Live Splunk MCP is credential drop-in: set URL + token, staging smoke, restart. No code remains.  
 **Date:** 2026-05-30 (audited 2026-06-13; consolidated 2026-06-13)  
 **Branch tip:** `spl-generation-audit` @ `5bfc025`  
 **Commits (orchestration spine):** `567fe62`, `ae88760`, `390e2dc`, `40d3251`, `4cbc8ec`, `f958aab`, `3a39ed2`, `5bfc025`
@@ -42,14 +42,18 @@ Work completed on `spl-generation-audit` that this plan depends on. **Do not red
 - Splunk search is **async** — submit/poll/fetch lives inside the connector, not the gate.
 - **No external COE dependency.** Go-live decisions are **operator-owned** (this team). `schema_confirmed=true` flips after our own staging smoke. Identity model = **service-account bearer token** (`SPLUNK_MCP_TOKEN`). See §Go-live decisions (A.13).
 
-### What remains (Step 0 + three steps — in order)
+### What remains (all steps complete ✅)
 
-| Step | Work | Blocker it removes |
-|------|------|-------------------|
-| **0** | Plan honesty pass — reframe COE→operator-owned; bake go-live decisions (A.13); record canonical tool name + identity model; declare `.env.splunk-live.example` + poll flags as Step 3 deliverables | "Credentials-only" is not yet true — undecided items would also be pending |
-| **1** | LangGraph `spl_source_resolve` before `execution` | Runtime safety gap — wrong index/sourcetype on LangGraph path only |
-| **2** | Per-call `SourceEvidence` + cross-turn `mcp_orchestration` envelope | Two-call broaden cannot be honest with singular `execution` |
-| **3** | Production `splunk_mcp.py` with **async lifecycle inside `call_tool`**; poll flags in `config.py`; committed `.env.splunk-live.example` | Credential drop-in — no adapter rebuild when URL/auth arrive |
+| Step | Work | Status |
+|------|------|--------|
+| **0** | Plan honesty pass — reframe COE→operator-owned; bake go-live decisions (A.13) | ✅ Done |
+| **1** | LangGraph `spl_source_resolve` before `execution` | ✅ Done — graph rewired + parity test |
+| **2** | Per-call `SourceEvidence` + cross-turn `mcp_orchestration` envelope | ✅ Done — finalize + per-call evidence |
+| **3** | Production `splunk_mcp.py` async lifecycle; poll flags; `.env.splunk-live.example` | ✅ Done — credential drop-in ready |
+
+**Go-live is now configuration only:** `cp .env.splunk-live.example .env`, set
+`SPLUNK_MCP_BASE_URL` + `SPLUNK_MCP_TOKEN`, align allowlists, staging smoke,
+`schema_confirmed=true`, restart. No code change.
 
 **After Step 3 — go-live is configuration only:** copy `.env.splunk-live.example` → `.env`, set `SPLUNK_MCP_BASE_URL` + `SPLUNK_MCP_TOKEN`, set `schema_confirmed=true` after staging smoke, restart. No code change.
 
@@ -737,7 +741,7 @@ Allowed activation conditions in v1: `always`, `previous_ok`, `previous_empty`, 
 | **O0** | Document & align (`details.html`, this appendix) | ✅ |
 | **O1** | Discovery planning for hybrid/spl_review/guided (`composer.py`) | ✅ `390e2dc` |
 | **O2** | Envelope hardening | ✅ (= Phase A) |
-| **O3** | Live `splunk_run_query` adapter | 🟡 (= Phase B2; mock complete, live COE) |
+| **O3** | Live `splunk_run_query` adapter | ✅ **Implemented (Step 3)** — `splunk_search_lifecycle.py` (async submit/poll/fetch, bounded) + `splunk_mcp.py` live `call_tool` (streamable_http bearer, alias→`splunk_run_query`) + gate honest-outcome classification + `get_mcp_connector` registry routing. `.env.splunk-live.example`, config poll flags, contract async section. `test_splunk_mcp_transport.py`. Go-live = credentials only |
 | **O4** | Optional auto discovery execution | ❌ Proposed (`MCP_DISCOVERY_EXECUTION_ENABLED`) |
 | **O5a** | `ResourcePlanV2` dependency/failover contracts + deterministic recipe registry | ✅ Contract landed — `app/planner/recipe_registry.py` (`single_search`, `broaden_scope_on_empty`), `app/orchestration/mcp_orchestration.py` (envelope + HIL-approval gate `can_execute_call`/`approve_call`), `ResourcePlanV2` in `resource_plan.py`; `test_recipe_registry_contract.py` (15 tests). No connector change; default-off |
 | **O5b** | Resource scheduler + MCP plan/execute-one/assess + reconcile loop | ✅ Pure functions landed — `app/planner/orchestration_scheduler.py` (`schedule_next`, `outcome_edge`, evidence-key helpers); `test_orchestration_scheduler.py` (9 tests, fixture-only) proves metadata-before-SPL + Search-A→Search-B. Not wired beyond O5c-core below |
