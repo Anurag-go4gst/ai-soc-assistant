@@ -18,6 +18,7 @@ from app.chat.pipeline import (
     graph_node_query_to_intent,
     graph_node_rag_early,
     graph_node_shadow_enrichment,
+    graph_node_spl_source_resolve,
     graph_node_workflow_spl,
 )
 from app.schemas.requests import ChatRequest
@@ -34,6 +35,7 @@ def _compiled_chat_graph() -> Any:
     graph.add_node("prepare_rag_only", graph_node_prepare_rag_only)
     graph.add_node("rag_early", graph_node_rag_early)
     graph.add_node("workflow_spl", graph_node_workflow_spl)
+    graph.add_node("spl_source_resolve", graph_node_spl_source_resolve)
     graph.add_node("execution", graph_node_execution)
     graph.add_node("context_finalize", graph_node_context_finalize)
     graph.set_entry_point("init_routing")
@@ -46,16 +48,21 @@ def _compiled_chat_graph() -> Any:
         {"rag_only": "prepare_rag_only", "workflow_spl": "workflow_spl"},
     )
     graph.add_edge("prepare_rag_only", "rag_early")
+    # Non-rag-only path mirrors the imperative order: SPL → [pre-MCP RAG] →
+    # spl_source_resolve → execution. spl_source_resolve must run before
+    # execution so a placeholder index/sourcetype is resolved (or HIL raised)
+    # on BOTH runtimes — the parity gap this step closes.
     graph.add_conditional_edges(
         "workflow_spl",
         _after_workflow_spl,
-        {"rag_early": "rag_early", "execution": "execution"},
+        {"rag_early": "rag_early", "spl_source_resolve": "spl_source_resolve"},
     )
     graph.add_conditional_edges(
         "rag_early",
         _after_rag_early,
-        {"context_finalize": "context_finalize", "execution": "execution"},
+        {"context_finalize": "context_finalize", "spl_source_resolve": "spl_source_resolve"},
     )
+    graph.add_edge("spl_source_resolve", "execution")
     graph.add_edge("execution", "context_finalize")
     graph.add_edge("context_finalize", END)
     return graph.compile()
@@ -76,13 +83,14 @@ def _after_workflow_spl(state: ChatPipelineState) -> str:
     plan = _evidence_plan(state)
     if bool(plan.get("needs_rag")) and plan.get("rag_phase") == "pre_mcp":
         return "rag_early"
-    return "execution"
+    return "spl_source_resolve"
 
 
 def _after_rag_early(state: ChatPipelineState) -> str:
+    # rag_only path already set `execution` in prepare_rag_only → finalize.
     if "execution" in state:
         return "context_finalize"
-    return "execution"
+    return "spl_source_resolve"
 
 
 def run_chat_via_langgraph(request: ChatRequest) -> PlaceholderResponse:
