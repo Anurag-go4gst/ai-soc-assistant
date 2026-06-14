@@ -37,24 +37,27 @@ class SplunkMcpConnector:
     mode = "splunk_mcp"
 
     def health(self) -> ConnectorStatus:
-        configured = bool(settings.splunk_mcp_enabled and settings.splunk_mcp_base_url.strip())
+        configured = bool(
+            settings.splunk_mcp_enabled
+            and settings.splunk_mcp_base_url.strip()
+            and settings.splunk_mcp_token.strip()
+        )
         registry = load_mcp_registry_status()
         if not registry.global_execution_enabled:
             return ConnectorStatus(
-                mode=self.mode,
-                configured=configured,
-                available=False,
-                detail="execution_disabled",
-                implemented=True,
-                fallback="mock",
+                mode=self.mode, configured=configured, available=False,
+                detail="execution_disabled", implemented=True, fallback="mock",
             )
+        if not configured:
+            return ConnectorStatus(
+                mode=self.mode, configured=False, available=False,
+                detail="credentials_missing", implemented=True, fallback="mock",
+            )
+        # Adapter implemented + endpoint configured + execution enabled. Schema is
+        # confirmed by the operator after staging smoke (doc-level), not here.
         return ConnectorStatus(
-            mode=self.mode,
-            configured=configured,
-            available=False,
-            detail="real_adapter_schema_unverified",
-            implemented=True,
-            fallback="mock",
+            mode=self.mode, configured=True, available=True,
+            detail="live_adapter_ready", implemented=True, fallback="mock",
         )
 
     def list_tools(self, server_name: str | None = None) -> list[McpToolDescriptor]:
@@ -150,7 +153,14 @@ class SplunkMcpConnector:
                 "error": plan.get("block_reason") or "mcp_execution_disabled",
                 "planned_tool": plan,
             }
-        raise NotImplementedError("Splunk MCP live execution remains blocked until COE S5 sign-off.")
+        # Live execution flows through call_tool (which drives the async search
+        # lifecycle). The execution gate calls call_tool directly; this method is
+        # a thin convenience that shares the same governed path.
+        return self.call_tool(
+            tool_name or _CANONICAL_SEARCH_TOOL,
+            {"search_query": normalized_spl, "trace_id": trace_id},
+            server_name=server_name,
+        )
 
     def discover_knowledge_objects(self, request: KnowledgeObjectRequest) -> dict[str, Any]:
         return {"status": "not_implemented", "objects": []}

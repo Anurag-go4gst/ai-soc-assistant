@@ -105,6 +105,21 @@ def build_investigation_lineage(
             _stage("action_capability", "complete", "Action capability", action_capability.reason, action_capability.model_dump(), ["recommended_actions"], "derived", "action tier policy"),
         ]
     )
+    orchestration = execution.get("mcp_orchestration") if isinstance(execution, dict) else None
+    if isinstance(orchestration, dict):
+        calls = orchestration.get("calls") if isinstance(orchestration.get("calls"), list) else []
+        stages.append(
+            _stage(
+                "mcp_orchestration",
+                str(orchestration.get("status") or "complete"),
+                "MCP orchestration",
+                f"{orchestration.get('recipe_id', 'single_search')}: {len(calls)} logical call(s) recorded.",
+                orchestration,
+                [],
+                mode_source,
+                "production MCP orchestration",
+            )
+        )
     if demo_llm_shadow is not None:
         stages.append(_demo_foundation_sec_shadow_stage(demo_llm_shadow))
     return InvestigationLineage(

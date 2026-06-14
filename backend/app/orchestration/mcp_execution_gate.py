@@ -173,9 +173,13 @@ def evaluate_mcp_execution(
         execution = _blocked_execution(selection, exec_status, str(result.get("error") or result_status))
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=result_status)
         return execution, outcome_review
+    # _gate_review guarantees the registry success path is reached only when a
+    # live Splunk endpoint is configured, so registry == a real run. Use the
+    # real adapter and live provenance; mock keeps mock provenance.
+    live_run = registry.mode == "registry"
     envelope = adapt_mcp_search_payload(
         result,
-        mcp_mode=registry.mode,
+        mcp_mode="splunk_mcp" if live_run else registry.mode,
         trace_id=trace_id,
         normalized_spl=normalized_spl,
         duration_ms=duration_ms,
@@ -184,7 +188,6 @@ def evaluate_mcp_execution(
         envelope,
         preview_cap=RESULT_PREVIEW_CAP,
     )
-    requires_hil = _mock_success_requires_hil()
     execution = {
         "status": "executed",
         "execution_intent": "spl_search",
@@ -198,11 +201,20 @@ def evaluate_mcp_execution(
         "splunk_result_envelope": envelope.to_dict(),
         "block_reason": None,
         "duration_ms": duration_ms,
-        # Evidence is mock-generated; never present it as live telemetry.
-        "evidence_source": "mock",
-        "execution_status_label": "review_required" if requires_hil else "mock_executed",
+        "evidence_source": "live" if live_run else "mock",
+        "execution_status_label": "executed" if live_run else None,
     }
     telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_completed", result_count=execution["result_count"], duration_ms=duration_ms)
+    if live_run:
+        # Live search already passed the per-call confirmation gate (B4) before
+        # it ran; the real results are reviewed in the analyst answer, not via a
+        # mock-evidence gate.
+        review = no_human_review()
+        review["safe_message_for_user"] = "Live Splunk search executed; results are reviewed in the analyst answer."
+        return execution, review
+
+    requires_hil = _mock_success_requires_hil()
+    execution["execution_status_label"] = "review_required" if requires_hil else "mock_executed"
     if requires_hil:
         review = human_review(
             "mock_evidence_review",

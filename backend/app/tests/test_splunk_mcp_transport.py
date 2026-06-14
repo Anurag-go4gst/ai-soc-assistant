@@ -156,3 +156,97 @@ def test_connector_blocks_when_transport_unconfigured(live_registry) -> None:
     out = SplunkMcpConnector().call_tool("splunk_run_query", {"search_query": "index=a"})
     assert out["status"] == "blocked"
     assert out["error"] == "live_transport_unconfigured"
+
+
+def test_rows_from_mcp_result_tolerates_shapes() -> None:
+    from app.connectors.mcp.splunk_mcp import _rows_from_mcp_result
+
+    assert _rows_from_mcp_result({"rows": [{"a": 1}]}) == [{"a": 1}]
+    assert _rows_from_mcp_result({"results": [{"b": 2}]}) == [{"b": 2}]
+    assert _rows_from_mcp_result({"structuredContent": [{"c": 3}]}) == [{"c": 3}]
+    assert _rows_from_mcp_result({"nothing": True}) == []
+    assert _rows_from_mcp_result(None) == []
+
+
+# --- full gate live path (integration; injected transport, no network) --------
+
+_APPROVED = {
+    "approved": True,
+    "normalized_spl": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-15m latest=now | stats count by user | head 100",
+    "reject_reasons": [],
+    "warnings": [],
+    "enforced_limits": {"max_result_limit": 100},
+    "policy_version": "spl-policy-v1",
+}
+
+
+class _FakeTelemetry:
+    def record_mcp_execution(self, *a, **k):
+        pass
+
+    def record_step(self, *a, **k):
+        pass
+
+
+@pytest.fixture
+def live_gate(monkeypatch):
+    # registry status reads env; connector picker + gate read the settings singleton.
+    monkeypatch.setenv("MCP_MODE", "registry")
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVERS", "splunk_soc")
+    monkeypatch.setenv("MCP_DEFAULT_SERVER", "splunk_soc")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_TYPE", "splunk")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_URL", "https://splunk-mcp.example.invalid/mcp")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_AUTH_MODE", "bearer")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN", "secret")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST", "splunk_run_query")
+    for attr in ("mcp_mode",):
+        monkeypatch.setattr(f"app.config.settings.{attr}", "registry")
+    monkeypatch.setattr("app.config.settings.splunk_mcp_enabled", True)
+    monkeypatch.setattr("app.config.settings.splunk_mcp_base_url", "https://splunk-mcp.example.invalid")
+    monkeypatch.setattr("app.config.settings.splunk_mcp_token", "secret")
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: _FakeTelemetry())
+    yield monkeypatch
+    set_search_transport_factory(None)
+
+
+def test_gate_live_run_uses_real_adapter_and_live_provenance(live_gate) -> None:
+    from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
+
+    set_search_transport_factory(lambda: FakeTransport(["done"], rows=[{"user": "alice"}, {"user": "bob"}]))
+    execution, review = evaluate_mcp_execution(
+        trace_id="trace-live",
+        selected_skill="attack_discovery",
+        workflow_plan={},
+        spl_validation=_APPROVED,
+    )
+    assert execution["status"] == "executed"
+    assert execution["evidence_source"] == "live"  # bug #1 fix
+    assert execution["execution_status_label"] == "executed"
+    envelope = execution["splunk_result_envelope"]
+    assert envelope["origin"] == "real_mcp"  # bug #2 fix — not mock_connector
+    # Live success rode the pre-execution B4 gate; no mock-evidence HIL.
+    assert review["review_type"] != "mock_evidence_review"
+
+
+def test_health_reports_available_when_configured(live_gate) -> None:
+    status = SplunkMcpConnector().health()
+    assert status.available is True
+    assert status.detail == "live_adapter_ready"
+
+
+def test_gate_live_run_failed_outcome_is_not_executed(live_gate) -> None:
+    from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
+
+    set_search_transport_factory(lambda: FakeTransport(["running", "failed"]))
+    execution, review = evaluate_mcp_execution(
+        trace_id="trace-live-fail",
+        selected_skill="attack_discovery",
+        workflow_plan={},
+        spl_validation=_APPROVED,
+    )
+    assert execution["status"] != "executed"
+    assert execution["block_reason"]
+    assert review["required"] is True
