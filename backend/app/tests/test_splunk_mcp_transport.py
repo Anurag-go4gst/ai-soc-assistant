@@ -168,6 +168,98 @@ def test_rows_from_mcp_result_tolerates_shapes() -> None:
     assert _rows_from_mcp_result(None) == []
 
 
+# --- streamable_http transport JSON-RPC wire (httpx mocked, no network) -------
+
+
+class _FakeResponse:
+    def __init__(self, status_code: int, body: dict):
+        self.status_code = status_code
+        self._body = body
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"http_{self.status_code}")
+
+    def json(self):
+        return self._body
+
+
+class _FakeHttpxClient:
+    """Captures construction kwargs + the last POST; returns a canned response."""
+
+    last_instance = None
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.posts = []
+        self.response = _FakeResponse(200, {"result": {"rows": [{"user": "alice"}]}})
+        _FakeHttpxClient.last_instance = self
+
+    def post(self, url, json=None):
+        self.posts.append({"url": url, "json": json})
+        return self.response
+
+
+def _patch_httpx(monkeypatch, response: _FakeResponse | None = None):
+    import httpx
+
+    monkeypatch.setattr(httpx, "Client", _FakeHttpxClient)
+    if response is not None:
+        # set after construction in the test via last_instance
+        pass
+
+
+def test_transport_submit_posts_jsonrpc_tools_call(monkeypatch) -> None:
+    from app.connectors.mcp.splunk_mcp import _StreamableHttpSearchTransport
+
+    _patch_httpx(monkeypatch)
+    t = _StreamableHttpSearchTransport("https://splunk.example.invalid", "tok", 30.0)
+    job = t.submit({"search_query": "index=a", "_governance": {"x": 1}})
+    client = _FakeHttpxClient.last_instance
+    # Auth header + JSON-RPC tools/call with canonical tool name; _-prefixed args dropped.
+    assert client.kwargs["headers"]["Authorization"] == "Bearer tok"
+    post = client.posts[0]
+    assert post["url"].endswith("/mcp")
+    assert post["json"]["method"] == "tools/call"
+    assert post["json"]["params"]["name"] == "splunk_run_query"
+    assert post["json"]["params"]["arguments"] == {"search_query": "index=a"}
+    # Inline model: rows captured at submit, fetch returns them.
+    assert t.fetch(job)["rows"] == [{"user": "alice"}]
+
+
+def test_transport_full_lifecycle_returns_ok(monkeypatch) -> None:
+    from app.connectors.mcp.splunk_mcp import _StreamableHttpSearchTransport
+
+    _patch_httpx(monkeypatch)
+    t = _StreamableHttpSearchTransport("https://splunk.example.invalid", "tok", 30.0)
+    out = run_search_lifecycle(t, {"search_query": "index=a"}, sleep=lambda _s: None,
+                               max_polls=3, poll_interval_ms=0, job_timeout_ms=60000)
+    assert out["status"] == "ok"
+    assert out["rows"] == [{"user": "alice"}]
+
+
+def test_transport_403_raises_permission_error(monkeypatch) -> None:
+    from app.connectors.mcp.splunk_mcp import _StreamableHttpSearchTransport
+
+    _patch_httpx(monkeypatch)
+    t = _StreamableHttpSearchTransport("https://splunk.example.invalid", "tok", 30.0)
+    _FakeHttpxClient.last_instance.response = _FakeResponse(403, {})
+    with pytest.raises(PermissionError):
+        t.submit({"search_query": "index=a"})
+
+
+def test_transport_parses_structured_content_shape(monkeypatch) -> None:
+    from app.connectors.mcp.splunk_mcp import _StreamableHttpSearchTransport
+
+    _patch_httpx(monkeypatch)
+    t = _StreamableHttpSearchTransport("https://splunk.example.invalid", "tok", 30.0)
+    _FakeHttpxClient.last_instance.response = _FakeResponse(
+        200, {"result": {"structuredContent": [{"host": "app-01"}]}}
+    )
+    job = t.submit({"search_query": "index=a"})
+    assert t.fetch(job)["rows"] == [{"host": "app-01"}]
+
+
 # --- full gate live path (integration; injected transport, no network) --------
 
 _APPROVED = {

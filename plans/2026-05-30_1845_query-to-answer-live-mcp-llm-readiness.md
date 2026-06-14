@@ -5,7 +5,9 @@
 **Branch tip:** `spl-generation-audit` @ `8625b63` + review-fix commit  
 **Commits (orchestration spine):** `40d3251` (O5a), `4cbc8ec` (O5b), `f958aab` (O5c-core), `5e76f7b` (Step 0), `dde82c5` (Step 1), `97a973f` (Step 2), `8625b63` (Step 3), + post-review fixes
 
-**Post-review fixes (2026-06-14):** live success now labels `evidence_source: live` + real adapter (`origin: real_mcp`) + no mock HIL (bugs #1/#2); `health()` reports `live_adapter_ready` when configured (#4); `execute_validated_spl` delegates to `call_tool` instead of raising (#5); full-gate live integration test + transport row-extraction test added (#3 partial — framing still first-connect-verified); per-call `mcp_orchestration` lineage stage; poll flags added to `.env.example`.
+**Post-review fixes (2026-06-14):** live success now labels `evidence_source: live` + real adapter (`origin: real_mcp`) + no mock HIL (bugs #1/#2); `health()` reports `live_adapter_ready` when configured (#4); `execute_validated_spl` delegates to `call_tool` instead of raising (#5); full-gate live integration test + transport row-extraction test added; per-call `mcp_orchestration` lineage stage; poll flags added to `.env.example`.
+
+**Post-review round 2 (2026-06-14):** httpx-mocked wire tests for `_StreamableHttpSearchTransport` (asserts `{BASE_URL}/mcp` path, `tools/call` method, canonical `splunk_run_query` name, `_`-prefixed args dropped, bearer auth header, 403→`PermissionError`, `rows`/`structuredContent` extraction). #3 now: the *coded* wire (path/method/auth/parsing) is unit-verified offline; only the **real server's actual responses** (inline rows vs job_id, exact field names) remain first-connect-verified — and only `_StreamableHttpSearchTransport` changes if they differ.
 **Author:** COE review (Anurag + Claude)  
 **Related:** [`contracts/splunk_mcp_connection_contract.md`](../contracts/splunk_mcp_connection_contract.md), [`2026-06-13_spl-generation-audit-completion.md`](2026-06-13_spl-generation-audit-completion.md), [`/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md`](/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md) (Phase G/H)
 
