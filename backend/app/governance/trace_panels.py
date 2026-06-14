@@ -137,6 +137,7 @@ class GovernanceTrace(BaseModel):
     mitre_panel: dict[str, Any] | None = None
     answer_contract_panel: dict[str, Any] | None = None
     model_signal_panel: dict[str, Any] | None = None
+    llm_sidecar_panel: dict[str, Any] | None = None
     answer_scorecard_panel: dict[str, Any] | None = None
     narration_visibility_panel: dict[str, Any] | None = None
     progress_labels: list[str] = Field(default_factory=list)

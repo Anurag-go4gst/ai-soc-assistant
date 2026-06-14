@@ -69,6 +69,11 @@ export function ExperienceCenterGovernancePanels({
           <ObjectPanel panel={governance.model_signal_panel} />
         </GovernanceDetails>
       ) : null}
+      {!sections && governance.llm_sidecar_panel ? (
+        <GovernanceDetails title="LLM sidecars (advisory)" testId="ec-llm-sidecar-panel">
+          <ObjectPanel panel={governance.llm_sidecar_panel} />
+        </GovernanceDetails>
+      ) : null}
       {!sections && governance.answer_scorecard_panel ? (
         <GovernanceDetails title="Answer scorecard" testId="ec-answer-scorecard-panel">
           <ObjectPanel panel={governance.answer_scorecard_panel} />

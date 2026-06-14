@@ -200,6 +200,7 @@ export interface ExperienceCenterGovernance {
   mitre_panel?: Record<string, unknown> | null;
   answer_contract_panel?: Record<string, unknown> | null;
   model_signal_panel?: Record<string, unknown> | null;
+  llm_sidecar_panel?: Record<string, unknown> | null;
   answer_scorecard_panel?: Record<string, unknown> | null;
   narration_visibility_panel?: Record<string, unknown> | null;
   progress_labels?: string[];
@@ -1300,6 +1301,29 @@ export interface ProviderDraftCheckResult {
   saved: boolean;
   not_persisted: boolean;
   safe_message: string;
+}
+
+export interface KnowledgeMappingSummary {
+  generated_at?: string;
+  schema_version?: string;
+  mitre_metadata_role: string;
+  live_route_skills: string[];
+  allowed_live_execution_skills: string[];
+  row_counts: {
+    question_rows?: number;
+    use_case_rows?: number;
+    github_skill_rows?: number;
+    catalog_use_cases?: number;
+    enrichment_records?: number;
+    enrichment_only_use_cases?: number;
+    [key: string]: number | undefined;
+  };
+  question_skill_distribution: Record<string, number>;
+  question_mapping_status: Record<string, number>;
+  question_runtime_support_status: Record<string, number>;
+  questions_with_use_case_id: number;
+  recommended_export: string;
+  sources: Record<string, string>;
 }
 
 export type KnowledgeExportArtifact =

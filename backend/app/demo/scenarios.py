@@ -20,6 +20,7 @@ from app.demo.mcp_result_envelope import (
     execution_fields_from_envelope,
 )
 from app.lineage.builder import build_investigation_lineage
+from app.llm.mitre_risk_rationale import build_deterministic_severity_rationale
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.workflow_planner import plan_workflow
 from app.query_understanding.models import OutputTemplate, RequestedOutputType
@@ -29,7 +30,7 @@ from app.routing.llm_plan_validator import validate_llm_advisory_plan
 from app.routing.route_adjudication import adjudicate_route
 from app.safeguards.spl_validator import validate_spl
 from app.skills.selector import select_skill_chain
-from app.spl.template_registry import template_summary
+from app.spl.template_registry import get_spl_template, template_summary
 from app.synthesis.models import SynthesisStatus
 from app.threat.mitre_kb import map_mitre_for_use_case
 from app.use_cases.models import UseCaseSelection
@@ -191,6 +192,12 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         demo_llm_shadow=demo_llm_shadow.to_lineage_dict() if demo_llm_shadow else None,
     )
     _scrub_experience_center_stage_labels(scenario, investigation_lineage)
+    llm_sidecars = _experience_center_llm_sidecars(
+        scenario=scenario,
+        severity_decision=severity_decision,
+        mitre_decision=mitre_decision,
+        evidence_plan=evidence_plan,
+    )
     experience_center_governance = build_experience_center_governance(
         scenario_id=scenario.scenario_id,
         selected_skill=scenario.expected_skill,
@@ -200,6 +207,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         investigation_lineage=investigation_lineage.model_dump(),
         route_plan_shadow=None,
         selected_use_case=selected_use_case.model_dump() if selected_use_case else None,
+        llm_sidecar_panel=_llm_sidecar_panel(llm_sidecars),
     )
     response_mode = _experience_center_response_mode(scenario, context_sufficiency, review, spl_validation)
     synthesis_mode = "captured_huggingface_governed_output"
@@ -222,6 +230,8 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         answer_guard=answer_guard.model_dump(),
     )
     control_plane_trace["experience_center_provenance"] = deepcopy(EXPERIENCE_CENTER_PROVENANCE)
+    control_plane_trace["mitre_risk_rationale"] = llm_sidecars["mitre_risk_rationale"]
+    control_plane_trace["resource_plan_shadow"] = llm_sidecars["resource_plan_shadow"]
     answer_scorecard = _experience_center_answer_scorecard(scenario)
     narration_visibility = _experience_center_narration_visibility(scenario)
 
@@ -260,6 +270,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "control_plane_trace": control_plane_trace,
         "answer_scorecard": answer_scorecard,
         "narration_visibility": narration_visibility,
+        "llm_sidecars": llm_sidecars,
         "mitre_decision": mitre_decision,
         "selected_use_case": selected_use_case.model_dump() if selected_use_case else None,
         "selected_skill_chain": selected_skill_chain.model_dump(),
@@ -308,6 +319,106 @@ def _experience_center_narration_visibility(scenario: DemoScenario) -> dict[str,
         "llm_narration": "advisory model signal",
         "model_signal_authority": "advisory_only",
         "deterministic_policy_authority": "wins",
+    }
+
+
+def _experience_center_mitre_rationale_prose(mitre_decision: dict[str, Any]) -> str | None:
+    """Build the MITRE rationale prose the Foundation-sec sidecar narrates in live mode.
+
+    Sourced from the real governed MITRE decision (supported vs candidate vs not-claimed),
+    so the Experience Center shows the actual sidecar contribution rather than staged text.
+    """
+    techniques = mitre_decision.get("techniques") or []
+    supported = [
+        t["technique_id"]
+        for t in techniques
+        if t.get("evidence_status") == "evidence_supported" or t.get("status") == "supported"
+    ]
+    candidate = [t for t in mitre_decision.get("registry_candidates") or [] if t not in supported]
+    not_claimed = [
+        t["technique_id"]
+        for t in techniques
+        if t.get("status") in {"not_claimed", "requires_validation"} and t["technique_id"] not in supported
+    ]
+    parts: list[str] = []
+    if supported:
+        parts.append("Evidence-supported MITRE: " + ", ".join(supported))
+    if candidate:
+        parts.append("Candidate (metadata only): " + ", ".join(candidate))
+    if not_claimed:
+        parts.append("Not claimed due to insufficient evidence: " + ", ".join(not_claimed))
+    text = " ".join(parts).strip()
+    return text or None
+
+
+def _experience_center_llm_sidecars(
+    *,
+    scenario: DemoScenario,
+    severity_decision: Any,
+    mitre_decision: dict[str, Any],
+    evidence_plan: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Mirror the production LLM sidecar hops (resource-plan shadow + MITRE/risk rationale).
+
+    The traces carry real deterministic rationale and the real deterministic resource-plan
+    source. They reflect the Experience Center posture: captured Foundation-sec output,
+    advisory only, with deterministic policy keeping authority. Same trace keys as the live
+    /chat path so the viewer sees the same sidecar panels production produces.
+    """
+    severity_prose = build_deterministic_severity_rationale(severity_decision)
+    mitre_prose = _experience_center_mitre_rationale_prose(mitre_decision)
+    resource_plan = (evidence_plan or {}).get("resource_plan") or {}
+    plan_source = resource_plan.get("plan_source") or "deterministic"
+    steps = resource_plan.get("steps") or []
+
+    mitre_risk_rationale = {
+        "llm_called": False,
+        "guard_status": "advisory",
+        "fallback_used": False,
+        "skipped_reason": None,
+        "provider_label": "captured_foundation_sec_advisory",
+        "model_signal_authority": "advisory_only",
+        "deterministic_policy_authority": "wins",
+        "severity_rationale_present": bool(severity_prose),
+        "mitre_rationale_present": bool(mitre_prose),
+        "severity_rationale_prose": severity_prose,
+        "mitre_rationale_prose": mitre_prose,
+        "adapter_warnings": [],
+        "live_mode_behavior": "Foundation-sec narrates this rationale; deterministic severity/MITRE decision keeps authority.",
+    }
+    resource_plan_shadow = {
+        "shadow_only": True,
+        "promotion_blocked": True,
+        "llm_called": False,
+        "deterministic_plan_source": plan_source,
+        "shadow_plan_source": plan_source,
+        "shadow_step_count": len(steps),
+        "provider_label": "captured_foundation_sec_advisory",
+        "skipped_reason": None,
+        "live_plan_source_unchanged": True,
+        "live_mode_behavior": "Foundation-sec proposes a plan; it is deterministically validated and never promoted over the live deterministic plan.",
+    }
+    return {
+        "mitre_risk_rationale": mitre_risk_rationale,
+        "resource_plan_shadow": resource_plan_shadow,
+    }
+
+
+def _llm_sidecar_panel(sidecars: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Flatten the sidecar traces into viewer-friendly governance-panel rows."""
+    rationale = sidecars["mitre_risk_rationale"]
+    shadow = sidecars["resource_plan_shadow"]
+    return {
+        "what_this_shows": "LLM sidecar hops that run alongside the deterministic pipeline.",
+        "authority": "advisory only — deterministic policy keeps final authority",
+        "live_llm_called": "No (captured Foundation-sec output in the Experience Center)",
+        "resource_plan_shadow": (
+            f"LLM proposes a resource plan; it is deterministically validated and "
+            f"never promoted over the live {shadow['deterministic_plan_source']} plan "
+            f"({shadow['shadow_step_count']} steps)."
+        ),
+        "mitre_rationale": rationale.get("mitre_rationale_prose") or "No supported MITRE technique for this query.",
+        "severity_rationale": rationale.get("severity_rationale_prose") or "—",
     }
 
 
@@ -749,19 +860,41 @@ def _context_sufficiency(scenario: DemoScenario) -> dict[str, Any]:
     }
 
 
-SUCCESS_AFTER_FAILURES_VISIBLE_SPL = """search index=pgcil_soc sourcetype=pgcil:auth host=APP-01 earliest=-60m latest=now (action=failure OR action=success)
-| stats
-    count(eval(action="failure")) as fail_count,
-    count(eval(action="success")) as success_count,
-    values(src) as source_ips,
-    min(eval(if(action="failure", _time, null()))) as first_failure,
-    max(_time) as last_event
-  by user, src, host
-| where fail_count >= 5 AND success_count >= 1
-| eval risk="P1 validation - successful login after repeated failures"
-| table user host source_ips fail_count success_count first_failure last_event risk
-| sort -fail_count
-| head 100"""
+def _scoped_template_spl(template_id: str, *, host: str | None = None) -> str:
+    """Source Experience Center SPL from the production-governed template registry.
+
+    EC SPL must never drift from the optimized production queries, so we read the live
+    template text instead of re-hardcoding it. `host` scoping mirrors deterministic slot
+    binding for asset-specific demo scenarios (e.g. APP-01) without altering the query
+    shape that production validated.
+    """
+    template = get_spl_template(template_id)
+    if template is None or not template.spl_text:
+        raise RuntimeError(
+            f"Experience Center expected production SPL template '{template_id}' to exist"
+        )
+    spl = template.spl_text
+    if host:
+        # Insert the host filter immediately after the time bounds, matching how the
+        # deterministic slot binder scopes the base search.
+        spl = spl.replace("latest=now", f"latest=now host={host}", 1)
+    return spl
+
+
+def _pretty_spl(spl: str) -> str:
+    """Pretty-print single-line SPL onto piped lines for the analyst SPL card."""
+    segments = [segment.strip() for segment in spl.split("|")]
+    head, *rest = segments
+    return head + "".join(f"\n| {segment}" for segment in rest)
+
+
+# Production-optimized auth SPL, sourced from the governed template registry so the
+# Experience Center always renders the same query production generates.
+FAILED_SPIKE_SPL = _scoped_template_spl("auth_failed_login_spike", host="APP-01")
+SUCCESS_AFTER_FAILURES_SPL = _scoped_template_spl("auth_success_after_failure", host="APP-01")
+SUCCESS_AFTER_FAILURES_VISIBLE_SPL = _pretty_spl(SUCCESS_AFTER_FAILURES_SPL)
+LOCKOUT_SPL = _scoped_template_spl("auth_account_lockout_trend")
+LOCKOUT_VISIBLE_SPL = _pretty_spl(LOCKOUT_SPL)
 
 
 def _playbook_payload() -> dict[str, object]:
@@ -997,7 +1130,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                     "Successful logins": 1,
                     "First failure": "2026-05-24T13:42:10Z",
                     "Last event": "2026-05-24T14:37:22Z",
-                    "Risk": "P1 validation - successful login after repeated failures",
+                    "Risk": "P2 review - successful login after repeated failures",
                 }
             ],
             "spl_code": SUCCESS_AFTER_FAILURES_VISIBLE_SPL,
@@ -1018,8 +1151,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Status": "Requires validation", "Evidence": "Successful login after repeated failures", "Validation needed": "Confirm MFA, session legitimacy, and post-login activity."},
             ],
             "recommended_actions": [
-                "P1: Validate the successful session: source IP, MFA result, session duration, and first post-login activity.",
-                "P1: Review EDR/process telemetry for APP-01 immediately after login.",
+                "P2: Validate the successful session: source IP, MFA result, session duration, and first post-login activity.",
+                "P2: Review EDR/process telemetry for APP-01 immediately after login.",
                 "P2: Check account type, ownership, and privilege evidence for svc_grid_ops.",
                 "P2: Pivot firewall, VPN, and identity logs for 10.10.4.21 around the same window.",
                 "P2: Check CMDB criticality for APP-01.",
@@ -1055,12 +1188,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             "one_sentence_finding": "Foundation-sec can assist with lockout-trend intent, but V.AI SOC uses deterministic template SPL for this known use case and keeps operational use gated by validation policy.",
             "spl_code": LOCKOUT_VISIBLE_SPL,
             "key_fields": [
-                "_time - 15-minute lockout time bucket",
-                "user - locked account",
-                "src - source system or IP triggering the lockout",
-                "dest - authentication target host",
-                "lockout_count - lockout events in the bucket",
-                "user_total - total lockouts for that user across the 24h window",
+                "_time - 1-hour lockout time bucket",
+                "lockout_count - account_locked events in the bucket across the 24h window",
             ],
             "recommended_actions": [
                 "P2: Run the lockout trend SPL across the last 24 hours and filter for any user with more than 10 lockout events across multiple source IPs. High lockout counts from multiple sources against the same user are a brute-force indicator even without a threshold breach on any single IP.",
@@ -1233,7 +1362,7 @@ def _mock_rows_for(trace_id: str, scenario_id: str | None = None) -> list[dict[s
                 "success_count": 1,
                 "first_failure": "2026-05-24T13:42:10Z",
                 "last_event": "2026-05-24T14:37:22Z",
-                "risk": "P1 validation - successful login after repeated failures",
+                "risk": "P2 review - successful login after repeated failures",
                 "trace_id": trace_id,
             }
         ]
@@ -1248,19 +1377,6 @@ class _NoopTelemetry:
     def record_step(self, *args: Any, **kwargs: Any) -> None:
         return None
 
-
-FAILED_SPIKE_SPL = "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure host=APP-01 | stats count as fail_count dc(user) as distinct_users_by_source min(_time) as first_seen max(_time) as last_seen values(action) as action by host, src | where fail_count >= 25 | sort -fail_count | head 100"
-SUCCESS_AFTER_FAILURES_SPL = "search index=pgcil_soc sourcetype=pgcil:auth host=APP-01 earliest=-60m latest=now (action=failure OR action=success) | stats count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips min(eval(if(action=\"failure\", _time, null()))) as first_failure max(_time) as last_event by user, src, host | where fail_count >= 5 AND success_count >= 1 | eval risk=\"P1 validation - successful login after repeated failures\" | table user host source_ips fail_count success_count first_failure last_event risk | sort -fail_count | head 100"
-LOCKOUT_SPL = "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now action=lockout | timechart span=1h count as lockout_count | head 100"
-LOCKOUT_VISIBLE_SPL = """index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now action=lockout
-| bin _time span=15m
-| stats
-    count as lockout_count
-  by _time, user, src, dest
-| eventstats sum(lockout_count) as user_total by user
-| sort -user_total, _time
-| table _time user src dest lockout_count user_total
-| head 100"""
 
 SCENARIOS: dict[str, DemoScenario] = {
     "failed_login_spike_app01": DemoScenario(
