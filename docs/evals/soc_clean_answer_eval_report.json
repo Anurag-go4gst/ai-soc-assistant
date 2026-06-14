@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-14T16:22:41.967505+00:00",
+  "generated_at": "2026-06-14T16:37:17.809670+00:00",
   "profile": {
     "ai_soc_curated_enrichment_activation_enabled": true,
     "ai_soc_langgraph_shadow_enabled": false,
@@ -25,24 +25,24 @@
         "spl"
       ],
       "clean_response_status": "pass",
-      "duration_ms": 198,
+      "duration_ms": 214,
       "execution_status": "requires_human_review",
       "expected_path_type": "spl_review",
       "expected_use_case_id": "auth_failed_login_spike",
       "final_verdict": "PASS",
       "hil_status": "execution_approval",
       "limitations": [
-        "Source IP reuse, NAT, or scanner behavior may require analyst review.",
-        "Failed login telemetry alone does not establish credential validity."
+        "Failed login telemetry alone does not establish credential validity.",
+        "Source IP reuse, NAT, or scanner behavior may require analyst review."
       ],
       "limitations_count": 2,
       "missing_evidence": [
-        "host",
+        "critical_asset",
         "user",
         "src",
-        "privileged_account_impacted",
         "time_window",
-        "critical_asset"
+        "privileged_account_impacted",
+        "host"
       ],
       "missing_evidence_count": 6,
       "mitre_candidate_techniques": [],
@@ -52,20 +52,20 @@
       "path_type": "spl_review",
       "query": "Investigate a spike of failed logins for a user/source",
       "required_evidence": [
-        "first_failure \u2014 first failure",
-        "last_failure \u2014 last failure",
-        "host",
-        "user",
+        "fail_count \u2014 fail count",
         "fail_count",
-        "last_failure",
+        "user",
         "src",
         "user \u2014 User context",
+        "first_failure",
+        "time_window",
+        "host \u2014 Host context",
+        "last_failure",
         "time_window \u2014 time window",
         "src \u2014 Source host/IP",
-        "host \u2014 Host context",
-        "fail_count \u2014 fail count",
-        "first_failure",
-        "time_window"
+        "last_failure \u2014 last failure",
+        "first_failure \u2014 first failure",
+        "host"
       ],
       "required_evidence_count": 14,
       "response_profile": "spl_only",
@@ -86,7 +86,7 @@
         "spl"
       ],
       "clean_response_status": "pass",
-      "duration_ms": 18,
+      "duration_ms": 20,
       "execution_status": "requires_human_review",
       "expected_path_type": "hybrid_investigation",
       "expected_use_case_id": "auth_success_after_failure",
@@ -141,7 +141,7 @@
         "spl"
       ],
       "clean_response_status": "pass",
-      "duration_ms": 14,
+      "duration_ms": 17,
       "execution_status": "requires_human_review",
       "expected_path_type": "spl_review_plus_rag",
       "expected_use_case_id": "dns_beaconing_candidate",
@@ -196,7 +196,7 @@
         "hil"
       ],
       "clean_response_status": "pass",
-      "duration_ms": 10,
+      "duration_ms": 9,
       "execution_status": "skipped",
       "expected_path_type": "spl_review_plus_rag",
       "expected_use_case_id": "edr_powershell_suspicious_command",
@@ -230,7 +230,7 @@
         "rag"
       ],
       "clean_response_status": "pass",
-      "duration_ms": 7,
+      "duration_ms": 6,
       "execution_status": "skipped",
       "expected_path_type": "rag_only",
       "expected_use_case_id": null,
@@ -265,7 +265,7 @@
         "hil"
       ],
       "clean_response_status": "pass",
-      "duration_ms": 6,
+      "duration_ms": 5,
       "execution_status": "skipped",
       "expected_path_type": "mitre_context_required",
       "expected_use_case_id": null,
@@ -336,7 +336,7 @@
         "unsafe_blocked"
       ],
       "clean_response_status": "pass",
-      "duration_ms": 7,
+      "duration_ms": 6,
       "execution_status": "skipped",
       "expected_path_type": "unsafe_blocked",
       "expected_use_case_id": null,
@@ -366,7 +366,7 @@
   ],
   "schema_version": "2026-06-08-clean-answer-v1",
   "summary": {
-    "average_runtime_ms": 33,
+    "average_runtime_ms": 35,
     "base_105_loaded": 0,
     "clean_pass_count": 8,
     "critical_failures": 0,

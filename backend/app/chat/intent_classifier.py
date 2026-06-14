@@ -485,6 +485,46 @@ def classify_intent(
         and not signals.get("block_or_contain")
         and not signals.get("explicit_run_spl")
     ):
+        use_case_ids = [str(item).lower() for item in (candidate_mappings.get("use_case_ids") or [])]
+        skill_hint = str(candidate_mappings.get("legacy_skill_hint") or "").lower()
+        # Note: explicit_mitre_context is NOT a knowledge signal — failed-login and
+        # other alert queries carry MITRE context too. Use the conceptual-judgment
+        # signal and knowledge-shaped use-case ids only.
+        knowledge_shaped = (
+            signals.get("conceptual_mitre_judgment")
+            or skill_hint in {"knowledge_recall", "retrieve_approved_context"}
+            or any(
+                tok in uc
+                for uc in use_case_ids
+                for tok in ("mitre", "map_alert", "sop", "policy", "knowledge")
+            )
+        )
+        spl_shaped = (
+            signals.get("analytics_aggregation")
+            or skill_hint in {"spl_search", "spl_generation", "aggregate_and_rank", "threshold_anomaly"}
+        )
+        if knowledge_shaped:
+            return _build_classification(
+                intent_family="knowledge_only",
+                primary_intent="knowledge_recall",
+                query_type="ask_for_explanation",
+                answer_goal=["analyst_action_guidance"],
+                confidence=0.82,
+                requires_clarification=False,
+                reason="Maps to a catalog knowledge/MITRE/policy use case; governed knowledge-recall path.",
+                requested_output_type=None,
+            )
+        if spl_shaped:
+            return _build_classification(
+                intent_family="spl_generation_only",
+                primary_intent="spl_generation",
+                query_type="ask_for_query_generation",
+                answer_goal=["spl_artifact"],
+                confidence=0.78,
+                requires_clarification=False,
+                reason="Maps to a catalog analytics/search use case; review-only SPL drafting, execution disabled.",
+                requested_output_type="SPL",
+            )
         if signals.get("alert_summary_shaped") or signals.get("alert_context_present"):
             return _build_classification(
                 intent_family="hybrid_alert_review",

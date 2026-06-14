@@ -39,6 +39,20 @@ def test_alert_summary_shape_maps_to_hybrid_alert_review() -> None:
     assert result.intent_classification.intent_family == "hybrid_alert_review"
 
 
+def test_catalog_knowledge_query_stays_knowledge_not_investigation() -> None:
+    # A MITRE/knowledge use-case match must classify as knowledge, not investigation.
+    understanding = understand_query("What does MITRE ATT&CK T1110 cover?")
+    result = build_query_to_intent(query="What does MITRE ATT&CK T1110 cover?", query_understanding=understanding)
+    assert result.intent_classification.intent_family in {"knowledge_only", "mitre_explanation"}
+
+
+def test_alert_with_mitre_context_is_alert_review_not_knowledge() -> None:
+    # explicit_mitre_context on an alert query must NOT divert it to knowledge.
+    q = "Summarize the failed login spike alert for user jdoe in the last hour"
+    result = build_query_to_intent(query=q, query_understanding=understand_query(q))
+    assert result.intent_classification.intent_family == "hybrid_alert_review"
+
+
 def test_truly_ambiguous_query_still_clarifies() -> None:
     # No registry use-case match → clarification default must still apply.
     understanding = understand_query("hello what can you do for me exactly")
