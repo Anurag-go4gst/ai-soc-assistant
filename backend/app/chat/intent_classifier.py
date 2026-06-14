@@ -466,6 +466,49 @@ def classify_intent(
             requested_output_type="SPL",
         )
 
+    # Registry use-case catalog rescue: a query that maps to a known SOC use case
+    # (a real catalog/near/semantic registry match, not just exact-105) must route
+    # to its skill — not die in clarification. Without this, every non-exact
+    # phrasing of an in-catalog question collapsed to clarification_required, which
+    # the route adjudicator then forced to knowledge_recall. This is the population
+    # that lets the product handle real, variably-phrased SOC questions.
+    catalog_match = str(candidate_mappings.get("match_path") or "") in {
+        "use_case_catalog",
+        "exact_105_plus_use_case_catalog",
+        "near_105_question",
+        "semantic_105_question",
+    }
+    has_use_case = bool(candidate_mappings.get("use_case_ids"))
+    if (
+        catalog_match
+        and has_use_case
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+    ):
+        if signals.get("alert_summary_shaped") or signals.get("alert_context_present"):
+            return _build_classification(
+                intent_family="hybrid_alert_review",
+                primary_intent="attack_discovery",
+                query_type="investigation_with_guidance",
+                answer_goal=["procedural_steps", "analyst_action_guidance"],
+                confidence=0.72,
+                requires_clarification=False,
+                action_mode="recommend_only",
+                reason="Maps to a catalog alert/review use case; route to the registry skill (review-only).",
+                requested_output_type="INVESTIGATION",
+            )
+        return _build_classification(
+            intent_family="live_investigation",
+            primary_intent="attack_discovery",
+            query_type="investigation_with_guidance",
+            answer_goal=["procedural_steps", "analyst_action_guidance"],
+            confidence=0.72,
+            requires_clarification=False,
+            action_mode="recommend_only",
+            reason="Maps to a catalog SOC use case; route to the registry skill (review-only, execution disabled).",
+            requested_output_type="INVESTIGATION",
+        )
+
     return _build_classification(
         intent_family="clarification_required",
         primary_intent="knowledge_recall",

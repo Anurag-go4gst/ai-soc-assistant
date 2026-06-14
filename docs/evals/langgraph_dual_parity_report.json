@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-14T15:52:11.532418+00:00",
+  "generated_at": "2026-06-14T16:22:36.124696+00:00",
   "profile": {
     "ai_soc_curated_enrichment_activation_enabled": true,
     "ai_soc_langgraph_shadow_enabled": true,
@@ -722,14 +722,10 @@
       "diff_reasons": [],
       "expected_path_type": "hybrid_investigation",
       "graph_branch_results": {
-        "clarification_status": {
-          "clarification_needed": true,
-          "path_type": "clarification_required",
-          "reason": "intent_requires_clarification; curated_enrichment_evidence_requirements; missing_required_curated_evidence"
-        },
+        "clarification_status": null,
         "evidence_plan": {
-          "action_mode": "hil_required",
-          "answer_mode": "clarification",
+          "action_mode": "recommend_only",
+          "answer_mode": "live_investigation",
           "answer_rules": [
             "State 'successful login after failures observed.'",
             "Do not state 'compromised account' unless additional evidence exists.",
@@ -752,7 +748,7 @@
             "Sequence evidence can be benign if the user retried successfully.",
             "Novelty is optional and may be unavailable in current telemetry."
           ],
-          "mcp_allowed": false,
+          "mcp_allowed": true,
           "missing_required_evidence": [
             "user",
             "src",
@@ -765,10 +761,10 @@
           ],
           "needs_clarification": true,
           "needs_hil": true,
-          "needs_mcp": false,
+          "needs_mcp": true,
           "needs_mitre": false,
           "needs_rag": false,
-          "needs_spl": false,
+          "needs_spl": true,
           "optional_evidence_keys": [
             "account_compromise",
             "credential_dumping",
@@ -792,9 +788,9 @@
             "success_count"
           ],
           "rag_no_match_behavior": null,
-          "rag_phase": "rag_only",
+          "rag_phase": "post_mcp",
           "reasons": [
-            "intent_requires_clarification",
+            "live_investigation",
             "curated_enrichment_evidence_requirements",
             "missing_required_curated_evidence"
           ],
@@ -817,8 +813,83 @@
             "plan_source": "deterministic",
             "provenance": {
               "composer": "deterministic_v1",
-              "intent_family": "clarification_required",
+              "intent_family": "live_investigation",
               "match_path": "use_case_catalog",
+              "resource_decisions": {
+                "hil": {
+                  "reason": "Analyst confirms SPL and approves any search execution.",
+                  "required": true
+                },
+                "limitations": [
+                  "Sequence evidence can be benign if the user retried successfully.",
+                  "Novelty is optional and may be unavailable in current telemetry."
+                ],
+                "match_path": "use_case_catalog",
+                "mcp": {
+                  "allowed": false,
+                  "needed": true,
+                  "planned_discovery": [
+                    "splunk_get_indexes",
+                    "splunk_get_metadata",
+                    "splunk_get_knowledge_objects"
+                  ],
+                  "planned_discovery_calls": [
+                    {
+                      "arguments": {},
+                      "block_reason": "mcp_global_execution_disabled",
+                      "failure_mode": "execution_disabled",
+                      "kind": "planned_tool_call",
+                      "policy_checks": [
+                        "read_only_discovery",
+                        "mcp_execution_gate"
+                      ],
+                      "server": "splunk",
+                      "tool_name": "splunk_get_indexes"
+                    },
+                    {
+                      "arguments": {},
+                      "block_reason": "mcp_global_execution_disabled",
+                      "failure_mode": "execution_disabled",
+                      "kind": "planned_tool_call",
+                      "policy_checks": [
+                        "read_only_discovery",
+                        "mcp_execution_gate"
+                      ],
+                      "server": "splunk",
+                      "tool_name": "splunk_get_metadata"
+                    },
+                    {
+                      "arguments": {},
+                      "block_reason": "mcp_global_execution_disabled",
+                      "failure_mode": "execution_disabled",
+                      "kind": "planned_tool_call",
+                      "policy_checks": [
+                        "read_only_discovery",
+                        "mcp_execution_gate"
+                      ],
+                      "server": "splunk",
+                      "tool_name": "splunk_get_knowledge_objects"
+                    }
+                  ],
+                  "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+                },
+                "mitre": {
+                  "allowed": false
+                },
+                "path_type": "spl_review",
+                "rag": {
+                  "needed": false,
+                  "source": "soc_kb_rag"
+                },
+                "severity": {
+                  "allowed": false
+                },
+                "spl": {
+                  "needed": true,
+                  "review_only": true,
+                  "skip_reason": null
+                }
+              },
               "skill_id": "attack_discovery",
               "skill_workflow": [
                 "spl_generation",
@@ -828,10 +899,54 @@
               ],
               "use_case_id": "auth_success_after_failure"
             },
-            "steps": []
+            "steps": [
+              {
+                "args_template": {},
+                "on_unavailable": "spl_lab_draft_family:auth_success_after_failure",
+                "policy_checks": [
+                  "spl_validator",
+                  "execution_eligible_false",
+                  "required_evidence:fail_count,first_failure,host,last_success,source_ip_novelty,src,success_count,user",
+                  "skill_required_evidence:source_evidence"
+                ],
+                "purpose": "spl_artifact",
+                "resource_id": "spl_template_family:auth_success_after_failure",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "spl"
+              },
+              {
+                "args_template": {},
+                "on_unavailable": null,
+                "policy_checks": [
+                  "mcp_execution_gate",
+                  "approved_normalized_spl_only",
+                  "global_and_server_execution_flags",
+                  "skill_required_evidence:source_evidence"
+                ],
+                "purpose": "mcp_execution",
+                "resource_id": "mcp_tool:splunk_run_query",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "mcp"
+              },
+              {
+                "args_template": {},
+                "on_unavailable": null,
+                "policy_checks": [
+                  "answer_guard",
+                  "deterministic_fallback_on_failure"
+                ],
+                "purpose": "narration",
+                "resource_id": "llm_role:narration",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "narration"
+              }
+            ]
           },
           "runtime_support_status": "runtime_active",
-          "spl_allowed": false,
+          "spl_allowed": true,
           "unsupported_claims_avoid": [
             "account_compromise",
             "credential_dumping",
@@ -839,22 +954,48 @@
           ],
           "use_case_id": "auth_success_after_failure"
         },
-        "hil_status": {
-          "authority_source": "deterministic_planner_path_selection",
-          "clarification_needed": true,
-          "hil_required": true
-        },
-        "limitations": [],
+        "hil_status": null,
+        "limitations": [
+          "Sequence evidence can be benign if the user retried successfully.",
+          "Novelty is optional and may be unavailable in current telemetry."
+        ],
         "missing_evidence": [],
         "mitre_branch_result": null,
-        "path_type": "clarification_required",
+        "path_type": "spl_review",
         "rag_result": null,
         "selected_branches": [
-          "hil",
-          "clarification"
+          "spl",
+          "evidence",
+          "severity"
         ],
-        "severity_result": null,
-        "spl_result": null,
+        "severity_result": {
+          "allowed_action_tier": 1,
+          "matched_rules": [
+            "default_policy"
+          ],
+          "missing_evidence": [
+            "privileged_account_impacted",
+            "critical_asset",
+            "confirmed_success"
+          ],
+          "recommended_priority": "high",
+          "severity_label": "P2 High",
+          "source_refs": [],
+          "use_case_id": "auth_success_after_failure",
+          "why_not_higher": [
+            "P1 requires: privileged_account_impacted, critical_asset, confirmed_success"
+          ]
+        },
+        "spl_result": {
+          "blocked_tools": [
+            "candidate_spl_execution",
+            "mcp_execution"
+          ],
+          "branch_scheduled": true,
+          "execution_enabled": false,
+          "needs_spl": true,
+          "spl_allowed": true
+        },
         "unsafe_status": null
       },
       "graph_nodes_visited": [
@@ -875,18 +1016,19 @@
         "finalize"
       ],
       "imperative": {
-        "answer_mode": "clarification",
+        "answer_mode": "live_investigation",
         "answer_profile": null,
         "branches": [
-          "clarification",
-          "hil"
+          "evidence",
+          "severity",
+          "spl"
         ],
-        "candidate_spl_present": false,
+        "candidate_spl_present": true,
         "execution_executed": false,
-        "execution_intent": "none",
-        "execution_status": "skipped",
-        "hil_required": false,
-        "hil_review_type": "execution_approval",
+        "execution_intent": "spl_search",
+        "execution_status": "requires_human_review",
+        "hil_required": true,
+        "hil_review_type": "precondition_review",
         "live_execution_skill": "attack_discovery",
         "missing_evidence_count": 6,
         "mitre_answer_visible": false,
@@ -894,35 +1036,32 @@
         "mitre_evidence_supported_techniques": [],
         "mitre_not_claimed_techniques": [],
         "mitre_visible": [],
-        "normalized_spl_present": false,
-        "path_type": "clarification_required",
+        "normalized_spl_present": true,
+        "path_type": "spl_review",
         "runtime_support_status": "runtime_active",
         "severity_label": "P2 High",
         "side": "imperative",
-        "spl_approved": null,
-        "spl_generation_status": "none",
+        "spl_approved": true,
+        "spl_generation_status": "approved",
         "spl_template_status": "active",
         "unsafe_blocked": false,
         "use_case_id": "auth_success_after_failure"
       },
       "imperative_branches": [
-        "clarification",
-        "hil"
+        "evidence",
+        "severity",
+        "spl"
       ],
-      "imperative_path_type": "clarification_required",
+      "imperative_path_type": "spl_review",
       "parity": {
         "critical_mismatch_categories": [],
         "diff_details": [],
         "execution_status_match": true,
         "graph_branch_results": {
-          "clarification_status": {
-            "clarification_needed": true,
-            "path_type": "clarification_required",
-            "reason": "intent_requires_clarification; curated_enrichment_evidence_requirements; missing_required_curated_evidence"
-          },
+          "clarification_status": null,
           "evidence_plan": {
-            "action_mode": "hil_required",
-            "answer_mode": "clarification",
+            "action_mode": "recommend_only",
+            "answer_mode": "live_investigation",
             "answer_rules": [
               "State 'successful login after failures observed.'",
               "Do not state 'compromised account' unless additional evidence exists.",
@@ -945,7 +1084,7 @@
               "Sequence evidence can be benign if the user retried successfully.",
               "Novelty is optional and may be unavailable in current telemetry."
             ],
-            "mcp_allowed": false,
+            "mcp_allowed": true,
             "missing_required_evidence": [
               "user",
               "src",
@@ -958,10 +1097,10 @@
             ],
             "needs_clarification": true,
             "needs_hil": true,
-            "needs_mcp": false,
+            "needs_mcp": true,
             "needs_mitre": false,
             "needs_rag": false,
-            "needs_spl": false,
+            "needs_spl": true,
             "optional_evidence_keys": [
               "account_compromise",
               "credential_dumping",
@@ -985,9 +1124,9 @@
               "success_count"
             ],
             "rag_no_match_behavior": null,
-            "rag_phase": "rag_only",
+            "rag_phase": "post_mcp",
             "reasons": [
-              "intent_requires_clarification",
+              "live_investigation",
               "curated_enrichment_evidence_requirements",
               "missing_required_curated_evidence"
             ],
@@ -1010,8 +1149,83 @@
               "plan_source": "deterministic",
               "provenance": {
                 "composer": "deterministic_v1",
-                "intent_family": "clarification_required",
+                "intent_family": "live_investigation",
                 "match_path": "use_case_catalog",
+                "resource_decisions": {
+                  "hil": {
+                    "reason": "Analyst confirms SPL and approves any search execution.",
+                    "required": true
+                  },
+                  "limitations": [
+                    "Sequence evidence can be benign if the user retried successfully.",
+                    "Novelty is optional and may be unavailable in current telemetry."
+                  ],
+                  "match_path": "use_case_catalog",
+                  "mcp": {
+                    "allowed": false,
+                    "needed": true,
+                    "planned_discovery": [
+                      "splunk_get_indexes",
+                      "splunk_get_metadata",
+                      "splunk_get_knowledge_objects"
+                    ],
+                    "planned_discovery_calls": [
+                      {
+                        "arguments": {},
+                        "block_reason": "mcp_global_execution_disabled",
+                        "failure_mode": "execution_disabled",
+                        "kind": "planned_tool_call",
+                        "policy_checks": [
+                          "read_only_discovery",
+                          "mcp_execution_gate"
+                        ],
+                        "server": "splunk",
+                        "tool_name": "splunk_get_indexes"
+                      },
+                      {
+                        "arguments": {},
+                        "block_reason": "mcp_global_execution_disabled",
+                        "failure_mode": "execution_disabled",
+                        "kind": "planned_tool_call",
+                        "policy_checks": [
+                          "read_only_discovery",
+                          "mcp_execution_gate"
+                        ],
+                        "server": "splunk",
+                        "tool_name": "splunk_get_metadata"
+                      },
+                      {
+                        "arguments": {},
+                        "block_reason": "mcp_global_execution_disabled",
+                        "failure_mode": "execution_disabled",
+                        "kind": "planned_tool_call",
+                        "policy_checks": [
+                          "read_only_discovery",
+                          "mcp_execution_gate"
+                        ],
+                        "server": "splunk",
+                        "tool_name": "splunk_get_knowledge_objects"
+                      }
+                    ],
+                    "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+                  },
+                  "mitre": {
+                    "allowed": false
+                  },
+                  "path_type": "spl_review",
+                  "rag": {
+                    "needed": false,
+                    "source": "soc_kb_rag"
+                  },
+                  "severity": {
+                    "allowed": false
+                  },
+                  "spl": {
+                    "needed": true,
+                    "review_only": true,
+                    "skip_reason": null
+                  }
+                },
                 "skill_id": "attack_discovery",
                 "skill_workflow": [
                   "spl_generation",
@@ -1021,10 +1235,54 @@
                 ],
                 "use_case_id": "auth_success_after_failure"
               },
-              "steps": []
+              "steps": [
+                {
+                  "args_template": {},
+                  "on_unavailable": "spl_lab_draft_family:auth_success_after_failure",
+                  "policy_checks": [
+                    "spl_validator",
+                    "execution_eligible_false",
+                    "required_evidence:fail_count,first_failure,host,last_success,source_ip_novelty,src,success_count,user",
+                    "skill_required_evidence:source_evidence"
+                  ],
+                  "purpose": "spl_artifact",
+                  "resource_id": "spl_template_family:auth_success_after_failure",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "spl"
+                },
+                {
+                  "args_template": {},
+                  "on_unavailable": null,
+                  "policy_checks": [
+                    "mcp_execution_gate",
+                    "approved_normalized_spl_only",
+                    "global_and_server_execution_flags",
+                    "skill_required_evidence:source_evidence"
+                  ],
+                  "purpose": "mcp_execution",
+                  "resource_id": "mcp_tool:splunk_run_query",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "mcp"
+                },
+                {
+                  "args_template": {},
+                  "on_unavailable": null,
+                  "policy_checks": [
+                    "answer_guard",
+                    "deterministic_fallback_on_failure"
+                  ],
+                  "purpose": "narration",
+                  "resource_id": "llm_role:narration",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "narration"
+                }
+              ]
             },
             "runtime_support_status": "runtime_active",
-            "spl_allowed": false,
+            "spl_allowed": true,
             "unsupported_claims_avoid": [
               "account_compromise",
               "credential_dumping",
@@ -1032,27 +1290,54 @@
             ],
             "use_case_id": "auth_success_after_failure"
           },
-          "hil_status": {
-            "authority_source": "deterministic_planner_path_selection",
-            "clarification_needed": true,
-            "hil_required": true
-          },
-          "limitations": [],
+          "hil_status": null,
+          "limitations": [
+            "Sequence evidence can be benign if the user retried successfully.",
+            "Novelty is optional and may be unavailable in current telemetry."
+          ],
           "missing_evidence": [],
           "mitre_branch_result": null,
-          "path_type": "clarification_required",
+          "path_type": "spl_review",
           "rag_result": null,
           "selected_branches": [
-            "hil",
-            "clarification"
+            "spl",
+            "evidence",
+            "severity"
           ],
-          "severity_result": null,
-          "spl_result": null,
+          "severity_result": {
+            "allowed_action_tier": 1,
+            "matched_rules": [
+              "default_policy"
+            ],
+            "missing_evidence": [
+              "privileged_account_impacted",
+              "critical_asset",
+              "confirmed_success"
+            ],
+            "recommended_priority": "high",
+            "severity_label": "P2 High",
+            "source_refs": [],
+            "use_case_id": "auth_success_after_failure",
+            "why_not_higher": [
+              "P1 requires: privileged_account_impacted, critical_asset, confirmed_success"
+            ]
+          },
+          "spl_result": {
+            "blocked_tools": [
+              "candidate_spl_execution",
+              "mcp_execution"
+            ],
+            "branch_scheduled": true,
+            "execution_enabled": false,
+            "needs_spl": true,
+            "spl_allowed": true
+          },
           "unsafe_status": null
         },
         "graph_branches": [
-          "clarification",
-          "hil"
+          "evidence",
+          "severity",
+          "spl"
         ],
         "graph_nodes_visited": [
           "query_understanding",
@@ -1071,13 +1356,14 @@
           "investigation_execution",
           "finalize"
         ],
-        "graph_path_type": "clarification_required",
+        "graph_path_type": "spl_review",
         "hil_status_match": true,
         "imperative_branches": [
-          "clarification",
-          "hil"
+          "evidence",
+          "severity",
+          "spl"
         ],
-        "imperative_path_type": "clarification_required",
+        "imperative_path_type": "spl_review",
         "mitre_bucket_match": true,
         "parity_verdict": "exact_match",
         "severity_match": true,
@@ -1088,18 +1374,19 @@
       "row_id": "demo.successful_login_after_failures",
       "runtime_active": true,
       "shadow": {
-        "answer_mode": "clarification",
+        "answer_mode": "live_investigation",
         "answer_profile": null,
         "branches": [
-          "clarification",
-          "hil"
+          "evidence",
+          "severity",
+          "spl"
         ],
-        "candidate_spl_present": false,
+        "candidate_spl_present": true,
         "execution_executed": false,
-        "execution_intent": "none",
-        "execution_status": "skipped",
-        "hil_required": false,
-        "hil_review_type": "execution_approval",
+        "execution_intent": "spl_search",
+        "execution_status": "requires_human_review",
+        "hil_required": true,
+        "hil_review_type": "precondition_review",
         "live_execution_skill": "attack_discovery",
         "missing_evidence_count": 6,
         "mitre_answer_visible": false,
@@ -1107,22 +1394,23 @@
         "mitre_evidence_supported_techniques": [],
         "mitre_not_claimed_techniques": [],
         "mitre_visible": [],
-        "normalized_spl_present": false,
-        "path_type": "clarification_required",
+        "normalized_spl_present": true,
+        "path_type": "spl_review",
         "runtime_support_status": "runtime_active",
         "severity_label": "P2 High",
         "side": "shadow",
-        "spl_approved": null,
-        "spl_generation_status": "none",
+        "spl_approved": true,
+        "spl_generation_status": "approved",
         "spl_template_status": "active",
         "unsafe_blocked": false,
         "use_case_id": "auth_success_after_failure"
       },
       "shadow_branches": [
-        "clarification",
-        "hil"
+        "evidence",
+        "severity",
+        "spl"
       ],
-      "shadow_path_type": "clarification_required",
+      "shadow_path_type": "spl_review",
       "source": "demo_scenario"
     },
     {
@@ -1130,14 +1418,10 @@
       "diff_reasons": [],
       "expected_path_type": "spl_review_plus_rag",
       "graph_branch_results": {
-        "clarification_status": {
-          "clarification_needed": true,
-          "path_type": "clarification_required",
-          "reason": "intent_requires_clarification; curated_enrichment_evidence_requirements; missing_required_curated_evidence"
-        },
+        "clarification_status": null,
         "evidence_plan": {
-          "action_mode": "hil_required",
-          "answer_mode": "clarification",
+          "action_mode": "recommend_only",
+          "answer_mode": "live_investigation",
           "answer_rules": [
             "Do not claim C2 confirmed from periodicity alone.",
             "Use candidate/evidence-supported wording based on multiple signals."
@@ -1159,7 +1443,7 @@
             "Periodic traffic may be benign polling or monitoring.",
             "Parent T1071 is used unless evidence supports a specific sub-technique."
           ],
-          "mcp_allowed": false,
+          "mcp_allowed": true,
           "missing_required_evidence": [
             "src",
             "dest",
@@ -1173,10 +1457,10 @@
           ],
           "needs_clarification": true,
           "needs_hil": true,
-          "needs_mcp": false,
+          "needs_mcp": true,
           "needs_mitre": false,
           "needs_rag": false,
-          "needs_spl": false,
+          "needs_spl": true,
           "optional_evidence_keys": [
             "c2_confirmed",
             "malware",
@@ -1191,9 +1475,9 @@
             "rare_domain_indicator"
           ],
           "rag_no_match_behavior": null,
-          "rag_phase": "rag_only",
+          "rag_phase": "post_mcp",
           "reasons": [
-            "intent_requires_clarification",
+            "live_investigation",
             "curated_enrichment_evidence_requirements",
             "missing_required_curated_evidence"
           ],
@@ -1217,8 +1501,83 @@
             "plan_source": "deterministic",
             "provenance": {
               "composer": "deterministic_v1",
-              "intent_family": "clarification_required",
+              "intent_family": "live_investigation",
               "match_path": "use_case_catalog",
+              "resource_decisions": {
+                "hil": {
+                  "reason": "Analyst confirms SPL and approves any search execution.",
+                  "required": true
+                },
+                "limitations": [
+                  "Periodic traffic may be benign polling or monitoring.",
+                  "Parent T1071 is used unless evidence supports a specific sub-technique."
+                ],
+                "match_path": "use_case_catalog",
+                "mcp": {
+                  "allowed": false,
+                  "needed": true,
+                  "planned_discovery": [
+                    "splunk_get_indexes",
+                    "splunk_get_metadata",
+                    "splunk_get_knowledge_objects"
+                  ],
+                  "planned_discovery_calls": [
+                    {
+                      "arguments": {},
+                      "block_reason": "mcp_global_execution_disabled",
+                      "failure_mode": "execution_disabled",
+                      "kind": "planned_tool_call",
+                      "policy_checks": [
+                        "read_only_discovery",
+                        "mcp_execution_gate"
+                      ],
+                      "server": "splunk",
+                      "tool_name": "splunk_get_indexes"
+                    },
+                    {
+                      "arguments": {},
+                      "block_reason": "mcp_global_execution_disabled",
+                      "failure_mode": "execution_disabled",
+                      "kind": "planned_tool_call",
+                      "policy_checks": [
+                        "read_only_discovery",
+                        "mcp_execution_gate"
+                      ],
+                      "server": "splunk",
+                      "tool_name": "splunk_get_metadata"
+                    },
+                    {
+                      "arguments": {},
+                      "block_reason": "mcp_global_execution_disabled",
+                      "failure_mode": "execution_disabled",
+                      "kind": "planned_tool_call",
+                      "policy_checks": [
+                        "read_only_discovery",
+                        "mcp_execution_gate"
+                      ],
+                      "server": "splunk",
+                      "tool_name": "splunk_get_knowledge_objects"
+                    }
+                  ],
+                  "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+                },
+                "mitre": {
+                  "allowed": false
+                },
+                "path_type": "spl_review",
+                "rag": {
+                  "needed": false,
+                  "source": "soc_kb_rag"
+                },
+                "severity": {
+                  "allowed": false
+                },
+                "spl": {
+                  "needed": true,
+                  "review_only": true,
+                  "skip_reason": null
+                }
+              },
               "skill_id": "attack_discovery",
               "skill_workflow": [
                 "spl_generation",
@@ -1228,10 +1587,54 @@
               ],
               "use_case_id": "dns_beaconing_candidate"
             },
-            "steps": []
+            "steps": [
+              {
+                "args_template": {},
+                "on_unavailable": "spl_lab_draft_family:dns_beaconing_hunt",
+                "policy_checks": [
+                  "spl_validator",
+                  "execution_eligible_false",
+                  "required_evidence:DNS_query_count,bytes_out,dest,domain,jitter,periodicity,rare_domain_indicator,src,user_host_association",
+                  "skill_required_evidence:source_evidence"
+                ],
+                "purpose": "spl_artifact",
+                "resource_id": "spl_template_family:dns_beaconing_candidate",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "spl"
+              },
+              {
+                "args_template": {},
+                "on_unavailable": null,
+                "policy_checks": [
+                  "mcp_execution_gate",
+                  "approved_normalized_spl_only",
+                  "global_and_server_execution_flags",
+                  "skill_required_evidence:source_evidence"
+                ],
+                "purpose": "mcp_execution",
+                "resource_id": "mcp_tool:splunk_run_query",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "mcp"
+              },
+              {
+                "args_template": {},
+                "on_unavailable": null,
+                "policy_checks": [
+                  "answer_guard",
+                  "deterministic_fallback_on_failure"
+                ],
+                "purpose": "narration",
+                "resource_id": "llm_role:narration",
+                "status": "planned",
+                "status_reason": null,
+                "step_id": "narration"
+              }
+            ]
           },
           "runtime_support_status": "runtime_active",
-          "spl_allowed": false,
+          "spl_allowed": true,
           "unsupported_claims_avoid": [
             "c2_confirmed",
             "malware",
@@ -1239,22 +1642,44 @@
           ],
           "use_case_id": "dns_beaconing_candidate"
         },
-        "hil_status": {
-          "authority_source": "deterministic_planner_path_selection",
-          "clarification_needed": true,
-          "hil_required": true
-        },
-        "limitations": [],
+        "hil_status": null,
+        "limitations": [
+          "Periodic traffic may be benign polling or monitoring.",
+          "Parent T1071 is used unless evidence supports a specific sub-technique."
+        ],
         "missing_evidence": [],
         "mitre_branch_result": null,
-        "path_type": "clarification_required",
+        "path_type": "spl_review",
         "rag_result": null,
         "selected_branches": [
-          "hil",
-          "clarification"
+          "spl",
+          "evidence",
+          "severity"
         ],
-        "severity_result": null,
-        "spl_result": null,
+        "severity_result": {
+          "allowed_action_tier": 1,
+          "matched_rules": [
+            "default_no_policy"
+          ],
+          "missing_evidence": [],
+          "recommended_priority": "standard_triage",
+          "severity_label": "P3 Medium",
+          "source_refs": [],
+          "use_case_id": "dns_beaconing_candidate",
+          "why_not_higher": [
+            "No use-case-specific severity policy is active yet."
+          ]
+        },
+        "spl_result": {
+          "blocked_tools": [
+            "candidate_spl_execution",
+            "mcp_execution"
+          ],
+          "branch_scheduled": true,
+          "execution_enabled": false,
+          "needs_spl": true,
+          "spl_allowed": true
+        },
         "unsafe_status": null
       },
       "graph_nodes_visited": [
@@ -1275,18 +1700,19 @@
         "finalize"
       ],
       "imperative": {
-        "answer_mode": "clarification",
-        "answer_profile": "hybrid_alert_review",
+        "answer_mode": "live_investigation",
+        "answer_profile": null,
         "branches": [
-          "clarification",
-          "hil"
+          "evidence",
+          "severity",
+          "spl"
         ],
-        "candidate_spl_present": false,
+        "candidate_spl_present": true,
         "execution_executed": false,
-        "execution_intent": "none",
-        "execution_status": "skipped",
-        "hil_required": false,
-        "hil_review_type": "execution_approval",
+        "execution_intent": "spl_search",
+        "execution_status": "requires_human_review",
+        "hil_required": true,
+        "hil_review_type": "precondition_review",
         "live_execution_skill": "attack_discovery",
         "missing_evidence_count": 6,
         "mitre_answer_visible": false,
@@ -1294,35 +1720,32 @@
         "mitre_evidence_supported_techniques": [],
         "mitre_not_claimed_techniques": [],
         "mitre_visible": [],
-        "normalized_spl_present": false,
-        "path_type": "clarification_required",
+        "normalized_spl_present": true,
+        "path_type": "spl_review",
         "runtime_support_status": "runtime_active",
         "severity_label": "Not assigned from this question alone",
         "side": "imperative",
-        "spl_approved": null,
-        "spl_generation_status": "none",
+        "spl_approved": true,
+        "spl_generation_status": "approved",
         "spl_template_status": "active",
         "unsafe_blocked": false,
         "use_case_id": "dns_beaconing_candidate"
       },
       "imperative_branches": [
-        "clarification",
-        "hil"
+        "evidence",
+        "severity",
+        "spl"
       ],
-      "imperative_path_type": "clarification_required",
+      "imperative_path_type": "spl_review",
       "parity": {
         "critical_mismatch_categories": [],
         "diff_details": [],
         "execution_status_match": true,
         "graph_branch_results": {
-          "clarification_status": {
-            "clarification_needed": true,
-            "path_type": "clarification_required",
-            "reason": "intent_requires_clarification; curated_enrichment_evidence_requirements; missing_required_curated_evidence"
-          },
+          "clarification_status": null,
           "evidence_plan": {
-            "action_mode": "hil_required",
-            "answer_mode": "clarification",
+            "action_mode": "recommend_only",
+            "answer_mode": "live_investigation",
             "answer_rules": [
               "Do not claim C2 confirmed from periodicity alone.",
               "Use candidate/evidence-supported wording based on multiple signals."
@@ -1344,7 +1767,7 @@
               "Periodic traffic may be benign polling or monitoring.",
               "Parent T1071 is used unless evidence supports a specific sub-technique."
             ],
-            "mcp_allowed": false,
+            "mcp_allowed": true,
             "missing_required_evidence": [
               "src",
               "dest",
@@ -1358,10 +1781,10 @@
             ],
             "needs_clarification": true,
             "needs_hil": true,
-            "needs_mcp": false,
+            "needs_mcp": true,
             "needs_mitre": false,
             "needs_rag": false,
-            "needs_spl": false,
+            "needs_spl": true,
             "optional_evidence_keys": [
               "c2_confirmed",
               "malware",
@@ -1376,9 +1799,9 @@
               "rare_domain_indicator"
             ],
             "rag_no_match_behavior": null,
-            "rag_phase": "rag_only",
+            "rag_phase": "post_mcp",
             "reasons": [
-              "intent_requires_clarification",
+              "live_investigation",
               "curated_enrichment_evidence_requirements",
               "missing_required_curated_evidence"
             ],
@@ -1402,8 +1825,83 @@
               "plan_source": "deterministic",
               "provenance": {
                 "composer": "deterministic_v1",
-                "intent_family": "clarification_required",
+                "intent_family": "live_investigation",
                 "match_path": "use_case_catalog",
+                "resource_decisions": {
+                  "hil": {
+                    "reason": "Analyst confirms SPL and approves any search execution.",
+                    "required": true
+                  },
+                  "limitations": [
+                    "Periodic traffic may be benign polling or monitoring.",
+                    "Parent T1071 is used unless evidence supports a specific sub-technique."
+                  ],
+                  "match_path": "use_case_catalog",
+                  "mcp": {
+                    "allowed": false,
+                    "needed": true,
+                    "planned_discovery": [
+                      "splunk_get_indexes",
+                      "splunk_get_metadata",
+                      "splunk_get_knowledge_objects"
+                    ],
+                    "planned_discovery_calls": [
+                      {
+                        "arguments": {},
+                        "block_reason": "mcp_global_execution_disabled",
+                        "failure_mode": "execution_disabled",
+                        "kind": "planned_tool_call",
+                        "policy_checks": [
+                          "read_only_discovery",
+                          "mcp_execution_gate"
+                        ],
+                        "server": "splunk",
+                        "tool_name": "splunk_get_indexes"
+                      },
+                      {
+                        "arguments": {},
+                        "block_reason": "mcp_global_execution_disabled",
+                        "failure_mode": "execution_disabled",
+                        "kind": "planned_tool_call",
+                        "policy_checks": [
+                          "read_only_discovery",
+                          "mcp_execution_gate"
+                        ],
+                        "server": "splunk",
+                        "tool_name": "splunk_get_metadata"
+                      },
+                      {
+                        "arguments": {},
+                        "block_reason": "mcp_global_execution_disabled",
+                        "failure_mode": "execution_disabled",
+                        "kind": "planned_tool_call",
+                        "policy_checks": [
+                          "read_only_discovery",
+                          "mcp_execution_gate"
+                        ],
+                        "server": "splunk",
+                        "tool_name": "splunk_get_knowledge_objects"
+                      }
+                    ],
+                    "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+                  },
+                  "mitre": {
+                    "allowed": false
+                  },
+                  "path_type": "spl_review",
+                  "rag": {
+                    "needed": false,
+                    "source": "soc_kb_rag"
+                  },
+                  "severity": {
+                    "allowed": false
+                  },
+                  "spl": {
+                    "needed": true,
+                    "review_only": true,
+                    "skip_reason": null
+                  }
+                },
                 "skill_id": "attack_discovery",
                 "skill_workflow": [
                   "spl_generation",
@@ -1413,10 +1911,54 @@
                 ],
                 "use_case_id": "dns_beaconing_candidate"
               },
-              "steps": []
+              "steps": [
+                {
+                  "args_template": {},
+                  "on_unavailable": "spl_lab_draft_family:dns_beaconing_hunt",
+                  "policy_checks": [
+                    "spl_validator",
+                    "execution_eligible_false",
+                    "required_evidence:DNS_query_count,bytes_out,dest,domain,jitter,periodicity,rare_domain_indicator,src,user_host_association",
+                    "skill_required_evidence:source_evidence"
+                  ],
+                  "purpose": "spl_artifact",
+                  "resource_id": "spl_template_family:dns_beaconing_candidate",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "spl"
+                },
+                {
+                  "args_template": {},
+                  "on_unavailable": null,
+                  "policy_checks": [
+                    "mcp_execution_gate",
+                    "approved_normalized_spl_only",
+                    "global_and_server_execution_flags",
+                    "skill_required_evidence:source_evidence"
+                  ],
+                  "purpose": "mcp_execution",
+                  "resource_id": "mcp_tool:splunk_run_query",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "mcp"
+                },
+                {
+                  "args_template": {},
+                  "on_unavailable": null,
+                  "policy_checks": [
+                    "answer_guard",
+                    "deterministic_fallback_on_failure"
+                  ],
+                  "purpose": "narration",
+                  "resource_id": "llm_role:narration",
+                  "status": "planned",
+                  "status_reason": null,
+                  "step_id": "narration"
+                }
+              ]
             },
             "runtime_support_status": "runtime_active",
-            "spl_allowed": false,
+            "spl_allowed": true,
             "unsupported_claims_avoid": [
               "c2_confirmed",
               "malware",
@@ -1424,27 +1966,50 @@
             ],
             "use_case_id": "dns_beaconing_candidate"
           },
-          "hil_status": {
-            "authority_source": "deterministic_planner_path_selection",
-            "clarification_needed": true,
-            "hil_required": true
-          },
-          "limitations": [],
+          "hil_status": null,
+          "limitations": [
+            "Periodic traffic may be benign polling or monitoring.",
+            "Parent T1071 is used unless evidence supports a specific sub-technique."
+          ],
           "missing_evidence": [],
           "mitre_branch_result": null,
-          "path_type": "clarification_required",
+          "path_type": "spl_review",
           "rag_result": null,
           "selected_branches": [
-            "hil",
-            "clarification"
+            "spl",
+            "evidence",
+            "severity"
           ],
-          "severity_result": null,
-          "spl_result": null,
+          "severity_result": {
+            "allowed_action_tier": 1,
+            "matched_rules": [
+              "default_no_policy"
+            ],
+            "missing_evidence": [],
+            "recommended_priority": "standard_triage",
+            "severity_label": "P3 Medium",
+            "source_refs": [],
+            "use_case_id": "dns_beaconing_candidate",
+            "why_not_higher": [
+              "No use-case-specific severity policy is active yet."
+            ]
+          },
+          "spl_result": {
+            "blocked_tools": [
+              "candidate_spl_execution",
+              "mcp_execution"
+            ],
+            "branch_scheduled": true,
+            "execution_enabled": false,
+            "needs_spl": true,
+            "spl_allowed": true
+          },
           "unsafe_status": null
         },
         "graph_branches": [
-          "clarification",
-          "hil"
+          "evidence",
+          "severity",
+          "spl"
         ],
         "graph_nodes_visited": [
           "query_understanding",
@@ -1463,13 +2028,14 @@
           "investigation_execution",
           "finalize"
         ],
-        "graph_path_type": "clarification_required",
+        "graph_path_type": "spl_review",
         "hil_status_match": true,
         "imperative_branches": [
-          "clarification",
-          "hil"
+          "evidence",
+          "severity",
+          "spl"
         ],
-        "imperative_path_type": "clarification_required",
+        "imperative_path_type": "spl_review",
         "mitre_bucket_match": true,
         "parity_verdict": "exact_match",
         "severity_match": true,
@@ -1480,18 +2046,19 @@
       "row_id": "demo.dns_beaconing_candidate",
       "runtime_active": true,
       "shadow": {
-        "answer_mode": "clarification",
-        "answer_profile": "hybrid_alert_review",
+        "answer_mode": "live_investigation",
+        "answer_profile": null,
         "branches": [
-          "clarification",
-          "hil"
+          "evidence",
+          "severity",
+          "spl"
         ],
-        "candidate_spl_present": false,
+        "candidate_spl_present": true,
         "execution_executed": false,
-        "execution_intent": "none",
-        "execution_status": "skipped",
-        "hil_required": false,
-        "hil_review_type": "execution_approval",
+        "execution_intent": "spl_search",
+        "execution_status": "requires_human_review",
+        "hil_required": true,
+        "hil_review_type": "precondition_review",
         "live_execution_skill": "attack_discovery",
         "missing_evidence_count": 6,
         "mitre_answer_visible": false,
@@ -1499,22 +2066,23 @@
         "mitre_evidence_supported_techniques": [],
         "mitre_not_claimed_techniques": [],
         "mitre_visible": [],
-        "normalized_spl_present": false,
-        "path_type": "clarification_required",
+        "normalized_spl_present": true,
+        "path_type": "spl_review",
         "runtime_support_status": "runtime_active",
         "severity_label": "Not assigned from this question alone",
         "side": "shadow",
-        "spl_approved": null,
-        "spl_generation_status": "none",
+        "spl_approved": true,
+        "spl_generation_status": "approved",
         "spl_template_status": "active",
         "unsafe_blocked": false,
         "use_case_id": "dns_beaconing_candidate"
       },
       "shadow_branches": [
-        "clarification",
-        "hil"
+        "evidence",
+        "severity",
+        "spl"
       ],
-      "shadow_path_type": "clarification_required",
+      "shadow_path_type": "spl_review",
       "source": "demo_scenario"
     },
     {
