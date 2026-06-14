@@ -155,6 +155,12 @@ def build_composer_runtime_status() -> dict[str, Any]:
         "llm_composer_used": False,
         "llm_guard_status": "disabled" if not enabled else "pending",
         "llm_fallback_used": False,
+        "expected_latency_hint": (
+            "On-prem single-slot model: live narration can take ~60s; the wait is "
+            "expected. Facts stay deterministic and fall back if the model is slow."
+        )
+        if enabled
+        else None,
     }
 
 

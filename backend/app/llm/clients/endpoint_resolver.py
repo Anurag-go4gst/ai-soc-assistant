@@ -31,11 +31,19 @@ def _configured(value: str) -> bool:
     return bool(value and str(value).strip())
 
 
+# Socket-timeout ceiling for sidecar calls against a local single-slot model.
+# Must be >= the sidecar wrapper timeouts in sidecar_clients._ROLE_TIMEOUT_SECONDS
+# so the wrapper does not silently abandon a call the socket would have completed.
+# A single-slot 8B instruct needs ~30-90s; the old 45s cap killed every sidecar.
+# Three layers align: env AI_SOC_LLM_TIMEOUT_SECONDS -> socket ceiling -> wrapper.
+SIDECAR_SOCKET_CEILING_SECONDS = 120
+
+
 def _timeout_for_mode(mode: str, *, sidecar: bool = False) -> int:
     configured = max(int(settings.ai_soc_llm_timeout_seconds or 60), 60)
     if mode == "local":
-        return min(configured, 45) if sidecar else max(configured, 120)
-    return min(configured, 90)
+        return min(configured, SIDECAR_SOCKET_CEILING_SECONDS) if sidecar else max(configured, 120)
+    return min(configured, 120)
 
 
 def resolve_qwen_primary_endpoint(*, sidecar: bool = False) -> ResolvedEndpoint | None:

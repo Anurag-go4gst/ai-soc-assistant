@@ -18,18 +18,24 @@ from app.llm.sidecar_governance import (
 INTENT_ROLE = "intent_shadow_classifier"
 MISSING_EVIDENCE_ROLE = "missing_evidence_reasoner"
 
-# Role wrapper timeouts must be >= sidecar socket floor (endpoint_resolver: min(configured, 45)).
+# Role wrapper timeouts. Aligned with the endpoint_resolver sidecar socket ceiling
+# (SIDECAR_SOCKET_CEILING_SECONDS = 120) so the wrapper never abandons a call the
+# socket would have completed — a single-slot 8B instruct answers in ~30-90s.
+# Keep wrapper >= the socket the call will use; both are bounded by env
+# AI_SOC_LLM_TIMEOUT_SECONDS. Do not lower these below the model's real latency.
 _ROLE_TIMEOUT_SECONDS: dict[str, float] = {
-    INTENT_ROLE: 30.0,
-    MISSING_EVIDENCE_ROLE: 45.0,
-    "route_plan_candidate_generator": 20.0,
+    INTENT_ROLE: 120.0,
+    MISSING_EVIDENCE_ROLE: 120.0,
+    "route_plan_candidate_generator": 120.0,
     "spl_advisory_generator": 120.0,
-    "mitre_candidate_mapper": 25.0,
-    "template_match_semantic_assist": 15.0,
-    "template_render_parameter_assist": 15.0,
+    "mitre_candidate_mapper": 120.0,
+    "template_match_semantic_assist": 90.0,
+    "template_render_parameter_assist": 90.0,
 }
 
-_FAILOVER_HOP_TIMEOUT_SECONDS = 20.0
+# Failover hop (Instruct retry after primary timeout) — give it enough to complete
+# on a slow single-slot model, not the old 20s that guaranteed a second timeout.
+_FAILOVER_HOP_TIMEOUT_SECONDS = 90.0
 
 
 def _instruct_failover_client(client: FailoverChatClient) -> FailoverChatClient | None:

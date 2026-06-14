@@ -476,6 +476,20 @@ def discover_mcp_tools(payload: McpVerificationRequest | None = None) -> dict:
     return _mcp_verification_result(draft, action="discover")
 
 
+@router.get("/settings/llm/health")
+def llm_endpoint_health_status(force: bool = False) -> dict:
+    """Health ping (green/red) for the active LLM endpoints, plus a latency hint.
+
+    Probes ``/v1/models`` (reachability only, no generation), TTL-cached 30s so a
+    settings page can poll on a schedule. Qwen reports ``wired_disabled`` when its
+    flag is off; the local Foundation-Sec endpoint and any configured failover are
+    probed live. Never raises — a down endpoint is reported as ``red``.
+    """
+    from app.llm.endpoint_health import llm_endpoint_health
+
+    return llm_endpoint_health(force=force)
+
+
 @router.post("/settings/llm/check")
 def check_llm_settings_draft(payload: LlmSettingsDraftCheckRequest) -> dict:
     """Validate a governed-LLM settings draft without persisting anything.
