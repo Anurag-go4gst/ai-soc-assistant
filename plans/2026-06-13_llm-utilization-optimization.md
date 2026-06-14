@@ -731,6 +731,10 @@ cd /var/www/ai-soc-assistant && ./scripts/run_stage3_governance_regression.sh
 
 **Status 2026-06-14:** **DONE** — `mitre_risk_rationale.py` + `resource_plan_shadow.py` wired in `pipeline.py` finalize; updates `severity_rationale` / `foundation_sec_analysis` only (never `severity_label`, MITRE status, or execution). Shadow resource plan logged under `control_plane_trace["resource_plan_shadow"]` with `promotion_blocked=true`. Shared `severity_token_is_upgrade_claim()` in `claim_patterns.py` allows why-not-higher P-token mentions in rationale without tripping Tier-D grounding. Governance regression PASS.
 
+**Post-Phase-3 review (2026-06-14) — two budget/latency bugs found + fixed:**
+- **R1 — rationale double-call undercounted the budget.** `run_mitre_risk_rationale` makes up to **two** sidecar HTTP calls (mitre + risk roles) but the pipeline recorded only **one** `record_sidecar`, and it didn't re-check the budget between the two. A turn could do intent(1) + rationale(2) + narration(1) = 4 real calls while the budget read 2 — defeating the Phase 1.5 per-turn cap. **Fix:** thread `budget` into `run_mitre_risk_rationale`; check `sidecar_budget_exhausted()` before each internal call and `record_sidecar` per actual call. Tests: `test_two_internal_calls_record_two_budget_slots`, `test_budget_exhausted_blocks_second_internal_call`.
+- **R2 — resource-plan shadow ran unbounded + uncounted on the finalize path.** `propose_validated_llm_plan` called `client.generate()` **directly** — not wrapped in `run_sidecar_llm_with_timeout` and not in the budget. Flag-gated today (`bridge_enabled = intent_advisor_enabled AND live_synthesis_enabled`), but those are exactly the flags this plan flips → latent re-creation of the PowerGrid latency incident. **Fix:** wrap the generate in `run_sidecar_llm_with_timeout` (`_BRIDGE_TIMEOUT_SECONDS=20s`); budget-gate + `record_sidecar` at the pipeline call site. Suite 2138 green; governance PASS.
+
 **Test gate (green before Phase 4):**
 - New `app/tests/test_mitre_risk_rationale.py`: rationale prose generated from a fixed MITRE/severity decision dump; authority fields (`mitre_status`, `severity_label`, `execution_eligible`) **unchanged** vs deterministic; on guard reject → deterministic rationale.
 - New `app/tests/test_resource_plan_shadow.py`: LLM resource-plan proposal is validated against deterministic registries, logged shadow-only, and **never** alters the live `ResourcePlan` or route.
@@ -742,9 +746,9 @@ cd /var/www/ai-soc-assistant && ./scripts/run_stage3_governance_regression.sh
 ```
 **Exit criteria:** authority fields invariant under LLM disagreement; resource-plan stays shadow; governance regression PASS.
 
-### Phase 4 — Optional general reasoning provider (T3)
+### Phase 4 — Optional general reasoning provider (T3) — **SKIPPED (optional, owner direction)**
 
-- Register `general_reasoning`; narration roles only; air-gap enforced
+- Register `general_reasoning`; narration roles only; air-gap enforced. Deferred — low priority vs scorecard; revisit if a non-security long-form need appears.
 
 **Test gate (green before Phase 5):**
 - New `app/tests/test_general_reasoning_airgap.py`: with air-gap on, `general_reasoning` cloud assignment is blocked (no client); role usable only for narration roles; never bound to authority fields.
@@ -765,12 +769,17 @@ Verdict: `HEALTHY` (fallback < 10%, agreement ≥ 70%, n ≥ 20) / `DEGRADED` / 
 **COE rule:** No production flag flip for a role until scorecard `HEALTHY`.
 
 **Test gate:**
-- New `app/tests/test_llm_role_scorecard.py`: scorecard computes fallback rate from `answered_label` (depends on I6); seeded telemetry → correct `HEALTHY`/`DEGRADED`/`INSUFFICIENT_DATA` verdict; `--check` exits non-zero on `INSUFFICIENT_DATA`.
+- `app/tests/test_llm_role_scorecard.py`: scorecard computes fallback rate from `answered_label` (I6); seeded telemetry → correct `HEALTHY`/`DEGRADED`/`INSUFFICIENT_DATA` verdict.
 ```bash
 cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_llm_role_scorecard.py -q
-PYTHONPATH=backend:. python3 scripts/build_llm_role_scorecard.py --check
+PYTHONPATH=backend:. python3 scripts/build_llm_role_scorecard.py --input <traces.jsonl> --check
 ```
-**Exit criteria:** scorecard runs, verdicts correct, `--check` wired into CI gate.
+
+**Status 2026-06-14: DONE.** `app/quality/llm_role_scorecard.py` (testable read-model) + `scripts/build_llm_role_scorecard.py` (thin CLI). Reads `control_plane_trace` JSONL (owner choice — **no new write path**): one JSON object per line, full chat payload or bare trace. Aggregates per role from `llm_turn_budget.records` (invocations, fallback by `foundation_sec_instruct_fallback` label, timeouts), `llm_intent_advisory` (adjudication disagreement), `mitre_risk_rationale` (guard fallback), composer trace (narration invocations + grounding-block disagreement), `resource_plan_shadow`. Verdict per role: `HEALTHY` (fallback < 10%, agreement ≥ 70%, n ≥ 20) / `DEGRADED` / `INSUFFICIENT_DATA`. `--check` exit: 0 = no role DEGRADED; 1 = a role DEGRADED (INSUFFICIENT_DATA allowed pre-prod — it gates the COE flag flip, not CI); 2 = bad input. 8 tests; suite 2146 green; governance PASS.
+
+**To collect a real corpus:** capture live (or `--llm-mock`) `/chat` runs' `control_plane_trace` into a JSONL during staging, then run `--check`. Roles stay `INSUFFICIENT_DATA` until n ≥ 20 per role — which is the gate to flip that role's prod flag.
+
+**COE rule restated:** No production flag flip for a role until its scorecard verdict is `HEALTHY` on a staging corpus.
 
 ---
 
@@ -792,7 +801,9 @@ PYTHONPATH=backend:. python3 scripts/build_llm_role_scorecard.py --check
 | **I8** | P1 | Reasoner on clarification / T0 | ✅ Fixed Phase 1.5 |
 | **I7** | P2 | Context pack stub vs spec | ✅ Fixed Phase 2 (`build_governed_context_package_for_contract` + truncation) |
 | **I3-race** | P2 | I3 fallback reused primary `answered_label` holder (orphan clobber) | ✅ Fixed Phase 2 review (fresh holder) |
-| **L11** | P2 | Composer eligibility for `knowledge_only` / out-of-catalog conflicts with Tier C guarantee | Deferred — COE decision |
+| **L11** | P2 | Composer eligibility for `knowledge_only` / out-of-catalog | ✅ Resolved Phase 2.5 (weak-case composition + grounding guard + threshold HIL) |
+| **R1** | P1 | Rationale 2 calls counted as 1 in budget | ✅ Fixed Phase 3 review (per-call accounting) |
+| **R2** | P1 | Resource-plan shadow unbounded + uncounted on finalize path | ✅ Fixed Phase 3 review (timeout wrap + budget gate) |
 | **L7** | P2 | Dual narration implementations may drift | Phase 2 consolidation (deferred, low ROI) |
 | **L8** | P2 | LangGraph path parity for new hooks | Each phase + `langgraph_orchestration_enabled` test |
 | **L9** | P2 | Two guard layers (`answer_guard_lab` vs `final_answer_validator` vs composer regex guards) | Document in §13; do not conflate in tests |
@@ -809,7 +820,7 @@ PYTHONPATH=backend:. python3 scripts/build_llm_role_scorecard.py --check
 | LLM paraphrase / out-of-set intake | 🟡 Provider wired | Blocked until C1+C2; weak-match only |
 | LLM reasoning for partial evidence | 🟡 Reasoner wired | I8 guards + context (I7) |
 | LLM adaptive search broaden | ✅ Done (O5c-core) | Already advisory → validate → HIL |
-| Safe promotion (not reckless enable) | ✅ Plan Phase 5 | Build scorecard; needs I6 labels |
+| Safe promotion (not reckless enable) | ✅ Scorecard built (Phase 5) | Collect staging corpus → verdict HEALTHY before flag flip |
 | Not a deterministic-only product | 🟡 Architecture ready | **Prod blocked** until Phase 1.5 |
 
 **Verdict:** The plan direction is **fit for purpose**. Phase 1 proved Qwen + Instruct failover wiring. **Do not treat Phase 1 as production-ready** — C1 is the issue that breaks the system under a slow model. Fix C1 + C2 before flipping live synthesis or intent-advisor flags.
