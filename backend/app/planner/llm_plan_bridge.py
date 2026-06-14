@@ -31,6 +31,7 @@ from app.planner.resource_plan import PlanStep, ResourcePlan
 from app.planner.resource_registry import ResourceRegistry, load_resource_registry
 
 _TRIGGER_MATCH_PATHS = {"out_of_registry", "near_105_question"}
+_BRIDGE_TIMEOUT_SECONDS = 20.0
 _ALLOWED_PURPOSES = {"knowledge_retrieval", "spl_artifact", "mcp_execution", "mitre_mapping", "narration"}
 _TIME_BOUND = re.compile(r"^(now|-?\d+[smhd](@[smhd])?)$")
 # Raw query text must never ride in a proposal — plans bind families/corpora,
@@ -112,14 +113,25 @@ def propose_validated_llm_plan(
             client = _bridge_client()
         if client is None:
             return None
-        result = client.generate(
-            system_prompt=_SYSTEM_PROMPT,
-            user_prompt=_user_prompt(query, registry),
-            max_tokens=400,
-            temperature=0.1,
-        )
-        raw_text = getattr(result, "text", None)
-        if not isinstance(raw_text, str) or not raw_text.strip():
+        # Wall-clock bound: this runs on the finalize path; a hung endpoint must not
+        # block the request (the PowerGrid latency lesson). Mirrors sidecar timeout.
+        from app.llm.sidecar_governance import run_sidecar_llm_with_timeout
+
+        def _generate() -> str:
+            return getattr(
+                client.generate(
+                    system_prompt=_SYSTEM_PROMPT,
+                    user_prompt=_user_prompt(query, registry),
+                    max_tokens=400,
+                    temperature=0.1,
+                ),
+                "text",
+                "",
+            )
+
+        call = run_sidecar_llm_with_timeout(_generate, timeout_seconds=_BRIDGE_TIMEOUT_SECONDS)
+        raw_text = call.raw_output
+        if call.timed_out or not isinstance(raw_text, str) or not raw_text.strip():
             return None
         extraction = extract_first_json_object(raw_text)
         if not extraction.parsed_ok or not isinstance(extraction.payload, dict):

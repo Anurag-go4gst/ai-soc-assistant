@@ -1386,14 +1386,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             mitre_decision=mitre_decision if isinstance(mitre_decision, dict) else None,
             mitre_branch_result=mitre_branch_payload if isinstance(mitre_branch_payload, dict) else None,
             budget_exhausted=budget.sidecar_budget_exhausted(),
+            budget=budget,  # per-internal-call accounting (mitre + risk = up to 2 slots)
         )
         mitre_risk_rationale_trace = rationale_result.to_trace_dict()
-        if rationale_result.llm_called:
-            budget.record_sidecar(
-                role="mitre_risk_rationale",
-                provider_label=rationale_result.provider_label,
-                outcome="completed",
-            )
         rationale_updates: dict[str, Any] = {}
         if rationale_result.severity_rationale_prose:
             rationale_updates["severity_rationale"] = rationale_result.severity_rationale_prose
@@ -1410,16 +1405,27 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             live_resource_plan = evidence_plan_payload.get("resource_plan")
             if isinstance(live_resource_plan, dict):
                 live_plan_source = live_resource_plan.get("plan_source")
-        shadow_result = run_resource_plan_shadow(
-            query=request.message,
-            match_path=_match_path_from_state(state),
-            evidence_plan=evidence_plan_payload,
-        )
-        resource_plan_shadow_trace = shadow_result.to_trace_dict()
-        if isinstance(evidence_plan_payload, dict):
-            after_source = (evidence_plan_payload.get("resource_plan") or {}).get("plan_source")
-            if live_plan_source is not None:
-                resource_plan_shadow_trace["live_plan_source_unchanged"] = after_source == live_plan_source
+        if budget.sidecar_budget_exhausted():
+            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "turn_budget_exhausted"}
+        else:
+            shadow_result = run_resource_plan_shadow(
+                query=request.message,
+                match_path=_match_path_from_state(state),
+                evidence_plan=evidence_plan_payload,
+            )
+            resource_plan_shadow_trace = shadow_result.to_trace_dict()
+            if shadow_result.llm_called:
+                budget.record_sidecar(
+                    role="route_plan_candidate_generator",
+                    provider_label="local_or_failover",
+                    outcome="completed",
+                )
+            if isinstance(evidence_plan_payload, dict):
+                after_source = (evidence_plan_payload.get("resource_plan") or {}).get("plan_source")
+                if live_plan_source is not None:
+                    resource_plan_shadow_trace["live_plan_source_unchanged"] = after_source == live_plan_source
+        if llm_turn_budget_trace is not None:
+            llm_turn_budget_trace = budget.to_trace_dict()
     composer_trace: dict[str, Any] = build_composer_runtime_status()
     from app.chat.guidance_templates import should_skip_llm_composer
 

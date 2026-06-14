@@ -215,3 +215,71 @@ def test_disabled_returns_deterministic_without_llm(monkeypatch: pytest.MonkeyPa
     assert isinstance(result, MitreRiskRationaleResult)
     assert result.llm_called is False
     assert result.severity_rationale_prose
+
+
+def _severity() -> SeverityDecision:
+    return SeverityDecision(
+        use_case_id="auth_failed_login_spike",
+        severity_label="P3 Medium",
+        matched_rules=["default_policy"],
+        why_not_higher=["P1 requires: confirmed_success"],
+        missing_evidence=["confirmed_success"],
+        source_refs=[],
+        recommended_priority="standard_triage",
+        allowed_action_tier=1,
+    )
+
+
+def test_two_internal_calls_record_two_budget_slots(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Regression: rationale makes mitre + risk calls; each must consume one slot.
+    _enable_rationale(monkeypatch)
+    from app.llm.turn_llm_budget import TurnLlmBudget
+
+    payload = json.dumps(
+        {
+            "reasoning_summary": "Remains candidate.",
+            "why_selected": ["Default policy."],
+        }
+    )
+
+    def _fake_invoke(*, role: str, user_prompt: str, system_prompt: str, max_tokens: int):
+        return payload, False, "local_primary"
+
+    budget = TurnLlmBudget()
+    with patch("app.llm.mitre_risk_rationale.invoke_sidecar_role", side_effect=_fake_invoke):
+        run_mitre_risk_rationale(
+            contract=_contract(),
+            query="q",
+            severity_decision=_severity(),
+            mitre_decision={"answer_visible": True},
+            mitre_branch_result={"candidate_mitre": ["T1110.001"]},
+            budget=budget,
+        )
+    assert budget.sidecar_calls == 2
+
+
+def test_budget_exhausted_blocks_second_internal_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_rationale(monkeypatch)
+    from app.llm.turn_llm_budget import TurnLlmBudget
+
+    calls: list[str] = []
+
+    def _fake_invoke(*, role: str, user_prompt: str, system_prompt: str, max_tokens: int):
+        calls.append(role)
+        return json.dumps({"reasoning_summary": "x", "why_selected": ["y"]}), False, "local_primary"
+
+    # Budget already at 1; cap is 2, so exactly one internal call may run.
+    budget = TurnLlmBudget()
+    budget.record_sidecar(role="intent_shadow_classifier", provider_label="local_primary", outcome="completed")
+    with patch("app.llm.mitre_risk_rationale.invoke_sidecar_role", side_effect=_fake_invoke):
+        run_mitre_risk_rationale(
+            contract=_contract(),
+            query="q",
+            severity_decision=_severity(),
+            mitre_decision={"answer_visible": True},
+            mitre_branch_result={"candidate_mitre": ["T1110.001"]},
+            budget=budget,
+        )
+    # One call ran (mitre), then budget hit cap of 2 → risk call blocked.
+    assert budget.sidecar_calls == 2
+    assert len(calls) == 1

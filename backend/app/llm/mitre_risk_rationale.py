@@ -160,7 +160,11 @@ def run_mitre_risk_rationale(
     mitre_decision: dict[str, Any] | None,
     mitre_branch_result: dict[str, Any] | None,
     budget_exhausted: bool = False,
+    budget: Any = None,
 ) -> MitreRiskRationaleResult:
+    """Advisory rationale prose. ``budget`` (a ``TurnLlmBudget``) is checked and
+    recorded **per internal sidecar call** so the two reasoning roles cannot exceed
+    the per-turn cap — each call counts as one sidecar, not the pair as one."""
     det_severity = build_deterministic_severity_rationale(severity_decision)
     det_mitre = build_deterministic_mitre_rationale(
         contract=contract,
@@ -218,7 +222,10 @@ def run_mitre_risk_rationale(
     guard_status = "passed"
     fallback_used = False
 
-    if det_mitre or contract.candidate_mitre or contract.mitre_technique_ids:
+    def _budget_blocks() -> bool:
+        return budget is not None and budget.sidecar_budget_exhausted()
+
+    if (det_mitre or contract.candidate_mitre or contract.mitre_technique_ids) and not _budget_blocks():
         mitre_prose, called, label, role_warnings, blocked = _invoke_reasoning_role(
             role=MITRE_REASONER_ROLE,
             query=query,
@@ -231,12 +238,14 @@ def run_mitre_risk_rationale(
         llm_called = llm_called or called
         provider_label = provider_label or label
         warnings.extend(role_warnings)
+        if called and budget is not None:
+            budget.record_sidecar(role=MITRE_REASONER_ROLE, provider_label=label, outcome="completed")
         if blocked:
             guard_status = "blocked"
             fallback_used = True
             mitre_prose = det_mitre
 
-    if severity_decision and severity_decision.severity_label:
+    if severity_decision and severity_decision.severity_label and not _budget_blocks():
         severity_prose, called, label, role_warnings, blocked = _invoke_reasoning_role(
             role=RISK_RATIONALE_ROLE,
             query=query,
@@ -249,6 +258,8 @@ def run_mitre_risk_rationale(
         llm_called = llm_called or called
         provider_label = provider_label or label
         warnings.extend(role_warnings)
+        if called and budget is not None:
+            budget.record_sidecar(role=RISK_RATIONALE_ROLE, provider_label=label, outcome="completed")
         if blocked:
             guard_status = "blocked"
             fallback_used = True
