@@ -75,6 +75,18 @@ from app.splunk.spl_services import (
     splunk_guidance,
 )
 from app.answer_guard.runner import run_answer_guard_lab
+from app.llm.governed_context_package import build_governed_context_package_for_contract
+from app.llm.turn_llm_budget import TurnLlmBudget
+from app.synthesis.composer_context_builders import (
+    mcp_tool_hints_from_registry,
+    skill_sections_from_enrichment,
+    soc_kb_snippets_from_source_evidence,
+)
+from app.synthesis.composition_confidence import (
+    composition_confidence,
+    qualifies_for_weak_case_composition,
+    should_attach_compose_hil,
+)
 from app.synthesis.governed_answer_composer import (
     build_composer_runtime_status,
     compose_governed_answer,
@@ -99,8 +111,14 @@ from app.planner.executor import (
     has_composed_plan,
 )
 from app.chat.contracts.answer_contract import build_answer_contract
+from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.negative_evidence_extractor import extract_negative_evidence
+from app.llm.missing_evidence_reasoner import (
+    MissingEvidenceReasonerResult,
+    run_missing_evidence_reasoner,
+)
+from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
 from app.chat.mitre_branch import planner_mitre_branch_suppressed_decision, run_mitre_evidence_branch
@@ -183,6 +201,7 @@ class ChatPipelineState(TypedDict, total=False):
     session_pins: Any
     session_context_resolution: SessionContextResolution | None
     effective_query: str | None
+    llm_turn_budget: TurnLlmBudget | None
     response: PlaceholderResponse
 
 
@@ -280,6 +299,7 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
         "selected_use_case": selected_use_case,
         "routed": routed,
         "route_plan_shadow": route_plan_shadow,
+        "llm_turn_budget": TurnLlmBudget(),
     }
 
 
@@ -291,10 +311,41 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     routed = state.get("routed") or {}
     routed_skill = str(routed.get("skill")) if routed.get("skill") else None
     query_text = state.get("effective_query") or request.message
-    llm_advisory = generate_llm_intent_advisory(
-        query_text,
-        query_understanding=query_understanding,
+    qu = state.get("query_understanding")
+    candidate_mappings: dict[str, Any] = {}
+    if qu is not None:
+        candidate_mappings = {
+            "match_path": getattr(qu, "deterministic_match_path", None),
+            "question_ref": getattr(qu, "mapped_question_ref", None),
+            "use_case_ids": list(getattr(qu, "mapped_use_case_ids", None) or []),
+        }
+    budget = state.get("llm_turn_budget") or TurnLlmBudget()
+    skip_advisory, skip_reason = should_skip_sidecar(
+        match_path=candidate_mappings.get("match_path"),
+        registry_warnings=list(getattr(qu, "registry_warnings", None) or []) if qu is not None else None,
     )
+    if skip_advisory:
+        llm_advisory = LLMIntentAdvisory(dropped_reasons=[skip_reason or "deterministic_exact_match_t0"])
+    elif budget.sidecar_budget_exhausted():
+        llm_advisory = LLMIntentAdvisory(dropped_reasons=["turn_budget_exhausted"])
+    else:
+        llm_advisory = generate_llm_intent_advisory(
+            query_text,
+            query_understanding=query_understanding,
+            candidate_mappings=candidate_mappings,
+            routed_skill=routed_skill,
+        )
+        if llm_advisory.llm_called:
+            outcome = "completed"
+            if "llm_timed_out" in llm_advisory.dropped_reasons:
+                outcome = "timed_out"
+            elif llm_advisory.dropped_reasons:
+                outcome = "dropped"
+            budget.record_sidecar(
+                role="intent_shadow_classifier",
+                provider_label=llm_advisory.provider_label,
+                outcome=outcome,
+            )
     result = build_query_to_intent(
         query=query_text,
         query_understanding=query_understanding,
@@ -316,6 +367,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         "llm_intent_advisory": payload.get("llm_intent_advisory"),
         "intent_classification": payload.get("intent_classification"),
         "selected_use_case": selected_use_case,
+        "llm_turn_budget": budget,
     }
 
 
@@ -1242,6 +1294,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         query_understanding=state.get("query_understanding"),
     )
     answer_contract = None
+    missing_evidence_reasoning_trace: dict[str, Any] | None = None
+    llm_turn_budget_trace: dict[str, Any] | None = None
     contract_evidence_plan = evidence_plan_for_analyst
     # Contract is a read-model that drives the section-ordered analyst card; build it
     # for every classified answer so no path falls back to a one-paragraph bubble.
@@ -1271,6 +1325,32 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             if no_match_limitation not in limitations:
                 limitations.append(no_match_limitation)
                 answer_contract = answer_contract.model_copy(update={"limitations": limitations})
+        budget = state.get("llm_turn_budget") or TurnLlmBudget()
+        if budget.sidecar_budget_exhausted():
+            reasoner_result = MissingEvidenceReasonerResult(skipped_reason="turn_budget_exhausted")
+        else:
+            reasoner_result = run_missing_evidence_reasoner(
+                contract=answer_contract,
+                query=request.message,
+                resource_decisions=_resource_decision_labels(state),
+            )
+            if reasoner_result.llm_called:
+                budget.record_sidecar(
+                    role="missing_evidence_reasoner",
+                    provider_label=reasoner_result.provider_label,
+                    outcome="timed_out" if reasoner_result.timed_out else "completed",
+                )
+        if reasoner_result.bullets:
+            merged_limits = list(answer_contract.limitations)
+            for bullet in reasoner_result.bullets:
+                if bullet not in merged_limits:
+                    merged_limits.append(bullet)
+            answer_contract = answer_contract.model_copy(update={"limitations": merged_limits})
+        missing_evidence_reasoning_trace = reasoner_result.to_trace_dict()
+        llm_turn_budget_trace = budget.to_trace_dict()
+    else:
+        missing_evidence_reasoning_trace = None
+        llm_turn_budget_trace = None
     answer_contract_payload = answer_contract.model_dump() if answer_contract is not None else None
     analyst_response = build_analyst_response_for_live(
         user_query=request.message,
@@ -1306,24 +1386,108 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
     )
     if answer_contract is not None and analyst_response is not None and not skip_composer:
-        composer_use_case_id = (
-            response_use_case.use_case_id if response_use_case is not None else use_case_id
-        )
-        enrichment_context = get_runtime_curated_enrichment(composer_use_case_id)
-        enrichment_projection = llm_facing_curated_enrichment_projection(enrichment_context)
-        if enrichment_projection is None:
-            enrichment_projection = get_guidance_only_enrichment_projection(composer_use_case_id)
-        composer_result = compose_governed_answer(
-            contract=answer_contract,
-            enrichment_projection=enrichment_projection,
-            fallback_envelope=analyst_response,
-        )
-        composer_trace = {**composer_trace, **composer_result.trace_payload()}
-        analyst_response = composer_result.envelope
-        if spl_draft_preview and isinstance(spl_draft_preview, dict) and analyst_response is not None:
-            from app.chat.final_answer_readability import apply_draft_preview_readability
+        budget = state.get("llm_turn_budget") or TurnLlmBudget()
+        if budget.narration_budget_exhausted():
+            composer_trace = {
+                **composer_trace,
+                "llm_composer_skipped_reason": "turn_budget_exhausted",
+            }
+        else:
+            composer_use_case_id = (
+                response_use_case.use_case_id if response_use_case is not None else use_case_id
+            )
+            enrichment_context = get_runtime_curated_enrichment(composer_use_case_id)
+            enrichment_projection = llm_facing_curated_enrichment_projection(enrichment_context)
+            if enrichment_projection is None:
+                enrichment_projection = get_guidance_only_enrichment_projection(composer_use_case_id)
+            weak_case = qualifies_for_weak_case_composition(
+                answer_contract,
+                path_type=path_type,
+                intent_family=intent_family or None,
+            )
+            soc_snippets = soc_kb_snippets_from_source_evidence(source_evidence)
+            skill_sections = skill_sections_from_enrichment(enrichment_projection)
+            context_package = None
+            if weak_case:
+                context_package = build_governed_context_package_for_contract(
+                    query=request.message,
+                    contract=answer_contract,
+                    soc_kb_snippets=soc_snippets,
+                    resource_decisions=_resource_decision_labels(state),
+                    skill_sections=skill_sections,
+                    mcp_tool_hints=mcp_tool_hints_from_registry(
+                        mcp_allowed=bool(answer_contract.mcp_allowed),
+                    ),
+                    routed_skill=_context_selected_skill(state),
+                )
+            composer_result = compose_governed_answer(
+                contract=answer_contract,
+                enrichment_projection=enrichment_projection,
+                fallback_envelope=analyst_response,
+                context_package=context_package,
+                path_type=path_type,
+                intent_family=intent_family or None,
+            )
+            composer_trace = {**composer_trace, **composer_result.trace_payload()}
+            if composer_result.llm_composer_used:
+                budget.record_narration(
+                    provider_label=composer_result.llm_provider_label,
+                    outcome="completed",
+                )
+            analyst_response = composer_result.envelope
+            if composer_result.llm_composer_used and weak_case:
+                confidence = composition_confidence(
+                    contract=answer_contract,
+                    path_type=path_type,
+                    match_path=_match_path_from_state(state),
+                    soc_kb_snippet_count=len(soc_snippets),
+                    skill_section_count=len(skill_sections),
+                )
+                attach_hil, hil_reason = should_attach_compose_hil(
+                    contract=answer_contract,
+                    confidence=confidence,
+                    resource_decisions=_resource_decision_labels(state),
+                    evidence_plan=state.get("evidence_plan")
+                    if isinstance(state.get("evidence_plan"), dict)
+                    else None,
+                )
+                composer_trace["composition_confidence"] = confidence
+                composer_trace["compose_hil_threshold"] = settings.ai_soc_llm_compose_hil_threshold
+                if attach_hil:
+                    composer_trace["compose_hil_attached"] = True
+                    composer_trace["compose_hil_reason"] = hil_reason
+                    answer_contract = answer_contract.model_copy(
+                        update={"hil_status": "required", "human_review_required": True},
+                    )
+                    answer_contract_payload = answer_contract.model_dump()
+                    from app.orchestration.human_review import human_review as build_human_review
 
-            analyst_response = apply_draft_preview_readability(analyst_response)
+                    human_review = build_human_review(
+                        review_type="analyst_review_required",
+                        reason=str(hil_reason),
+                        reviewer_role="analyst",
+                        allowed_actions=[
+                            "review_composed_guidance",
+                            "validate_against_local_telemetry",
+                        ],
+                        safe_message_for_user=(
+                            "This composed out-of-catalog guidance requires analyst review "
+                            "before any MCP search or enforcement action."
+                        ),
+                        required=True,
+                    )
+                    context_sufficiency = {
+                        **context_sufficiency,
+                        "status": "analyst_review_required",
+                        "synthesis_readiness": False,
+                    }
+                    response_mode = _response_mode(context_sufficiency, human_review, spl_validation)
+            if spl_draft_preview and isinstance(spl_draft_preview, dict) and analyst_response is not None:
+                from app.chat.final_answer_readability import apply_draft_preview_readability
+
+                analyst_response = apply_draft_preview_readability(analyst_response)
+        if llm_turn_budget_trace is not None:
+            llm_turn_budget_trace = budget.to_trace_dict()
     elif answer_contract is not None and skip_composer and analyst_response is not None:
         composer_trace = {
             **composer_trace,
@@ -1426,6 +1590,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             node_trace=visibility.get("node_trace"),
         )
         control_plane_trace["llm_composer"] = composer_trace
+        if missing_evidence_reasoning_trace is not None:
+            control_plane_trace["missing_evidence_reasoning"] = missing_evidence_reasoning_trace
+        if llm_turn_budget_trace is not None:
+            control_plane_trace["llm_turn_budget"] = llm_turn_budget_trace
 
     session_context_status = None
     if settings.ai_soc_session_context_enabled and isinstance(session_resolution, SessionContextResolution):
@@ -1635,6 +1803,40 @@ def _rag_no_match(soc_kb_retrieval: dict[str, Any] | None) -> bool:
     if not isinstance(soc_kb_retrieval, dict):
         return False
     return str(soc_kb_retrieval.get("retrieval_status") or "") in {"no_match", "disabled", "failed"}
+
+
+def _resource_decision_labels(state: ChatPipelineState) -> list[str]:
+    """Non-sensitive resource-decision labels for sidecar context (keys only, no
+    payloads). Returns [] when no resource plan provenance is present."""
+    evidence_plan = state.get("evidence_plan")
+    if not isinstance(evidence_plan, dict):
+        return []
+    provenance = (evidence_plan.get("resource_plan") or {}).get("provenance") or {}
+    decisions = provenance.get("resource_decisions")
+    if isinstance(decisions, dict):
+        return [str(key) for key in decisions.keys()]
+    if isinstance(decisions, list):
+        return [str(item) for item in decisions if isinstance(item, (str, int))]
+    return []
+
+
+def _match_path_from_state(state: ChatPipelineState) -> str | None:
+    evidence_plan = state.get("evidence_plan")
+    if isinstance(evidence_plan, dict):
+        provenance = (evidence_plan.get("resource_plan") or {}).get("provenance") or {}
+        match_path = provenance.get("match_path")
+        if match_path:
+            return str(match_path)
+    planning = state.get("planning_decision")
+    if isinstance(planning, dict):
+        summary = planning.get("resource_plan_summary") or {}
+        if isinstance(summary, dict) and summary.get("match_path"):
+            return str(summary.get("match_path"))
+    routed = state.get("routed") or {}
+    provenance = routed.get("routing_provenance") or {}
+    if isinstance(provenance, dict) and provenance.get("match_path"):
+        return str(provenance.get("match_path"))
+    return None
 
 
 def _generic_soc_guidance_path(planning_decision: dict[str, Any] | None) -> bool:

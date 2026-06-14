@@ -1400,6 +1400,57 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
+          <h2>13. LLM endpoints (Qwen flag)</h2>
+          <p>One COE switch — no env “profiles”. See <code>docs/architecture/llm_endpoint_wiring.md</code>.</p>
+        </div>
+      </div>
+      <div class="card">
+        <p><code>AI_SOC_LLM_QWEN_PRIMARY_ENABLED=false</code> (default) — Qwen never called. Dev uses <code>AI_SOC_LLM_LOCAL_*</code> (Foundation-Sec on host) with Instruct failover.</p>
+        <p style="margin-top:12px;">When COE sets the flag <code>true</code> and <code>AI_SOC_LLM_QWEN_*</code>, Qwen is prepended to the chain; Instruct remains failover.</p>
+
+        <h3 style="margin-top:24px;">Tier model (authority unchanged)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>When</th>
+              <th>LLM allowed?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>T0</strong></td>
+              <td>Exact-105 / catalog match, blocked sufficiency, clarification HIL</td>
+              <td>No sidecar calls (<code>sidecar_skip_policy</code>)</td>
+            </tr>
+            <tr>
+              <td><strong>T1</strong></td>
+              <td>Paraphrase intake, narration, SPL failover, template assist</td>
+              <td>Instruct / local chain; advisory only</td>
+            </tr>
+            <tr>
+              <td><strong>T2</strong></td>
+              <td>Missing-evidence bullets, MITRE/risk rationale prose</td>
+              <td>Reasoning → local → Instruct; review-only output</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin-top:24px;">Per-turn budget (live trace)</h3>
+        <p>Max <strong>2 sidecar</strong> + <strong>1 narration</strong> per turn. Recorded in <code>control_plane_trace.llm_turn_budget</code>. Successful hop label in <code>answered_label</code> (failover observability).</p>
+
+        <h3 style="margin-top:24px;">Dual narration paths (control plane)</h3>
+        <ul>
+          <li><strong>CP on</strong> (<code>CONTROL_PLANE_ENABLED=true</code>): <code>governed_answer_composer</code> — requires <code>AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED</code> + <code>AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED</code>.</li>
+          <li><strong>CP off</strong>: <code>lab_runner.narrate_analyst_summary</code> — same synthesis flags, legacy path.</li>
+        </ul>
+        <p style="margin:12px 0 0;color:var(--muted);font-size:14px;">Experience Center fixtures never call a live provider.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
           <h2>10. Question cheat sheet for presenters</h2>
           <p>Use these sample questions when you forget examples during the explanation.</p>
         </div>

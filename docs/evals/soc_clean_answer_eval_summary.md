@@ -2,7 +2,7 @@
 
 Governed imperative `/chat` response quality — evaluation only; no LangGraph cutover.
 
-- Generated: `2026-06-11T15:00:31.716729+00:00`
+- Generated: `2026-06-14T09:56:47.065906+00:00`
 - Schema: `2026-06-08-clean-answer-v1`
 - Total evaluated: **8**
 - 105-question rows loaded: **0**
@@ -13,7 +13,7 @@ Governed imperative `/chat` response quality — evaluation only; no LangGraph c
 - Critical failures: **0**
 - Major failures: **0**
 - Display failures: **0**
-- Average runtime: **33** ms
+- Average runtime: **43** ms
 
 ## Human-review evidence
 

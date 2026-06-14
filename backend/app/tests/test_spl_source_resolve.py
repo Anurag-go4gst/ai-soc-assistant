@@ -4,12 +4,34 @@ import json
 
 from app.safeguards.spl_validator import validate_spl
 from app.spl.source_profile_resolver import (
+    _pick_sourcetype,
+    build_policy_derived_profile,
     extract_placeholder_slots,
     load_static_source_profile,
     substitute_placeholders,
 )
 from app.spl.rag_source_profile_bridge import extract_rag_source_profile
 from app.spl.spl_source_resolve import build_spl_source_profile_review, resolve_spl_source_profile
+
+
+def test_pick_sourcetype_matches_family_keyword(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.config.settings.spl_allowed_sourcetypes",
+        "pgcil:auth,aws:cloudtrail,pgcil:edr,pgcil:dns",
+    )
+    assert _pick_sourcetype(["pgcil:auth", "pgcil:dns"], ("dns",)) == "pgcil:dns"
+    assert _pick_sourcetype(["pgcil:auth", "pgcil:edr"], ("edr", "endpoint")) == "pgcil:edr"
+
+
+def test_pick_sourcetype_does_not_fallback_to_first_for_network(monkeypatch) -> None:
+    """Network/SMB placeholders must stay unresolved — never substitute auth."""
+    monkeypatch.setattr(
+        "app.config.settings.spl_allowed_sourcetypes",
+        "pgcil:auth,aws:cloudtrail,pgcil:edr,pgcil:dns",
+    )
+    assert _pick_sourcetype(["pgcil:auth", "pgcil:edr", "pgcil:dns"], ("traffic", "network", "flow")) is None
+    profile = build_policy_derived_profile()
+    assert "network_traffic_sourcetype" not in profile
 
 
 def test_extract_placeholder_slots() -> None:

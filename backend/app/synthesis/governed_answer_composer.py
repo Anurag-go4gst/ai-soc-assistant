@@ -12,7 +12,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.chat.contracts.answer_contract import AnswerContract
+from app.llm.governed_context_package import GovernedContextPackage
 from app.synthesis import claim_patterns
+from app.synthesis.composition_confidence import qualifies_for_weak_case_composition
 from app.chat.final_answer_readability import apply_draft_preview_readability
 from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
@@ -42,6 +44,9 @@ _SYSTEM_PROMPT = (
     "- Use MITRE technique names exactly as listed in the contract.\n"
     "- Structure: direct answer; what SOC should check; evidence still needed; "
     "SPL/MITRE/HIL status; what not to conclude yet.\n"
+    "- Use only the governed context provided. If a retrieved snippet, skill, or tool "
+    "hint is irrelevant or your confidence is very low, ignore it and state what is "
+    "missing instead of inventing an index, source IP, hash, host, or SPL query.\n"
     "- Output plain prose only."
 )
 
@@ -85,6 +90,8 @@ class GovernedComposerResult:
     llm_guard_status: str
     llm_fallback_used: bool
     llm_blocked_reason: str | None = None
+    llm_provider_label: str | None = None
+    llm_raw_output_redacted: str | None = None
 
     def trace_payload(self) -> dict[str, Any]:
         attempted = self.llm_composer_enabled and self.llm_guard_status in {
@@ -92,7 +99,7 @@ class GovernedComposerResult:
             "blocked",
             "pending",
         }
-        return {
+        payload = {
             "llm_composer_enabled": self.llm_composer_enabled,
             "llm_composer_used": self.llm_composer_used,
             "llm_guard_status": self.llm_guard_status,
@@ -100,6 +107,12 @@ class GovernedComposerResult:
             "llm_blocked_reason": self.llm_blocked_reason,
             "composer_attempted": attempted or self.llm_composer_used,
         }
+        if self.llm_provider_label:
+            payload["llm_provider_label"] = self.llm_provider_label
+            payload["llm_answered_label"] = self.llm_provider_label
+        if self.llm_raw_output_redacted:
+            payload["llm_raw_output_placeholder"] = self.llm_raw_output_redacted[:500]
+        return payload
 
 
 def composer_is_enabled() -> bool:
@@ -148,14 +161,13 @@ def build_composer_runtime_status() -> dict[str, Any]:
 def build_composer_prompt(
     contract: AnswerContract,
     enrichment_projection: dict[str, Any] | None,
+    *,
+    context_package: GovernedContextPackage | None = None,
+    weak_case_composition: bool = False,
 ) -> str:
     """Build a contract-only composer prompt (no raw events or GitHub content)."""
     projection = enrichment_projection or {}
-    knowledge_profile = contract.answer_mode == "rag_only" or contract.intent_family in {
-        "sop_or_playbook",
-        "policy_knowledge",
-        "knowledge_only",
-    }
+    knowledge_profile = _is_knowledge_profile(contract)
     checklist = list(contract.analyst_checklist_safe)
     if not checklist:
         checklist = [str(item) for item in projection.get("analyst_checklist") or [] if item]
@@ -167,7 +179,7 @@ def build_composer_prompt(
         limitations = [str(item) for item in projection.get("limitations") or [] if item]
 
     lines = ["GOVERNED ANSWER CONTRACT:"]
-    if knowledge_profile:
+    if knowledge_profile and not weak_case_composition:
         lines.append("- Answer mode: governed SOP / knowledge recall.")
         if checklist:
             lines.append("- Analyst checklist: " + "; ".join(checklist))
@@ -247,8 +259,77 @@ def build_composer_prompt(
     }:
         lines.append("- Human review: required before any execution or destructive action.")
 
+    if contract.out_of_catalog_notice:
+        lines.append(
+            "- Out-of-catalog notice (must preserve in prose): "
+            + str(contract.out_of_catalog_notice)
+        )
+    if contract.investigation_steps:
+        lines.append("- Investigation steps: " + "; ".join(contract.investigation_steps[:6]))
+    if contract.nearest_questions:
+        nearest = [
+            str(item.get("question_ref") or item.get("label") or "")
+            for item in contract.nearest_questions[:3]
+            if isinstance(item, dict)
+        ]
+        nearest = [item for item in nearest if item]
+        if nearest:
+            lines.append("- Nearest catalog questions (suggestions only): " + ", ".join(nearest))
+
+    if context_package is not None and weak_case_composition:
+        lines.append(
+            "\nGOVERNED CONTEXT (cite-only; ignore irrelevant snippets; declare gaps instead of inventing):"
+        )
+        lines.append(context_package.to_prompt_block())
+
     lines.append("\nWrite the analyst summary now using only the contract facts above.")
     return "\n".join(lines)
+
+
+# Phase 2.5 grounding guard — high-signal fabrication patterns. Low false-positive
+# by design: only source/IOC/SPL tokens are checked, not generic prose words.
+_IOC_IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+_IOC_HASH = re.compile(r"\b[a-fA-F0-9]{32,64}\b")
+_SPL_SOURCE = re.compile(r"\b(?:index|sourcetype|source)\s*=\s*([A-Za-z0-9_\-:*]+)", re.IGNORECASE)
+_SPL_PIPE_CMD = re.compile(r"\|\s*(stats|tstats|eval|where|table|rex|timechart|dedup|lookup|search)\b", re.IGNORECASE)
+
+
+def validate_grounding(text: str, allowed_corpus: str) -> tuple[bool, str | None]:
+    """Cite-only-retrieved guard (Phase 2.5).
+
+    Reject prose that introduces source/IOC/SPL tokens not present in the governed
+    context corpus (prompt + contract facts). This is what makes LLM composition on
+    out-of-catalog / weak cases safe: the model may narrate and propose, never invent
+    a concrete index, source IP, hash, or runnable SPL the pipeline did not provide.
+    """
+    corpus = allowed_corpus.lower()
+
+    for ip in _IOC_IPV4.findall(text):
+        if ip.lower() not in corpus:
+            return False, f"Composed prose introduces source/IOC IP '{ip}' not in governed context."
+    for digest in _IOC_HASH.findall(text):
+        if digest.lower() not in corpus:
+            return False, f"Composed prose introduces hash '{digest[:12]}…' not in governed context."
+    for source_value in _SPL_SOURCE.findall(text):
+        if source_value.lower() not in corpus:
+            return False, f"Composed prose names a source '{source_value}' not in governed context."
+    pipe_cmd = _SPL_PIPE_CMD.search(text)
+    if pipe_cmd and pipe_cmd.group(0).lower() not in corpus:
+        return False, "Composed prose contains a runnable SPL pipeline not provided by the pipeline."
+    return True, None
+
+
+def out_of_catalog_notice_preserved(text: str, contract: AnswerContract) -> tuple[bool, str | None]:
+    """When the contract carries an out-of-catalog notice, the body must keep it."""
+    notice = str(getattr(contract, "out_of_catalog_notice", "") or "").strip()
+    if not notice:
+        return True, None
+    lowered = text.lower()
+    if "out-of-catalog" in lowered or "out of catalog" in lowered or "not a vetted" in lowered:
+        return True, None
+    if "validate against" in lowered and ("local telemetry" in lowered or "policy" in lowered):
+        return True, None
+    return False, "Composed prose dropped the required out-of-catalog notice."
 
 
 def validate_composed_prose(text: str, contract: AnswerContract) -> tuple[bool, str | None]:
@@ -343,6 +424,9 @@ def compose_governed_answer(
     enrichment_projection: dict[str, Any] | None,
     fallback_envelope: AnalystResponseEnvelope,
     client: LocalChatClient | None = None,
+    context_package: GovernedContextPackage | None = None,
+    path_type: str | None = None,
+    intent_family: str | None = None,
 ) -> GovernedComposerResult:
     """Compose governed prose or return the Phase 8 deterministic envelope."""
     if fallback_envelope.draft_spl_code:
@@ -362,7 +446,12 @@ def compose_governed_answer(
             llm_guard_status="disabled",
             llm_fallback_used=False,
         )
-    if _is_knowledge_profile(contract):
+    weak_case = qualifies_for_weak_case_composition(
+        contract,
+        path_type=path_type,
+        intent_family=intent_family,
+    )
+    if _is_knowledge_profile(contract) and not weak_case:
         return GovernedComposerResult(
             envelope=fallback_envelope,
             llm_composer_enabled=True,
@@ -372,7 +461,12 @@ def compose_governed_answer(
             llm_blocked_reason="Knowledge/SOP profile uses deterministic governed RAG summary.",
         )
 
-    prompt = build_composer_prompt(contract, enrichment_projection)
+    prompt = build_composer_prompt(
+        contract,
+        enrichment_projection,
+        context_package=context_package,
+        weak_case_composition=weak_case,
+    )
     llm_client = client or build_synthesis_client_from_settings()
     if llm_client is None:
         return GovernedComposerResult(
@@ -403,6 +497,11 @@ def compose_governed_answer(
 
     composed = result.text.strip()
     passed, blocked_reason = validate_composed_prose(composed, contract)
+    if passed:
+        # Phase 2.5: cite-only grounding + out-of-catalog notice (corpus = prompt + facts).
+        passed, blocked_reason = validate_grounding(composed, prompt + "\n" + str(contract.model_dump()))
+    if passed:
+        passed, blocked_reason = out_of_catalog_notice_preserved(composed, contract)
     if not passed:
         return GovernedComposerResult(
             envelope=fallback_envelope,
@@ -415,12 +514,19 @@ def compose_governed_answer(
 
     payload = fallback_envelope.model_dump()
     payload["direct_answer_summary"] = composed[:1200]
+    provider_label = result.answered_label or None
+    if not provider_label:
+        chain = getattr(llm_client, "chain", None)
+        if chain:
+            provider_label = chain[0][0]
     return GovernedComposerResult(
         envelope=AnalystResponseEnvelope.model_validate(payload),
         llm_composer_enabled=True,
         llm_composer_used=True,
         llm_guard_status="passed",
         llm_fallback_used=False,
+        llm_provider_label=provider_label,
+        llm_raw_output_redacted=composed[:500],
     )
 
 

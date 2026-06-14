@@ -248,6 +248,12 @@ class Settings(BaseSettings):
     ai_soc_llm_local_base_url: str = ""
     ai_soc_llm_local_api_key: str = ""
     ai_soc_llm_local_model: str = ""
+    # COE Qwen 2.5 72B — prepended to the failover chain when true and QWEN_* are set.
+    # Default false: dev/staging uses LOCAL_* (Foundation-Sec) + Instruct failover only.
+    ai_soc_llm_qwen_primary_enabled: bool = False
+    ai_soc_llm_qwen_base_url: str = ""
+    ai_soc_llm_qwen_api_key: str = ""
+    ai_soc_llm_qwen_model: str = ""
     # Evidence-gating governance for the upcoming synthesis stage.
     ai_soc_llm_require_context_sufficiency: bool = True
     ai_soc_llm_require_source_refs: bool = True
@@ -261,6 +267,9 @@ class Settings(BaseSettings):
     # deterministic lab draft. Defaults false so the test suite and the
     # Experience Center fixture path never make a live model call.
     ai_soc_llm_live_synthesis_enabled: bool = False
+    # Phase 2.5 — weak-case composition HIL: below this confidence, attach
+    # analyst_review_required while still rendering the composed body.
+    ai_soc_llm_compose_hil_threshold: float = 0.55
 
     # Stage 3M-S4: Experience Center demo-only LLM shadow (lineage/trace; no final synthesis).
     demo_llm_shadow_enabled: bool = False

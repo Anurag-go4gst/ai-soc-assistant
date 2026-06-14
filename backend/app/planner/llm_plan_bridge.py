@@ -56,15 +56,27 @@ _BRIDGE_TIMEOUT_SECONDS_CAP = 20
 
 
 def _bridge_client() -> Any | None:
-    from dataclasses import replace
+    from app.llm.clients.endpoint_resolver import build_failover_chat_client
+    from app.llm.clients.failover_client import FailoverChatClient
+    from app.llm.clients.local_chat_client import LocalChatClient
 
-    from app.llm.clients.local_chat_client import build_synthesis_client_from_settings
-
-    client = build_synthesis_client_from_settings()
+    client = build_failover_chat_client(role=None, sidecar=True)
     if client is None:
         return None
-    capped = min(int(getattr(client, "timeout_seconds", _BRIDGE_TIMEOUT_SECONDS_CAP)), _BRIDGE_TIMEOUT_SECONDS_CAP)
-    return replace(client, timeout_seconds=capped)
+    capped_chain: list[tuple[str, LocalChatClient]] = []
+    for label, member in client.chain:
+        capped_chain.append(
+            (
+                label,
+                LocalChatClient(
+                    base_url=member.base_url,
+                    model=member.model,
+                    api_key=getattr(member, "api_key", ""),
+                    timeout_seconds=min(int(member.timeout_seconds), _BRIDGE_TIMEOUT_SECONDS_CAP),
+                ),
+            )
+        )
+    return FailoverChatClient(chain=tuple(capped_chain))
 
 
 def bridge_trigger_match(match_path: str | None) -> bool:

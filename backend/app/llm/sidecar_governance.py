@@ -8,6 +8,7 @@ timeouts, forbidden-field notes, disagreement shape, and advisory confidence han
 from __future__ import annotations
 
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -29,6 +30,14 @@ REASONING_REJECTION_NARRATION = "reasoning_model_not_allowed_for_narration"
 
 NOTE_LLM_ASSIST_TIMED_OUT = "llm_assist_timed_out"
 NOTE_CONFIDENCE_ADVISORY_ONLY = "confidence_advisory_only"
+
+# Persistent pool — never use ``with ThreadPoolExecutor()`` here: __exit__ joins workers
+# and defeats ``future.result(timeout=...)``. Orphaned workers are bounded by the
+# client socket timeout in LocalChatClient (see endpoint_resolver sidecar cap).
+_SIDECAR_EXECUTOR = ThreadPoolExecutor(
+    max_workers=int(os.getenv("AI_SOC_SIDECAR_MAX_WORKERS", "8")),
+    thread_name_prefix="sidecar-llm",
+)
 
 
 @dataclass(frozen=True)
@@ -133,13 +142,16 @@ def run_sidecar_llm_with_timeout(
     *,
     timeout_seconds: float = SIDECAR_ASSIST_TIMEOUT_SECONDS,
 ) -> SidecarLlmCallResult:
-    """Invoke sidecar LLM provider with a hard timeout (default 1.5s)."""
+    """Invoke sidecar LLM provider with a wall-clock timeout (default 1.5s)."""
+    future = _SIDECAR_EXECUTOR.submit(llm_raw_output_provider)
     try:
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(llm_raw_output_provider)
-            raw_output = future.result(timeout=timeout_seconds)
+        raw_output = future.result(timeout=timeout_seconds)
         return SidecarLlmCallResult(raw_output=raw_output, timed_out=False, notes=[])
     except (FuturesTimeoutError, TimeoutError):
+        # Do not join the worker — cancel is best-effort for a running urlopen.
+        future.cancel()
+        return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
+    except Exception:  # noqa: BLE001 — never propagate provider errors to /chat
         return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
 
 

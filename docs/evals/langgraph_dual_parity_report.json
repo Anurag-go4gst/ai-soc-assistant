@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-11T15:00:25.184193+00:00",
+  "generated_at": "2026-06-14T09:56:40.822535+00:00",
   "profile": {
     "ai_soc_curated_enrichment_activation_enabled": true,
     "ai_soc_langgraph_shadow_enabled": true,
@@ -115,6 +115,81 @@
               "composer": "deterministic_v1",
               "intent_family": "live_investigation",
               "match_path": "use_case_catalog",
+              "resource_decisions": {
+                "hil": {
+                  "reason": "Analyst confirms SPL and approves any search execution.",
+                  "required": true
+                },
+                "limitations": [
+                  "Failed login telemetry alone does not establish credential validity.",
+                  "Source IP reuse, NAT, or scanner behavior may require analyst review."
+                ],
+                "match_path": "use_case_catalog",
+                "mcp": {
+                  "allowed": false,
+                  "needed": true,
+                  "planned_discovery": [
+                    "splunk_get_indexes",
+                    "splunk_get_metadata",
+                    "splunk_get_knowledge_objects"
+                  ],
+                  "planned_discovery_calls": [
+                    {
+                      "arguments": {},
+                      "block_reason": "mcp_global_execution_disabled",
+                      "failure_mode": "execution_disabled",
+                      "kind": "planned_tool_call",
+                      "policy_checks": [
+                        "read_only_discovery",
+                        "mcp_execution_gate"
+                      ],
+                      "server": "splunk",
+                      "tool_name": "splunk_get_indexes"
+                    },
+                    {
+                      "arguments": {},
+                      "block_reason": "mcp_global_execution_disabled",
+                      "failure_mode": "execution_disabled",
+                      "kind": "planned_tool_call",
+                      "policy_checks": [
+                        "read_only_discovery",
+                        "mcp_execution_gate"
+                      ],
+                      "server": "splunk",
+                      "tool_name": "splunk_get_metadata"
+                    },
+                    {
+                      "arguments": {},
+                      "block_reason": "mcp_global_execution_disabled",
+                      "failure_mode": "execution_disabled",
+                      "kind": "planned_tool_call",
+                      "policy_checks": [
+                        "read_only_discovery",
+                        "mcp_execution_gate"
+                      ],
+                      "server": "splunk",
+                      "tool_name": "splunk_get_knowledge_objects"
+                    }
+                  ],
+                  "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+                },
+                "mitre": {
+                  "allowed": false
+                },
+                "path_type": "spl_review",
+                "rag": {
+                  "needed": false,
+                  "source": "soc_kb_rag"
+                },
+                "severity": {
+                  "allowed": false
+                },
+                "spl": {
+                  "needed": true,
+                  "review_only": true,
+                  "skip_reason": null
+                }
+              },
               "skill_id": "attack_discovery",
               "skill_workflow": [
                 "spl_generation",
@@ -378,6 +453,81 @@
                 "composer": "deterministic_v1",
                 "intent_family": "live_investigation",
                 "match_path": "use_case_catalog",
+                "resource_decisions": {
+                  "hil": {
+                    "reason": "Analyst confirms SPL and approves any search execution.",
+                    "required": true
+                  },
+                  "limitations": [
+                    "Failed login telemetry alone does not establish credential validity.",
+                    "Source IP reuse, NAT, or scanner behavior may require analyst review."
+                  ],
+                  "match_path": "use_case_catalog",
+                  "mcp": {
+                    "allowed": false,
+                    "needed": true,
+                    "planned_discovery": [
+                      "splunk_get_indexes",
+                      "splunk_get_metadata",
+                      "splunk_get_knowledge_objects"
+                    ],
+                    "planned_discovery_calls": [
+                      {
+                        "arguments": {},
+                        "block_reason": "mcp_global_execution_disabled",
+                        "failure_mode": "execution_disabled",
+                        "kind": "planned_tool_call",
+                        "policy_checks": [
+                          "read_only_discovery",
+                          "mcp_execution_gate"
+                        ],
+                        "server": "splunk",
+                        "tool_name": "splunk_get_indexes"
+                      },
+                      {
+                        "arguments": {},
+                        "block_reason": "mcp_global_execution_disabled",
+                        "failure_mode": "execution_disabled",
+                        "kind": "planned_tool_call",
+                        "policy_checks": [
+                          "read_only_discovery",
+                          "mcp_execution_gate"
+                        ],
+                        "server": "splunk",
+                        "tool_name": "splunk_get_metadata"
+                      },
+                      {
+                        "arguments": {},
+                        "block_reason": "mcp_global_execution_disabled",
+                        "failure_mode": "execution_disabled",
+                        "kind": "planned_tool_call",
+                        "policy_checks": [
+                          "read_only_discovery",
+                          "mcp_execution_gate"
+                        ],
+                        "server": "splunk",
+                        "tool_name": "splunk_get_knowledge_objects"
+                      }
+                    ],
+                    "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+                  },
+                  "mitre": {
+                    "allowed": false
+                  },
+                  "path_type": "spl_review",
+                  "rag": {
+                    "needed": false,
+                    "source": "soc_kb_rag"
+                  },
+                  "severity": {
+                    "allowed": false
+                  },
+                  "spl": {
+                    "needed": true,
+                    "review_only": true,
+                    "skip_reason": null
+                  }
+                },
                 "skill_id": "attack_discovery",
                 "skill_workflow": [
                   "spl_generation",

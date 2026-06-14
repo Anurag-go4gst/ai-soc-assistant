@@ -23,4 +23,5 @@ class LLMIntentAdvisory(BaseModel):
     adapter_warnings: list[str] = Field(default_factory=list)
     adjudication_status: LlmIntentAdjudicationStatus = "skipped"
     adjudication_reason: str | None = None
+    provider_label: str | None = None
 

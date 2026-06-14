@@ -444,6 +444,9 @@ def build_llm_governance_status() -> dict[str, Any]:
         "default_model": settings.ai_soc_llm_default_model.strip() or None,
         "final_synthesis_enabled": settings.ai_soc_llm_final_synthesis_enabled,
         "answer_guard_enabled": settings.ai_soc_llm_answer_guard_enabled,
+        "qwen_primary_enabled": settings.ai_soc_llm_qwen_primary_enabled,
+        "qwen_url_configured": bool(settings.ai_soc_llm_qwen_base_url.strip()),
+        "qwen_model_configured": bool(settings.ai_soc_llm_qwen_model.strip()),
         "context_sufficiency_required": settings.ai_soc_llm_require_context_sufficiency,
         "limits": {
             "timeout_seconds": settings.ai_soc_llm_timeout_seconds,

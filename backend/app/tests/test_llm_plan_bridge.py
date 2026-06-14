@@ -153,21 +153,22 @@ def test_flags_off_never_triggers_bridge(monkeypatch) -> None:
 
 
 def test_bridge_client_timeout_is_hard_capped(monkeypatch) -> None:
-    from dataclasses import dataclass
-
     import app.planner.llm_plan_bridge as bridge
+    from app.llm.clients.failover_client import FailoverChatClient
+    from app.llm.clients.local_chat_client import LocalChatClient
 
-    @dataclass(frozen=True)
-    class _Client:
-        timeout_seconds: int = 120
-
+    member = LocalChatClient(
+        base_url="http://qwen/v1",
+        model="./qwen72b",
+        timeout_seconds=120,
+    )
     monkeypatch.setattr(
-        "app.llm.clients.local_chat_client.build_synthesis_client_from_settings",
-        lambda: _Client(),
+        "app.llm.clients.endpoint_resolver.build_failover_chat_client",
+        lambda **kwargs: FailoverChatClient(chain=(("local_primary", member),)),
     )
     capped = bridge._bridge_client()
     assert capped is not None
-    assert capped.timeout_seconds <= bridge._BRIDGE_TIMEOUT_SECONDS_CAP
+    assert capped.chain[0][1].timeout_seconds <= bridge._BRIDGE_TIMEOUT_SECONDS_CAP
 
 
 def test_live_evidence_planning_never_calls_llm_inline(monkeypatch) -> None:
@@ -181,7 +182,7 @@ def test_live_evidence_planning_never_calls_llm_inline(monkeypatch) -> None:
         raise AssertionError("LLM client built on live planning path")
 
     monkeypatch.setattr(
-        "app.llm.clients.local_chat_client.build_synthesis_client_from_settings", _boom
+        "app.llm.clients.endpoint_resolver.build_failover_chat_client", _boom
     )
     query = "Strange OT chatter to a brand new external host overnight, anything to hunt?"
     understanding = understand_query(query)

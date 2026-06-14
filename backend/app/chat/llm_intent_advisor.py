@@ -7,6 +7,13 @@ from pydantic import ValidationError
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.config import settings
 from app.llm.adapter.json_extractor import extract_first_json_object
+from app.llm.governed_context_package import build_governed_context_package_v1
+from app.llm.sidecar_clients import (
+    INTENT_ROLE,
+    build_intent_advisory_prompt,
+    invoke_sidecar_role,
+    sidecar_timeout_seconds,
+)
 from app.llm.sidecar_governance import (
     NOTE_LLM_ASSIST_TIMED_OUT,
     SKIP_LLM_DISABLED,
@@ -26,34 +33,78 @@ def generate_llm_intent_advisory(
     *,
     query_understanding: QueryUnderstandingResult | None = None,
     llm_raw_output_provider: Callable[[], str] | None = None,
+    timeout_seconds: float | None = None,
+    candidate_mappings: dict[str, Any] | None = None,
+    routed_skill: str | None = None,
 ) -> LLMIntentAdvisory:
     """Return a non-authoritative intent advisory.
 
-    The production provider hook is intentionally not wired in this phase. Tests
-    may inject `llm_raw_output_provider`; otherwise the advisor fails closed.
+    Production path uses Qwen/local primary with Foundation-Sec Instruct failover.
+    Tests may inject ``llm_raw_output_provider``; otherwise a governed sidecar client
+    is used when configured.
     """
-    del query, query_understanding
     if not settings.ai_soc_llm_intent_advisor_enabled:
         return LLMIntentAdvisory(dropped_reasons=[DROP_ADVISOR_DISABLED])
     if not settings.ai_soc_llm_enabled or settings.ai_soc_llm_mode.strip().lower() == "disabled":
         return LLMIntentAdvisory(dropped_reasons=[SKIP_LLM_DISABLED])
-    if llm_raw_output_provider is None:
-        return LLMIntentAdvisory(dropped_reasons=[SKIP_NO_PROVIDER_CONFIGURED])
 
-    call = run_sidecar_llm_with_timeout(llm_raw_output_provider, timeout_seconds=1.5)
-    if call.timed_out or not call.raw_output:
+    provider_label: str | None = None
+    raw_output: str | None = None
+    timed_out = False
+
+    if llm_raw_output_provider is None:
+        context = build_governed_context_package_v1(
+            query=query,
+            query_understanding=query_understanding,
+            candidate_mappings=candidate_mappings,
+            routed_skill=routed_skill,
+        )
+        user_prompt = build_intent_advisory_prompt(
+            query=query,
+            context_block=context.to_prompt_block(),
+        )
+        effective_timeout = (
+            timeout_seconds
+            if timeout_seconds is not None
+            else sidecar_timeout_seconds(INTENT_ROLE)
+        )
+        raw_output, timed_out, provider_label = invoke_sidecar_role(
+            role=INTENT_ROLE,
+            user_prompt=user_prompt,
+            max_tokens=800,
+            timeout_seconds=effective_timeout,
+            temperature=0.0,
+        )
+        if raw_output is None and not timed_out:
+            return LLMIntentAdvisory(dropped_reasons=[SKIP_NO_PROVIDER_CONFIGURED])
+    else:
+        effective_timeout = (
+            timeout_seconds
+            if timeout_seconds is not None
+            else sidecar_timeout_seconds(INTENT_ROLE)
+        )
+        call = run_sidecar_llm_with_timeout(
+            llm_raw_output_provider,
+            timeout_seconds=effective_timeout,
+        )
+        timed_out = call.timed_out
+        raw_output = call.raw_output
+
+    if timed_out or not raw_output:
         return LLMIntentAdvisory(
             llm_called=True,
             dropped_reasons=[DROP_LLM_TIMED_OUT],
-            adapter_warnings=[NOTE_LLM_ASSIST_TIMED_OUT, *call.notes],
+            adapter_warnings=[NOTE_LLM_ASSIST_TIMED_OUT],
+            provider_label=provider_label,
         )
 
-    extraction = extract_first_json_object(call.raw_output)
+    extraction = extract_first_json_object(raw_output)
     if not extraction.parsed_ok or extraction.payload is None:
         return LLMIntentAdvisory(
             llm_called=True,
             dropped_reasons=[DROP_JSON_EXTRACTION_FAILED],
             adapter_warnings=[*extraction.warnings, *extraction.errors],
+            provider_label=provider_label,
         )
     try:
         advisory = LLMIntentAdvisory.model_validate(extraction.payload)
@@ -62,11 +113,13 @@ def generate_llm_intent_advisory(
             llm_called=True,
             dropped_reasons=[DROP_SCHEMA_INVALID],
             adapter_warnings=[str(exc.errors()[0].get("type") or "schema_error")],
+            provider_label=provider_label,
         )
     return advisory.model_copy(
         update={
             "llm_called": True,
             "adapter_warnings": [*advisory.adapter_warnings, *extraction.warnings],
+            "provider_label": provider_label,
         }
     )
 
