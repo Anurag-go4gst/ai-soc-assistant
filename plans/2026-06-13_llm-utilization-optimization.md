@@ -1,7 +1,7 @@
 # Plan — Governed LLM Utilization Optimization
 
-**Status:** Active — **Phase 3 implemented 2026-06-14** (MITRE/risk rationale sidecars + resource-plan shadow; authority invariant)  
-**Date:** 2026-06-13 (post-review + Phase 1.5: 2026-06-14)  
+**Status:** **Code-complete 2026-06-14** — Phases 1, 1.5, 2, 2.5, 3, 5 **DONE**; Phase 4 (T3 general reasoning) **SKIPPED** (optional). Plus VPS timeout alignment + endpoint health ping + routing mis-classification fix. Remaining is operational: staging smoke → first scorecard → COE flag review. Suite green; governance PASS.  
+**Date:** 2026-06-13 (post-review + Phases 1.5–5 + ops: 2026-06-14)  
 **Owner:** Anurag + implementation agents  
 **Cursor working copy:** `/root/.cursor/plans/llm_optimization_strategy_3a311ebc.plan.md` (recreate in Cursor if missing)  
 **Related:**
@@ -44,11 +44,17 @@ This plan is the **single forward roadmap for LLM utilization**. Do not reopen S
 | **Missing-evidence reasoner** | ✅ I8 skip on clarification / missing_evidence_review HIL |
 | **Turn budget** | ✅ Session-scoped in graph state; enforced at intent/reasoner/narration |
 | **Failover observability** | ✅ `answered_label` on `ChatResult`; timeout→Instruct retry (I3) |
-| **Prod enablement** | Staging smoke with Qwen reachability, then re-enable intent advisor |
+| **Weak-case / out-of-catalog composition (2.5)** | ✅ Grounding guard + notice guard + threshold HIL; the on-the-fly differentiator |
+| **MITRE/risk rationale + resource-plan shadow (3)** | ✅ Prose from fixed decision dumps; shadow never promoted |
+| **Role scorecard (5)** | ✅ `app/quality/llm_role_scorecard.py` + `scripts/build_llm_role_scorecard.py` over `control_plane_trace` JSONL |
+| **VPS timeouts + health ping** | ✅ Three layers aligned (env→socket 120s→wrapper); `GET /settings/llm/health` (green/red, Qwen `wired_disabled`) |
+| **Routing mis-classification** | ✅ Catalog match → skill (shape-aware), no longer collapses to `clarification → knowledge_recall` |
+| **Phase 4 (T3 general reasoning)** | ⏭️ **SKIPPED** — optional; revisit if a non-security long-form need appears |
+| **Prod enablement** | Code-complete + flags on in `.env`; run staging smoke → first scorecard → COE per-role review |
 
 **Fail-closed rule:** If `AI_SOC_LLM_LOCAL_*` is down and `AI_SOC_LLM_FOUNDATION_SEC_INSTRUCT_*` is also unset, sidecars skip (`no_provider_configured`) and narration falls back to **deterministic prose** — same as before Qwen.
 
-**COE gate (updated):** Do **not** set `AI_SOC_LLM_INTENT_ADVISOR_ENABLED=true` or flip synthesis flags in production until **C1** (real timeout) and **C2** (exact-105 / T0 skip) ship. Architecture fits the goal; the gap is **latency safety + measurement**, not routing design.
+**COE gate (current):** Latency safety (C1/C2) and measurement plumbing **shipped**. LLM flags are enabled in `.env` for VPS testing. Before treating any role as trusted in production, collect a staging corpus and confirm its scorecard verdict is **HEALTHY**. MCP execution, RAG-direct, and cloud stay hard-off regardless.
 
 ---
 
@@ -863,15 +869,41 @@ PYTHONPATH=backend:. python3 scripts/build_llm_role_scorecard.py --check
 ## Execution order (single sequence)
 
 ```text
-Phase 0 (docs) → Phase 1 (failover + sidecar wiring) — PARTIAL
-  → Phase 1.5 (C1 timeout + C2 T0 skip + I4/I6/I8) — **REQUIRED before prod flags**
-  → Phase 2 (context pack + narration coverage + lineage)
-  → Phase 5 (scorecard — start telemetry during 1.5 staging)
-  → Phase 3 (shadow rationale + resource plan)
-  → Phase 4 (optional T3)
+Phase 0 (docs)                                          ✅ DONE
+  → Phase 1   (failover + sidecar wiring)               ✅ DONE
+  → Phase 1.5 (C1 timeout + C2 T0 skip + I3–I8)         ✅ DONE
+  → Phase 2   (context pack + narration coverage)       ✅ DONE
+  → Phase 2.5 (weak-case composition + grounding guard) ✅ DONE
+  → Phase 3   (rationale + resource-plan shadow)        ✅ DONE
+  → Phase 5   (role scorecard)                          ✅ DONE
+  → Phase 4   (optional T3 general reasoning)           ⏭️ SKIPPED
+  + ops:      VPS timeout alignment, health ping,       ✅ DONE
+              routing mis-classification fix
 ```
 
-Parallel ops track (no code): MCP credentials via `.env.splunk-live.example`, llama bind for Docker. **Do not** enable `AI_SOC_LLM_INTENT_ADVISOR_ENABLED` or synthesis flags until Phase 1.5 passes staging smoke.
+**Remaining = operational, not code:**
+1. Staging smoke with synthesis on + health ping green → append `control_plane_trace` to a JSONL.
+2. Run `scripts/build_llm_role_scorecard.py --input <jsonl>` → first real per-role scorecard (expect `INSUFFICIENT_DATA` until n ≥ 20/role).
+3. COE per-role review: flip a role to "trusted" only at verdict `HEALTHY`. MCP execution / RAG-direct / cloud stay hard-off.
+
+Flags are already enabled in `.env` for VPS testing (latency safety C1/C2 shipped, so the earlier "do not enable" gate is lifted).
+
+### First real scorecard (2026-06-14, 8-turn staging smoke)
+
+`docs/evals/llm_role_scorecard.json` from `docs/evals/llm_role_traces_staging.jsonl` (live Foundation-Sec 8B). Overall `INSUFFICIENT_DATA` (n < 20/role — expected). Signal is already useful:
+
+| Role | n | agreement | note |
+|------|---|-----------|------|
+| `mitre_reasoner` | 2 | 1.00 | clean |
+| `risk_rationale_reasoner` | 2 | 1.00 | clean |
+| `intent_shadow_classifier` | 2 | 0.00 | LLM proposed out-of-registry question_ref / use_case → **deterministically rejected** (governance working as designed) |
+| `narration_composer` | 3 | 0.33 | guards **blocked** 2/3: dropped out-of-catalog notice; fabricated MITRE T1110 → deterministic fallback |
+
+**Read:** the governed guards are catching real 8B misbehavior (notice drop, MITRE fabrication, invalid registry candidates) and falling back safely — the architecture holds. The low composer agreement on the 8B model means **prompt tuning or a stronger narration model** is the next quality lever before flipping any role to "trusted". Collect ≥ 20 turns/role on staging to move past `INSUFFICIENT_DATA`.
+
+### Latency posture (VPS, owner-chosen)
+
+Single-slot 8B instruct → **~30–140s per turn** when LLM hops run (observed: rationale ~30s, composer/narration 60–140s; a long paraphrase intent can exceed the 120s sidecar bound → times out → deterministic). Posture: **keep the long aligned timeouts + health ping; do not disable hops**. The composer still calls `client.generate` directly — bounded by the client socket timeout (120s), not the sidecar wall-clock wrapper. A wall-clock wrapper around the composer is a **deferred, optional** hardening (defense-in-depth; no flow change) — the socket timeout already prevents an unbounded hang. The UI shows `expected_latency_hint` so waits read as intentional.
 
 ---
 

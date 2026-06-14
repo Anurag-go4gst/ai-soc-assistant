@@ -1,0 +1,61 @@
+{
+  "sample_turns": 8,
+  "roles": {
+    "intent_shadow_classifier": {
+      "role": "intent_shadow_classifier",
+      "invocations": 2,
+      "fallbacks": 0,
+      "timeouts": 0,
+      "disagreements": 2,
+      "fallback_rate": 0.0,
+      "agreement_rate": 0.0,
+      "disagreement_reasons": [
+        "question_ref_candidate_not_in_deterministic_registry",
+        "use_case_id_candidate_not_in_deterministic_registry"
+      ],
+      "verdict": "INSUFFICIENT_DATA"
+    },
+    "mitre_reasoner": {
+      "role": "mitre_reasoner",
+      "invocations": 2,
+      "fallbacks": 0,
+      "timeouts": 0,
+      "disagreements": 0,
+      "fallback_rate": 0.0,
+      "agreement_rate": 1.0,
+      "disagreement_reasons": [],
+      "verdict": "INSUFFICIENT_DATA"
+    },
+    "narration_composer": {
+      "role": "narration_composer",
+      "invocations": 3,
+      "fallbacks": 0,
+      "timeouts": 0,
+      "disagreements": 2,
+      "fallback_rate": 0.0,
+      "agreement_rate": 0.333,
+      "disagreement_reasons": [
+        "Composed prose dropped the required out-of-catalog notice.",
+        "Composed prose introduces unsupported MITRE technique T1110."
+      ],
+      "verdict": "INSUFFICIENT_DATA"
+    },
+    "risk_rationale_reasoner": {
+      "role": "risk_rationale_reasoner",
+      "invocations": 2,
+      "fallbacks": 0,
+      "timeouts": 0,
+      "disagreements": 0,
+      "fallback_rate": 0.0,
+      "agreement_rate": 1.0,
+      "disagreement_reasons": [],
+      "verdict": "INSUFFICIENT_DATA"
+    }
+  },
+  "overall_verdict": "INSUFFICIENT_DATA",
+  "thresholds": {
+    "min_sample": 20,
+    "max_fallback_rate": 0.1,
+    "min_agreement_rate": 0.7
+  }
+}
