@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI SOC Assistant — Query Flow Explainer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg: #0f172a;
@@ -676,9 +679,116 @@
         padding: 20px;
       }
     }
+    /* ============================================================
+       2026-06 refresh — typography, sticky nav, motion, sidecar lane
+       ============================================================ */
+    body {
+      font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background:
+        radial-gradient(900px 600px at 12% -8%, rgba(37, 99, 235, 0.06), transparent 60%),
+        radial-gradient(800px 600px at 100% 0%, rgba(8, 145, 178, 0.05), transparent 55%),
+        #f6f8fc;
+    }
+    h1, h2, h3, .eyebrow, .arch-seq, .step-num { font-family: "Sora", sans-serif; }
+    code, .mono, pre, .trace-key { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+    h2 { letter-spacing: -0.02em; }
+    h2[id], section[id] { scroll-margin-top: 74px; }
+
+    /* Sticky section navigator */
+    .docnav {
+      position: sticky; top: 0; z-index: 40;
+      background: rgba(248, 250, 252, 0.82);
+      backdrop-filter: saturate(140%) blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .docnav-inner {
+      max-width: 1180px; margin: 0 auto; padding: 11px 28px;
+      display: flex; gap: 6px; align-items: center; overflow-x: auto;
+    }
+    .docnav-inner::-webkit-scrollbar { height: 0; }
+    .docnav a {
+      flex: 0 0 auto; text-decoration: none; color: var(--muted);
+      font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 999px;
+      white-space: nowrap; transition: all 0.18s ease; border: 1px solid transparent;
+    }
+    .docnav a:hover { color: var(--accent); background: var(--soft-blue); border-color: #bfdbfe; }
+    .docnav .brandtag {
+      flex: 0 0 auto; font-family: "Sora"; font-weight: 800; font-size: 12.5px;
+      color: var(--text); margin-right: 6px; padding-right: 10px; border-right: 1px solid var(--border);
+    }
+
+    /* "New / updated this release" ribbon on a section title */
+    .badge-new {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: "Sora"; font-weight: 700; font-size: 11px; letter-spacing: 0.04em;
+      text-transform: uppercase; color: #065f46;
+      background: var(--soft-green); border: 1px solid #6ee7b7;
+      padding: 4px 10px; border-radius: 999px; margin-left: 12px; vertical-align: middle;
+    }
+    .badge-new::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px rgba(22,163,74,0.18); }
+
+    /* Staggered reveal on load for flow + arch boxes */
+    @keyframes riseIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: no-preference) {
+      .flow-step, .arch-box, .lane-card { animation: riseIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+      .flow-step:nth-child(2){animation-delay:.05s}.flow-step:nth-child(3){animation-delay:.1s}
+      .flow-step:nth-child(4){animation-delay:.15s}.flow-step:nth-child(5){animation-delay:.2s}
+      .flow-step:nth-child(6){animation-delay:.25s}.flow-step:nth-child(7){animation-delay:.3s}
+      .flow-step:nth-child(8){animation-delay:.35s}
+    }
+    .flow-step { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+    .flow-step:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: #bfdbfe; }
+
+    /* Governed LLM sidecar lane (new §8c) */
+    .lane {
+      display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; align-items: stretch;
+    }
+    .lane-card {
+      position: relative; background: #0f172a; color: #e2e8f0; border-radius: 16px;
+      padding: 16px 14px; border: 1px solid #1e293b; min-height: 158px;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.18);
+    }
+    .lane-card h4 { margin: 0 0 8px; font-family: "Sora"; font-size: 14.5px; color: #fff; }
+    .lane-card p { margin: 0; font-size: 12.5px; color: #94a3b8; line-height: 1.5; }
+    .lane-card .ln { font-family:"Sora"; font-weight:800; font-size:12px; color:#38bdf8; letter-spacing:.06em; }
+    .lane-card.guard { background: linear-gradient(160deg, #0f172a, #14532d40), #0f172a; border-color:#166534; }
+    .lane-card.guard .ln { color:#4ade80; }
+    .lane-card.fallback { background: linear-gradient(160deg, #0f172a, #78350f30), #0f172a; border-color:#92400e; }
+    .lane-card.fallback .ln { color:#fbbf24; }
+    .lane-card:not(:last-child)::after {
+      content:"→"; position:absolute; right:-13px; top:50%; transform:translateY(-50%);
+      color:#475569; font-size:20px; font-weight:800; z-index:2;
+    }
+    .chip-row { display:flex; flex-wrap:wrap; gap:7px; margin-top:14px; }
+    .chip {
+      font-family:"IBM Plex Mono"; font-size:11.5px; font-weight:500;
+      padding:5px 10px; border-radius:8px; background:#fff; border:1px solid var(--border); color:#334155;
+    }
+    .chip.ok { background: var(--soft-green); border-color:#86efac; color:#065f46; }
+    .chip.off { background: var(--soft-red); border-color:#fca5a5; color:#991b1b; }
+    .chip.warm { background: var(--soft-amber); border-color:#fcd34d; color:#92400e; }
+    @media (max-width: 920px) {
+      .lane { grid-template-columns: 1fr; }
+      .lane-card:not(:last-child)::after { content:"↓"; right:auto; left:50%; top:auto; bottom:-13px; transform:translateX(-50%); }
+    }
   </style>
 </head>
 <body>
+  <nav class="docnav">
+    <div class="docnav-inner">
+      <span class="brandtag">SOC FLOW</span>
+      <a href="#s1">1 · Traversal</a>
+      <a href="#s2">2 · Diagram</a>
+      <a href="#s8c">Sidecar pipeline ✦</a>
+      <a href="#s8">8 · LLM usage</a>
+      <a href="#s8b">8b · Trace</a>
+      <a href="#s13">13 · Endpoints</a>
+      <a href="#s5">5 · Match outcomes</a>
+      <a href="#s6">6 · Skills</a>
+      <a href="#s11">11 · Examples</a>
+      <a href="#s12">12 · Answer card</a>
+    </div>
+  </nav>
   <header>
     <div class="container hero-grid">
       <div>
@@ -710,7 +820,7 @@
     <section>
       <div class="section-title">
         <div>
-          <h2>1. The complete traversal</h2>
+          <h2 id="s1">1. The complete traversal <span class="badge-new">updated</span></h2>
           <p>Eight pipeline stages on every live <code>/chat</code> request. Section 2 shows the same sequence with route and execute branches.</p>
         </div>
       </div>
@@ -734,7 +844,7 @@
           <div class="flow-step">
             <div class="step-num">4</div>
             <h3>Intent</h3>
-            <p>Exact goal: SOP, SPL, investigation, summary, guided hunt, clarification, or unsafe block.</p>
+            <p>Exact goal: SOP, SPL, investigation, summary, guided hunt, clarification, or unsafe block. Catalog use-case matches now route to their skill instead of collapsing to clarification. A T0-skipped intent advisor sidecar may run — advisory only.</p>
           </div>
           <div class="flow-step">
             <div class="step-num">5</div>
@@ -754,16 +864,19 @@
           <div class="flow-step">
             <div class="step-num">8</div>
             <h3>Finalize</h3>
-            <p>Answer contract, fail-closed validator, optional LLM narration, control-plane trace, analyst card.</p>
+            <p>Answer contract → governed sidecars (missing-evidence, rationale) → composer narration through grounding + notice guards → fail-closed validator → control-plane trace + analyst card. Every LLM hop is budgeted, timeout-bounded, and falls back deterministic. See <a href="#s8c">§8c</a>.</p>
           </div>
         </div>
+        <p style="margin:16px 2px 0;color:var(--muted);font-size:13.5px;">
+          Steps 4 and 8 each open a <strong>governed LLM sidecar lane</strong> — non-authoritative hops that propose prose/candidates, are validated or dropped, and never change severity, MITRE status, SPL approval, or MCP execution. <a href="#s8c">Jump to the sidecar pipeline →</a>
+        </p>
       </div>
     </section>
 
     <section>
       <div class="section-title">
         <div>
-          <h2>2. Architecture diagram with decision branches</h2>
+          <h2 id="s2">2. Architecture diagram with decision branches <span class="badge-new">updated</span></h2>
           <p>
             Numbered steps match section 1 and the live pipeline in <code>pipeline.py</code>. Each box is a label only — details live in the section cited below.
           </p>
@@ -874,8 +987,8 @@
           <div class="arch-box green">
             <span class="arch-seq">8</span>
             <h3>Finalize answer</h3>
-            <p>Answer contract, fail-closed validator, optional LLM narration of prose only, analyst response card, control-plane trace when enabled.</p>
-            <span class="see-section">Answer shape → §12 · Trace → §8b</span>
+            <p>Answer contract → governed LLM sidecar lane (missing-evidence + rationale + composer narration, each guarded and budgeted) → fail-closed validator → analyst card → control-plane trace. LLM rewrites prose only; all facts stay deterministic.</p>
+            <span class="see-section">Sidecar lane → §8c · Answer shape → §12 · Trace → §8b</span>
           </div>
         </div>
 
@@ -883,6 +996,7 @@
           <span class="legend-item"><span class="dot"></span> Steps 1–8 = same order as §1</span>
           <span class="legend-item"><span class="dot" style="background:#475569"></span> 3A–3D = route triage (step 3)</span>
           <span class="legend-item"><span class="dot" style="background:#16a34a"></span> 7A–7B = execute branch (step 7)</span>
+          <span class="legend-item"><span class="dot" style="background:#38bdf8"></span> Steps 4 &amp; 8 open the governed LLM sidecar lane (§8c)</span>
         </div>
 
         <div class="note warn-note" style="margin-top: 18px;">
@@ -985,7 +1099,7 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
-          <h2>5. What happens when matching succeeds or fails?</h2>
+          <h2 id="s5">5. What happens when matching succeeds or fails? <span class="badge-new">updated</span></h2>
           <p>The assistant should never hallucinate governance. Unknown investigation-shaped questions go to the fifth skill.</p>
         </div>
       </div>
@@ -1032,6 +1146,10 @@ output template</pre>
         </tbody>
       </table>
 
+      <div class="note" style="margin-top:18px;border-left:5px solid var(--green);background:var(--soft-green);color:#065f46;">
+        <strong>Routing rescue fix (2026-06):</strong> a catalog use-case match (not just exact-105) now classifies into its own intent family and keeps the registry route — it no longer collapses to <code>clarification_required → knowledge_recall</code>. The rescue is <em>shape-aware</em>: knowledge / MITRE / SOP use cases → <code>knowledge_only</code>; analytics → <code>spl_generation_only</code>; alert-shaped → <code>hybrid_alert_review</code>; otherwise <code>live_investigation</code>. Genuinely vague, no-detail queries still clarify, and truly out-of-registry hunts still reach <code>guided_investigation</code>.
+      </div>
+
       <div class="card" style="margin-top: 18px;">
         <h3 style="margin-top:0;">Canonical route mapping (implemented)</h3>
         <table>
@@ -1076,7 +1194,7 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
-          <h2>6. The five live route skills</h2>
+          <h2 id="s6">6. The five live route skills</h2>
           <p>Route skills are broad work modes, not the full taxonomy of all possible SOC questions.</p>
         </div>
       </div>
@@ -1271,7 +1389,7 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
-          <h2>8. LLM usage</h2>
+          <h2 id="s8">8. LLM usage <span class="badge-new">updated</span></h2>
           <p>The LLM helps understand and narrate. It does not own policy or tool execution.</p>
         </div>
       </div>
@@ -1304,7 +1422,7 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
-          <h2>8b. Control-plane trace (live /chat, CP on)</h2>
+          <h2 id="s8b">8b. Control-plane trace (live /chat, CP on) <span class="badge-new">updated</span></h2>
           <p>When control plane is enabled, the response includes a technical trace for auditors and demo reviewers.</p>
         </div>
       </div>
@@ -1337,8 +1455,94 @@ output template</pre>
               <td><code>llm_advisory_trace</code></td>
               <td>Whether route/intent/narration advisories ran, what the LLM suggested, and whether policy overrode it. No new LLM calls are made to build this block.</td>
             </tr>
+            <tr>
+              <td><code>llm_turn_budget</code> <span class="badge-new">new</span></td>
+              <td>Per-turn cap accounting: <code>sidecar_calls</code> / <code>narration_calls</code> with a record per call (<code>role</code>, <code>provider_label</code>, <code>outcome</code> = completed / timed_out). Enforced — max 2 sidecar + 1 narration.</td>
+            </tr>
+            <tr>
+              <td><code>missing_evidence_reasoning</code> <span class="badge-new">new</span></td>
+              <td>Advisory review-only bullets when the contract has missing evidence; skipped on T0 / clarification. Merged into Limitations; never authority.</td>
+            </tr>
+            <tr>
+              <td><code>mitre_risk_rationale</code> <span class="badge-new">new</span></td>
+              <td>Prose explaining the fixed MITRE/severity decision dump. <code>guard_status</code> blocks fall back to deterministic rationale. Never sets status or severity.</td>
+            </tr>
+            <tr>
+              <td><code>llm_composer</code> <span class="badge-new">new</span></td>
+              <td><code>llm_composer_used</code>, <code>llm_guard_status</code>, <code>llm_provider_label</code> / <code>llm_answered_label</code> (which endpoint answered), <code>composition_confidence</code>, <code>compose_hil_attached</code>, <code>expected_latency_hint</code>.</td>
+            </tr>
+            <tr>
+              <td><code>resource_plan_shadow</code> <span class="badge-new">new</span></td>
+              <td>LLM resource-plan proposal validated deterministically; <code>live_plan_source_unchanged=true</code>. Shadow only — never promoted to the live plan.</td>
+            </tr>
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <section id="s8c">
+      <div class="section-title">
+        <div>
+          <h2>8c. Governed LLM sidecar pipeline <span class="badge-new">new</span></h2>
+          <p>
+            Every LLM hop on the live <code>/chat</code> path runs as a <strong>governed sidecar</strong>: it proposes prose or candidates, is validated or dropped, and never holds authority. The chain below is the same for intent advisory, missing-evidence, rationale, and composer narration.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="lane">
+          <div class="lane-card">
+            <span class="ln">01 · RESOLVE</span>
+            <h4>Failover chain</h4>
+            <p>Qwen (flag-gated) → local Foundation-Sec → Instruct fallback. Deduped by URL. Returns the endpoint that actually answered.</p>
+          </div>
+          <div class="lane-card">
+            <span class="ln">02 · BOUND</span>
+            <h4>Wall-clock timeout</h4>
+            <p>Persistent executor, no blocking join. Socket ceiling = wrapper (120s) so a slow single-slot model is never silently capped. Hung call → abandon → fallback.</p>
+          </div>
+          <div class="lane-card">
+            <span class="ln">03 · BUDGET</span>
+            <h4>Per-turn cap</h4>
+            <p>Session-scoped <code>TurnLlmBudget</code> in graph state: max 2 sidecar + 1 narration. T0 / exact-105 / clarification skip the call entirely.</p>
+          </div>
+          <div class="lane-card guard">
+            <span class="ln">04 · GUARD</span>
+            <h4>Validate or drop</h4>
+            <p>JSON/schema adapter, cite-only grounding guard (no invented IP / index / hash / SPL), out-of-catalog notice guard, fail-closed final-answer validator.</p>
+          </div>
+          <div class="lane-card fallback">
+            <span class="ln">05 · MERGE / FALL BACK</span>
+            <h4>Deterministic floor</h4>
+            <p>Pass → prose merged (facts untouched). Fail / timeout / unconfigured → deterministic answer, byte-equivalent to LLM-off.</p>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:18px;">
+          <div class="mini-card green">
+            <h3>Weak-case &amp; out-of-catalog composition</h3>
+            <p style="margin-bottom:10px;">For out-of-catalog / weak / failover questions the composer narrates a body from skills + RAG + governed facts — the on-the-fly advantage over fixed SOAR. Threshold HIL: below <code>AI_SOC_LLM_COMPOSE_HIL_THRESHOLD</code> the body still renders but carries an analyst-review gate; any proposed MCP action always gates.</p>
+            <div class="chip-row">
+              <span class="chip ok">out-of-catalog notice kept</span>
+              <span class="chip ok">cite-only-retrieved</span>
+              <span class="chip off">execution_eligible = false</span>
+              <span class="chip off">severity / MITRE deterministic</span>
+            </div>
+          </div>
+          <div class="mini-card blue">
+            <h3>Context package &amp; promotion gate</h3>
+            <p style="margin-bottom:10px;"><code>GovernedContextPackage</code> feeds sidecars redacted RAG, skill metadata, and MCP tool <em>hints</em> (descriptions only — never schema or credentials), truncated to the role budget. The <code>build_llm_role_scorecard</code> reads <code>control_plane_trace</code> and gates promotion: a role is trusted only at verdict <strong>HEALTHY</strong> (fallback &lt; 10%, agreement ≥ 70%, n ≥ 20).</p>
+            <div class="chip-row">
+              <span class="chip">HEALTHY</span>
+              <span class="chip warm">DEGRADED</span>
+              <span class="chip">INSUFFICIENT_DATA</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="note warn-note" style="margin-top:18px;">
+          <strong>Authority boundary:</strong> the sidecar lane can rewrite prose and propose candidates only. It never sets severity, MITRE status, SPL approval, or <code>execution_eligible</code>, never selects or runs an MCP tool, and never reaches the Experience Center fixture path. On any failure the answer is exactly what it would be with the LLM disabled.
+        </div>
       </div>
     </section>
 
@@ -1400,7 +1604,7 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
-          <h2>13. LLM endpoints (Qwen flag)</h2>
+          <h2 id="s13">13. LLM endpoints &amp; failover (Qwen flag) <span class="badge-new">updated</span></h2>
           <p>One COE switch — no env “profiles”. See <code>docs/architecture/llm_endpoint_wiring.md</code>.</p>
         </div>
       </div>
@@ -1438,6 +1642,21 @@ output template</pre>
 
         <h3 style="margin-top:24px;">Per-turn budget (live trace)</h3>
         <p>Max <strong>2 sidecar</strong> + <strong>1 narration</strong> per turn. Recorded in <code>control_plane_trace.llm_turn_budget</code>. Successful hop label in <code>answered_label</code> (failover observability).</p>
+
+        <h3 style="margin-top:24px;">Reachability &amp; aligned timeouts <span class="badge-new">new</span></h3>
+        <p>
+          Health ping <code>GET /settings/llm/health</code> probes <code>/v1/models</code> for the active endpoints (TTL-cached 30s) and returns green / red per endpoint; Qwen shows <code>wired_disabled</code> when its flag is off. Timeouts align across three layers so a slow single-slot model can finish instead of being silently cut:
+        </p>
+        <div class="chip-row" style="margin-top:6px;">
+          <span class="chip">env AI_SOC_LLM_TIMEOUT_SECONDS</span>
+          <span class="chip">→ sidecar socket ceiling 120s</span>
+          <span class="chip">→ role wrapper ≤ 120s</span>
+          <span class="chip ok">local_primary · green</span>
+          <span class="chip warm">qwen · wired_disabled</span>
+        </div>
+        <p style="margin-top:10px;color:var(--muted);font-size:13.5px;">
+          The composer trace and health payload both carry an <code>expected_latency_hint</code> (“~60s, the wait is expected”) so the UI can set expectations rather than look broken.
+        </p>
 
         <h3 style="margin-top:24px;">Dual narration paths (control plane)</h3>
         <ul>
@@ -1506,7 +1725,7 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
-          <h2>11. Examples by use case</h2>
+          <h2 id="s11">11. Examples by use case</h2>
           <p>Use these tabs in team discussions to show how different questions traverse the same pipeline.</p>
         </div>
       </div>
@@ -1640,7 +1859,7 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
-          <h2>12. How the final answer should look</h2>
+          <h2 id="s12">12. How the final answer should look</h2>
           <p>The output is an analyst response card, not raw LLM prose.</p>
         </div>
       </div>
