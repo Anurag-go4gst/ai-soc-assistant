@@ -21,33 +21,41 @@ from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_cli
 from app.schemas.responses import AnalystResponseEnvelope
 from app.threat.mitre_permitted_builder import canonical_technique_name_tactic
 
+# Tuned for an on-prem 8B instruct (Foundation-Sec): short, numbered, front-loaded
+# critical rules with a closing self-check. The model loses constraints buried in
+# long prose, so the five things the grounding/notice/MITRE guards enforce are
+# stated first and repeated at the end.
 _SYSTEM_PROMPT = (
-    "You are a SOC analyst assistant. You will receive a GOVERNED ANSWER CONTRACT "
-    "with deterministic facts already decided by the security pipeline.\n"
-    "Write 2-4 sentences of plain analyst prose that restates ONLY those facts.\n"
-    "Hard rules:\n"
-    "- Do not invent severity, MITRE status upgrades, SPL approval, execution, "
-    "or compromise conclusions.\n"
-    "- Candidate MITRE techniques stay candidate; never use the phrase "
-    "'evidence-supported' unless the contract lists that technique as supported.\n"
-    "- SPL is review-only unless the contract explicitly says it was executed.\n"
-    "- If SPL template_status is active but block_reason says source profile is missing, "
-    "say the governed SPL template is active but generation is blocked/review-required "
-    "until required fields are confirmed; never say no active governed SPL template exists.\n"
-    "- Not-claimed MITRE techniques are not claimed due to insufficient supporting evidence; "
-    "use ruled-out wording only for the ruled_out_mitre bucket.\n"
-    "- Preserve missing-evidence and limitation caveats.\n"
+    "You are a SOC analyst assistant. You receive a GOVERNED ANSWER CONTRACT of "
+    "facts already decided by the security pipeline. Restate ONLY those facts in "
+    "2-4 short, plain sentences.\n\n"
+    "CRITICAL RULES (these override everything else):\n"
+    "1. If the contract has a REQUIRED NOTICE line, copy that exact sentence into "
+    "your answer, word for word.\n"
+    "2. Only write MITRE technique IDs that the contract lists as allowed. Never "
+    "introduce any other T#### id or technique name. If none are allowed, write no "
+    "technique id at all.\n"
+    "3. Candidate MITRE stays candidate. Never write 'evidence-supported' unless "
+    "the contract's evidence-supported list contains that exact id.\n"
+    "4. Never say SPL was approved or executed, that Splunk/MCP returned rows or "
+    "live results, or that compromise is confirmed — unless the contract execution "
+    "status literally says executed.\n"
+    "5. Never invent a severity level, index, sourcetype, source IP, hostname, "
+    "hash, or SPL query. Use only values present in the contract/context.\n\n"
+    "ALSO:\n"
+    "- Keep every missing-evidence and limitation caveat from the contract.\n"
     "- If human review is required, say review is required.\n"
-    "- No SPL queries, no tool instructions, no GitHub references.\n"
-    "- Do not claim Splunk/MCP returned rows, observed live results, or confirmed compromise "
-    "unless the contract execution status says executed.\n"
-    "- Use MITRE technique names exactly as listed in the contract.\n"
-    "- Structure: direct answer; what SOC should check; evidence still needed; "
-    "SPL/MITRE/HIL status; what not to conclude yet.\n"
-    "- Use only the governed context provided. If a retrieved snippet, skill, or tool "
-    "hint is irrelevant or your confidence is very low, ignore it and state what is "
-    "missing instead of inventing an index, source IP, hash, host, or SPL query.\n"
-    "- Output plain prose only."
+    "- Not-claimed MITRE = insufficient supporting evidence (do NOT say 'ruled out').\n"
+    "- Use MITRE technique names exactly as listed.\n"
+    "- If SPL template_status is active but the source profile is missing, say the "
+    "governed SPL template is active but generation is blocked/review-required until "
+    "required fields are confirmed; never say no active template exists.\n"
+    "- Use only the provided context. If a snippet, skill, or tool hint is "
+    "irrelevant or your confidence is low, ignore it and say what is missing rather "
+    "than inventing anything.\n"
+    "- No SPL queries, no tool instructions, no GitHub references. Plain prose only.\n\n"
+    "BEFORE YOU FINISH, CHECK: REQUIRED NOTICE copied verbatim? Only allowed "
+    "technique IDs used? No new severity, execution, or compromise claim?"
 )
 
 # Shared claim patterns live in app.synthesis.claim_patterns (leaf module) so
@@ -185,6 +193,11 @@ def build_composer_prompt(
         limitations = [str(item) for item in projection.get("limitations") or [] if item]
 
     lines = ["GOVERNED ANSWER CONTRACT:"]
+    # Front-load the required out-of-catalog notice so the model can copy it (the 8B
+    # cannot echo a sentence it was never given — this was the top guard-block cause).
+    notice = str(getattr(contract, "out_of_catalog_notice", "") or "").strip()
+    if notice:
+        lines.append(f'- REQUIRED NOTICE — copy this sentence verbatim into your answer: "{notice}"')
     if knowledge_profile and not weak_case_composition:
         lines.append("- Answer mode: governed SOP / knowledge recall.")
         if checklist:
@@ -257,6 +270,17 @@ def build_composer_prompt(
         lines.extend(name_lines)
     if contract.mitre_technique_ids:
         lines.append("- Visible MITRE technique IDs: " + ", ".join(contract.mitre_technique_ids))
+    # Explicit allow-list so the 8B does not introduce an unlisted technique id
+    # (the second top guard-block cause).
+    allowed_ids = sorted(_contract_mitre_ids(contract))
+    if allowed_ids:
+        lines.append(
+            "- ALLOWED MITRE technique IDs (the ONLY ids you may write): "
+            + ", ".join(allowed_ids)
+            + ". Do not write any other T#### id."
+        )
+    else:
+        lines.append("- No MITRE technique is in scope — do NOT write any T#### id.")
 
     if contract.human_review_required or contract.hil_status in {
         "required",
@@ -370,11 +394,16 @@ def validate_composed_prose(text: str, contract: AnswerContract) -> tuple[bool, 
     if extraneous_missing:
         return False, extraneous_missing
 
-    for tid in _MITRE_TECHNIQUE_ID.findall(text):
-        if tid.upper() not in allowed_techniques and tid.upper() not in {
-            x.upper() for x in contract.not_claimed_mitre
-        } | {x.upper() for x in contract.ruled_out_mitre}:
-            return False, f"Composed prose introduces unsupported MITRE technique {tid.upper()}."
+    # A knowledge / MITRE-explanation answer legitimately discusses the technique it
+    # was asked about (e.g. "what does T1110 cover"), even when that id is not in the
+    # contract's evidence buckets. The evidence-supported / executed / compromise
+    # guards above still apply, so the technique can be named but never claimed.
+    if not _is_knowledge_profile(contract):
+        for tid in _MITRE_TECHNIQUE_ID.findall(text):
+            if tid.upper() not in allowed_techniques and tid.upper() not in {
+                x.upper() for x in contract.not_claimed_mitre
+            } | {x.upper() for x in contract.ruled_out_mitre}:
+                return False, f"Composed prose introduces unsupported MITRE technique {tid.upper()}."
 
     if _COMPROMISE.search(lowered) and not _NEGATION.search(lowered):
         blocked_claims = {str(item).lower() for item in contract.unsupported_claims_avoid}

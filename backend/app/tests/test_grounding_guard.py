@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from app.chat.contracts.answer_contract import AnswerContract
 from app.synthesis.governed_answer_composer import (
+    build_composer_prompt,
     out_of_catalog_notice_preserved,
+    validate_composed_prose,
     validate_grounding,
 )
 
@@ -72,3 +74,39 @@ def test_notice_guard_noop_without_notice() -> None:
     contract = AnswerContract(missing_evidence=[], hil_status="not_required")
     ok, _ = out_of_catalog_notice_preserved("any prose", contract)
     assert ok
+
+
+def test_knowledge_answer_may_name_the_asked_technique() -> None:
+    # "what is T1110" knowledge answer: T1110 is not in the evidence buckets but the
+    # explanation must be allowed to name it. The evidence-supported guard still applies.
+    contract = AnswerContract(
+        missing_evidence=[], hil_status="not_required",
+        intent_family="knowledge_only", answer_mode="rag_only",
+    )
+    ok, reason = validate_composed_prose(
+        "MITRE ATT&CK technique T1110 is Brute Force; respond by checking lockouts and MFA.",
+        contract,
+    )
+    assert ok, reason
+
+
+def test_investigation_answer_still_blocks_unlisted_technique() -> None:
+    contract = AnswerContract(
+        missing_evidence=[], hil_status="not_required",
+        intent_family="live_investigation", answer_mode="live_investigation",
+    )
+    ok, reason = validate_composed_prose(
+        "The alert maps to T1486 ransomware encryption.", contract,
+    )
+    assert not ok and "T1486" in reason
+
+
+def test_required_notice_is_injected_into_prompt() -> None:
+    contract = AnswerContract(
+        missing_evidence=["mfa_status"], hil_status="not_required",
+        out_of_catalog_notice="This hunt is not a vetted catalog detection.",
+        candidate_mitre=["T1110"], mitre_technique_ids=["T1110"],
+    )
+    prompt = build_composer_prompt(contract, None, weak_case_composition=True)
+    assert "REQUIRED NOTICE" in prompt and "not a vetted catalog detection" in prompt
+    assert "ALLOWED MITRE technique IDs" in prompt and "T1110" in prompt
