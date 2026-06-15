@@ -39,11 +39,20 @@ def execute_loop_discovery_hop(
         }
 
     declared = _declared_produces(canonical)
-    if not discovery_execution_allowed():
+    # A live read-only discovery call requires BOTH the discovery flag and the
+    # global MCP execution gate. With global execution off the hop stays
+    # planned-only, so the loop never touches a live/registry MCP server unless
+    # the deployment has explicitly opened the global gate.
+    if not (discovery_execution_allowed() and settings.mcp_global_execution_enabled):
+        reason = (
+            "mcp_discovery_disabled"
+            if not discovery_execution_allowed()
+            else "mcp_global_execution_disabled"
+        )
         return {
             "outcome": "planned",
             "delivered": declared,
-            "payload": {"read_only": True, "reason": "mcp_discovery_disabled"},
+            "payload": {"read_only": True, "reason": reason},
         }
 
     if rbac_role is not None and not is_tool_allowed_for_role(canonical, rbac_role):
