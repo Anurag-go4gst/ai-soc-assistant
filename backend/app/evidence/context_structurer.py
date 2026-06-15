@@ -171,7 +171,7 @@ def _warnings(source_evidence: list[dict[str, Any]], spl_validation: dict[str, A
 
 
 def _source_ref(evidence: dict[str, Any]) -> str:
-    if evidence.get("source_type") in {"mcp", "splunk_mcp"}:
+    if evidence.get("source_type") in {"mcp", "splunk_mcp", "mcp_discovery"}:
         return "mcp:splunk"
     if evidence.get("source_type") == "rag":
         return "rag:sop"

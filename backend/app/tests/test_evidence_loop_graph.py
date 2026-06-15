@@ -80,6 +80,17 @@ def test_cp_on_loop_state_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
         assert hop["tool"] != "splunk_run_query"
 
 
+def test_cp_on_merges_loop_hops_into_source_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    response = run_chat_via_langgraph(ChatRequest(message=QUERY))
+    assert response is not None
+    discovery = [item for item in response.source_evidence if item.source_type == "mcp_discovery"]
+    assert len(discovery) >= 1
+    assert all(item.collection_status == "planned" for item in discovery)
+    discovery_ids = {item.evidence_id for item in discovery}
+    assert discovery_ids.issubset(set(response.structured_context.source_evidence_refs))
+
+
 def test_cp_off_parity_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "control_plane_enabled", False)
     response = run_chat_via_langgraph(ChatRequest(message=QUERY))

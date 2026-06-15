@@ -366,13 +366,18 @@ after. Listed here so the corrected posture is canonical.
 > **Chronology is the deterministic default** (`deterministic_default_chronology`),
 > NOT yet the LLM-reviewed plan (§4B.5 `review_proposed_tool_chronology` deferred).
 >
-> **Not in this slice (deferred):** merge `mcp_evidence` → `source_evidence`
-> (phase 6); live gated discovery-hop execution (planned-only today); the
-> imperative-twin loop (bug #1 — loop runs only on the LangGraph entrypoint, which
-> needs `langgraph_orchestration_enabled` AND `control_plane_enabled`; the default
-> live path is the imperative twin and does NOT cycle); composed-plan dispatch
-> coverage (bug #5); single counter covers discovery hops only (execution re-entry
-> does not increment `mcp_hops_done`).
+> **Not in this slice (deferred):** live gated discovery-hop execution
+> (planned-only today); the imperative-twin loop (bug #1 — loop runs only on the
+> LangGraph entrypoint, which needs `langgraph_orchestration_enabled` AND
+> `control_plane_enabled`; the default live path is the imperative twin and does
+> NOT cycle); composed-plan dispatch coverage (bug #5); single counter covers
+> discovery hops only (execution re-entry does not increment `mcp_hops_done`).
+>
+> **Phase 6 shipped:** `mcp_evidence[]` merges into `source_evidence` inside
+> `_context_stage` (`append_mcp_loop_source_evidence`); discovery hops surface in
+> `structured_context.tool_outputs_summary` and `source_evidence_refs`. Synthesis
+> merge of live collected rows remains deferred while discovery hops stay
+> planned-only.
 
 ### 4B.1 Problem
 Today `graph_node_execution → context_finalize → synthesis`, blind. A multi-tool
@@ -439,11 +444,11 @@ sufficiency: str              # sufficient | needs_more | exhausted | capability
 | LLM prompt for tool call | BUILT — `build_planner_prompts` (calibrated closed-set + `response_format=json_object`); live-verified Instruct returns a valid plan + `unservable` |
 | LLM response parse | BUILT — `_extract_proposed_tools` (tolerant JSON) |
 | Plan + deterministic review | BUILT — `review_proposed_tool_chronology` (drops blocked/unknown/rbac, reorders, fallback) |
-| Declare per-hop requirement | TO BUILD — map plan → required `produces` |
-| Execute one MCP hop | TO BUILD — `mcp_call` node (read-only discovery hops); `run_query` stays in `graph_node_execution`, gated |
-| Verify result vs requirement | TO BUILD — requirement↔deliverable assessor in HUB (reuse Stage-3J sufficiency) |
-| Accumulate results | TO BUILD — `mcp_evidence[]` → merged into `source_evidence`/`structured_context` |
-| Pass to followup nodes → answer | PARTIAL — `context_finalize`/answer_contract already read `source_evidence`; must read the accumulated multi-hop set |
+| Declare per-hop requirement | SHIPPED — `declare_hop_requirements` + `initialize_loop` |
+| Execute one MCP hop | SHIPPED (planned-only) — `graph_node_mcp_call`; `run_query` stays in `graph_node_execution`, gated |
+| Verify result vs requirement | SHIPPED — `assess_loop` in HUB (`graph_node_evidence_planning` re-entry) |
+| Accumulate results | SHIPPED — `append_mcp_loop_source_evidence` in `_context_stage` |
+| Pass to followup nodes → answer | SHIPPED — `structured_context.tool_outputs_summary` + `source_evidence_refs` include discovery hops; live collected-row synthesis merge deferred |
 
 ### 4B.6 Bugs / shortcomings found in review (must address in build)
 1. **Parity twin. DECISION (2026-06-15): UNIFY.** Live runs via the compiled

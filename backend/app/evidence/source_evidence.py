@@ -247,8 +247,108 @@ def _evidence(
 _PLAN_STEP_REF_BY_SOURCE_TYPE = {
     "splunk_mcp": "mcp",
     "splunk_mcp_saia": "spl",
+    "mcp_discovery": "mcp",
     "rag": "rag",
 }
+
+
+def mcp_loop_source_evidence(
+    trace_id: str,
+    mcp_evidence: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Stage 4B phase 6: map accumulated loop hops into governed source_evidence."""
+    items: list[dict[str, Any]] = []
+    for index, hop in enumerate(mcp_evidence):
+        if not isinstance(hop, dict):
+            continue
+        tool = str(hop.get("tool") or "unknown_mcp_tool")
+        if tool == "splunk_run_query":
+            # The gated execution node owns run_query evidence; skip duplicate hop rows.
+            continue
+        outcome = str(hop.get("outcome") or "unknown")
+        delivered = [str(item) for item in (hop.get("delivered") or [])]
+        payload = hop.get("payload") if isinstance(hop.get("payload"), dict) else {}
+        rows = _mcp_hop_preview_rows(tool=tool, delivered=delivered, outcome=outcome)
+        warnings: list[str] = []
+        if outcome == "planned":
+            warnings.append("discovery_hop_planned_only")
+        if payload.get("read_only"):
+            warnings.append("read_only_discovery_hop")
+        collection_status = _mcp_hop_collection_status(outcome)
+        items.append(
+            _evidence(
+                trace_id=trace_id,
+                source_type="mcp_discovery",
+                source_name=tool,
+                tool_name=tool,
+                collection_status=collection_status,
+                query_or_request_summary=_safe_text(
+                    f"discovery_hop:{tool}:delivered={','.join(delivered) or 'none'}",
+                    300,
+                ),
+                result_count=len(delivered) if delivered else 0,
+                fields_returned=_fields_returned(rows),
+                preview_rows=rows,
+                warnings=warnings,
+                tool_category="discovery",
+                provenance="stage_4b_evidence_loop",
+                execution_outcome=outcome if outcome != "collected" else None,
+            )
+        )
+        # Distinct evidence_id per hop even when the same tool repeats.
+        items[-1]["evidence_id"] = _mcp_hop_evidence_id(trace_id, tool, index, outcome)
+    return items
+
+
+def append_mcp_loop_source_evidence(
+    evidence: list[dict[str, Any]],
+    *,
+    trace_id: str,
+    mcp_evidence: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    if not mcp_evidence:
+        return evidence
+    loop_items = mcp_loop_source_evidence(trace_id, mcp_evidence)
+    if not loop_items:
+        return evidence
+    return [*evidence, *loop_items]
+
+
+def _mcp_hop_collection_status(outcome: str) -> str:
+    if outcome == "collected":
+        return "collected"
+    if outcome == "planned":
+        return "planned"
+    if outcome in {"blocked", "requires_human_review"}:
+        return "blocked"
+    if outcome == "failed":
+        return "failed"
+    return "skipped"
+
+
+def _mcp_hop_preview_rows(*, tool: str, delivered: list[str], outcome: str) -> list[dict[str, Any]]:
+    if delivered:
+        return [
+            {
+                "produce_key": produce,
+                "discovery_status": outcome,
+                "tool": tool,
+                "derivation": "stage_4b_evidence_loop",
+            }
+            for produce in delivered[:SOURCE_PREVIEW_CAP]
+        ]
+    return [
+        {
+            "tool": tool,
+            "discovery_status": outcome,
+            "derivation": "stage_4b_evidence_loop",
+        }
+    ]
+
+
+def _mcp_hop_evidence_id(trace_id: str, tool: str, index: int, outcome: str) -> str:
+    stable = f"{trace_id}:mcp_discovery:{tool}:{index}:{outcome}"
+    return f"ev_{hashlib.sha256(stable.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _collection_status(execution_status: str) -> str:

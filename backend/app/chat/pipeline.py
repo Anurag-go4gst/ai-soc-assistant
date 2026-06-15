@@ -12,7 +12,7 @@ from app.chat.analyst_response_builder import build_analyst_response_for_live
 from app.answer_guard.models import AnswerGuardStatus
 from app.evidence.context_structurer import structure_context
 from app.evidence.context_sufficiency import check_context_sufficiency
-from app.evidence.source_evidence import build_source_evidence
+from app.evidence.source_evidence import append_mcp_loop_source_evidence, build_source_evidence
 from app.knowledge.rag_evidence_lineage import resolve_answer_readiness, resolve_response_evidence_origin
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.lineage.builder import build_investigation_lineage
@@ -1048,6 +1048,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         execution=execution,
         soc_kb_retrieval=state.get("soc_kb_retrieval"),
         evidence_plan=state.get("evidence_plan"),
+        mcp_evidence=state.get("mcp_evidence"),
     )
     human_review = _attach_hil_soc_kb_guidance(state["human_review"], source_evidence)
     source_refs = [str(item.get("evidence_id")) for item in source_evidence]
@@ -4130,6 +4131,7 @@ def _context_stage(
     execution: dict,
     soc_kb_retrieval: dict | None = None,
     evidence_plan: dict | None = None,
+    mcp_evidence: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict], dict, dict]:
     telemetry = _routes_chat().get_telemetry_connector()
     if soc_kb_retrieval is None:
@@ -4148,6 +4150,11 @@ def _context_stage(
         spl_validation=spl_validation,
         execution=execution,
         soc_kb_retrieval=soc_kb_retrieval,
+    )
+    source_evidence = append_mcp_loop_source_evidence(
+        source_evidence,
+        trace_id=trace_id,
+        mcp_evidence=mcp_evidence,
     )
     telemetry.record_step(
         trace_id,
