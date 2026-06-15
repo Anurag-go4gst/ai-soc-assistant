@@ -172,12 +172,32 @@ function isLiveLinearProgress(steps: InvestigationProgressStep[]): boolean {
   return ids.has('spl_evidence') && ids.has('mcp_gate') && ids.has('package');
 }
 
+/**
+ * Demo step durations are jittered (±30%, with an occasional slow stage) so the
+ * Experience Center never plays an identical, obviously-staged timeline twice.
+ */
+export function jitterMs(base: number): number {
+  const spread = base * 0.3;
+  let value = base - spread + Math.random() * spread * 2;
+  if (Math.random() < 0.18) {
+    value *= 1.45; // occasional "slow" stage, like a real backend hiccup
+  }
+  return Math.round(value);
+}
+
+/** Splunk-style search job sid for the MCP handshake micro-sequence. */
+export function generateJobSid(): string {
+  const epoch = 1718_000_000 + Math.floor(Math.random() * 9_000_000);
+  const suffix = 1000 + Math.floor(Math.random() * 9000);
+  return `${epoch}.${suffix}`;
+}
+
 function step(
   partial: Omit<InvestigationProgressStep, 'durationMs'> & { durationMs?: number },
   durationMs: number,
 ): InvestigationProgressStep {
   const { durationMs: _ignored, ...rest } = partial as InvestigationProgressStep;
-  return { ...rest, durationMs };
+  return { ...rest, durationMs: jitterMs(durationMs) };
 }
 
 export function buildInvestigationProgressSteps(options?: {
@@ -193,6 +213,7 @@ export function buildInvestigationProgressSteps(options?: {
     return LIVE_LINEAR_STEPS.map((item) => ({ ...item, activity: item.activity ? [...item.activity] : undefined }));
   }
 
+  const jobSid = generateJobSid();
   const steps: InvestigationProgressStep[] = [
     step(
       {
@@ -251,30 +272,46 @@ export function buildInvestigationProgressSteps(options?: {
       step(
         {
           id: 'mcp_connect',
-          label: demo ? 'Calling MCP fixture search' : 'Calling MCP search',
+          label: demo ? 'Connecting Splunk MCP search' : 'Calling MCP search',
           description: demo
-            ? 'Running the Splunk MCP fixture search path.'
+            ? 'Connecting to the Splunk MCP server and running the governed search lifecycle.'
             : 'Checking Splunk MCP registry, transport, and tool policy.',
-          activity: [
-            'Resolving splunk server from MCP registry…',
-            'Verifying splunk.search is allowed for this skill…',
-            demo ? 'MCP fixture result received' : 'Awaiting execution gate approval…',
-          ],
+          activity: demo
+            ? [
+                'Resolving splunk server from MCP registry…',
+                'TLS handshake 127.0.0.1 · bearer auth ✓',
+                'tools/list → splunk.search allowed for this skill ✓',
+                `Submitting search job · sid=${jobSid}`,
+                `Polling job ${jobSid} · 1/3…`,
+                `Polling job ${jobSid} · 2/3…`,
+                'Job dispatchState=DONE · results ready',
+              ]
+            : [
+                'Resolving splunk server from MCP registry…',
+                'Verifying splunk.search is allowed for this skill…',
+                'Awaiting execution gate approval…',
+              ],
         },
-        1200,
+        demo ? 2600 : 1200,
       ),
       step(
         {
           id: 'mcp_evidence',
           label: 'Packaging SourceEvidence',
           description: demo
-            ? 'Packaging COE fixture Splunk rows into SourceEvidence.'
+            ? 'Fetching governed result rows and packaging them into SourceEvidence.'
             : 'Packaging search results into governed SourceEvidence.',
-          activity: [
-            'Preparing search preview request…',
-            'Normalizing fields and row counts…',
-            demo ? 'SourceEvidence package attached' : 'Redacting sensitive fields…',
-          ],
+          activity: demo
+            ? [
+                `Fetching results · sid=${jobSid}…`,
+                'Normalizing fields and row counts…',
+                'SourceEvidence package attached · governed',
+              ]
+            : [
+                'Preparing search preview request…',
+                'Normalizing fields and row counts…',
+                'Redacting sensitive fields…',
+              ],
         },
         1000,
       ),

@@ -54,6 +54,17 @@ function StepDescription({ step, isActive, isComplete }: { step: InvestigationPr
   );
 }
 
+/** Ticking elapsed timer; reads as a live, still-working connection while a step is active. */
+function LiveElapsed({ className }: { className?: string }) {
+  const [ms, setMs] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const timer = window.setInterval(() => setMs(Date.now() - start), 100);
+    return () => window.clearInterval(timer);
+  }, []);
+  return <span className={cn('font-mono tabular-nums', className)}>{(ms / 1000).toFixed(1)}s</span>;
+}
+
 export function InvestigationProgressPanel({ state, demoMode, onRetryFinalSynthesis }: InvestigationProgressPanelProps) {
   const { steps, activeStepIndex, completedStepIds, finalization } = state;
   const completed = new Set(completedStepIds);
@@ -91,8 +102,9 @@ export function InvestigationProgressPanel({ state, demoMode, onRetryFinalSynthe
           </Badge>
         ) : null}
         {inFinalization ? (
-          <Badge variant="secondary" className="font-mono text-[0.65rem]">
-            Finalizing
+          <Badge variant="secondary" className="flex items-center gap-1.5 font-mono text-[0.65rem]">
+            <span>Finalizing</span>
+            <LiveElapsed className="text-cyan-200/90" />
           </Badge>
         ) : null}
       </div>
@@ -137,12 +149,15 @@ export function InvestigationProgressPanel({ state, demoMode, onRetryFinalSynthe
                   <Circle className="h-4 w-4 text-slate-600" />
                 )}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <StepDescription step={stepItem} isActive={isActive} isComplete={isComplete || isSkipped || isFallback} />
                 {displayText ? (
                   <p className="mt-1.5 text-xs leading-5 text-slate-300">{displayText}</p>
                 ) : null}
               </div>
+              {isActive ? (
+                <LiveElapsed key={stepItem.id} className="mt-0.5 shrink-0 self-start text-[0.65rem] text-cyan-200/70" />
+              ) : null}
             </li>
           );
         })}
