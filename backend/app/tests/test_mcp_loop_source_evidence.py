@@ -91,6 +91,29 @@ def test_context_stage_merges_mcp_evidence_into_source_evidence() -> None:
     assert any(item["source_type"] == "mcp_discovery" for item in summaries)
 
 
+def test_collected_discovery_hop_enters_structured_facts() -> None:
+    # Integration: a collected discovery hop must surface in structured_facts
+    # (synthesis consumes discovery context via facts/metrics, not raw tables).
+    _evidence, context, _sufficiency = _context_stage(
+        trace_id="trace-facts",
+        query="show failed admin logins",
+        selected_skill="spl_generation",
+        workflow_plan={"required_sources": ["mcp:splunk"]},
+        spl_validation=APPROVED_VALIDATION,
+        execution=EXECUTION_SKIPPED,
+        mcp_evidence=[
+            {
+                "tool": "splunk_get_indexes",
+                "delivered": ["accessible_indexes"],
+                "outcome": "collected",
+                "payload": {"read_only": True, "preview_rows": [{"index": "pgcil_soc"}]},
+            }
+        ],
+    )
+    statements = " ".join(str(fact.get("statement") or "") for fact in context["structured_facts"])
+    assert "splunk_get_indexes" in statements
+
+
 def test_append_mcp_loop_is_noop_when_empty() -> None:
     base = [{"evidence_id": "ev_base", "source_type": "splunk_mcp"}]
     merged = append_mcp_loop_source_evidence(base, trace_id="trace-4", mcp_evidence=None)

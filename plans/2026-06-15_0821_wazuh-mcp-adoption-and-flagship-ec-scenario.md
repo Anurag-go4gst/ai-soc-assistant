@@ -552,5 +552,5 @@ beyond the single flagship case. Lock the template + decode config only after gr
 - No live CVE/vuln data source onboarding.
 - No active-response / confirmation-token gate (N2).
 - No LLM-drives-MCP loop (forbidden).
-- Heatmap/coverage detection-gap **EC card** (A3 consumer UI) is a follow-up; shared builders shipped in `analysis/soc_aggregates.py`.
+- Detection-gap card **shipped on the Knowledge page** (`build_detection_coverage()` + `GET /knowledge/detection-coverage` + KnowledgePage "MITRE detection coverage & gaps"). The **Experience Center** detection-gap card (A3 consumer UI in an EC scenario) remains a follow-up; shared builders live in `analysis/soc_aggregates.py`.
 - **A1 sanitizer shipped** (`evidence_sanitizer.py` → `source_evidence._safe_text` + `to_prompt_block`).
