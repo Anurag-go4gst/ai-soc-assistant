@@ -387,13 +387,11 @@ def _preview_from_execution(
     envelope_data = execution.get("splunk_result_envelope")
     if isinstance(envelope_data, dict):
         raw_rows = envelope_data.get("rows")
-        if isinstance(raw_rows, list):
-            rows = [dict(row) for row in raw_rows[:SOURCE_PREVIEW_CAP] if isinstance(row, dict)]
-        else:
-            rows = []
-        fields = [str(item) for item in envelope_data.get("fields", []) if item is not None][:FIELD_CAP]
-        if not fields:
-            fields = _fields_returned(rows)
+        # Live executed-search rows arrive on the envelope; route them through
+        # _safe_rows so secret values are redacted like the legacy preview path
+        # (the envelope path must not bypass the sanitizer).
+        rows = _safe_rows(raw_rows if isinstance(raw_rows, list) else [])
+        fields = _fields_returned(rows)
         envelope_warnings = [
             str(item)[:VALUE_CAP]
             for item in envelope_data.get("warnings", [])
