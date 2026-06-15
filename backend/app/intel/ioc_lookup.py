@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from app.config import settings
 
 _DEFAULT_IOC_REGISTRY_PATH = (
@@ -93,9 +95,16 @@ def lookup_ioc(
 
 
 def evaluate_registry_staleness(registry_path: str | Path | None = None) -> StalenessStatus:
-    """Return worst-case staleness across registry sources."""
+    """Return worst-case staleness across registry sources.
+
+    Fails closed: if the registry file is missing or unreadable, treat it as
+    EXPIRED (the IOC lookup is blocked) rather than raising into the pipeline.
+    """
     path = _resolve_registry_path(registry_path)
-    registry = load_ioc_registry(path)
+    try:
+        registry = load_ioc_registry(path)
+    except (FileNotFoundError, OSError, ValueError, ValidationError):
+        return StalenessStatus.EXPIRED
     statuses = [
         evaluate_source_staleness(source.last_refreshed, source.max_staleness_hours, None)
         for source in registry.document.sources
@@ -173,7 +182,13 @@ def _resolve_registry_path(registry_path: str | Path | None) -> Path:
         return Path(registry_path)
     configured = settings.ioc_registry_path.strip()
     if configured:
-        return Path(configured)
+        candidate = Path(configured)
+        # A configured path is often relative to the repo root, but the backend
+        # runs from backend/. Fall back to the packaged default when it is missing
+        # so a misconfigured path never crashes the lookup.
+        if candidate.exists():
+            return candidate
+        return _DEFAULT_IOC_REGISTRY_PATH
     return _DEFAULT_IOC_REGISTRY_PATH
 
 

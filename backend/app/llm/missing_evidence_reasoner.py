@@ -93,8 +93,8 @@ def run_missing_evidence_reasoner(
     extraction = extract_first_json_object(raw)
     if not extraction.parsed_ok or extraction.payload is None:
         adapted = adapt_llm_output(role=MISSING_EVIDENCE_ROLE_ID, raw_output=raw)
-        if adapted.ok and isinstance(adapted.payload, dict):
-            bullets = _normalize_bullets(adapted.payload.get("missing_evidence_analysis"))
+        if adapted.accepted and isinstance(adapted.normalized_payload, dict):
+            bullets = _normalize_bullets(adapted.normalized_payload.get("missing_evidence_analysis"))
             return MissingEvidenceReasonerResult(
                 bullets=bullets,
                 llm_called=True,
@@ -109,14 +109,14 @@ def run_missing_evidence_reasoner(
         )
 
     adapted = adapt_llm_output(role=MISSING_EVIDENCE_ROLE_ID, raw_output=raw)
-    if not adapted.ok or not isinstance(adapted.payload, dict):
+    if not adapted.accepted or not isinstance(adapted.normalized_payload, dict):
         return MissingEvidenceReasonerResult(
             llm_called=True,
             provider_label=provider_label,
             skipped_reason="adapter_rejected",
             adapter_warnings=list(adapted.warnings + adapted.errors),
         )
-    bullets = _normalize_bullets(adapted.payload.get("missing_evidence_analysis"))
+    bullets = _normalize_bullets(adapted.normalized_payload.get("missing_evidence_analysis"))
     return MissingEvidenceReasonerResult(
         bullets=bullets,
         llm_called=True,
