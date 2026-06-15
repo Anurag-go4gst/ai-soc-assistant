@@ -6,6 +6,8 @@ import {
   getKnowledgeEntries,
   getKnowledgeImportPrompt,
   getKnowledgeMappingSummary,
+  getDetectionCoverage,
+  type DetectionCoverage,
   getSettingsStatus,
   downloadKnowledgeExport,
   publishKnowledgeImport,
@@ -58,6 +60,7 @@ export function KnowledgePage() {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [entries, setEntries] = useState<KnowledgeEntry[]>([]);
   const [mappingSummary, setMappingSummary] = useState<KnowledgeMappingSummary | null>(null);
+  const [detectionCoverage, setDetectionCoverage] = useState<DetectionCoverage | null>(null);
   const [ragStatus, setRagStatus] = useState<SettingsStatus['rag'] | null>(null);
   const [query, setQuery] = useState('failed login spike brute force');
   const [retrieval, setRetrieval] = useState<Record<string, unknown> | null>(null);
@@ -74,13 +77,15 @@ export function KnowledgePage() {
       getKnowledgeEntries(),
       getKnowledgeMappingSummary(),
       getSettingsStatus(),
+      getDetectionCoverage(),
     ])
-      .then(([collectionPayload, documentPayload, entryPayload, summary, settings]) => {
+      .then(([collectionPayload, documentPayload, entryPayload, summary, settings, coverage]) => {
         setCollections(collectionPayload.collections);
         setDocuments(documentPayload.documents);
         setEntries(entryPayload.entries);
         setMappingSummary(summary);
         setRagStatus(settings.rag);
+        setDetectionCoverage(coverage);
         setError(null);
       })
       .catch((err: Error) => setError(err.message));
@@ -229,6 +234,41 @@ export function KnowledgePage() {
                   <code>spl_generation</code> appears on catalog rows but not in the 105-question taxonomy distribution above.
                 </p>
               </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {detectionCoverage ? (
+          <Card className="soc-panel border-cyan-900/40">
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm">MITRE detection coverage &amp; gaps</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs text-slate-300">
+              <p className="text-slate-400">
+                Governed MITRE techniques mapped to the use cases that detect them. Techniques with no covering
+                use case are detection gaps. Deterministic, read-only ({detectionCoverage.mitre_metadata_role}).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">{detectionCoverage.technique_count} techniques</Badge>
+                <Badge variant="outline">{detectionCoverage.covered_count} covered</Badge>
+                <Badge variant={detectionCoverage.gap_count > 0 ? 'destructive' : 'outline'}>
+                  {detectionCoverage.gap_count} gaps
+                </Badge>
+              </div>
+              {detectionCoverage.gaps.length > 0 ? (
+                <div className="rounded border border-amber-900/50 bg-amber-950/20 p-3">
+                  <p className="font-medium text-amber-200">Detection gaps (no covering use case)</p>
+                  <ul className="mt-2 space-y-1">
+                    {detectionCoverage.gaps.map((gap) => (
+                      <li key={gap.technique_id} className="font-mono text-[0.7rem] text-amber-100/90">
+                        {gap.technique_id} · {gap.name} <span className="text-slate-500">({gap.tactic})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-emerald-300">No detection gaps in the governed technique subset.</p>
+              )}
             </CardContent>
           </Card>
         ) : null}

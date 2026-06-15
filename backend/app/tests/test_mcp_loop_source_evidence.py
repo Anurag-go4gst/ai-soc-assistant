@@ -54,6 +54,25 @@ def test_mcp_loop_skips_run_query_hop_rows() -> None:
     assert items == []
 
 
+def test_collected_discovery_hop_surfaces_real_rows() -> None:
+    # Live discovery (global gate open) yields collected rows that flow into
+    # synthesis-grade evidence (collection_status=collected + the real rows).
+    items = mcp_loop_source_evidence(
+        "trace-live",
+        [
+            {
+                "tool": "splunk_get_indexes",
+                "delivered": ["accessible_indexes"],
+                "outcome": "collected",
+                "payload": {"read_only": True, "preview_rows": [{"index": "pgcil_soc"}]},
+            }
+        ],
+    )
+    assert len(items) == 1
+    assert items[0]["collection_status"] == "collected"
+    assert {"index": "pgcil_soc"} in items[0]["preview_rows"]
+
+
 def test_context_stage_merges_mcp_evidence_into_source_evidence() -> None:
     evidence, context, _sufficiency = _context_stage(
         trace_id="trace-3",

@@ -284,6 +284,29 @@ export async function getKnowledgeMappingSummary(): Promise<KnowledgeMappingSumm
   return response.json();
 }
 
+export interface DetectionCoverage {
+  schema_role: string;
+  mitre_metadata_role: string;
+  technique_count: number;
+  covered_count: number;
+  gap_count: number;
+  coverage: Record<string, string[]>;
+  techniques: {
+    technique_id: string;
+    name: string;
+    tactic: string;
+    covering_use_cases: string[];
+    covered: boolean;
+  }[];
+  gaps: { technique_id: string; name: string; tactic: string }[];
+}
+
+export async function getDetectionCoverage(): Promise<DetectionCoverage> {
+  const response = await fetch(`${API_BASE_URL}/knowledge/detection-coverage`, { credentials: 'include' });
+  if (!response.ok) throw new Error(`Detection coverage failed: ${response.status}`);
+  return response.json();
+}
+
 export async function getKnowledgeCollections(): Promise<{ collections: KnowledgeCollection[]; count: number }> {
   const response = await fetch(`${API_BASE_URL}/knowledge/collections`, { credentials: 'include' });
   if (!response.ok) throw new Error(`Knowledge collections failed: ${response.status}`);

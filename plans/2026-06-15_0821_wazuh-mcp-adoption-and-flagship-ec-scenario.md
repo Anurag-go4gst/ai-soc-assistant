@@ -203,8 +203,10 @@ must carry a small policy → **P2** for a critical-alert review (or an explicit
 critical-alert triage / CVE-correlation SOP, so `rag_available=True` is backed by
 evidence (parity with `dns`'s `ev-rag-c2-ti`).
 
-**(Follow-up, not this PR) detection-gap card** — A3 `rules_coverage_map`
-inverted index: MITRE techniques with no detection rule. High value, separate PR.
+**Detection-gap card — SHIPPED.** A3 `rules_coverage_map` over the governed MITRE
+subset (`related_use_cases` = covering detection rules). Backend
+`build_detection_coverage()` + `/knowledge/detection-coverage`; Knowledge page
+"MITRE detection coverage & gaps" card. Deterministic, read-only.
 
 ### 3.4 Files touched
 

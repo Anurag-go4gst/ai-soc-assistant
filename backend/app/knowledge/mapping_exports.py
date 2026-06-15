@@ -7,10 +7,60 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from app.analysis.soc_aggregates import rules_coverage_map
+from app.threat.mitre_kb import load_mitre_techniques
 from app.use_cases.content_enrichment import content_enrichment_records
 from contracts.skill_enum import SKILL_ENUM
 
 MITRE_METADATA_ROLE = "metadata_not_evidence"
+
+
+def build_detection_coverage() -> dict[str, Any]:
+    """Deterministic MITRE detection-coverage / gap map (Wazuh A3 shape).
+
+    Each governed MITRE technique in the subset is a framework entry; the use
+    cases that reference it (``related_use_cases``) are its covering detection
+    rules. Techniques with no covering use case are detection gaps. Read-only —
+    no runtime routing or evidence change.
+    """
+    techniques = load_mitre_techniques()
+    rules = [
+        {"framework_id": technique.technique_id, "rule_id": use_case}
+        for technique in techniques
+        for use_case in technique.related_use_cases
+        if use_case
+    ]
+    coverage = rules_coverage_map(rules)
+    technique_rows: list[dict[str, Any]] = []
+    gaps: list[dict[str, Any]] = []
+    for technique in techniques:
+        covering = coverage.get(technique.technique_id, [])
+        row = {
+            "technique_id": technique.technique_id,
+            "name": technique.name,
+            "tactic": technique.tactic,
+            "covering_use_cases": covering,
+            "covered": bool(covering),
+        }
+        technique_rows.append(row)
+        if not covering:
+            gaps.append(
+                {
+                    "technique_id": technique.technique_id,
+                    "name": technique.name,
+                    "tactic": technique.tactic,
+                }
+            )
+    return {
+        "schema_role": "detection_coverage_v1",
+        "mitre_metadata_role": MITRE_METADATA_ROLE,
+        "technique_count": len(techniques),
+        "covered_count": len(techniques) - len(gaps),
+        "gap_count": len(gaps),
+        "coverage": coverage,
+        "techniques": technique_rows,
+        "gaps": gaps,
+    }
 
 _REPO_ROOT_CANDIDATES = (
     Path(__file__).resolve().parents[3],

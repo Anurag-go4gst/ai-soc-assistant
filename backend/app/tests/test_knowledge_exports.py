@@ -13,6 +13,14 @@ from app.api.routes_knowledge import export_mapping_artifact
 from app.knowledge.mapping_exports import MITRE_METADATA_ROLE, SOC_VALIDATION_ARTIFACTS
 
 
+def test_detection_coverage_endpoint() -> None:
+    from app.api.routes_knowledge import knowledge_detection_coverage
+
+    payload = knowledge_detection_coverage()
+    assert payload["schema_role"] == "detection_coverage_v1"
+    assert payload["covered_count"] + payload["gap_count"] == payload["technique_count"]
+
+
 def test_mapping_summary_endpoint_matches_crosswalk() -> None:
     from app.knowledge.mapping_exports import build_mapping_summary, build_soc_capability_crosswalk_export_payload
 
