@@ -1,47 +1,64 @@
 {
-  "sample_turns": 8,
+  "sample_turns": 103,
   "roles": {
     "intent_shadow_classifier": {
       "role": "intent_shadow_classifier",
-      "invocations": 2,
+      "invocations": 30,
       "fallbacks": 0,
-      "timeouts": 0,
-      "disagreements": 2,
+      "timeouts": 2,
+      "disagreements": 30,
       "fallback_rate": 0.0,
       "agreement_rate": 0.0,
       "disagreement_reasons": [
+        "deterministic_question_ref_wins",
         "question_ref_candidate_not_in_deterministic_registry",
-        "use_case_id_candidate_not_in_deterministic_registry"
+        "timed_out"
       ],
-      "verdict": "INSUFFICIENT_DATA"
+      "verdict": "DEGRADED"
     },
     "mitre_reasoner": {
       "role": "mitre_reasoner",
-      "invocations": 2,
+      "invocations": 28,
       "fallbacks": 0,
       "timeouts": 0,
       "disagreements": 0,
       "fallback_rate": 0.0,
       "agreement_rate": 1.0,
       "disagreement_reasons": [],
-      "verdict": "INSUFFICIENT_DATA"
+      "verdict": "HEALTHY"
     },
     "narration_composer": {
       "role": "narration_composer",
-      "invocations": 3,
+      "invocations": 47,
       "fallbacks": 0,
       "timeouts": 0,
-      "disagreements": 1,
+      "disagreements": 34,
       "fallback_rate": 0.0,
-      "agreement_rate": 0.667,
+      "agreement_rate": 0.277,
       "disagreement_reasons": [
-        "Composed prose dropped the required out-of-catalog notice."
+        "Candidate MITRE T1110 was upgraded to evidence-supported in prose.",
+        "Composed prose claims compromise without contract support.",
+        "Composed prose dropped the required out-of-catalog notice.",
+        "Composed prose introduces unsupported MITRE technique T1059.",
+        "Composed prose introduces unsupported MITRE technique T1071.",
+        "Composed prose uses evidence-supported wording without contract support."
       ],
-      "verdict": "INSUFFICIENT_DATA"
+      "verdict": "DEGRADED"
     },
     "risk_rationale_reasoner": {
       "role": "risk_rationale_reasoner",
-      "invocations": 2,
+      "invocations": 20,
+      "fallbacks": 0,
+      "timeouts": 0,
+      "disagreements": 0,
+      "fallback_rate": 0.0,
+      "agreement_rate": 1.0,
+      "disagreement_reasons": [],
+      "verdict": "HEALTHY"
+    },
+    "route_plan_candidate_generator": {
+      "role": "route_plan_candidate_generator",
+      "invocations": 9,
       "fallbacks": 0,
       "timeouts": 0,
       "disagreements": 0,
@@ -51,7 +68,7 @@
       "verdict": "INSUFFICIENT_DATA"
     }
   },
-  "overall_verdict": "INSUFFICIENT_DATA",
+  "overall_verdict": "DEGRADED",
   "thresholds": {
     "min_sample": 20,
     "max_fallback_rate": 0.1,

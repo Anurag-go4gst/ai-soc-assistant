@@ -888,18 +888,21 @@ Phase 0 (docs)                                          ✅ DONE
 
 Flags are already enabled in `.env` for VPS testing (latency safety C1/C2 shipped, so the earlier "do not enable" gate is lifted).
 
-### First real scorecard (2026-06-14, 8-turn staging smoke)
+### First real scorecard verdict (2026-06-15, 103-turn staging corpus)
 
-`docs/evals/llm_role_scorecard.json` from `docs/evals/llm_role_traces_staging.jsonl` (live Foundation-Sec 8B). Overall `INSUFFICIENT_DATA` (n < 20/role — expected). Signal is already useful:
+`docs/evals/llm_role_scorecard.json` from a 103-turn live run (Foundation-Sec 8B), all core roles past n ≥ 20. **Overall verdict: `DEGRADED`** — but `fallback_rate = 0` on every role, i.e. **no guard-blocked LLM output ever reached a user**; each block fell back to deterministic.
 
-| Role | n | agreement | note |
-|------|---|-----------|------|
-| `mitre_reasoner` | 2 | 1.00 | clean |
-| `risk_rationale_reasoner` | 2 | 1.00 | clean |
-| `intent_shadow_classifier` | 2 | 0.00 | LLM proposed out-of-registry question_ref / use_case → **deterministically rejected** (governance working as designed) |
-| `narration_composer` | 3 | 0.33 | guards **blocked** 2/3: dropped out-of-catalog notice; fabricated MITRE T1110 → deterministic fallback |
+| Role | n | agreement | verdict | read |
+|------|---|-----------|---------|------|
+| `mitre_reasoner` | 28 | 1.00 | **HEALTHY** | prose from fixed MITRE decision dumps is reliable on the 8B |
+| `risk_rationale_reasoner` | 20 | 1.00 | **HEALTHY** | severity rationale from the decision dump is reliable |
+| `intent_shadow_classifier` | 30 | 0.00 | DEGRADED | advisory always corrected/rejected by the deterministic adjudicator (+2 timeouts). Partly a metric artifact — the advisor only runs on non-exact matches where deterministic still has a near/semantic ref that wins — but the upshot is the 8B intent advisory adds little routing value. **Keep shadow-only; do not promote.** |
+| `narration_composer` | 47 | 0.28 | DEGRADED | 34/47 guard-blocked: evidence-supported upgrades, compromise claims, dropped notice, unsupported techniques (T1059/T1071). Guards catch all of it → deterministic fallback. **8B narration is not trustworthy; needs a stronger model or stays deterministic.** |
+| `route_plan_candidate_generator` | 9 | 1.00 | INSUFFICIENT_DATA | shadow-only; clean so far |
 
-**Read:** the governed guards are catching real 8B misbehavior (notice drop, MITRE fabrication, invalid registry candidates) and falling back safely — the architecture holds. The low composer agreement on the 8B model means **prompt tuning or a stronger narration model** is the next quality lever before flipping any role to "trusted". Collect ≥ 20 turns/role on staging to move past `INSUFFICIENT_DATA`.
+**COE read:** the two **reasoning** roles (MITRE + risk rationale) are **HEALTHY** and could be trusted. The two **generative** roles on the 8B (intent advisory, narration) are **DEGRADED** — keep them guarded + shadow/fallback, and revisit narration with a stronger model. The architecture held under 103 live turns: every DEGRADED output was caught and fell back, fallback_rate 0.
+
+**Two pipeline edge-case errors surfaced during the run** (caught, no trace, did not affect the answer path): a `FileNotFoundError` on a malicious-IP analytics query and an `AttributeError` on "how should we respond to a confirmed phishing email" — log as follow-up bugs, not blockers.
 
 ### Latency posture (VPS, owner-chosen)
 
