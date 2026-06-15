@@ -5,6 +5,7 @@ import {
   getKnowledgeDocuments,
   getKnowledgeEntries,
   getKnowledgeImportPrompt,
+  getKnowledgeMappingSummary,
   getSettingsStatus,
   downloadKnowledgeExport,
   publishKnowledgeImport,
@@ -23,6 +24,7 @@ import type {
   KnowledgeDocument,
   KnowledgeEntry,
   KnowledgeExportArtifact,
+  KnowledgeMappingSummary,
   SettingsStatus,
 } from '@/types/api';
 import { ARCHITECTURE_QUERY_FLOW_DOC_HREF } from '@/lib/architectureDoc';
@@ -55,6 +57,7 @@ export function KnowledgePage() {
   const [collections, setCollections] = useState<KnowledgeCollection[]>([]);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [entries, setEntries] = useState<KnowledgeEntry[]>([]);
+  const [mappingSummary, setMappingSummary] = useState<KnowledgeMappingSummary | null>(null);
   const [ragStatus, setRagStatus] = useState<SettingsStatus['rag'] | null>(null);
   const [query, setQuery] = useState('failed login spike brute force');
   const [retrieval, setRetrieval] = useState<Record<string, unknown> | null>(null);
@@ -65,11 +68,18 @@ export function KnowledgePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getKnowledgeCollections(), getKnowledgeDocuments(), getKnowledgeEntries(), getSettingsStatus()])
-      .then(([collectionPayload, documentPayload, entryPayload, settings]) => {
+    Promise.all([
+      getKnowledgeCollections(),
+      getKnowledgeDocuments(),
+      getKnowledgeEntries(),
+      getKnowledgeMappingSummary(),
+      getSettingsStatus(),
+    ])
+      .then(([collectionPayload, documentPayload, entryPayload, summary, settings]) => {
         setCollections(collectionPayload.collections);
         setDocuments(documentPayload.documents);
         setEntries(entryPayload.entries);
+        setMappingSummary(summary);
         setRagStatus(settings.rag);
         setError(null);
       })
@@ -151,6 +161,12 @@ export function KnowledgePage() {
 
   const reranker = ragStatus?.reranker;
   const assist = ragStatus?.ambiguity_assist;
+  const githubSkillRows = mappingSummary?.row_counts.github_skill_rows ?? 12;
+  const questionRows = mappingSummary?.row_counts.question_rows ?? 105;
+  const useCaseRows = mappingSummary?.row_counts.use_case_rows ?? 49;
+  const catalogUseCases = mappingSummary?.row_counts.catalog_use_cases ?? 46;
+  const liveRouteSkills = mappingSummary?.live_route_skills ?? [];
+  const allowedExecutionSkills = mappingSummary?.allowed_live_execution_skills ?? [];
 
   return (
     <ScrollArea className="h-full">
@@ -174,6 +190,48 @@ export function KnowledgePage() {
           </Button>
         </header>
         {error ? <Badge variant="destructive">{error}</Badge> : null}
+
+        {mappingSummary ? (
+          <Card className="soc-panel border-cyan-900/40">
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm">Mapping spine snapshot</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs text-slate-300">
+              <p className="text-slate-400">
+                Live counts from governed artifacts backing runtime routing and Knowledge exports. Generated{' '}
+                {mappingSummary.generated_at ? new Date(mappingSummary.generated_at).toLocaleString() : 'from repo snapshot'}.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">{questionRows} questions</Badge>
+                <Badge variant="outline">{useCaseRows} crosswalk use-case rows</Badge>
+                <Badge variant="outline">{catalogUseCases} catalog use cases</Badge>
+                <Badge variant="outline">{githubSkillRows} GitHub skill rows</Badge>
+                <Badge variant="outline">{mappingSummary.questions_with_use_case_id} questions with curated use-case id</Badge>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <SummaryBlock
+                  title="105 question routes (live_execution_skill)"
+                  items={mappingSummary.question_skill_distribution}
+                />
+                <SummaryBlock title="Question mapping status" items={mappingSummary.question_mapping_status} />
+                <SummaryBlock
+                  title="Question runtime support"
+                  items={mappingSummary.question_runtime_support_status}
+                />
+              </div>
+              <div className="rounded border border-slate-800 bg-slate-950 p-3">
+                <p className="font-medium text-slate-100">Live route skills (5)</p>
+                <p className="mt-1 font-mono text-[0.7rem] text-cyan-200">{liveRouteSkills.join(' · ')}</p>
+                <p className="mt-2 font-medium text-slate-100">Catalog execution skills (4)</p>
+                <p className="mt-1 font-mono text-[0.7rem] text-cyan-200">{allowedExecutionSkills.join(' · ')}</p>
+                <p className="mt-2 text-slate-500">
+                  <code>guided_investigation</code> is rescue-only and is excluded from catalog execution skills.
+                  <code>spl_generation</code> appears on catalog rows but not in the 105-question taxonomy distribution above.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card className="soc-panel">
           <CardHeader className="py-3">
@@ -202,7 +260,7 @@ export function KnowledgePage() {
             <div className="grid gap-3 lg:grid-cols-2">
               <ExportBlock
                 title="SOC Capability Crosswalk"
-                description="Canonical Phase 0 mapping spine: 105 questions, 49 use-case export rows, 7 GitHub enrichments, runtime_support_status, validation_status, and MITRE metadata role."
+                description={`Canonical Phase 0 mapping spine: ${questionRows} questions, ${useCaseRows} use-case export rows, ${githubSkillRows} GitHub skill rows (enrichment/provenance only), runtime_support_status, validation_status, and MITRE metadata role.`}
                 badge="recommended"
                 onJson={() => downloadExport('soc_capability_crosswalk', 'json')}
                 onCsv={() => downloadExport('soc_capability_crosswalk', 'csv')}
@@ -304,7 +362,7 @@ export function KnowledgePage() {
                 onCsv={() => downloadExport('soc_validation_mitre', 'csv')}
               />
               <ExportBlock
-                title="Validation — GitHub Enrichment (7)"
+                title={`Validation — GitHub Enrichment (${githubSkillRows})`}
                 description="GitHub skills as enrichment/provenance only — never runtime_active."
                 onJson={() => downloadExport('soc_validation_github_enrichment', 'json')}
                 onCsv={() => downloadExport('soc_validation_github_enrichment', 'csv')}
@@ -466,6 +524,21 @@ export function KnowledgePage() {
         </Card>
       </div>
     </ScrollArea>
+  );
+}
+
+function SummaryBlock({ title, items }: { title: string; items: Record<string, number> }) {
+  return (
+    <div className="rounded border border-slate-800 bg-slate-950 p-3">
+      <p className="font-medium text-slate-100">{title}</p>
+      <ul className="mt-2 space-y-1 font-mono text-[0.7rem] text-slate-400">
+        {Object.entries(items).map(([key, value]) => (
+          <li key={key}>
+            {key}: {value}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

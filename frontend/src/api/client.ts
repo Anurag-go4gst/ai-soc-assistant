@@ -23,6 +23,7 @@ import type {
   SourceProfileSaveResponse,
   SourceProfileSettingsResponse,
   KnowledgeExportArtifact,
+  KnowledgeMappingSummary,
 } from '../types/api';
 
 const API_BASE_URL = getApiBaseUrl();
@@ -274,6 +275,12 @@ export async function discoverSourceProfilesFromMcp(): Promise<SourceProfileDisc
   if (!response.ok) {
     throw new Error(`MCP source discovery failed: ${response.status}`);
   }
+  return response.json();
+}
+
+export async function getKnowledgeMappingSummary(): Promise<KnowledgeMappingSummary> {
+  const response = await fetch(`${API_BASE_URL}/knowledge/mapping-summary`, { credentials: 'include' });
+  if (!response.ok) throw new Error(`Knowledge mapping summary failed: ${response.status}`);
   return response.json();
 }
 

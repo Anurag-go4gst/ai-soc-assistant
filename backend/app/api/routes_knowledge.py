@@ -26,6 +26,7 @@ from app.knowledge.mapping_exports import (
     build_pending_backlog_export_payload,
     build_proposed_use_cases_export_payload,
     build_skill_enrichment_status_export_payload,
+    build_mapping_summary,
     build_soc_capability_crosswalk_export_payload,
     build_skill_coverage_export_payload,
     github_intake_csv_rows,
@@ -175,6 +176,11 @@ def test_retrieval(
     uses = [item.strip() for item in allowed_use.split(",") if item.strip()] if allowed_use else None
     result = retrieve_soc_kb(query=query, selected_skill=selected_skill, allowed_use=uses, environment=environment or settings.soc_kb_environment)
     return result
+
+
+@router.get("/knowledge/mapping-summary")
+def knowledge_mapping_summary() -> dict[str, Any]:
+    return build_mapping_summary()
 
 
 @router.get("/knowledge/exports/{artifact}")
