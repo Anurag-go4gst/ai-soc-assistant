@@ -254,6 +254,10 @@ class Settings(BaseSettings):
     ai_soc_llm_qwen_base_url: str = ""
     ai_soc_llm_qwen_api_key: str = ""
     ai_soc_llm_qwen_model: str = ""
+    # MCP tool-planner role: Foundation-Sec Instruct is the planner (1-LLM decision,
+    # 2026-06-15). Qwen is OFF by default and only appended as a *failover* after
+    # Instruct when this flag is on AND the QWEN_* endpoint is configured.
+    ai_soc_llm_planner_qwen_failover_enabled: bool = False
     # Evidence-gating governance for the upcoming synthesis stage.
     ai_soc_llm_require_context_sufficiency: bool = True
     ai_soc_llm_require_source_refs: bool = True

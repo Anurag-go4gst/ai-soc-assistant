@@ -120,6 +120,7 @@ class LocalChatClient:
         user_prompt: str,
         max_tokens: int,
         temperature: float,
+        response_format: dict | None = None,
     ) -> ChatResult:
         if not self.base_url.strip():
             raise LocalChatError("base_url_not_configured")
@@ -127,18 +128,21 @@ class LocalChatClient:
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
         if self.api_key.strip():
             headers["Authorization"] = "Bearer " + self.api_key.strip()
-        body = json.dumps(
-            {
-                "model": self.model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "stream": False,
-            }
-        ).encode("utf-8")
+        payload: dict = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": False,
+        }
+        # OpenAI-compatible structured-output hint (e.g. {"type": "json_object"});
+        # forces valid JSON on llama.cpp servers that support it.
+        if response_format is not None:
+            payload["response_format"] = response_format
+        body = json.dumps(payload).encode("utf-8")
         request = Request(url, data=body, method="POST", headers=headers)
         started = time.monotonic()
         try:

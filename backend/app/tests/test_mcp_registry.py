@@ -11,8 +11,10 @@ def test_default_mock_mode_still_available(monkeypatch) -> None:
     assert status.servers[0].available is True
     assert status.servers[0].execution_enabled is False
     assert "splunk_run_query" in status.servers[0].discovered_tools_safe_names
-    assert "splunk_get_user_info" in status.servers[0].blocked_tools_safe_names
-    assert "saia_generate_spl" in status.servers[0].discovered_tools_safe_names
+    # user_info (self identity, read-only) is enabled/RBAC-gated, not blocked.
+    assert "splunk_get_user_info" in status.servers[0].discovered_tools_safe_names
+    # SAIA generative tools are conditional + blocked.
+    assert "saia_generate_spl" in status.servers[0].blocked_tools_safe_names
 
 
 def test_registry_mode_parses_multiple_servers(monkeypatch) -> None:

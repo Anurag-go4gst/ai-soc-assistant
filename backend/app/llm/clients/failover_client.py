@@ -33,6 +33,7 @@ class FailoverChatClient:
         user_prompt: str,
         max_tokens: int,
         temperature: float,
+        response_format: dict | None = None,
     ) -> ChatResult:
         if not self.chain:
             raise LocalChatError("no_llm_endpoint_configured")
@@ -44,6 +45,7 @@ class FailoverChatClient:
                     user_prompt=user_prompt,
                     max_tokens=max_tokens,
                     temperature=temperature,
+                    response_format=response_format,
                 )
                 if label != self.chain[0][0]:
                     logger.info("llm_failover succeeded on %s", label)
