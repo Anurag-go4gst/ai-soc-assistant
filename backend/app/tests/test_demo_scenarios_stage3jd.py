@@ -92,6 +92,7 @@ def test_get_demo_scenarios_returns_all_stage3jd_scenarios() -> None:
         "mcp_metadata_discovery_app01",
         "airgapped_no_saia_success_after_failures",
         "dns_beaconing_c2_hunt",
+        "dns_beaconing_c2_hunt_run",
         "guided_investigation_supply_chain",
     }
 

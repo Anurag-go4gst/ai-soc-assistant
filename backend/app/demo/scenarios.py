@@ -1265,6 +1265,43 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             ],
             "review_notice": "Candidate beaconing pattern. SPL is review-only; MCP execution stays gated.",
         })
+    if scenario.scenario_id == "dns_beaconing_c2_hunt_run":
+        return attach_evidence_summary({
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "severity_label": "P3 Medium",
+            "finding_title": "Beaconing-candidate correlation executed - two periodic-DNS hosts",
+            "status_badge": "Splunk MCP fixture search result",
+            "one_sentence_finding": "Splunk MCP fixture search returned two internal hosts beaconing to rare domains at fixed intervals. V.AI SOC keeps T1071.004 candidate-only until jitter and domain reputation are confirmed.",
+            "splunk_status_line": "Splunk MCP fixture search result [index=pgcil_soc sourcetype=pgcil:dns] · last 24 hours · 2 rows",
+            "splunk_results_table": [
+                {"Source": "10.20.3.41", "Domain": "a3f9k2.update-cdn.net", "Queries": 288, "Periodicity (s)": 300, "Bytes out": 41216, "Rare domain": "review"},
+                {"Source": "10.20.7.12", "Domain": "sync.metric-telemetry.io", "Queries": 144, "Periodicity (s)": 600, "Bytes out": 20992, "Rare domain": "review"},
+            ],
+            "spl_code": DNS_BEACONING_VISIBLE_SPL,
+            "executed_spl": DNS_BEACONING_SPL,
+            "execution_status": "executed",
+            "response_profile": "spl_executed",
+            "key_fields": [
+                "src - internal host generating the periodic DNS queries",
+                "domain - queried domain (rare/low-reputation candidate)",
+                "DNS_query_count - query volume in the window",
+                "periodicity - mean seconds between queries (beaconing signal)",
+                "bytes_out - payload steadiness indicator",
+                "rare_domain_indicator - low-cardinality + high-volume flag",
+            ],
+            "mitre_mappings": [
+                {"Technique": "T1071.004", "Name": "Application Layer Protocol: DNS", "Tactic": "Command and Control", "Status": "Candidate", "Evidence": "Two hosts with fixed-interval queries to rare domains and steady payloads", "Validation needed": "Confirm jitter, domain reputation, and the querying process/owner."},
+            ],
+            "recommended_actions": [
+                "P2: Confirm beaconing by checking jitter and whether the domains are newly registered or low-reputation.",
+                "P2: Identify the process and user on 10.20.3.41 and 10.20.7.12 generating the DNS queries.",
+                "P3: Pivot proxy/firewall egress for the resolved IPs to confirm an established channel.",
+                "P3: Document and close as benign if the domains are reputable CDNs/telemetry with business justification.",
+            ],
+            "review_notice": "Review the validated normalized SPL and MCP gate status before operational use.",
+        })
     if scenario.scenario_id == "guided_investigation_supply_chain":
         return {
             **base,
@@ -1413,6 +1450,11 @@ def _fact(fact_id: str, statement: str, refs: list[str], confidence: float = 0.9
 
 
 def _mock_rows_for(trace_id: str, scenario_id: str | None = None) -> list[dict[str, Any]]:
+    if scenario_id == "dns_beaconing_c2_hunt_run":
+        return [
+            {"src": "10.20.3.41", "dest": "8.8.8.8", "domain": "a3f9k2.update-cdn.net", "DNS_query_count": 288, "periodicity": 300.0, "jitter": "requires_review", "bytes_out": 41216, "rare_domain_indicator": "review", "first_seen": "2026-05-24T00:04:00Z", "last_seen": "2026-05-24T23:56:00Z", "trace_id": trace_id},
+            {"src": "10.20.7.12", "dest": "1.1.1.1", "domain": "sync.metric-telemetry.io", "DNS_query_count": 144, "periodicity": 600.0, "jitter": "requires_review", "bytes_out": 20992, "rare_domain_indicator": "review", "first_seen": "2026-05-24T00:09:00Z", "last_seen": "2026-05-24T23:51:00Z", "trace_id": trace_id},
+        ]
     if scenario_id == "successful_login_after_failures_run":
         return [
             {
@@ -1889,6 +1931,52 @@ SCENARIOS: dict[str, DemoScenario] = {
             metrics={"beaconing_hosts": 3, "max_query_count": 288, "min_periodicity_seconds": 300},
             mitre=[{"technique_id": "T1071.004", "name": "Application Layer Protocol: DNS", "support": "analyst_review", "source_refs": ["ev-splunk-dns-beacon"]}],
             refs=["ev-splunk-dns-beacon", "ev-rag-c2-ti"],
+            quality="partial",
+        ),
+    ),
+    "dns_beaconing_c2_hunt_run": DemoScenario(
+        scenario_id="dns_beaconing_c2_hunt_run",
+        label="DNS beaconing / C2 hunt - run",
+        category="Generate + Run",
+        query="Hunt for DNS beaconing from internal hosts in index pgcil_soc sourcetype pgcil:dns over the last 24 hours and run it",
+        environment_mode="connected_coe_demo",
+        expected_skill="attack_discovery",
+        selected_use_case_id="dns_beaconing_candidate",
+        expected_sources=["spl_policy", "mcp:splunk"],
+        expected_sufficiency_mode="partial_answer",
+        mcp_execution_mode="mock_success",
+        saia_available=True,
+        rag_available=False,
+        candidate_spl=DNS_BEACONING_SPL,
+        analyst_summary="Validated beaconing SPL reached the Experience Center MCP fixture path and returned two periodic-DNS hosts for review. MITRE T1071.004 stays candidate-only pending jitter and domain reputation.",
+        trace_explanation=[
+            "Generates the governed dns_beaconing_candidate SPL and validates it deterministically.",
+            "Binds the scoped request to pgcil_soc/pgcil:dns over the 24h window.",
+            "Experience Center MCP fixture selection uses approved normalized_spl only and returns capped preview rows.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-splunk-dns-beacon-run",
+                "splunk_mcp",
+                "Splunk DNS fixture",
+                2,
+                ["src", "dest", "domain", "DNS_query_count", "periodicity", "bytes_out", "rare_domain_indicator"],
+                _mock_rows_for("fixture", "dns_beaconing_c2_hunt_run"),
+                tool_name="search",
+                executed_spl=DNS_BEACONING_SPL,
+                provider_used="mock_mcp_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "dns_beaconing_c2_hunt_run",
+            "attack_discovery",
+            [
+                _fact("fact-dns-beacon-run", "COE fixture Splunk evidence returned two periodic-DNS hosts from validated normalized SPL.", ["ev-splunk-dns-beacon-run"]),
+                _fact("fact-c2-candidate-run", "MITRE T1071.004 is a candidate for the periodic DNS pattern; jitter and domain reputation are not yet confirmed.", ["ev-splunk-dns-beacon-run"], 0.7),
+            ],
+            metrics={"beaconing_hosts": 2, "max_query_count": 288, "mock_result_rows": 2},
+            mitre=[{"technique_id": "T1071.004", "name": "Application Layer Protocol: DNS", "support": "analyst_review", "source_refs": ["ev-splunk-dns-beacon-run"]}],
+            refs=["ev-splunk-dns-beacon-run"],
             quality="partial",
         ),
     ),
