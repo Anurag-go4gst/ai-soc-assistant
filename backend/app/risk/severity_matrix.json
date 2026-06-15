@@ -18,6 +18,15 @@
         {"severity": "P2 High", "conditions": {"successful_logins_gte": 1, "failed_logins_gte": 5}, "why": "Successful login after repeated failures requires urgent review."}
       ],
       "p1_requires": ["privileged_account_impacted", "critical_asset", "confirmed_success"]
+    },
+    {
+      "use_case_id": "critical_notable_mitre_review",
+      "default_severity": "P2 High",
+      "rules": [
+        {"severity": "P1 Critical", "conditions": {"critical_alert_count_gte": 3, "hosts_with_critical_gte": 2}, "why": "Multiple critical alerts across multiple hosts require immediate escalation."},
+        {"severity": "P2 High", "conditions": {"critical_alert_count_gte": 1}, "why": "Critical alert review requires urgent analyst triage."}
+      ],
+      "p1_requires": ["confirmed_compromise", "critical_asset"]
     }
   ]
 }

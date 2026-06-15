@@ -12,37 +12,50 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.chat.contracts.answer_contract import AnswerContract
+from app.llm.governed_context_package import GovernedContextPackage
 from app.synthesis import claim_patterns
+from app.synthesis.composition_confidence import qualifies_for_weak_case_composition
 from app.chat.final_answer_readability import apply_draft_preview_readability
 from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
 from app.schemas.responses import AnalystResponseEnvelope
 from app.threat.mitre_permitted_builder import canonical_technique_name_tactic
 
+# Tuned for an on-prem 8B instruct (Foundation-Sec): short, numbered, front-loaded
+# critical rules with a closing self-check. The model loses constraints buried in
+# long prose, so the five things the grounding/notice/MITRE guards enforce are
+# stated first and repeated at the end.
 _SYSTEM_PROMPT = (
-    "You are a SOC analyst assistant. You will receive a GOVERNED ANSWER CONTRACT "
-    "with deterministic facts already decided by the security pipeline.\n"
-    "Write 2-4 sentences of plain analyst prose that restates ONLY those facts.\n"
-    "Hard rules:\n"
-    "- Do not invent severity, MITRE status upgrades, SPL approval, execution, "
-    "or compromise conclusions.\n"
-    "- Candidate MITRE techniques stay candidate; never use the phrase "
-    "'evidence-supported' unless the contract lists that technique as supported.\n"
-    "- SPL is review-only unless the contract explicitly says it was executed.\n"
-    "- If SPL template_status is active but block_reason says source profile is missing, "
-    "say the governed SPL template is active but generation is blocked/review-required "
-    "until required fields are confirmed; never say no active governed SPL template exists.\n"
-    "- Not-claimed MITRE techniques are not claimed due to insufficient supporting evidence; "
-    "use ruled-out wording only for the ruled_out_mitre bucket.\n"
-    "- Preserve missing-evidence and limitation caveats.\n"
+    "You are a SOC analyst assistant. You receive a GOVERNED ANSWER CONTRACT of "
+    "facts already decided by the security pipeline. Restate ONLY those facts in "
+    "2-4 short, plain sentences.\n\n"
+    "CRITICAL RULES (these override everything else):\n"
+    "1. If the contract has a REQUIRED NOTICE line, copy that exact sentence into "
+    "your answer, word for word.\n"
+    "2. Only write MITRE technique IDs that the contract lists as allowed. Never "
+    "introduce any other T#### id or technique name. If none are allowed, write no "
+    "technique id at all.\n"
+    "3. Candidate MITRE stays candidate. Never write 'evidence-supported' unless "
+    "the contract's evidence-supported list contains that exact id.\n"
+    "4. Never say SPL was approved or executed, that Splunk/MCP returned rows or "
+    "live results, or that compromise is confirmed — unless the contract execution "
+    "status literally says executed.\n"
+    "5. Never invent a severity level, index, sourcetype, source IP, hostname, "
+    "hash, or SPL query. Use only values present in the contract/context.\n\n"
+    "ALSO:\n"
+    "- Keep every missing-evidence and limitation caveat from the contract.\n"
     "- If human review is required, say review is required.\n"
-    "- No SPL queries, no tool instructions, no GitHub references.\n"
-    "- Do not claim Splunk/MCP returned rows, observed live results, or confirmed compromise "
-    "unless the contract execution status says executed.\n"
-    "- Use MITRE technique names exactly as listed in the contract.\n"
-    "- Structure: direct answer; what SOC should check; evidence still needed; "
-    "SPL/MITRE/HIL status; what not to conclude yet.\n"
-    "- Output plain prose only."
+    "- Not-claimed MITRE = insufficient supporting evidence (do NOT say 'ruled out').\n"
+    "- Use MITRE technique names exactly as listed.\n"
+    "- If SPL template_status is active but the source profile is missing, say the "
+    "governed SPL template is active but generation is blocked/review-required until "
+    "required fields are confirmed; never say no active template exists.\n"
+    "- Use only the provided context. If a snippet, skill, or tool hint is "
+    "irrelevant or your confidence is low, ignore it and say what is missing rather "
+    "than inventing anything.\n"
+    "- No SPL queries, no tool instructions, no GitHub references. Plain prose only.\n\n"
+    "BEFORE YOU FINISH, CHECK: REQUIRED NOTICE copied verbatim? Only allowed "
+    "technique IDs used? No new severity, execution, or compromise claim?"
 )
 
 # Shared claim patterns live in app.synthesis.claim_patterns (leaf module) so
@@ -85,6 +98,8 @@ class GovernedComposerResult:
     llm_guard_status: str
     llm_fallback_used: bool
     llm_blocked_reason: str | None = None
+    llm_provider_label: str | None = None
+    llm_raw_output_redacted: str | None = None
 
     def trace_payload(self) -> dict[str, Any]:
         attempted = self.llm_composer_enabled and self.llm_guard_status in {
@@ -92,7 +107,7 @@ class GovernedComposerResult:
             "blocked",
             "pending",
         }
-        return {
+        payload = {
             "llm_composer_enabled": self.llm_composer_enabled,
             "llm_composer_used": self.llm_composer_used,
             "llm_guard_status": self.llm_guard_status,
@@ -100,6 +115,12 @@ class GovernedComposerResult:
             "llm_blocked_reason": self.llm_blocked_reason,
             "composer_attempted": attempted or self.llm_composer_used,
         }
+        if self.llm_provider_label:
+            payload["llm_provider_label"] = self.llm_provider_label
+            payload["llm_answered_label"] = self.llm_provider_label
+        if self.llm_raw_output_redacted:
+            payload["llm_raw_output_placeholder"] = self.llm_raw_output_redacted[:500]
+        return payload
 
 
 def composer_is_enabled() -> bool:
@@ -142,20 +163,25 @@ def build_composer_runtime_status() -> dict[str, Any]:
         "llm_composer_used": False,
         "llm_guard_status": "disabled" if not enabled else "pending",
         "llm_fallback_used": False,
+        "expected_latency_hint": (
+            "On-prem single-slot model: live narration can take ~60s; the wait is "
+            "expected. Facts stay deterministic and fall back if the model is slow."
+        )
+        if enabled
+        else None,
     }
 
 
 def build_composer_prompt(
     contract: AnswerContract,
     enrichment_projection: dict[str, Any] | None,
+    *,
+    context_package: GovernedContextPackage | None = None,
+    weak_case_composition: bool = False,
 ) -> str:
     """Build a contract-only composer prompt (no raw events or GitHub content)."""
     projection = enrichment_projection or {}
-    knowledge_profile = contract.answer_mode == "rag_only" or contract.intent_family in {
-        "sop_or_playbook",
-        "policy_knowledge",
-        "knowledge_only",
-    }
+    knowledge_profile = _is_knowledge_profile(contract)
     checklist = list(contract.analyst_checklist_safe)
     if not checklist:
         checklist = [str(item) for item in projection.get("analyst_checklist") or [] if item]
@@ -167,7 +193,12 @@ def build_composer_prompt(
         limitations = [str(item) for item in projection.get("limitations") or [] if item]
 
     lines = ["GOVERNED ANSWER CONTRACT:"]
-    if knowledge_profile:
+    # Front-load the required out-of-catalog notice so the model can copy it (the 8B
+    # cannot echo a sentence it was never given — this was the top guard-block cause).
+    notice = str(getattr(contract, "out_of_catalog_notice", "") or "").strip()
+    if notice:
+        lines.append(f'- REQUIRED NOTICE — copy this sentence verbatim into your answer: "{notice}"')
+    if knowledge_profile and not weak_case_composition:
         lines.append("- Answer mode: governed SOP / knowledge recall.")
         if checklist:
             lines.append("- Analyst checklist: " + "; ".join(checklist))
@@ -239,6 +270,17 @@ def build_composer_prompt(
         lines.extend(name_lines)
     if contract.mitre_technique_ids:
         lines.append("- Visible MITRE technique IDs: " + ", ".join(contract.mitre_technique_ids))
+    # Explicit allow-list so the 8B does not introduce an unlisted technique id
+    # (the second top guard-block cause).
+    allowed_ids = sorted(_contract_mitre_ids(contract))
+    if allowed_ids:
+        lines.append(
+            "- ALLOWED MITRE technique IDs (the ONLY ids you may write): "
+            + ", ".join(allowed_ids)
+            + ". Do not write any other T#### id."
+        )
+    else:
+        lines.append("- No MITRE technique is in scope — do NOT write any T#### id.")
 
     if contract.human_review_required or contract.hil_status in {
         "required",
@@ -247,8 +289,77 @@ def build_composer_prompt(
     }:
         lines.append("- Human review: required before any execution or destructive action.")
 
+    if contract.out_of_catalog_notice:
+        lines.append(
+            "- Out-of-catalog notice (must preserve in prose): "
+            + str(contract.out_of_catalog_notice)
+        )
+    if contract.investigation_steps:
+        lines.append("- Investigation steps: " + "; ".join(contract.investigation_steps[:6]))
+    if contract.nearest_questions:
+        nearest = [
+            str(item.get("question_ref") or item.get("label") or "")
+            for item in contract.nearest_questions[:3]
+            if isinstance(item, dict)
+        ]
+        nearest = [item for item in nearest if item]
+        if nearest:
+            lines.append("- Nearest catalog questions (suggestions only): " + ", ".join(nearest))
+
+    if context_package is not None and weak_case_composition:
+        lines.append(
+            "\nGOVERNED CONTEXT (cite-only; ignore irrelevant snippets; declare gaps instead of inventing):"
+        )
+        lines.append(context_package.to_prompt_block())
+
     lines.append("\nWrite the analyst summary now using only the contract facts above.")
     return "\n".join(lines)
+
+
+# Phase 2.5 grounding guard — high-signal fabrication patterns. Low false-positive
+# by design: only source/IOC/SPL tokens are checked, not generic prose words.
+_IOC_IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+_IOC_HASH = re.compile(r"\b[a-fA-F0-9]{32,64}\b")
+_SPL_SOURCE = re.compile(r"\b(?:index|sourcetype|source)\s*=\s*([A-Za-z0-9_\-:*]+)", re.IGNORECASE)
+_SPL_PIPE_CMD = re.compile(r"\|\s*(stats|tstats|eval|where|table|rex|timechart|dedup|lookup|search)\b", re.IGNORECASE)
+
+
+def validate_grounding(text: str, allowed_corpus: str) -> tuple[bool, str | None]:
+    """Cite-only-retrieved guard (Phase 2.5).
+
+    Reject prose that introduces source/IOC/SPL tokens not present in the governed
+    context corpus (prompt + contract facts). This is what makes LLM composition on
+    out-of-catalog / weak cases safe: the model may narrate and propose, never invent
+    a concrete index, source IP, hash, or runnable SPL the pipeline did not provide.
+    """
+    corpus = allowed_corpus.lower()
+
+    for ip in _IOC_IPV4.findall(text):
+        if ip.lower() not in corpus:
+            return False, f"Composed prose introduces source/IOC IP '{ip}' not in governed context."
+    for digest in _IOC_HASH.findall(text):
+        if digest.lower() not in corpus:
+            return False, f"Composed prose introduces hash '{digest[:12]}…' not in governed context."
+    for source_value in _SPL_SOURCE.findall(text):
+        if source_value.lower() not in corpus:
+            return False, f"Composed prose names a source '{source_value}' not in governed context."
+    pipe_cmd = _SPL_PIPE_CMD.search(text)
+    if pipe_cmd and pipe_cmd.group(0).lower() not in corpus:
+        return False, "Composed prose contains a runnable SPL pipeline not provided by the pipeline."
+    return True, None
+
+
+def out_of_catalog_notice_preserved(text: str, contract: AnswerContract) -> tuple[bool, str | None]:
+    """When the contract carries an out-of-catalog notice, the body must keep it."""
+    notice = str(getattr(contract, "out_of_catalog_notice", "") or "").strip()
+    if not notice:
+        return True, None
+    lowered = text.lower()
+    if "out-of-catalog" in lowered or "out of catalog" in lowered or "not a vetted" in lowered:
+        return True, None
+    if "validate against" in lowered and ("local telemetry" in lowered or "policy" in lowered):
+        return True, None
+    return False, "Composed prose dropped the required out-of-catalog notice."
 
 
 def validate_composed_prose(text: str, contract: AnswerContract) -> tuple[bool, str | None]:
@@ -283,11 +394,16 @@ def validate_composed_prose(text: str, contract: AnswerContract) -> tuple[bool, 
     if extraneous_missing:
         return False, extraneous_missing
 
-    for tid in _MITRE_TECHNIQUE_ID.findall(text):
-        if tid.upper() not in allowed_techniques and tid.upper() not in {
-            x.upper() for x in contract.not_claimed_mitre
-        } | {x.upper() for x in contract.ruled_out_mitre}:
-            return False, f"Composed prose introduces unsupported MITRE technique {tid.upper()}."
+    # A knowledge / MITRE-explanation answer legitimately discusses the technique it
+    # was asked about (e.g. "what does T1110 cover"), even when that id is not in the
+    # contract's evidence buckets. The evidence-supported / executed / compromise
+    # guards above still apply, so the technique can be named but never claimed.
+    if not _is_knowledge_profile(contract):
+        for tid in _MITRE_TECHNIQUE_ID.findall(text):
+            if tid.upper() not in allowed_techniques and tid.upper() not in {
+                x.upper() for x in contract.not_claimed_mitre
+            } | {x.upper() for x in contract.ruled_out_mitre}:
+                return False, f"Composed prose introduces unsupported MITRE technique {tid.upper()}."
 
     if _COMPROMISE.search(lowered) and not _NEGATION.search(lowered):
         blocked_claims = {str(item).lower() for item in contract.unsupported_claims_avoid}
@@ -343,6 +459,9 @@ def compose_governed_answer(
     enrichment_projection: dict[str, Any] | None,
     fallback_envelope: AnalystResponseEnvelope,
     client: LocalChatClient | None = None,
+    context_package: GovernedContextPackage | None = None,
+    path_type: str | None = None,
+    intent_family: str | None = None,
 ) -> GovernedComposerResult:
     """Compose governed prose or return the Phase 8 deterministic envelope."""
     if fallback_envelope.draft_spl_code:
@@ -362,7 +481,12 @@ def compose_governed_answer(
             llm_guard_status="disabled",
             llm_fallback_used=False,
         )
-    if _is_knowledge_profile(contract):
+    weak_case = qualifies_for_weak_case_composition(
+        contract,
+        path_type=path_type,
+        intent_family=intent_family,
+    )
+    if _is_knowledge_profile(contract) and not weak_case:
         return GovernedComposerResult(
             envelope=fallback_envelope,
             llm_composer_enabled=True,
@@ -372,7 +496,12 @@ def compose_governed_answer(
             llm_blocked_reason="Knowledge/SOP profile uses deterministic governed RAG summary.",
         )
 
-    prompt = build_composer_prompt(contract, enrichment_projection)
+    prompt = build_composer_prompt(
+        contract,
+        enrichment_projection,
+        context_package=context_package,
+        weak_case_composition=weak_case,
+    )
     llm_client = client or build_synthesis_client_from_settings()
     if llm_client is None:
         return GovernedComposerResult(
@@ -403,6 +532,11 @@ def compose_governed_answer(
 
     composed = result.text.strip()
     passed, blocked_reason = validate_composed_prose(composed, contract)
+    if passed:
+        # Phase 2.5: cite-only grounding + out-of-catalog notice (corpus = prompt + facts).
+        passed, blocked_reason = validate_grounding(composed, prompt + "\n" + str(contract.model_dump()))
+    if passed:
+        passed, blocked_reason = out_of_catalog_notice_preserved(composed, contract)
     if not passed:
         return GovernedComposerResult(
             envelope=fallback_envelope,
@@ -415,12 +549,19 @@ def compose_governed_answer(
 
     payload = fallback_envelope.model_dump()
     payload["direct_answer_summary"] = composed[:1200]
+    provider_label = result.answered_label or None
+    if not provider_label:
+        chain = getattr(llm_client, "chain", None)
+        if chain:
+            provider_label = chain[0][0]
     return GovernedComposerResult(
         envelope=AnalystResponseEnvelope.model_validate(payload),
         llm_composer_enabled=True,
         llm_composer_used=True,
         llm_guard_status="passed",
         llm_fallback_used=False,
+        llm_provider_label=provider_label,
+        llm_raw_output_redacted=composed[:500],
     )
 
 

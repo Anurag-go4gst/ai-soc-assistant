@@ -1,0 +1,3097 @@
+{
+  "active_templates": [
+    "auth_account_lockout_trend",
+    "auth_failed_login_spike",
+    "auth_failed_login_top_users_exclude_service_accounts",
+    "auth_new_source_ip_login",
+    "auth_success_after_failure",
+    "aws_console_success_logins_by_user",
+    "aws_iam_policy_modifications",
+    "aws_security_group_modifications",
+    "dns_beaconing_candidate",
+    "edr_powershell_suspicious_command"
+  ],
+  "summary": {
+    "105": {
+      "n": 102,
+      "relevant": 100,
+      "relevant_pct": 98.0,
+      "lanes": {
+        "draft": 102
+      },
+      "classes": {
+        "spl_expected": 102,
+        "justified_no_spl": 3
+      },
+      "top_mismatches": {
+        "entity_missing": 1,
+        "data_source_missing:endpoint": 1
+      }
+    },
+    "catalogue": {
+      "n": 31,
+      "relevant": 31,
+      "relevant_pct": 100.0,
+      "lanes": {
+        "template": 10,
+        "draft": 21
+      },
+      "classes": {
+        "spl_expected": 31,
+        "justified_no_spl": 11,
+        "deferred": 4
+      },
+      "top_mismatches": {}
+    }
+  },
+  "rows": [
+    {
+      "corpus": "105",
+      "ref": "q0.q001",
+      "question": "What incident or alert network events are high or critical right now?",
+      "pattern_type": "notable_risk_lookup",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q002",
+      "question": "Which source IPs generated the most outbound connections?",
+      "pattern_type": "top_n_aggregation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q003",
+      "question": "Which destination IPs received the most connections?",
+      "pattern_type": "top_n_aggregation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q004",
+      "question": "Which hosts contacted known malicious IPs today?",
+      "pattern_type": "ioc_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q005",
+      "question": "Which hosts contacted suspicious external domains?",
+      "pattern_type": "threat_intel_enrichment",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q006",
+      "question": "Which DNS queries have unusually long names?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q007",
+      "question": "Which DNS queries look like DGA activity?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q008",
+      "question": "Which hosts show possible beaconing behavior?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q009",
+      "question": "Which hosts communicated with many unique external IPs?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q010",
+      "question": "Which hosts are generating the most SMB traffic?",
+      "pattern_type": "top_n_aggregation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q011",
+      "question": "Which hosts made SMB connections to many peers?",
+      "pattern_type": "lateral_movement",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q012",
+      "question": "Which systems used unusual destination ports?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "port"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q013",
+      "question": "Which systems generated large outbound data transfers?",
+      "pattern_type": "dlp_exfiltration",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q014",
+      "question": "Which hosts showed potential data exfiltration to cloud apps?",
+      "pattern_type": "dlp_exfiltration",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q015",
+      "question": "Which hosts have repeated connections to rare destinations?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q016",
+      "question": "Which hosts contacted the same external IP many times?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q017",
+      "question": "Which hosts generated the most DNS queries?",
+      "pattern_type": "top_n_aggregation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q018",
+      "question": "Which domains were queried by multiple hosts?",
+      "pattern_type": "top_n_aggregation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q019",
+      "question": "Which hosts queried domains with suspicious subdomains?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q020",
+      "question": "Which networks saw traffic to high-risk ports?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "port"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q021",
+      "question": "Which hosts communicated with foreign IP ranges?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q022",
+      "question": "Which hosts contacted IPs in an IOC lookup?",
+      "pattern_type": "ioc_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q023",
+      "question": "Which hosts showed possible command-and-control beaconing?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q024",
+      "question": "Which internal hosts generated outbound traffic after DNS lookups?",
+      "pattern_type": "multi_signal_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns",
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q025",
+      "question": "Which hosts used unusual protocols?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q026",
+      "question": "Which hosts have unusually high connection counts to one destination?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q027",
+      "question": "Which DNS queries resolved to suspicious top-level domains?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q028",
+      "question": "Which hosts showed peer-to-peer style communication?",
+      "pattern_type": "other_or_unclear",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q029",
+      "question": "Which systems accessed the internet through rare ports?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "port"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q030",
+      "question": "Which hosts contacted external IPs after hours?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q031",
+      "question": "Which hosts repeatedly contacted the same destination at regular intervals?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q032",
+      "question": "Which hosts had both DNS and network anomalies?",
+      "pattern_type": "multi_signal_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q033",
+      "question": "Which hosts communicated with suspicious destination domains and IPs?",
+      "pattern_type": "ioc_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q034",
+      "question": "Which destination IPs were contacted by many hosts?",
+      "pattern_type": "top_n_aggregation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q035",
+      "question": "Which hosts generated the largest DNS response volumes?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q036",
+      "question": "Which hosts reached known malicious domains from lookup data?",
+      "pattern_type": "ioc_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q037",
+      "question": "Which hosts showed likely proxy or tunneling behavior?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q038",
+      "question": "Which hosts had large inbound traffic from a single source?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q039",
+      "question": "Which hosts downloaded large volumes from the internet?",
+      "pattern_type": "dlp_exfiltration",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q040",
+      "question": "Which hosts initiated traffic to rare countries?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q041",
+      "question": "Which systems have repeated hits to the same suspicious URL path?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q042",
+      "question": "Which hosts contacted both malicious IPs and domains?",
+      "pattern_type": "ioc_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q043",
+      "question": "Which hosts show consistent low-volume outbound connections?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q044",
+      "question": "Which rules are generating the most alerts?",
+      "pattern_type": "top_n_aggregation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q045",
+      "question": "What happened for this specific notable event?",
+      "pattern_type": "case_state_lookup",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q046",
+      "question": "Which users have excessive failed logins?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q047",
+      "question": "Is one IP attacking many accounts?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "src_ip",
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q048",
+      "question": "Did a user log in from impossible locations?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q049",
+      "question": "Which hosts ran suspicious PowerShell?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q050",
+      "question": "Did Office apps spawn cmd or PowerShell?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q051",
+      "question": "What unusual processes ran on critical servers?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q052",
+      "question": "Did any host contact known malicious IPs?",
+      "pattern_type": "ioc_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q053",
+      "question": "Are there suspicious DNS queries indicating C2 or DGA behavior?",
+      "pattern_type": "dns_beaconing_dga_behavior",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q054",
+      "question": "Who is sending large amounts of data outbound?",
+      "pattern_type": "dlp_exfiltration",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q055",
+      "question": "Did anyone get added to Administrators?",
+      "pattern_type": "asset_identity_context",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q056",
+      "question": "Which users are logging in outside normal hours?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q057",
+      "question": "Did any endpoint run this suspicious hash?",
+      "pattern_type": "ioc_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q058",
+      "question": "Which users or hosts have the highest risk scores?",
+      "pattern_type": "notable_risk_lookup",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip",
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q059",
+      "question": "Which source IPs generated the most authentication failures today?",
+      "pattern_type": "top_n_aggregation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q060",
+      "question": "Which accounts had a successful login after repeated failures?",
+      "pattern_type": "success_after_failure",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q061",
+      "question": "Which users logged in from new countries today?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q062",
+      "question": "Which hosts show a spike in failed logins?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q063",
+      "question": "Which endpoints spawned script interpreters recently?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q064",
+      "question": "Which hosts executed encoded PowerShell commands?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q065",
+      "question": "Which endpoints created new scheduled tasks?",
+      "pattern_type": "persistence_scheduled_task_service",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q066",
+      "question": "Which systems contacted rare external destinations?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q067",
+      "question": "Which hosts are generating unusual DNS query volumes?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q068",
+      "question": "Which internal hosts contacted known command-and-control domains?",
+      "pattern_type": "ioc_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q069",
+      "question": "Which users accessed privileged applications unusually?",
+      "pattern_type": "asset_identity_context",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q070",
+      "question": "Which users changed their password multiple times in a short window?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "src_ip",
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q071",
+      "question": "Which accounts were disabled or re-enabled today?",
+      "pattern_type": "asset_identity_context",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q072",
+      "question": "Which hosts show signs of lateral movement?",
+      "pattern_type": "lateral_movement",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q073",
+      "question": "Which systems had multiple remote service creations?",
+      "pattern_type": "persistence_scheduled_task_service",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q074",
+      "question": "Which hosts show SMB connections to many peers?",
+      "pattern_type": "lateral_movement",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q075",
+      "question": "Which endpoints created suspicious archive files?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q076",
+      "question": "Which hosts uploaded large amounts of data to cloud services?",
+      "pattern_type": "dlp_exfiltration",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q077",
+      "question": "Which endpoints accessed USB storage recently?",
+      "pattern_type": "dlp_exfiltration",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q078",
+      "question": "Which systems had repeated malware detections?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q079",
+      "question": "Which files were modified by suspicious processes?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q080",
+      "question": "Which hosts spawned shells from email clients?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q081",
+      "question": "Which users received and opened phishing attachments?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q082",
+      "question": "Which domains were queried by multiple hosts in a short period?",
+      "pattern_type": "threshold_anomaly",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest",
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q083",
+      "question": "Which hosts have suspicious parent-child process chains?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q084",
+      "question": "Which accounts have the most risk events?",
+      "pattern_type": "notable_risk_lookup",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q085",
+      "question": "Which assets have accumulated risk from multiple detections?",
+      "pattern_type": "notable_risk_lookup",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q086",
+      "question": "Which users were involved in both failed logins and privilege changes?",
+      "pattern_type": "multi_signal_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q087",
+      "question": "Which hosts are communicating with unusual ports externally?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "port",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q088",
+      "question": "Which endpoints have multiple persistence indicators?",
+      "pattern_type": "persistence_scheduled_task_service",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q089",
+      "question": "Which users authenticated to VPN after repeated MFA failures?",
+      "pattern_type": "success_after_failure",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth",
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q090",
+      "question": "Which assets are generating the most notable events?",
+      "pattern_type": "notable_risk_lookup",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q091",
+      "question": "Which alerts are still open and unresolved?",
+      "pattern_type": "case_state_lookup",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q092",
+      "question": "Which users had access to sensitive systems and then large outbound transfers?",
+      "pattern_type": "multi_signal_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": false,
+      "mismatches": [
+        "entity_missing"
+      ],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": false
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q093",
+      "question": "Which hosts showed both process execution and suspicious DNS within 24 hours?",
+      "pattern_type": "multi_signal_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:endpoint"
+      ],
+      "checks": {
+        "expected_sources": [
+          "dns",
+          "endpoint"
+        ],
+        "data_source_ok": false,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q094",
+      "question": "Which logs are missing from key security sources?",
+      "pattern_type": "data_source_health",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q095",
+      "question": "Which sources stopped sending events recently?",
+      "pattern_type": "data_source_health",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q096",
+      "question": "Which users performed privileged actions from non-admin workstations?",
+      "pattern_type": "asset_identity_context",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q097",
+      "question": "Which systems show signs of webshell activity?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q098",
+      "question": "Which hosts downloaded executables from the internet?",
+      "pattern_type": "suspicious_process_powershell",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q099",
+      "question": "Which detections involved the same user and host repeatedly?",
+      "pattern_type": "multi_signal_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip",
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q100",
+      "question": "Which users triggered multiple different detections?",
+      "pattern_type": "multi_signal_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "src_ip",
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q101",
+      "question": "Which devices are generating the most endpoint alerts?",
+      "pattern_type": "top_n_aggregation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q102",
+      "question": "Which users are accessing resources from unusual hosts?",
+      "pattern_type": "new_or_unusual_source",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip",
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q103",
+      "question": "For any flagged host or user, what is its asset criticality, business owner, and identity/privilege status?",
+      "pattern_type": "asset_identity_context",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q104",
+      "question": "What is the full activity timeline for a given entity in the N hours before and after a detection?",
+      "pattern_type": "multi_signal_correlation",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "105",
+      "ref": "q0.q105",
+      "question": "Has this entity, IP, domain, or notable been seen or investigated before, and what was the prior disposition?",
+      "pattern_type": "case_state_lookup",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_failed_login_spike",
+      "question": "Investigate failed login spike on APP-01",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_success_after_failure",
+      "question": "Generate SPL for successful login after failures",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_new_source_ip_login",
+      "question": "Show new source IP logins",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_impossible_travel",
+      "question": "Investigate impossible travel",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_privileged_login_anomaly",
+      "question": "Investigate privileged account login anomaly",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_service_account_abnormal_login",
+      "question": "Investigate service account abnormal login",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_account_lockout_trend",
+      "question": "Show account lockouts over time",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_mfa_failure_spike",
+      "question": "Investigate MFA failure spike",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_disabled_account_login",
+      "question": "Check login from disabled account",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_after_hours_critical_asset",
+      "question": "Investigate after-hours login to critical asset",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "net_firewall_deny_spike",
+      "question": "Investigate firewall deny spike",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "firewall",
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "net_new_outbound_destination",
+      "question": "Find new outbound destinations",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "dest"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "net_port_scanning",
+      "question": "Investigate port scanning",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "port"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "net_east_west_anomaly",
+      "question": "Investigate east-west traffic anomaly",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "net_blocked_region_connection",
+      "question": "Check connection to blocked country",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "firewall",
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "net_repeated_critical_asset_connections",
+      "question": "Repeated connection attempts to critical asset",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "net_vpn_login_anomaly",
+      "question": "Investigate VPN login anomaly",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth",
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "dns_unusual_query_volume",
+      "question": "Show unusual DNS query volume",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "dns_tunneling_candidate",
+      "question": "Investigate DNS tunneling candidate",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "dns_beaconing_candidate",
+      "question": "Investigate beaconing pattern candidate",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "edr_suspicious_process",
+      "question": "Investigate suspicious process execution",
+      "pattern_type": "Endpoint / EDR",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "edr_powershell_suspicious_command",
+      "question": "Investigate PowerShell suspicious command",
+      "pattern_type": "Endpoint / EDR",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "edr_new_service_creation",
+      "question": "Investigate new service creation",
+      "pattern_type": "Endpoint / EDR",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "edr_scheduled_task_creation",
+      "question": "Investigate scheduled task creation",
+      "pattern_type": "Endpoint / EDR",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "edr_lateral_movement_candidate",
+      "question": "Investigate lateral movement candidate",
+      "pattern_type": "Endpoint / EDR",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "network"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "edr_credential_dumping_signal",
+      "question": "Investigate credential dumping signal",
+      "pattern_type": "Endpoint / EDR",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "endpoint"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "edr_malware_alert_summary",
+      "question": "Summarize malware alert",
+      "pattern_type": "Endpoint / EDR",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "edr_isolation_recommendation",
+      "question": "Recommend endpoint isolation",
+      "pattern_type": "Endpoint / EDR",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_show_sop",
+      "question": "Show SOP for brute-force investigation",
+      "pattern_type": "SOC / Knowledge / Analyst workflow",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "aws_security_group_modifications",
+      "question": "Write SPL to determine who made modifications to any AWS security groups",
+      "pattern_type": "Cloud / AWS",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "aws_console_success_logins_by_user",
+      "question": "Write SPL to find successful AWS Console logins by user in the last 24 hours",
+      "pattern_type": "Cloud / AWS",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "aws_iam_policy_modifications",
+      "question": "Write SPL to determine who changed AWS IAM policies or attached policies to users or roles",
+      "pattern_type": "Cloud / AWS",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "auth_failed_login_top_users_exclude_service_accounts",
+      "question": "Show top users with failed login count in the last 24 hours and exclude service accounts",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "user"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_generate_spl",
+      "question": "Generate SPL for failed logins",
+      "pattern_type": "SOC / Knowledge / Analyst workflow",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_explain_spl",
+      "question": "Explain this SPL",
+      "pattern_type": "SOC / Knowledge / Analyst workflow",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_optimize_spl",
+      "question": "Optimize this SPL",
+      "pattern_type": "SOC / Knowledge / Analyst workflow",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_map_alert_mitre",
+      "question": "Map this alert to MITRE",
+      "pattern_type": "SOC / Knowledge / Analyst workflow",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_create_investigation_note",
+      "question": "Create investigation note",
+      "pattern_type": "SOC / Knowledge / Analyst workflow",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_summarize_alert_evidence",
+      "question": "Summarize alert evidence",
+      "pattern_type": "SOC / Knowledge / Analyst workflow",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_recommend_next_pivots",
+      "question": "Recommend next pivots",
+      "pattern_type": "SOC / Knowledge / Analyst workflow",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_draft_ticket",
+      "question": "Draft ticket for this alert",
+      "pattern_type": "SOC / Knowledge / Analyst workflow",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_compare_past_incidents",
+      "question": "Compare current alert with past incidents",
+      "pattern_type": "SOC / Knowledge / Analyst workflow",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "ot_unexpected_command",
+      "question": "Unexpected command to OT asset",
+      "pattern_type": "OT / Critical infrastructure later",
+      "row_class": "deferred",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "ot_it_to_ot_auth_anomaly",
+      "question": "Investigate IT-to-OT authentication anomaly",
+      "pattern_type": "OT / Critical infrastructure later",
+      "row_class": "deferred",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "ot_critical_asset_after_hours",
+      "question": "Critical asset after-hours access",
+      "pattern_type": "OT / Critical infrastructure later",
+      "row_class": "deferred",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "ot_protocol_anomaly",
+      "question": "Investigate OT protocol anomaly",
+      "pattern_type": "OT / Critical infrastructure later",
+      "row_class": "deferred",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    }
+  ]
+}

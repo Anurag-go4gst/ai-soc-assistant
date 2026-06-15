@@ -91,6 +91,7 @@ def test_mock_execution_uses_only_normalized_spl(monkeypatch) -> None:
     # the execution mechanics, not the HIL contract (covered separately).
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_demo_or_lab_execution_mode", True)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_allow_mock_execution_without_hil_in_demo", True)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_require_spl_execution_confirmation", False)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_mcp_connector", lambda: connector)
 
@@ -101,7 +102,7 @@ def test_mock_execution_uses_only_normalized_spl(monkeypatch) -> None:
         spl_validation={**APPROVED_VALIDATION, "candidate_spl": "search index=* | delete"},
     )
 
-    assert connector.arguments == {"query": APPROVED_VALIDATION["normalized_spl"]}
+    assert connector.arguments["search_query"] == APPROVED_VALIDATION["normalized_spl"]
     assert execution["status"] == "executed"
     assert execution["executed_spl"] == APPROVED_VALIDATION["normalized_spl"]
     assert execution["result_count"] == 1
@@ -140,6 +141,48 @@ def test_requested_safe_tool_can_be_selected(monkeypatch) -> None:
         execution_intent="spl_search",
         spl_validation=APPROVED_VALIDATION,
         user_requested_mcp_tool="run_splunk_query",
+        rbac_role="analyst",
+    )
+
+    assert selection["tool_selection_status"] == "selected"
+    assert selection["selected_mcp_tool"] == "splunk_run_query"
+
+
+def test_viewer_rbac_blocks_requested_run_query(monkeypatch) -> None:
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+
+    selection = select_mcp_tool(
+        trace_id="trace-rbac-viewer",
+        selected_skill="attack_discovery",
+        workflow_plan={},
+        execution_intent="spl_search",
+        spl_validation=APPROVED_VALIDATION,
+        user_requested_mcp_tool="run_splunk_query",
+        rbac_role="viewer",
+    )
+
+    assert selection["tool_selection_status"] == "requires_human_review"
+    assert selection["blocked_reason"] == "rbac_denied:viewer:splunk_run_query"
+
+
+def test_requested_canonical_tool_matches_legacy_discovery_alias(monkeypatch) -> None:
+    monkeypatch.setenv("MCP_MODE", "registry")
+    monkeypatch.setenv("MCP_SERVERS", "splunk_soc")
+    monkeypatch.setenv("MCP_DEFAULT_SERVER", "splunk_soc")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_TYPE", "splunk")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_URL", "https://splunk-mcp.example.invalid/mcp")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_AUTH_MODE", "none")
+    monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST", "run_splunk_query")
+
+    selection = select_mcp_tool(
+        trace_id="trace-canonical-select",
+        selected_skill="attack_discovery",
+        workflow_plan={},
+        execution_intent="spl_search",
+        spl_validation=APPROVED_VALIDATION,
+        user_requested_mcp_tool="splunk_run_query",
     )
 
     assert selection["tool_selection_status"] == "selected"
@@ -203,7 +246,9 @@ def test_llm_recommendation_cannot_override_policy(monkeypatch) -> None:
     assert selection["blocked_reason"] == "requested_tool_intent_mismatch"
 
 
-def test_real_adapter_unavailable_returns_human_review(monkeypatch) -> None:
+def test_registry_mode_without_credentials_blocks_for_config(monkeypatch) -> None:
+    # Step 3: the live adapter is implemented, so registry mode no longer reports
+    # "not implemented". Without URL/token it fails closed on configuration.
     monkeypatch.setenv("MCP_MODE", "registry")
     monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVERS", "splunk_soc")
@@ -224,8 +269,8 @@ def test_real_adapter_unavailable_returns_human_review(monkeypatch) -> None:
     )
 
     assert execution["executed_spl"] is None
-    assert execution["block_reason"] == "real_mcp_adapter_not_implemented"
-    assert review["review_type"] == "admin_action_required"
+    assert execution["block_reason"] == "splunk_mcp_not_configured"
+    assert review["review_type"] == "connector_configuration"
 
 
 def test_saved_search_is_blocked_at_execution_gate() -> None:

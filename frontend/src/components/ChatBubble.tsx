@@ -11,6 +11,7 @@ import type { InvestigationProgressState } from '@/lib/investigationProgress';
 import { cn } from '@/lib/utils';
 import type {
   CandidateSplEnvelope,
+  ChatExecutionReviewOptions,
   ExecutionEnvelope,
   HumanReviewEnvelope,
   PlaceholderResponse,
@@ -47,10 +48,12 @@ export interface SocChatMessage {
 
 interface ChatBubbleProps {
   message: SocChatMessage;
+  investigationBusy?: boolean;
+  onExecutionReview?: (payload: ChatExecutionReviewOptions, label: string) => void;
   onRetryFinalSynthesis?: () => void;
 }
 
-export function ChatBubble({ message, onRetryFinalSynthesis }: ChatBubbleProps) {
+export function ChatBubble({ message, investigationBusy = false, onExecutionReview, onRetryFinalSynthesis }: ChatBubbleProps) {
   const isUser = message.role === 'user';
   const showProgress = !isUser && message.displayStage === 'progress' && message.investigationProgress;
   const showSummaryOnly = !isUser && message.displayStage === 'summary' && message.trace;
@@ -104,7 +107,11 @@ export function ChatBubble({ message, onRetryFinalSynthesis }: ChatBubbleProps) 
         ) : null}
         {showFullAnswer && message.trace && !message.trace.analyst_response ? <AnalystSummaryCard trace={message.trace} /> : null}
         {showFullAnswer && message.trace?.human_review?.required && !message.trace.analyst_response ? (
-          <HumanReviewCard review={message.trace.human_review} />
+          <HumanReviewCard
+            review={message.trace.human_review}
+            busy={investigationBusy}
+            onExecutionReview={onExecutionReview}
+          />
         ) : null}
         {showFullAnswer && message.trace ? (
           <AnswerFeedbackControls turnId={message.trace.turn_id} traceId={message.trace.trace_id} />

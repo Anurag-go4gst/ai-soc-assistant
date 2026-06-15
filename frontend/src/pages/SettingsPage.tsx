@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Settings as SettingsIcon, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getProviderSettingsStatus, getSettingsStatus } from '@/api/client';
+import { SourceProfileSettingsPanel } from '@/components/settings/SourceProfileSettingsPanel';
 import { LlmSettingsPanel } from '@/components/settings/LlmSettingsPanel';
 import { McpSettingsPanel } from '@/components/settings/McpSettingsPanel';
 import { ObservabilityPanel } from '@/components/settings/ObservabilityPanel';
@@ -24,11 +25,19 @@ export function SettingsPage() {
   const [providerStatus, setProviderStatus] = useState<ProviderSettingsStatus>(MOCK_PROVIDER_SETTINGS_STATUS);
   const [usingMock, setUsingMock] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [currentTab, setCurrentTab] = useState(location.pathname === '/settings/providers' ? 'providers' : 'mcp');
+  const [currentTab, setCurrentTab] = useState(
+    location.pathname === '/settings/providers'
+      ? 'providers'
+      : location.pathname === '/settings/source-profiles'
+        ? 'source-profiles'
+        : 'mcp',
+  );
 
   useEffect(() => {
     if (location.pathname === '/settings/providers') {
       setCurrentTab('providers');
+    } else if (location.pathname === '/settings/source-profiles') {
+      setCurrentTab('source-profiles');
     }
   }, [location.pathname]);
 
@@ -82,12 +91,19 @@ export function SettingsPage() {
           value={currentTab}
           onValueChange={(value) => {
             setCurrentTab(value);
-            navigate(value === 'providers' ? '/settings/providers' : '/settings');
+            if (value === 'providers') {
+              navigate('/settings/providers');
+            } else if (value === 'source-profiles') {
+              navigate('/settings/source-profiles');
+            } else {
+              navigate('/settings');
+            }
           }}
         >
           <TabsList className="flex w-full justify-start overflow-x-auto">
             <TabsTrigger value="providers">Providers/MCP</TabsTrigger>
             <TabsTrigger value="mcp">MCP</TabsTrigger>
+            <TabsTrigger value="source-profiles">Source Profiles</TabsTrigger>
             <TabsTrigger value="rag">RAG</TabsTrigger>
             <TabsTrigger value="llm">LLM</TabsTrigger>
             <TabsTrigger value="embeddings">Embeddings</TabsTrigger>
@@ -101,6 +117,9 @@ export function SettingsPage() {
             </TabsContent>
             <TabsContent value="mcp" className="m-0">
               <McpSettingsPanel status={status.mcp} />
+            </TabsContent>
+            <TabsContent value="source-profiles" className="m-0">
+              <SourceProfileSettingsPanel />
             </TabsContent>
             <TabsContent value="rag" className="m-0">
               <RagSettingsPanel status={status.rag} />

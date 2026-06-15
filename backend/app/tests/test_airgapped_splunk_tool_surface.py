@@ -28,8 +28,25 @@ def test_confirmed_airgapped_tool_surface_has_expected_policy_classes() -> None:
     assert descriptors["splunk_run_query"].capability == "spl_search"
     assert descriptors["splunk_get_metadata"].capability == "metadata_lookup"
     assert descriptors["splunk_get_knowledge_objects"].capability == "knowledge_object_discovery"
-    assert descriptors["splunk_get_user_info"].blocked is True
-    assert descriptors["splunk_get_user_info"].blocked_reason == "admin_or_sensitive_tool"
+    # splunk_get_user_info returns the current authenticated user (self) only —
+    # read-only identity, enabled in air-gapped and governed by RBAC, NOT blocked.
+    assert descriptors["splunk_get_user_info"].capability == "identity_lookup"
+    assert descriptors["splunk_get_user_info"].blocked is False
+    assert descriptors["splunk_get_user_info"].rbac_gated is True
+    # splunk_run_query stays execution-gated but is also RBAC-scoped.
+    assert descriptors["splunk_run_query"].rbac_gated is True
+
+
+def test_user_list_and_saia_stay_blocked() -> None:
+    # Enumerating all users (recon/PII) stays hard-blocked, unlike self-identity.
+    user_list = classify_mcp_tool("splunk_get_user_list", server_type="splunk")
+    assert user_list.blocked is True
+    assert user_list.blocked_reason == "admin_or_sensitive_tool"
+    # SAIA generative tools are conditional (app-dependent) and stay blocked.
+    for name in ("saia_generate_spl", "saia_optimize_spl", "saia_explain_spl", "saia_ask_splunk_question"):
+        descriptor = classify_mcp_tool(name, server_type="splunk")
+        assert descriptor.blocked is True
+        assert descriptor.blocked_reason == "saia_conditional_blocked"
 
 
 def test_canonical_search_plan_uses_splunk_run_query(monkeypatch) -> None:
@@ -70,7 +87,11 @@ def test_resource_registry_contains_all_seven_canonical_entries() -> None:
     canonical = {f"mcp_tool:{name}" for name in AIRGAPPED_TOOLS}
 
     assert canonical <= {item.resource_id for item in registry.resources}
-    assert registry.by_id("mcp_tool:splunk_get_user_info").availability == "blocked"
+    # user_info is no longer hard-blocked: RBAC-gated read-only self identity.
+    user_info = registry.by_id("mcp_tool:splunk_get_user_info")
+    assert user_info.availability != "blocked"
+    assert user_info.policy_tier == 2
+    assert "rbac_gated" in user_info.capabilities
 
 
 def test_live_readiness_accepts_confirmed_search_and_metadata_names_but_keeps_other_gates() -> None:

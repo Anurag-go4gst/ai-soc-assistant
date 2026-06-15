@@ -211,6 +211,15 @@ def pins_from_pipeline_state(
     query_text = response.user_query or (request.message if isinstance(request, ChatRequest) else "")
     alert_id = _extract_alert_id(query_text)
     prior_pins = state.get("session_pins")
+    source_profile_slots: dict[str, str] = {}
+    if isinstance(prior_pins, SessionPins):
+        source_profile_slots = dict(prior_pins.source_profile_slots or {})
+    resolve_trace = state.get("spl_source_resolve")
+    if isinstance(resolve_trace, dict):
+        resolved = resolve_trace.get("resolved_slots")
+        if isinstance(resolved, dict):
+            source_profile_slots.update({str(k): str(v) for k, v in resolved.items() if v})
+
     if alert_id is None and isinstance(prior_pins, SessionPins):
         alert_id = prior_pins.last_alert_id
 
@@ -224,6 +233,20 @@ def pins_from_pipeline_state(
     if spl_validation is not None:
         validation_status = "approved" if spl_validation.approved else "rejected"
 
+    pending_execution_confirmation = None
+    state_execution = state.get("execution")
+    if isinstance(state_execution, dict):
+        pending = state_execution.get("pending_execution_confirmation")
+        if isinstance(pending, dict):
+            pending_execution_confirmation = pending
+        elif state_execution.get("status") == "executed":
+            pending_execution_confirmation = None
+    if isinstance(prior_pins, SessionPins) and pending_execution_confirmation is None:
+        if human_review and isinstance(human_review, dict) and human_review.get("review_type") == "spl_execution_confirmation":
+            pending_execution_confirmation = prior_pins.pending_execution_confirmation
+    if human_review and isinstance(human_review, dict) and human_review.get("reason") == "analyst_rejected_execution":
+        pending_execution_confirmation = None
+
     return SessionPins(
         session_id=session_id,
         last_trace_id=trace_id,
@@ -232,6 +255,7 @@ def pins_from_pipeline_state(
         last_selected_live_execution_skill=response.selected_skill,
         last_planning_or_analytic_skill=_planning_skill(state),
         last_entities=_entity_summary(state),
+        source_profile_slots=source_profile_slots,
         last_candidate_spl=spl_text,
         last_spl_validation_status=validation_status,
         last_spl_template_status=response.spl_template_status,
@@ -240,6 +264,7 @@ def pins_from_pipeline_state(
         last_context_sufficiency=response.context_sufficiency.model_dump() if response.context_sufficiency else None,
         last_execution_status=execution.status if execution else None,
         last_human_review_status=_human_review_status(human_review),
+        pending_execution_confirmation=pending_execution_confirmation,
         updated_at=datetime.now(UTC),
         expires_at=datetime.now(UTC),
     )

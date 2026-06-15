@@ -29,6 +29,7 @@ class DispatchHooks:
     uses_pre_mcp_rag: Callable[[State], bool]
     prepare_rag_only: Node
     rag_early: Node
+    spl_source_resolve: Node
     workflow_spl: Node
     execution: Node
 
@@ -71,6 +72,8 @@ def execute_plan_dispatch(state: State, hooks: DispatchHooks) -> State:
             state = hooks.workflow_spl(state)
         if hooks.uses_pre_mcp_rag(state) and "rag" not in blocked_steps:
             state = hooks.rag_early(state)
+        if "spl" not in blocked_steps:
+            state = hooks.spl_source_resolve(state)
         # The execution stage always runs on this branch: it owns the MCP
         # gate, block reasons, and HIL even when no MCP step exists.
         state = hooks.execution(state)

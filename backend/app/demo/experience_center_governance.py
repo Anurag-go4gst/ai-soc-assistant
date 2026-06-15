@@ -41,6 +41,7 @@ def build_experience_center_governance(
     investigation_lineage: dict[str, Any] | None,
     route_plan_shadow: dict[str, Any] | None,
     selected_use_case: dict[str, Any] | None,
+    llm_sidecar_panel: dict[str, Any] | None = None,
 ) -> GovernanceTrace:
     trace = build_governance_trace(
         demo_mode=True,
@@ -56,4 +57,6 @@ def build_experience_center_governance(
     )
     if trace is None:
         raise RuntimeError("experience_center_governance requires selected_skill")
+    if llm_sidecar_panel:
+        trace.llm_sidecar_panel = llm_sidecar_panel
     return trace

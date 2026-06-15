@@ -1,6 +1,9 @@
+import pytest
+
 from app.connectors.embeddings.mock import MockEmbeddingsConnector
 from app.connectors.llm.mock import MockLlmConnector
 from app.connectors.mcp.mock import MockMcpConnector
+from app.connectors.mcp.splunk_mcp import SplunkMcpConnector
 from app.connectors.rag.mock import MockRagConnector
 
 
@@ -18,6 +21,52 @@ def test_mock_mcp_returns_deterministic_response() -> None:
     assert first == second
     assert first["mock"] is True
     assert first["row_count"] == 1
+
+
+def test_mock_mcp_accepts_canonical_run_query_name(monkeypatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "mcp_global_execution_enabled", True)
+    monkeypatch.setattr(settings, "mcp_server_mock_execution_enabled", True)
+    result = MockMcpConnector().call_tool(
+        "splunk_run_query",
+        {"query": "search index=pgcil_soc earliest=-15m latest=now | head 10"},
+    )
+
+    assert result["status"] == "ok"
+    assert result["tool_name"] == "splunk_run_query"
+
+
+def test_real_mcp_discovery_uses_separate_authorization(monkeypatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "mcp_discovery_enabled", False)
+    connector = SplunkMcpConnector()
+
+    blocked = connector.call_tool("splunk_get_indexes", {})
+    assert blocked["status"] == "blocked"
+    assert blocked["error"] == "mcp_discovery_disabled"
+
+    with pytest.raises(NotImplementedError, match="live discovery"):
+        connector.call_tool(
+            "splunk_get_indexes",
+            {"_governance": {"discovery_allowed": True}},
+        )
+
+    monkeypatch.setattr(settings, "mcp_discovery_enabled", True)
+    with pytest.raises(NotImplementedError, match="live discovery"):
+        connector.call_tool("splunk_get_indexes", {})
+
+
+def test_real_mcp_search_still_requires_global_execution(monkeypatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "mcp_discovery_enabled", True)
+    monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
+    result = SplunkMcpConnector().call_tool("splunk_run_query", {})
+
+    assert result["status"] == "blocked"
+    assert result["error"] == "mcp_global_execution_disabled"
 
 
 def test_mock_rag_returns_approved_deterministic_chunks() -> None:

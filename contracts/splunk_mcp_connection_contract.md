@@ -1,6 +1,6 @@
 # Splunk MCP Connection Contract (WS4c — readiness / COE hand-off)
 
-**Status:** Draft readiness contract — `schema_confirmed=false` until COE S5 sign-off.  
+**Status:** Adapter implemented (Step 3); `schema_confirmed=false` until operator staging smoke sign-off (no external COE).  
 **Date:** 2026-06-10  
 **Scope:** Read-only Splunk search via governed MCP adapter. No live execution in WS4c/d.
 
@@ -25,6 +25,8 @@
 | `splunk.search` | Bounded event search from **validated** `normalized_spl` only | Read-only; primary execution tool |
 
 **Registry aliases (internal):** `mcp_tool:search_splunk`, `search_splunk`, `splunk_run_query` (mock/fixture path).
+
+**Transport model (locked):** Splunk search is **asynchronous**. The connector implements submit → bounded poll → fetch **inside** one `call_tool` invocation. The execution gate still performs one logical investigation call; poll iterations are connector-internal and bounded by `MCP_MAX_POLLS_PER_CALL` / `MCP_SEARCH_JOB_TIMEOUT_MS` (see plan Appendix A.12).
 
 ---
 
@@ -104,11 +106,40 @@ Executed with **zero rows** → valid **negative result** (`collection_status=co
 
 ---
 
-## S5 first-read checklist (COE-gated — do not run in WS4c/d)
+## Async search job lifecycle (Step 3 — implemented)
 
-- [ ] COE signs binding target (7931 vs livehybrid vs hosted)
-- [ ] URL, transport, auth validated in staging
-- [ ] `capture_stage3m_s5_live_mcp_schema.py` records sample payloads
-- [ ] Adapter mapping verified against live JSON
-- [ ] Flags flipped only during controlled window; flipped back after capture
-- [ ] `schema_confirmed=true` only after COE approval
+Splunk searches exceed HTTP timeouts, so `splunk_run_query` is async at the
+transport layer. The execution gate calls `call_tool` **once**; the connector
+(`splunk_mcp.py` → `splunk_search_lifecycle.py`) runs submit → bounded poll →
+fetch internally. A submit + N polls is **one** logical investigation call.
+
+Bounds (config, server-capped): `MCP_MAX_POLLS_PER_CALL=60`,
+`MCP_SEARCH_JOB_TIMEOUT_MS=120000`, `MCP_SEARCH_POLL_INTERVAL_MS=2000`.
+
+Normalized job outcomes → gate disposition:
+
+| Job state | Payload `status` | Gate result |
+|-----------|------------------|-------------|
+| completed, rows > 0 | `ok` | executed (evidence) |
+| completed, 0 rows | `ok` | executed, honest negative |
+| failed / error | `failed` | failed + admin review |
+| timed out / max polls | `timeout` | failed + admin review |
+| denied / forbidden | `denied` | blocked + policy review |
+| unknown state / bad rows | `schema_invalid` | failed + admin review |
+
+Canonical tool name `splunk_run_query`; aliases `search_splunk` / `splunk.search`
+normalize at the boundary. Wire framing (`tools/call` JSON-RPC over
+streamable_http) is verified at first live connect — if the deployment exposes a
+submit/poll job protocol instead of inline rows, only
+`_StreamableHttpSearchTransport` changes; gate, lifecycle, and envelope mapping
+stay the same.
+
+## Go-live checklist (operator-owned — no external COE)
+
+- [ ] `cp .env.splunk-live.example .env`
+- [ ] Set `SPLUNK_MCP_BASE_URL` + `SPLUNK_MCP_TOKEN` (service-account bearer)
+- [ ] Align `SPL_ALLOWED_INDEXES` / `SPL_ALLOWED_SOURCETYPES` to the deployment
+- [ ] Staging smoke: run one approved search; verify submit/poll/fetch + envelope
+- [ ] Verify HIL gate fires (analyst confirm before each search)
+- [ ] `schema_confirmed=true` **after** the staging smoke (operator sign-off)
+- [ ] No code change required — restart backend

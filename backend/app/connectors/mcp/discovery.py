@@ -25,14 +25,14 @@ SAFE_TOOL_PATTERNS = {
 }
 
 SPLUNK_TOOL_CLASSIFICATIONS = {
-    "splunk_run_query": ["splunk_core", "execution"],
-    "run_splunk_query": ["splunk_core", "execution"],
+    "splunk_run_query": ["splunk_core", "execution", "rbac_gated"],
+    "run_splunk_query": ["splunk_core", "execution", "rbac_gated"],
     "splunk_get_info": ["splunk_core", "discovery_context"],
     "splunk_get_indexes": ["splunk_core", "discovery_context", "index_context"],
     "splunk_get_index_info": ["splunk_core", "discovery_context", "index_context"],
     "splunk_get_metadata": ["splunk_core", "discovery_context", "metadata_context"],
     "get_splunk_metadata": ["splunk_core", "discovery_context", "metadata_context"],
-    "splunk_get_user_info": ["splunk_core", "discovery_context", "admin_or_sensitive"],
+    "splunk_get_user_info": ["splunk_core", "identity_context", "rbac_gated"],
     "splunk_get_user_list": ["splunk_core", "admin_or_sensitive"],
     "splunk_get_kv_store_collections": ["splunk_core", "discovery_context"],
     "splunk_get_knowledge_objects": ["splunk_core", "discovery_context", "knowledge_object_context"],
@@ -51,6 +51,7 @@ class McpToolDescriptor:
     capability: str = "unknown"
     blocked: bool = False
     blocked_reason: str | None = None
+    rbac_gated: bool = False
     input_schema: dict[str, Any] = field(default_factory=dict)
     categories: list[str] = field(default_factory=list)
 
@@ -62,6 +63,7 @@ class McpToolDescriptor:
             "categories": list(self.categories),
             "blocked": self.blocked,
             "blocked_reason": self.blocked_reason,
+            "rbac_gated": self.rbac_gated,
         }
 
 
@@ -72,13 +74,25 @@ def classify_mcp_tool(name: str, description: str = "", server_type: str = "gene
     categories = _splunk_categories(safe_name) if server_type == "splunk" else []
     if categories:
         capability = _capability_from_categories(categories)
-        blocked = "admin_or_sensitive" in categories and "execution" not in categories
+        # SAIA tools are conditional (only present with the Splunk AI Assistant
+        # for SPL app) and generative — always blocked. admin/sensitive tools
+        # (e.g. user_list) stay blocked unless they are an execution tool.
+        if "saia" in categories:
+            blocked = True
+            blocked_reason = "saia_conditional_blocked"
+        elif "admin_or_sensitive" in categories and "execution" not in categories:
+            blocked = True
+            blocked_reason = "admin_or_sensitive_tool"
+        else:
+            blocked = False
+            blocked_reason = None
         return McpToolDescriptor(
             name=safe_name,
             description=safe_description,
             capability=capability,
             blocked=blocked,
-            blocked_reason="admin_or_sensitive_tool" if blocked else None,
+            blocked_reason=blocked_reason,
+            rbac_gated="rbac_gated" in categories,
             categories=categories,
         )
     blocked_token = next((token for token in BLOCKED_TOOL_TOKENS if token in lowered), None)
@@ -135,6 +149,8 @@ def _capability_from_categories(categories: list[str]) -> str:
         return "saved_search_execution"
     if "execution" in categories:
         return "spl_search"
+    if "identity_context" in categories:
+        return "identity_lookup"
     if "knowledge_object_context" in categories:
         return "knowledge_object_discovery"
     if "metadata_context" in categories or "index_context" in categories or "discovery_context" in categories:

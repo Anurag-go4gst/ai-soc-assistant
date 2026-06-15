@@ -661,7 +661,7 @@ def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
     proposed_use_case_rows = proposed.get("proposed_use_cases") if isinstance(proposed, dict) else []
 
     expected_questions = 105
-    expected_use_cases = 49
+    expected_use_cases = 50
     expected_github = 7
     if len(question_rows) != expected_questions:
         warnings.append(

@@ -280,6 +280,28 @@ def evaluate_pilot_mitre_evidence_status(
                 reason = "A single beaconing signal is candidate-only; C2 is not confirmed."
                 matched = c2_evidence
 
+    elif use_case == "critical_notable_mitre_review":
+        alert_evidence = _present_subset(
+            evidence,
+            {
+                "critical_alert_count",
+                "hosts_with_critical",
+                "mitre_technique",
+                "mitre_tactic",
+                "urgency",
+                "rule_name",
+            },
+        )
+        if tid in {"T1110.001", "T1078", "T1059.001"}:
+            if len(alert_evidence) >= 2:
+                status = "candidate"
+                reason = "Critical-alert fixture carries technique annotations; analyst validation required before supported mapping."
+                matched = alert_evidence
+            elif alert_evidence:
+                status = "candidate"
+                reason = "Single alert indicator is candidate-only for MITRE mapping."
+                matched = alert_evidence
+
     elif use_case == "endpoint_ransomware_impact_review":
         ransomware_evidence = _present_subset(
             evidence,

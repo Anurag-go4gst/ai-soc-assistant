@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-06-11T10:33:45+00:00",
+  "generated_at": "2026-06-15T15:58:43+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -3313,7 +3313,7 @@
     }
   ],
   "row_counts": {
-    "catalog_use_cases": 46,
+    "catalog_use_cases": 47,
     "discovery_skills": 754,
     "enrichment_only_use_cases": 3,
     "enrichment_records": 8,
@@ -3321,7 +3321,7 @@
     "proposed_use_case_rows": 3,
     "question_rows": 105,
     "triage_scores": 754,
-    "use_case_rows": 49
+    "use_case_rows": 50
   },
   "schema_version": "2026-06-07-phase0b-v1",
   "use_case_rows": [
@@ -3966,6 +3966,52 @@
       "spl_template_status": "unavailable",
       "tests_added": false,
       "use_case_id": "aws_security_group_modifications",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "alert_id",
+          "time_window"
+        ],
+        "optional_sources": [
+          "rag:sop"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003"
+      ],
+      "mitre_candidates": [
+        "T1110.001",
+        "T1078",
+        "T1059.001"
+      ],
+      "mitre_metadata_role": "metadata_not_evidence",
+      "planning_or_analytic_skill": "mitre_mapping",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "notable_critical_review_mitre",
+      "spl_template_status": "unavailable",
+      "tests_added": false,
+      "use_case_id": "critical_notable_mitre_review",
       "validation_status": "needs_soc_review"
     },
     {

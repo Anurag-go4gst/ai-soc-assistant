@@ -1,9 +1,9 @@
 {
   "artifact": "soc_validation_use_cases",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-11T10:33:45+00:00",
+  "generated_at": "2026-06-15T15:58:02+00:00",
   "row_counts": {
-    "use_cases": 49
+    "use_cases": 50
   },
   "rows": [
     {
@@ -186,6 +186,19 @@
       "spl_template_status": "unavailable",
       "tests_added": false,
       "use_case_id": "aws_security_group_modifications",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "catalog_present": true,
+      "enrichment_present": false,
+      "live_execution_skill": "attack_discovery",
+      "notes": "",
+      "rag_status": "missing",
+      "review_decision": "",
+      "runtime_support_status": "planned",
+      "spl_template_status": "unavailable",
+      "tests_added": false,
+      "use_case_id": "critical_notable_mitre_review",
       "validation_status": "needs_soc_review"
     },
     {

@@ -10,8 +10,9 @@ def human_review(
     allowed_actions: list[str],
     safe_message_for_user: str,
     required: bool = True,
+    **extra: Any,
 ) -> dict[str, Any]:
-    return {
+    payload: dict[str, Any] = {
         "required": required,
         "review_type": review_type,
         "reason": reason,
@@ -19,6 +20,9 @@ def human_review(
         "allowed_actions": allowed_actions,
         "safe_message_for_user": safe_message_for_user,
     }
+    if extra:
+        payload.update(extra)
+    return payload
 
 
 def no_human_review() -> dict[str, Any]:

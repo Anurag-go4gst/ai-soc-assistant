@@ -7,15 +7,17 @@ ever called from the live `/chat` synthesis path, never the Experience Center
 fixture path.
 """
 
+from app.llm.clients.endpoint_resolver import build_synthesis_client_from_settings
+from app.llm.clients.failover_client import FailoverChatClient
 from app.llm.clients.local_chat_client import (
     ChatResult,
     LocalChatClient,
     LocalChatError,
-    build_synthesis_client_from_settings,
 )
 
 __all__ = [
     "ChatResult",
+    "FailoverChatClient",
     "LocalChatClient",
     "LocalChatError",
     "build_synthesis_client_from_settings",

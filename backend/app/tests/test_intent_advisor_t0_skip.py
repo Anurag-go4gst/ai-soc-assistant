@@ -1,0 +1,31 @@
+from __future__ import annotations
+
+import pytest
+
+from app.chat.pipeline import graph_node_query_to_intent
+from app.config import settings
+from app.query_understanding.parser import understand_query
+from app.schemas.requests import ChatRequest
+
+
+def test_exact_105_turn_skips_intent_sidecar(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_mode", "local")
+
+    query = "Which users have excessive failed logins?"
+    qu = understand_query(query)
+    assert qu.deterministic_match_path in {"exact_105_question", "exact_105_plus_use_case_catalog"}
+
+    state = graph_node_query_to_intent(
+        {
+            "request": ChatRequest(message=query),
+            "effective_query": query,
+            "query_understanding": qu,
+            "routed": {"skill": "attack_discovery"},
+        }
+    )
+
+    advisory = state.get("llm_intent_advisory") or {}
+    assert advisory.get("dropped_reasons") == ["deterministic_exact_match_t0"]
+    assert advisory.get("llm_called") is False

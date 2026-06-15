@@ -102,14 +102,14 @@
       "resource_id": "mcp_tool:splunk_get_user_info",
       "kind": "mcp_tool",
       "capabilities": [
-        "metadata_discovery",
-        "admin_or_sensitive"
+        "identity_lookup",
+        "rbac_gated"
       ],
       "input_contract": {},
       "cost_class": "cheap",
-      "availability": "blocked",
-      "policy_tier": 3,
-      "notes": "Confirmed air-gapped sensitive discovery tool; visible but never selectable for evidence"
+      "availability": "not_implemented",
+      "policy_tier": 2,
+      "notes": "Read-only current-authenticated-user (self) identity. Enabled in air-gapped; access governed by RBAC role (capability rbac_gated, tier 2), not hard-blocked. Distinct from splunk_get_user_list (enumerates all users) which stays blocked. availability=not_implemented = not yet wired live, same as the other read tools."
     },
     {
       "resource_id": "mcp_tool:splunk_get_knowledge_objects",

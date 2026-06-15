@@ -6,6 +6,7 @@ from typing import Any
 from app.config import settings
 from app.safeguards.spl_validator import validate_spl
 from app.spl.generator import CandidateSpl, StubSplGenerator
+from app.spl.spl_simplifier import simplify_spl_safe
 from app.splunk.capabilities import SplunkCapabilityProfile, build_splunk_capability_profile
 
 
@@ -18,7 +19,10 @@ def generate_candidate_spl_with_provider(trace_id: str, skill: str, user_query: 
     elif provider == "template":
         candidate = replace(candidate, generation_mode="template", assumptions=[*candidate.assumptions, "AI-SOC template fallback used because SAIA is unavailable or disabled."])
     elif provider == "internal_llm":
-        candidate = replace(candidate, generation_mode="internal_llm", assumptions=[*candidate.assumptions, "Internal LLM fallback output is candidate SPL only and requires validation."])
+        # The body here is always the deterministic StubSplGenerator — no live LLM
+        # call happens on this path (real LLM failover lands in Phase C). Label the
+        # generation_mode honestly as `stub` so the trace does not claim LLM output.
+        candidate = replace(candidate, generation_mode="stub", assumptions=[*candidate.assumptions, "Internal LLM provider selected, but live LLM generation is not wired; body is a deterministic stub and requires validation."])
     else:
         candidate = CandidateSpl(
             trace_id=trace_id,
@@ -56,18 +60,46 @@ def explain_spl(spl: str, profile: SplunkCapabilityProfile | None = None) -> dic
     }
 
 
-def optimize_spl(spl: str, profile: SplunkCapabilityProfile | None = None) -> dict[str, Any]:
+def merge_post_validation_optimization(
+    candidate_spl: str,
+    validation: dict[str, Any],
+    *,
+    profile: SplunkCapabilityProfile | None = None,
+    user_query: str | None = None,
+) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    """Apply Phase E simplifier when revalidation passes; otherwise keep original SPL."""
+    optimization = optimize_spl(candidate_spl, profile=profile, user_query=user_query)
+    final_spl = candidate_spl
+    final_validation = validation
+    if optimization["optimization_applied"] and optimization["revalidation_approved"]:
+        revalidation = optimization["revalidation_status"]
+        if isinstance(revalidation, dict):
+            final_spl = str(optimization["optimized_candidate_spl"])
+            final_validation = revalidation
+    return final_spl, final_validation, optimization
+
+
+def optimize_spl(
+    spl: str,
+    profile: SplunkCapabilityProfile | None = None,
+    *,
+    user_query: str | None = None,
+) -> dict[str, Any]:
     profile = profile or build_splunk_capability_profile(required_saia_tool="saia_optimize_spl")
     provider = "saia_optimize_spl" if profile.saia_usable and profile.saia_optimize_spl_available and settings.splunk_use_saia_optimize_spl else "rule_based"
-    optimized = _rule_based_optimize(spl)
-    revalidation = validate_spl(optimized) if optimized != spl else None
+    simplification = simplify_spl_safe(spl, user_query=user_query)
+    optimized = simplification.simplified_spl
+    revalidation = validate_spl(optimized) if simplification.applied else None
     return {
         "provider": provider,
-        "optimization_applied": optimized != spl,
+        "optimization_applied": simplification.applied,
         "optimized_candidate_spl": optimized,
-        "requires_revalidation": optimized != spl,
+        "requires_revalidation": simplification.applied,
         "revalidation_status": revalidation,
         "revalidation_approved": bool(revalidation and revalidation.get("approved")),
+        "simplification_steps": simplification.steps,
+        "simplification_rejected": simplification.rejected,
+        "simplification_reject_reason": simplification.reject_reason,
     }
 
 

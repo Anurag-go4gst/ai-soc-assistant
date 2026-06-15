@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
@@ -19,7 +20,9 @@ from app.demo.mcp_result_envelope import (
     demo_envelope_from_rows,
     execution_fields_from_envelope,
 )
+from app.connectors.mcp.mcp_tool_plan_shadow import run_mcp_tool_plan_shadow
 from app.lineage.builder import build_investigation_lineage
+from app.llm.mitre_risk_rationale import build_deterministic_severity_rationale
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.workflow_planner import plan_workflow
 from app.query_understanding.models import OutputTemplate, RequestedOutputType
@@ -29,7 +32,7 @@ from app.routing.llm_plan_validator import validate_llm_advisory_plan
 from app.routing.route_adjudication import adjudicate_route
 from app.safeguards.spl_validator import validate_spl
 from app.skills.selector import select_skill_chain
-from app.spl.template_registry import template_summary
+from app.spl.template_registry import get_spl_template, template_summary
 from app.synthesis.models import SynthesisStatus
 from app.threat.mitre_kb import map_mitre_for_use_case
 from app.use_cases.models import UseCaseSelection
@@ -191,6 +194,13 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         demo_llm_shadow=demo_llm_shadow.to_lineage_dict() if demo_llm_shadow else None,
     )
     _scrub_experience_center_stage_labels(scenario, investigation_lineage)
+    llm_sidecars = _experience_center_llm_sidecars(
+        scenario=scenario,
+        severity_decision=severity_decision,
+        mitre_decision=mitre_decision,
+        evidence_plan=evidence_plan,
+        spl_validation=spl_validation,
+    )
     experience_center_governance = build_experience_center_governance(
         scenario_id=scenario.scenario_id,
         selected_skill=scenario.expected_skill,
@@ -200,6 +210,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         investigation_lineage=investigation_lineage.model_dump(),
         route_plan_shadow=None,
         selected_use_case=selected_use_case.model_dump() if selected_use_case else None,
+        llm_sidecar_panel=_llm_sidecar_panel(llm_sidecars),
     )
     response_mode = _experience_center_response_mode(scenario, context_sufficiency, review, spl_validation)
     synthesis_mode = "captured_huggingface_governed_output"
@@ -222,6 +233,10 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         answer_guard=answer_guard.model_dump(),
     )
     control_plane_trace["experience_center_provenance"] = deepcopy(EXPERIENCE_CENTER_PROVENANCE)
+    control_plane_trace["mitre_risk_rationale"] = llm_sidecars["mitre_risk_rationale"]
+    control_plane_trace["resource_plan_shadow"] = llm_sidecars["resource_plan_shadow"]
+    if llm_sidecars.get("mcp_tool_plan_shadow") is not None:
+        control_plane_trace["mcp_tool_plan_shadow"] = llm_sidecars["mcp_tool_plan_shadow"]
     answer_scorecard = _experience_center_answer_scorecard(scenario)
     narration_visibility = _experience_center_narration_visibility(scenario)
 
@@ -260,6 +275,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "control_plane_trace": control_plane_trace,
         "answer_scorecard": answer_scorecard,
         "narration_visibility": narration_visibility,
+        "llm_sidecars": llm_sidecars,
         "mitre_decision": mitre_decision,
         "selected_use_case": selected_use_case.model_dump() if selected_use_case else None,
         "selected_skill_chain": selected_skill_chain.model_dump(),
@@ -309,6 +325,151 @@ def _experience_center_narration_visibility(scenario: DemoScenario) -> dict[str,
         "model_signal_authority": "advisory_only",
         "deterministic_policy_authority": "wins",
     }
+
+
+def _experience_center_mitre_rationale_prose(mitre_decision: dict[str, Any]) -> str | None:
+    """Build the MITRE rationale prose the Foundation-sec sidecar narrates in live mode.
+
+    Sourced from the real governed MITRE decision (supported vs candidate vs not-claimed),
+    so the Experience Center shows the actual sidecar contribution rather than staged text.
+    """
+    techniques = mitre_decision.get("techniques") or []
+    supported = [
+        t["technique_id"]
+        for t in techniques
+        if t.get("evidence_status") == "evidence_supported" or t.get("status") == "supported"
+    ]
+    candidate = [t for t in mitre_decision.get("registry_candidates") or [] if t not in supported]
+    not_claimed = [
+        t["technique_id"]
+        for t in techniques
+        if t.get("status") in {"not_claimed", "requires_validation"} and t["technique_id"] not in supported
+    ]
+    parts: list[str] = []
+    if supported:
+        parts.append("Evidence-supported MITRE: " + ", ".join(supported))
+    if candidate:
+        parts.append("Candidate (metadata only): " + ", ".join(candidate))
+    if not_claimed:
+        parts.append("Not claimed due to insufficient evidence: " + ", ".join(not_claimed))
+    text = " ".join(parts).strip()
+    return text or None
+
+
+def _experience_center_llm_sidecars(
+    *,
+    scenario: DemoScenario,
+    severity_decision: Any,
+    mitre_decision: dict[str, Any],
+    evidence_plan: dict[str, Any],
+    spl_validation: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Mirror the production LLM sidecar hops (resource-plan shadow + MITRE/risk rationale).
+
+    The traces carry real deterministic rationale and the real deterministic resource-plan
+    source. They reflect the Experience Center posture: captured Foundation-sec output,
+    advisory only, with deterministic policy keeping authority. Same trace keys as the live
+    /chat path so the viewer sees the same sidecar panels production produces.
+    """
+    severity_prose = build_deterministic_severity_rationale(severity_decision)
+    mitre_prose = _experience_center_mitre_rationale_prose(mitre_decision)
+    resource_plan = (evidence_plan or {}).get("resource_plan") or {}
+    plan_source = resource_plan.get("plan_source") or "deterministic"
+    steps = resource_plan.get("steps") or []
+
+    mitre_risk_rationale = {
+        "llm_called": False,
+        "guard_status": "advisory",
+        "fallback_used": False,
+        "skipped_reason": None,
+        "provider_label": "captured_foundation_sec_advisory",
+        "model_signal_authority": "advisory_only",
+        "deterministic_policy_authority": "wins",
+        "severity_rationale_present": bool(severity_prose),
+        "mitre_rationale_present": bool(mitre_prose),
+        "severity_rationale_prose": severity_prose,
+        "mitre_rationale_prose": mitre_prose,
+        "adapter_warnings": [],
+        "live_mode_behavior": "Foundation-sec narrates this rationale; deterministic severity/MITRE decision keeps authority.",
+    }
+    resource_plan_shadow = {
+        "shadow_only": True,
+        "promotion_blocked": True,
+        "llm_called": False,
+        "deterministic_plan_source": plan_source,
+        "shadow_plan_source": plan_source,
+        "shadow_step_count": len(steps),
+        "provider_label": "captured_foundation_sec_advisory",
+        "skipped_reason": None,
+        "live_plan_source_unchanged": True,
+        "live_mode_behavior": "Foundation-sec proposes a plan; it is deterministically validated and never promoted over the live deterministic plan.",
+    }
+    sidecars: dict[str, dict[str, Any]] = {
+        "mitre_risk_rationale": mitre_risk_rationale,
+        "resource_plan_shadow": resource_plan_shadow,
+    }
+    needs_mcp = scenario.expected_skill in {"attack_discovery", "spl_generation"}
+    mcp_tool_plan_shadow = run_mcp_tool_plan_shadow(
+        query=scenario.query,
+        target_index=_target_index_from_spl_validation(spl_validation),
+        spl_approved=bool(isinstance(spl_validation, dict) and spl_validation.get("approved")),
+        session_role="demo_analyst",
+        needs_mcp=needs_mcp,
+        needs_spl=spl_validation is not None,
+    )
+    if mcp_tool_plan_shadow is not None:
+        mcp_tool_plan_shadow = {
+            **mcp_tool_plan_shadow,
+            "provider_label": "captured_foundation_sec_advisory",
+            "live_llm_called": False,
+            "live_mode_behavior": (
+                "Foundation-sec may propose an MCP tool chronology in live mode; "
+                "deterministic playbook review wins and execution stays gated."
+            ),
+        }
+        sidecars["mcp_tool_plan_shadow"] = mcp_tool_plan_shadow
+    return sidecars
+
+
+def _llm_sidecar_panel(sidecars: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Flatten the sidecar traces into viewer-friendly governance-panel rows."""
+    rationale = sidecars["mitre_risk_rationale"]
+    shadow = sidecars["resource_plan_shadow"]
+    panel: dict[str, Any] = {
+        "what_this_shows": "LLM sidecar hops that run alongside the deterministic pipeline.",
+        "authority": "advisory only — deterministic policy keeps final authority",
+        "live_llm_called": "No (captured Foundation-sec output in the Experience Center)",
+        "resource_plan_shadow": (
+            f"LLM proposes a resource plan; it is deterministically validated and "
+            f"never promoted over the live {shadow['deterministic_plan_source']} plan "
+            f"({shadow['shadow_step_count']} steps)."
+        ),
+        "mitre_rationale": rationale.get("mitre_rationale_prose") or "No supported MITRE technique for this query.",
+        "severity_rationale": rationale.get("severity_rationale_prose") or "—",
+    }
+    mcp_shadow = sidecars.get("mcp_tool_plan_shadow")
+    if isinstance(mcp_shadow, dict):
+        approved = mcp_shadow.get("approved_tools") or []
+        dropped = mcp_shadow.get("dropped") or []
+        unservable = (mcp_shadow.get("planner") or {}).get("llm_unservable") or []
+        panel["mcp_tool_plan_shadow"] = (
+            f"Advisory MCP tool chronology ({mcp_shadow.get('decision_source')}); "
+            f"{len(approved)} approved hop(s)"
+            + (f", {len(dropped)} dropped" if dropped else "")
+            + (f", unservable={unservable}" if unservable else "")
+            + f"; RBAC role {mcp_shadow.get('rbac_role')}; execution stays gated."
+        )
+    return panel
+
+
+def _target_index_from_spl_validation(spl_validation: dict[str, Any] | None) -> str | None:
+    if not isinstance(spl_validation, dict):
+        return None
+    normalized = spl_validation.get("normalized_spl")
+    if not isinstance(normalized, str):
+        return None
+    match = re.search(r"index=(\S+)", normalized)
+    return match.group(1) if match else None
 
 
 def _scrub_experience_center_stage_labels(scenario: DemoScenario, investigation_lineage: Any) -> None:
@@ -463,6 +624,35 @@ def _experience_center_evidence_plan(
         set([str(item) for item in plan.get("reasons") or []] + ["experience_center_fixture_alignment"])
     )
     plan["experience_center_provenance"] = deepcopy(EXPERIENCE_CENTER_PROVENANCE)
+    if scenario.scenario_id == "critical_alerts_mitre_cve_review":
+        plan["resource_plan"] = {
+            "plan_source": "deterministic",
+            "steps": [
+                {
+                    "resource": "splunk_mcp",
+                    "status": "fixture_packaged",
+                    "tool": "search",
+                    "reason": "Experience Center fixture Splunk evidence for critical-alert rollup.",
+                },
+                {
+                    "resource": "vulnerability_source",
+                    "status": "not_onboarded",
+                    "join_key": "host",
+                    "planned_section": "cve_correlation",
+                    "reason": (
+                        "unpatched CVE correlation requires a vulnerability data source; "
+                        "not onboarded in this deployment."
+                    ),
+                },
+            ],
+        }
+        plan["missing_evidence"] = sorted(
+            {
+                *(str(item) for item in plan.get("missing_evidence") or []),
+                "vulnerability_source",
+                "unpatched_cve_correlation",
+            }
+        )
     return plan
 
 
@@ -749,19 +939,116 @@ def _context_sufficiency(scenario: DemoScenario) -> dict[str, Any]:
     }
 
 
-SUCCESS_AFTER_FAILURES_VISIBLE_SPL = """search index=pgcil_soc sourcetype=pgcil:auth host=APP-01 earliest=-60m latest=now (action=failure OR action=success)
-| stats
-    count(eval(action="failure")) as fail_count,
-    count(eval(action="success")) as success_count,
-    values(src) as source_ips,
-    min(eval(if(action="failure", _time, null()))) as first_failure,
-    max(_time) as last_event
-  by user, src, host
-| where fail_count >= 5 AND success_count >= 1
-| eval risk="P1 validation - successful login after repeated failures"
-| table user host source_ips fail_count success_count first_failure last_event risk
-| sort -fail_count
-| head 100"""
+def _scoped_template_spl(template_id: str, *, host: str | None = None) -> str:
+    """Source Experience Center SPL from the production-governed template registry.
+
+    EC SPL must never drift from the optimized production queries, so we read the live
+    template text instead of re-hardcoding it. `host` scoping mirrors deterministic slot
+    binding for asset-specific demo scenarios (e.g. APP-01) without altering the query
+    shape that production validated.
+    """
+    template = get_spl_template(template_id)
+    if template is None or not template.spl_text:
+        raise RuntimeError(
+            f"Experience Center expected production SPL template '{template_id}' to exist"
+        )
+    spl = template.spl_text
+    if host:
+        # Insert the host filter immediately after the time bounds, matching how the
+        # deterministic slot binder scopes the base search.
+        spl = spl.replace("latest=now", f"latest=now host={host}", 1)
+    return spl
+
+
+def _pretty_spl(spl: str) -> str:
+    """Pretty-print single-line SPL onto piped lines for the analyst SPL card."""
+    segments = [segment.strip() for segment in spl.split("|")]
+    head, *rest = segments
+    return head + "".join(f"\n| {segment}" for segment in rest)
+
+
+# Production-optimized auth SPL, sourced from the governed template registry so the
+# Experience Center always renders the same query production generates.
+FAILED_SPIKE_SPL = _scoped_template_spl("auth_failed_login_spike", host="APP-01")
+SUCCESS_AFTER_FAILURES_SPL = _scoped_template_spl("auth_success_after_failure", host="APP-01")
+SUCCESS_AFTER_FAILURES_VISIBLE_SPL = _pretty_spl(SUCCESS_AFTER_FAILURES_SPL)
+LOCKOUT_SPL = _scoped_template_spl("auth_account_lockout_trend")
+LOCKOUT_VISIBLE_SPL = _pretty_spl(LOCKOUT_SPL)
+DNS_BEACONING_SPL = _scoped_template_spl("dns_beaconing_candidate")
+DNS_BEACONING_VISIBLE_SPL = _pretty_spl(DNS_BEACONING_SPL)
+CRITICAL_NOTABLE_SPL = _scoped_template_spl("notable_critical_review_mitre")
+CRITICAL_NOTABLE_VISIBLE_SPL = _pretty_spl(CRITICAL_NOTABLE_SPL)
+
+_CRITICAL_URGENCY_WEIGHT = {"critical": 10, "high": 5, "medium": 2, "low": 1}
+
+_CRITICAL_ALERT_FIXTURE_ROWS = [
+    {
+        "alert_id": "ALT-8841",
+        "host": "VPN-GW-01",
+        "rule_name": "brute_force_vpn_spike",
+        "urgency": "critical",
+        "severity": "critical",
+        "mitre_technique": "T1110.001",
+        "mitre_tactic": "Credential Access",
+        "alert_count": 12,
+        "first_seen": "2026-06-15T02:14:00Z",
+        "last_seen": "2026-06-15T07:58:00Z",
+    },
+    {
+        "alert_id": "ALT-7720",
+        "host": "DB-PROD-02",
+        "rule_name": "privileged_login_anomaly",
+        "urgency": "high",
+        "severity": "high",
+        "mitre_technique": "T1078",
+        "mitre_tactic": "Persistence",
+        "alert_count": 6,
+        "first_seen": "2026-06-15T03:02:00Z",
+        "last_seen": "2026-06-15T07:41:00Z",
+    },
+    {
+        "alert_id": "ALT-9103",
+        "host": "APP-EDGE-03",
+        "rule_name": "suspicious_powershell",
+        "urgency": "critical",
+        "severity": "critical",
+        "mitre_technique": "T1059.001",
+        "mitre_tactic": "Execution",
+        "alert_count": 8,
+        "first_seen": "2026-06-15T04:18:00Z",
+        "last_seen": "2026-06-15T07:52:00Z",
+    },
+    {
+        "alert_id": "ALT-9104",
+        "host": "VPN-GW-01",
+        "rule_name": "geo_impossible_travel",
+        "urgency": "high",
+        "severity": "high",
+        "mitre_technique": "T1078",
+        "mitre_tactic": "Initial Access",
+        "alert_count": 3,
+        "first_seen": "2026-06-15T05:30:00Z",
+        "last_seen": "2026-06-15T07:20:00Z",
+    },
+]
+
+
+def _urgency_risk_weight(urgency: str) -> int:
+    return _CRITICAL_URGENCY_WEIGHT.get(str(urgency).lower(), 1)
+
+
+def _top_risky_hosts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    scores: dict[str, int] = {}
+    for row in rows:
+        host = str(row.get("host") or "")
+        if not host:
+            continue
+        count = int(row.get("alert_count") or row.get("count") or 1)
+        scores[host] = scores.get(host, 0) + _urgency_risk_weight(str(row.get("urgency") or "")) * count
+    return [
+        {"Host": host, "Risk score": score, "Rank": index + 1}
+        for index, (host, score) in enumerate(sorted(scores.items(), key=lambda item: -item[1]))
+    ]
 
 
 def _playbook_payload() -> dict[str, object]:
@@ -920,7 +1207,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "P2: Check CMDB criticality for APP-01.",
             ],
         }
-    if scenario.scenario_id in {"brute_force_sop_guidance", "failed_login_playbook"}:
+    if scenario.scenario_id == "brute_force_sop_guidance":
         return {
             **base,
             "retrieved_playbook": playbook,
@@ -997,7 +1284,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                     "Successful logins": 1,
                     "First failure": "2026-05-24T13:42:10Z",
                     "Last event": "2026-05-24T14:37:22Z",
-                    "Risk": "P1 validation - successful login after repeated failures",
+                    "Risk": "P2 review - successful login after repeated failures",
                 }
             ],
             "spl_code": SUCCESS_AFTER_FAILURES_VISIBLE_SPL,
@@ -1018,8 +1305,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Status": "Requires validation", "Evidence": "Successful login after repeated failures", "Validation needed": "Confirm MFA, session legitimacy, and post-login activity."},
             ],
             "recommended_actions": [
-                "P1: Validate the successful session: source IP, MFA result, session duration, and first post-login activity.",
-                "P1: Review EDR/process telemetry for APP-01 immediately after login.",
+                "P2: Validate the successful session: source IP, MFA result, session duration, and first post-login activity.",
+                "P2: Review EDR/process telemetry for APP-01 immediately after login.",
                 "P2: Check account type, ownership, and privilege evidence for svc_grid_ops.",
                 "P2: Pivot firewall, VPN, and identity logs for 10.10.4.21 around the same window.",
                 "P2: Check CMDB criticality for APP-01.",
@@ -1055,12 +1342,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             "one_sentence_finding": "Foundation-sec can assist with lockout-trend intent, but V.AI SOC uses deterministic template SPL for this known use case and keeps operational use gated by validation policy.",
             "spl_code": LOCKOUT_VISIBLE_SPL,
             "key_fields": [
-                "_time - 15-minute lockout time bucket",
-                "user - locked account",
-                "src - source system or IP triggering the lockout",
-                "dest - authentication target host",
-                "lockout_count - lockout events in the bucket",
-                "user_total - total lockouts for that user across the 24h window",
+                "_time - 1-hour lockout time bucket",
+                "lockout_count - account_locked events in the bucket across the 24h window",
             ],
             "recommended_actions": [
                 "P2: Run the lockout trend SPL across the last 24 hours and filter for any user with more than 10 lockout events across multiple source IPs. High lockout counts from multiple sources against the same user are a brute-force indicator even without a threshold breach on any single IP.",
@@ -1098,6 +1381,204 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "P3: Generate SPL only after actual index and sourcetype evidence is available.",
             ],
             "review_notice": "Discovery result required before SPL generation.",
+        }
+    if scenario.scenario_id == "dns_beaconing_c2_hunt":
+        return attach_evidence_summary({
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "severity_label": "P3 Medium",
+            "finding_title": "DNS beaconing / C2 candidate across three internal hosts",
+            "one_sentence_finding": "DNS evidence shows three hosts querying rare domains at fixed 5-15 minute intervals with steady small payloads. Foundation-sec flags a C2 beaconing pattern; V.AI SOC keeps it candidate-only (T1071.004) until jitter and domain reputation are confirmed.",
+            "splunk_status_line": "Splunk MCP fixture search result [index=pgcil_soc sourcetype=pgcil:dns] · last 24 hours · 3 rows",
+            "splunk_results_table": [
+                {"Source": "10.20.3.41", "Domain": "a3f9k2.update-cdn.net", "Queries": 288, "Periodicity (s)": 300, "Bytes out": 41216, "Rare domain": "review"},
+                {"Source": "10.20.7.12", "Domain": "sync.metric-telemetry.io", "Queries": 144, "Periodicity (s)": 600, "Bytes out": 20992, "Rare domain": "review"},
+                {"Source": "10.20.5.88", "Domain": "cdn.win-update-cache.com", "Queries": 96, "Periodicity (s)": 900, "Bytes out": 13440, "Rare domain": "review"},
+            ],
+            "spl_code": DNS_BEACONING_VISIBLE_SPL,
+            "key_fields": [
+                "src - internal host generating the periodic DNS queries",
+                "domain - queried domain (rare/low-reputation candidate)",
+                "DNS_query_count - query volume in the window",
+                "periodicity - mean seconds between queries (beaconing signal)",
+                "bytes_out - payload steadiness indicator",
+                "rare_domain_indicator - low-cardinality + high-volume flag",
+            ],
+            "mitre_mappings": [
+                {"Technique": "T1071.004", "Name": "Application Layer Protocol: DNS", "Tactic": "Command and Control", "Status": "Candidate", "Evidence": "Fixed-interval DNS queries to rare domains with steady payloads", "Validation needed": "Confirm jitter, domain reputation, and process/owner of the querying host."},
+            ],
+            "foundation_sec_analysis": "Foundation-sec contributes an advisory C2-beaconing signal from the fixed-interval, rare-domain pattern. V.AI SOC keeps the mapping candidate-only: periodicity alone is not C2; jitter, domain reputation, and the querying process must be confirmed.",
+            "recommended_actions": [
+                "P2: Confirm beaconing by checking jitter (variance around the interval) and whether the domains are newly registered or low-reputation.",
+                "P2: Identify the process and user on 10.20.3.41, 10.20.7.12, and 10.20.5.88 generating the DNS queries.",
+                "P3: Pivot proxy/firewall egress for the resolved IPs to confirm an established channel and payload direction.",
+                "P3: Document and close as benign if domains are reputable CDNs/telemetry with business justification.",
+            ],
+            "review_notice": "Candidate beaconing pattern. SPL is review-only; MCP execution stays gated.",
+        })
+    if scenario.scenario_id == "dns_beaconing_c2_hunt_run":
+        return attach_evidence_summary({
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "severity_label": "P3 Medium",
+            "finding_title": "Beaconing-candidate correlation executed - two periodic-DNS hosts",
+            "status_badge": "Splunk MCP fixture search result",
+            "one_sentence_finding": "Splunk MCP fixture search returned two internal hosts beaconing to rare domains at fixed intervals. V.AI SOC keeps T1071.004 candidate-only until jitter and domain reputation are confirmed.",
+            "splunk_status_line": "Splunk MCP fixture search result [index=pgcil_soc sourcetype=pgcil:dns] · last 24 hours · 2 rows",
+            "splunk_results_table": [
+                {"Source": "10.20.3.41", "Domain": "a3f9k2.update-cdn.net", "Queries": 288, "Periodicity (s)": 300, "Bytes out": 41216, "Rare domain": "review"},
+                {"Source": "10.20.7.12", "Domain": "sync.metric-telemetry.io", "Queries": 144, "Periodicity (s)": 600, "Bytes out": 20992, "Rare domain": "review"},
+            ],
+            "spl_code": DNS_BEACONING_VISIBLE_SPL,
+            "executed_spl": DNS_BEACONING_SPL,
+            "execution_status": "executed",
+            "response_profile": "spl_executed",
+            "key_fields": [
+                "src - internal host generating the periodic DNS queries",
+                "domain - queried domain (rare/low-reputation candidate)",
+                "DNS_query_count - query volume in the window",
+                "periodicity - mean seconds between queries (beaconing signal)",
+                "bytes_out - payload steadiness indicator",
+                "rare_domain_indicator - low-cardinality + high-volume flag",
+            ],
+            "mitre_mappings": [
+                {"Technique": "T1071.004", "Name": "Application Layer Protocol: DNS", "Tactic": "Command and Control", "Status": "Candidate", "Evidence": "Two hosts with fixed-interval queries to rare domains and steady payloads", "Validation needed": "Confirm jitter, domain reputation, and the querying process/owner."},
+            ],
+            "recommended_actions": [
+                "P2: Confirm beaconing by checking jitter and whether the domains are newly registered or low-reputation.",
+                "P2: Identify the process and user on 10.20.3.41 and 10.20.7.12 generating the DNS queries.",
+                "P3: Pivot proxy/firewall egress for the resolved IPs to confirm an established channel.",
+                "P3: Document and close as benign if the domains are reputable CDNs/telemetry with business justification.",
+            ],
+            "review_notice": "Review the validated normalized SPL and MCP gate status before operational use.",
+        })
+    if scenario.scenario_id == "critical_alerts_mitre_cve_review":
+        top_hosts = _top_risky_hosts(_CRITICAL_ALERT_FIXTURE_ROWS)
+        return attach_evidence_summary({
+            **base,
+            "retrieved_playbook": {
+                "title": "Critical alert triage and CVE correlation",
+                "id": "SOC-SOP-ALERT-CRIT-001",
+                "version": "v2026.06",
+                "purpose": "Guide analysts through critical-alert rollup, MITRE candidate review, and honest CVE-source gaps.",
+            },
+            "sop_guidance": {
+                "triage_steps": [
+                    "Roll up critical/high alerts by host and MITRE technique for the requested window.",
+                    "Validate each technique mapping against underlying alert evidence before escalation.",
+                    "Check whether a vulnerability or CMDB source is onboarded before claiming unpatched CVE exposure.",
+                ],
+                "validation_notes": [
+                    "MITRE mappings remain candidate until alert context and technique evidence are confirmed.",
+                    "CVE correlation stays unavailable when no vulnerability source is onboarded.",
+                ],
+            },
+            "severity_label": "P2 High",
+            "finding_title": "Critical alerts with MITRE rollup — CVE correlation not onboarded",
+            "one_sentence_finding": (
+                "Four critical/high alerts across three hosts roll up to three MITRE technique candidates "
+                "(T1110.001, T1078, T1059.001). V.AI SOC cannot correlate unpatched CVEs because no "
+                "vulnerability source is onboarded; the CVE leg is shown as a planned degrade only."
+            ),
+            "initial_assessment": [
+                f"Top risky host: {top_hosts[0]['Host']} (risk_score {top_hosts[0]['Risk score']})",
+                f"Second: {top_hosts[1]['Host']} (risk_score {top_hosts[1]['Risk score']})",
+                "CVE correlation leg: vulnerability_source not_onboarded (no fabricated CVE rows).",
+            ],
+            "splunk_status_line": "Splunk MCP fixture search result [index=pgcil_soc sourcetype=pgcil:edr] · last 6 hours · 4 rows",
+            "splunk_results_table": [
+                {
+                    "Alert ID": row["alert_id"],
+                    "Host": row["host"],
+                    "Rule": row["rule_name"],
+                    "Urgency": row["urgency"],
+                    "MITRE": row["mitre_technique"],
+                    "Tactic": row["mitre_tactic"],
+                    "Count": row["alert_count"],
+                }
+                for row in _CRITICAL_ALERT_FIXTURE_ROWS
+            ],
+            "top_risky_hosts": top_hosts,
+            "mitre_mappings": [
+                {
+                    "Technique": "T1110.001",
+                    "Name": "Password Guessing",
+                    "Tactic": "Credential Access",
+                    "Status": "Candidate",
+                    "Evidence": "VPN-GW-01 brute_force_vpn_spike critical alert cluster",
+                    "Validation needed": "Confirm source IPs, lockout policy, and whether successes followed failures.",
+                },
+                {
+                    "Technique": "T1078",
+                    "Name": "Valid Accounts",
+                    "Tactic": "Persistence / Initial Access",
+                    "Status": "Candidate",
+                    "Evidence": "DB-PROD-02 privileged_login_anomaly and VPN-GW-01 geo_impossible_travel",
+                    "Validation needed": "Confirm account legitimacy, MFA result, and session activity.",
+                },
+                {
+                    "Technique": "T1059.001",
+                    "Name": "PowerShell",
+                    "Tactic": "Execution",
+                    "Status": "Candidate",
+                    "Evidence": "APP-EDGE-03 suspicious_powershell critical alert",
+                    "Validation needed": "Review command line, parent process, and encoded-command flags.",
+                },
+            ],
+            "spl_code": CRITICAL_NOTABLE_VISIBLE_SPL,
+            "key_fields": [
+                "host - affected endpoint in the critical-alert rollup",
+                "urgency - Splunk-native severity weight input (critical/high/medium/low)",
+                "mitre_technique - technique annotation carried on each alert row",
+                "mitre_tactic - tactic column for kill-chain coverage in the MITRE table",
+                "alert_count - number of correlated alerts for the host/rule in the 6h window",
+            ],
+            "limitations": [
+                "Unpatched CVE correlation did not run: vulnerability_source is not onboarded in this deployment.",
+                "MITRE techniques are candidate-only pending analyst validation of underlying alert evidence.",
+            ],
+            "missing_evidence": [
+                "vulnerability_source",
+                "unpatched_cve_correlation",
+            ],
+            "foundation_sec_analysis": (
+                "Foundation-sec contributes advisory technique annotations from the critical-alert fixture. "
+                "V.AI SOC keeps MITRE mappings candidate-only and refuses to fabricate CVE rows when no "
+                "vulnerability source is available."
+            ),
+            "recommended_actions": [
+                "P2: Triage VPN-GW-01 first (highest urgency-weighted risk_score) — validate brute-force sources and any post-failure successes.",
+                "P2: Review APP-EDGE-03 PowerShell alert parent process, command line, and encoded-command indicators.",
+                "P2: Validate DB-PROD-02 privileged-login anomaly against account owner, MFA, and session context.",
+                "P3: Onboard or connect a governed vulnerability source before claiming unpatched CVE exposure on affected hosts.",
+            ],
+            "review_notice": "Candidate MITRE mappings and review-only SPL. CVE leg is an honest degrade — correlation unavailable.",
+        })
+    if scenario.scenario_id == "guided_investigation_supply_chain":
+        return {
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "status_badge": "Out-of-catalog - guided review only",
+            "finding_title": "Guided hunt: CI/CD supply-chain compromise (out of vetted catalog)",
+            "one_sentence_finding": "This hunt is outside the vetted use-case catalog, so V.AI SOC returns a review-only guided hunt plan with an out-of-catalog notice rather than auto-generating SPL.",
+            "out_of_catalog_notice": "No vetted use-case or governed SPL template covers a CI/CD supply-chain hunt. Guidance below is review-only; any SPL must be analyst-authored and validated before use.",
+            "foundation_sec_analysis": "Foundation-sec proposes hunt directions, but with no governed template the resource planner degrades to RAG hunt patterns and review-only guidance. MCP execution stays gated and no SPL is auto-run.",
+            "key_fields": [
+                "Unsigned or unexpected build artifacts in the pipeline output",
+                "New outbound destinations from build agents / CI runners",
+                "Modified pipeline definitions or build scripts",
+                "Credential access or secret reads from CI runners",
+            ],
+            "recommended_actions": [
+                "P2: Review build-agent egress for new or rare outbound destinations over the suspected window.",
+                "P2: Diff pipeline definitions and build scripts against the last known-good revision.",
+                "P3: Audit CI runner secret/credential access and artifact signing status.",
+                "P3: Author and validate targeted SPL per data source before any execution; this hunt has no vetted template.",
+            ],
+            "review_notice": "Out-of-catalog guided review. No vetted template; SPL must be analyst-authored and validated. MCP execution stays gated.",
         }
     return {
         **base,
@@ -1223,6 +1704,11 @@ def _fact(fact_id: str, statement: str, refs: list[str], confidence: float = 0.9
 
 
 def _mock_rows_for(trace_id: str, scenario_id: str | None = None) -> list[dict[str, Any]]:
+    if scenario_id == "dns_beaconing_c2_hunt_run":
+        return [
+            {"src": "10.20.3.41", "dest": "8.8.8.8", "domain": "a3f9k2.update-cdn.net", "DNS_query_count": 288, "periodicity": 300.0, "jitter": "requires_review", "bytes_out": 41216, "rare_domain_indicator": "review", "first_seen": "2026-05-24T00:04:00Z", "last_seen": "2026-05-24T23:56:00Z", "trace_id": trace_id},
+            {"src": "10.20.7.12", "dest": "1.1.1.1", "domain": "sync.metric-telemetry.io", "DNS_query_count": 144, "periodicity": 600.0, "jitter": "requires_review", "bytes_out": 20992, "rare_domain_indicator": "review", "first_seen": "2026-05-24T00:09:00Z", "last_seen": "2026-05-24T23:51:00Z", "trace_id": trace_id},
+        ]
     if scenario_id == "successful_login_after_failures_run":
         return [
             {
@@ -1233,7 +1719,7 @@ def _mock_rows_for(trace_id: str, scenario_id: str | None = None) -> list[dict[s
                 "success_count": 1,
                 "first_failure": "2026-05-24T13:42:10Z",
                 "last_event": "2026-05-24T14:37:22Z",
-                "risk": "P1 validation - successful login after repeated failures",
+                "risk": "P2 review - successful login after repeated failures",
                 "trace_id": trace_id,
             }
         ]
@@ -1248,19 +1734,6 @@ class _NoopTelemetry:
     def record_step(self, *args: Any, **kwargs: Any) -> None:
         return None
 
-
-FAILED_SPIKE_SPL = "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure host=APP-01 | stats count as fail_count dc(user) as distinct_users_by_source min(_time) as first_seen max(_time) as last_seen values(action) as action by host, src | where fail_count >= 25 | sort -fail_count | head 100"
-SUCCESS_AFTER_FAILURES_SPL = "search index=pgcil_soc sourcetype=pgcil:auth host=APP-01 earliest=-60m latest=now (action=failure OR action=success) | stats count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips min(eval(if(action=\"failure\", _time, null()))) as first_failure max(_time) as last_event by user, src, host | where fail_count >= 5 AND success_count >= 1 | eval risk=\"P1 validation - successful login after repeated failures\" | table user host source_ips fail_count success_count first_failure last_event risk | sort -fail_count | head 100"
-LOCKOUT_SPL = "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now action=lockout | timechart span=1h count as lockout_count | head 100"
-LOCKOUT_VISIBLE_SPL = """index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now action=lockout
-| bin _time span=15m
-| stats
-    count as lockout_count
-  by _time, user, src, dest
-| eventstats sum(lockout_count) as user_total by user
-| sort -user_total, _time
-| table _time user src dest lockout_count user_total
-| head 100"""
 
 SCENARIOS: dict[str, DemoScenario] = {
     "failed_login_spike_app01": DemoScenario(
@@ -1496,34 +1969,6 @@ SCENARIOS: dict[str, DemoScenario] = {
             refs=["ev-rag-sop-only"],
         ),
     ),
-    "failed_login_playbook": DemoScenario(
-        scenario_id="failed_login_playbook",
-        label="Failed login playbook",
-        category="Knowledge / SOP",
-        query="Show the failed login playbook",
-        environment_mode="knowledge_only_coe_demo",
-        expected_skill="knowledge_recall",
-        expected_sources=["rag:sop"],
-        expected_sufficiency_mode="knowledge_only_answer",
-        mcp_execution_mode="not_required",
-        saia_available=True,
-        rag_available=True,
-        analyst_summary="Approved failed-login playbook guidance is returned without SPL generation.",
-        trace_explanation=[
-            "Routes to knowledge_recall for playbook guidance.",
-            "No candidate SPL is generated unless the analyst asks for SPL or investigation.",
-            "Governed SOC KB evidence remains available in the technical evidence path.",
-        ],
-        source_evidence=[
-            _evidence("ev-rag-failed-login-playbook", "rag", "SOC KB fixture", 1, ["entry_id", "document_type", "source_excerpt", "source_refs"], [_rag_row("sop-auth-004", "Failed login playbook", "Confirm scope, identify source distribution, validate success-after-failure, and escalate critical accounts.", ["SOC-SOP-AUTH-001#failed-login"])], tool_name="retrieve_soc_kb", provider_used="governed_rag_fixture"),
-        ],
-        structured_context=_context(
-            "failed_login_playbook",
-            "knowledge_recall",
-            [_fact("fact-failed-login-playbook", "Approved failed-login playbook guidance is available from the governed SOC KB fixture.", ["ev-rag-failed-login-playbook"])],
-            refs=["ev-rag-failed-login-playbook"],
-        ),
-    ),
     "account_lockouts_over_time_spl": DemoScenario(
         scenario_id="account_lockouts_over_time_spl",
         label="Account lockouts over time SPL",
@@ -1678,6 +2123,257 @@ SCENARIOS: dict[str, DemoScenario] = {
             metrics={"successful_logins": 1, "failed_logins": 58, "saia_available": False, "fallback_active": True},
             refs=["ev-splunk-airgap-metadata"],
             fallback=True,
+            quality="partial",
+        ),
+    ),
+    "dns_beaconing_c2_hunt": DemoScenario(
+        scenario_id="dns_beaconing_c2_hunt",
+        label="DNS beaconing / C2 hunt",
+        category="Investigate",
+        query="Hunt for possible DNS beaconing or C2 from internal hosts in the last 24 hours",
+        environment_mode="connected_coe_demo",
+        expected_skill="attack_discovery",
+        selected_use_case_id="dns_beaconing_candidate",
+        expected_sources=["mcp:splunk", "rag:sop"],
+        expected_sufficiency_mode="partial_answer",
+        mcp_execution_mode="disabled",
+        saia_available=True,
+        rag_available=True,
+        candidate_spl=DNS_BEACONING_SPL,
+        analyst_summary="Beaconing-candidate SPL aggregates DNS query periodicity, rare-domain ratio, and bytes-out per source. Foundation-sec flags a C2 pattern; V.AI SOC keeps it candidate-only until jitter and domain reputation are confirmed.",
+        trace_explanation=[
+            "Routed to attack_discovery for a cross-host DNS beaconing hunt beyond authentication.",
+            "Governed dns_beaconing_candidate template computes periodicity/jitter/rare-domain signals deterministically.",
+            "Threat-intel SOC-KB guidance is attached as SourceEvidence; MITRE T1071.004 stays candidate-only pending jitter + reputation.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-splunk-dns-beacon",
+                "splunk_mcp",
+                "Splunk DNS fixture",
+                3,
+                ["src", "dest", "domain", "DNS_query_count", "periodicity", "rare_domain_indicator", "bytes_out"],
+                [
+                    {"src": "10.20.3.41", "dest": "8.8.8.8", "domain": "a3f9k2.update-cdn.net", "DNS_query_count": 288, "periodicity": 300.0, "rare_domain_indicator": "review", "bytes_out": 41216},
+                    {"src": "10.20.7.12", "dest": "1.1.1.1", "domain": "sync.metric-telemetry.io", "DNS_query_count": 144, "periodicity": 600.0, "rare_domain_indicator": "review", "bytes_out": 20992},
+                    {"src": "10.20.5.88", "dest": "8.8.4.4", "domain": "cdn.win-update-cache.com", "DNS_query_count": 96, "periodicity": 900.0, "rare_domain_indicator": "review", "bytes_out": 13440},
+                ],
+                tool_name="search",
+                query_or_request_summary="DNS beaconing-candidate aggregation in pgcil_soc/pgcil:dns over 24h.",
+                executed_spl=None,
+                provider_used="splunk_mcp_fixture",
+            ),
+            _evidence(
+                "ev-rag-c2-ti",
+                "rag",
+                "SOC KB fixture",
+                1,
+                ["entry_id", "document_type", "source_excerpt", "source_refs"],
+                [_rag_row("ti-dns-002", "Beaconing triage", "Confirm fixed-interval periodicity, low jitter, rare/low-reputation domains, and steady small payloads before declaring C2.", ["SOC-TI-DNS-002#beaconing"])],
+                tool_name="retrieve_soc_kb",
+                query_or_request_summary="Approved DNS beaconing / C2 triage guidance.",
+                provider_used="governed_rag_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "dns_beaconing_c2_hunt",
+            "attack_discovery",
+            [
+                _fact("fact-dns-periodicity", "Three internal hosts show fixed-interval DNS queries to rare domains with steady small payloads.", ["ev-splunk-dns-beacon"]),
+                _fact("fact-c2-candidate", "MITRE T1071.004 is a candidate for the periodic DNS pattern; jitter and domain reputation are not yet confirmed.", ["ev-splunk-dns-beacon", "ev-rag-c2-ti"], 0.7),
+            ],
+            metrics={"beaconing_hosts": 3, "max_query_count": 288, "min_periodicity_seconds": 300},
+            mitre=[{"technique_id": "T1071.004", "name": "Application Layer Protocol: DNS", "support": "analyst_review", "source_refs": ["ev-splunk-dns-beacon"]}],
+            refs=["ev-splunk-dns-beacon", "ev-rag-c2-ti"],
+            quality="partial",
+        ),
+    ),
+    "dns_beaconing_c2_hunt_run": DemoScenario(
+        scenario_id="dns_beaconing_c2_hunt_run",
+        label="DNS beaconing / C2 hunt - run",
+        category="Generate + Run",
+        query="Hunt for DNS beaconing from internal hosts in index pgcil_soc sourcetype pgcil:dns over the last 24 hours and run it",
+        environment_mode="connected_coe_demo",
+        expected_skill="attack_discovery",
+        selected_use_case_id="dns_beaconing_candidate",
+        expected_sources=["spl_policy", "mcp:splunk"],
+        expected_sufficiency_mode="partial_answer",
+        mcp_execution_mode="mock_success",
+        saia_available=True,
+        rag_available=False,
+        candidate_spl=DNS_BEACONING_SPL,
+        analyst_summary="Validated beaconing SPL reached the Experience Center MCP fixture path and returned two periodic-DNS hosts for review. MITRE T1071.004 stays candidate-only pending jitter and domain reputation.",
+        trace_explanation=[
+            "Generates the governed dns_beaconing_candidate SPL and validates it deterministically.",
+            "Binds the scoped request to pgcil_soc/pgcil:dns over the 24h window.",
+            "Experience Center MCP fixture selection uses approved normalized_spl only and returns capped preview rows.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-splunk-dns-beacon-run",
+                "splunk_mcp",
+                "Splunk DNS fixture",
+                2,
+                ["src", "dest", "domain", "DNS_query_count", "periodicity", "bytes_out", "rare_domain_indicator"],
+                _mock_rows_for("fixture", "dns_beaconing_c2_hunt_run"),
+                tool_name="search",
+                executed_spl=DNS_BEACONING_SPL,
+                provider_used="mock_mcp_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "dns_beaconing_c2_hunt_run",
+            "attack_discovery",
+            [
+                _fact("fact-dns-beacon-run", "COE fixture Splunk evidence returned two periodic-DNS hosts from validated normalized SPL.", ["ev-splunk-dns-beacon-run"]),
+                _fact("fact-c2-candidate-run", "MITRE T1071.004 is a candidate for the periodic DNS pattern; jitter and domain reputation are not yet confirmed.", ["ev-splunk-dns-beacon-run"], 0.7),
+            ],
+            metrics={"beaconing_hosts": 2, "max_query_count": 288, "mock_result_rows": 2},
+            mitre=[{"technique_id": "T1071.004", "name": "Application Layer Protocol: DNS", "support": "analyst_review", "source_refs": ["ev-splunk-dns-beacon-run"]}],
+            refs=["ev-splunk-dns-beacon-run"],
+            quality="partial",
+        ),
+    ),
+    "critical_alerts_mitre_cve_review": DemoScenario(
+        scenario_id="critical_alerts_mitre_cve_review",
+        label="Critical alerts + MITRE + CVE cross-ref",
+        category="Investigate",
+        query=(
+            "Show me all critical alerts in the last 6 hours, cross-reference with MITRE ATT&CK, "
+            "and check if any affected hosts have unpatched CVEs"
+        ),
+        environment_mode="connected_coe_demo",
+        expected_skill="attack_discovery",
+        selected_use_case_id="critical_notable_mitre_review",
+        expected_sources=["mcp:splunk", "rag:sop"],
+        expected_sufficiency_mode="partial_answer",
+        mcp_execution_mode="disabled",
+        saia_available=True,
+        rag_available=True,
+        candidate_spl=CRITICAL_NOTABLE_SPL,
+        analyst_summary=(
+            "Critical/high alerts across three hosts roll up to three MITRE technique candidates. "
+            "CVE correlation is honestly degraded because no vulnerability source is onboarded."
+        ),
+        trace_explanation=[
+            "Routed to attack_discovery for a multi-host critical-alert MITRE rollup.",
+            "Governed notable_critical_review_mitre template aggregates pgcil:edr alerts over 6h with technique annotations.",
+            "Vulnerability-source degrade is explicit: no CVE rows fabricated; resource_plan marks vulnerability_source not_onboarded.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-splunk-critical-alerts",
+                "splunk_mcp",
+                "Splunk critical-alert fixture",
+                len(_CRITICAL_ALERT_FIXTURE_ROWS),
+                [
+                    "alert_id",
+                    "host",
+                    "rule_name",
+                    "urgency",
+                    "severity",
+                    "mitre_technique",
+                    "mitre_tactic",
+                    "alert_count",
+                    "first_seen",
+                    "last_seen",
+                ],
+                _CRITICAL_ALERT_FIXTURE_ROWS,
+                tool_name="search",
+                query_or_request_summary="Critical/high alert rollup in pgcil_soc/pgcil:edr over 6h.",
+                executed_spl=None,
+                provider_used="splunk_mcp_fixture",
+            ),
+            _evidence(
+                "ev-rag-critical-triage",
+                "rag",
+                "SOC KB fixture",
+                1,
+                ["entry_id", "document_type", "source_excerpt", "source_refs"],
+                [
+                    _rag_row(
+                        "triage-crit-001",
+                        "Critical alert triage",
+                        "Roll up by host and MITRE technique, validate alert context before escalation, and only correlate CVEs when a vulnerability source is onboarded.",
+                        ["SOC-TRIAGE-CRIT-001#rollup"],
+                    )
+                ],
+                tool_name="retrieve_soc_kb",
+                query_or_request_summary="Approved critical-alert triage and CVE-correlation SOP guidance.",
+                provider_used="governed_rag_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "critical_alerts_mitre_cve_review",
+            "attack_discovery",
+            [
+                _fact(
+                    "fact-critical-rollup",
+                    "Four critical/high alerts across VPN-GW-01, DB-PROD-02, and APP-EDGE-03 carry technique annotations for analyst review.",
+                    ["ev-splunk-critical-alerts"],
+                ),
+                _fact(
+                    "fact-cve-degrade",
+                    "Unpatched CVE correlation was unavailable because no vulnerability source is onboarded.",
+                    ["ev-rag-critical-triage"],
+                    0.95,
+                ),
+            ],
+            metrics={
+                "critical_alert_count": 2,
+                "hosts_with_critical": 2,
+                "hosts_with_alerts": 3,
+            },
+            mitre=[
+                {"technique_id": "T1110.001", "name": "Password Guessing", "support": "analyst_review", "source_refs": ["ev-splunk-critical-alerts"]},
+                {"technique_id": "T1078", "name": "Valid Accounts", "support": "analyst_review", "source_refs": ["ev-splunk-critical-alerts"]},
+                {"technique_id": "T1059.001", "name": "PowerShell", "support": "analyst_review", "source_refs": ["ev-splunk-critical-alerts"]},
+            ],
+            refs=["ev-splunk-critical-alerts", "ev-rag-critical-triage"],
+            quality="partial",
+        ),
+    ),
+    "guided_investigation_supply_chain": DemoScenario(
+        scenario_id="guided_investigation_supply_chain",
+        label="Guided hunt: build-server supply chain",
+        category="Guided Investigation",
+        query="Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+        environment_mode="connected_coe_demo",
+        expected_skill="guided_investigation",
+        expected_sources=["rag:sop"],
+        expected_sufficiency_mode="analyst_review_required",
+        mcp_execution_mode="disabled",
+        saia_available=True,
+        rag_available=True,
+        analyst_summary="This hunt is out of the vetted use-case catalog, so V.AI SOC returns review-only guided guidance: a structured hunt plan, candidate data sources, and an out-of-catalog notice. No SPL is auto-executed.",
+        trace_explanation=[
+            "No vetted use-case or governed template matches a supply-chain build-server hunt.",
+            "The guided_investigation rescue provides a review-only hunt plan with an out-of-catalog notice instead of guessing SPL.",
+            "The resource planner degrades gracefully: RAG hunt patterns are used; MCP execution stays disabled and SPL is analyst-authored.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-rag-supply-chain-hunt",
+                "rag",
+                "SOC KB fixture",
+                1,
+                ["entry_id", "document_type", "source_excerpt", "source_refs"],
+                [_rag_row("hunt-scm-001", "Supply-chain hunt patterns", "Check for unsigned build artifacts, new outbound destinations from build agents, modified pipeline definitions, and credential access from CI runners.", ["SOC-HUNT-SCM-001#patterns"])],
+                tool_name="retrieve_soc_kb",
+                query_or_request_summary="Approved supply-chain hunt patterns for out-of-catalog guidance.",
+                provider_used="governed_rag_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "guided_investigation_supply_chain",
+            "guided_investigation",
+            [
+                _fact("fact-out-of-catalog", "No vetted use-case or governed SPL template matches a CI/CD supply-chain hunt; review-only guidance is returned.", ["ev-rag-supply-chain-hunt"]),
+                _fact("fact-hunt-plan", "Approved hunt patterns cover unsigned artifacts, new build-agent egress, pipeline tampering, and CI credential access.", ["ev-rag-supply-chain-hunt"]),
+            ],
+            metrics={"out_of_catalog": True, "hunt_patterns": 4},
+            mitre=[],
+            refs=["ev-rag-supply-chain-hunt"],
             quality="partial",
         ),
     ),

@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     ai_soc_require_hil_for_mock_execution: bool = True
     ai_soc_allow_mock_execution_without_hil_in_demo: bool = True
     ai_soc_demo_or_lab_execution_mode: bool = False
+    # Require analyst confirm-or-update before splunk_run_query executes (after policy gates pass).
+    ai_soc_require_spl_execution_confirmation: bool = True
     ai_soc_llm_shadow_narration_enabled: bool = False
     ioc_registry_enabled: bool = False
     ioc_registry_path: str = ""
@@ -107,6 +109,13 @@ class Settings(BaseSettings):
     mcp_default_server: str = "splunk_soc"
     mcp_global_execution_enabled: bool = False
     mcp_server_mock_execution_enabled: bool = False
+    # Read-only discovery tools (indexes/metadata). Separate from search execution flags.
+    mcp_discovery_enabled: bool = True
+    # Step 3 — async Splunk search job lifecycle bounds (connector-internal).
+    # A submit + bounded polls is ONE logical investigation call.
+    mcp_max_polls_per_call: int = 60
+    mcp_search_job_timeout_ms: int = 120000
+    mcp_search_poll_interval_ms: int = 2000
     rag_mode: str = "mock"
     soc_kb_retrieval_enabled: bool = False
     soc_kb_collections_path: str = "backend/app/knowledge/fixtures/soc_kb_collections.json"
@@ -205,6 +214,13 @@ class Settings(BaseSettings):
     ai_soc_llm_spl_advisory_provider: str = ""
     ai_soc_llm_spl_advisory_model: str = ""
     ai_soc_llm_spl_fallback_enabled: bool = False
+    # Regenerate-once on the SPL failover relevance gate. Default off: one LLM call
+    # per failover turn so slow on-prem hardware does not double worst-case latency.
+    ai_soc_llm_spl_failover_retry_enabled: bool = False
+    # Optional JSON map of placeholder stem -> index/sourcetype value for Phase H0.
+    ai_soc_source_profile_map: str = ""
+    # Persisted COE source profile map (Settings UI). Empty = backend/data/source_profile_map.json
+    ai_soc_source_profile_store_path: str = ""
     ai_soc_llm_template_match_provider: str = ""
     ai_soc_llm_template_match_model: str = ""
     ai_soc_llm_template_render_provider: str = ""
@@ -232,6 +248,16 @@ class Settings(BaseSettings):
     ai_soc_llm_local_base_url: str = ""
     ai_soc_llm_local_api_key: str = ""
     ai_soc_llm_local_model: str = ""
+    # COE Qwen 2.5 72B — prepended to the failover chain when true and QWEN_* are set.
+    # Default false: dev/staging uses LOCAL_* (Foundation-Sec) + Instruct failover only.
+    ai_soc_llm_qwen_primary_enabled: bool = False
+    ai_soc_llm_qwen_base_url: str = ""
+    ai_soc_llm_qwen_api_key: str = ""
+    ai_soc_llm_qwen_model: str = ""
+    # MCP tool-planner role: Foundation-Sec Instruct is the planner (1-LLM decision,
+    # 2026-06-15). Qwen is OFF by default and only appended as a *failover* after
+    # Instruct when this flag is on AND the QWEN_* endpoint is configured.
+    ai_soc_llm_planner_qwen_failover_enabled: bool = False
     # Evidence-gating governance for the upcoming synthesis stage.
     ai_soc_llm_require_context_sufficiency: bool = True
     ai_soc_llm_require_source_refs: bool = True
@@ -245,6 +271,9 @@ class Settings(BaseSettings):
     # deterministic lab draft. Defaults false so the test suite and the
     # Experience Center fixture path never make a live model call.
     ai_soc_llm_live_synthesis_enabled: bool = False
+    # Phase 2.5 — weak-case composition HIL: below this confidence, attach
+    # analyst_review_required while still rendering the composed body.
+    ai_soc_llm_compose_hil_threshold: float = 0.55
 
     # Stage 3M-S4: Experience Center demo-only LLM shadow (lineage/trace; no final synthesis).
     demo_llm_shadow_enabled: bool = False

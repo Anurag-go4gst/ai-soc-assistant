@@ -7,7 +7,11 @@ from typing import Any, Callable
 from app.config import settings
 from app.llm.adapter import adapt_llm_output
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
-from app.safeguards.spl_validator import validate_spl
+from app.safeguards.spl_validator import (
+    lab_validation_eligible,
+    validate_spl,
+    validate_spl_lab_candidate,
+)
 from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
 from app.spl.family_engineering import full_engineering_prompt, universal_engineering_prompt
 
@@ -47,6 +51,7 @@ class LlmSplFallbackResult:
     quality_status: str | None = None
     quality_findings: list[dict[str, Any]] = field(default_factory=list)
     hard_fail_count: int = 0
+    lab_tier: bool = False
 
 
 def generate_llm_spl_fallback(
@@ -54,6 +59,9 @@ def generate_llm_spl_fallback(
     user_query: str,
     llm_raw_output_provider: Callable[[], str] | None = None,
     client: LocalChatClient | None = None,
+    context: dict[str, Any] | None = None,
+    relevance_feedback: list[str] | None = None,
+    correctness_mode: bool = False,
 ) -> LlmSplFallbackResult | None:
     """Generate candidate SPL from LLM advisory fallback (default-off, never governed).
 
@@ -77,8 +85,10 @@ def generate_llm_spl_fallback(
             return _clarification(CLARIFICATION_NO_CLIENT)
         try:
             completion = active_client.generate(
-                system_prompt=_system_prompt(),
-                user_prompt=_user_prompt(user_query),
+                system_prompt=_system_prompt(correctness_mode=correctness_mode),
+                user_prompt=_user_prompt(
+                    user_query, context=context, relevance_feedback=relevance_feedback
+                ),
                 max_tokens=min(settings.ai_soc_llm_max_output_tokens, 400),
                 temperature=0.0,
             )
@@ -224,6 +234,45 @@ def generate_llm_spl_fallback(
         )
 
     approved = bool(validation.get("approved"))
+    # Lab-tier exposure: quality passed but the execution validator rejected the SPL
+    # only because of placeholder index/sourcetype (it cannot know customer source
+    # config). Surface it as a review-only lab candidate — same contract as the
+    # deterministic draft families — never executable. `approved=True` here means
+    # ANALYST EXPOSURE is OK; execution stays fail-closed downstream (the pipeline
+    # keeps validation.approved=False and normalized_spl=None for lab-tier).
+    if (
+        not approved
+        and candidate_spl
+        and status == "candidate_generated"
+        and lab_validation_eligible(list(validation.get("reject_reasons") or []), candidate_spl)
+    ):
+        lab = validate_spl_lab_candidate(candidate_spl)
+        if lab.get("lab_candidate_eligible"):
+            return LlmSplFallbackResult(
+                candidate_spl=candidate_spl,
+                approved=True,
+                lab_tier=True,
+                validation={**lab, "approved": False, "normalized_spl": None},
+                status="candidate_generated",
+                confidence_score=confidence_score,
+                confidence_label=confidence_label,
+                detection_family=detection_family,
+                assumptions=assumptions,
+                required_fields=required_fields,
+                missing_details=missing_details,
+                clarifying_questions=clarifying_questions,
+                validation_notes=validation_notes,
+                soc_std_rules_applied=soc_std_rules_applied,
+                risk_notes=risk_notes,
+                model=model,
+                latency_ms=latency_ms,
+                clarification_required=False,
+                clarification_reason=None,
+                quality_standard=STANDARD_ID,
+                quality_status=quality_payload["quality_status"],
+                quality_findings=quality_findings,
+                hard_fail_count=quality.hard_fail_count,
+            )
     if not approved:
         return LlmSplFallbackResult(
             candidate_spl="",
@@ -358,7 +407,63 @@ def _detection_family_prompt() -> str:
     return full_engineering_prompt()
 
 
-def _system_prompt() -> str:
+# Datamodels the deterministic validator accepts on the CIM/tstats branch
+# (mirror of app.safeguards.spl_validator.APPROVED_DATAMODELS). The correctness
+# prompt may emit tstats/from against these only — validate_spl re-checks.
+APPROVED_CIM_DATAMODELS = ("Authentication", "Network_Traffic", "Network_Resolution")
+
+
+def _correctness_engineering_block() -> str:
+    """B12 — U01/U02 + a compact correctness hint, NOT the full SOC-STD-SPL-001
+    C–I list or the full detection-family catalog. Avoids reproducing draft-family
+    verbosity through the model while keeping shift-left + native-time discipline."""
+    return (
+        f"{universal_engineering_prompt()}\n\n"
+        "Correctness rules (keep the query short and exactly on-question):\n"
+        "- Answer the EXACT entity, data source, action, and metric the question asks. "
+        "Do not add presentation formatting (strftime, eval risk=, wide tables) unless asked.\n"
+        "- Normalize key fields with coalesce() before aggregation; format any "
+        "earliest/latest timestamps with strftime AFTER stats (never strftime(_time) before stats).\n"
+        "- Use placeholders for unknown index/sourcetype (index=<...>, sourcetype=<...>) and list them "
+        "in assumptions and required_fields. No false claims of execution/approval/governance.\n"
+    )
+
+
+def _system_prompt(correctness_mode: bool = False) -> str:
+    if correctness_mode:
+        datamodels = ", ".join(APPROVED_CIM_DATAMODELS)
+        return (
+            "You are the AI SOC SPL advisory fallback (lab candidate only — never governed, "
+            "never catalog-approved, never executable). Output ONE JSON object and nothing else: "
+            "no markdown fences, no text before or after.\n"
+            f"{_correctness_engineering_block()}"
+            "Decide whether the request is sufficiently specified. Return clarification questions when the "
+            "required log source is unclear, fields required for logic are missing, or the user asks to "
+            "execute or confirm results. Otherwise produce a placeholder-based lab candidate.\n"
+            "The candidate_spl MUST:\n"
+            "- query the data source the question is about (auth, network, DNS, endpoint, or firewall);\n"
+            "- begin with `search index=<index> sourcetype=<sourcetype>` OR, when it answers the question "
+            f"correctly and faster, `tstats ... from datamodel=<one of: {datamodels}>`;\n"
+            "- include a time bound (`earliest=-<N>[mhd]` and `latest=now`, or tstats earliest/latest);\n"
+            "- aggregate with stats/tstats when the question asks for a ranked or counted answer, grouping "
+            "by the asked entity (user, host, src_ip, domain, ...);\n"
+            "- end with `head 100`;\n"
+            "- NOT use: subsearches, macros, delete, collect, outputlookup, sendemail, rest, or any write "
+            "command. (tstats/from/datamodel ARE allowed for the approved datamodels above.)\n"
+            "confidence_score reflects source-profile completeness and field certainty. assumptions MUST list "
+            "index/sourcetype placeholder meanings and field mappings; required_fields MUST list the Splunk "
+            "fields the query depends on; execution_eligible, governed, and catalog_approved MUST be false.\n"
+            'Example: {"status": "candidate_generated", "confidence_score": 0.7, "confidence_label": "medium", '
+            '"detection_family": "dns_query_volume", "candidate_spl": "search index=<dns_index> '
+            "sourcetype=<dns_sourcetype> earliest=-24h latest=now query=* | eval src_host_norm=lower(coalesce("
+            'src_host, src_ip, "unknown")) | stats count as dns_query_count dc(query) as distinct_domains by '
+            'src_host_norm | sort - dns_query_count | head 100", '
+            '"assumptions": ["<dns_index>/<dns_sourcetype> are the DNS source"], '
+            '"required_fields": ["src_ip", "query", "index", "sourcetype"], "missing_details": [], '
+            '"clarifying_questions": [], "validation_notes": ["Lab candidate only"], '
+            '"soc_std_rules_applied": ["coalesce_normalization"], "risk_notes": ["Not governed"], '
+            '"execution_eligible": false, "governed": false, "catalog_approved": false}'
+        )
     return (
         "You are the AI SOC SPL advisory fallback (lab candidate only — never governed, "
         "never catalog-approved, never executable). Output ONE JSON object and nothing else: "
@@ -402,11 +507,41 @@ def _system_prompt() -> str:
     )
 
 
-def _user_prompt(user_query: str) -> str:
-    return (
-        "User request:\n"
-        f"{user_query}\n\n"
+def _user_prompt(
+    user_query: str,
+    *,
+    context: dict[str, Any] | None = None,
+    relevance_feedback: list[str] | None = None,
+) -> str:
+    parts = ["User request:", user_query, ""]
+    if context:
+        ctx_lines = []
+        for key in ("primary_skill", "use_case_id", "pattern_type"):
+            value = context.get(key)
+            if value:
+                ctx_lines.append(f"- {key}: {value}")
+        sources = context.get("required_sources")
+        if sources:
+            ctx_lines.append(f"- required_sources: {', '.join(str(s) for s in sources)}")
+        families = context.get("candidate_families")
+        if families:
+            ctx_lines.append(
+                "- routing is ambiguous; candidate detection families (pick the one that "
+                f"matches the question, or combine correctly): {', '.join(str(f) for f in families)}"
+            )
+        if ctx_lines:
+            parts.append("Routing context (use it to anchor the data source and entity):")
+            parts.extend(ctx_lines)
+            parts.append("")
+    if relevance_feedback:
+        parts.append(
+            "Your previous attempt did not answer the question. Fix these specific mismatches:"
+        )
+        parts.extend(f"- {item}" for item in relevance_feedback)
+        parts.append("")
+    parts.append(
         "Return only JSON with keys status, confidence_score, confidence_label, detection_family, "
         "candidate_spl, assumptions, required_fields, missing_details, clarifying_questions, "
         "validation_notes, soc_std_rules_applied, risk_notes, execution_eligible, governed, catalog_approved."
     )
+    return "\n".join(parts)

@@ -210,22 +210,33 @@ def _build_planning_decision(
         planner_path_selection_enabled=planner_path_selection_enabled,
         planner_runtime_activation_allowed=planner_runtime_activation_allowed,
         resource_plan_summary=(
-            _guided_resource_plan_summary(plan, routed_payload)
-            if path_type == "guided_investigation"
+            _resource_plan_summary_for_path(path_type, plan, routed_payload)
+            if path_type in {"guided_investigation", "hybrid_investigation", "spl_review_plus_rag", "spl_review"}
             else None
         ),
     )
 
 
-def _guided_resource_plan_summary(plan: dict[str, Any], routed: dict[str, Any]) -> dict[str, object]:
-    from app.planner.composer import build_guided_investigation_resource_decisions
+def _resource_plan_summary_for_path(path_type: str, plan: dict[str, Any], routed: dict[str, Any]) -> dict[str, object]:
+    from app.planner.composer import (
+        build_guided_investigation_resource_decisions,
+        build_hybrid_mcp_discovery_resource_decisions,
+    )
 
     provenance = routed.get("routing_provenance") if isinstance(routed.get("routing_provenance"), dict) else {}
+    match_path = str(provenance.get("deterministic_match_path") or "out_of_registry")
     evidence = type("EvidenceSummary", (), plan)() if plan else None
-    return build_guided_investigation_resource_decisions(
+    if path_type == "guided_investigation":
+        return build_guided_investigation_resource_decisions(evidence, match_path=match_path)
+    return build_hybrid_mcp_discovery_resource_decisions(
         evidence,
-        match_path=str(provenance.get("deterministic_match_path") or "out_of_registry"),
+        path_type=path_type,
+        match_path=match_path,
     )
+
+
+def _guided_resource_plan_summary(plan: dict[str, Any], routed: dict[str, Any]) -> dict[str, object]:
+    return _resource_plan_summary_for_path("guided_investigation", plan, routed)
 
 
 def _resolve_path_type(

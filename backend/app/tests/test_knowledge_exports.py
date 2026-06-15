@@ -13,6 +13,22 @@ from app.api.routes_knowledge import export_mapping_artifact
 from app.knowledge.mapping_exports import MITRE_METADATA_ROLE, SOC_VALIDATION_ARTIFACTS
 
 
+def test_mapping_summary_endpoint_matches_crosswalk() -> None:
+    from app.knowledge.mapping_exports import build_mapping_summary, build_soc_capability_crosswalk_export_payload
+
+    summary = build_mapping_summary()
+    crosswalk = build_soc_capability_crosswalk_export_payload()
+
+    assert summary["row_counts"]["question_rows"] == 105
+    assert summary["row_counts"]["use_case_rows"] == 50
+    assert summary["row_counts"]["github_skill_rows"] == 12
+    assert summary["live_route_skills"] == list(
+        ("alert_summary", "spl_generation", "attack_discovery", "knowledge_recall", "guided_investigation")
+    )
+    assert summary["allowed_live_execution_skills"] == crosswalk["allowed_live_execution_skills"]
+    assert sum(summary["question_skill_distribution"].values()) == 105
+
+
 def test_question_runtime_map_json_export_contains_105_rows() -> None:
     response = export_mapping_artifact("question_runtime_map", file_format="json")
     payload = json.loads(response.body)
@@ -82,7 +98,7 @@ def test_soc_capability_crosswalk_json_export_contains_expected_rows() -> None:
 
     assert payload["artifact"] == "soc_capability_crosswalk"
     assert payload["row_counts"]["question_rows"] == 105
-    assert payload["row_counts"]["use_case_rows"] == 49
+    assert payload["row_counts"]["use_case_rows"] == 50
     assert payload["row_counts"]["github_skill_rows"] == 12
     assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
 

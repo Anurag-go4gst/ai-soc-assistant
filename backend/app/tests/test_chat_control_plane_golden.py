@@ -243,9 +243,16 @@ def test_uncatalogued_spl_generation_requires_clarification_not_stage3c_stub(
 def test_uncatalogued_spl_generation_uses_lab_only_llm_candidate_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Phase C: with the failover flag on, the governed candidate path now USES the
+    # LLM advisory fallback for uncatalogued SPL (B01 wiring) — gated by relevance
+    # and deterministic validation, and always lab-only (never governed/executable).
+    # The SPL must be on-question (VPN/network) to pass the R5 relevance gate.
     spl = (
-        "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now "
-        "action=failure | stats count as fail_count by src_ip | sort -fail_count | head 100"
+        "search index=<vpn_index> sourcetype=<vpn_sourcetype> earliest=-24h latest=now "
+        "action=success | eval src_ip_norm=coalesce(src_ip, src) "
+        "| eval user_norm=coalesce(user, src_user) "
+        "| stats dc(src_ip_norm) as distinct_ips values(src_ip_norm) as source_ips by user_norm "
+        "| where distinct_ips>1 | head 100"
     )
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
     class _Telemetry:
@@ -260,7 +267,7 @@ def test_uncatalogued_spl_generation_uses_lab_only_llm_candidate_metadata(
     )
     monkeypatch.setattr(
         "app.chat.pipeline.generate_llm_spl_fallback",
-        lambda *, user_query: LlmSplFallbackResult(
+        lambda *, user_query, **_kw: LlmSplFallbackResult(
             candidate_spl=spl,
             approved=True,
             validation={
@@ -275,7 +282,7 @@ def test_uncatalogued_spl_generation_uses_lab_only_llm_candidate_metadata(
             confidence_score=0.76,
             confidence_label="medium",
             detection_family="vpn_impossible_travel",
-            assumptions=["LLM mapped VPN impossible travel to allowed auth source fields."],
+            assumptions=["LLM mapped VPN impossible travel to allowed network/VPN source fields."],
             required_fields=["src_ip"],
             model="foundation-sec-test",
             latency_ms=12,
@@ -291,11 +298,14 @@ def test_uncatalogued_spl_generation_uses_lab_only_llm_candidate_metadata(
     )
     assert governed_candidate is not None
     assert governed_validation is not None
-    assert governed_candidate["generation_mode"] == "clarification_required"
+    # LLM candidate now serves the governed failover path — but strictly lab-only.
+    assert governed_candidate["generation_mode"] == "llm_spl_advisory_fallback"
     assert governed_candidate["execution_eligible"] is False
-    assert governed_validation["approved"] is False
-    assert governed_validation["normalized_spl"] is None
-    assert governed_validation["selected_candidate_spl_provider"] == "none"
+    assert governed_candidate["governed"] is False
+    assert governed_candidate["catalog_approved"] is False
+    assert governed_validation["approved"] is True
+    assert governed_validation["normalized_spl"] == spl
+    assert governed_validation["selected_candidate_spl_provider"] == "llm_spl_advisory_fallback"
 
     llm_candidate = chat_pipeline._llm_spl_candidate_stage(
         skill="spl_generation",

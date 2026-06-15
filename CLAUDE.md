@@ -20,7 +20,7 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - Candidate SPL is never executable. Only an approved validation result with non-null `normalized_spl` may enter the MCP execution gate.
 - MCP is a generic multi-server registry. Splunk MCP is the first target MCP server type, not the whole framework.
 - MCP execution is disabled by default globally and per server. Mock execution requires both `MCP_GLOBAL_EXECUTION_ENABLED=true` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=true`.
-- Real MCP execution remains not implemented until COE supplies server URL, transport, auth, discovered tool names, exact argument schema, and an approval workflow.
+- **Live Splunk MCP search is implemented** (`splunk_mcp.py` + `splunk_search_lifecycle.py`, Steps 0–3 on `spl-generation-audit`). Default posture stays off; activation is env + credentials only. Wire framing (`_StreamableHttpSearchTransport`) is verified at first connect — see **Splunk MCP go-live** below.
 - Tool selection is deterministic; user-requested MCP server/tool values are preferences only. LLM recommendations are disabled by default and advisory only if later enabled.
 - LLM is a provider/model registry. Cisco/Foundation-Sec is one family, not the only supported LLM option.
 - Open-weight/local models are configured through provider types such as `openai_compatible`, `ollama`, `vllm`, `sglang`, `tgi`, `llamacpp`, and `custom_http`.
@@ -32,8 +32,10 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - Intent hygiene (Stage 3J-C): SOP/playbook/runbook and MITRE prompts route to `knowledge_recall` (no SPL); a MITRE ask without alert context returns an `intent_clarification` human-review asking for the alert; success-after-failures prompts generate a failure+success correlation SPL, not a failed-spike-only query. The chat UI is analyst-first: an analyst summary card on top with the Stage 3D technical trace collapsed behind "Show technical trace".
 - Guarded LLM adapter (Stage 3J-I): `app/llm/adapter/` extracts the first balanced JSON object, validates role-specific schemas, and applies active authority overrides (forces SPL `execution_eligible=false`, forces deterministic clarification/severity/MITRE-status/SOP-citation/allowed-actions on conflict, records `warnings`/`disagreements`). Dormant semantic guards live in `app/answer_guard/rules.py` (13 stable `guard.*` ids, unit-tested only). Adapter and guard rules are NOT imported by any `/chat` or demo response path; they never run on a live answer yet.
 - Experience Center calibration (Stage 3J-J): demo golden answers in `app/demo/scenarios.py` are calibrated to governed Foundation-sec behavior — valid template SPL, per-source "Distinct users by source" (no summed global count), explicit MITRE `Status`, P1–P4 action priorities, `execution_eligible=false`. Each answer carries an investigation-lineage reveal ("How this answer was produced") collapsed by default in the chat UI. Answers are deterministic/`coe_synthetic_fixture`, not produced by a live model.
+- Experience Center ↔ production parity (2026-06-15): EC must mirror the real `/chat` pipeline, not drift. EC SPL is sourced from the governed template registry via `_scoped_template_spl(template_id, host=)` (no hardcoded SPL); edit `templates.json` and EC follows. Success-after-failure is P2. EC surfaces the production LLM sidecar hops: `control_plane_trace.{mitre_risk_rationale,resource_plan_shadow}` + top-level `llm_sidecars` + governance `llm_sidecar_panel` (frontend "LLM sidecars (advisory)" panel), built from real deterministic rationale (`build_deterministic_severity_rationale` + the governed MITRE decision); EC posture kept (`live_llm_called=false`, advisory, deterministic wins). Sections (13-stage lineage "How this answer was produced", technical evidence path, governance panels) already render from the shared `build_investigation_lineage`/`build_control_plane_trace`/`build_governance_trace` builders, same as live. Scenario set: added `dns_beaconing_c2_hunt` + `dns_beaconing_c2_hunt_run` (mock MCP execution hop on a non-auth case) and `guided_investigation_supply_chain` (out-of-catalog 5th-skill hunt); removed redundant `failed_login_playbook`. Progress UX (`frontend/src/lib/investigationProgress.ts`, `InvestigationProgressPanel.tsx`): staged demo playback with a realistic MCP handshake (registry resolve → TLS/bearer → tools/list → submit job sid → poll 1/3..2/3 → DONE), per-step duration jitter, and a live elapsed ticker that masks real latency during the hold-until-resolved wait. Frontend is served in prod by Nginx from `frontend/dist` (cisco-vai.vnudge.com) — run `npm run build` in `frontend/` to publish UI changes; the docker `frontend` service is Vite dev only.
 - LLM-assisted routing governance (Stage 3J-K0): routing modes `deterministic_only`, `llm_shadow_only`, `llm_assisted_semantic`, `llm_primary_lab`. LLM route suggestions are advisory only, normalized through deterministic registries and clarification policy; final route selection stays deterministic. Evidence-need→MCP-tool mapping is a deterministic record only (no execution). The SPL optimizer field `execution_eligible` is renamed `revalidation_approved`; candidate SPL remains non-executable.
 - Five live router skills are available: `alert_summary`, `spl_generation`, `attack_discovery`, `knowledge_recall`, and `guided_investigation`. `guided_investigation` is a deterministic rescue only for out-of-registry SOC hunt questions; it provides review-only guidance with an out-of-catalog notice and keeps MCP execution disabled.
+- SPL generation audit (2026-06-13, **Done**): relevance-first path — governed templates (10 active) → LLM-primary failover when `AI_SOC_LLM_SPL_FALLBACK_ENABLED=true` (default off) → lab draft last resort. R5 `spl_relevance_check` gate on all non-template candidates. Lab-tier LLM SPL (`validate_spl_lab_candidate`) exposes placeholder index/sourcetype for analyst review with `approved=false` and `normalized_spl=null`; MCP gate unchanged. `graph_node_spl_source_resolve` substitutes placeholders from `AI_SOC_SOURCE_PROFILE_MAP`, SOC-KB RAG, and session pins → `normalized_spl` when fully resolved; HIL `spl_source_profile_clarification` for missing slots. Post-validation `spl_simplifier` in `optimize_spl()`. Offline template QA: `scripts/llm_template_audit.py`. See `docs/architecture/spl_generation_audit.md` and `plans/2026-06-13_spl-generation-audit-completion.md`.
 - Live LLM synthesis (live chat only): the live `/chat` path may narrate the analyst-summary prose with a real on-prem model (llama.cpp Foundation-Sec) when `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED` are both true and a `local`/`openai_compatible` endpoint is configured. All facts (severity, MITRE+status, actions, SPL, `execution_eligible=false`) stay deterministic authority; the model only rewrites prose; any failure falls back to the deterministic draft. The Answer Guard (`AI_SOC_LLM_ANSWER_GUARD_ENABLED`) runs on the resulting draft. The Experience Center fixture path (`coe_synthetic_fixture`) is isolated by the demo-scenario early-return in `routes_chat.py` and never calls a live model. The model never calls MCP; no raw events reach the prompt.
 - Do not add Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless a later stage explicitly asks for it. Do not route live synthesis through the Experience Center path.
 - Do not execute raw `candidate_spl`; never pass prompts, reasoning, credentials, RAG chunks, or raw workflow internals to MCP.
@@ -150,12 +152,66 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 - Auth migration is recent: app-level FastAPI session login replaces the old Nginx basic auth. Don't reintroduce basic-auth assumptions.
 - CORS origin is hardcoded to `http://127.0.0.1:3010` in the FastAPI middleware — update when deploying or changing dev ports.
 - `MCP_MODE=mock` must keep mock behavior. It may execute bounded deterministic mock rows only when both execution flags are explicitly enabled.
-- `MCP_MODE=registry` may report configured/available/discovered-tool status. Real MCP execution must remain blocked/not implemented until the COE connection and argument schema are supplied.
+- `MCP_MODE=registry` with `SPLUNK_MCP_BASE_URL` + `SPLUNK_MCP_TOKEN` routes to the live Splunk connector when execution flags are on. Without credentials it fails closed (`splunk_mcp_not_configured`). Mock mode unchanged.
 - All MCP and LLM settings/status output must redact secrets. Expose only booleans such as `url_configured`, `auth_configured`, `api_key_configured`.
 - Splunk MCP App ID `7931` is the first target. Splunk search tools can only be selected for `spl_search` after deterministic policy checks; SAIA/generative/assistant/write/admin tools must remain blocked.
 - LLM `supports_tool_calling` must remain false for now because direct LLM-to-MCP access is not allowed.
 - Frontend visual system was adapted from a separate Support Buddy app as a read-only UI reference. No Support Buddy secrets, auth logic, or runtime config are reused — don't import them.
 - Production traffic goes through Nginx at `cisco-vai.vnudge.com` serving `frontend/dist` and proxying `/api/` + `/health` to the backend. Don't expose Docker ports.
+
+## Splunk MCP go-live (when endpoint is available)
+
+**Canonical docs:** [`contracts/splunk_mcp_connection_contract.md`](contracts/splunk_mcp_connection_contract.md), [`plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md`](plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md), [`.env.splunk-live.example`](.env.splunk-live.example).
+
+### What is already built (no code change at connect time)
+
+- Async search lifecycle inside the connector: submit → bounded poll → fetch; gate calls `call_tool` once.
+- Gate: live provenance (`evidence_source: live`), real envelope adapter, honest failed/timeout/denied outcomes.
+- Per-call SPL confirmation (B4), SPL validation/allowlist, injection defense, broaden-on-empty orchestration.
+- Poll bounds: `MCP_MAX_POLLS_PER_CALL`, `MCP_SEARCH_JOB_TIMEOUT_MS`, `MCP_SEARCH_POLL_INTERVAL_MS`.
+
+### Operator steps (config only)
+
+1. `cp .env.splunk-live.example .env` (or merge live flags into existing `.env`).
+2. Set `SPLUNK_MCP_BASE_URL` and `SPLUNK_MCP_TOKEN` (bearer service account).
+3. Align `SPL_ALLOWED_INDEXES` / `SPL_ALLOWED_SOURCETYPES` to the deployment.
+4. `docker compose up -d` (or restart backend).
+5. Staging smoke — one approved search through `/chat` (confirm SPL → verify rows or honest empty).
+6. Set `schema_confirmed=true` in the contract doc after smoke passes (operator sign-off).
+7. Run `./scripts/run_stage3_governance_regression.sh`.
+
+### What must be verified at first live connect (may need a small transport patch)
+
+The lifecycle/gate/envelope layers are production-ready. **Only `_StreamableHttpSearchTransport` in `splunk_mcp.py` assumes:**
+
+| Assumption | Current code | If wrong at connect |
+|------------|--------------|---------------------|
+| Endpoint | `{BASE_URL}/mcp` | Change URL path in transport only |
+| Protocol | JSON-RPC `tools/call` with `name: splunk_run_query` | Adjust method/params in transport only |
+| Response shape | Inline rows in `result.rows` / `results` / `structuredContent` | Extend `_rows_from_mcp_result` or add job-id poll transport |
+| Auth | `Authorization: Bearer <token>` | Adjust headers in transport only |
+
+If the server uses a **true job protocol** (submit returns `job_id`, separate poll/fetch endpoints), replace only `_StreamableHttpSearchTransport` — `splunk_search_lifecycle.py`, gate, and evidence paths stay unchanged.
+
+### What you can test **now** (no live MCP)
+
+| Test | How |
+|------|-----|
+| Lifecycle state machine | `pytest app/tests/test_splunk_mcp_transport.py` (FakeTransport) |
+| Full gate live path | Same file — `test_gate_live_run_*` (injected transport) |
+| Result shape tolerance | `test_rows_from_mcp_result_tolerates_shapes` |
+| Governance regression | `./scripts/run_stage3_governance_regression.sh` |
+
+**Optional before connect:** add httpx-mocked unit tests for `_StreamableHttpSearchTransport` using a recorded JSON-RPC fixture (paste from staging or vendor docs into `backend/app/tests/fixtures/splunk_mcp/`). Script `scripts/capture_stage3m_s5_live_mcp_schema.py` accepts `STAGE3M_S5_RAW_FIXTURE_PATH` to normalize a captured payload offline.
+
+### What **requires** a live MCP endpoint
+
+- Confirm `/mcp` path, auth, and JSON-RPC framing.
+- Confirm inline vs job-based search semantics.
+- End-to-end `/chat` smoke with real Splunk rows.
+- Flip `schema_confirmed=true` only after that smoke.
+
+Until staging smoke passes, live envelopes carry `real_schema_unverified` (adapter warning) — evidence still flows, but operator has not signed off the wire contract.
 
 ## Plans
 
@@ -167,6 +223,8 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/AI_SOC_MASTER_PLAN.md` | **Active implementation roadmap** — hardening, skill enrichment, pipeline/LangGraph, GitHub skill intake (Tracks A–D); Batches 2–5 completed, next batch requires explicit scope approval. |
 | `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Logic hierarchy, rules, status tables — agents read for Q1C→Q4 spine context. |
 | `/root/.cursor/plans/guided_investigation_5th_skill_098a0cdf.plan.md` | Done — guided investigation fifth route plus confirmed air-gapped Splunk MCP seven-tool binding; discovery remains planned-only and execution-gated. |
+| `/root/.cursor/plans/spl_generation_audit_30f60bc7.plan.md` | **Done** — relevance-first SPL audit (Phases A–H). Final: 105 100/102 deterministic (102/102 with `--llm-mock`), catalogue 31/31, governance green. G: lab-tier LLM exposure; E: `spl_simplifier`; F: offline template audit; H: `graph_node_spl_source_resolve`. Completion review: `plans/2026-06-13_spl-generation-audit-completion.md`. Commit `8f44eee`. |
+| `/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md` | **Done** — merged into SPL audit close (`8f44eee`). Lab-tier exposure + H0–H4 source resolve; H2 MCP discovery scaffold only until COE. |
 
 **All plans:**
 
@@ -192,7 +250,8 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-05-28_0523_stage-3k-q2-local-ioc-lookup.md` | Proposed |
 | `plans/2026-05-28_0523_stage-3k-q3-vetted-detection-binding.md` | Proposed |
 | `plans/2026-05-28_0523_stage-3k-q4-pattern-coverage-pack.md` | Proposed |
-| `plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md` | Proposed — COE review: live MCP adapter + synthesis enablement, query→answer |
+| `plans/2026-06-13_spl-generation-audit-completion.md` | **Done** — closure review for SPL audit Phases A–H; metrics, deferrals (H2 COE, template promotion), verification commands |
+| `plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md` | **Done (Steps 0–3)** — live Splunk MCP credential drop-in; wire framing verified at first connect. See §Splunk MCP go-live. |
 | `plans/2026-06-03_1609_local-llama-instruct-synthesis-client.md` | In Progress — live-chat narration (P2/P3) landed: real client + summary narration, EC isolated, guard on, deterministic fallback. P4 latency UX + P5 live-MCP-into-prompt pending |
 | `plans/2026-06-04_0703_general-soc-reasoning-answer-contract.md` | Done — general SOC reasoning layer (Agent A): data-driven MITRE evidence-preconditions (replaces per-use-case not-claimed hardcoding), AnswerContract read-model wired into finalize, contract-driven builder, fail-closed final-answer validator, 32-case behavior matrix. Flag-gated; suite + governance regression green |
 | `plans/2026-06-04_0720_answer-quality-golden-regression-and-feedback-ledger.md` | Done — answer-quality ledger, feedback API, review queue, promote-golden, expectation matrix (105+46), Tier 0–2 golden JSONL + runner (Tier 0 in governance regression), Quality page summary |
@@ -200,21 +259,16 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 | `plans/2026-06-08_0717_planner-led-plan-completion-review.md` | **Review** — completion review of the `.cursor` planner-led plan. Phases 0–9 done (commits recorded) and governance-green behind default-off flags; legacy/parity runtime remains default; planner-led LangGraph fan-out/fan-in topology not yet built; Phases 10–11 + Knowledge-surfaces-sync pending. |
 | `plans/2026-06-09_1827_105-path-honoring-smb-analytics.md` | **Done** — exact-105 analytics path honoring (q0.q010 SMB top talkers): registry-first analytics intent bridge, analytics severity guard ("Not assigned from this question alone"), boundary-label overmatch fix, `network_smb_top_talkers` lab draft family, AnswerContract built for every classified answer (section-ordered card), Tier A tests + Tier B `scripts/eval_105_path_honoring.py --check`. Hunt-pattern bridge extends honoring to 95/105 questions (10 deferred: lookup/TI/asset-context/source-health classes need their own answer shapes). 14 draft families added (auth threshold, top talkers, IOC match, DNS beaconing, rarity, threshold, PowerShell, exfil volume, lateral movement, persistence, multi-signal, notable/risk review, identity privileged activity, source health) — full-105 real-pipeline run: 101/105 carry an SPL artifact or lab draft, 0 P3-without-policy severities; remaining 4 need entity/asset context by design. Governed templates and active use-case severity policies keep authority. `.env.example` aligned to all-on SOC posture; MCP execution flags remain false. PowerGrid 50 deterministic eval 50/50. |
 | `plans/2026-06-10_0356_skills-llm-mcp-utilization-and-paraphrase-readiness.md` | **In Progress (rev 3, executable playbook)** — Done: WS-PRE sentinel infra + definitive verdicts (PR #9), Order 2 T4.1/T4.2/T5.1 + AQ-001 content-driven limitations (PR #12), WS0 Resource Planner T0.1–T0.5 (PR #13; LLM plan bridge moved off the blocking live path after PowerGrid latency incident — llama-server memory thrash diagnosed and restarted), curated privileged-login checklist enrichment staged metadata-only for WS2 T2.3 (PR #14). In progress: WS1 paraphrase/out-of-set intake. Next: WS2 skills, WS3 scorecard/narration, WS4c/d MCP adapter + contract doc, WS5.2/5.3. — planner-node-centric: WS0 Resource Planner node (capability registry over MCP tools/RAG/analytics/LLM roles/skills, composed ResourcePlan with degrade chains, deterministic composer as main orchestration, LLM-proposed-deterministically-validated plans for out-of-set questions), WS1 paraphrase/out-of-set robustness (semantic tier, advisory promotion, paraphrase eval, honest fallback), WS2 skills as answer-shaping resources (contracts into planner, knowledge into RAG, skill-derived answer sections, targeted intake), WS3 LLM role scorecard + narration coverage, WS4 MCP go-live (Phase A hardening now; contract pre-filled from livehybrid/splunk-mcp tool schema — `search_splunk(search_query, earliest_time, latest_time, max_results)` etc.; Splunkbase 8747 AI Workbench noted; 7931-vs-livehybrid binding = COE decision), WS5 answer-quality evals (grounding/completeness/actionability/honesty rubric, Tier-D deterministic + Tier-L LLM-judge, out-of-set corpus as headline metric). No new flags; MCP execution flags stay false until COE. |
+| `plans/2026-06-15_0821_wazuh-mcp-adoption-and-flagship-ec-scenario.md` | **In Progress** — review of third-party Wazuh MCP (`sb-siem-mcp`: thin tool-wrappers + LLM-drives-MCP, no skills). Adopt deterministically: risk_score heatmap, rules_coverage_map, alert_summary rollup, evidence-row sanitizer. (1) Flagship EC scenario `critical_alerts_mitre_cve_review` — Splunk-native, no-drift, `future_state_preview=false`; rich MITRE rollup + tactic_coverage + top_risky_hosts (risk_score), CVE leg = structured `vulnerability_source: not_onboarded` degrade (no fabricated rows). (2) §4A WS-MCP: corrected air-gapped posture — 7 core `splunk_*` ENABLED (user_info reclassified `admin_or_sensitive`→`identity_context`+`rbac_gated`, flips test), 4 `saia_*` conditional+blocked; declarative `mcp_tool_playbook.json` (when/why/chronology), RBAC role→tool allowlist (promoted in-scope), advisory LLM plan-review (deterministic-validated). EC ships first; WS-MCP separate PR. |
 
 ## Git Notes
 
 Recent stage split:
-- `8afd560 Add candidate SPL generation and deterministic validation`
-- `7a35038 Add MCP discovery, HIL, and gated SPL execution`
-- `a47785d Add Stage 3D trace pipeline UI`
-- `80d8e35 Wire governed RAG into chat context and trace UI`
-- `a0ba56f Stage 3J: Add context sufficiency gate`
-- `c3d13cc Stage 3J-B: Add LLM registry settings and status UI`
-- `db37003 Stage 3J-I.1: Add guarded LLM adapter and active overrides`
-- `5cf271e Stage 3J-I.2: Add dormant semantic LLM guard rules`
-- `9ba7ab7 Stage 3J-I.3: Update LLM prompt contracts and role suitability`
-- `2fefd10 Calibrate Experience Center responses to governed LLM behavior`
-- `05c95bc Stage 3J-K0: Govern LLM-assisted routing and tool selection`
-- `91f7b0e Stage 3J-J.2: Surface investigation lineage reveal in chat UI`
+- `911eed6` Fix SPL routing relevance bugs (Phase B)
+- `ad29958` Wire LLM-primary SPL failover and relevance gate (Phase C)
+- `35b42b0` Single SPL surface and ambiguous-route disambiguation (Phase C.2)
+- `1b86da2` Close catalogue SPL coverage via existing-family reuse (Phase D)
+- `22cbbc3` Close the nine uncovered catalogue use cases with lab families (Phase D.2)
+- `8f44eee` Complete SPL audit phases G/E/F/H for lab exposure and source resolve
 
 Keep future changes similarly scoped. Do not combine workflow execution changes with connection-readiness or UI-only changes unless explicitly requested.

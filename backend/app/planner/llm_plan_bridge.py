@@ -31,6 +31,7 @@ from app.planner.resource_plan import PlanStep, ResourcePlan
 from app.planner.resource_registry import ResourceRegistry, load_resource_registry
 
 _TRIGGER_MATCH_PATHS = {"out_of_registry", "near_105_question"}
+_BRIDGE_TIMEOUT_SECONDS = 20.0
 _ALLOWED_PURPOSES = {"knowledge_retrieval", "spl_artifact", "mcp_execution", "mitre_mapping", "narration"}
 _TIME_BOUND = re.compile(r"^(now|-?\d+[smhd](@[smhd])?)$")
 # Raw query text must never ride in a proposal — plans bind families/corpora,
@@ -56,15 +57,27 @@ _BRIDGE_TIMEOUT_SECONDS_CAP = 20
 
 
 def _bridge_client() -> Any | None:
-    from dataclasses import replace
+    from app.llm.clients.endpoint_resolver import build_failover_chat_client
+    from app.llm.clients.failover_client import FailoverChatClient
+    from app.llm.clients.local_chat_client import LocalChatClient
 
-    from app.llm.clients.local_chat_client import build_synthesis_client_from_settings
-
-    client = build_synthesis_client_from_settings()
+    client = build_failover_chat_client(role=None, sidecar=True)
     if client is None:
         return None
-    capped = min(int(getattr(client, "timeout_seconds", _BRIDGE_TIMEOUT_SECONDS_CAP)), _BRIDGE_TIMEOUT_SECONDS_CAP)
-    return replace(client, timeout_seconds=capped)
+    capped_chain: list[tuple[str, LocalChatClient]] = []
+    for label, member in client.chain:
+        capped_chain.append(
+            (
+                label,
+                LocalChatClient(
+                    base_url=member.base_url,
+                    model=member.model,
+                    api_key=getattr(member, "api_key", ""),
+                    timeout_seconds=min(int(member.timeout_seconds), _BRIDGE_TIMEOUT_SECONDS_CAP),
+                ),
+            )
+        )
+    return FailoverChatClient(chain=tuple(capped_chain))
 
 
 def bridge_trigger_match(match_path: str | None) -> bool:
@@ -87,11 +100,12 @@ def propose_validated_llm_plan(
     mcp_allowed: bool,
     client: Any | None = None,
     registry: ResourceRegistry | None = None,
+    require_bridge_flags: bool = True,
 ) -> ResourcePlan | None:
     """Return a validated LLM-proposed plan, or None (caller keeps deterministic)."""
     if str(match_path or "") not in _TRIGGER_MATCH_PATHS:
         return None
-    if not bridge_enabled():
+    if require_bridge_flags and not bridge_enabled():
         return None
     try:
         registry = registry or load_resource_registry()
@@ -99,14 +113,25 @@ def propose_validated_llm_plan(
             client = _bridge_client()
         if client is None:
             return None
-        result = client.generate(
-            system_prompt=_SYSTEM_PROMPT,
-            user_prompt=_user_prompt(query, registry),
-            max_tokens=400,
-            temperature=0.1,
-        )
-        raw_text = getattr(result, "text", None)
-        if not isinstance(raw_text, str) or not raw_text.strip():
+        # Wall-clock bound: this runs on the finalize path; a hung endpoint must not
+        # block the request (the PowerGrid latency lesson). Mirrors sidecar timeout.
+        from app.llm.sidecar_governance import run_sidecar_llm_with_timeout
+
+        def _generate() -> str:
+            return getattr(
+                client.generate(
+                    system_prompt=_SYSTEM_PROMPT,
+                    user_prompt=_user_prompt(query, registry),
+                    max_tokens=400,
+                    temperature=0.1,
+                ),
+                "text",
+                "",
+            )
+
+        call = run_sidecar_llm_with_timeout(_generate, timeout_seconds=_BRIDGE_TIMEOUT_SECONDS)
+        raw_text = call.raw_output
+        if call.timed_out or not isinstance(raw_text, str) or not raw_text.strip():
             return None
         extraction = extract_first_json_object(raw_text)
         if not extraction.parsed_ok or not isinstance(extraction.payload, dict):

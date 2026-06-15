@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 
+from app.evals.golden_answer_runner import _model_to_dict
+from app.evals.sentinel_eval import sentinel_runtime
 from app.chat.evidence_planner import plan_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.planning_decision import plan_path_and_tools
@@ -83,6 +85,28 @@ def test_out_of_registry_soc_hunts_route_to_guided_investigation(query: str) -> 
     assert planning.resource_plan_summary["mcp"]["allowed"] is False
 
 
+@pytest.mark.parametrize("query", POSITIVE_QUERIES)
+def test_guided_positive_cases_keep_answer_safeguards(query: str) -> None:
+    with sentinel_runtime():
+        payload = _model_to_dict(chat(ChatRequest(message=query)))
+
+    contract = payload.get("answer_contract") or {}
+    execution = payload.get("execution") or {}
+    severity = str((payload.get("severity_decision") or {}).get("severity_label") or "").upper()
+    analyst = payload.get("analyst_response") or {}
+
+    assert contract.get("out_of_catalog_notice")
+    assert execution.get("status") != "executed"
+    assert not contract.get("evidence_supported_mitre")
+    assert not severity.startswith(("P1", "P2"))
+    assert analyst.get("severity_label") is None
+    assert all(
+        "evidence supported" not in str(item.get("Status") or "").lower()
+        for item in analyst.get("mitre_mappings") or []
+        if isinstance(item, dict)
+    )
+
+
 @pytest.mark.parametrize("query", NEGATIVE_QUERIES)
 def test_non_guided_queries_do_not_use_guided_investigation(query: str) -> None:
     understanding = understand_query(query)
@@ -139,6 +163,12 @@ def test_live_router_preserves_guided_rescue_provenance() -> None:
 
 def test_guided_resource_decisions_are_review_only() -> None:
     _, _, _, evidence, planning = _flow(POSITIVE_QUERIES[0])
+    assert [step["step_id"] for step in evidence.resource_plan["steps"]] == [
+        "rag",
+        "evidence",
+        "sufficiency",
+        "narration",
+    ]
     decisions = evidence.resource_plan["provenance"]["resource_decisions"]
     assert decisions["rag"]["source"] == "soc_kb_rag"
     assert decisions["spl"]["review_only"] is True
@@ -178,6 +208,55 @@ def test_guided_live_trace_does_not_claim_disabled_llm_advisory(monkeypatch) -> 
     assert advisory["llm_dropped_reasons"] == ["llm_disabled"]
     assert advisory["llm_advisory_used"] is False
     assert advisory["llm_overridden_by_policy"] is False
+    assert response.control_plane_trace["routing_provenance"]["rescue_mode"] is True
+    assert response.control_plane_trace["resource_planner"]["resource_decisions"]["mcp"]["allowed"] is False
+
+
+def test_guided_existing_draft_family_is_review_only(monkeypatch) -> None:
+    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    with sentinel_runtime():
+        response = chat(
+            ChatRequest(message="Can you help investigate denied OT egress to a strange internet endpoint?")
+        )
+
+    assert response.selected_skill == "guided_investigation"
+    assert response.spl_draft_preview is not None
+    assert response.spl_draft_preview.detection_family == "firewall_ot_egress_denied"
+    assert response.spl_draft_preview.draft_status == "draft_preview_not_governed"
+    assert response.candidate_spl is None
+    assert response.spl_validation is None
+    assert response.execution is None or response.execution.status != "executed"
+    spl_decision = response.control_plane_trace["resource_planner"]["resource_decisions"]["spl"]
+    assert spl_decision["status"] == "planned_review_only"
+    assert spl_decision["detection_family"] == "firewall_ot_egress_denied"
+    assert spl_decision["skip_reason"] is None
+
+
+def test_guided_rag_no_match_surfaces_general_guidance_limitation(monkeypatch) -> None:
+    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
+    monkeypatch.setattr(
+        "app.chat.pipeline.retrieve_soc_kb",
+        lambda **_: {
+            "retrieval_status": "no_match",
+            "retrieved_entries": [],
+            "warnings": ["no_approved_soc_kb_match"],
+        },
+    )
+    with sentinel_runtime():
+        response = chat(ChatRequest(message=POSITIVE_QUERIES[0]))
+
+    assert response.selected_skill == "guided_investigation"
+    assert any(
+        "No governed playbook matched this hunt" in limitation
+        for limitation in response.answer_contract["limitations"]
+    )
+    resource_decisions = response.control_plane_trace["resource_planner"]["resource_decisions"]
+    assert resource_decisions["rag"]["match_status"] == "no_match"
+    assert any(
+        "No governed playbook matched this hunt" in limitation
+        for limitation in resource_decisions["limitations"]
+    )
 
 
 def test_control_plane_off_keeps_guided_summary_notice_and_validation(monkeypatch) -> None:
@@ -190,3 +269,7 @@ def test_control_plane_off_keeps_guided_summary_notice_and_validation(monkeypatc
     assert response.answer_contract["out_of_catalog_notice"]
     assert response.answer_contract["analyst_checklist_safe"]
     assert response.final_answer_validation["guard_status"] != "blocked"
+    assert response.control_plane_trace is not None
+    assert response.control_plane_trace["routing_provenance"]["rescue_mode"] is True
+    assert response.control_plane_trace["resource_planner"]["source"] == "planning_decision.resource_plan_summary"
+    assert response.control_plane_trace["llm_advisory_trace"] is not None

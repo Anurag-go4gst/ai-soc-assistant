@@ -18,10 +18,34 @@ from app.chat.query_signals import extract_query_signals
 from app.query_understanding.models import QueryUnderstandingResult
 
 
+_CATALOG_MATCH_PATHS = frozenset({"use_case_catalog", "exact_105_plus_use_case_catalog"})
+
+
+def _effective_match_path(
+    query_understanding: QueryUnderstandingResult,
+    *,
+    routed_skill: str | None = None,
+    routing_provenance: dict[str, Any] | None = None,
+) -> str:
+    path = query_understanding.deterministic_match_path or "out_of_registry"
+    if isinstance(routing_provenance, dict):
+        rescued = routing_provenance.get("deterministic_match_path")
+        if isinstance(rescued, str) and rescued:
+            return rescued
+    if (
+        routed_skill == "guided_investigation"
+        and query_understanding.route_skill_candidate == "guided_investigation"
+        and path in _CATALOG_MATCH_PATHS
+    ):
+        return "out_of_registry"
+    return path
+
+
 def build_candidate_mappings(
     query_understanding: QueryUnderstandingResult | None,
     *,
     routed_skill: str | None = None,
+    routing_provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if query_understanding is None:
         return {
@@ -33,7 +57,11 @@ def build_candidate_mappings(
     return {
         "question_ref": query_understanding.mapped_question_ref,
         "use_case_ids": list(query_understanding.mapped_use_case_ids or []),
-        "match_path": query_understanding.deterministic_match_path or "out_of_registry",
+        "match_path": _effective_match_path(
+            query_understanding,
+            routed_skill=routed_skill,
+            routing_provenance=routing_provenance,
+        ),
         "legacy_skill_hint": routed_skill or query_understanding.mapped_primary_skill,
     }
 
@@ -71,6 +99,32 @@ def classify_intent(
             action_mode="recommend_only",
             reason="Destructive or containment action requires human review and overrides SPL generation.",
             requested_output_type="ACTION_PLAN",
+        )
+
+    if (
+        (
+            signals.get("investigation_hypothesis_guidance")
+            or (
+                signals.get("soc_investigation_shaped")
+                and str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+            )
+        )
+        and str(candidate_mappings.get("legacy_skill_hint") or "") == "guided_investigation"
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+        and not signals.get("spl_generation")
+    ):
+        return _build_classification(
+            intent_family="guided_investigation",
+            primary_intent="investigation_guidance",
+            query_type="investigation_with_guidance",
+            answer_goal=["procedural_steps", "analyst_action_guidance"],
+            confidence=0.52,
+            requires_clarification=False,
+            requires_hil=True,
+            action_mode="recommend_only",
+            reason="Investigation-guidance request receives governed, review-only hunt guidance instead of catalog SPL.",
+            requested_output_type="INVESTIGATION",
         )
 
     if (
@@ -412,6 +466,89 @@ def classify_intent(
             requested_output_type="SPL",
         )
 
+    # Registry use-case catalog rescue: a query that maps to a known SOC use case
+    # (a real catalog/near/semantic registry match, not just exact-105) must route
+    # to its skill — not die in clarification. Without this, every non-exact
+    # phrasing of an in-catalog question collapsed to clarification_required, which
+    # the route adjudicator then forced to knowledge_recall. This is the population
+    # that lets the product handle real, variably-phrased SOC questions.
+    catalog_match = str(candidate_mappings.get("match_path") or "") in {
+        "use_case_catalog",
+        "exact_105_plus_use_case_catalog",
+        "near_105_question",
+        "semantic_105_question",
+    }
+    has_use_case = bool(candidate_mappings.get("use_case_ids"))
+    if (
+        catalog_match
+        and has_use_case
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+    ):
+        use_case_ids = [str(item).lower() for item in (candidate_mappings.get("use_case_ids") or [])]
+        skill_hint = str(candidate_mappings.get("legacy_skill_hint") or "").lower()
+        # Note: explicit_mitre_context is NOT a knowledge signal — failed-login and
+        # other alert queries carry MITRE context too. Use the conceptual-judgment
+        # signal and knowledge-shaped use-case ids only.
+        knowledge_shaped = (
+            signals.get("conceptual_mitre_judgment")
+            or skill_hint in {"knowledge_recall", "retrieve_approved_context"}
+            or any(
+                tok in uc
+                for uc in use_case_ids
+                for tok in ("mitre", "map_alert", "sop", "policy", "knowledge")
+            )
+        )
+        spl_shaped = (
+            signals.get("analytics_aggregation")
+            or skill_hint in {"spl_search", "spl_generation", "aggregate_and_rank", "threshold_anomaly"}
+        )
+        if knowledge_shaped:
+            return _build_classification(
+                intent_family="knowledge_only",
+                primary_intent="knowledge_recall",
+                query_type="ask_for_explanation",
+                answer_goal=["analyst_action_guidance"],
+                confidence=0.82,
+                requires_clarification=False,
+                reason="Maps to a catalog knowledge/MITRE/policy use case; governed knowledge-recall path.",
+                requested_output_type=None,
+            )
+        if spl_shaped:
+            return _build_classification(
+                intent_family="spl_generation_only",
+                primary_intent="spl_generation",
+                query_type="ask_for_query_generation",
+                answer_goal=["spl_artifact"],
+                confidence=0.78,
+                requires_clarification=False,
+                reason="Maps to a catalog analytics/search use case; review-only SPL drafting, execution disabled.",
+                requested_output_type="SPL",
+            )
+        if signals.get("alert_summary_shaped") or signals.get("alert_context_present"):
+            return _build_classification(
+                intent_family="hybrid_alert_review",
+                primary_intent="attack_discovery",
+                query_type="investigation_with_guidance",
+                answer_goal=["procedural_steps", "analyst_action_guidance"],
+                confidence=0.72,
+                requires_clarification=False,
+                action_mode="recommend_only",
+                reason="Maps to a catalog alert/review use case; route to the registry skill (review-only).",
+                requested_output_type="INVESTIGATION",
+            )
+        return _build_classification(
+            intent_family="live_investigation",
+            primary_intent="attack_discovery",
+            query_type="investigation_with_guidance",
+            answer_goal=["procedural_steps", "analyst_action_guidance"],
+            confidence=0.72,
+            requires_clarification=False,
+            action_mode="recommend_only",
+            reason="Maps to a catalog SOC use case; route to the registry skill (review-only, execution disabled).",
+            requested_output_type="INVESTIGATION",
+        )
+
     return _build_classification(
         intent_family="clarification_required",
         primary_intent="knowledge_recall",
@@ -429,10 +566,15 @@ def build_query_to_intent(
     query: str,
     query_understanding: QueryUnderstandingResult | None = None,
     routed_skill: str | None = None,
+    routing_provenance: dict[str, Any] | None = None,
     llm_intent_advisory: LLMIntentAdvisory | None = None,
 ) -> QueryToIntentResult:
     signals = extract_query_signals(query, query_understanding)
-    candidate_mappings = build_candidate_mappings(query_understanding, routed_skill=routed_skill)
+    candidate_mappings = build_candidate_mappings(
+        query_understanding,
+        routed_skill=routed_skill,
+        routing_provenance=routing_provenance,
+    )
     intent = classify_intent(
         query=query,
         signals=signals,

@@ -8,7 +8,19 @@ from __future__ import annotations
 
 from typing import Any
 
-_SECRET_KEYS = ("secret", "token", "password", "passwd", "api_key", "apikey", "dsn", "auth")
+_SECRET_KEYS = (
+    "secret",
+    "password",
+    "passwd",
+    "api_key",
+    "apikey",
+    "_token",
+    "dsn",
+    "bearer_token",
+    "access_token",
+    "auth_token",
+    "credential",
+)
 
 
 def build_control_plane_trace(
@@ -25,8 +37,15 @@ def build_control_plane_trace(
     spl_validation = state.get("spl_validation") if isinstance(state.get("spl_validation"), dict) else None
     candidate_spl = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else None
     execution = state.get("execution") if isinstance(state.get("execution"), dict) else None
+    routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
+    routing_provenance = (
+        routed.get("routing_provenance")
+        if isinstance(routed.get("routing_provenance"), dict)
+        else None
+    )
 
     trace = {
+        "routing_provenance": routing_provenance,
         "planning_decision": state.get("planning_decision"),
         "query_to_intent": state.get("query_to_intent"),
         "llm_intent_advisory": state.get("llm_intent_advisory"),
@@ -53,11 +72,33 @@ def build_control_plane_trace(
             if isinstance(item, dict) and item.get("evidence_id")
         ],
         "precondition_evaluation": route_shadow.get("precondition_evaluation"),
+        "resource_planner": _resource_planner_trace(state),
         "llm_advisory_trace": _llm_advisory_trace(state),
     }
     if node_trace:
         trace["node_trace"] = node_trace
     return _redact(trace)
+
+
+def _resource_planner_trace(state: dict[str, Any]) -> dict[str, Any] | None:
+    evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+    resource_plan = evidence_plan.get("resource_plan") if isinstance(evidence_plan.get("resource_plan"), dict) else {}
+    provenance = resource_plan.get("provenance") if isinstance(resource_plan.get("provenance"), dict) else {}
+    decisions = provenance.get("resource_decisions")
+    if isinstance(decisions, dict):
+        return {
+            "source": "evidence_plan.resource_plan.provenance.resource_decisions",
+            "resource_decisions": decisions,
+        }
+
+    planning = state.get("planning_decision") if isinstance(state.get("planning_decision"), dict) else {}
+    summary = planning.get("resource_plan_summary")
+    if isinstance(summary, dict):
+        return {
+            "source": "planning_decision.resource_plan_summary",
+            "resource_decisions": summary,
+        }
+    return None
 
 
 def _llm_advisory_trace(state: dict[str, Any]) -> dict[str, Any]:
@@ -211,7 +252,7 @@ def _redact(value: Any) -> Any:
         redacted: dict[str, Any] = {}
         for key, item in value.items():
             key_str = str(key)
-            if any(secret in key_str.lower() for secret in _SECRET_KEYS):
+            if _is_secret_key(key_str):
                 redacted[key_str] = "[REDACTED]"
             else:
                 redacted[key_str] = _redact(item)
@@ -221,3 +262,8 @@ def _redact(value: Any) -> Any:
     if isinstance(value, str) and any(marker in value.lower() for marker in ("bearer ", "password=", "token=")):
         return "[REDACTED]"
     return value
+
+
+def _is_secret_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(secret in lowered for secret in _SECRET_KEYS)

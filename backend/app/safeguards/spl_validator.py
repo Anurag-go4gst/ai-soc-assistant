@@ -159,6 +159,87 @@ def _validate_raw_search(spl: str, policy: SplValidationPolicy) -> dict[str, Any
     }
 
 
+# --- Lab-candidate validation (review-only, never executable) ----------------
+# An LLM SPL failover candidate uses angle-bracket placeholders for index /
+# sourcetype because it cannot know customer-specific source config (air-gapped,
+# COE-supplied). Such SPL can never pass the execution validator (placeholders are
+# disallowed indexes) but is safe to SHOW to an analyst for review — exactly the
+# contract the deterministic lab draft families already use. This validator keeps
+# every safety check (blocked commands, time bounds, aggregation, head limit,
+# subsearches, external calls) but treats placeholder index/sourcetype as eligible.
+# It NEVER approves for execution: approved stays False, normalized_spl stays None.
+_PLACEHOLDER_TOKEN_RE = re.compile(r"^<[^>]+>$")
+
+# Index/sourcetype rejects that are acceptable for lab review when backed by a
+# placeholder token (the value is `<something>`, not a real disallowed index).
+_LAB_ELIGIBLE_SOURCE_REJECTS = {
+    "disallowed_index",
+    "disallowed_sourcetype",
+    "wildcard_index_not_allowed",
+    "missing_index",
+    "missing_sourcetype",
+}
+
+# Detect a genuine secret assignment vs a bareword hunt term. `password=hunter2`,
+# a PEM private key, or a Bearer token are real secrets; `action=password_change`
+# or hunting for `credential` / `lsass` indicators are not.
+_SECRET_ASSIGNMENT_RE = re.compile(
+    r"\b(password|passwd|secret|token|api[_-]?key|credential)\s*=\s*\S", re.IGNORECASE
+)
+
+
+def _is_placeholder_token(value: str) -> bool:
+    return bool(_PLACEHOLDER_TOKEN_RE.match((value or "").strip()))
+
+
+def _secret_reject_is_lab_benign(spl: str) -> bool:
+    """True when the only secret-pattern hits are bareword hunt terms, not an
+    actual embedded secret (assignment, private key, or bearer token)."""
+    if _SECRET_ASSIGNMENT_RE.search(spl):
+        return False
+    if re.search(r"-----BEGIN [A-Z ]+PRIVATE KEY-----", spl):
+        return False
+    if re.search(r"\bBearer\s+[A-Za-z0-9._~+/=-]+", spl, re.IGNORECASE):
+        return False
+    return True
+
+
+def lab_validation_eligible(reject_reasons: list[str], spl: str) -> bool:
+    """True when a full-validator failure is downgradable to a lab candidate:
+    every remaining reject is a placeholder-source reject (backed by a real
+    placeholder token) or a lab-benign secret-pattern hit."""
+    remaining = set(reject_reasons)
+    benign = set(_LAB_ELIGIBLE_SOURCE_REJECTS)
+    if "credential_or_secret_pattern" in remaining and _secret_reject_is_lab_benign(spl):
+        benign.add("credential_or_secret_pattern")
+    if not remaining.issubset(benign):
+        return False
+    values = _extract_field_values(spl, "index") + _extract_field_values(spl, "sourcetype")
+    return any(_is_placeholder_token(value) for value in values)
+
+
+def validate_spl_lab_candidate(query: str, policy: SplValidationPolicy | None = None) -> dict[str, Any]:
+    """Validate an SPL for analyst-review (lab) exposure only.
+
+    Runs the full raw-search safety checks, then accepts placeholder index/
+    sourcetype and lab-benign secret-pattern terms. ALWAYS returns
+    approved=False and normalized_spl=None — lab candidates are never executable.
+    """
+    policy = policy or load_spl_policy()
+    spl = _normalize_whitespace(query)
+    base = _validate_raw_search(spl, policy)
+    eligible = lab_validation_eligible(base.get("reject_reasons") or [], spl)
+    return {
+        **base,
+        "approved": False,
+        "normalized_spl": None,
+        "lab_candidate_eligible": eligible,
+        "exposure_tier": "lab_candidate",
+        "validation_profile": "lab_candidate_v1",
+        "execution_eligible": False,
+    }
+
+
 def _validate_tstats_datamodel(spl: str, policy: SplValidationPolicy) -> dict[str, Any]:
     reject_reasons, warnings, blocked_commands = _common_cim_rejects(spl, policy)
     commands = _extract_commands(spl)

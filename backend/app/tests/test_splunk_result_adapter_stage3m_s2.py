@@ -61,8 +61,12 @@ def test_execution_preview_from_envelope_caps_preview() -> None:
 
 
 def test_gate_execution_includes_envelope_dict(monkeypatch) -> None:
+    # registry (gate) reads env; the mock connector reads the settings singleton.
+    # Set both so the mock truly succeeds and the gate permits execution.
     monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+    monkeypatch.setattr("app.connectors.mcp.mock.settings.mcp_global_execution_enabled", True)
+    monkeypatch.setattr("app.connectors.mcp.mock.settings.mcp_server_mock_execution_enabled", True)
     # Demo/lab mode so mock success runs without the HIL gate; this test asserts
     # the result-envelope mechanics, not the HIL contract.
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_demo_or_lab_execution_mode", True)

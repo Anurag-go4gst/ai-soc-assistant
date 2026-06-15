@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.config import settings
 from app.connectors.mcp.base import ConnectorStatus, KnowledgeObjectRequest
 from app.connectors.mcp.discovery import McpToolDescriptor, mock_discovered_tools
+
+_MOCK_DISCOVERY_TOOLS = frozenset({"splunk_get_indexes", "splunk_get_metadata"})
+_RUN_QUERY_ALIASES = frozenset({"splunk_run_query", "run_splunk_query"})
 
 
 class MockMcpConnector:
@@ -16,9 +20,36 @@ class MockMcpConnector:
         return mock_discovered_tools("splunk")
 
     def call_tool(self, tool_name: str, arguments: dict[str, Any], server_name: str | None = None) -> dict[str, Any]:
-        if tool_name != "run_splunk_query":
+        governance = arguments.get("_governance") if isinstance(arguments.get("_governance"), dict) else {}
+        discovery_allowed = settings.mcp_discovery_enabled or governance.get("discovery_allowed") is True
+        if tool_name in _MOCK_DISCOVERY_TOOLS:
+            if not discovery_allowed:
+                return {"status": "blocked", "error": "mcp_discovery_disabled", "rows": []}
+        elif tool_name in _RUN_QUERY_ALIASES:
+            if not settings.mcp_global_execution_enabled or not settings.mcp_server_mock_execution_enabled:
+                return {"status": "blocked", "error": "mcp_execution_disabled", "rows": []}
+        if tool_name == "splunk_get_indexes":
+            return {
+                "status": "ok",
+                "mock": True,
+                "indexes": ["pgcil_soc"],
+                "rows": [{"index": "pgcil_soc", "title": "pgcil_soc"}],
+            }
+        if tool_name == "splunk_get_metadata":
+            return {
+                "status": "ok",
+                "mock": True,
+                "sourcetypes": ["pgcil:auth", "pgcil:dns", "pgcil:edr", "aws:cloudtrail"],
+                "rows": [
+                    {"sourcetype": "pgcil:auth"},
+                    {"sourcetype": "pgcil:dns"},
+                    {"sourcetype": "pgcil:edr"},
+                    {"sourcetype": "aws:cloudtrail"},
+                ],
+            }
+        if tool_name not in _RUN_QUERY_ALIASES:
             return {"status": "blocked", "error": "mock_tool_not_allowlisted", "rows": []}
-        query = str(arguments.get("query") or "")
+        query = str(arguments.get("search_query") or arguments.get("query") or "")
         return self.execute_validated_spl(
             server_name=server_name or "mock",
             tool_name=tool_name,

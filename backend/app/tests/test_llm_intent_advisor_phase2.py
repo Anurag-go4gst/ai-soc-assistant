@@ -73,7 +73,7 @@ def test_llm_intent_advisor_timeout_fails_closed(monkeypatch) -> None:
         time.sleep(2)
         return "{}"
 
-    advisory = generate_llm_intent_advisory("query", llm_raw_output_provider=slow_provider)
+    advisory = generate_llm_intent_advisory("query", llm_raw_output_provider=slow_provider, timeout_seconds=1.5)
 
     assert advisory.llm_called is True
     assert "llm_timed_out" in advisory.dropped_reasons

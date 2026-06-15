@@ -23,6 +23,7 @@ class SessionPins(BaseModel):
     last_selected_live_execution_skill: str | None = None
     last_planning_or_analytic_skill: str | None = None
     last_entities: dict[str, Any] = Field(default_factory=dict)
+    source_profile_slots: dict[str, str] = Field(default_factory=dict)
     last_candidate_spl: str | None = None
     last_spl_validation_status: str | None = None
     last_spl_template_status: str | None = None
@@ -31,6 +32,7 @@ class SessionPins(BaseModel):
     last_context_sufficiency: dict[str, Any] | None = None
     last_execution_status: str | None = None
     last_human_review_status: str | None = None
+    pending_execution_confirmation: dict[str, Any] | None = None
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

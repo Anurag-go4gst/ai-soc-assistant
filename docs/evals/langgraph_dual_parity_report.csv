@@ -1,7 +1,7 @@
 row_id,source,query,response_category,imperative_path_type,shadow_path_type,critical_mismatch_categories,diff_reasons
 demo.failed_login_spike,demo_scenario,Investigate a spike of failed logins for a user/source,match,spl_review,spl_review,,
-demo.successful_login_after_failures,demo_scenario,Failed logins followed by a successful login from same user,match,clarification_required,clarification_required,,
-demo.dns_beaconing_candidate,demo_scenario,Possible periodic DNS beaconing to a rare domain,match,clarification_required,clarification_required,,
+demo.successful_login_after_failures,demo_scenario,Failed logins followed by a successful login from same user,match,spl_review,spl_review,,
+demo.dns_beaconing_candidate,demo_scenario,Possible periodic DNS beaconing to a rare domain,match,spl_review,spl_review,,
 demo.suspicious_powershell,demo_scenario,Suspicious encoded PowerShell command on an endpoint,match,clarification_required,clarification_required,,
 demo.sop-only_query,demo_scenario,Show the SOP/runbook for brute-force handling (no SPL),match,rag_only,rag_only,,
 demo.mitre-only_without_alert_context,demo_scenario,Map this to MITRE (no alert/evidence provided),match,mitre_context_required,mitre_context_required,,

@@ -11,6 +11,7 @@ from app.routing.governance import _tool_plan_for_skill
 from app.routing.routing_provenance import build_routing_provenance
 from app.routing.skills import valid_skill
 from app.use_cases.registry import get_use_case
+from app.query_understanding.soc_investigation_shape import prefers_guided_investigation_over_catalog
 
 # Non-enum catalog primary_skill → legacy routing skill (H1 total function).
 CATALOG_SKILL_COLLAPSE: dict[str, str] = {
@@ -154,6 +155,14 @@ def _route_catalog_only(
     query: str,
     keyword_would_have: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    if prefers_guided_investigation_over_catalog(query):
+        return _route_guided_investigation_rescue(
+            understanding,
+            query,
+            keyword_would_have,
+            reason="catalog_keyword_overlap_hypothesis_guidance_rescue",
+        )
+
     use_case_id = understanding.mapped_use_case_ids[0] if understanding.mapped_use_case_ids else None
     use_case = get_use_case(use_case_id) if use_case_id else None
     if use_case is None:
@@ -217,24 +226,12 @@ def _route_out_of_registry(
 
     signals = extract_query_signals(query, understanding)
     if understanding.soc_investigation_shaped and not signals["action_or_containment_shaped"]:
-        base = {
-            "skill": "guided_investigation",
-            "tool_plan": _tool_plan_for_skill("guided_investigation"),
-            "confidence": 0.42,
-            "reasons": ["out_of_registry_soc_investigation_rescue", "execution_disabled"],
-        }
-        provenance = build_routing_provenance(
+        return _route_guided_investigation_rescue(
             understanding,
-            selected_by="out_of_registry_investigation_rescue",
-            authority_source="guided_investigation_rescue",
-            skill=base["skill"],
-            tool_plan=list(base["tool_plan"]),
-            confidence=float(base["confidence"]),
-            keyword_router_would_have_selected=keyword_would_have,
-            rescue_mode=True,
-            why_not_knowledge_recall="Query requests an investigation process, not a bounded knowledge lookup.",
+            query,
+            keyword_would_have,
+            reason="out_of_registry_soc_investigation_rescue",
         )
-        return base, provenance
     base = dict(LOW_CONFIDENCE_ROUTE)
     base["reasons"] = list(base.get("reasons", [])) + ["out_of_registry_no_105_or_catalog_match"]
     provenance = build_routing_provenance(
@@ -246,6 +243,36 @@ def _route_out_of_registry(
         confidence=float(base["confidence"]),
         keyword_router_would_have_selected=keyword_would_have,
     )
+    return base, provenance
+
+
+def _route_guided_investigation_rescue(
+    understanding: QueryUnderstandingResult,
+    query: str,
+    keyword_would_have: dict[str, Any],
+    *,
+    reason: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    base = {
+        "skill": "guided_investigation",
+        "tool_plan": _tool_plan_for_skill("guided_investigation"),
+        "confidence": 0.42,
+        "reasons": [reason, "execution_disabled"],
+    }
+    provenance = build_routing_provenance(
+        understanding,
+        selected_by="out_of_registry_investigation_rescue",
+        authority_source="guided_investigation_rescue",
+        skill=base["skill"],
+        tool_plan=list(base["tool_plan"]),
+        confidence=float(base["confidence"]),
+        keyword_router_would_have_selected=keyword_would_have,
+        rescue_mode=True,
+        why_not_knowledge_recall="Query requests investigation guidance, not a bounded catalog SPL artifact.",
+    )
+    if reason.startswith("catalog_"):
+        provenance["deterministic_match_path"] = "out_of_registry"
+        provenance["catalog_keyword_rescue"] = True
     return base, provenance
 
 

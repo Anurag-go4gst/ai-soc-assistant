@@ -3,6 +3,7 @@ import type {
   AuthResponse,
   ChatAnswerFeedbackRequest,
   ChatAnswerFeedbackResponse,
+  ChatExecutionReviewOptions,
   DemoScenariosResponse,
   HealthResponse,
   KnowledgeCollection,
@@ -18,7 +19,11 @@ import type {
   ProviderSettingsStatus,
   QualityFlaggedTurnsResponse,
   SettingsStatus,
+  SourceProfileDiscoverResponse,
+  SourceProfileSaveResponse,
+  SourceProfileSettingsResponse,
   KnowledgeExportArtifact,
+  KnowledgeMappingSummary,
 } from '../types/api';
 
 const API_BASE_URL = getApiBaseUrl();
@@ -72,6 +77,7 @@ export async function sendChatMessage(
   message: string,
   sessionId?: string | null,
   llmSplDraftMode = false,
+  executionReview?: ChatExecutionReviewOptions,
 ): Promise<PlaceholderResponse> {
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: 'POST',
@@ -83,6 +89,7 @@ export async function sendChatMessage(
       message,
       ...(sessionId ? { session_id: sessionId } : {}),
       ...(llmSplDraftMode ? { llm_spl_draft_mode: true } : {}),
+      ...(executionReview ?? {}),
     }),
   });
   if (!response.ok) {
@@ -234,6 +241,46 @@ export async function verifyLlmConnection(action: 'validate' | 'test' | 'models'
   if (!response.ok) {
     throw new Error(`LLM ${action} failed: ${response.status}`);
   }
+  return response.json();
+}
+
+export async function getSourceProfileSettings(): Promise<SourceProfileSettingsResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/source-profiles`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`Source profile settings failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveSourceProfileSettings(values: Record<string, string>): Promise<SourceProfileSaveResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/source-profiles`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values }),
+  });
+  if (!response.ok) {
+    throw new Error(`Source profile save failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function discoverSourceProfilesFromMcp(): Promise<SourceProfileDiscoverResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/source-profiles/discover-from-mcp`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    throw new Error(`MCP source discovery failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getKnowledgeMappingSummary(): Promise<KnowledgeMappingSummary> {
+  const response = await fetch(`${API_BASE_URL}/knowledge/mapping-summary`, { credentials: 'include' });
+  if (!response.ok) throw new Error(`Knowledge mapping summary failed: ${response.status}`);
   return response.json();
 }
 

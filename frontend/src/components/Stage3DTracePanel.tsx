@@ -133,6 +133,13 @@ function evidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
 
 function liveEvidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
   const rows: EvidenceRow[] = [];
+  if (trace.selected_skill === 'guided_investigation') {
+    rows.push({
+      title: 'Guided investigation',
+      detail: 'Out-of-catalog SOC hunt guidance prepared for analyst validation',
+      meta: 'review only · Splunk discovery planned manually · no MCP execution',
+    });
+  }
   const workflowSteps = trace.workflow_plan?.steps?.length ?? 0;
   rows.push({
     title: 'Workflow planning',
@@ -244,6 +251,7 @@ function RawDeveloperTracePanel({ trace }: Stage3DTracePanelProps) {
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary">Technical evidence path</Badge>
         <Badge>{trace.trace_id.slice(0, 8)}</Badge>
+        {trace.selected_skill === 'guided_investigation' ? <Badge variant="warning">Guided investigation · review only</Badge> : null}
         {trace.demo_mode ? <Badge variant="outline">{trace.demo_badge ?? 'COE synthetic demo'}</Badge> : null}
         {trace.evidence_origin ? <Badge variant="secondary">{safeText(trace.evidence_origin)}</Badge> : null}
         <Badge variant={trace.execution?.status === 'executed' ? 'success' : trace.human_review?.required ? 'warning' : 'secondary'}>

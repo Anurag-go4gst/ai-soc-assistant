@@ -18,6 +18,7 @@ _CATALOG_PROJECTION_WHEN_INACTIVE = frozenset(
         "auth_success_after_failure",
         "edr_powershell_suspicious_command",
         "dns_beaconing_candidate",
+        "critical_notable_mitre_review",
         "dns_tunneling_candidate",
         "dns_unusual_query_volume",
         "edr_suspicious_process",

@@ -11,6 +11,8 @@ import pytest
 from app.config import settings
 from app.intel.ioc_lookup import (
     BLOCK_CANNOT_ROUTE_LOOKUP_STALE,
+    _resolve_registry_path,
+    evaluate_registry_staleness,
     lookup_ioc,
     lookup_ioc_from_text,
     preflight_ioc_requirements,
@@ -28,6 +30,21 @@ def _reset_registry_cache() -> None:
     clear_ioc_registry_cache()
     yield
     clear_ioc_registry_cache()
+
+
+def test_staleness_fails_closed_on_missing_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Regression: a missing/unreadable registry must fail closed (EXPIRED), never
+    # raise FileNotFoundError into the pipeline.
+    status = evaluate_registry_staleness("/nonexistent/path/ioc_registry.json")
+    assert status == StalenessStatus.EXPIRED
+
+
+def test_resolve_registry_path_falls_back_when_configured_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A relative/misconfigured IOC_REGISTRY_PATH must fall back to the packaged
+    # default (the container runs from backend/, so a repo-root-relative path misses).
+    monkeypatch.setattr(settings, "ioc_registry_path", "backend/app/intel/fixtures/ioc_registry.sample.json")
+    resolved = _resolve_registry_path(None)
+    assert resolved.exists()
 
 
 def test_loader_rejects_malformed_ioc_records() -> None:

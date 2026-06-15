@@ -10,6 +10,7 @@
       "auth_new_source_ip_login",
       "edr_powershell_suspicious_command",
       "dns_beaconing_candidate",
+      "critical_notable_mitre_review",
       "email_phishing_header_review",
       "endpoint_ransomware_impact_review"
     ]
@@ -42,7 +43,7 @@
         "supported": ["threshold_exceeded", "repeated_pattern"],
         "confirmed": ["benign_sources_cleared", "misconfiguration_cleared", "automation_cleared"]
       },
-      "related_use_cases": ["auth_failed_login_spike", "auth_success_after_failure"],
+      "related_use_cases": ["auth_failed_login_spike", "auth_success_after_failure", "critical_notable_mitre_review"],
       "recommended_pivots": ["check_success_after_failure", "review_source_reputation", "check_privileged_users"]
     },
     {
@@ -72,7 +73,7 @@
         "supported": ["successful_authentication_after_failures"],
         "confirmed": ["account_legitimacy_reviewed", "benign_use_cleared"]
       },
-      "related_use_cases": ["auth_success_after_failure", "auth_new_source_ip_login"],
+      "related_use_cases": ["auth_success_after_failure", "auth_new_source_ip_login", "critical_notable_mitre_review"],
       "recommended_pivots": ["identity_context", "mfa_status", "session_activity"]
     },
     {
@@ -102,7 +103,7 @@
         "supported": ["command_or_script_block_evidence_present"],
         "confirmed": ["benign_admin_activity_cleared"]
       },
-      "related_use_cases": ["edr_powershell_suspicious_command"],
+      "related_use_cases": ["edr_powershell_suspicious_command", "critical_notable_mitre_review"],
       "recommended_pivots": ["decode_command_if_available", "review_parent_process", "check_child_processes"]
     },
     {

@@ -8,6 +8,19 @@ _BASE = (
 )
 
 
+_AUTH_SPIKE_BASE = (
+    "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure "
+    "| stats count as failed_logins by user | head 100"
+)
+
+
+def test_auth_failed_login_spike_honors_last_24_hours_from_query() -> None:
+    query = "Show failed login spike by user in the last 24 hours"
+    spl = customize_template_spl("auth_failed_login_spike", _AUTH_SPIKE_BASE, query)
+    assert "earliest=-24h latest=now" in spl
+    assert "earliest=-60m" not in spl
+
+
 def test_auth_success_after_failure_injects_alert_id_without_host() -> None:
     query = (
         "For alert ALT-2024-0891 (failed logins followed by a successful login from the same user "

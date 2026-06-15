@@ -9,6 +9,13 @@ def test_control_plane_trace_contains_phase_outputs_and_redacts_secrets() -> Non
     trace = build_control_plane_trace(
         {
             "query_to_intent": {"query_signals": {"failed_login": True}},
+            "routed": {
+                "routing_provenance": {
+                    "rescue_mode": True,
+                    "authority_source": "guided_investigation_rescue",
+                    "why_not_knowledge_recall": "Investigation process requested.",
+                }
+            },
             "evidence_plan": {"answer_mode": "hybrid"},
             "route_adjudication": {"final_route": "attack_discovery"},
             "llm_plan_validation": {"status": "accepted"},
@@ -32,6 +39,8 @@ def test_control_plane_trace_contains_phase_outputs_and_redacts_secrets() -> Non
         answer_guard={"enabled": False},
     )
     assert trace["query_to_intent"]["query_signals"]["failed_login"] is True
+    assert trace["routing_provenance"]["rescue_mode"] is True
+    assert trace["routing_provenance"]["authority_source"] == "guided_investigation_rescue"
     assert trace["evidence_plan"]["answer_mode"] == "hybrid"
     assert trace["route_adjudication"]["final_route"] == "attack_discovery"
     assert trace["mitre_registry_metadata"]["api_token"] == "[REDACTED]"

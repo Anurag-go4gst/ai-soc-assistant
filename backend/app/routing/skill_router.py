@@ -236,10 +236,10 @@ def route_skill(
 
 
 def _qu_route_retains_authority(understanding: QueryUnderstandingResult, base_route: dict[str, Any]) -> bool:
-    """Exact 105 matches keep query_understanding_105 selected_by; override cannot fire anyway."""
-    path = understanding.deterministic_match_path
-    if path == "out_of_registry" and base_route.get("skill") == "guided_investigation":
+    """Exact 105 and guided-investigation rescue routes keep deterministic authority."""
+    if base_route.get("skill") == "guided_investigation":
         return True
+    path = understanding.deterministic_match_path
     if path not in {"exact_105_question", "exact_105_plus_use_case_catalog"}:
         return False
     return not _deterministic_uncertain(base_route, understanding)

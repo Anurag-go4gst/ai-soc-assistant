@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
 from app.use_cases.content_enrichment import content_enrichment_records
+from contracts.skill_enum import SKILL_ENUM
 
 MITRE_METADATA_ROLE = "metadata_not_evidence"
 
@@ -68,6 +70,41 @@ def load_soc_capability_crosswalk() -> dict[str, Any]:
     path = repo_root() / _SOC_CAPABILITY_CROSSWALK_PATH
     payload = json.loads(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, dict) else {}
+
+
+def build_mapping_summary() -> dict[str, Any]:
+    """Compact read-only snapshot for the Knowledge page mapping spine panel."""
+    crosswalk = load_soc_capability_crosswalk()
+    coverage = load_skill_coverage_matrix_rows()
+    row_counts = crosswalk.get("row_counts") if isinstance(crosswalk.get("row_counts"), dict) else {}
+
+    skill_dist = Counter(row.get("live_execution_skill") for row in coverage)
+    mapping_dist = Counter(row.get("mapping_status") for row in coverage)
+    runtime_status = Counter(
+        row.get("runtime_support_status")
+        for row in (crosswalk.get("question_rows") or [])
+        if isinstance(row, dict)
+    )
+
+    return {
+        "generated_at": crosswalk.get("generated_at"),
+        "schema_version": crosswalk.get("schema_version"),
+        "mitre_metadata_role": crosswalk.get("mitre_metadata_role", MITRE_METADATA_ROLE),
+        "live_route_skills": list(SKILL_ENUM),
+        "allowed_live_execution_skills": crosswalk.get("allowed_live_execution_skills") or [],
+        "row_counts": row_counts,
+        "question_skill_distribution": {str(k): v for k, v in sorted(skill_dist.items())},
+        "question_mapping_status": {str(k): v for k, v in sorted(mapping_dist.items())},
+        "question_runtime_support_status": {str(k): v for k, v in sorted(runtime_status.items())},
+        "questions_with_use_case_id": sum(1 for row in coverage if row.get("use_case_id")),
+        "recommended_export": "soc_capability_crosswalk",
+        "sources": {
+            "runtime_map": "backend/app/coverage/question_runtime_map_v1.json",
+            "coverage_matrix": _SKILL_COVERAGE_PATH,
+            "crosswalk": _SOC_CAPABILITY_CROSSWALK_PATH,
+            "catalog": _CATALOG_PATH,
+        },
+    }
 
 
 def build_soc_capability_crosswalk_export_payload() -> dict[str, Any]:

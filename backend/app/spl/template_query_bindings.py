@@ -32,6 +32,39 @@ def customize_template_spl(
                 return spl_text
             slots = outcome.normalized_slots
         return _auth_success_after_failure_spl(spl_text, user_query, slots)
+
+    time_bounds = _resolve_time_bounds(normalized_slots, template_id, user_query, spl_text)
+    if time_bounds:
+        return _apply_time_window(spl_text, time_bounds)
+    return spl_text
+
+
+def _resolve_time_bounds(
+    normalized_slots: dict[str, str] | None,
+    template_id: str,
+    user_query: str,
+    spl_text: str,
+) -> str | None:
+    if normalized_slots and normalized_slots.get("time_window"):
+        return normalized_slots["time_window"]
+    outcome = validate_template_query_slots(template_id, user_query)
+    if outcome.valid and outcome.normalized_slots.get("time_window"):
+        return outcome.normalized_slots["time_window"]
+    return _extract_time_bounds(spl_text)
+
+
+def _apply_time_window(spl_text: str, time_bounds: str) -> str:
+    if _TIME_BOUNDS_RE.search(spl_text):
+        return _TIME_BOUNDS_RE.sub(time_bounds, spl_text, count=1)
+    match = re.search(
+        r"^(search\s+index=\S+(?:\s+sourcetype=\S+)?)",
+        spl_text,
+        flags=re.IGNORECASE,
+    )
+    if match:
+        prefix = match.group(1)
+        remainder = spl_text[match.end() :].lstrip()
+        return f"{prefix} {time_bounds} {remainder}".strip()
     return spl_text
 
 

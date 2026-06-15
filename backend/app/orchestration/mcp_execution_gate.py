@@ -7,8 +7,14 @@ from app.connectors.mcp import get_mcp_connector
 from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.mcp.splunk_result_adapter import adapt_mcp_search_payload, execution_preview_from_envelope
 from app.config import settings
+from app.connectors.mcp.splunk_mcp_readiness import splunk_search_tool_arguments
 from app.connectors.telemetry import get_telemetry_connector
+from app.orchestration.execution_confirmation import (
+    build_execution_confirmation_review,
+    resolve_execution_spl,
+)
 from app.orchestration.human_review import human_review, no_human_review
+from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS, select_mcp_tool
 
 RESULT_PREVIEW_CAP = 5
@@ -39,6 +45,10 @@ def evaluate_mcp_execution(
     requested_mcp_server: str | None = None,
     requested_mcp_tool: str | None = None,
     llm_tool_recommendation: dict[str, Any] | None = None,
+    execution_review_action: str | None = None,
+    analyst_provided_spl: str | None = None,
+    pending_execution: dict[str, Any] | None = None,
+    rbac_role: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     telemetry = get_telemetry_connector()
     precondition_block_reason = _precondition_block_reason(precondition_evaluation)
@@ -78,6 +88,7 @@ def evaluate_mcp_execution(
         user_requested_mcp_tool=requested_mcp_tool,
         llm_tool_recommendation=llm_tool_recommendation,
         registry=registry,
+        rbac_role=session_role_for_mcp_gate(rbac_role),
     )
     telemetry.record_mcp_execution(trace_id, event_type="mcp_tool_selection", **_selection_event(selection))
 
@@ -101,7 +112,36 @@ def evaluate_mcp_execution(
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
         return execution, review
 
-    normalized_spl = str(spl_validation["normalized_spl"])
+    execution_validation, confirmation_review = resolve_execution_spl(
+        spl_validation=spl_validation or {},
+        execution_review_action=execution_review_action,
+        analyst_provided_spl=analyst_provided_spl,
+        pending_execution=pending_execution,
+    )
+    if confirmation_review is not None:
+        execution = _blocked_execution(selection, "requires_human_review", confirmation_review["reason"])
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=confirmation_review["reason"])
+        return execution, confirmation_review
+    if execution_validation is None:
+        normalized_spl = str(spl_validation["normalized_spl"])
+        review = build_execution_confirmation_review(
+            normalized_spl=normalized_spl,
+            selected_mcp_tool=str(selection["selected_mcp_tool"]),
+            selected_mcp_server=str(selection["selected_mcp_server"]),
+        )
+        execution = _blocked_execution(selection, "requires_human_review", review["reason"])
+        execution["pending_execution_confirmation"] = {
+            "normalized_spl": normalized_spl,
+            "selected_mcp_server": selection["selected_mcp_server"],
+            "selected_mcp_tool": selection["selected_mcp_tool"],
+            "trace_id": trace_id,
+            "selected_skill": selected_skill,
+        }
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
+        return execution, review
+
+    normalized_spl = str(execution_validation["normalized_spl"])
+    tool_arguments = splunk_search_tool_arguments(normalized_spl=normalized_spl, trace_id=trace_id)
     started = perf_counter()
     telemetry.record_mcp_execution(
         trace_id,
@@ -112,7 +152,7 @@ def evaluate_mcp_execution(
     try:
         result = get_mcp_connector().call_tool(
             str(selection["selected_mcp_tool"]),
-            {"query": normalized_spl},
+            tool_arguments,
             server_name=str(selection["selected_mcp_server"]),
         )
     except NotImplementedError:
@@ -127,9 +167,22 @@ def evaluate_mcp_execution(
         return execution, review
 
     duration_ms = int((perf_counter() - started) * 1000)
+    # A.10 honest outcomes: a live job can fail / time out / be denied / return a
+    # bad envelope. Empty (status ok, 0 rows) is NOT a failure — it falls through
+    # to the executed/negative-result path below.
+    result_status = str(result.get("status") or "ok").strip().lower()
+    if result_status not in {"ok", "completed", "success"}:
+        outcome_review, exec_status = _classify_failed_call(result_status, result)
+        execution = _blocked_execution(selection, exec_status, str(result.get("error") or result_status))
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=result_status)
+        return execution, outcome_review
+    # _gate_review guarantees the registry success path is reached only when a
+    # live Splunk endpoint is configured, so registry == a real run. Use the
+    # real adapter and live provenance; mock keeps mock provenance.
+    live_run = registry.mode == "registry"
     envelope = adapt_mcp_search_payload(
         result,
-        mcp_mode=registry.mode,
+        mcp_mode="splunk_mcp" if live_run else registry.mode,
         trace_id=trace_id,
         normalized_spl=normalized_spl,
         duration_ms=duration_ms,
@@ -138,7 +191,6 @@ def evaluate_mcp_execution(
         envelope,
         preview_cap=RESULT_PREVIEW_CAP,
     )
-    requires_hil = _mock_success_requires_hil()
     execution = {
         "status": "executed",
         "execution_intent": "spl_search",
@@ -152,11 +204,20 @@ def evaluate_mcp_execution(
         "splunk_result_envelope": envelope.to_dict(),
         "block_reason": None,
         "duration_ms": duration_ms,
-        # Evidence is mock-generated; never present it as live telemetry.
-        "evidence_source": "mock",
-        "execution_status_label": "review_required" if requires_hil else "mock_executed",
+        "evidence_source": "live" if live_run else "mock",
+        "execution_status_label": "executed" if live_run else None,
     }
     telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_completed", result_count=execution["result_count"], duration_ms=duration_ms)
+    if live_run:
+        # Live search already passed the per-call confirmation gate (B4) before
+        # it ran; the real results are reviewed in the analyst answer, not via a
+        # mock-evidence gate.
+        review = no_human_review()
+        review["safe_message_for_user"] = "Live Splunk search executed; results are reviewed in the analyst answer."
+        return execution, review
+
+    requires_hil = _mock_success_requires_hil()
+    execution["execution_status_label"] = "review_required" if requires_hil else "mock_executed"
     if requires_hil:
         review = human_review(
             "mock_evidence_review",
@@ -236,9 +297,39 @@ def _gate_review(
         return _review("execution_approval", "saved_search_execution_disabled", "soc_lead", ["approve_execution_after_policy_check", "reject_execution"])
     if tool.get("capability") != "spl_search":
         return _review("tool_selection_review", "selected_tool_not_spl_search")
-    if registry.mode != "mock":
+    if registry.mode not in {"mock", "registry"}:
         return _review("admin_action_required", "real_mcp_adapter_not_implemented", "platform_admin", ["configure_connector", "reject_execution"])
+    # Live (registry) search needs a configured Splunk MCP endpoint + token. The
+    # adapter is implemented (Step 3); "schema_confirmed" is operator doc
+    # sign-off, not a runtime flag. Until URL/token are set, fail closed.
+    if registry.mode == "registry" and not (
+        settings.splunk_mcp_enabled and settings.splunk_mcp_base_url.strip() and settings.splunk_mcp_token.strip()
+    ):
+        return _review("connector_configuration", "splunk_mcp_not_configured", "platform_admin", ["configure_connector", "reject_execution"])
     return no_human_review()
+
+
+def _classify_failed_call(result_status: str, result: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    """Map a non-ok live call payload to (review, execution_status)."""
+    if result_status in {"denied", "permission_denied", "blocked", "forbidden"}:
+        return (
+            _review("policy_exception_request", str(result.get("error") or "permission_denied"), "security_admin", ["request_policy_exception", "reject_execution"]),
+            "blocked",
+        )
+    if result_status == "timeout":
+        return (
+            _review("admin_action_required", "mcp_search_timed_out", "platform_admin", ["configure_connector", "reject_execution"]),
+            "failed",
+        )
+    if result_status == "schema_invalid":
+        return (
+            _review("admin_action_required", "mcp_result_schema_invalid", "platform_admin", ["configure_connector", "reject_execution"]),
+            "failed",
+        )
+    return (
+        _review("admin_action_required", "mcp_execution_failed", "platform_admin", ["configure_connector", "reject_execution"]),
+        "failed",
+    )
 
 
 def _blocked_execution(selection: dict[str, Any], status: str, reason: str) -> dict[str, Any]:

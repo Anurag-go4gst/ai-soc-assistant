@@ -42,6 +42,7 @@ class ChatResult:
     model: str
     latency_ms: int
     usage: dict[str, int] = field(default_factory=dict)
+    answered_label: str = ""
 
 
 def _url_error_code(exc: URLError) -> str:
@@ -119,6 +120,7 @@ class LocalChatClient:
         user_prompt: str,
         max_tokens: int,
         temperature: float,
+        response_format: dict | None = None,
     ) -> ChatResult:
         if not self.base_url.strip():
             raise LocalChatError("base_url_not_configured")
@@ -126,18 +128,21 @@ class LocalChatClient:
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
         if self.api_key.strip():
             headers["Authorization"] = "Bearer " + self.api_key.strip()
-        body = json.dumps(
-            {
-                "model": self.model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "stream": False,
-            }
-        ).encode("utf-8")
+        payload: dict = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": False,
+        }
+        # OpenAI-compatible structured-output hint (e.g. {"type": "json_object"});
+        # forces valid JSON on llama.cpp servers that support it.
+        if response_format is not None:
+            payload["response_format"] = response_format
+        body = json.dumps(payload).encode("utf-8")
         request = Request(url, data=body, method="POST", headers=headers)
         started = time.monotonic()
         try:
@@ -168,35 +173,11 @@ class LocalChatClient:
         return ChatResult(text=text, model=self.model, latency_ms=elapsed_ms, usage=usage)
 
 
-def build_synthesis_client_from_settings() -> LocalChatClient | None:
-    """Construct a client from governed config, or None when live synthesis is
-    not eligible (mock/disabled mode, or no endpoint configured)."""
-    mode = settings.ai_soc_llm_mode.strip().lower()
-    if mode in {"mock", "disabled", ""}:
-        return None
-    base_url = (
-        settings.ai_soc_llm_local_base_url
-        if mode == "local"
-        else settings.ai_soc_llm_openai_base_url
-    ).strip()
-    model = (
-        settings.ai_soc_llm_local_model
-        if mode == "local"
-        else settings.ai_soc_llm_openai_model
-    ).strip() or settings.ai_soc_llm_default_model.strip()
-    api_key = (
-        settings.ai_soc_llm_local_api_key
-        if mode == "local"
-        else settings.ai_soc_llm_openai_api_key
-    )
-    if not base_url or not model:
-        return None
-    # Local on-prem models are often slow; allow a longer narration budget than smoke tests.
-    configured = max(int(settings.ai_soc_llm_timeout_seconds or 60), 60)
-    timeout_seconds = max(configured, 120) if mode == "local" else min(configured, 90)
-    return LocalChatClient(
-        base_url=base_url,
-        model=model,
-        api_key=api_key,
-        timeout_seconds=timeout_seconds,
-    )
+def build_synthesis_client_from_settings():
+    """Construct a failover client (Qwen/local primary, Foundation-Sec instruct fallback).
+
+    Implemented in ``endpoint_resolver``; re-exported here for backward compatibility.
+    """
+    from app.llm.clients.endpoint_resolver import build_synthesis_client_from_settings as _build
+
+    return _build()
