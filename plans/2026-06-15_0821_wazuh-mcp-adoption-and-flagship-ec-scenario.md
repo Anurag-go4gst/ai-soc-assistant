@@ -2,7 +2,7 @@
 
 Date: 2026-06-15
 Branch: spl-generation-audit
-Status: In Progress (§3 EC flagship **built**; §4A **shipped** incl. RBAC + `/chat` shadow; §4B pending approval)
+Status: In Progress (§3 EC flagship **built**; §4A **shipped** incl. RBAC + `/chat` shadow + EC sidecar parity; §4B pending approval)
 Source reviewed: `https://github.com/Sbharadwaj05/sb-siem-mcp` (third-party Wazuh MCP **server**, MIT, 28 tools, 9 domains)
 
 ---

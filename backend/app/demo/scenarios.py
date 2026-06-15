@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
@@ -19,6 +20,7 @@ from app.demo.mcp_result_envelope import (
     demo_envelope_from_rows,
     execution_fields_from_envelope,
 )
+from app.connectors.mcp.mcp_tool_plan_shadow import run_mcp_tool_plan_shadow
 from app.lineage.builder import build_investigation_lineage
 from app.llm.mitre_risk_rationale import build_deterministic_severity_rationale
 from app.orchestration.human_review import human_review, no_human_review
@@ -197,6 +199,7 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         severity_decision=severity_decision,
         mitre_decision=mitre_decision,
         evidence_plan=evidence_plan,
+        spl_validation=spl_validation,
     )
     experience_center_governance = build_experience_center_governance(
         scenario_id=scenario.scenario_id,
@@ -232,6 +235,8 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     control_plane_trace["experience_center_provenance"] = deepcopy(EXPERIENCE_CENTER_PROVENANCE)
     control_plane_trace["mitre_risk_rationale"] = llm_sidecars["mitre_risk_rationale"]
     control_plane_trace["resource_plan_shadow"] = llm_sidecars["resource_plan_shadow"]
+    if llm_sidecars.get("mcp_tool_plan_shadow") is not None:
+        control_plane_trace["mcp_tool_plan_shadow"] = llm_sidecars["mcp_tool_plan_shadow"]
     answer_scorecard = _experience_center_answer_scorecard(scenario)
     narration_visibility = _experience_center_narration_visibility(scenario)
 
@@ -357,6 +362,7 @@ def _experience_center_llm_sidecars(
     severity_decision: Any,
     mitre_decision: dict[str, Any],
     evidence_plan: dict[str, Any],
+    spl_validation: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Mirror the production LLM sidecar hops (resource-plan shadow + MITRE/risk rationale).
 
@@ -398,17 +404,38 @@ def _experience_center_llm_sidecars(
         "live_plan_source_unchanged": True,
         "live_mode_behavior": "Foundation-sec proposes a plan; it is deterministically validated and never promoted over the live deterministic plan.",
     }
-    return {
+    sidecars: dict[str, dict[str, Any]] = {
         "mitre_risk_rationale": mitre_risk_rationale,
         "resource_plan_shadow": resource_plan_shadow,
     }
+    needs_mcp = scenario.expected_skill in {"attack_discovery", "spl_generation"}
+    mcp_tool_plan_shadow = run_mcp_tool_plan_shadow(
+        query=scenario.query,
+        target_index=_target_index_from_spl_validation(spl_validation),
+        spl_approved=bool(isinstance(spl_validation, dict) and spl_validation.get("approved")),
+        session_role="demo_analyst",
+        needs_mcp=needs_mcp,
+        needs_spl=spl_validation is not None,
+    )
+    if mcp_tool_plan_shadow is not None:
+        mcp_tool_plan_shadow = {
+            **mcp_tool_plan_shadow,
+            "provider_label": "captured_foundation_sec_advisory",
+            "live_llm_called": False,
+            "live_mode_behavior": (
+                "Foundation-sec may propose an MCP tool chronology in live mode; "
+                "deterministic playbook review wins and execution stays gated."
+            ),
+        }
+        sidecars["mcp_tool_plan_shadow"] = mcp_tool_plan_shadow
+    return sidecars
 
 
 def _llm_sidecar_panel(sidecars: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """Flatten the sidecar traces into viewer-friendly governance-panel rows."""
     rationale = sidecars["mitre_risk_rationale"]
     shadow = sidecars["resource_plan_shadow"]
-    return {
+    panel: dict[str, Any] = {
         "what_this_shows": "LLM sidecar hops that run alongside the deterministic pipeline.",
         "authority": "advisory only — deterministic policy keeps final authority",
         "live_llm_called": "No (captured Foundation-sec output in the Experience Center)",
@@ -420,6 +447,29 @@ def _llm_sidecar_panel(sidecars: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "mitre_rationale": rationale.get("mitre_rationale_prose") or "No supported MITRE technique for this query.",
         "severity_rationale": rationale.get("severity_rationale_prose") or "—",
     }
+    mcp_shadow = sidecars.get("mcp_tool_plan_shadow")
+    if isinstance(mcp_shadow, dict):
+        approved = mcp_shadow.get("approved_tools") or []
+        dropped = mcp_shadow.get("dropped") or []
+        unservable = (mcp_shadow.get("planner") or {}).get("llm_unservable") or []
+        panel["mcp_tool_plan_shadow"] = (
+            f"Advisory MCP tool chronology ({mcp_shadow.get('decision_source')}); "
+            f"{len(approved)} approved hop(s)"
+            + (f", {len(dropped)} dropped" if dropped else "")
+            + (f", unservable={unservable}" if unservable else "")
+            + f"; RBAC role {mcp_shadow.get('rbac_role')}; execution stays gated."
+        )
+    return panel
+
+
+def _target_index_from_spl_validation(spl_validation: dict[str, Any] | None) -> str | None:
+    if not isinstance(spl_validation, dict):
+        return None
+    normalized = spl_validation.get("normalized_spl")
+    if not isinstance(normalized, str):
+        return None
+    match = re.search(r"index=(\S+)", normalized)
+    return match.group(1) if match else None
 
 
 def _scrub_experience_center_stage_labels(scenario: DemoScenario, investigation_lineage: Any) -> None:

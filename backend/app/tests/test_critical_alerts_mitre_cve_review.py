@@ -51,3 +51,18 @@ def test_critical_alerts_cve_degrade_resource_plan_present() -> None:
     analyst = payload["analyst_response"]
     limitations = " ".join(analyst.get("limitations") or []).lower()
     assert "not onboarded" in limitations or "vulnerability" in limitations
+
+
+def test_critical_alerts_mcp_tool_plan_shadow_ec_parity() -> None:
+    payload = run_demo_scenario("critical_alerts_mitre_cve_review")
+    shadow = payload["control_plane_trace"].get("mcp_tool_plan_shadow")
+    assert shadow is not None
+    assert shadow["shadow_only"] is True
+    assert shadow["promotion_blocked"] is True
+    assert shadow["rbac_role"] == "analyst"
+    assert shadow["approved_tools"][-1] == "splunk_run_query"
+    assert payload["llm_sidecars"]["mcp_tool_plan_shadow"] == shadow
+    panel = payload["experience_center_governance"]["llm_sidecar_panel"]
+    assert isinstance(panel.get("mcp_tool_plan_shadow"), str)
+    assert "splunk_run_query" not in panel["mcp_tool_plan_shadow"]  # summary prose, not raw tool list
+    assert "RBAC role analyst" in panel["mcp_tool_plan_shadow"]
