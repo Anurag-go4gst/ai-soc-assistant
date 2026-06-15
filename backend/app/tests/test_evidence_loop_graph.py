@@ -38,15 +38,32 @@ def test_cp_on_graph_has_bounded_loop_topology() -> None:
     assert ("execution", "evidence_planning") in edges
 
 
-def test_cp_on_run_terminates_and_accumulates_discovery_hops(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_hub_route_consumes_execution_verdict() -> None:
+    from app.chat.evidence_loop import ROUTE_BROADEN, ROUTE_DISCOVERY_HOP
+    from app.graph.chat_workflow import _hub_route
+
+    # Execution re-entry: the stored assessor verdict drives the edge.
+    assert _hub_route({"execution": {}, "mcp_loop": {"route": ROUTE_BROADEN}}) == "context_finalize"
+    # Discovery re-entry with a pending hop routes to the read-only mcp_call node.
+    assert (
+        _hub_route({"mcp_chronology": ["splunk_get_info"], "mcp_loop": {"route": ROUTE_DISCOVERY_HOP}})
+        == "mcp_call"
+    )
+    # Discovery exhausted → enter the linear chain once.
+    assert _hub_route({"mcp_chronology": [], "mcp_loop": {"route": "execute"}}) == "shadow_enrichment"
+
+
+def test_cp_on_run_terminates_and_surfaces_loop_trace(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "control_plane_enabled", True)
     # Must not raise GraphRecursionError — the single bound guarantees termination.
     response = run_chat_via_langgraph(ChatRequest(message=QUERY))
     assert response is not None
     trace = response.control_plane_trace or {}
-    # The HUB recorded a loop decision and the discovery hops accumulated within
-    # the bound.
-    assert isinstance(trace, dict)
+    loop = trace.get("evidence_loop")
+    assert isinstance(loop, dict)
+    assert loop["hops_done"] <= MAX_MCP_HOPS
+    assert len(loop["hops"]) >= 1  # at least one read-only discovery hop ran
+    assert loop["decision"]["route"]  # a verdict was recorded
 
 
 def test_cp_on_loop_state_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:

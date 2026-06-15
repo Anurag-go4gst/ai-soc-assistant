@@ -1751,6 +1751,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             control_plane_trace["mcp_tool_plan_shadow"] = mcp_tool_plan_shadow_trace
         if llm_turn_budget_trace is not None:
             control_plane_trace["llm_turn_budget"] = llm_turn_budget_trace
+        # Stage 4B: surface the governed evidence-loop so it is debuggable in
+        # prod traces (chronology, bounded hop count, accumulated hops, verdict).
+        if state.get("mcp_chronology") is not None:
+            control_plane_trace["evidence_loop"] = {
+                "chronology": list(state.get("mcp_chronology") or []),
+                "hops_done": int(state.get("mcp_hops_done", 0)),
+                "decision": state.get("mcp_loop"),
+                "hops": state.get("mcp_evidence") or [],
+            }
 
     session_context_status = None
     if settings.ai_soc_session_context_enabled and isinstance(session_resolution, SessionContextResolution):

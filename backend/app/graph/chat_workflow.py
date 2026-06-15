@@ -15,7 +15,12 @@ from langgraph.graph import END, StateGraph
 
 from app.chat.evidence_loop import (
     MAX_MCP_HOPS,
+    ROUTE_BROADEN,
+    ROUTE_CAPABILITY_GAP,
     ROUTE_DISCOVERY_HOP,
+    ROUTE_EXHAUSTED,
+    ROUTE_FINALIZE,
+    ROUTE_HUMAN_REVIEW,
     assess_loop,
     loop_initialized,
 )
@@ -130,14 +135,32 @@ def _evidence_plan(state: ChatPipelineState) -> dict[str, Any]:
     return plan if isinstance(plan, dict) else {}
 
 
+# Execution-phase assessor verdicts all resolve at context_finalize, which is
+# where broaden hand-off (pending_execution set by graph_node_execution), the HIL
+# envelope, capability-gap honest degrade, and the negative/normal result are all
+# rendered from state — there is no separate broaden/HIL node to route to. The
+# map exists so the edge is driven by the assessor verdict (not a blind check)
+# and so adding such nodes later is a one-line change.
+_EXECUTION_ROUTE_TARGETS = {
+    ROUTE_FINALIZE: "context_finalize",
+    ROUTE_BROADEN: "context_finalize",
+    ROUTE_HUMAN_REVIEW: "context_finalize",
+    ROUTE_CAPABILITY_GAP: "context_finalize",
+    ROUTE_EXHAUSTED: "context_finalize",
+}
+
+
 def _hub_route(state: ChatPipelineState) -> str:
-    # Execution already ran this turn → the loop result returns here and forwards.
+    # The HUB already stored the assessor verdict in mcp_loop; consume it so the
+    # edge is verdict-driven (decision B etc.), not a blind "execution in state".
+    route = (state.get("mcp_loop") or {}).get("route")
     if "execution" in state:
-        return "context_finalize"
+        # Execution re-entry: the run_query result decides the forward route.
+        return _EXECUTION_ROUTE_TARGETS.get(route, "context_finalize")
     # Discovery phase: drain the planned read-only hops, then enter the linear
-    # chain exactly once. assess_loop returns a non-discovery route once the
-    # chronology is exhausted or the hop bound is hit.
-    if loop_initialized(state) and assess_loop(state).route == ROUTE_DISCOVERY_HOP:
+    # chain exactly once. The verdict is non-discovery once the chronology is
+    # exhausted or the hop bound is hit.
+    if loop_initialized(state) and route == ROUTE_DISCOVERY_HOP:
         return "mcp_call"
     return "shadow_enrichment"
 

@@ -67,7 +67,7 @@ rows) and #2 (deterministic rollup shapes) ourselves — §3.3 below.
 
 | Item | Source file | Why | Confidence |
 |------|-------------|-----|-----------|
-| **A1. Result-row output sanitizer** | `sanitizer.py` | Recursive redaction of secrets (AWS/JWT/SSH/Bearer/password fields) from data **before it reaches the LLM**. We *assert* "no creds to prompt"; this *enforces* it on evidence rows. Closes a real gap on the live synthesis path. | 0.8 |
+| **A1. Result-row output sanitizer** | `sanitizer.py` | Recursive redaction of secrets (AWS/JWT/SSH/Bearer/password fields) from data **before it reaches the LLM**. Wired at `source_evidence._safe_text` (+ envelope path via `_safe_rows`). | **Shipped** |
 | **A2. `risk_score` heatmap formula** | `analysis.py` (`crit*10+high*5+med*2+low`) | Drop-in deterministic answer-section for vuln/host prioritization when a vuln source is onboarded. | 0.8 |
 | **A3. `rules_coverage_map` inverted-index pattern** | `analysis.py` | framework-id → rule-ids matrix = a clean "detection gap / coverage" answer card (MITRE/NIST/PCI/GDPR/HIPAA). | 0.75 |
 | **A4. `alert_summary` aggregate shape** | `alerts.py` | severity dist + top rules/MITRE/IPs/agents = strong shift-handoff card; matches our AnswerContract section model. | 0.7 |
@@ -346,11 +346,33 @@ WS-MCP is a **separate PR** from the flagship EC scenario (§3). The EC
 scenario ships first (no dependency); WS-MCP playbook/RBAC/plan-review lands
 after. Listed here so the corrected posture is canonical.
 
-## 4B. Cyclic governed evidence-collection loop (CP-gated) — PROPOSED, pending build approval
+## 4B. Cyclic governed evidence-collection loop (CP-gated) — CORE SCAFFOLD SHIPPED
 
-> Status 2026-06-15: design approved in discussion; **written here for build
-> approval**. No code yet. Gated by `CONTROL_PLANE_ENABLED` (CP). CP off = today's
-> linear path unchanged. No new flag.
+> Status 2026-06-15: **core scaffold built (default-off)**, branch
+> `cp-cyclic-evidence-loop`. Gated by `CONTROL_PLANE_ENABLED` (CP). CP off =
+> linear path unchanged (no loop topology, no loop state leak). No new flag.
+>
+> **Shipped:** `app/chat/evidence_loop.py` deterministic controller
+> (`assess_loop` requirement↔deliverable + sufficiency → route); HUB
+> (`graph_node_evidence_planning`) composes the chronology once, idempotent
+> re-entry (bug #2); `graph_node_mcp_call` read-only planned discovery hops;
+> CP-on cyclic LangGraph (`mcp_call↔HUB`, `execution→HUB`) with explicit
+> `recursion_limit` (bug #4); `_hub_route` consumes the assessor verdict
+> (execution-phase verdicts mapped — decision B); `control_plane_trace.evidence_loop`
+> observability. Tests: controller routes + bounded termination + idempotency,
+> graph topology, `_hub_route` verdict consumption, CP-on termination + trace,
+> CP-off parity.
+>
+> **Chronology is the deterministic default** (`deterministic_default_chronology`),
+> NOT yet the LLM-reviewed plan (§4B.5 `review_proposed_tool_chronology` deferred).
+>
+> **Not in this slice (deferred):** merge `mcp_evidence` → `source_evidence`
+> (phase 6); live gated discovery-hop execution (planned-only today); the
+> imperative-twin loop (bug #1 — loop runs only on the LangGraph entrypoint, which
+> needs `langgraph_orchestration_enabled` AND `control_plane_enabled`; the default
+> live path is the imperative twin and does NOT cycle); composed-plan dispatch
+> coverage (bug #5); single counter covers discovery hops only (execution re-entry
+> does not increment `mcp_hops_done`).
 
 ### 4B.1 Problem
 Today `graph_node_execution → context_finalize → synthesis`, blind. A multi-tool
@@ -539,5 +561,4 @@ beyond the single flagship case. Lock the template + decode config only after gr
 - No live CVE/vuln data source onboarding.
 - No active-response / confirmation-token gate (N2).
 - No LLM-drives-MCP loop (forbidden).
-- Sanitizer (A1) and heatmap/coverage shapes (A2–A4) are **planned follow-ups**,
-  tracked here, not built in this PR unless requested.
+- Heatmap/coverage shapes (A2–A4) are **planned follow-ups**, tracked here, not built in this PR unless requested. **A1 sanitizer shipped** (`evidence_sanitizer.py` → `source_evidence._safe_text`); RAG `to_prompt_block` leg is optional belt-and-suspenders follow-up.
