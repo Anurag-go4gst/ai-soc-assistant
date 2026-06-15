@@ -1,4 +1,10 @@
-"""Stage P1: LangGraph wrapper around the live /chat pipeline (parity only)."""
+"""Stage P1/4B: LangGraph wrapper around the live /chat pipeline.
+
+Default (CONTROL_PLANE_ENABLED off): the linear parity graph — behavior must
+match the imperative pipeline. With the control plane on, the graph gains the
+Stage 4B governed evidence-collection loop: `evidence_planning` is the HUB and a
+read-only `mcp_call` discovery hop loops back to it, bounded by a single counter.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +13,12 @@ from typing import Any
 
 from langgraph.graph import END, StateGraph
 
+from app.chat.evidence_loop import (
+    MAX_MCP_HOPS,
+    ROUTE_DISCOVERY_HOP,
+    assess_loop,
+    loop_initialized,
+)
 from app.chat.pipeline import (
     ChatPipelineState,
     build_live_chat_response,
@@ -14,6 +26,7 @@ from app.chat.pipeline import (
     graph_node_evidence_planning,
     graph_node_execution,
     graph_node_init_routing,
+    graph_node_mcp_call,
     graph_node_prepare_rag_only,
     graph_node_query_to_intent,
     graph_node_rag_early,
@@ -21,27 +34,17 @@ from app.chat.pipeline import (
     graph_node_spl_source_resolve,
     graph_node_workflow_spl,
 )
+from app.config import settings
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
 
+# Two nodes per discovery iteration (evidence_planning + mcp_call), plus the
+# linear chain and the execution loopback. Derived from the hop bound so the
+# cyclic graph can never out-run termination.
+_CP_RECURSION_LIMIT = MAX_MCP_HOPS * 2 + 30
 
-@lru_cache(maxsize=1)
-def _compiled_chat_graph() -> Any:
-    graph: StateGraph = StateGraph(ChatPipelineState)
-    graph.add_node("init_routing", graph_node_init_routing)
-    graph.add_node("query_to_intent", graph_node_query_to_intent)
-    graph.add_node("evidence_planning", graph_node_evidence_planning)
-    graph.add_node("shadow_enrichment", graph_node_shadow_enrichment)
-    graph.add_node("prepare_rag_only", graph_node_prepare_rag_only)
-    graph.add_node("rag_early", graph_node_rag_early)
-    graph.add_node("workflow_spl", graph_node_workflow_spl)
-    graph.add_node("spl_source_resolve", graph_node_spl_source_resolve)
-    graph.add_node("execution", graph_node_execution)
-    graph.add_node("context_finalize", graph_node_context_finalize)
-    graph.set_entry_point("init_routing")
-    graph.add_edge("init_routing", "query_to_intent")
-    graph.add_edge("query_to_intent", "evidence_planning")
-    graph.add_edge("evidence_planning", "shadow_enrichment")
+
+def _add_linear_chain(graph: StateGraph) -> None:
     graph.add_conditional_edges(
         "shadow_enrichment",
         _after_shadow_enrichment,
@@ -63,14 +66,80 @@ def _compiled_chat_graph() -> Any:
         {"context_finalize": "context_finalize", "spl_source_resolve": "spl_source_resolve"},
     )
     graph.add_edge("spl_source_resolve", "execution")
-    graph.add_edge("execution", "context_finalize")
     graph.add_edge("context_finalize", END)
+
+
+def _core_nodes(graph: StateGraph) -> None:
+    graph.add_node("init_routing", graph_node_init_routing)
+    graph.add_node("query_to_intent", graph_node_query_to_intent)
+    graph.add_node("evidence_planning", graph_node_evidence_planning)
+    graph.add_node("shadow_enrichment", graph_node_shadow_enrichment)
+    graph.add_node("prepare_rag_only", graph_node_prepare_rag_only)
+    graph.add_node("rag_early", graph_node_rag_early)
+    graph.add_node("workflow_spl", graph_node_workflow_spl)
+    graph.add_node("spl_source_resolve", graph_node_spl_source_resolve)
+    graph.add_node("execution", graph_node_execution)
+    graph.add_node("context_finalize", graph_node_context_finalize)
+    graph.set_entry_point("init_routing")
+    graph.add_edge("init_routing", "query_to_intent")
+    graph.add_edge("query_to_intent", "evidence_planning")
+
+
+@lru_cache(maxsize=1)
+def _compiled_chat_graph() -> Any:
+    """Linear parity graph (control plane off)."""
+    graph: StateGraph = StateGraph(ChatPipelineState)
+    _core_nodes(graph)
+    graph.add_edge("evidence_planning", "shadow_enrichment")
+    graph.add_edge("execution", "context_finalize")
+    _add_linear_chain(graph)
+    return graph.compile()
+
+
+@lru_cache(maxsize=1)
+def _compiled_chat_graph_cp() -> Any:
+    """Cyclic graph with the Stage 4B governed evidence-collection loop.
+
+    `evidence_planning` is the HUB: it routes to the read-only `mcp_call`
+    discovery hop (which loops back) until the planned chronology is exhausted,
+    then enters the linear SPL/execution chain once. The gated `execution` node
+    returns to the HUB, which forwards to `context_finalize`.
+    """
+    graph: StateGraph = StateGraph(ChatPipelineState)
+    _core_nodes(graph)
+    graph.add_node("mcp_call", graph_node_mcp_call)
+    graph.add_conditional_edges(
+        "evidence_planning",
+        _hub_route,
+        {
+            "mcp_call": "mcp_call",
+            "shadow_enrichment": "shadow_enrichment",
+            "context_finalize": "context_finalize",
+        },
+    )
+    graph.add_edge("mcp_call", "evidence_planning")
+    # Execution result returns to the HUB (plan 4B topology); the HUB forwards it
+    # to context_finalize. Bounded by mcp_hops_done so it cannot spin.
+    graph.add_edge("execution", "evidence_planning")
+    _add_linear_chain(graph)
     return graph.compile()
 
 
 def _evidence_plan(state: ChatPipelineState) -> dict[str, Any]:
     plan = state.get("evidence_plan")
     return plan if isinstance(plan, dict) else {}
+
+
+def _hub_route(state: ChatPipelineState) -> str:
+    # Execution already ran this turn → the loop result returns here and forwards.
+    if "execution" in state:
+        return "context_finalize"
+    # Discovery phase: drain the planned read-only hops, then enter the linear
+    # chain exactly once. assess_loop returns a non-discovery route once the
+    # chronology is exhausted or the hop bound is hit.
+    if loop_initialized(state) and assess_loop(state).route == ROUTE_DISCOVERY_HOP:
+        return "mcp_call"
+    return "shadow_enrichment"
 
 
 def _after_shadow_enrichment(state: ChatPipelineState) -> str:
@@ -99,8 +168,15 @@ def run_chat_via_langgraph(
     session_role: str | None = None,
 ) -> PlaceholderResponse:
     """Run the same staged pipeline through LangGraph; behavior must match imperative path."""
-    final_state = _compiled_chat_graph().invoke(
+    if settings.control_plane_enabled:
+        compiled = _compiled_chat_graph_cp()
+        config = {"recursion_limit": _CP_RECURSION_LIMIT}
+    else:
+        compiled = _compiled_chat_graph()
+        config = {}
+    final_state = compiled.invoke(
         {"request": request, "session_role": session_role},
+        config,
     )
     response = final_state.get("response")
     if response is None:

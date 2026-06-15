@@ -121,6 +121,14 @@ from app.llm.missing_evidence_reasoner import (
 )
 from app.llm.mitre_risk_rationale import run_mitre_risk_rationale
 from app.planner.resource_plan_shadow import run_resource_plan_shadow
+from app.connectors.mcp.mcp_tool_chronology import deterministic_default_chronology
+from app.chat.evidence_loop import (
+    ROUTE_DISCOVERY_HOP,
+    assess_loop,
+    initialize_loop,
+    loop_initialized,
+    record_hop,
+)
 from app.connectors.mcp.mcp_tool_plan_shadow import run_mcp_tool_plan_shadow
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.llm.sidecar_skip_policy import should_skip_sidecar
@@ -208,6 +216,14 @@ class ChatPipelineState(TypedDict, total=False):
     session_role: str | None
     effective_query: str | None
     llm_turn_budget: TurnLlmBudget | None
+    # Stage 4B governed evidence-collection loop (CONTROL_PLANE_ENABLED only).
+    mcp_chronology: list[str]
+    mcp_cursor: int
+    mcp_evidence: list[dict[str, Any]]
+    mcp_hops_done: int
+    mcp_requirements: dict[str, list[str]]
+    mcp_required_produces: list[str]
+    mcp_loop: dict[str, Any]
     response: PlaceholderResponse
 
 
@@ -384,6 +400,16 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
 
 
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
+    # Stage 4B: on loop re-entry (after an mcp_call discovery hop or the gated
+    # execution hop) the HUB only re-assesses + routes — it must NOT re-emit
+    # progress, re-route, or re-compose the plan (idempotency, plan bug #2).
+    if settings.control_plane_enabled and loop_initialized(state):
+        decision = assess_loop(
+            state,
+            execution=state.get("execution") if "execution" in state else None,
+            broaden_eligible=_loop_broaden_eligible(state),
+        )
+        return {**state, "mcp_loop": decision.to_dict()}
     emit_stage("planning_evidence")
     if not settings.control_plane_enabled:
         planning = plan_path_and_tools(
@@ -422,7 +448,60 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case=state.get("selected_use_case"),
         llm_intent_advisory=state.get("llm_intent_advisory"),
     )
-    return {**state, "evidence_plan": evidence_payload, "planning_decision": planning.model_dump()}
+    # Stage 4B: compose the deterministic discovery chronology once, so the
+    # HUB can drive read-only mcp_call hops before the linear SPL/execution chain.
+    loop_init = initialize_loop(
+        deterministic_default_chronology(spl_approved=False),
+        required_produces=_loop_required_produces(evidence_payload),
+    )
+    return {
+        **state,
+        "evidence_plan": evidence_payload,
+        "planning_decision": planning.model_dump(),
+        **loop_init,
+        "mcp_loop": assess_loop(loop_init).to_dict(),
+    }
+
+
+def graph_node_mcp_call(state: ChatPipelineState) -> ChatPipelineState:
+    """Stage 4B: run one read-only discovery hop, then return to the HUB.
+
+    Execution stays globally gated — discovery hops are planned-only in the
+    current air-gapped posture (no live MCP call), so the deliverable records the
+    tool's declared `produces` as planned context. `splunk_run_query` is never
+    run here; it stays in the gated execution node.
+    """
+    decision = assess_loop(state)
+    tool = decision.next_tool
+    if decision.route != ROUTE_DISCOVERY_HOP or not tool or tool == "splunk_run_query":
+        return state
+    requirements = state.get("mcp_requirements") or {}
+    delivered = [str(item) for item in (requirements.get(tool) or [])]
+    return {
+        **state,
+        **record_hop(state, tool=tool, delivered=delivered, outcome="planned", payload={"read_only": True}),
+    }
+
+
+def _loop_required_produces(evidence_payload: dict[str, Any] | None) -> list[str]:
+    """Requirements the loop must satisfy: chronology produces plus any explicit
+    evidence-plan needs (so unservable needs like CVE surface as honest gaps)."""
+    needs: list[str] = []
+    plan = evidence_payload if isinstance(evidence_payload, dict) else {}
+    for key in ("missing_evidence", "evidence_needs", "required_produces"):
+        value = plan.get(key)
+        if isinstance(value, list):
+            needs.extend(str(item) for item in value)
+    return needs
+
+
+def _loop_broaden_eligible(state: ChatPipelineState) -> bool:
+    execution = state.get("execution")
+    if not isinstance(execution, dict):
+        return False
+    if execution.get("status") != "executed" or int(execution.get("result_count") or 0) != 0:
+        return False
+    return _mcp_allowed(state)
 
 
 def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
