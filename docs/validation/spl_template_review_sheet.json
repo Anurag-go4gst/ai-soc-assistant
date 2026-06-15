@@ -1,9 +1,9 @@
 {
   "artifact": "soc_validation_spl_templates",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-11T10:33:45+00:00",
+  "generated_at": "2026-06-15T15:58:02+00:00",
   "row_counts": {
-    "use_cases": 49
+    "use_cases": 50
   },
   "rows": [
     {
@@ -164,6 +164,17 @@
       "spl_template_status": "unavailable",
       "template_file_status": "active",
       "use_case_id": "aws_security_group_modifications",
+      "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
+    },
+    {
+      "allowed_spl_templates": [],
+      "no_execution": true,
+      "review_notes": "",
+      "review_only": true,
+      "spl_template_id": "notable_critical_review_mitre",
+      "spl_template_status": "unavailable",
+      "template_file_status": "active",
+      "use_case_id": "critical_notable_mitre_review",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
     },
     {

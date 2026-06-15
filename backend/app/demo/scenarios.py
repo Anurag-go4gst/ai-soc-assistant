@@ -574,6 +574,35 @@ def _experience_center_evidence_plan(
         set([str(item) for item in plan.get("reasons") or []] + ["experience_center_fixture_alignment"])
     )
     plan["experience_center_provenance"] = deepcopy(EXPERIENCE_CENTER_PROVENANCE)
+    if scenario.scenario_id == "critical_alerts_mitre_cve_review":
+        plan["resource_plan"] = {
+            "plan_source": "deterministic",
+            "steps": [
+                {
+                    "resource": "splunk_mcp",
+                    "status": "fixture_packaged",
+                    "tool": "search",
+                    "reason": "Experience Center fixture Splunk evidence for critical-alert rollup.",
+                },
+                {
+                    "resource": "vulnerability_source",
+                    "status": "not_onboarded",
+                    "join_key": "host",
+                    "planned_section": "cve_correlation",
+                    "reason": (
+                        "unpatched CVE correlation requires a vulnerability data source; "
+                        "not onboarded in this deployment."
+                    ),
+                },
+            ],
+        }
+        plan["missing_evidence"] = sorted(
+            {
+                *(str(item) for item in plan.get("missing_evidence") or []),
+                "vulnerability_source",
+                "unpatched_cve_correlation",
+            }
+        )
     return plan
 
 
@@ -897,6 +926,79 @@ LOCKOUT_SPL = _scoped_template_spl("auth_account_lockout_trend")
 LOCKOUT_VISIBLE_SPL = _pretty_spl(LOCKOUT_SPL)
 DNS_BEACONING_SPL = _scoped_template_spl("dns_beaconing_candidate")
 DNS_BEACONING_VISIBLE_SPL = _pretty_spl(DNS_BEACONING_SPL)
+CRITICAL_NOTABLE_SPL = _scoped_template_spl("notable_critical_review_mitre")
+CRITICAL_NOTABLE_VISIBLE_SPL = _pretty_spl(CRITICAL_NOTABLE_SPL)
+
+_CRITICAL_URGENCY_WEIGHT = {"critical": 10, "high": 5, "medium": 2, "low": 1}
+
+_CRITICAL_ALERT_FIXTURE_ROWS = [
+    {
+        "alert_id": "ALT-8841",
+        "host": "VPN-GW-01",
+        "rule_name": "brute_force_vpn_spike",
+        "urgency": "critical",
+        "severity": "critical",
+        "mitre_technique": "T1110.001",
+        "mitre_tactic": "Credential Access",
+        "alert_count": 12,
+        "first_seen": "2026-06-15T02:14:00Z",
+        "last_seen": "2026-06-15T07:58:00Z",
+    },
+    {
+        "alert_id": "ALT-7720",
+        "host": "DB-PROD-02",
+        "rule_name": "privileged_login_anomaly",
+        "urgency": "high",
+        "severity": "high",
+        "mitre_technique": "T1078",
+        "mitre_tactic": "Persistence",
+        "alert_count": 6,
+        "first_seen": "2026-06-15T03:02:00Z",
+        "last_seen": "2026-06-15T07:41:00Z",
+    },
+    {
+        "alert_id": "ALT-9103",
+        "host": "APP-EDGE-03",
+        "rule_name": "suspicious_powershell",
+        "urgency": "critical",
+        "severity": "critical",
+        "mitre_technique": "T1059.001",
+        "mitre_tactic": "Execution",
+        "alert_count": 8,
+        "first_seen": "2026-06-15T04:18:00Z",
+        "last_seen": "2026-06-15T07:52:00Z",
+    },
+    {
+        "alert_id": "ALT-9104",
+        "host": "VPN-GW-01",
+        "rule_name": "geo_impossible_travel",
+        "urgency": "high",
+        "severity": "high",
+        "mitre_technique": "T1078",
+        "mitre_tactic": "Initial Access",
+        "alert_count": 3,
+        "first_seen": "2026-06-15T05:30:00Z",
+        "last_seen": "2026-06-15T07:20:00Z",
+    },
+]
+
+
+def _urgency_risk_weight(urgency: str) -> int:
+    return _CRITICAL_URGENCY_WEIGHT.get(str(urgency).lower(), 1)
+
+
+def _top_risky_hosts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    scores: dict[str, int] = {}
+    for row in rows:
+        host = str(row.get("host") or "")
+        if not host:
+            continue
+        count = int(row.get("alert_count") or row.get("count") or 1)
+        scores[host] = scores.get(host, 0) + _urgency_risk_weight(str(row.get("urgency") or "")) * count
+    return [
+        {"Host": host, "Risk score": score, "Rank": index + 1}
+        for index, (host, score) in enumerate(sorted(scores.items(), key=lambda item: -item[1]))
+    ]
 
 
 def _playbook_payload() -> dict[str, object]:
@@ -1301,6 +1403,108 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "P3: Document and close as benign if the domains are reputable CDNs/telemetry with business justification.",
             ],
             "review_notice": "Review the validated normalized SPL and MCP gate status before operational use.",
+        })
+    if scenario.scenario_id == "critical_alerts_mitre_cve_review":
+        top_hosts = _top_risky_hosts(_CRITICAL_ALERT_FIXTURE_ROWS)
+        return attach_evidence_summary({
+            **base,
+            "retrieved_playbook": {
+                "title": "Critical alert triage and CVE correlation",
+                "id": "SOC-SOP-ALERT-CRIT-001",
+                "version": "v2026.06",
+                "purpose": "Guide analysts through critical-alert rollup, MITRE candidate review, and honest CVE-source gaps.",
+            },
+            "sop_guidance": {
+                "triage_steps": [
+                    "Roll up critical/high alerts by host and MITRE technique for the requested window.",
+                    "Validate each technique mapping against underlying alert evidence before escalation.",
+                    "Check whether a vulnerability or CMDB source is onboarded before claiming unpatched CVE exposure.",
+                ],
+                "validation_notes": [
+                    "MITRE mappings remain candidate until alert context and technique evidence are confirmed.",
+                    "CVE correlation stays unavailable when no vulnerability source is onboarded.",
+                ],
+            },
+            "severity_label": "P2 High",
+            "finding_title": "Critical alerts with MITRE rollup — CVE correlation not onboarded",
+            "one_sentence_finding": (
+                "Four critical/high alerts across three hosts roll up to three MITRE technique candidates "
+                "(T1110.001, T1078, T1059.001). V.AI SOC cannot correlate unpatched CVEs because no "
+                "vulnerability source is onboarded; the CVE leg is shown as a planned degrade only."
+            ),
+            "initial_assessment": [
+                f"Top risky host: {top_hosts[0]['Host']} (risk_score {top_hosts[0]['Risk score']})",
+                f"Second: {top_hosts[1]['Host']} (risk_score {top_hosts[1]['Risk score']})",
+                "CVE correlation leg: vulnerability_source not_onboarded (no fabricated CVE rows).",
+            ],
+            "splunk_status_line": "Splunk MCP fixture search result [index=pgcil_soc sourcetype=pgcil:edr] · last 6 hours · 4 rows",
+            "splunk_results_table": [
+                {
+                    "Alert ID": row["alert_id"],
+                    "Host": row["host"],
+                    "Rule": row["rule_name"],
+                    "Urgency": row["urgency"],
+                    "MITRE": row["mitre_technique"],
+                    "Tactic": row["mitre_tactic"],
+                    "Count": row["alert_count"],
+                }
+                for row in _CRITICAL_ALERT_FIXTURE_ROWS
+            ],
+            "top_risky_hosts": top_hosts,
+            "mitre_mappings": [
+                {
+                    "Technique": "T1110.001",
+                    "Name": "Password Guessing",
+                    "Tactic": "Credential Access",
+                    "Status": "Candidate",
+                    "Evidence": "VPN-GW-01 brute_force_vpn_spike critical alert cluster",
+                    "Validation needed": "Confirm source IPs, lockout policy, and whether successes followed failures.",
+                },
+                {
+                    "Technique": "T1078",
+                    "Name": "Valid Accounts",
+                    "Tactic": "Persistence / Initial Access",
+                    "Status": "Candidate",
+                    "Evidence": "DB-PROD-02 privileged_login_anomaly and VPN-GW-01 geo_impossible_travel",
+                    "Validation needed": "Confirm account legitimacy, MFA result, and session activity.",
+                },
+                {
+                    "Technique": "T1059.001",
+                    "Name": "PowerShell",
+                    "Tactic": "Execution",
+                    "Status": "Candidate",
+                    "Evidence": "APP-EDGE-03 suspicious_powershell critical alert",
+                    "Validation needed": "Review command line, parent process, and encoded-command flags.",
+                },
+            ],
+            "spl_code": CRITICAL_NOTABLE_VISIBLE_SPL,
+            "key_fields": [
+                "host - affected endpoint in the critical-alert rollup",
+                "urgency - Splunk-native severity weight input (critical/high/medium/low)",
+                "mitre_technique - technique annotation carried on each alert row",
+                "mitre_tactic - tactic column for kill-chain coverage in the MITRE table",
+                "alert_count - number of correlated alerts for the host/rule in the 6h window",
+            ],
+            "limitations": [
+                "Unpatched CVE correlation did not run: vulnerability_source is not onboarded in this deployment.",
+                "MITRE techniques are candidate-only pending analyst validation of underlying alert evidence.",
+            ],
+            "missing_evidence": [
+                "vulnerability_source",
+                "unpatched_cve_correlation",
+            ],
+            "foundation_sec_analysis": (
+                "Foundation-sec contributes advisory technique annotations from the critical-alert fixture. "
+                "V.AI SOC keeps MITRE mappings candidate-only and refuses to fabricate CVE rows when no "
+                "vulnerability source is available."
+            ),
+            "recommended_actions": [
+                "P2: Triage VPN-GW-01 first (highest urgency-weighted risk_score) — validate brute-force sources and any post-failure successes.",
+                "P2: Review APP-EDGE-03 PowerShell alert parent process, command line, and encoded-command indicators.",
+                "P2: Validate DB-PROD-02 privileged-login anomaly against account owner, MFA, and session context.",
+                "P3: Onboard or connect a governed vulnerability source before claiming unpatched CVE exposure on affected hosts.",
+            ],
+            "review_notice": "Candidate MITRE mappings and review-only SPL. CVE leg is an honest degrade — correlation unavailable.",
         })
     if scenario.scenario_id == "guided_investigation_supply_chain":
         return {
@@ -1977,6 +2181,105 @@ SCENARIOS: dict[str, DemoScenario] = {
             metrics={"beaconing_hosts": 2, "max_query_count": 288, "mock_result_rows": 2},
             mitre=[{"technique_id": "T1071.004", "name": "Application Layer Protocol: DNS", "support": "analyst_review", "source_refs": ["ev-splunk-dns-beacon-run"]}],
             refs=["ev-splunk-dns-beacon-run"],
+            quality="partial",
+        ),
+    ),
+    "critical_alerts_mitre_cve_review": DemoScenario(
+        scenario_id="critical_alerts_mitre_cve_review",
+        label="Critical alerts + MITRE + CVE cross-ref",
+        category="Investigate",
+        query=(
+            "Show me all critical alerts in the last 6 hours, cross-reference with MITRE ATT&CK, "
+            "and check if any affected hosts have unpatched CVEs"
+        ),
+        environment_mode="connected_coe_demo",
+        expected_skill="attack_discovery",
+        selected_use_case_id="critical_notable_mitre_review",
+        expected_sources=["mcp:splunk", "rag:sop"],
+        expected_sufficiency_mode="partial_answer",
+        mcp_execution_mode="disabled",
+        saia_available=True,
+        rag_available=True,
+        candidate_spl=CRITICAL_NOTABLE_SPL,
+        analyst_summary=(
+            "Critical/high alerts across three hosts roll up to three MITRE technique candidates. "
+            "CVE correlation is honestly degraded because no vulnerability source is onboarded."
+        ),
+        trace_explanation=[
+            "Routed to attack_discovery for a multi-host critical-alert MITRE rollup.",
+            "Governed notable_critical_review_mitre template aggregates pgcil:edr alerts over 6h with technique annotations.",
+            "Vulnerability-source degrade is explicit: no CVE rows fabricated; resource_plan marks vulnerability_source not_onboarded.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-splunk-critical-alerts",
+                "splunk_mcp",
+                "Splunk critical-alert fixture",
+                len(_CRITICAL_ALERT_FIXTURE_ROWS),
+                [
+                    "alert_id",
+                    "host",
+                    "rule_name",
+                    "urgency",
+                    "severity",
+                    "mitre_technique",
+                    "mitre_tactic",
+                    "alert_count",
+                    "first_seen",
+                    "last_seen",
+                ],
+                _CRITICAL_ALERT_FIXTURE_ROWS,
+                tool_name="search",
+                query_or_request_summary="Critical/high alert rollup in pgcil_soc/pgcil:edr over 6h.",
+                executed_spl=None,
+                provider_used="splunk_mcp_fixture",
+            ),
+            _evidence(
+                "ev-rag-critical-triage",
+                "rag",
+                "SOC KB fixture",
+                1,
+                ["entry_id", "document_type", "source_excerpt", "source_refs"],
+                [
+                    _rag_row(
+                        "triage-crit-001",
+                        "Critical alert triage",
+                        "Roll up by host and MITRE technique, validate alert context before escalation, and only correlate CVEs when a vulnerability source is onboarded.",
+                        ["SOC-TRIAGE-CRIT-001#rollup"],
+                    )
+                ],
+                tool_name="retrieve_soc_kb",
+                query_or_request_summary="Approved critical-alert triage and CVE-correlation SOP guidance.",
+                provider_used="governed_rag_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "critical_alerts_mitre_cve_review",
+            "attack_discovery",
+            [
+                _fact(
+                    "fact-critical-rollup",
+                    "Four critical/high alerts across VPN-GW-01, DB-PROD-02, and APP-EDGE-03 carry technique annotations for analyst review.",
+                    ["ev-splunk-critical-alerts"],
+                ),
+                _fact(
+                    "fact-cve-degrade",
+                    "Unpatched CVE correlation was unavailable because no vulnerability source is onboarded.",
+                    ["ev-rag-critical-triage"],
+                    0.95,
+                ),
+            ],
+            metrics={
+                "critical_alert_count": 2,
+                "hosts_with_critical": 2,
+                "hosts_with_alerts": 3,
+            },
+            mitre=[
+                {"technique_id": "T1110.001", "name": "Password Guessing", "support": "analyst_review", "source_refs": ["ev-splunk-critical-alerts"]},
+                {"technique_id": "T1078", "name": "Valid Accounts", "support": "analyst_review", "source_refs": ["ev-splunk-critical-alerts"]},
+                {"technique_id": "T1059.001", "name": "PowerShell", "support": "analyst_review", "source_refs": ["ev-splunk-critical-alerts"]},
+            ],
+            refs=["ev-splunk-critical-alerts", "ev-rag-critical-triage"],
             quality="partial",
         ),
     ),

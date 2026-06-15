@@ -30,6 +30,7 @@ PILOT_EVIDENCE_STATUS_USE_CASES = {
     "edr_powershell_suspicious_command",
     "email_phishing_header_review",
     "dns_beaconing_candidate",
+    "critical_notable_mitre_review",
     "endpoint_ransomware_impact_review",
 }
 

@@ -240,6 +240,38 @@
       "severity_inputs": ["DNS_query_count", "periodicity", "rare_domain_indicator"],
       "answer_sections_supported": ["splunk_results_table", "recommended_actions", "spl_code"]
     },
+    {
+      "template_id": "notable_critical_review_mitre",
+      "status": "active",
+      "use_case_id": "critical_notable_mitre_review",
+      "name": "Critical alert MITRE review",
+      "description": "Read-only aggregation of critical/high endpoint alerts over 6h with MITRE technique and host rollups for analyst review.",
+      "query_shape": "raw_search",
+      "aggregation_shape": "ranked_entities",
+      "group_by_fields": ["host"],
+      "metric_fields": ["alert_count"],
+      "allowed_metrics": ["count"],
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "enabled": true,
+      "production_ready": true,
+      "sample_only": false,
+      "required_entities": [],
+      "default_time_window": "earliest=-6h latest=now",
+      "spl_text": "search index=pgcil_soc sourcetype=pgcil:edr earliest=-6h latest=now | eval rule_name=coalesce(rule_name,process_name,\"edr_detection\") | eval mitre_technique=coalesce(mitre_technique_id,\"T1059.001\") | eval mitre_tactic=coalesce(mitre_tactic,\"Execution\") | eval urgency=case(match(severity,\"(?i)critical\"),\"critical\",match(severity,\"(?i)high\"),\"high\",true(),\"medium\") | stats count as alert_count values(rule_name) as rule_name values(mitre_technique) as mitre_technique values(mitre_tactic) as mitre_tactic values(urgency) as urgency values(severity) as severity min(_time) as first_seen max(_time) as last_seen by host | where urgency IN (\"critical\",\"high\") | sort -alert_count | head 100",
+      "returned_fields": ["host", "rule_name", "mitre_technique", "mitre_tactic", "urgency", "severity", "alert_count", "first_seen", "last_seen"],
+      "validation_rules": {
+        "allowed_indexes": ["pgcil_soc"],
+        "allowed_sourcetypes": ["pgcil:edr"],
+        "allowed_commands": ["search", "eval", "stats", "where", "sort", "head"],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {"max_rows": 100},
+      "severity_inputs": ["alert_count", "urgency", "severity", "host"],
+      "answer_sections_supported": ["splunk_results_table", "mitre_mappings", "recommended_actions", "spl_code"]
+    },
     {"template_id": "edr_suspicious_process", "status": "planned", "use_case_id": "edr_suspicious_process", "required_entities": [], "default_time_window": "earliest=-24h latest=now", "spl_text": null, "returned_fields": [], "validation_rules": {"blocked_until_scd_fields_exist": true}, "result_limits": {"max_rows": 100}, "severity_inputs": [], "answer_sections_supported": []},
     {
       "template_id": "edr_powershell_suspicious_command",

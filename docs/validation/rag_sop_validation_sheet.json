@@ -1,9 +1,9 @@
 {
   "artifact": "soc_validation_rag_sop",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-11T10:33:45+00:00",
+  "generated_at": "2026-06-15T15:58:02+00:00",
   "row_counts": {
-    "use_cases": 49
+    "use_cases": 50
   },
   "rows": [
     {
@@ -137,6 +137,15 @@
       "rag_status": "missing",
       "sop_only": false,
       "use_case_id": "aws_security_group_modifications"
+    },
+    {
+      "kb_no_match_behavior_review": "",
+      "no_spl_expectation": false,
+      "rag_collections": [],
+      "rag_doc_ids": [],
+      "rag_status": "missing",
+      "sop_only": false,
+      "use_case_id": "critical_notable_mitre_review"
     },
     {
       "kb_no_match_behavior_review": "",

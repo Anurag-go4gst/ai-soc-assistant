@@ -1,10 +1,10 @@
 {
   "artifact": "soc_validation_mitre",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-11T10:33:45+00:00",
+  "generated_at": "2026-06-15T15:58:02+00:00",
   "mitre_metadata_role": "metadata_not_evidence",
   "row_counts": {
-    "use_cases": 49
+    "use_cases": 50
   },
   "rows": [
     {
@@ -198,6 +198,21 @@
       "mitre_metadata_role": "metadata_not_evidence",
       "soc_review_notes": "",
       "use_case_id": "aws_security_group_modifications"
+    },
+    {
+      "evidence_status_source": "Runtime MITRE evidence status comes only from the planner MITRE branch (resolve_mitre_decision); registry/crosswalk candidates are metadata_not_evidence and never evidence_supported on their own.",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003"
+      ],
+      "mitre_candidates": [
+        "T1110.001",
+        "T1078",
+        "T1059.001"
+      ],
+      "mitre_metadata_role": "metadata_not_evidence",
+      "soc_review_notes": "",
+      "use_case_id": "critical_notable_mitre_review"
     },
     {
       "evidence_status_source": "Runtime MITRE evidence status comes only from the planner MITRE branch (resolve_mitre_decision); registry/crosswalk candidates are metadata_not_evidence and never evidence_supported on their own.",

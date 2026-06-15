@@ -93,6 +93,7 @@ def test_get_demo_scenarios_returns_all_stage3jd_scenarios() -> None:
         "airgapped_no_saia_success_after_failures",
         "dns_beaconing_c2_hunt",
         "dns_beaconing_c2_hunt_run",
+        "critical_alerts_mitre_cve_review",
         "guided_investigation_supply_chain",
     }
 

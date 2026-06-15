@@ -1629,6 +1629,94 @@
       ]
     },
     {
+      "use_case_id": "critical_notable_mitre_review",
+      "display_name": "Critical alert MITRE + CVE review",
+      "category": "SOC / Alert triage",
+      "intent_patterns": [
+        "critical alerts",
+        "critical alert",
+        "unpatched cve",
+        "unpatched cves",
+        "cross-reference",
+        "cross reference",
+        "mitre att&ck",
+        "affected hosts"
+      ],
+      "example_queries": [
+        "Show me all critical alerts in the last 6 hours, cross-reference with MITRE ATT&CK, and check if any affected hosts have unpatched CVEs"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "alert_id",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-6h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "mitre_mapping"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "rag:sop"
+      ],
+      "default_spl_template": "notable_critical_review_mitre",
+      "rag_collections": [
+        "alert_triage_sop"
+      ],
+      "mitre_candidates": [
+        "T1110.001",
+        "T1078",
+        "T1059.001"
+      ],
+      "severity_policy": "critical_notable_mitre_review",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [
+          "T1110.001",
+          "T1078",
+          "T1059.001"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim defense impairment without direct tool or log-tamper evidence.",
+          "T1003": "Critical-alert rollup alone does not support credential dumping."
+        },
+        "requires_evidence": true,
+        "requires_alert_context": true,
+        "default_visibility": "trace_only",
+        "answer_visibility_policy": "answer_if_requested",
+        "mapping_confidence": "high",
+        "mapping_rationale": "Registry-level MITRE candidates for critical-alert triage. Runtime mitre_decision governs supported vs candidate visibility.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1110.001",
+            "T1078",
+            "T1059.001"
+          ],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": true,
+      "mitre_requires_alert_context": true,
+      "mitre_visibility_policy": "answer_if_requested",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003"
+      ]
+    },
+    {
       "use_case_id": "edr_suspicious_process",
       "display_name": "Suspicious process execution",
       "category": "Endpoint / EDR",
