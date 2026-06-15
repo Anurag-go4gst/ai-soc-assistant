@@ -141,10 +141,29 @@ def test_requested_safe_tool_can_be_selected(monkeypatch) -> None:
         execution_intent="spl_search",
         spl_validation=APPROVED_VALIDATION,
         user_requested_mcp_tool="run_splunk_query",
+        rbac_role="analyst",
     )
 
     assert selection["tool_selection_status"] == "selected"
     assert selection["selected_mcp_tool"] == "splunk_run_query"
+
+
+def test_viewer_rbac_blocks_requested_run_query(monkeypatch) -> None:
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+
+    selection = select_mcp_tool(
+        trace_id="trace-rbac-viewer",
+        selected_skill="attack_discovery",
+        workflow_plan={},
+        execution_intent="spl_search",
+        spl_validation=APPROVED_VALIDATION,
+        user_requested_mcp_tool="run_splunk_query",
+        rbac_role="viewer",
+    )
+
+    assert selection["tool_selection_status"] == "requires_human_review"
+    assert selection["blocked_reason"] == "rbac_denied:viewer:splunk_run_query"
 
 
 def test_requested_canonical_tool_matches_legacy_discovery_alias(monkeypatch) -> None:

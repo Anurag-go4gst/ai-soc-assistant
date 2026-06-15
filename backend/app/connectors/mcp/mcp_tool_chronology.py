@@ -21,6 +21,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
+from app.connectors.mcp.mcp_rbac import canonical_mcp_tool_name, is_tool_allowed_for_role, rbac_denial_reason
+
 _PLAYBOOK_PATH = Path(__file__).with_name("mcp_tool_playbook.json")
 
 DecisionSource = Literal[
@@ -83,6 +85,59 @@ def deterministic_default_chronology(
     return sequence
 
 
+def _evaluate_tool_step(
+    tool: str,
+    spec: dict[str, Any] | None,
+    *,
+    target_index: str | None,
+    spl_approved: bool,
+    rbac_role: str | None,
+) -> str | None:
+    """Return a drop reason, or None when the tool may enter the approved plan."""
+    canonical = canonical_mcp_tool_name(tool)
+    if spec is None:
+        return "unknown_tool"
+    if spec.get("blocked"):
+        return str(spec.get("blocked_reason", "blocked"))
+    if canonical == "splunk_run_query" and not spl_approved:
+        return "approved_normalized_spl_missing"
+    if canonical == "splunk_get_index_info" and not target_index:
+        return "no_target_index"
+    if rbac_role is not None and not is_tool_allowed_for_role(canonical, rbac_role):
+        return rbac_denial_reason(canonical, rbac_role) or f"rbac_denied:{rbac_role}"
+    return None
+
+
+def _filter_default_chronology(
+    default: list[str],
+    tools: dict[str, Any],
+    *,
+    target_index: str | None,
+    spl_approved: bool,
+    rbac_role: str | None,
+) -> ChronologyPlan:
+    accepted: list[str] = []
+    dropped: list[DroppedStep] = []
+    for tool in default:
+        canonical = canonical_mcp_tool_name(tool)
+        reason = _evaluate_tool_step(
+            canonical,
+            tools.get(canonical),
+            target_index=target_index,
+            spl_approved=spl_approved,
+            rbac_role=rbac_role,
+        )
+        if reason:
+            dropped.append(DroppedStep(tool, reason))
+            continue
+        accepted.append(canonical)
+    return ChronologyPlan(
+        approved_tools=accepted,
+        decision_source="deterministic_default",
+        dropped=dropped,
+    )
+
+
 def review_proposed_tool_chronology(
     proposed: list[str] | None,
     *,
@@ -106,7 +161,13 @@ def review_proposed_tool_chronology(
     )
 
     if not proposed:
-        return ChronologyPlan(approved_tools=default, decision_source="deterministic_default")
+        return _filter_default_chronology(
+            default,
+            tools,
+            target_index=target_index,
+            spl_approved=spl_approved,
+            rbac_role=rbac_role,
+        )
 
     accepted: list[str] = []
     dropped: list[DroppedStep] = []
@@ -115,36 +176,36 @@ def review_proposed_tool_chronology(
 
     for raw in proposed:
         tool = str(raw).strip()
+        canonical = canonical_mcp_tool_name(tool)
         if tool in seen:
             dropped.append(DroppedStep(tool, "duplicate"))
             continue
         seen.add(tool)
-        spec = tools.get(tool)
-        if spec is None:
-            dropped.append(DroppedStep(tool, "unknown_tool"))
+        reason = _evaluate_tool_step(
+            canonical,
+            tools.get(canonical),
+            target_index=target_index,
+            spl_approved=spl_approved,
+            rbac_role=rbac_role,
+        )
+        if reason:
+            dropped.append(DroppedStep(tool, reason))
             continue
-        if spec.get("blocked"):
-            dropped.append(DroppedStep(tool, spec.get("blocked_reason", "blocked")))
-            continue
-        if tool == "splunk_run_query" and not spl_approved:
-            dropped.append(DroppedStep(tool, "approved_normalized_spl_missing"))
-            continue
-        if tool == "splunk_get_index_info" and not target_index:
-            dropped.append(DroppedStep(tool, "no_target_index"))
-            continue
-        if rbac_role is not None:
-            allowed_roles = spec.get("rbac_roles")
-            if allowed_roles and rbac_role not in allowed_roles:
-                dropped.append(DroppedStep(tool, f"rbac_denied:{rbac_role}"))
-                continue
-        accepted.append(tool)
+        accepted.append(canonical)
 
     if not accepted:
         warnings.append("llm_proposal_empty_after_review_fell_back_to_deterministic")
+        fallback = _filter_default_chronology(
+            default,
+            tools,
+            target_index=target_index,
+            spl_approved=spl_approved,
+            rbac_role=rbac_role,
+        )
         return ChronologyPlan(
-            approved_tools=default,
+            approved_tools=fallback.approved_tools,
             decision_source="deterministic_fallback",
-            dropped=dropped,
+            dropped=[*dropped, *fallback.dropped],
             warnings=warnings,
         )
 

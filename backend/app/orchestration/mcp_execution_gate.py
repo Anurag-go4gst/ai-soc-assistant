@@ -14,6 +14,7 @@ from app.orchestration.execution_confirmation import (
     resolve_execution_spl,
 )
 from app.orchestration.human_review import human_review, no_human_review
+from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS, select_mcp_tool
 
 RESULT_PREVIEW_CAP = 5
@@ -47,6 +48,7 @@ def evaluate_mcp_execution(
     execution_review_action: str | None = None,
     analyst_provided_spl: str | None = None,
     pending_execution: dict[str, Any] | None = None,
+    rbac_role: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     telemetry = get_telemetry_connector()
     precondition_block_reason = _precondition_block_reason(precondition_evaluation)
@@ -86,6 +88,7 @@ def evaluate_mcp_execution(
         user_requested_mcp_tool=requested_mcp_tool,
         llm_tool_recommendation=llm_tool_recommendation,
         registry=registry,
+        rbac_role=session_role_for_mcp_gate(rbac_role),
     )
     telemetry.record_mcp_execution(trace_id, event_type="mcp_tool_selection", **_selection_event(selection))
 

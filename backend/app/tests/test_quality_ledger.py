@@ -77,7 +77,7 @@ def test_chat_succeeds_when_ledger_write_fails(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_ledger_redacts_and_minimizes_secret_payload(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_response(request: ChatRequest) -> PlaceholderResponse:
+    def fake_response(request: ChatRequest, **kwargs: object) -> PlaceholderResponse:
         response = _fake_chat_response(request)
         response.control_plane_trace = {
             "api_token": "sk-12345678901234567890",

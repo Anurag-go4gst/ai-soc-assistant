@@ -2,7 +2,7 @@
 
 Date: 2026-06-15
 Branch: spl-generation-audit
-Status: In Progress (§3 EC flagship **built** 2026-06-15; §4A scaffold shipped; §4B pending approval)
+Status: In Progress (§3 EC flagship **built**; §4A **shipped** incl. RBAC + `/chat` shadow; §4B pending approval)
 Source reviewed: `https://github.com/Sbharadwaj05/sb-siem-mcp` (third-party Wazuh MCP **server**, MIT, 28 tools, 9 domains)
 
 ---
@@ -248,7 +248,7 @@ unchanged — confirm).
 
 ## 4A. WS-MCP — air-gapped tool playbook + RBAC + advisory plan-review
 
-> **Status 2026-06-15: §4A.2 + §4A.3 + §4A.5 + LLM planner wiring SHIPPED.**
+> **Status 2026-06-15: §4A.2–§4A.5 + §4A.4 RBAC + `/chat` advisory shadow SHIPPED.**
 > Bug fix + playbook + chronology reviewer + `mcp_tool_planner.py` (calibrated
 > prompt + `response_format=json_object` → Instruct → parse → deterministic
 > review → fallback). 1-LLM decision: Instruct is the planner; Qwen is a
@@ -259,17 +259,14 @@ unchanged — confirm).
 > closed-set prompt, Instruct matched/beat Qwen (caught CVE+MITRE `unservable`,
 > no over-claim) — the earlier "Instruct can't plan" was a prompt/config gap.
 >
-> **Integration status (corrected, post review):** the bug fix (user_info/SAIA)
-> is shipped + governance-green. The playbook, chronology reviewer, and planner
-> are **tested library code only — NOT imported by `routes_chat`/`pipeline`/graph**
-> (verified: no callers outside tests). "Live-verified" = the standalone module
-> called real Instruct end-to-end, NOT that it runs on the `/chat` path. Wiring to
-> `/chat` + `mcp_rbac_policy.json` + session-role resolution are explicit
-> follow-ups (§4A.4 / §4B), not done. Nothing committed yet — uncommitted working
-> tree on `spl-generation-audit`.
-> §4A.4 RBAC: roles are encoded per-tool in the playbook and enforced by the
-> chronology reviewer (`rbac_role` drop), but a standalone `mcp_rbac_policy.json`
-> + role-inheritance enforcer is still pending.
+> **Integration status (2026-06-15):** `mcp_rbac_policy.json` + `mcp_rbac.py`
+> enforce role inheritance; `select_mcp_tool` / `evaluate_mcp_execution` accept
+> `rbac_role` from the FastAPI session (`demo_analyst` → `analyst`). Advisory
+> `mcp_tool_plan_shadow` runs on the live `/chat` path when
+> `CONTROL_PLANE_ENABLED` (or MCP/SPL interest) and surfaces under
+> `control_plane_trace.mcp_tool_plan_shadow` — deterministic-only on the live
+> path unless both live-synthesis flags are on (shadow never promotes). §4B
+> cyclic evidence loop remains pending approval.
 > EC flagship scenario (§3) **built** — `critical_alerts_mitre_cve_review` in `scenarios.py`.
 >
 > Shipped files: `discovery.py` (user_info→`identity_context`+`rbac_gated`, SAIA

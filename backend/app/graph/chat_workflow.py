@@ -93,12 +93,18 @@ def _after_rag_early(state: ChatPipelineState) -> str:
     return "spl_source_resolve"
 
 
-def run_chat_via_langgraph(request: ChatRequest) -> PlaceholderResponse:
+def run_chat_via_langgraph(
+    request: ChatRequest,
+    *,
+    session_role: str | None = None,
+) -> PlaceholderResponse:
     """Run the same staged pipeline through LangGraph; behavior must match imperative path."""
-    final_state = _compiled_chat_graph().invoke({"request": request})
+    final_state = _compiled_chat_graph().invoke(
+        {"request": request, "session_role": session_role},
+    )
     response = final_state.get("response")
     if response is None:
-        return build_live_chat_response(request)
+        return build_live_chat_response(request, session_role=session_role)
     note = response.note or ""
     suffix = "Orchestration: langgraph (parity mode)."
     if suffix not in note:

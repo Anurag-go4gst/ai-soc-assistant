@@ -87,8 +87,8 @@ def test_rbac_role_gates_user_info_and_search() -> None:
         rbac_role="viewer",
     )
     dropped = {d.tool: d.reason for d in plan.dropped}
-    assert dropped["splunk_get_user_info"] == "rbac_denied:viewer"
-    assert dropped["splunk_run_query"] == "rbac_denied:viewer"
+    assert dropped["splunk_get_user_info"] == "rbac_denied:viewer:splunk_get_user_info"
+    assert dropped["splunk_run_query"] == "rbac_denied:viewer:splunk_run_query"
     assert plan.approved_tools == ["splunk_get_indexes"]
 
 

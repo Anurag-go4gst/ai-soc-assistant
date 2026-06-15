@@ -4,6 +4,7 @@ from typing import Any
 
 from app.config import settings
 from app.connectors.mcp.discovery import BLOCKED_TOOL_TOKENS, safe_tool_name
+from app.connectors.mcp.mcp_rbac import is_tool_allowed_for_role, rbac_denial_reason, session_role_for_mcp_gate
 from app.connectors.mcp.registry import McpRegistryStatus, McpServerStatus, load_mcp_registry_status
 from app.orchestration.human_review import human_review
 from app.splunk.capabilities import RUN_QUERY_ALIASES
@@ -22,7 +23,9 @@ def select_mcp_tool(
     user_requested_mcp_tool: str | None = None,
     llm_tool_recommendation: dict[str, Any] | None = None,
     registry: McpRegistryStatus | None = None,
+    rbac_role: str | None = None,
 ) -> dict[str, Any]:
+    rbac_role = session_role_for_mcp_gate(rbac_role)
     registry = registry or load_mcp_registry_status()
     review = _preflight_review(selected_skill, execution_intent, spl_validation)
     if review:
@@ -66,6 +69,9 @@ def select_mcp_tool(
             return _review_result(trace_id, execution_intent, "policy_exception_request", requested.get("blocked_reason") or "requested_tool_blocked")
         if not _tool_matches_intent(requested, execution_intent):
             return _review_result(trace_id, execution_intent, "tool_selection_review", "requested_tool_intent_mismatch")
+        rbac_review = _rbac_review(trace_id, execution_intent, str(requested.get("name") or requested_tool), rbac_role)
+        if rbac_review is not None:
+            return rbac_review
         return _selected(trace_id, execution_intent, server, requested, "requested_safe_tool_selected_after_policy_check")
 
     eligible = [
@@ -75,8 +81,22 @@ def select_mcp_tool(
     ]
     if not eligible:
         return _review_result(trace_id, execution_intent, "tool_selection_review", "no_allowlisted_tool_found")
+    rbac_eligible = [
+        tool
+        for tool in eligible
+        if is_tool_allowed_for_role(str(tool.get("name") or ""), rbac_role)
+    ]
+    if not rbac_eligible:
+        return _review_result(trace_id, execution_intent, "policy_exception_request", "rbac_no_eligible_tool")
 
-    return _selected(trace_id, execution_intent, server, eligible[0], "deterministic_safe_tool_selected")
+    return _selected(trace_id, execution_intent, server, rbac_eligible[0], "deterministic_safe_tool_selected")
+
+
+def _rbac_review(trace_id: str, execution_intent: str, tool_name: str, rbac_role: str | None) -> dict[str, Any] | None:
+    if is_tool_allowed_for_role(tool_name, rbac_role):
+        return None
+    reason = rbac_denial_reason(tool_name, rbac_role) or "rbac_denied"
+    return _review_result(trace_id, execution_intent, "policy_exception_request", reason)
 
 
 def _preflight_review(selected_skill: str, execution_intent: str, spl_validation: dict[str, Any] | None) -> dict[str, Any] | None:

@@ -24,6 +24,7 @@ from app.orchestration.broaden_orchestration import (
 )
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
+from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS
 from app.orchestration.workflow_planner import plan_workflow
 from app.query_understanding.semantic_intent import build_semantic_intent_envelope
 from app.query_understanding.parser import understand_query
@@ -120,6 +121,8 @@ from app.llm.missing_evidence_reasoner import (
 )
 from app.llm.mitre_risk_rationale import run_mitre_risk_rationale
 from app.planner.resource_plan_shadow import run_resource_plan_shadow
+from app.connectors.mcp.mcp_tool_plan_shadow import run_mcp_tool_plan_shadow
+from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
@@ -202,6 +205,7 @@ class ChatPipelineState(TypedDict, total=False):
     session_id: str | None
     session_pins: Any
     session_context_resolution: SessionContextResolution | None
+    session_role: str | None
     effective_query: str | None
     llm_turn_budget: TurnLlmBudget | None
     response: PlaceholderResponse
@@ -211,16 +215,21 @@ def build_live_chat_response(
     request: ChatRequest,
     *,
     progress: ProgressReporter | None = None,
+    session_role: str | None = None,
 ) -> PlaceholderResponse:
     token = bind_progress_reporter(progress) if progress is not None else None
     try:
-        return _build_live_chat_response_inner(request)
+        return _build_live_chat_response_inner(request, session_role=session_role)
     finally:
         if token is not None:
             reset_progress_reporter(token)
 
 
-def _build_live_chat_response_inner(request: ChatRequest) -> PlaceholderResponse:
+def _build_live_chat_response_inner(
+    request: ChatRequest,
+    *,
+    session_role: str | None = None,
+) -> PlaceholderResponse:
     emit_stage("queued")
     session_resolution = resolve_session_context(request)
     state: ChatPipelineState = {
@@ -228,6 +237,7 @@ def _build_live_chat_response_inner(request: ChatRequest) -> PlaceholderResponse
         "session_id": session_resolution.session_id,
         "session_pins": session_resolution.pins,
         "session_context_resolution": session_resolution,
+        "session_role": session_role,
         "effective_query": session_resolution.effective_query,
     }
     state = graph_node_init_routing(state)
@@ -634,6 +644,7 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         execution_review_action=getattr(request, "execution_review_action", None),
         analyst_provided_spl=getattr(request, "analyst_provided_spl", None),
         pending_execution=pending_execution,
+        rbac_role=session_role_for_mcp_gate(state.get("session_role")),
     )
     # O5c Step 2: the broaden confirm turn executed the approved broadened
     # search. Attach the two-call cross-turn envelope (empty primary + broadened
@@ -1649,6 +1660,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             control_plane_trace["mitre_risk_rationale"] = mitre_risk_rationale_trace
         if resource_plan_shadow_trace is not None:
             control_plane_trace["resource_plan_shadow"] = resource_plan_shadow_trace
+        mcp_tool_plan_shadow_trace = run_mcp_tool_plan_shadow(
+            query=request.message,
+            target_index=_target_index_from_validation(spl_validation),
+            spl_approved=bool(isinstance(spl_validation, dict) and spl_validation.get("approved")),
+            session_role=state.get("session_role"),
+            needs_mcp=_mcp_tool_plan_needs_mcp(state, spl_validation),
+            needs_spl=spl_validation is not None,
+        )
+        if mcp_tool_plan_shadow_trace is not None:
+            control_plane_trace["mcp_tool_plan_shadow"] = mcp_tool_plan_shadow_trace
         if llm_turn_budget_trace is not None:
             control_plane_trace["llm_turn_budget"] = llm_turn_budget_trace
 
@@ -3940,6 +3961,7 @@ def _execution_stage(
     execution_review_action: str | None = None,
     analyst_provided_spl: str | None = None,
     pending_execution: dict[str, Any] | None = None,
+    rbac_role: str | None = None,
 ) -> tuple[dict, dict]:
     if spl_validation is None:
         return (
@@ -3988,7 +4010,26 @@ def _execution_stage(
         execution_review_action=execution_review_action,
         analyst_provided_spl=analyst_provided_spl,
         pending_execution=pending_execution,
+        rbac_role=rbac_role,
     )
+
+
+def _target_index_from_validation(spl_validation: dict | None) -> str | None:
+    if not isinstance(spl_validation, dict):
+        return None
+    normalized = spl_validation.get("normalized_spl")
+    if not isinstance(normalized, str):
+        return None
+    match = re.search(r"index=(\S+)", normalized)
+    return match.group(1) if match else None
+
+
+def _mcp_tool_plan_needs_mcp(state: ChatPipelineState, spl_validation: dict | None) -> bool:
+    if spl_validation is None:
+        return False
+    if not _mcp_allowed(state):
+        return False
+    return _context_selected_skill(state) in EXECUTION_ELIGIBLE_SKILLS
 
 
 def _context_stage(
