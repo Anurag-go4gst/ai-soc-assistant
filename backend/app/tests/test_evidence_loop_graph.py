@@ -76,7 +76,7 @@ def test_cp_on_loop_state_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
     # Discovery chronology was composed and read-only hops were recorded.
     assert isinstance(final_state.get("mcp_chronology"), list)
     for hop in final_state.get("mcp_evidence") or []:
-        assert hop["outcome"] == "planned"
+        assert hop["outcome"] in {"planned", "collected"}
         assert hop["tool"] != "splunk_run_query"
 
 
@@ -86,9 +86,29 @@ def test_cp_on_merges_loop_hops_into_source_evidence(monkeypatch: pytest.MonkeyP
     assert response is not None
     discovery = [item for item in response.source_evidence if item.source_type == "mcp_discovery"]
     assert len(discovery) >= 1
-    assert all(item.collection_status == "planned" for item in discovery)
+    assert all(item.collection_status in {"planned", "collected"} for item in discovery)
     discovery_ids = {item.evidence_id for item in discovery}
     assert discovery_ids.issubset(set(response.structured_context.source_evidence_refs))
+
+
+def test_cp_on_chronology_is_deterministic_without_advisory_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Live blocking path must NOT call the slow LLM planner unless the advisory
+    # flag is on (PowerGrid latency incident regression guard).
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    import app.chat.pipeline as pipeline
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("plan_tool_chronology must not run on the live path by default")
+
+    monkeypatch.setattr(pipeline, "plan_tool_chronology", _boom)
+    monkeypatch.setattr(pipeline, "mcp_tool_plan_llm_advisory_enabled", lambda: False)
+    # _boom not raising already proves the LLM planner was skipped; assert the
+    # recorded provenance too.
+    response = run_chat_via_langgraph(ChatRequest(message=QUERY))
+    assert response is not None
+    loop_planner = ((response.control_plane_trace or {}).get("evidence_loop") or {}).get("planner") or {}
+    assert loop_planner.get("decision_source") == "deterministic_default"
+    assert (loop_planner.get("planner") or {}).get("llm_called") is False
 
 
 def test_cp_off_parity_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:

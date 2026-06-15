@@ -135,6 +135,38 @@ def record_hop(
     }
 
 
+def execution_hop_recorded(state: dict[str, Any]) -> bool:
+    for hop in state.get("mcp_evidence") or []:
+        if hop.get("tool") == "splunk_run_query":
+            return True
+    return False
+
+
+def record_execution_hop(state: dict[str, Any], execution: dict[str, Any]) -> dict[str, Any]:
+    """Count a gated run_query re-entry against the single hop bound."""
+    if execution_hop_recorded(state):
+        return {}
+    status = str(execution.get("status") or "unknown")
+    result_count = int(execution.get("result_count") or 0)
+    delivered: list[str] = []
+    if status == "executed" and result_count > 0:
+        delivered = ["events"]
+    elif status == "executed":
+        delivered = ["negative_result"]
+    outcome = "collected" if status == "executed" else status
+    return record_hop(
+        state,
+        tool="splunk_run_query",
+        delivered=delivered,
+        outcome=outcome,
+        payload={
+            "execution_status": status,
+            "result_count": result_count,
+            "block_reason": execution.get("block_reason"),
+        },
+    )
+
+
 def delivered_produces(state: dict[str, Any]) -> set[str]:
     """Union of `produces` keys delivered across all accumulated hops."""
     delivered: set[str] = set()

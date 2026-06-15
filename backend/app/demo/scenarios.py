@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
+from app.analysis.soc_aggregates import alert_summary_aggregate, top_risky_hosts
 from app.actions.capability_policy import action_capability_for
 from app.answer_guard.models import AnswerGuardStatus
 from app.chat.analyst_response_builder import attach_evidence_summary
@@ -979,8 +980,6 @@ DNS_BEACONING_VISIBLE_SPL = _pretty_spl(DNS_BEACONING_SPL)
 CRITICAL_NOTABLE_SPL = _scoped_template_spl("notable_critical_review_mitre")
 CRITICAL_NOTABLE_VISIBLE_SPL = _pretty_spl(CRITICAL_NOTABLE_SPL)
 
-_CRITICAL_URGENCY_WEIGHT = {"critical": 10, "high": 5, "medium": 2, "low": 1}
-
 _CRITICAL_ALERT_FIXTURE_ROWS = [
     {
         "alert_id": "ALT-8841",
@@ -1033,22 +1032,8 @@ _CRITICAL_ALERT_FIXTURE_ROWS = [
 ]
 
 
-def _urgency_risk_weight(urgency: str) -> int:
-    return _CRITICAL_URGENCY_WEIGHT.get(str(urgency).lower(), 1)
-
-
 def _top_risky_hosts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    scores: dict[str, int] = {}
-    for row in rows:
-        host = str(row.get("host") or "")
-        if not host:
-            continue
-        count = int(row.get("alert_count") or row.get("count") or 1)
-        scores[host] = scores.get(host, 0) + _urgency_risk_weight(str(row.get("urgency") or "")) * count
-    return [
-        {"Host": host, "Risk score": score, "Rank": index + 1}
-        for index, (host, score) in enumerate(sorted(scores.items(), key=lambda item: -item[1]))
-    ]
+    return top_risky_hosts(rows, count_field="alert_count")
 
 
 def _playbook_payload() -> dict[str, object]:

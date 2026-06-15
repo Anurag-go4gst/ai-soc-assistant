@@ -19,6 +19,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from app.safeguards.evidence_sanitizer import redact_secret_values
+
 from app.query_understanding.models import QueryUnderstandingResult
 
 if TYPE_CHECKING:
@@ -77,7 +79,7 @@ class GovernedContextPackage:
             (5, "resource_decisions", self.resource_decisions[:10]),
             (6, "soc_kb_snippets", self.soc_kb_snippets[:6]),
         ]
-        scalars = [f"raw_query: {self.raw_query}"]
+        scalars = [f"raw_query: {_sanitize_prompt_fragment(self.raw_query)}"]
         for label, value in (
             ("match_path", self.match_path),
             ("routed_skill", self.routed_skill),
@@ -86,13 +88,14 @@ class GovernedContextPackage:
             ("use_case_id", self.use_case_id),
         ):
             if value:
-                scalars.append(f"{label}: {value}")
+                scalars.append(f"{label}: {_sanitize_prompt_fragment(str(value))}")
 
         def render(sections: list[tuple[int, str, list[str]]]) -> str:
-            lines = list(scalars)
+            lines = [_sanitize_prompt_fragment(line) for line in scalars]
             for _, label, values in sections:
                 if values:
-                    lines.append(f"{label}: " + "; ".join(str(v) for v in values))
+                    sanitized = "; ".join(_sanitize_prompt_fragment(str(v)) for v in values)
+                    lines.append(f"{label}: {sanitized}")
             return "\n".join(lines)
 
         block = render(priced_sections)
@@ -197,3 +200,7 @@ def _use_case_candidates(
             if item and str(item) not in candidates:
                 candidates.append(str(item))
     return candidates
+
+
+def _sanitize_prompt_fragment(text: str) -> str:
+    return redact_secret_values(text)

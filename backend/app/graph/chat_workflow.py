@@ -27,6 +27,7 @@ from app.chat.evidence_loop import (
 from app.chat.pipeline import (
     ChatPipelineState,
     build_live_chat_response,
+    graph_node_composed_dispatch,
     graph_node_context_finalize,
     graph_node_evidence_planning,
     graph_node_execution,
@@ -40,6 +41,7 @@ from app.chat.pipeline import (
     graph_node_workflow_spl,
 )
 from app.config import settings
+from app.planner.executor import has_composed_plan
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
 
@@ -53,7 +55,7 @@ def _add_linear_chain(graph: StateGraph) -> None:
     graph.add_conditional_edges(
         "shadow_enrichment",
         _after_shadow_enrichment,
-        {"rag_only": "prepare_rag_only", "workflow_spl": "workflow_spl"},
+        {"rag_only": "prepare_rag_only", "workflow_spl": "workflow_spl", "composed_dispatch": "composed_dispatch"},
     )
     graph.add_edge("prepare_rag_only", "rag_early")
     # Non-rag-only path mirrors the imperative order: SPL → [pre-MCP RAG] →
@@ -71,6 +73,7 @@ def _add_linear_chain(graph: StateGraph) -> None:
         {"context_finalize": "context_finalize", "spl_source_resolve": "spl_source_resolve"},
     )
     graph.add_edge("spl_source_resolve", "execution")
+    graph.add_edge("composed_dispatch", "context_finalize")
     graph.add_edge("context_finalize", END)
 
 
@@ -84,6 +87,7 @@ def _core_nodes(graph: StateGraph) -> None:
     graph.add_node("workflow_spl", graph_node_workflow_spl)
     graph.add_node("spl_source_resolve", graph_node_spl_source_resolve)
     graph.add_node("execution", graph_node_execution)
+    graph.add_node("composed_dispatch", graph_node_composed_dispatch)
     graph.add_node("context_finalize", graph_node_context_finalize)
     graph.set_entry_point("init_routing")
     graph.add_edge("init_routing", "query_to_intent")
@@ -168,6 +172,8 @@ def _hub_route(state: ChatPipelineState) -> str:
 def _after_shadow_enrichment(state: ChatPipelineState) -> str:
     if _evidence_plan(state).get("answer_mode") == "rag_only":
         return "rag_only"
+    if has_composed_plan(state):
+        return "composed_dispatch"
     return "workflow_spl"
 
 

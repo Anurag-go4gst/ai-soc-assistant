@@ -68,6 +68,7 @@ from app.spl.draft_preview import (
 )
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.spl.spl_relevance_check import check_spl_relevance
+from app.spl.mcp_loop_discovery import execute_loop_discovery_hop
 from app.spl.spl_source_resolve import build_spl_source_profile_review, resolve_spl_source_profile
 from app.splunk.spl_services import (
     explain_spl,
@@ -122,14 +123,20 @@ from app.llm.missing_evidence_reasoner import (
 from app.llm.mitre_risk_rationale import run_mitre_risk_rationale
 from app.planner.resource_plan_shadow import run_resource_plan_shadow
 from app.connectors.mcp.mcp_tool_chronology import deterministic_default_chronology
+from app.connectors.mcp.mcp_tool_planner import plan_tool_chronology
 from app.chat.evidence_loop import (
+    MAX_MCP_HOPS,
     ROUTE_DISCOVERY_HOP,
     assess_loop,
     initialize_loop,
     loop_initialized,
+    record_execution_hop,
     record_hop,
 )
-from app.connectors.mcp.mcp_tool_plan_shadow import run_mcp_tool_plan_shadow
+from app.connectors.mcp.mcp_tool_plan_shadow import (
+    mcp_tool_plan_llm_advisory_enabled,
+    run_mcp_tool_plan_shadow,
+)
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.chat.intent_classifier import build_query_to_intent
@@ -224,6 +231,7 @@ class ChatPipelineState(TypedDict, total=False):
     mcp_requirements: dict[str, list[str]]
     mcp_required_produces: list[str]
     mcp_loop: dict[str, Any]
+    mcp_loop_planner: dict[str, Any] | None
     response: PlaceholderResponse
 
 
@@ -259,6 +267,7 @@ def _build_live_chat_response_inner(
     state = graph_node_init_routing(state)
     state = graph_node_query_to_intent(state)
     state = graph_node_evidence_planning(state)
+    state = _run_discovery_loop_imperative(state)
     state = graph_node_shadow_enrichment(state)
     if has_composed_plan(state):
         # WS0 T0.4: composed-plan dispatch — same node calls, same predicates,
@@ -273,6 +282,8 @@ def _build_live_chat_response_inner(
             state = graph_node_rag_early(state)
         state = graph_node_spl_source_resolve(state)
         state = graph_node_execution(state)
+    if settings.control_plane_enabled and loop_initialized(state):
+        state = graph_node_evidence_planning(state)
     state = graph_node_context_finalize(state)
     response = state.get("response")
     if response is None:
@@ -404,9 +415,12 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     # execution hop) the HUB only re-assesses + routes — it must NOT re-emit
     # progress, re-route, or re-compose the plan (idempotency, plan bug #2).
     if settings.control_plane_enabled and loop_initialized(state):
+        execution = state.get("execution") if "execution" in state else None
+        if isinstance(execution, dict):
+            state = {**state, **record_execution_hop(state, execution)}
         decision = assess_loop(
             state,
-            execution=state.get("execution") if "execution" in state else None,
+            execution=execution,
             broaden_eligible=_loop_broaden_eligible(state),
         )
         return {**state, "mcp_loop": decision.to_dict()}
@@ -448,18 +462,29 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case=state.get("selected_use_case"),
         llm_intent_advisory=state.get("llm_intent_advisory"),
     )
-    # Stage 4B: compose the deterministic discovery chronology once, so the
-    # HUB can drive read-only mcp_call hops before the linear SPL/execution chain.
+    if not _mcp_evidence_loop_enabled(state, evidence_payload):
+        return {
+            **state,
+            "evidence_plan": evidence_payload,
+            "planning_decision": planning.model_dump(),
+        }
+    # Stage 4B: compose the reviewed discovery chronology once, so the HUB can
+    # drive read-only mcp_call hops before the linear SPL/execution chain.
+    chronology, loop_planner = _resolve_loop_chronology(state, spl_approved=False)
     loop_init = initialize_loop(
-        deterministic_default_chronology(spl_approved=False),
+        chronology,
         required_produces=_loop_required_produces(evidence_payload),
     )
+    loop_state = {**loop_init}
+    if loop_planner is not None:
+        loop_state["mcp_loop_planner"] = loop_planner
     return {
         **state,
         "evidence_plan": evidence_payload,
         "planning_decision": planning.model_dump(),
         **loop_init,
-        "mcp_loop": assess_loop(loop_init).to_dict(),
+        "mcp_loop_planner": loop_planner,
+        "mcp_loop": assess_loop(loop_state).to_dict(),
     }
 
 
@@ -475,11 +500,20 @@ def graph_node_mcp_call(state: ChatPipelineState) -> ChatPipelineState:
     tool = decision.next_tool
     if decision.route != ROUTE_DISCOVERY_HOP or not tool or tool == "splunk_run_query":
         return state
-    requirements = state.get("mcp_requirements") or {}
-    delivered = [str(item) for item in (requirements.get(tool) or [])]
+    hop = execute_loop_discovery_hop(
+        tool,
+        rbac_role=session_role_for_mcp_gate(state.get("session_role")),
+        trace_id=state.get("trace_id"),
+    )
     return {
         **state,
-        **record_hop(state, tool=tool, delivered=delivered, outcome="planned", payload={"read_only": True}),
+        **record_hop(
+            state,
+            tool=tool,
+            delivered=hop["delivered"],
+            outcome=str(hop["outcome"]),
+            payload=hop.get("payload") if isinstance(hop.get("payload"), dict) else {},
+        ),
     }
 
 
@@ -493,6 +527,81 @@ def _loop_required_produces(evidence_payload: dict[str, Any] | None) -> list[str
         if isinstance(value, list):
             needs.extend(str(item) for item in value)
     return needs
+
+
+def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[str, Any]) -> bool:
+    if not settings.control_plane_enabled:
+        return False
+    if evidence_payload.get("mcp_allowed") is False:
+        return False
+    provisional = {**state, "evidence_plan": evidence_payload}
+    if _uses_rag_only_path(provisional):
+        return False
+    return True
+
+
+def _resolve_loop_chronology(
+    state: ChatPipelineState,
+    *,
+    spl_approved: bool,
+) -> tuple[list[str], dict[str, Any] | None]:
+    """Deterministic chronology on the live blocking path by default; the LLM
+    planner is invoked only when the advisory flag is on. plan_tool_chronology
+    makes a slow on-prem Instruct call — keeping it off the blocking /chat path
+    by default is deliberate (PowerGrid latency incident). Either way the result
+    is deterministically reviewed and the deterministic default always carries."""
+    rbac_role = session_role_for_mcp_gate(state.get("session_role"))
+    target_index = _target_index_from_spl_validation(state.get("spl_validation"))
+    if not mcp_tool_plan_llm_advisory_enabled():
+        return deterministic_default_chronology(spl_approved=spl_approved), {
+            "decision_source": "deterministic_default",
+            "dropped": [],
+            "warnings": [],
+            "planner": {"llm_called": False, "skipped_reason": "live_path_deterministic_only"},
+        }
+    request = state["request"]
+    reviewed = plan_tool_chronology(
+        request.message,
+        target_index=target_index,
+        spl_approved=spl_approved,
+        rbac_role=rbac_role,
+    )
+    chronology = list(reviewed.get("approved_tools") or deterministic_default_chronology(spl_approved=spl_approved))
+    planner_meta = reviewed.get("planner") if isinstance(reviewed.get("planner"), dict) else None
+    return chronology, {
+        "decision_source": reviewed.get("decision_source"),
+        "dropped": reviewed.get("dropped"),
+        "warnings": reviewed.get("warnings"),
+        "planner": planner_meta,
+    }
+
+
+def _target_index_from_spl_validation(spl_validation: dict[str, Any] | None) -> str | None:
+    if not isinstance(spl_validation, dict):
+        return None
+    normalized = str(spl_validation.get("normalized_spl") or "")
+    match = re.search(r"\bindex\s*=\s*([^\s|]+)", normalized, re.IGNORECASE)
+    return match.group(1).strip() if match else None
+
+
+def _run_discovery_loop_imperative(state: ChatPipelineState) -> ChatPipelineState:
+    """Imperative twin: drain discovery hops before the linear chain when CP is on."""
+    if not loop_initialized(state):
+        return state
+    hops = 0
+    while hops < MAX_MCP_HOPS:
+        route = (state.get("mcp_loop") or {}).get("route")
+        if route != ROUTE_DISCOVERY_HOP:
+            break
+        state = graph_node_mcp_call(state)
+        state = graph_node_evidence_planning(state)
+        hops += 1
+    return state
+
+
+def graph_node_composed_dispatch(state: ChatPipelineState) -> ChatPipelineState:
+    """WS0 composed-plan dispatch node for LangGraph."""
+    return execute_plan_dispatch(state, _dispatch_hooks())
 
 
 def _loop_broaden_eligible(state: ChatPipelineState) -> bool:
@@ -1760,6 +1869,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 "hops_done": int(state.get("mcp_hops_done", 0)),
                 "decision": state.get("mcp_loop"),
                 "hops": state.get("mcp_evidence") or [],
+                "planner": state.get("mcp_loop_planner"),
             }
 
     session_context_status = None

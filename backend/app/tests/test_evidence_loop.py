@@ -13,6 +13,7 @@ from app.chat.evidence_loop import (
     declare_hop_requirements,
     initialize_loop,
     loop_initialized,
+    record_execution_hop,
     record_hop,
 )
 
@@ -128,3 +129,14 @@ def test_loop_always_terminates_within_bound() -> None:
         hops += 1
         assert hops <= MAX_MCP_HOPS + 1
     assert state["mcp_hops_done"] <= MAX_MCP_HOPS
+
+
+def test_record_execution_hop_increments_counter_once() -> None:
+    state = _init()
+    for tool in ["splunk_get_info", "splunk_get_indexes", "splunk_get_metadata"]:
+        state = {**state, **record_hop(state, tool=tool, delivered=["x"])}
+    before = int(state["mcp_hops_done"])
+    patch = record_execution_hop(state, {"status": "executed", "result_count": 0})
+    state = {**state, **patch}
+    assert state["mcp_hops_done"] == before + 1
+    assert record_execution_hop(state, {"status": "executed", "result_count": 0}) == {}

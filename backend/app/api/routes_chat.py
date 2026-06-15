@@ -46,10 +46,10 @@ def chat(request: ChatRequest, user: object = Depends(require_auth)) -> Placehol
                 user=user,
             )
 
+    session_role = user.get("role") if isinstance(user, dict) else None
     if settings.langgraph_orchestration_enabled:
         from app.graph.chat_workflow import run_chat_via_langgraph
 
-        session_role = user.get("role") if isinstance(user, dict) else None
         return post_chat_response(
             run_chat_via_langgraph(request, session_role=session_role),
             request,
@@ -57,7 +57,6 @@ def chat(request: ChatRequest, user: object = Depends(require_auth)) -> Placehol
             user=user,
         )
 
-    session_role = user.get("role") if isinstance(user, dict) else None
     return post_chat_response(
         build_live_chat_response(request, session_role=session_role),
         request,

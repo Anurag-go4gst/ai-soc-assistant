@@ -2,7 +2,7 @@
 
 Date: 2026-06-15
 Branch: spl-generation-audit
-Status: In Progress (§3 EC flagship **built**; §4A **shipped** incl. RBAC + `/chat` shadow + EC sidecar parity; §4B pending approval)
+Status: In Progress (§3 EC flagship **built**; §4A **shipped**; §4B **core + deferred slices shipped** on `cp-cyclic-evidence-loop`)
 Source reviewed: `https://github.com/Sbharadwaj05/sb-siem-mcp` (third-party Wazuh MCP **server**, MIT, 28 tools, 9 domains)
 
 ---
@@ -67,10 +67,10 @@ rows) and #2 (deterministic rollup shapes) ourselves — §3.3 below.
 
 | Item | Source file | Why | Confidence |
 |------|-------------|-----|-----------|
-| **A1. Result-row output sanitizer** | `sanitizer.py` | Recursive redaction of secrets (AWS/JWT/SSH/Bearer/password fields) from data **before it reaches the LLM**. Wired at `source_evidence._safe_text` (+ envelope path via `_safe_rows`). | **Shipped** |
-| **A2. `risk_score` heatmap formula** | `analysis.py` (`crit*10+high*5+med*2+low`) | Drop-in deterministic answer-section for vuln/host prioritization when a vuln source is onboarded. | 0.8 |
-| **A3. `rules_coverage_map` inverted-index pattern** | `analysis.py` | framework-id → rule-ids matrix = a clean "detection gap / coverage" answer card (MITRE/NIST/PCI/GDPR/HIPAA). | 0.75 |
-| **A4. `alert_summary` aggregate shape** | `alerts.py` | severity dist + top rules/MITRE/IPs/agents = strong shift-handoff card; matches our AnswerContract section model. | 0.7 |
+| **A1. Result-row output sanitizer** | `evidence_sanitizer.py` | Recursive redaction wired at `source_evidence._safe_text` + `GovernedContextPackage.to_prompt_block`. | **Shipped** |
+| **A2. `risk_score` heatmap formula** | `analysis/soc_aggregates.py` | Urgency-weighted host heatmap; EC uses `top_risky_hosts()`. | **Shipped** |
+| **A3. `rules_coverage_map` inverted-index pattern** | `analysis/soc_aggregates.py` | framework-id → rule-ids matrix for detection-gap cards. | **Shipped** |
+| **A4. `alert_summary` aggregate shape** | `analysis/soc_aggregates.py` | severity dist + top rules/MITRE/IPs/agents rollup. | **Shipped** |
 
 ### Note for COE — future Wazuh-extension (do **not** build now)
 
@@ -346,38 +346,22 @@ WS-MCP is a **separate PR** from the flagship EC scenario (§3). The EC
 scenario ships first (no dependency); WS-MCP playbook/RBAC/plan-review lands
 after. Listed here so the corrected posture is canonical.
 
-## 4B. Cyclic governed evidence-collection loop (CP-gated) — CORE SCAFFOLD SHIPPED
+## 4B. Cyclic governed evidence-collection loop (CP-gated) — SHIPPED
 
-> Status 2026-06-15: **core scaffold built (default-off)**, branch
-> `cp-cyclic-evidence-loop`. Gated by `CONTROL_PLANE_ENABLED` (CP). CP off =
-> linear path unchanged (no loop topology, no loop state leak). No new flag.
+> Status 2026-06-15: **shipped (default-off)**, branch `cp-cyclic-evidence-loop`.
+> Gated by `CONTROL_PLANE_ENABLED` (CP). CP off = linear path unchanged.
 >
-> **Shipped:** `app/chat/evidence_loop.py` deterministic controller
-> (`assess_loop` requirement↔deliverable + sufficiency → route); HUB
-> (`graph_node_evidence_planning`) composes the chronology once, idempotent
-> re-entry (bug #2); `graph_node_mcp_call` read-only planned discovery hops;
-> CP-on cyclic LangGraph (`mcp_call↔HUB`, `execution→HUB`) with explicit
-> `recursion_limit` (bug #4); `_hub_route` consumes the assessor verdict
-> (execution-phase verdicts mapped — decision B); `control_plane_trace.evidence_loop`
-> observability. Tests: controller routes + bounded termination + idempotency,
-> graph topology, `_hub_route` verdict consumption, CP-on termination + trace,
-> CP-off parity.
+> **Shipped:** loop controller, HUB idempotency, live gated discovery hops
+> (`mcp_loop_discovery.py` + `execute_loop_discovery_hop`), LLM-reviewed
+> chronology via `plan_tool_chronology` → `initialize_loop`, imperative-twin
+> discovery drain (`_run_discovery_loop_imperative`), execution re-entry hop
+> counting (`record_execution_hop`), phase-6 `mcp_evidence` → `source_evidence`,
+> LangGraph `composed_dispatch` node, loop eligibility gate (`mcp_allowed` +
+> non-rag-only), trace `evidence_loop.planner`.
 >
-> **Chronology is the deterministic default** (`deterministic_default_chronology`),
-> NOT yet the LLM-reviewed plan (§4B.5 `review_proposed_tool_chronology` deferred).
->
-> **Not in this slice (deferred):** live gated discovery-hop execution
-> (planned-only today); the imperative-twin loop (bug #1 — loop runs only on the
-> LangGraph entrypoint, which needs `langgraph_orchestration_enabled` AND
-> `control_plane_enabled`; the default live path is the imperative twin and does
-> NOT cycle); composed-plan dispatch coverage (bug #5); single counter covers
-> discovery hops only (execution re-entry does not increment `mcp_hops_done`).
->
-> **Phase 6 shipped:** `mcp_evidence[]` merges into `source_evidence` inside
-> `_context_stage` (`append_mcp_loop_source_evidence`); discovery hops surface in
-> `structured_context.tool_outputs_summary` and `source_evidence_refs`. Synthesis
-> merge of live collected rows remains deferred while discovery hops stay
-> planned-only.
+> **Entrypoints:** default `/chat` stays imperative (session-context parity);
+> `LANGGRAPH_ORCHESTRATION_ENABLED` switches to the cyclic graph. Both share the
+> same `graph_node_*` implementations.
 
 ### 4B.1 Problem
 Today `graph_node_execution → context_finalize → synthesis`, blind. A multi-tool
@@ -448,7 +432,7 @@ sufficiency: str              # sufficient | needs_more | exhausted | capability
 | Execute one MCP hop | SHIPPED (planned-only) — `graph_node_mcp_call`; `run_query` stays in `graph_node_execution`, gated |
 | Verify result vs requirement | SHIPPED — `assess_loop` in HUB (`graph_node_evidence_planning` re-entry) |
 | Accumulate results | SHIPPED — `append_mcp_loop_source_evidence` in `_context_stage` |
-| Pass to followup nodes → answer | SHIPPED — `structured_context.tool_outputs_summary` + `source_evidence_refs` include discovery hops; live collected-row synthesis merge deferred |
+| Pass to followup nodes → answer | SHIPPED — multi-hop set in `source_evidence` + `tool_outputs_summary`; planned hops stay out of sufficiency `collected` |
 
 ### 4B.6 Bugs / shortcomings found in review (must address in build)
 1. **Parity twin. DECISION (2026-06-15): UNIFY.** Live runs via the compiled
@@ -566,4 +550,5 @@ beyond the single flagship case. Lock the template + decode config only after gr
 - No live CVE/vuln data source onboarding.
 - No active-response / confirmation-token gate (N2).
 - No LLM-drives-MCP loop (forbidden).
-- Heatmap/coverage shapes (A2–A4) are **planned follow-ups**, tracked here, not built in this PR unless requested. **A1 sanitizer shipped** (`evidence_sanitizer.py` → `source_evidence._safe_text`); RAG `to_prompt_block` leg is optional belt-and-suspenders follow-up.
+- Heatmap/coverage detection-gap **EC card** (A3 consumer UI) is a follow-up; shared builders shipped in `analysis/soc_aggregates.py`.
+- **A1 sanitizer shipped** (`evidence_sanitizer.py` → `source_evidence._safe_text` + `to_prompt_block`).

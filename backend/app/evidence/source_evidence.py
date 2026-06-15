@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.knowledge.soc_kb_retriever import soc_kb_source_evidence
+from app.safeguards.evidence_sanitizer import redact_secret_values
 from app.safeguards.mcp_result_safeguard import scan_mcp_preview_rows
 
 SOURCE_PREVIEW_CAP = 5
@@ -268,7 +269,11 @@ def mcp_loop_source_evidence(
         outcome = str(hop.get("outcome") or "unknown")
         delivered = [str(item) for item in (hop.get("delivered") or [])]
         payload = hop.get("payload") if isinstance(hop.get("payload"), dict) else {}
-        rows = _mcp_hop_preview_rows(tool=tool, delivered=delivered, outcome=outcome)
+        payload_rows = payload.get("preview_rows")
+        if isinstance(payload_rows, list) and payload_rows:
+            rows = _safe_rows([dict(row) for row in payload_rows if isinstance(row, dict)])
+        else:
+            rows = _mcp_hop_preview_rows(tool=tool, delivered=delivered, outcome=outcome)
         warnings: list[str] = []
         if outcome == "planned":
             warnings.append("discovery_hop_planned_only")
@@ -421,7 +426,8 @@ def _safe_value(value: Any) -> Any:
 
 
 def _safe_text(value: str, max_len: int) -> str:
-    return SENSITIVE_PATTERNS.sub("[redacted]", value).replace("\n", " ")[:max_len]
+    masked = redact_secret_values(SENSITIVE_PATTERNS.sub("[redacted]", value))
+    return masked.replace("\n", " ")[:max_len]
 
 
 def _summarize(query: str) -> str:
