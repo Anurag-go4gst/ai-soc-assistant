@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.config import settings
-from app.connectors.mcp.mcp_rbac import resolve_mcp_rbac_role
+from app.connectors.mcp.mcp_rbac import resolve_mcp_rbac_role, session_role_for_mcp_gate
 from app.connectors.mcp.mcp_tool_chronology import review_proposed_tool_chronology
 from app.connectors.mcp.mcp_tool_planner import plan_tool_chronology
 
@@ -40,7 +40,10 @@ def run_mcp_tool_plan_shadow(
     if not mcp_tool_plan_shadow_enabled() and not needs_mcp:
         return None
 
-    rbac_role = resolve_mcp_rbac_role(session_role)
+    # Use the same unscoped default as the execution gate (demo_analyst) so the
+    # advisory shadow matches what the gate would actually permit; an explicit
+    # session role still resolves normally.
+    rbac_role = resolve_mcp_rbac_role(session_role_for_mcp_gate(session_role))
     spl_ok = bool(spl_approved)
 
     if mcp_tool_plan_llm_advisory_enabled():
