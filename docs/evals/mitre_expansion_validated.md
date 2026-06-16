@@ -1,12 +1,12 @@
 # MITRE expansion-candidate validation (plan §15 G3)
 
-- Generated: `2026-06-16T19:06:18.317692+00:00`
+- Generated: `2026-06-16T19:44:07.869965+00:00`
 - Audit source: `docs/evals/out/llm_mitre_catalogue_audit.json`
-- Bundle techniques (excluded): **13**
-- Expansion candidates: **97**
+- Bundle techniques (excluded): **15**
+- Expansion candidates: **96**
 - Resolver operational: **False**
 
-Dispositions: `pending_bundle`=97
+Dispositions: `pending_bundle`=96
 
 > Candidates = union of all `results[*].llm_invalid_ids` (out-of-subset proposals) minus the local 13-technique bundle. No `expansion` bucket exists in the audit JSON; this set is derived. Until the STIX bundle is onboarded, every row is `pending_bundle` (honest, not a fabricated promote/drop).
 
@@ -56,7 +56,6 @@ Dispositions: `pending_bundle`=97
 | `T1070.004` | pending_bundle |  |
 | `T1071.001` | pending_bundle |  |
 | `T1071.002` | pending_bundle |  |
-| `T1071.004` | pending_bundle |  |
 | `T1074` | pending_bundle |  |
 | `T1078.002` | pending_bundle |  |
 | `T1078.004` | pending_bundle |  |

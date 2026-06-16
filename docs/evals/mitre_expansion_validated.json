@@ -1,12 +1,12 @@
 {
   "schema_role": "mitre_expansion_validated_v1",
-  "generated_at_utc": "2026-06-16T19:06:18.317692+00:00",
+  "generated_at_utc": "2026-06-16T19:44:07.869965+00:00",
   "audit_source": "docs/evals/out/llm_mitre_catalogue_audit.json",
-  "bundle_count": 13,
-  "candidate_count": 97,
+  "bundle_count": 15,
+  "candidate_count": 96,
   "resolver_operational": false,
   "disposition_counts": {
-    "pending_bundle": 97
+    "pending_bundle": 96
   },
   "candidates": [
     {
@@ -226,11 +226,6 @@
     },
     {
       "technique_id": "T1071.002",
-      "disposition": "pending_bundle",
-      "detail": null
-    },
-    {
-      "technique_id": "T1071.004",
       "disposition": "pending_bundle",
       "detail": null
     },

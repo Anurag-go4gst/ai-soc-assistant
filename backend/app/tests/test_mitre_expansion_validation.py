@@ -15,12 +15,14 @@ mev = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(mev)
 
 
-def test_extraction_yields_97_out_of_subset_candidates():
+def test_extraction_yields_out_of_subset_candidates():
     candidates, bundle = mev.extract_candidates()
-    # The 13-technique local bundle is excluded; 97 out-of-subset proposals remain
-    # (audit llm_invalid_ids union minus bundle). Stable input contract for G3.
-    assert len(bundle) == 13
-    assert len(candidates) == 97
+    # 15-technique bundle (incl. T1048 + T1071.004 bundle-completeness adds); the
+    # out-of-subset proposals are the audit llm_invalid_ids union minus bundle.
+    # T1071.004 was promoted into the bundle so it drops from the candidate set.
+    assert len(bundle) == 15
+    assert len(candidates) == 96
+    assert "T1071.004" not in candidates  # now in-bundle
     # No bundle ID leaks into the candidate set.
     assert not (set(candidates) & bundle)
     # Deterministic ordering (sorted).

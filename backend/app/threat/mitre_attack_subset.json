@@ -1,8 +1,8 @@
 {
   "metadata": {
     "domain": "enterprise",
-    "version": "curated-subset-v2",
-    "release_date": "2026-06-01",
+    "version": "curated-subset-v3",
+    "release_date": "2026-06-16",
     "checksum": "local-curated-subset",
     "curated_use_case_mappings": [
       "auth_failed_login_spike",
@@ -165,6 +165,36 @@
       },
       "related_use_cases": ["dns_beaconing_candidate"],
       "recommended_pivots": ["measure_periodicity", "review_domain_rarity", "check_host_process_context"]
+    },
+    {
+      "technique_id": "T1071.004",
+      "name": "Application Layer Protocol: DNS",
+      "tactic": "Command and Control",
+      "description": "Adversaries may communicate using DNS to avoid detection by blending with existing traffic. Candidate-tier anchor: DNS volume or large responses alone do not confirm DNS-based C2/tunneling — confirmation requires adversary commands/results embedded in DNS.",
+      "detection_patterns": ["high_dns_query_volume", "large_dns_response_volume", "rare_domain"],
+      "evidence_requirements": ["src", "domain", "dns_query_count", "response_size", "c2_or_tunneling_indicator"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["dns_anomaly_present"],
+        "supported": ["dns_periodicity_and_rarity_present"],
+        "confirmed": ["dns_tunneling_or_embedded_c2_validated"]
+      },
+      "related_use_cases": ["dns_beaconing_candidate"],
+      "recommended_pivots": ["inspect_dns_payload_entropy", "review_domain_rarity", "check_tunneling_indicators"]
+    },
+    {
+      "technique_id": "T1048",
+      "name": "Exfiltration Over Alternative Protocol",
+      "tactic": "Exfiltration",
+      "description": "Adversaries may steal data by exfiltrating it over a different protocol than the existing command-and-control channel. Candidate-tier anchor: a large outbound transfer is suspicious, not proof of exfiltration over an alternative protocol.",
+      "detection_patterns": ["large_outbound_transfer", "unusual_destination_protocol"],
+      "evidence_requirements": ["src", "dest", "bytes_out", "protocol", "destination_reputation"],
+      "candidate_vs_confirmed_rules": {
+        "candidate": ["large_outbound_volume_present"],
+        "supported": ["unusual_protocol_and_destination_present"],
+        "confirmed": ["data_staging_and_alt_protocol_exfil_validated"]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": ["identify_destination_reputation", "correlate_data_staging", "review_protocol_anomaly"]
     },
     {
       "technique_id": "T1486",
