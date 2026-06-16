@@ -4,6 +4,10 @@ import type {
   ChatAnswerFeedbackRequest,
   ChatAnswerFeedbackResponse,
   ChatExecutionReviewOptions,
+  DebugReadinessResponse,
+  DebugTraceBundle,
+  DebugTraceTimeline,
+  DebugTracesResponse,
   DemoScenariosResponse,
   HealthResponse,
   KnowledgeCollection,
@@ -71,6 +75,21 @@ export async function logout(): Promise<void> {
   if (!response.ok) {
     throw new Error(`Logout failed: ${response.status}`);
   }
+}
+
+export async function updateUserProfile(payload: { debug_access: boolean }): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`Profile update failed: ${response.status}`);
+  }
+  return response.json();
 }
 
 export async function sendChatMessage(
@@ -380,4 +399,53 @@ export async function downloadKnowledgeExport(
   });
   if (!response.ok) throw new Error(`Knowledge export failed: ${response.status}`);
   return response.blob();
+}
+
+export async function getDebugTraces(params?: {
+  limit?: number;
+  entrypoint?: string;
+  status?: string;
+  since?: string;
+}): Promise<DebugTracesResponse> {
+  const search = new URLSearchParams();
+  if (params?.limit != null) search.set('limit', String(params.limit));
+  if (params?.entrypoint) search.set('entrypoint', params.entrypoint);
+  if (params?.status) search.set('status', params.status);
+  if (params?.since) search.set('since', params.since);
+  const query = search.toString();
+  const response = await fetch(`${API_BASE_URL}/debug/traces${query ? `?${query}` : ''}`, {
+    credentials: 'include',
+  });
+  if (response.status === 404) throw new Error('Debug API disabled (404)');
+  if (response.status === 403) throw new Error('Debug API forbidden for this role (403)');
+  if (!response.ok) throw new Error(`Debug traces failed: ${response.status}`);
+  return response.json();
+}
+
+export async function getDebugTraceTimeline(traceId: string): Promise<DebugTraceTimeline> {
+  const response = await fetch(`${API_BASE_URL}/debug/traces/${encodeURIComponent(traceId)}`, {
+    credentials: 'include',
+  });
+  if (response.status === 404) throw new Error('Trace not found (404)');
+  if (response.status === 403) throw new Error('Debug API forbidden for this role (403)');
+  if (!response.ok) throw new Error(`Debug trace failed: ${response.status}`);
+  return response.json();
+}
+
+export async function getDebugTraceBundle(traceId: string): Promise<DebugTraceBundle> {
+  const response = await fetch(`${API_BASE_URL}/debug/traces/${encodeURIComponent(traceId)}/bundle`, {
+    credentials: 'include',
+  });
+  if (response.status === 404) throw new Error('Trace not found (404)');
+  if (response.status === 403) throw new Error('Debug API forbidden for this role (403)');
+  if (!response.ok) throw new Error(`Debug bundle failed: ${response.status}`);
+  return response.json();
+}
+
+export async function getDebugReadiness(): Promise<DebugReadinessResponse> {
+  const response = await fetch(`${API_BASE_URL}/debug/readiness`, { credentials: 'include' });
+  if (response.status === 404) throw new Error('Debug API disabled (404)');
+  if (response.status === 403) throw new Error('Debug API forbidden for this role (403)');
+  if (!response.ok) throw new Error(`Debug readiness failed: ${response.status}`);
+  return response.json();
 }

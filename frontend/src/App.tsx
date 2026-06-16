@@ -29,6 +29,19 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const onProfileUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<AuthResponse>).detail;
+      if (detail?.authenticated) {
+        setAuth(detail);
+      } else {
+        void getCurrentUser().then(setAuth).catch(() => setAuth({ authenticated: false }));
+      }
+    };
+    window.addEventListener('ai-soc-profile-updated', onProfileUpdated);
+    return () => window.removeEventListener('ai-soc-profile-updated', onProfileUpdated);
+  }, []);
+
+  useEffect(() => {
     if (!auth?.authenticated) return;
     let cancelled = false;
     const tick = () => {
@@ -84,7 +97,13 @@ export default function App() {
   return (
     <TooltipProvider>
       <BrowserRouter>
-        <AppShell username={username} health={health} healthError={healthError} onLogout={handleLogout}>
+        <AppShell
+          username={username}
+          debugAccess={Boolean(auth.debug_access)}
+          health={health}
+          healthError={healthError}
+          onLogout={handleLogout}
+        >
           <Routes>
             <Route path="/" element={<Navigate to="/cockpit" replace />} />
             <Route path="/cockpit" element={<SocCockpit />} />

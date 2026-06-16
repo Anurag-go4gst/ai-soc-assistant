@@ -14,7 +14,15 @@ class TurnLlmBudget:
     narration_calls: int = 0
     records: list[dict[str, Any]] = field(default_factory=list)
 
-    def record_sidecar(self, *, role: str, provider_label: str | None, outcome: str) -> None:
+    def record_sidecar(
+        self,
+        *,
+        role: str,
+        provider_label: str | None,
+        outcome: str,
+        latency_ms: int | None = None,
+        model: str | None = None,
+    ) -> None:
         self.sidecar_calls += 1
         self.records.append(
             {
@@ -22,16 +30,27 @@ class TurnLlmBudget:
                 "role": role,
                 "provider_label": provider_label,
                 "outcome": outcome,
+                "latency_ms": latency_ms,
+                "model": model,
             }
         )
 
-    def record_narration(self, *, provider_label: str | None, outcome: str) -> None:
+    def record_narration(
+        self,
+        *,
+        provider_label: str | None,
+        outcome: str,
+        latency_ms: int | None = None,
+        model: str | None = None,
+    ) -> None:
         self.narration_calls += 1
         self.records.append(
             {
                 "kind": "narration",
                 "provider_label": provider_label,
                 "outcome": outcome,
+                "latency_ms": latency_ms,
+                "model": model,
             }
         )
 

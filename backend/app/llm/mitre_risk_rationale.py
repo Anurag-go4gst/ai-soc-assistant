@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -226,6 +227,7 @@ def run_mitre_risk_rationale(
         return budget is not None and budget.sidecar_budget_exhausted()
 
     if (det_mitre or contract.candidate_mitre or contract.mitre_technique_ids) and not _budget_blocks():
+        _t0 = time.monotonic()
         mitre_prose, called, label, role_warnings, blocked = _invoke_reasoning_role(
             role=MITRE_REASONER_ROLE,
             query=query,
@@ -239,13 +241,19 @@ def run_mitre_risk_rationale(
         provider_label = provider_label or label
         warnings.extend(role_warnings)
         if called and budget is not None:
-            budget.record_sidecar(role=MITRE_REASONER_ROLE, provider_label=label, outcome="completed")
+            budget.record_sidecar(
+                role=MITRE_REASONER_ROLE,
+                provider_label=label,
+                outcome="completed",
+                latency_ms=int((time.monotonic() - _t0) * 1000),
+            )
         if blocked:
             guard_status = "blocked"
             fallback_used = True
             mitre_prose = det_mitre
 
     if severity_decision and severity_decision.severity_label and not _budget_blocks():
+        _t0 = time.monotonic()
         severity_prose, called, label, role_warnings, blocked = _invoke_reasoning_role(
             role=RISK_RATIONALE_ROLE,
             query=query,
@@ -259,7 +267,12 @@ def run_mitre_risk_rationale(
         provider_label = provider_label or label
         warnings.extend(role_warnings)
         if called and budget is not None:
-            budget.record_sidecar(role=RISK_RATIONALE_ROLE, provider_label=label, outcome="completed")
+            budget.record_sidecar(
+                role=RISK_RATIONALE_ROLE,
+                provider_label=label,
+                outcome="completed",
+                latency_ms=int((time.monotonic() - _t0) * 1000),
+            )
         if blocked:
             guard_status = "blocked"
             fallback_used = True

@@ -8,13 +8,14 @@ interface AppShellProps {
   health: HealthResponse | null;
   healthError: string | null;
   username: string;
+  debugAccess?: boolean;
   onLogout: () => Promise<void>;
 }
 
-export function AppShell({ children, health, healthError, username, onLogout }: AppShellProps) {
+export function AppShell({ children, health, healthError, username, debugAccess = false, onLogout }: AppShellProps) {
   return (
     <div className="soc-canvas flex h-screen overflow-hidden text-slate-100">
-      <SideNav />
+      <SideNav debugAccess={debugAccess} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar username={username} health={health} healthError={healthError} onLogout={onLogout} />
         <main className="min-h-0 flex-1 overflow-hidden">{children}</main>

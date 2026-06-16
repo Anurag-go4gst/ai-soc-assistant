@@ -39,7 +39,7 @@ def _minimal_response() -> dict[str, object]:
 
 
 def test_loads_tier0_jsonl_cases() -> None:
-    path = Path("app/evals/golden_answers/tier0_control_plane.jsonl")
+    path = Path(__file__).resolve().parents[1] / "evals" / "golden_answers" / "tier0_control_plane.jsonl"
     cases = load_jsonl_cases([path])
 
     assert len(cases) == 7

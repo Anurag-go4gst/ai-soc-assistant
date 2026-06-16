@@ -7,6 +7,7 @@ export interface AuthResponse {
   authenticated: boolean;
   username?: string | null;
   role?: string | null;
+  debug_access?: boolean | null;
 }
 
 export interface SessionContextStatusEnvelope {
@@ -1450,4 +1451,59 @@ export interface LlmProviderStatus {
   supports_tool_calling: boolean;
   concurrency_limit: number;
   last_error?: string | null;
+}
+
+export interface DebugTraceRun {
+  trace_id: string;
+  run_id?: string | null;
+  user_id?: string | null;
+  entrypoint?: string | null;
+  status?: string | null;
+  metadata?: Record<string, unknown>;
+  started_at?: string | null;
+  ended_at?: string | null;
+  duration_ms?: number | null;
+  answer_mode?: string | null;
+  selected_skill?: string | null;
+  turn_id?: string | null;
+}
+
+export interface DebugTraceEvent {
+  kind: string;
+  created_at?: string | null;
+  step_name?: string | null;
+  status?: string | null;
+  event?: Record<string, unknown>;
+}
+
+export interface DebugTraceTimeline {
+  run: DebugTraceRun;
+  events: DebugTraceEvent[];
+  event_count: number;
+}
+
+export interface DebugTraceBundle {
+  trace_id: string;
+  run: DebugTraceRun;
+  timeline: DebugTraceEvent[];
+  explainability: {
+    control_plane_trace?: Record<string, unknown> | null;
+    governance_trace?: Record<string, unknown> | null;
+    lineage_summary?: Record<string, unknown> | null;
+    llm_sidecars?: Record<string, unknown> | null;
+  };
+  turn_id?: string | null;
+}
+
+export interface DebugTracesResponse {
+  traces: DebugTraceRun[];
+  count: number;
+}
+
+export interface DebugReadinessResponse {
+  telemetry: Record<string, unknown>;
+  llm: Record<string, unknown>;
+  mcp: Record<string, unknown>;
+  rag: Record<string, unknown>;
+  debug_api_enabled: boolean;
 }

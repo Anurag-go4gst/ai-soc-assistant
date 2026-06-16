@@ -46,3 +46,6 @@ class TelemetryConnector(Protocol):
 
     def end_trace(self, trace_id: str, status: str = "completed", **fields: Any) -> None:
         ...
+
+    def merge_run_metadata(self, trace_id: str, metadata: dict[str, Any]) -> None:
+        ...

@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import logging
 import re
+import time
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any, TypedDict
 from uuid import uuid4
 
 from app.config import settings
 from app.connectors.telemetry import get_telemetry_connector
+from app.connectors.telemetry import metrics as _telemetry_metrics
+from app.connectors.telemetry.log_context import reset_trace_id, set_trace_id
 from app.actions.capability_policy import action_capability_for
 from app.chat.analyst_response_builder import build_analyst_response_for_live
 from app.answer_guard.models import AnswerGuardStatus
@@ -162,6 +167,8 @@ from app.chat.progress_context import (
 )
 from app.chat.progress_events import ProgressReporter
 
+logger = logging.getLogger("ai_soc.telemetry")
+
 _PARTIAL_SYNTHESIS_MESSAGE = (
     "Final LLM synthesis timed out; showing validated intermediate result."
 )
@@ -247,6 +254,7 @@ def build_live_chat_response(
     finally:
         if token is not None:
             reset_progress_reporter(token)
+        reset_trace_id()
 
 
 def _build_live_chat_response_inner(
@@ -254,6 +262,30 @@ def _build_live_chat_response_inner(
     *,
     session_role: str | None = None,
 ) -> PlaceholderResponse:
+    started_at = datetime.now(UTC)
+    state: ChatPipelineState | None = None
+    try:
+        state = _run_live_chat_pipeline(request, session_role=session_role)
+    except Exception:
+        # Record an honest error run so the debug surface can answer
+        # "why no response" instead of showing nothing.
+        if isinstance(state, dict):
+            _persist_live_chat_error(state, started_at=started_at, session_role=session_role)
+        raise
+    response = state.get("response")
+    if response is None:
+        raise RuntimeError("chat pipeline did not produce a response")
+    _persist_live_chat_telemetry(
+        state, response, started_at=started_at, session_role=session_role
+    )
+    return response
+
+
+def _run_live_chat_pipeline(
+    request: ChatRequest,
+    *,
+    session_role: str | None = None,
+) -> ChatPipelineState:
     emit_stage("queued")
     session_resolution = resolve_session_context(request)
     state: ChatPipelineState = {
@@ -264,31 +296,170 @@ def _build_live_chat_response_inner(
         "session_role": session_role,
         "effective_query": session_resolution.effective_query,
     }
-    state = graph_node_init_routing(state)
-    state = graph_node_query_to_intent(state)
-    state = graph_node_evidence_planning(state)
-    state = _run_discovery_loop_imperative(state)
-    state = graph_node_shadow_enrichment(state)
+    state = _timed_node(state, "init_routing", graph_node_init_routing)
+    state = _timed_node(state, "query_to_intent", graph_node_query_to_intent)
+    state = _timed_node(state, "evidence_planning", graph_node_evidence_planning)
+    state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
+    state = _timed_node(state, "shadow_enrichment", graph_node_shadow_enrichment)
     if has_composed_plan(state):
         # WS0 T0.4: composed-plan dispatch — same node calls, same predicates,
         # plus per-step status/degrade-chain recording.
-        state = execute_plan_dispatch(state, _dispatch_hooks())
+        state = _timed_node(state, "plan_dispatch", lambda s: execute_plan_dispatch(s, _dispatch_hooks()))
     elif _uses_rag_only_path(state):
-        state = graph_node_prepare_rag_only(state)
-        state = graph_node_rag_early(state)
+        state = _timed_node(state, "prepare_rag_only", graph_node_prepare_rag_only)
+        state = _timed_node(state, "rag_early", graph_node_rag_early)
     else:
-        state = graph_node_workflow_spl(state)
+        state = _timed_node(state, "workflow_spl", graph_node_workflow_spl)
         if _uses_pre_mcp_rag(state):
-            state = graph_node_rag_early(state)
-        state = graph_node_spl_source_resolve(state)
-        state = graph_node_execution(state)
+            state = _timed_node(state, "rag_early", graph_node_rag_early)
+        state = _timed_node(state, "spl_source_resolve", graph_node_spl_source_resolve)
+        state = _timed_node(state, "execution", graph_node_execution)
     if settings.control_plane_enabled and loop_initialized(state):
-        state = graph_node_evidence_planning(state)
-    state = graph_node_context_finalize(state)
-    response = state.get("response")
-    if response is None:
-        raise RuntimeError("chat pipeline did not produce a response")
-    return response
+        state = _timed_node(state, "evidence_planning_loop", graph_node_evidence_planning)
+    state = _timed_node(state, "context_finalize", graph_node_context_finalize)
+    return state
+
+
+def _timed_node(
+    state: ChatPipelineState,
+    node_name: str,
+    fn: Any,
+) -> ChatPipelineState:
+    """Run a pipeline node, timing it and recording a durable node-timeline step.
+
+    The trace spine is keyed on ``state['trace_id']`` (set by ``init_routing``);
+    for the first node the id only exists on the returned state, so timing is
+    recorded from the result. Telemetry never breaks the node flow.
+    """
+    started = time.monotonic()
+    try:
+        result = fn(state)
+    except Exception:
+        duration_ms = int((time.monotonic() - started) * 1000)
+        _record_node_timing(state.get("trace_id"), node_name, "error", duration_ms)
+        raise
+    duration_ms = int((time.monotonic() - started) * 1000)
+    trace_id = result.get("trace_id") if isinstance(result, dict) else None
+    _record_node_timing(trace_id or state.get("trace_id"), node_name, "completed", duration_ms)
+    return result
+
+
+def _record_node_timing(
+    trace_id: Any,
+    node_name: str,
+    status: str,
+    duration_ms: int,
+) -> None:
+    if not trace_id:
+        return
+    try:
+        _routes_chat().get_telemetry_connector().record_step(
+            str(trace_id),
+            f"node.{node_name}",
+            status,
+            duration_ms=duration_ms,
+            node=True,
+        )
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        logger.warning("node_timing_persist_failed", exc_info=True)
+
+
+def _persist_live_chat_telemetry(
+    state: ChatPipelineState,
+    response: PlaceholderResponse,
+    *,
+    started_at: datetime,
+    session_role: str | None,
+) -> None:
+    """Phase 0/1: persist the durable trace spine + per-turn LLM-call ledger.
+
+    Telemetry must never break the chat flow, so all work is wrapped here and the
+    connector also fails closed internally. Only metadata is persisted — no raw
+    prompts, completions, or events (redaction is applied by the connector).
+    """
+    try:
+        telemetry = _routes_chat().get_telemetry_connector()
+        trace_id = str(response.trace_id or state.get("trace_id") or "")
+        if not trace_id:
+            return
+        payload = response.model_dump(mode="json")
+        sufficiency = payload.get("context_sufficiency")
+        answer_mode = sufficiency.get("answer_mode") if isinstance(sufficiency, dict) else None
+        run_status = "human_review" if payload.get("human_review") else "completed"
+        telemetry.start_trace(
+            trace_id,
+            entrypoint="chat",
+            status="running",
+            started_at=started_at,
+            user_id=session_role,
+            metadata={"session_role": session_role},
+        )
+        budget = state.get("llm_turn_budget")
+        records = budget.records if isinstance(budget, TurnLlmBudget) else []
+        for record in records:
+            telemetry.record_llm_call(
+                trace_id,
+                kind=record.get("kind"),
+                role=record.get("role"),
+                provider_label=record.get("provider_label"),
+                outcome=record.get("outcome"),
+                latency_ms=record.get("latency_ms"),
+                model=record.get("model"),
+            )
+            _count_llm_call(record)
+        telemetry.end_trace(
+            trace_id,
+            status=run_status,
+            metadata={
+                "answer_mode": answer_mode,
+                "selected_skill": payload.get("selected_skill"),
+                "llm_call_count": len(records),
+                "control_plane_trace": payload.get("control_plane_trace"),
+                "governance_trace": payload.get("governance_trace"),
+                "lineage_summary": payload.get("investigation_lineage"),
+                "llm_sidecars": payload.get("llm_sidecars"),
+            },
+        )
+        _telemetry_metrics.increment(
+            "chat_turns_human_review" if run_status == "human_review" else "chat_turns_completed"
+        )
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        logger.warning("live_chat_telemetry_persist_failed", exc_info=True)
+
+
+def _count_llm_call(record: dict[str, Any]) -> None:
+    _telemetry_metrics.increment("llm_calls_total")
+    outcome = str(record.get("outcome") or "")
+    if outcome == "timed_out":
+        _telemetry_metrics.increment("llm_calls_timed_out")
+    if outcome in {"timed_out", "dropped", "blocked"}:
+        _telemetry_metrics.increment("llm_calls_fallback")
+
+
+def _persist_live_chat_error(
+    state: ChatPipelineState,
+    *,
+    started_at: datetime,
+    session_role: str | None,
+) -> None:
+    """Record an error run when the pipeline raised before producing a response."""
+    try:
+        trace_id = str(state.get("trace_id") or "")
+        if not trace_id:
+            return
+        telemetry = _routes_chat().get_telemetry_connector()
+        _telemetry_metrics.increment("chat_turns_error")
+        telemetry.start_trace(
+            trace_id,
+            entrypoint="chat",
+            status="error",
+            started_at=started_at,
+            user_id=session_role,
+            metadata={"session_role": session_role},
+        )
+        telemetry.end_trace(trace_id, status="error", metadata={"error": True})
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        logger.warning("live_chat_error_telemetry_persist_failed", exc_info=True)
 
 
 def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
@@ -296,6 +467,7 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
     request = state["request"]
     query_text = state.get("effective_query") or request.message
     trace_id = str(uuid4())
+    set_trace_id(trace_id)
     qu_failed = False
     try:
         query_understanding = understand_query(query_text)
@@ -368,6 +540,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     elif budget.sidecar_budget_exhausted():
         llm_advisory = LLMIntentAdvisory(dropped_reasons=["turn_budget_exhausted"])
     else:
+        _t0 = time.monotonic()
         llm_advisory = generate_llm_intent_advisory(
             query_text,
             query_understanding=query_understanding,
@@ -384,6 +557,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
                 role="intent_shadow_classifier",
                 provider_label=llm_advisory.provider_label,
                 outcome=outcome,
+                latency_ms=int((time.monotonic() - _t0) * 1000),
             )
     result = build_query_to_intent(
         query=query_text,
@@ -1531,6 +1705,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if budget.sidecar_budget_exhausted():
             reasoner_result = MissingEvidenceReasonerResult(skipped_reason="turn_budget_exhausted")
         else:
+            _t0 = time.monotonic()
             reasoner_result = run_missing_evidence_reasoner(
                 contract=answer_contract,
                 query=request.message,
@@ -1541,6 +1716,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                     role="missing_evidence_reasoner",
                     provider_label=reasoner_result.provider_label,
                     outcome="timed_out" if reasoner_result.timed_out else "completed",
+                    latency_ms=int((time.monotonic() - _t0) * 1000),
                 )
         if reasoner_result.bullets:
             merged_limits = list(answer_contract.limitations)
@@ -1608,6 +1784,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if budget.sidecar_budget_exhausted():
             resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "turn_budget_exhausted"}
         else:
+            _t0 = time.monotonic()
             shadow_result = run_resource_plan_shadow(
                 query=request.message,
                 match_path=_match_path_from_state(state),
@@ -1619,6 +1796,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                     role="route_plan_candidate_generator",
                     provider_label="local_or_failover",
                     outcome="completed",
+                    latency_ms=int((time.monotonic() - _t0) * 1000),
                 )
             if isinstance(evidence_plan_payload, dict):
                 after_source = (evidence_plan_payload.get("resource_plan") or {}).get("plan_source")
@@ -1673,6 +1851,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                     ),
                     routed_skill=_context_selected_skill(state),
                 )
+            _t0 = time.monotonic()
             composer_result = compose_governed_answer(
                 contract=answer_contract,
                 enrichment_projection=enrichment_projection,
@@ -1686,6 +1865,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 budget.record_narration(
                     provider_label=composer_result.llm_provider_label,
                     outcome="completed",
+                    latency_ms=int((time.monotonic() - _t0) * 1000),
                 )
             analyst_response = composer_result.envelope
             if composer_result.llm_composer_used and weak_case:

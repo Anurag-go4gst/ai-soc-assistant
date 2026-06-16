@@ -1,10 +1,21 @@
+import os
+import sys
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# ``env_file`` is resolved relative to the current working directory, so running
+# pytest from the repo root would load the all-on production ``.env`` and flip
+# default-off flags, breaking tests that assert default posture. Under pytest we
+# ignore ``.env`` entirely so the suite is deterministic regardless of CWD. Set
+# ``AI_SOC_DISABLE_DOTENV=1`` to force the same behavior outside pytest.
+_DISABLE_DOTENV = "pytest" in sys.modules or os.getenv("AI_SOC_DISABLE_DOTENV") == "1"
+_ENV_FILE: str | None = None if _DISABLE_DOTENV else ".env"
 
 
 # Telemetry sink values that are wired up today. ``splunk`` and ``both`` are
 # reserved for a future Splunk telemetry connector; until that connector
 # lands the config layer rejects them at startup (see ``_validate``).
-SUPPORTED_TELEMETRY_SINKS: tuple[str, ...] = ("db", "none")
+SUPPORTED_TELEMETRY_SINKS: tuple[str, ...] = ("db", "file", "none")
 PLANNED_TELEMETRY_SINKS: tuple[str, ...] = ("splunk", "both")
 
 # Governed LLM layer modes (Stage 3J-B). No mode triggers a real LLM call yet.
@@ -69,6 +80,11 @@ class Settings(BaseSettings):
     routing_mode: str = "llm_assisted_semantic"
     routing_lab_llm_primary_enabled: bool = False
     debug_trace_enabled: bool = True
+    ai_soc_debug_api_enabled: bool = True
+    ai_soc_debug_api_user_allowlist: str = ""
+    ai_soc_debug_api_allow_any_authenticated: bool = False
+    app_auth_role: str = "demo_analyst"
+    app_auth_users_path: str = ""
     routing_deterministic_threshold: float = 0.70
     routing_llm_shadow_enabled: bool = True
 
@@ -313,17 +329,20 @@ class Settings(BaseSettings):
 
     # ``ai_soc_telemetry_sink`` is the AI-SOC product's own telemetry sink
     # selector (not a Splunk product setting). Supported today: ``db`` (writes
-    # to Postgres) and ``none`` (disables telemetry). ``splunk`` and ``both``
-    # are planned and will fail fast at startup until the Splunk telemetry
-    # connector is implemented.
+    # to Postgres), ``file`` (append-only NDJSON under ``ai_soc_telemetry_file_dir``
+    # for air-gapped deployments without Postgres), and ``none`` (disables
+    # telemetry). ``splunk`` and ``both`` are planned and will fail fast at
+    # startup until the Splunk telemetry connector is implemented.
     ai_soc_telemetry_sink: str = "db"
+    # Directory for the ``file`` telemetry sink. One NDJSON file per UTC day.
+    ai_soc_telemetry_file_dir: str = "telemetry_logs"
 
     app_auth_enabled: bool = True
     app_auth_user: str = "analyst"
     app_auth_password: str = ""
     app_auth_session_secret: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8")
 
 
 def _validate(s: Settings) -> Settings:

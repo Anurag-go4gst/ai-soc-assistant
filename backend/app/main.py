@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.connectors.telemetry.log_context import install_trace_id_log_factory
+
+# Stamp every log record with the active chat trace_id (Phase 4 observability).
+install_trace_id_log_factory()
+
+from app.api.routes_debug import router as debug_router
 from app.api.routes_chat import router as chat_router
 from app.api.routes_chat_stream import router as chat_stream_router
 from app.api.routes_health import router as health_router
@@ -45,3 +51,5 @@ app.include_router(settings_router)
 app.include_router(settings_router, prefix="/api")
 app.include_router(quality_router)
 app.include_router(quality_router, prefix="/api")
+app.include_router(debug_router)
+app.include_router(debug_router, prefix="/api")

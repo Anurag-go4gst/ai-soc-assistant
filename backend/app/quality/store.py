@@ -69,7 +69,32 @@ def post_chat_response(
         record_chat_turn(updated, request, entrypoint=entrypoint, user=user)
     except Exception:  # noqa: BLE001 - quality ledger must never break chat
         metrics.increment("quality_ledger_write_failures")
+    _link_trace_to_turn(updated, user=user)
     return updated
+
+
+def _link_trace_to_turn(
+    response: PlaceholderResponse,
+    *,
+    user: dict[str, Any] | str | None,
+) -> None:
+    """Cross-link the telemetry run with the late-bound quality turn_id/user_id.
+
+    ``trace_id`` and ``turn_id`` remain separate keys (telemetry vs quality
+    ledger); this merge lets the debug bundle surface both without joining.
+    """
+    trace_id = getattr(response, "trace_id", None)
+    if not trace_id:
+        return
+    try:
+        from app.connectors.telemetry import get_telemetry_connector
+
+        get_telemetry_connector().merge_run_metadata(
+            str(trace_id),
+            {"turn_id": response.turn_id, "user_id": _user_id(user)},
+        )
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        metrics.increment("telemetry_write_failures")
 
 
 def record_chat_turn(

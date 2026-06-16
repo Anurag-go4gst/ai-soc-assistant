@@ -52,12 +52,17 @@ class DbTelemetryConnector:
         trace_id = trace_id or str(uuid4())
         run_id = fields.get("run_id") or trace_id
         metadata = _minimize(fields.get("metadata", {}))
+        # ``started_at`` is supplied by callers (e.g. live ``/chat``) that captured
+        # the true turn-start before the pipeline ran, so run duration reflects the
+        # whole turn rather than only the post-hoc telemetry write.
+        started_at = fields.get("started_at") or datetime.now(UTC)
         self._run(
             """
-            INSERT INTO ai_trace_runs (trace_id, run_id, user_id, entrypoint, status, metadata)
-            VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+            INSERT INTO ai_trace_runs (trace_id, run_id, user_id, entrypoint, status, metadata, started_at)
+            VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
             ON CONFLICT (trace_id) DO UPDATE SET
                 status = EXCLUDED.status,
+                started_at = LEAST(ai_trace_runs.started_at, EXCLUDED.started_at),
                 metadata = ai_trace_runs.metadata || EXCLUDED.metadata
             """,
             trace_id,
@@ -66,8 +71,28 @@ class DbTelemetryConnector:
             fields.get("entrypoint"),
             fields.get("status", "running"),
             _json(metadata),
+            started_at,
         )
         return TraceHandle(trace_id=trace_id, run_id=run_id, metadata=metadata)
+
+    def merge_run_metadata(self, trace_id: str, metadata: dict[str, Any]) -> None:
+        """Merge additional run metadata without touching status/ended_at.
+
+        Used to attach late-bound fields (``turn_id``, ``user_id``) discovered
+        after the pipeline returned but before the response is sent.
+        """
+        user_id = metadata.get("user_id")
+        self._run(
+            """
+            UPDATE ai_trace_runs
+            SET metadata = metadata || $2::jsonb,
+                user_id = COALESCE($3, user_id)
+            WHERE trace_id = $1
+            """,
+            trace_id,
+            _json(_minimize(metadata)),
+            user_id if isinstance(user_id, str) else None,
+        )
 
     def record_step(self, trace_id: str, step_name: str, status: str, **fields: Any) -> None:
         self._insert_json("ai_trace_steps", trace_id, step_name=step_name, status=status, **fields)

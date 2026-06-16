@@ -14,7 +14,7 @@ import {
 import { ARCHITECTURE_QUERY_FLOW_DOC_HREF } from '@/lib/architectureDoc';
 import { cn } from '@/lib/utils';
 
-const navItems = [
+const baseNavItems = [
   { to: '/cockpit', label: 'Cockpit', icon: LayoutDashboard },
   { to: '/chat', label: 'Chat', icon: MessageSquareText },
   { to: '/investigations', label: 'Investigations', icon: FileSearch },
@@ -22,10 +22,17 @@ const navItems = [
   { to: '/knowledge', label: 'Knowledge', icon: DatabaseZap },
   { to: '/quality', label: 'Quality', icon: ClipboardCheck },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
-  { to: '/debug', label: 'Debug', icon: Bug },
 ] as const;
 
-export function SideNav() {
+interface SideNavProps {
+  debugAccess?: boolean;
+}
+
+export function SideNav({ debugAccess = false }: SideNavProps) {
+  const navItems = debugAccess
+    ? [...baseNavItems, { to: '/debug', label: 'Debug', icon: Bug } as const]
+    : baseNavItems;
+
   return (
     <aside
       className="hidden shrink-0 border-r border-slate-800/80 bg-slate-950/85 px-3 py-4 backdrop-blur-md lg:flex lg:flex-col"

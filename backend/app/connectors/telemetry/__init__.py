@@ -9,6 +9,10 @@ def get_telemetry_connector() -> TelemetryConnector:
     sink = settings.ai_soc_telemetry_sink.strip().lower()
     if mode == "none" or sink in {"none", "splunk"}:
         return NullTelemetryConnector()
+    if sink == "file":
+        from app.connectors.telemetry.file import FileTelemetryConnector
+
+        return FileTelemetryConnector()
     return DbTelemetryConnector()
 
 
