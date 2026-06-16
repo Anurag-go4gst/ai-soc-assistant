@@ -1,0 +1,1915 @@
+{
+	"name": "ATLAS Matrix",
+	"versions": {
+		"attack": "4",
+		"navigator": "4.6.4",
+		"layer": "4.3"
+	},
+	"domain": "atlas-atlas",
+	"description": "Adversarial Threat Landscape for Artificial-Intelligence Systems, see atlas.mitre.org",
+	"filters": {
+		"platforms": [
+			"Linux",
+			"macOS",
+			"Windows",
+			"IaaS",
+			"SaaS",
+			"ESXi",
+			"Network Devices",
+			"PRE",
+			"Containers",
+			"Office Suite",
+			"Identity Provider",
+			"Office 365",
+			"ATLAS"
+		]
+	},
+	"sorting": 0,
+	"layout": {
+		"layout": "side",
+		"aggregateFunction": "average",
+		"showID": false,
+		"showName": true,
+		"showAggregateScores": false,
+		"countUnscored": false
+	},
+	"hideDisabled": false,
+	"techniques": [
+		{
+			"techniqueID": "AML.T0000",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0000.000",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0000.001",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0000.002",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0001",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0002",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0002.000",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0002.001",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0002.002",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0003",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0004",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0005",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0005.000",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0005.001",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0005.002",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0006",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0007",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0008",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0008.000",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0008.001",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0008.002",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0008.003",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0008.004",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0008.005",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0010",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0010.000",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0010.001",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0010.002",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0010.003",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0010.004",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0010.005",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0011",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0011.000",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0011.001",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0011.002",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0011.003",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0012",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0012",
+			"tactic": "privilege-escalation",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0013",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0014",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0015",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0015",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0015",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0016",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0016.000",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0016.001",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0016.002",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0017",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0017.000",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0018",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0018",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0018.000",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0018.000",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0018.001",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0018.001",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0018.002",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0018.002",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0019",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0020",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0020",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0021",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0024",
+			"tactic": "exfiltration",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0024.000",
+			"tactic": "exfiltration",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0024.001",
+			"tactic": "exfiltration",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0024.002",
+			"tactic": "exfiltration",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0025",
+			"tactic": "exfiltration",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0029",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0031",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0034",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0034.000",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0034.001",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0034.002",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0035",
+			"tactic": "collection",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0036",
+			"tactic": "collection",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0037",
+			"tactic": "collection",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0040",
+			"tactic": "ai-model-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0041",
+			"tactic": "ai-model-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0042",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0043",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0043.000",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0043.001",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0043.002",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0043.003",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0043.004",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0044",
+			"tactic": "ai-model-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0046",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0047",
+			"tactic": "ai-model-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0048",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0048.000",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0048.001",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0048.002",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0048.003",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0048.004",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0049",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0050",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0051",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0051.000",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0051.001",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0051.002",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0052",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0052",
+			"tactic": "lateral-movement",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0052.000",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0052.000",
+			"tactic": "lateral-movement",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0052.001",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0052.001",
+			"tactic": "lateral-movement",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0053",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0053",
+			"tactic": "privilege-escalation",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0054",
+			"tactic": "privilege-escalation",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0054",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0055",
+			"tactic": "credential-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0056",
+			"tactic": "exfiltration",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0057",
+			"tactic": "exfiltration",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0058",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0059",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0060",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0061",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0062",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0063",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0064",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0065",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0066",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0067",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0067.000",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0068",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0069",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0069.000",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0069.001",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0069.002",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0070",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0071",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0072",
+			"tactic": "command-and-control",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0073",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0074",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0075",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0076",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0077",
+			"tactic": "exfiltration",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0078",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0079",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0080",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0080.000",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0080.001",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0081",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0081",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0082",
+			"tactic": "credential-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0083",
+			"tactic": "credential-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0084",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0084.000",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0084.001",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0084.002",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0084.003",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0085",
+			"tactic": "collection",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0085.000",
+			"tactic": "collection",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0085.001",
+			"tactic": "collection",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0086",
+			"tactic": "exfiltration",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0087",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0088",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0089",
+			"tactic": "discovery",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0090",
+			"tactic": "credential-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0091",
+			"tactic": "lateral-movement",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0091.000",
+			"tactic": "lateral-movement",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0092",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0093",
+			"tactic": "initial-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0093",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0094",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0095",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0095.000",
+			"tactic": "reconnaissance",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0096",
+			"tactic": "command-and-control",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0097",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0098",
+			"tactic": "credential-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0099",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0100",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0101",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0102",
+			"tactic": "ai-attack-staging",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0103",
+			"tactic": "execution",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0104",
+			"tactic": "resource-development",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0105",
+			"tactic": "privilege-escalation",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0106",
+			"tactic": "credential-access",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0107",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0108",
+			"tactic": "command-and-control",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0109",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0110",
+			"tactic": "persistence",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0111",
+			"tactic": "defense-evasion",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0112",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": true
+		},
+		{
+			"techniqueID": "AML.T0112.000",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		},
+		{
+			"techniqueID": "AML.T0112.001",
+			"tactic": "impact",
+			"color": "#C8E6C9",
+			"comment": "",
+			"enabled": true,
+			"metadata": [],
+			"links": [],
+			"showSubtechniques": false
+		}
+	],
+	"gradient": {
+		"colors": [
+			"#ff6666ff",
+			"#ffe766ff",
+			"#8ec843ff"
+		],
+		"minValue": 0,
+		"maxValue": 100
+	},
+	"legendItems": [
+		{
+			"color": "#C8E6C9",
+			"label": "ATLAS technique"
+		}
+	],
+	"metadata": [
+		{
+			"name": "atlas_data_version",
+			"value": "5.6.0"
+		}
+	],
+	"links": [],
+	"showTacticRowBackground": false,
+	"tacticRowBackground": "#dddddd",
+	"selectTechniquesAcrossTactics": true,
+	"selectSubtechniquesWithParent": false
+}
