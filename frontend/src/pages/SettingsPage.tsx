@@ -7,6 +7,7 @@ import { SourceProfileSettingsPanel } from '@/components/settings/SourceProfileS
 import { LlmSettingsPanel } from '@/components/settings/LlmSettingsPanel';
 import { McpSettingsPanel } from '@/components/settings/McpSettingsPanel';
 import { ObservabilityPanel } from '@/components/settings/ObservabilityPanel';
+import { UserProfilePanel } from '@/components/settings/UserProfilePanel';
 import { ProvidersSettingsPanel } from '@/components/settings/ProvidersSettingsPanel';
 import { RagSettingsPanel } from '@/components/settings/RagSettingsPanel';
 import { EmbeddingsSettingsPanel } from '@/components/settings/EmbeddingsSettingsPanel';
@@ -109,6 +110,7 @@ export function SettingsPage() {
             <TabsTrigger value="embeddings">Embeddings</TabsTrigger>
             <TabsTrigger value="routing">Routing</TabsTrigger>
             <TabsTrigger value="safeguards">Safeguards</TabsTrigger>
+            <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="observability">Observability</TabsTrigger>
           </TabsList>
           <div className="mt-3">
@@ -135,6 +137,9 @@ export function SettingsPage() {
             </TabsContent>
             <TabsContent value="safeguards" className="m-0">
               <SafeguardsPanel status={status.safeguards} />
+            </TabsContent>
+            <TabsContent value="profile" className="m-0">
+              <UserProfilePanel />
             </TabsContent>
             <TabsContent value="observability" className="m-0">
               <ObservabilityPanel status={status.observability} />

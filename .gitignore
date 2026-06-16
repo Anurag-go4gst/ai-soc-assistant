@@ -15,3 +15,6 @@ docs/evals/llm_role_traces_staging.jsonl
 
 # stray staging trace dumps
 backend/staging_traces*.jsonl
+
+# Runtime auth registry (per-deploy; bootstrap from users.example.json or env)
+backend/app/auth/users.json
