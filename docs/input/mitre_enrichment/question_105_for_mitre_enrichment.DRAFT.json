@@ -12,7 +12,7 @@
       "id": "q0.q001",
       "question_number": 1,
       "question_text": "What incident or alert network events are high or critical right now?",
-      "description": "read high/critical current network alerts — Read-only alert/notable lookup; define \"right now\" window.",
+      "description": "read high/critical current network alerts \u2014 Read-only alert/notable lookup; define \"right now\" window.",
       "primary_skill": "notable_risk_lookup",
       "legacy_skill_hint": "alert_summary",
       "tags": [
@@ -81,7 +81,7 @@
       "id": "q0.q002",
       "question_number": 2,
       "question_text": "Which source IPs generated the most outbound connections?",
-      "description": "rank outbound connection source IPs — Good bounded aggregation.",
+      "description": "rank outbound connection source IPs \u2014 Good bounded aggregation.",
       "primary_skill": "aggregate_and_rank",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -160,7 +160,7 @@
       "id": "q0.q003",
       "question_number": 3,
       "question_text": "Which destination IPs received the most connections?",
-      "description": "rank destination IPs by connection count — Directionality and internal/external classification should be explicit.",
+      "description": "rank destination IPs by connection count \u2014 Directionality and internal/external classification should be explicit.",
       "primary_skill": "aggregate_and_rank",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -230,7 +230,7 @@
       "id": "q0.q004",
       "question_number": 4,
       "question_text": "Which hosts contacted known malicious IPs today?",
-      "description": "correlate host traffic with malicious IP lookup — Requires local malicious IP lookup.",
+      "description": "correlate host traffic with malicious IP lookup \u2014 Requires local malicious IP lookup.",
       "primary_skill": "lookup_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -328,7 +328,7 @@
       "id": "q0.q005",
       "question_number": 5,
       "question_text": "Which hosts contacted suspicious external domains?",
-      "description": "enrich external domains and return suspicious host contacts — \"Suspicious\" needs a vetted local reputation source or rule.",
+      "description": "enrich external domains and return suspicious host contacts \u2014 \"Suspicious\" needs a vetted local reputation source or rule.",
       "primary_skill": "lookup_correlation",
       "legacy_skill_hint": "knowledge_recall",
       "tags": [
@@ -412,7 +412,7 @@
       "id": "q0.q006",
       "question_number": 6,
       "question_text": "Which DNS queries have unusually long names?",
-      "description": "detect long DNS query names — Needs vetted length/entropy thresholds.",
+      "description": "detect long DNS query names \u2014 Needs vetted length/entropy thresholds.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -496,7 +496,7 @@
       "id": "q0.q007",
       "question_number": 7,
       "question_text": "Which DNS queries look like DGA activity?",
-      "description": "detect DGA-like DNS queries — Do not generate DGA logic ad hoc.",
+      "description": "detect DGA-like DNS queries \u2014 Do not generate DGA logic ad hoc.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -588,7 +588,7 @@
       "id": "q0.q008",
       "question_number": 8,
       "question_text": "Which hosts show possible beaconing behavior?",
-      "description": "detect host beaconing candidates — Requires vetted periodicity logic.",
+      "description": "detect host beaconing candidates \u2014 Requires vetted periodicity logic.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -680,7 +680,7 @@
       "id": "q0.q009",
       "question_number": 9,
       "question_text": "Which hosts communicated with many unique external IPs?",
-      "description": "find hosts exceeding unique external IP threshold — Threshold or baseline must be explicit.",
+      "description": "find hosts exceeding unique external IP threshold \u2014 Threshold or baseline must be explicit.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -765,7 +765,7 @@
       "id": "q0.q010",
       "question_number": 10,
       "question_text": "Which hosts are generating the most SMB traffic?",
-      "description": "rank hosts by SMB traffic — Query is aggregation; interpretation may imply lateral movement.",
+      "description": "rank hosts by SMB traffic \u2014 Query is aggregation; interpretation may imply lateral movement.",
       "primary_skill": "aggregate_and_rank",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -847,7 +847,7 @@
       "id": "q0.q011",
       "question_number": 11,
       "question_text": "Which hosts made SMB connections to many peers?",
-      "description": "detect SMB peer spread — Detection logic should be vetted.",
+      "description": "detect SMB peer spread \u2014 Detection logic should be vetted.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -931,7 +931,7 @@
       "id": "q0.q012",
       "question_number": 12,
       "question_text": "Which systems used unusual destination ports?",
-      "description": "find unusual destination port usage — Needs baseline or allowed-port policy.",
+      "description": "find unusual destination port usage \u2014 Needs baseline or allowed-port policy.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1004,7 +1004,7 @@
       "id": "q0.q013",
       "question_number": 13,
       "question_text": "Which systems generated large outbound data transfers?",
-      "description": "find large outbound transfers by system — Network bytes may be available, but exfil claim needs DLP/proxy context.",
+      "description": "find large outbound transfers by system \u2014 Network bytes may be available, but exfil claim needs DLP/proxy context.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1093,7 +1093,7 @@
       "id": "q0.q014",
       "question_number": 14,
       "question_text": "Which hosts showed potential data exfiltration to cloud apps?",
-      "description": "detect possible cloud-app exfiltration — Requires cloud app/proxy/DLP classification.",
+      "description": "detect possible cloud-app exfiltration \u2014 Requires cloud app/proxy/DLP classification.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1178,7 +1178,7 @@
       "id": "q0.q015",
       "question_number": 15,
       "question_text": "Which hosts have repeated connections to rare destinations?",
-      "description": "detect repeated connections to rare destinations — Needs rarity baseline.",
+      "description": "detect repeated connections to rare destinations \u2014 Needs rarity baseline.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1262,7 +1262,7 @@
       "id": "q0.q016",
       "question_number": 16,
       "question_text": "Which hosts contacted the same external IP many times?",
-      "description": "find repeated host-to-external-IP contacts — Good bounded threshold pattern.",
+      "description": "find repeated host-to-external-IP contacts \u2014 Good bounded threshold pattern.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1347,7 +1347,7 @@
       "id": "q0.q017",
       "question_number": 17,
       "question_text": "Which hosts generated the most DNS queries?",
-      "description": "rank hosts by DNS query count — Useful demo if DNS data exists.",
+      "description": "rank hosts by DNS query count \u2014 Useful demo if DNS data exists.",
       "primary_skill": "aggregate_and_rank",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1438,7 +1438,7 @@
       "id": "q0.q018",
       "question_number": 18,
       "question_text": "Which domains were queried by multiple hosts?",
-      "description": "rank domains by distinct querying hosts — Distinct-host count.",
+      "description": "rank domains by distinct querying hosts \u2014 Distinct-host count.",
       "primary_skill": "aggregate_and_rank",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1521,7 +1521,7 @@
       "id": "q0.q019",
       "question_number": 19,
       "question_text": "Which hosts queried domains with suspicious subdomains?",
-      "description": "detect suspicious subdomain DNS behavior — Suspicious subdomain criteria must be vetted.",
+      "description": "detect suspicious subdomain DNS behavior \u2014 Suspicious subdomain criteria must be vetted.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1605,7 +1605,7 @@
       "id": "q0.q020",
       "question_number": 20,
       "question_text": "Which networks saw traffic to high-risk ports?",
-      "description": "find networks with high-risk destination ports — Needs approved high-risk port list.",
+      "description": "find networks with high-risk destination ports \u2014 Needs approved high-risk port list.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1677,7 +1677,7 @@
       "id": "q0.q021",
       "question_number": 21,
       "question_text": "Which hosts communicated with foreign IP ranges?",
-      "description": "find hosts communicating with foreign IP ranges — Requires geo/IP range enrichment.",
+      "description": "find hosts communicating with foreign IP ranges \u2014 Requires geo/IP range enrichment.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1700,7 +1700,9 @@
       "requested_output_type": "baseline_compare",
       "spl_template_id": null,
       "mitre_permitted": [],
-      "mitre_candidates": [],
+      "mitre_candidates": [
+        "T1071"
+      ],
       "tactics": [],
       "severity": null,
       "detection_family": null,
@@ -1719,7 +1721,9 @@
       },
       "mitre_registry": {
         "permitted": [],
-        "candidate": [],
+        "candidate": [
+          "T1071"
+        ],
         "blocked": [
           "T1562.001",
           "T1003",
@@ -1742,6 +1746,9 @@
           "mitre_permitted": [],
           "mitre_candidates": [],
           "tactics": []
+        },
+        "candidate_provenance": {
+          "T1071": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -1749,7 +1756,7 @@
       "id": "q0.q022",
       "question_number": 22,
       "question_text": "Which hosts contacted IPs in an IOC lookup?",
-      "description": "correlate host traffic with IOC IP lookup — Requires local IOC lookup.",
+      "description": "correlate host traffic with IOC IP lookup \u2014 Requires local IOC lookup.",
       "primary_skill": "lookup_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1833,7 +1840,7 @@
       "id": "q0.q023",
       "question_number": 23,
       "question_text": "Which hosts showed possible command-and-control beaconing?",
-      "description": "detect C2 beaconing hosts — Use vetted C2/beaconing detection.",
+      "description": "detect C2 beaconing hosts \u2014 Use vetted C2/beaconing detection.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -1916,7 +1923,7 @@
       "id": "q0.q024",
       "question_number": 24,
       "question_text": "Which internal hosts generated outbound traffic after DNS lookups?",
-      "description": "correlate DNS lookup followed by outbound traffic — Requires DNS plus network temporal correlation.",
+      "description": "correlate DNS lookup followed by outbound traffic \u2014 Requires DNS plus network temporal correlation.",
       "primary_skill": "multi_signal_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2001,7 +2008,7 @@
       "id": "q0.q025",
       "question_number": 25,
       "question_text": "Which hosts used unusual protocols?",
-      "description": "find unusual protocol use by host — Needs approved protocol baseline.",
+      "description": "find unusual protocol use by host \u2014 Needs approved protocol baseline.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2073,7 +2080,7 @@
       "id": "q0.q026",
       "question_number": 26,
       "question_text": "Which hosts have unusually high connection counts to one destination?",
-      "description": "find high host-to-destination connection counts — Threshold/baseline required.",
+      "description": "find high host-to-destination connection counts \u2014 Threshold/baseline required.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2158,7 +2165,7 @@
       "id": "q0.q027",
       "question_number": 27,
       "question_text": "Which DNS queries resolved to suspicious top-level domains?",
-      "description": "detect suspicious TLD DNS queries — Requires vetted suspicious TLD list.",
+      "description": "detect suspicious TLD DNS queries \u2014 Requires vetted suspicious TLD list.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2241,7 +2248,7 @@
       "id": "q0.q028",
       "question_number": 28,
       "question_text": "Which hosts showed peer-to-peer style communication?",
-      "description": "identify peer-to-peer style communication — Needs SOC definition of P2P style.",
+      "description": "identify peer-to-peer style communication \u2014 Needs SOC definition of P2P style.",
       "primary_skill": null,
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2263,7 +2270,9 @@
       "requested_output_type": null,
       "spl_template_id": null,
       "mitre_permitted": [],
-      "mitre_candidates": [],
+      "mitre_candidates": [
+        "T1071"
+      ],
       "tactics": [],
       "severity": null,
       "detection_family": null,
@@ -2281,7 +2290,9 @@
       },
       "mitre_registry": {
         "permitted": [],
-        "candidate": [],
+        "candidate": [
+          "T1071"
+        ],
         "blocked": [
           "T1562.001",
           "T1003",
@@ -2304,6 +2315,9 @@
           "mitre_permitted": [],
           "mitre_candidates": [],
           "tactics": []
+        },
+        "candidate_provenance": {
+          "T1071": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -2311,7 +2325,7 @@
       "id": "q0.q029",
       "question_number": 29,
       "question_text": "Which systems accessed the internet through rare ports?",
-      "description": "find internet access through rare ports — Needs rare-port baseline.",
+      "description": "find internet access through rare ports \u2014 Needs rare-port baseline.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2384,7 +2398,7 @@
       "id": "q0.q030",
       "question_number": 30,
       "question_text": "Which hosts contacted external IPs after hours?",
-      "description": "find after-hours external IP contact — Needs business-hours policy.",
+      "description": "find after-hours external IP contact \u2014 Needs business-hours policy.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2468,7 +2482,7 @@
       "id": "q0.q031",
       "question_number": 31,
       "question_text": "Which hosts repeatedly contacted the same destination at regular intervals?",
-      "description": "detect periodic host-to-destination contacts — Beaconing periodicity logic must be vetted.",
+      "description": "detect periodic host-to-destination contacts \u2014 Beaconing periodicity logic must be vetted.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2552,7 +2566,7 @@
       "id": "q0.q032",
       "question_number": 32,
       "question_text": "Which hosts had both DNS and network anomalies?",
-      "description": "correlate DNS and network anomaly flags — Requires two anomaly sources and provenance.",
+      "description": "correlate DNS and network anomaly flags \u2014 Requires two anomaly sources and provenance.",
       "primary_skill": "multi_signal_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2644,7 +2658,7 @@
       "id": "q0.q033",
       "question_number": 33,
       "question_text": "Which hosts communicated with suspicious destination domains and IPs?",
-      "description": "correlate suspicious domain and IP communication — Suspicious lists must be local and vetted.",
+      "description": "correlate suspicious domain and IP communication \u2014 Suspicious lists must be local and vetted.",
       "primary_skill": "lookup_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2729,7 +2743,7 @@
       "id": "q0.q034",
       "question_number": 34,
       "question_text": "Which destination IPs were contacted by many hosts?",
-      "description": "rank destination IPs by distinct hosts — Distinct-source aggregation.",
+      "description": "rank destination IPs by distinct hosts \u2014 Distinct-source aggregation.",
       "primary_skill": "aggregate_and_rank",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2800,7 +2814,7 @@
       "id": "q0.q035",
       "question_number": 35,
       "question_text": "Which hosts generated the largest DNS response volumes?",
-      "description": "rank DNS response volume by host — Requires DNS response size fields.",
+      "description": "rank DNS response volume by host \u2014 Requires DNS response size fields.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2884,7 +2898,7 @@
       "id": "q0.q036",
       "question_number": 36,
       "question_text": "Which hosts reached known malicious domains from lookup data?",
-      "description": "correlate host DNS/web with malicious domain lookup — Requires local domain IOC lookup.",
+      "description": "correlate host DNS/web with malicious domain lookup \u2014 Requires local domain IOC lookup.",
       "primary_skill": "lookup_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -2977,7 +2991,7 @@
       "id": "q0.q037",
       "question_number": 37,
       "question_text": "Which hosts showed likely proxy or tunneling behavior?",
-      "description": "detect proxy/tunneling behavior — Requires vetted tunneling/proxy detection.",
+      "description": "detect proxy/tunneling behavior \u2014 Requires vetted tunneling/proxy detection.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3060,7 +3074,7 @@
       "id": "q0.q038",
       "question_number": 38,
       "question_text": "Which hosts had large inbound traffic from a single source?",
-      "description": "find large inbound traffic from one source — Needs byte fields and threshold.",
+      "description": "find large inbound traffic from one source \u2014 Needs byte fields and threshold.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3133,7 +3147,7 @@
       "id": "q0.q039",
       "question_number": 39,
       "question_text": "Which hosts downloaded large volumes from the internet?",
-      "description": "find large internet downloads by host — May use network/proxy bytes; exfil or malware interpretation needs context.",
+      "description": "find large internet downloads by host \u2014 May use network/proxy bytes; exfil or malware interpretation needs context.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3217,7 +3231,7 @@
       "id": "q0.q040",
       "question_number": 40,
       "question_text": "Which hosts initiated traffic to rare countries?",
-      "description": "find host traffic to rare countries — Needs geo enrichment and baseline.",
+      "description": "find host traffic to rare countries \u2014 Needs geo enrichment and baseline.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3240,7 +3254,9 @@
       "requested_output_type": "baseline_compare",
       "spl_template_id": null,
       "mitre_permitted": [],
-      "mitre_candidates": [],
+      "mitre_candidates": [
+        "T1071"
+      ],
       "tactics": [],
       "severity": null,
       "detection_family": null,
@@ -3259,7 +3275,9 @@
       },
       "mitre_registry": {
         "permitted": [],
-        "candidate": [],
+        "candidate": [
+          "T1071"
+        ],
         "blocked": [
           "T1562.001",
           "T1003",
@@ -3282,6 +3300,9 @@
           "mitre_permitted": [],
           "mitre_candidates": [],
           "tactics": []
+        },
+        "candidate_provenance": {
+          "T1071": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -3289,7 +3310,7 @@
       "id": "q0.q041",
       "question_number": 41,
       "question_text": "Which systems have repeated hits to the same suspicious URL path?",
-      "description": "find repeated suspicious URL path hits — Requires web/proxy URL fields and suspicious-path criteria.",
+      "description": "find repeated suspicious URL path hits \u2014 Requires web/proxy URL fields and suspicious-path criteria.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3374,7 +3395,7 @@
       "id": "q0.q042",
       "question_number": 42,
       "question_text": "Which hosts contacted both malicious IPs and domains?",
-      "description": "correlate malicious IP and domain IOC hits — Requires IP and domain IOC lookups.",
+      "description": "correlate malicious IP and domain IOC hits \u2014 Requires IP and domain IOC lookups.",
       "primary_skill": "lookup_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3459,7 +3480,7 @@
       "id": "q0.q043",
       "question_number": 43,
       "question_text": "Which hosts show consistent low-volume outbound connections?",
-      "description": "detect low-volume periodic outbound behavior — Beaconing-like behavior; use vetted logic.",
+      "description": "detect low-volume periodic outbound behavior \u2014 Beaconing-like behavior; use vetted logic.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3542,7 +3563,7 @@
       "id": "q0.q044",
       "question_number": 44,
       "question_text": "Which rules are generating the most alerts?",
-      "description": "rank alerting rules by volume — Read-only alert analytics.",
+      "description": "rank alerting rules by volume \u2014 Read-only alert analytics.",
       "primary_skill": "aggregate_and_rank",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3611,7 +3632,7 @@
       "id": "q0.q045",
       "question_number": 45,
       "question_text": "What happened for this specific notable event?",
-      "description": "retrieve notable event detail and context — Needs notable id and read-only case/notable source.",
+      "description": "retrieve notable event detail and context \u2014 Needs notable id and read-only case/notable source.",
       "primary_skill": "notable_risk_lookup",
       "legacy_skill_hint": "alert_summary",
       "tags": [
@@ -3690,7 +3711,7 @@
       "id": "q0.q046",
       "question_number": 46,
       "question_text": "Which users have excessive failed logins?",
-      "description": "find users above failed-login threshold — Threshold must be explicit or policy default.",
+      "description": "find users above failed-login threshold \u2014 Threshold must be explicit or policy default.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3718,7 +3739,8 @@
         "T1110.001"
       ],
       "mitre_candidates": [
-        "T1110.001"
+        "T1110.001",
+        "T1110"
       ],
       "tactics": [
         "Credential Access"
@@ -3754,7 +3776,9 @@
         "permitted": [
           "T1110.001"
         ],
-        "candidate": [],
+        "candidate": [
+          "T1110"
+        ],
         "blocked": [
           "T1562.001",
           "T1003",
@@ -3781,6 +3805,9 @@
           "tactics": [
             "Credential Access"
           ]
+        },
+        "candidate_provenance": {
+          "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -3788,7 +3815,7 @@
       "id": "q0.q047",
       "question_number": 47,
       "question_text": "Is one IP attacking many accounts?",
-      "description": "detect one source IP failing against many accounts — Good brute-force pattern.",
+      "description": "detect one source IP failing against many accounts \u2014 Good brute-force pattern.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3814,7 +3841,8 @@
         "T1110.001"
       ],
       "mitre_candidates": [
-        "T1110.001"
+        "T1110.001",
+        "T1110"
       ],
       "tactics": [
         "Credential Access"
@@ -3843,7 +3871,9 @@
         "permitted": [
           "T1110.001"
         ],
-        "candidate": [],
+        "candidate": [
+          "T1110"
+        ],
         "blocked": [
           "T1562.001",
           "T1003",
@@ -3870,6 +3900,9 @@
           "tactics": [
             "Credential Access"
           ]
+        },
+        "candidate_provenance": {
+          "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -3877,7 +3910,7 @@
       "id": "q0.q048",
       "question_number": 48,
       "question_text": "Did a user log in from impossible locations?",
-      "description": "detect impossible travel login behavior — Needs geo enrichment and user context.",
+      "description": "detect impossible travel login behavior \u2014 Needs geo enrichment and user context.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -3965,7 +3998,7 @@
       "id": "q0.q049",
       "question_number": 49,
       "question_text": "Which hosts ran suspicious PowerShell?",
-      "description": "detect suspicious PowerShell by host — Use vetted detection content.",
+      "description": "detect suspicious PowerShell by host \u2014 Use vetted detection content.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -4048,7 +4081,7 @@
       "id": "q0.q050",
       "question_number": 50,
       "question_text": "Did Office apps spawn cmd or PowerShell?",
-      "description": "detect Office-to-shell child process behavior — Requires endpoint process telemetry.",
+      "description": "detect Office-to-shell child process behavior \u2014 Requires endpoint process telemetry.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -4076,7 +4109,8 @@
       ],
       "mitre_candidates": [
         "T1204",
-        "T1059"
+        "T1059",
+        "T1059.001"
       ],
       "tactics": [],
       "severity": null,
@@ -4100,7 +4134,9 @@
           "T1204",
           "T1059"
         ],
-        "candidate": [],
+        "candidate": [
+          "T1059.001"
+        ],
         "blocked": [
           "T1562.001",
           "T1003",
@@ -4129,6 +4165,9 @@
             "T1059"
           ],
           "tactics": []
+        },
+        "candidate_provenance": {
+          "T1059.001": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -4136,7 +4175,7 @@
       "id": "q0.q051",
       "question_number": 51,
       "question_text": "What unusual processes ran on critical servers?",
-      "description": "detect unusual processes on critical servers — Also needs critical-server asset enrichment.",
+      "description": "detect unusual processes on critical servers \u2014 Also needs critical-server asset enrichment.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -4219,7 +4258,7 @@
       "id": "q0.q052",
       "question_number": 52,
       "question_text": "Did any host contact known malicious IPs?",
-      "description": "correlate host traffic with malicious IPs — Requires local malicious IP lookup.",
+      "description": "correlate host traffic with malicious IPs \u2014 Requires local malicious IP lookup.",
       "primary_skill": "lookup_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -4303,7 +4342,7 @@
       "id": "q0.q053",
       "question_number": 53,
       "question_text": "Are there suspicious DNS queries indicating C2 or DGA behavior?",
-      "description": "detect DNS C2 or DGA behavior — Detection content should be pre-vetted.",
+      "description": "detect DNS C2 or DGA behavior \u2014 Detection content should be pre-vetted.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -4391,7 +4430,7 @@
       "id": "q0.q054",
       "question_number": 54,
       "question_text": "Who is sending large amounts of data outbound?",
-      "description": "identify users/hosts with large outbound data — User attribution may require proxy/DLP.",
+      "description": "identify users/hosts with large outbound data \u2014 User attribution may require proxy/DLP.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -4481,7 +4520,7 @@
       "id": "q0.q055",
       "question_number": 55,
       "question_text": "Did anyone get added to Administrators?",
-      "description": "detect users added to Administrators group — Requires AD/change or identity source.",
+      "description": "detect users added to Administrators group \u2014 Requires AD/change or identity source.",
       "primary_skill": "entity_context_lookup",
       "legacy_skill_hint": "knowledge_recall",
       "tags": [
@@ -4564,7 +4603,7 @@
       "id": "q0.q056",
       "question_number": 56,
       "question_text": "Which users are logging in outside normal hours?",
-      "description": "find users authenticating outside normal hours — Needs business-hours policy.",
+      "description": "find users authenticating outside normal hours \u2014 Needs business-hours policy.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -4651,7 +4690,7 @@
       "id": "q0.q057",
       "question_number": 57,
       "question_text": "Did any endpoint run this suspicious hash?",
-      "description": "search endpoint telemetry for suspicious hash — Needs hash value and endpoint hash telemetry.",
+      "description": "search endpoint telemetry for suspicious hash \u2014 Needs hash value and endpoint hash telemetry.",
       "primary_skill": "lookup_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -4735,7 +4774,7 @@
       "id": "q0.q058",
       "question_number": 58,
       "question_text": "Which users or hosts have the highest risk scores?",
-      "description": "rank users/hosts by risk score — Depends on populated risk data.",
+      "description": "rank users/hosts by risk score \u2014 Depends on populated risk data.",
       "primary_skill": "notable_risk_lookup",
       "legacy_skill_hint": "alert_summary",
       "tags": [
@@ -4806,7 +4845,7 @@
       "id": "q0.q059",
       "question_number": 59,
       "question_text": "Which source IPs generated the most authentication failures today?",
-      "description": "rank source IPs by authentication failures — Strong first-demo candidate.",
+      "description": "rank source IPs by authentication failures \u2014 Strong first-demo candidate.",
       "primary_skill": "aggregate_and_rank",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -4892,7 +4931,7 @@
       "id": "q0.q060",
       "question_number": 60,
       "question_text": "Which accounts had a successful login after repeated failures?",
-      "description": "find success after repeated auth failures — Strong first-demo candidate.",
+      "description": "find success after repeated auth failures \u2014 Strong first-demo candidate.",
       "primary_skill": "sequence_detection",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -4920,7 +4959,8 @@
       ],
       "mitre_candidates": [
         "T1078",
-        "T1110.001"
+        "T1110.001",
+        "T1110"
       ],
       "tactics": [
         "Initial Access / Persistence / Privilege Escalation / Defense Evasion",
@@ -4951,7 +4991,9 @@
           "T1078",
           "T1110.001"
         ],
-        "candidate": [],
+        "candidate": [
+          "T1110"
+        ],
         "blocked": [
           "T1562.001",
           "T1003"
@@ -4979,6 +5021,9 @@
             "Initial Access / Persistence / Privilege Escalation / Defense Evasion",
             "Credential Access"
           ]
+        },
+        "candidate_provenance": {
+          "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -4986,7 +5031,7 @@
       "id": "q0.q061",
       "question_number": 61,
       "question_text": "Which users logged in from new countries today?",
-      "description": "detect new-country logins — Requires geo and historical baseline.",
+      "description": "detect new-country logins \u2014 Requires geo and historical baseline.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -5073,7 +5118,7 @@
       "id": "q0.q062",
       "question_number": 62,
       "question_text": "Which hosts show a spike in failed logins?",
-      "description": "detect hosts with failed-login spike — Needs baseline or explicit spike definition.",
+      "description": "detect hosts with failed-login spike \u2014 Needs baseline or explicit spike definition.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -5100,7 +5145,8 @@
         "T1110.001"
       ],
       "mitre_candidates": [
-        "T1110.001"
+        "T1110.001",
+        "T1110"
       ],
       "tactics": [
         "Credential Access"
@@ -5136,7 +5182,9 @@
         "permitted": [
           "T1110.001"
         ],
-        "candidate": [],
+        "candidate": [
+          "T1110"
+        ],
         "blocked": [
           "T1562.001",
           "T1003",
@@ -5163,6 +5211,9 @@
           "tactics": [
             "Credential Access"
           ]
+        },
+        "candidate_provenance": {
+          "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -5170,7 +5221,7 @@
       "id": "q0.q063",
       "question_number": 63,
       "question_text": "Which endpoints spawned script interpreters recently?",
-      "description": "detect script interpreter process spawns — Requires endpoint process telemetry.",
+      "description": "detect script interpreter process spawns \u2014 Requires endpoint process telemetry.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -5196,7 +5247,8 @@
         "T1059"
       ],
       "mitre_candidates": [
-        "T1059"
+        "T1059",
+        "T1059.001"
       ],
       "tactics": [],
       "severity": null,
@@ -5219,7 +5271,9 @@
         "permitted": [
           "T1059"
         ],
-        "candidate": [],
+        "candidate": [
+          "T1059.001"
+        ],
         "blocked": [
           "T1562.001",
           "T1003",
@@ -5246,6 +5300,9 @@
             "T1059"
           ],
           "tactics": []
+        },
+        "candidate_provenance": {
+          "T1059.001": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -5253,7 +5310,7 @@
       "id": "q0.q064",
       "question_number": 64,
       "question_text": "Which hosts executed encoded PowerShell commands?",
-      "description": "detect encoded PowerShell — Use vetted detection content.",
+      "description": "detect encoded PowerShell \u2014 Use vetted detection content.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -5336,7 +5393,7 @@
       "id": "q0.q065",
       "question_number": 65,
       "question_text": "Which endpoints created new scheduled tasks?",
-      "description": "detect scheduled task creation — Requires Windows endpoint telemetry.",
+      "description": "detect scheduled task creation \u2014 Requires Windows endpoint telemetry.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -5419,7 +5476,7 @@
       "id": "q0.q066",
       "question_number": 66,
       "question_text": "Which systems contacted rare external destinations?",
-      "description": "find rare external destination contacts — Needs rarity baseline.",
+      "description": "find rare external destination contacts \u2014 Needs rarity baseline.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -5503,7 +5560,7 @@
       "id": "q0.q067",
       "question_number": 67,
       "question_text": "Which hosts are generating unusual DNS query volumes?",
-      "description": "detect unusual DNS volume by host — Threshold or baseline required.",
+      "description": "detect unusual DNS volume by host \u2014 Threshold or baseline required.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -5587,7 +5644,7 @@
       "id": "q0.q068",
       "question_number": 68,
       "question_text": "Which internal hosts contacted known command-and-control domains?",
-      "description": "correlate internal hosts with known C2 domains — Requires local C2 domain lookup.",
+      "description": "correlate internal hosts with known C2 domains \u2014 Requires local C2 domain lookup.",
       "primary_skill": "lookup_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -5671,7 +5728,7 @@
       "id": "q0.q069",
       "question_number": 69,
       "question_text": "Which users accessed privileged applications unusually?",
-      "description": "detect unusual privileged application access — Needs privileged-app inventory and user baseline.",
+      "description": "detect unusual privileged application access \u2014 Needs privileged-app inventory and user baseline.",
       "primary_skill": "entity_context_lookup",
       "legacy_skill_hint": "knowledge_recall",
       "tags": [
@@ -5759,7 +5816,7 @@
       "id": "q0.q070",
       "question_number": 70,
       "question_text": "Which users changed their password multiple times in a short window?",
-      "description": "detect repeated password changes — Needs AD/change events.",
+      "description": "detect repeated password changes \u2014 Needs AD/change events.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -5843,7 +5900,7 @@
       "id": "q0.q071",
       "question_number": 71,
       "question_text": "Which accounts were disabled or re-enabled today?",
-      "description": "list account disable/re-enable changes — Requires identity/change source.",
+      "description": "list account disable/re-enable changes \u2014 Requires identity/change source.",
       "primary_skill": "entity_context_lookup",
       "legacy_skill_hint": "knowledge_recall",
       "tags": [
@@ -5925,7 +5982,7 @@
       "id": "q0.q072",
       "question_number": 72,
       "question_text": "Which hosts show signs of lateral movement?",
-      "description": "detect lateral movement signs — Needs vetted lateral movement detection content.",
+      "description": "detect lateral movement signs \u2014 Needs vetted lateral movement detection content.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6008,7 +6065,7 @@
       "id": "q0.q073",
       "question_number": 73,
       "question_text": "Which systems had multiple remote service creations?",
-      "description": "detect multiple remote service creations — Also lateral movement adjacent.",
+      "description": "detect multiple remote service creations \u2014 Also lateral movement adjacent.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6092,7 +6149,7 @@
       "id": "q0.q074",
       "question_number": 74,
       "question_text": "Which hosts show SMB connections to many peers?",
-      "description": "detect SMB fan-out to many peers — Duplicate pattern with row 11, actual question preserved.",
+      "description": "detect SMB fan-out to many peers \u2014 Duplicate pattern with row 11, actual question preserved.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6176,7 +6233,7 @@
       "id": "q0.q075",
       "question_number": 75,
       "question_text": "Which endpoints created suspicious archive files?",
-      "description": "detect suspicious archive creation — Could also support exfil staging.",
+      "description": "detect suspicious archive creation \u2014 Could also support exfil staging.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6259,7 +6316,7 @@
       "id": "q0.q076",
       "question_number": 76,
       "question_text": "Which hosts uploaded large amounts of data to cloud services?",
-      "description": "detect large uploads to cloud services — Requires proxy/CASB/DLP/cloud-service classification.",
+      "description": "detect large uploads to cloud services \u2014 Requires proxy/CASB/DLP/cloud-service classification.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6344,7 +6401,7 @@
       "id": "q0.q077",
       "question_number": 77,
       "question_text": "Which endpoints accessed USB storage recently?",
-      "description": "detect endpoint USB storage access — Requires endpoint/device control telemetry.",
+      "description": "detect endpoint USB storage access \u2014 Requires endpoint/device control telemetry.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6427,7 +6484,7 @@
       "id": "q0.q078",
       "question_number": 78,
       "question_text": "Which systems had repeated malware detections?",
-      "description": "find systems with repeated malware detections — Depends EDR/AV source.",
+      "description": "find systems with repeated malware detections \u2014 Depends EDR/AV source.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6499,7 +6556,7 @@
       "id": "q0.q079",
       "question_number": 79,
       "question_text": "Which files were modified by suspicious processes?",
-      "description": "correlate file modifications with suspicious processes — Requires endpoint file and process telemetry.",
+      "description": "correlate file modifications with suspicious processes \u2014 Requires endpoint file and process telemetry.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6582,7 +6639,7 @@
       "id": "q0.q080",
       "question_number": 80,
       "question_text": "Which hosts spawned shells from email clients?",
-      "description": "detect email-client-to-shell process chains — Requires parent-child process telemetry.",
+      "description": "detect email-client-to-shell process chains \u2014 Requires parent-child process telemetry.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6670,7 +6727,7 @@
       "id": "q0.q081",
       "question_number": 81,
       "question_text": "Which users received and opened phishing attachments?",
-      "description": "detect phishing attachment open events — May require email security plus endpoint telemetry.",
+      "description": "detect phishing attachment open events \u2014 May require email security plus endpoint telemetry.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6758,7 +6815,7 @@
       "id": "q0.q082",
       "question_number": 82,
       "question_text": "Which domains were queried by multiple hosts in a short period?",
-      "description": "find domains queried by many hosts in short window — Threshold and short-window duration must be defined.",
+      "description": "find domains queried by many hosts in short window \u2014 Threshold and short-window duration must be defined.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6843,7 +6900,7 @@
       "id": "q0.q083",
       "question_number": 83,
       "question_text": "Which hosts have suspicious parent-child process chains?",
-      "description": "detect suspicious parent-child process chains — Use vetted process-chain rules.",
+      "description": "detect suspicious parent-child process chains \u2014 Use vetted process-chain rules.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -6871,7 +6928,8 @@
       ],
       "mitre_candidates": [
         "T1059",
-        "T1204"
+        "T1204",
+        "T1059.001"
       ],
       "tactics": [],
       "severity": null,
@@ -6895,7 +6953,9 @@
           "T1059",
           "T1204"
         ],
-        "candidate": [],
+        "candidate": [
+          "T1059.001"
+        ],
         "blocked": [
           "T1562.001",
           "T1003",
@@ -6924,6 +6984,9 @@
             "T1204"
           ],
           "tactics": []
+        },
+        "candidate_provenance": {
+          "T1059.001": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -6931,7 +6994,7 @@
       "id": "q0.q084",
       "question_number": 84,
       "question_text": "Which accounts have the most risk events?",
-      "description": "rank accounts by risk event count — Requires risk-event population.",
+      "description": "rank accounts by risk event count \u2014 Requires risk-event population.",
       "primary_skill": "notable_risk_lookup",
       "legacy_skill_hint": "alert_summary",
       "tags": [
@@ -7001,7 +7064,7 @@
       "id": "q0.q085",
       "question_number": 85,
       "question_text": "Which assets have accumulated risk from multiple detections?",
-      "description": "rank assets by accumulated risk — Requires risk plus asset mapping.",
+      "description": "rank assets by accumulated risk \u2014 Requires risk plus asset mapping.",
       "primary_skill": "notable_risk_lookup",
       "legacy_skill_hint": "alert_summary",
       "tags": [
@@ -7071,7 +7134,7 @@
       "id": "q0.q086",
       "question_number": 86,
       "question_text": "Which users were involved in both failed logins and privilege changes?",
-      "description": "correlate failed logins with privilege changes — Requires auth plus AD/change events.",
+      "description": "correlate failed logins with privilege changes \u2014 Requires auth plus AD/change events.",
       "primary_skill": "multi_signal_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -7163,7 +7226,7 @@
       "id": "q0.q087",
       "question_number": 87,
       "question_text": "Which hosts are communicating with unusual ports externally?",
-      "description": "find unusual external port communication — Needs port baseline/allowlist.",
+      "description": "find unusual external port communication \u2014 Needs port baseline/allowlist.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -7236,7 +7299,7 @@
       "id": "q0.q088",
       "question_number": 88,
       "question_text": "Which endpoints have multiple persistence indicators?",
-      "description": "detect endpoints with multiple persistence indicators — Requires detection inventory.",
+      "description": "detect endpoints with multiple persistence indicators \u2014 Requires detection inventory.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -7330,7 +7393,7 @@
       "id": "q0.q089",
       "question_number": 89,
       "question_text": "Which users authenticated to VPN after repeated MFA failures?",
-      "description": "detect VPN success after repeated MFA failures — Requires VPN/MFA source mapping.",
+      "description": "detect VPN success after repeated MFA failures \u2014 Requires VPN/MFA source mapping.",
       "primary_skill": "sequence_detection",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -7358,7 +7421,8 @@
       ],
       "mitre_candidates": [
         "T1078",
-        "T1110.001"
+        "T1110.001",
+        "T1110"
       ],
       "tactics": [
         "Initial Access / Persistence / Privilege Escalation / Defense Evasion",
@@ -7389,7 +7453,9 @@
           "T1078",
           "T1110.001"
         ],
-        "candidate": [],
+        "candidate": [
+          "T1110"
+        ],
         "blocked": [
           "T1562.001",
           "T1003"
@@ -7417,6 +7483,9 @@
             "Initial Access / Persistence / Privilege Escalation / Defense Evasion",
             "Credential Access"
           ]
+        },
+        "candidate_provenance": {
+          "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -7424,7 +7493,7 @@
       "id": "q0.q090",
       "question_number": 90,
       "question_text": "Which assets are generating the most notable events?",
-      "description": "rank assets by notable event count — Requires notable source and asset mapping.",
+      "description": "rank assets by notable event count \u2014 Requires notable source and asset mapping.",
       "primary_skill": "notable_risk_lookup",
       "legacy_skill_hint": "alert_summary",
       "tags": [
@@ -7494,7 +7563,7 @@
       "id": "q0.q091",
       "question_number": 91,
       "question_text": "Which alerts are still open and unresolved?",
-      "description": "read open unresolved alert state — Read-only case state only.",
+      "description": "read open unresolved alert state \u2014 Read-only case state only.",
       "primary_skill": "notable_risk_lookup",
       "legacy_skill_hint": "alert_summary",
       "tags": [
@@ -7563,7 +7632,7 @@
       "id": "q0.q092",
       "question_number": 92,
       "question_text": "Which users had access to sensitive systems and then large outbound transfers?",
-      "description": "correlate sensitive-system access and outbound transfer — Needs asset sensitivity plus network/proxy/DLP data.",
+      "description": "correlate sensitive-system access and outbound transfer \u2014 Needs asset sensitivity plus network/proxy/DLP data.",
       "primary_skill": "multi_signal_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -7657,7 +7726,7 @@
       "id": "q0.q093",
       "question_number": 93,
       "question_text": "Which hosts showed both process execution and suspicious DNS within 24 hours?",
-      "description": "correlate endpoint process and suspicious DNS signals — Strong governed investigation demo candidate.",
+      "description": "correlate endpoint process and suspicious DNS signals \u2014 Strong governed investigation demo candidate.",
       "primary_skill": "multi_signal_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -7746,7 +7815,7 @@
       "id": "q0.q094",
       "question_number": 94,
       "question_text": "Which logs are missing from key security sources?",
-      "description": "identify missing key security logs — Safe metadata/source-health pattern.",
+      "description": "identify missing key security logs \u2014 Safe metadata/source-health pattern.",
       "primary_skill": "metadata_discovery",
       "legacy_skill_hint": "knowledge_recall",
       "tags": [
@@ -7815,7 +7884,7 @@
       "id": "q0.q095",
       "question_number": 95,
       "question_text": "Which sources stopped sending events recently?",
-      "description": "identify stale sources — Safe metadata/source-health pattern.",
+      "description": "identify stale sources \u2014 Safe metadata/source-health pattern.",
       "primary_skill": "metadata_discovery",
       "legacy_skill_hint": "knowledge_recall",
       "tags": [
@@ -7884,7 +7953,7 @@
       "id": "q0.q096",
       "question_number": 96,
       "question_text": "Which users performed privileged actions from non-admin workstations?",
-      "description": "detect privileged actions from non-admin workstations — Needs privilege action mapping plus workstation classification.",
+      "description": "detect privileged actions from non-admin workstations \u2014 Needs privilege action mapping plus workstation classification.",
       "primary_skill": "entity_context_lookup",
       "legacy_skill_hint": "knowledge_recall",
       "tags": [
@@ -7968,7 +8037,7 @@
       "id": "q0.q097",
       "question_number": 97,
       "question_text": "Which systems show signs of webshell activity?",
-      "description": "detect webshell activity signs — Requires vetted webshell detection content.",
+      "description": "detect webshell activity signs \u2014 Requires vetted webshell detection content.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -8051,7 +8120,7 @@
       "id": "q0.q098",
       "question_number": 98,
       "question_text": "Which hosts downloaded executables from the internet?",
-      "description": "find internet executable downloads by host — Needs proxy/web file metadata or endpoint telemetry.",
+      "description": "find internet executable downloads by host \u2014 Needs proxy/web file metadata or endpoint telemetry.",
       "primary_skill": "behavioral_detection_binding",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -8135,7 +8204,7 @@
       "id": "q0.q099",
       "question_number": 99,
       "question_text": "Which detections involved the same user and host repeatedly?",
-      "description": "correlate repeated detections for same user and host — Requires detection/notable event normalization.",
+      "description": "correlate repeated detections for same user and host \u2014 Requires detection/notable event normalization.",
       "primary_skill": "multi_signal_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -8208,7 +8277,7 @@
       "id": "q0.q100",
       "question_number": 100,
       "question_text": "Which users triggered multiple different detections?",
-      "description": "correlate multiple detection types per user — Requires detection taxonomy.",
+      "description": "correlate multiple detection types per user \u2014 Requires detection taxonomy.",
       "primary_skill": "multi_signal_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -8280,7 +8349,7 @@
       "id": "q0.q101",
       "question_number": 101,
       "question_text": "Which devices are generating the most endpoint alerts?",
-      "description": "rank devices by endpoint alert count — Needs endpoint alert source.",
+      "description": "rank devices by endpoint alert count \u2014 Needs endpoint alert source.",
       "primary_skill": "aggregate_and_rank",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -8350,7 +8419,7 @@
       "id": "q0.q102",
       "question_number": 102,
       "question_text": "Which users are accessing resources from unusual hosts?",
-      "description": "find users accessing resources from unusual hosts — Needs user-host baseline.",
+      "description": "find users accessing resources from unusual hosts \u2014 Needs user-host baseline.",
       "primary_skill": "threshold_anomaly",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -8438,7 +8507,7 @@
       "id": "q0.q103",
       "question_number": 103,
       "question_text": "For any flagged host or user, what is its asset criticality, business owner, and identity/privilege status?",
-      "description": "enrich flagged entity with asset and identity context — Requires Asset & Identity/CMDB/IAM enrichment.",
+      "description": "enrich flagged entity with asset and identity context \u2014 Requires Asset & Identity/CMDB/IAM enrichment.",
       "primary_skill": "entity_context_lookup",
       "legacy_skill_hint": "knowledge_recall",
       "tags": [
@@ -8509,7 +8578,7 @@
       "id": "q0.q104",
       "question_number": 104,
       "question_text": "What is the full activity timeline for a given entity in the N hours before and after a detection?",
-      "description": "build bounded entity activity timeline around detection — Needs entity and detection anchor; read-only timeline.",
+      "description": "build bounded entity activity timeline around detection \u2014 Needs entity and detection anchor; read-only timeline.",
       "primary_skill": "multi_signal_correlation",
       "legacy_skill_hint": "attack_discovery",
       "tags": [
@@ -8584,7 +8653,7 @@
       "id": "q0.q105",
       "question_number": 105,
       "question_text": "Has this entity, IP, domain, or notable been seen or investigated before, and what was the prior disposition?",
-      "description": "read prior sightings and investigation disposition — Requires case history/prior disposition source.",
+      "description": "read prior sightings and investigation disposition \u2014 Requires case history/prior disposition source.",
       "primary_skill": "notable_risk_lookup",
       "legacy_skill_hint": "alert_summary",
       "tags": [

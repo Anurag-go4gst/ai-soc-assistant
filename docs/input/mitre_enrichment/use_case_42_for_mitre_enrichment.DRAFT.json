@@ -36,7 +36,8 @@
       "spl_template_id": "auth_failed_login_spike",
       "mitre_permitted": null,
       "mitre_candidates": [
-        "T1110.001"
+        "T1110.001",
+        "T1110"
       ],
       "tactics": [
         "Credential Access"
@@ -71,7 +72,8 @@
       "mitre_registry": {
         "permitted": [],
         "candidate": [
-          "T1110.001"
+          "T1110.001",
+          "T1110"
         ],
         "blocked": [
           "T1562.001",
@@ -97,6 +99,9 @@
           "tactics": [
             "Credential Access"
           ]
+        },
+        "candidate_provenance": {
+          "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -564,7 +569,8 @@
       "spl_template_id": "auth_account_lockout_trend",
       "mitre_permitted": null,
       "mitre_candidates": [
-        "T1110.001"
+        "T1110.001",
+        "T1110"
       ],
       "tactics": [
         "Credential Access"
@@ -593,7 +599,8 @@
       "mitre_registry": {
         "permitted": [],
         "candidate": [
-          "T1110.001"
+          "T1110.001",
+          "T1110"
         ],
         "blocked": [
           "T1562.001",
@@ -619,6 +626,9 @@
           "tactics": [
             "Credential Access"
           ]
+        },
+        "candidate_provenance": {
+          "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -974,7 +984,9 @@
       "requested_output_type": "investigation_answer",
       "spl_template_id": null,
       "mitre_permitted": null,
-      "mitre_candidates": [],
+      "mitre_candidates": [
+        "T1071"
+      ],
       "tactics": [],
       "severity": "net_new_outbound_destination",
       "detection_family": null,
@@ -998,7 +1010,9 @@
       },
       "mitre_registry": {
         "permitted": [],
-        "candidate": [],
+        "candidate": [
+          "T1071"
+        ],
         "blocked": [
           "T1562.001",
           "T1003",
@@ -1021,6 +1035,9 @@
           "mitre_permitted": [],
           "mitre_candidates": [],
           "tactics": []
+        },
+        "candidate_provenance": {
+          "T1071": "llm_catalogue_audit_2026-06-16:candidate_promotion"
         }
       }
     },
@@ -2190,7 +2207,8 @@
           "mitre_permitted": [],
           "mitre_candidates": [],
           "tactics": []
-        }
+        },
+        "candidate_provenance": {}
       }
     },
     {
