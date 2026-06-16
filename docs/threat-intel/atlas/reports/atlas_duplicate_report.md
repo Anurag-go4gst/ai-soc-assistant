@@ -1,0 +1,107 @@
+# ATLAS raw duplicate / multi-tactic report
+
+- Generated: `2026-06-16T18:08:29.563702+00:00`
+- Source: `docs/threat-intel/atlas/raw/ATLAS_Matrix.json`
+- Rows: **185** → distinct techniqueIDs: **170**
+- Cross-tactic repeats: **14**
+- Same-tactic duplicates: **0**
+- Parent/sub collisions: **69**
+
+> ATLAS Navigator layers may legitimately repeat a techniqueID across tactics. Do NOT collapse until this report is reviewed (plan §7 E2).
+
+## Cross-tactic repeats (same ID under multiple tactics)
+
+| techniqueID | tactics |
+|---|---|
+| `AML.T0012` | initial-access, privilege-escalation |
+| `AML.T0015` | defense-evasion, impact, initial-access |
+| `AML.T0018` | ai-attack-staging, persistence |
+| `AML.T0018.000` | ai-attack-staging, persistence |
+| `AML.T0018.001` | ai-attack-staging, persistence |
+| `AML.T0018.002` | ai-attack-staging, persistence |
+| `AML.T0020` | persistence, resource-development |
+| `AML.T0052` | initial-access, lateral-movement |
+| `AML.T0052.000` | initial-access, lateral-movement |
+| `AML.T0052.001` | initial-access, lateral-movement |
+| `AML.T0053` | execution, privilege-escalation |
+| `AML.T0054` | defense-evasion, privilege-escalation |
+| `AML.T0081` | defense-evasion, persistence |
+| `AML.T0093` | initial-access, persistence |
+
+## Same-tactic duplicates
+
+_None._
+
+## Parent/sub collisions
+
+| sub-technique | parent also present |
+|---|---|
+| `AML.T0000.000` | `AML.T0000` |
+| `AML.T0000.001` | `AML.T0000` |
+| `AML.T0000.002` | `AML.T0000` |
+| `AML.T0002.000` | `AML.T0002` |
+| `AML.T0002.001` | `AML.T0002` |
+| `AML.T0002.002` | `AML.T0002` |
+| `AML.T0005.000` | `AML.T0005` |
+| `AML.T0005.001` | `AML.T0005` |
+| `AML.T0005.002` | `AML.T0005` |
+| `AML.T0008.000` | `AML.T0008` |
+| `AML.T0008.001` | `AML.T0008` |
+| `AML.T0008.002` | `AML.T0008` |
+| `AML.T0008.003` | `AML.T0008` |
+| `AML.T0008.004` | `AML.T0008` |
+| `AML.T0008.005` | `AML.T0008` |
+| `AML.T0010.000` | `AML.T0010` |
+| `AML.T0010.001` | `AML.T0010` |
+| `AML.T0010.002` | `AML.T0010` |
+| `AML.T0010.003` | `AML.T0010` |
+| `AML.T0010.004` | `AML.T0010` |
+| `AML.T0010.005` | `AML.T0010` |
+| `AML.T0011.000` | `AML.T0011` |
+| `AML.T0011.001` | `AML.T0011` |
+| `AML.T0011.002` | `AML.T0011` |
+| `AML.T0011.003` | `AML.T0011` |
+| `AML.T0016.000` | `AML.T0016` |
+| `AML.T0016.001` | `AML.T0016` |
+| `AML.T0016.002` | `AML.T0016` |
+| `AML.T0017.000` | `AML.T0017` |
+| `AML.T0018.000` | `AML.T0018` |
+| `AML.T0018.001` | `AML.T0018` |
+| `AML.T0018.002` | `AML.T0018` |
+| `AML.T0024.000` | `AML.T0024` |
+| `AML.T0024.001` | `AML.T0024` |
+| `AML.T0024.002` | `AML.T0024` |
+| `AML.T0034.000` | `AML.T0034` |
+| `AML.T0034.001` | `AML.T0034` |
+| `AML.T0034.002` | `AML.T0034` |
+| `AML.T0043.000` | `AML.T0043` |
+| `AML.T0043.001` | `AML.T0043` |
+| `AML.T0043.002` | `AML.T0043` |
+| `AML.T0043.003` | `AML.T0043` |
+| `AML.T0043.004` | `AML.T0043` |
+| `AML.T0048.000` | `AML.T0048` |
+| `AML.T0048.001` | `AML.T0048` |
+| `AML.T0048.002` | `AML.T0048` |
+| `AML.T0048.003` | `AML.T0048` |
+| `AML.T0048.004` | `AML.T0048` |
+| `AML.T0051.000` | `AML.T0051` |
+| `AML.T0051.001` | `AML.T0051` |
+| `AML.T0051.002` | `AML.T0051` |
+| `AML.T0052.000` | `AML.T0052` |
+| `AML.T0052.001` | `AML.T0052` |
+| `AML.T0067.000` | `AML.T0067` |
+| `AML.T0069.000` | `AML.T0069` |
+| `AML.T0069.001` | `AML.T0069` |
+| `AML.T0069.002` | `AML.T0069` |
+| `AML.T0080.000` | `AML.T0080` |
+| `AML.T0080.001` | `AML.T0080` |
+| `AML.T0084.000` | `AML.T0084` |
+| `AML.T0084.001` | `AML.T0084` |
+| `AML.T0084.002` | `AML.T0084` |
+| `AML.T0084.003` | `AML.T0084` |
+| `AML.T0085.000` | `AML.T0085` |
+| `AML.T0085.001` | `AML.T0085` |
+| `AML.T0091.000` | `AML.T0091` |
+| `AML.T0095.000` | `AML.T0095` |
+| `AML.T0112.000` | `AML.T0112` |
+| `AML.T0112.001` | `AML.T0112` |
