@@ -326,6 +326,26 @@ export async function getDetectionCoverage(): Promise<DetectionCoverage> {
   return response.json();
 }
 
+export interface AtlasCoverageGap {
+  schema_role: string;
+  atlas_source_status: string;
+  mitre_metadata_role?: string;
+  technique_count: number;
+  covered_count: number;
+  gap_count: number;
+  tactics: Record<string, number>;
+  ai_only_tactics: Record<string, number>;
+  multi_tactic_technique_count?: number;
+  top_techniques_by_case_study_frequency: { technique_id: string; score: number; tactics: string[] }[];
+  limitation: string;
+}
+
+export async function getAtlasCoverage(): Promise<AtlasCoverageGap> {
+  const response = await fetch(`${API_BASE_URL}/knowledge/atlas-coverage`, { credentials: 'include' });
+  if (!response.ok) throw new Error(`ATLAS coverage failed: ${response.status}`);
+  return response.json();
+}
+
 export async function getKnowledgeCollections(): Promise<{ collections: KnowledgeCollection[]; count: number }> {
   const response = await fetch(`${API_BASE_URL}/knowledge/collections`, { credentials: 'include' });
   if (!response.ok) throw new Error(`Knowledge collections failed: ${response.status}`);

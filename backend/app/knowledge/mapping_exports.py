@@ -67,6 +67,92 @@ _REPO_ROOT_CANDIDATES = (
     Path("/workspace"),
 )
 
+# MITRE ATLAS (AI/ML threat taxonomy) raw Navigator layers — operator-supplied,
+# preserved unmodified. These layers carry techniqueID + tactic (+ case-study
+# score) only; they have NO technique names/descriptions, so this builder reports
+# structure/frequency/coverage gap, not human-readable technique detail.
+_ATLAS_MATRIX_PATH = "docs/threat-intel/atlas/raw/ATLAS_Matrix.json"
+_ATLAS_FREQ_PATH = "docs/threat-intel/atlas/raw/ATLAS_Case_Study_Frequency.json"
+# ATLAS tactics with no enterprise-ATT&CK analogue → zero SOC coverage by design.
+_ATLAS_AI_ONLY_TACTICS = ("ai-attack-staging", "ai-model-access")
+
+
+def _load_atlas_layer(path_suffix: str) -> list[dict[str, Any]] | None:
+    """Return the ``techniques`` rows of an ATLAS Navigator layer, or None if the
+    file is absent/unreadable (air-gapped deployments may not have onboarded it)."""
+    path = repo_root() / path_suffix
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return None
+    techniques = payload.get("techniques") if isinstance(payload, dict) else None
+    return [row for row in techniques if isinstance(row, dict)] if isinstance(techniques, list) else None
+
+
+def build_atlas_coverage_gap() -> dict[str, Any]:
+    """Deterministic MITRE ATLAS (AI/ML threat) coverage-gap lane for the Knowledge page.
+
+    ATLAS is a separate taxonomy (``AML.Txxxx``) from our enterprise ATT&CK subset,
+    so enterprise coverage of ATLAS is structurally zero — every AML technique is an
+    AI/LLM/MCP-threat detection gap today. Reports the gap honestly, weights it by
+    real-world case-study frequency, and fails closed when ATLAS is not onboarded.
+    Read-only; no runtime routing or evidence change.
+    """
+    matrix = _load_atlas_layer(_ATLAS_MATRIX_PATH)
+    limitation = (
+        "ATLAS Navigator layers carry technique IDs + tactics + case-study scores only "
+        "(no names/descriptions); load the full ATLAS data bundle for analyst-readable detail."
+    )
+    if matrix is None:
+        return {
+            "schema_role": "atlas_coverage_gap_v1",
+            "atlas_source_status": "not_onboarded",
+            "technique_count": 0,
+            "covered_count": 0,
+            "gap_count": 0,
+            "tactics": {},
+            "ai_only_tactics": {},
+            "top_techniques_by_case_study_frequency": [],
+            "limitation": "ATLAS raw layer is not onboarded in this deployment; AI-threat coverage is unknown.",
+        }
+
+    freq_rows = _load_atlas_layer(_ATLAS_FREQ_PATH) or []
+    freq = {row.get("techniqueID"): row.get("score", 0) for row in freq_rows}
+
+    id_tactics: dict[str, set[str]] = {}
+    per_tactic: Counter[str] = Counter()
+    for row in matrix:
+        tid = str(row.get("techniqueID") or "")
+        tactic = str(row.get("tactic") or "")
+        if not tid:
+            continue
+        id_tactics.setdefault(tid, set()).add(tactic)
+        per_tactic[tactic] += 1
+
+    distinct = sorted(id_tactics)
+    multi_tactic = {tid: sorted(tacs) for tid, tacs in id_tactics.items() if len(tacs) > 1}
+    ai_only = {tac: per_tactic[tac] for tac in _ATLAS_AI_ONLY_TACTICS if tac in per_tactic}
+    top_by_freq = sorted(distinct, key=lambda i: freq.get(i, 0), reverse=True)[:10]
+
+    return {
+        "schema_role": "atlas_coverage_gap_v1",
+        "atlas_source_status": "onboarded_raw_layer",
+        "mitre_metadata_role": MITRE_METADATA_ROLE,
+        # Enterprise ATT&CK and ATLAS share no IDs, so our SOC catalogue covers none
+        # of the AML taxonomy today — this is the AI/LLM/MCP-threat gap, stated plainly.
+        "technique_count": len(distinct),
+        "covered_count": 0,
+        "gap_count": len(distinct),
+        "tactics": dict(sorted(per_tactic.items())),
+        "ai_only_tactics": ai_only,
+        "multi_tactic_technique_count": len(multi_tactic),
+        "top_techniques_by_case_study_frequency": [
+            {"technique_id": tid, "score": freq.get(tid, 0), "tactics": sorted(id_tactics[tid])}
+            for tid in top_by_freq
+        ],
+        "limitation": limitation,
+    }
+
 _SKILL_COVERAGE_PATH = "docs/evals/skill_coverage_matrix.json"
 _SOC_CAPABILITY_CROSSWALK_PATH = "docs/evals/soc_capability_crosswalk.json"
 _GITHUB_INTAKE_PATH = "docs/skills/github_skill_intake_register.json"
