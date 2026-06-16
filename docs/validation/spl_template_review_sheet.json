@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_spl_templates",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-15T15:58:02+00:00",
+  "generated_at": "2026-06-16T19:17:14+00:00",
   "row_counts": {
     "use_cases": 50
   },
@@ -298,7 +298,7 @@
       "review_only": true,
       "spl_template_id": "edr_suspicious_process",
       "spl_template_status": "unavailable",
-      "template_file_status": "planned",
+      "template_file_status": "active",
       "use_case_id": "edr_suspicious_process",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
     },
