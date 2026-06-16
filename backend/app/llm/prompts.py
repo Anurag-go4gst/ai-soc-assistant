@@ -336,6 +336,39 @@ for _reasoning_role in ("mitre_reasoner", "missing_evidence_reasoner", "risk_rat
         "purpose": f"Produce advisory {_reasoning_role.replace('_', ' ')} output from already provided evidence.",
     }
 
+# The rationale roles receive a fixed decision dump and, without a worked example,
+# the 8B model echoes the dump back verbatim instead of explaining it (measured
+# 2026-06-16). A role-matched 1-shot anti-echo instruction makes it emit real
+# reasoning prose in the keys ``_prose_from_payload`` actually reads.
+PROMPT_CONTRACTS["mitre_reasoner"] = {
+    **PROMPT_CONTRACTS["mitre_reasoner"],
+    "system_instruction": (
+        PROMPT_CONTRACTS["mitre_reasoner"]["system_instruction"]
+        + " Do NOT repeat or echo the decision dump back. Write NEW explanatory prose. "
+        "Use these keys: reasoning_summary (string), mitre_reasoning (array of "
+        '{"technique_id","status","reasoning"}). No markdown fences.\n'
+        "EXAMPLE (different dump — P3, candidate T1071, evidence-supported none):\n"
+        '{"reasoning_summary":"The activity matches command-and-control patterns but no '
+        'executed evidence confirms it, so it stays candidate-only at P3.",'
+        '"mitre_reasoning":[{"technique_id":"T1071","status":"candidate","reasoning":'
+        '"Periodic outbound beacons suggest C2 but were not validated against threat intel"}]}'
+    ),
+}
+PROMPT_CONTRACTS["risk_rationale_reasoner"] = {
+    **PROMPT_CONTRACTS["risk_rationale_reasoner"],
+    "system_instruction": (
+        PROMPT_CONTRACTS["risk_rationale_reasoner"]["system_instruction"]
+        + " Do NOT repeat or echo the decision dump back. Write NEW explanatory prose. "
+        "Use these keys: why_selected (array of strings), why_not_higher (array of strings), "
+        "escalate_if (array of strings). No markdown fences.\n"
+        "EXAMPLE (different dump — P2, brute force then success, no privileged account):\n"
+        '{"why_selected":["Repeated failed logins followed by a success indicates a likely '
+        'account takeover attempt"],"why_not_higher":["No privileged or service account '
+        'confirmed on the targeted identity"],"escalate_if":["Post-login privileged actions '
+        'or lateral movement are observed"]}'
+    ),
+}
+
 PROMPT_CONTRACTS["mitre_candidate_mapper"] = {
     "model_family": "Foundation-sec-8B-Instruct",
     "purpose": "Suggest MITRE ATT&CK candidate technique IDs for a SOC question; advisory only; IDs validated against local bundle.",
@@ -346,7 +379,19 @@ PROMPT_CONTRACTS["mitre_candidate_mapper"] = {
         "Do not invent ATT&CK IDs. Use only IDs from MITRE ATT&CK Enterprise. "
         "If the question is too generic for ATT&CK, return empty arrays and explain in not_applicable_reason. "
         "Output is advisory only. SOC approval is required before any technique becomes authoritative. "
-        "Do not include mitigations, detection SPL, or recommended actions."
+        "Do not include mitigations, detection SPL, or recommended actions. "
+        "Each technique MUST be an object with EXACTLY these keys: "
+        '"technique_id" (bare ATT&CK ID such as "T1110" or "T1110.001" with no name appended), '
+        '"technique_name", "confidence" (one of high/medium/low), and "reason" (short). '
+        "Never return technique strings like \"T1110 - Brute Force\". List the most likely "
+        "technique first in primary_techniques.\n"
+        "EXAMPLE for a different question (\"PowerShell spawned by Word with an encoded command\"):\n"
+        '{"primary_techniques":[{"technique_id":"T1059.001","technique_name":"PowerShell",'
+        '"confidence":"high","reason":"Encoded PowerShell command executed"}],'
+        '"secondary_techniques":[{"technique_id":"T1566.001","technique_name":"Spearphishing Attachment",'
+        '"confidence":"medium","reason":"Office parent process suggests a malicious document"}],'
+        '"not_applicable_reason":null,'
+        '"assumptions":["Word spawning PowerShell is not an approved admin workflow"]}'
     ),
     "include": ["soc_question", "question_ref", "use_case_id", "local_technique_hints"],
     "exclude": [

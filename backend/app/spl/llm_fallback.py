@@ -348,8 +348,25 @@ def _clarification(
     )
 
 
+def _strip_code_fences(text: str) -> str:
+    """Remove a single ```json ... ``` wrapper. Foundation-sec-8B adds fences despite
+    the no-fences instruction (measured 2026-06-16), which would fail the strict parser
+    and reject otherwise-valid SPL. Only an outer fence is stripped; inner content is
+    untouched so strict object-shape validation below still applies."""
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    body = stripped[3:]
+    newline = body.find("\n")
+    if newline != -1 and body[:newline].strip().lower() in {"", "json"}:
+        body = body[newline + 1 :]
+    if body.rstrip().endswith("```"):
+        body = body.rstrip()[:-3]
+    return body.strip()
+
+
 def _strict_json_payload(raw_output: str) -> tuple[dict[str, Any] | None, list[str]]:
-    text = (raw_output or "").strip()
+    text = _strip_code_fences(raw_output or "")
     if not text:
         return None, ["empty_llm_output"]
     try:
