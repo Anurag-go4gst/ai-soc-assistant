@@ -801,7 +801,7 @@
    "allowed_spl_templates": [
     "privileged_account_failure"
    ],
-   "spl_template_status": "planned",
+   "spl_template_status": "active",
    "answer_rules": [
     "State that this checklist validates whether an admin login is expected, suspicious, or requires escalation; it does not confirm compromise by itself.",
     "Keep T1078 Valid Accounts as a candidate when the login is suspicious but not proven malicious.",

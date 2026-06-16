@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-06-15T15:58:43+00:00",
+  "generated_at": "2026-06-16T19:30:54+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -3732,9 +3732,9 @@
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
       "rag_status": "configured",
-      "runtime_support_status": "planned",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "privileged_account_failure",
-      "spl_template_status": "planned",
+      "spl_template_status": "active",
       "tests_added": true,
       "use_case_id": "auth_privileged_login_anomaly",
       "validation_status": "tests_added"

@@ -58,19 +58,17 @@ def test_answer_rules_keep_mitre_candidate_only() -> None:
     assert "source-grounded" in rules
 
 
-def test_record_is_metadata_only_until_template_activates() -> None:
-    """Honest gating pin: planned template => no runtime enrichment surfacing.
-
-    When `privileged_account_failure` flips to active (or the SOP channel is
-    chosen), this test must be revisited deliberately.
-    """
+def test_template_active_enables_governed_enrichment_load() -> None:
+    """Active template + refreshed crosswalk => curated enrichment may load at runtime."""
     record = get_content_enrichment(USE_CASE)
-    assert record.get("spl_template_status") == "planned"
+    assert record.get("spl_template_status") == "active"
 
     activation = resolve_use_case_activation(USE_CASE)
-    assert activation.governed_enrichment_load_allowed is False
-    assert "planned_allows_trace_metadata_only" in activation.reasons
-    assert load_curated_enrichment_context(USE_CASE) is None
+    assert activation.governed_enrichment_load_allowed is True
+    assert activation.runtime_support_status == "runtime_active"
+    context = load_curated_enrichment_context(USE_CASE)
+    assert context is not None
+    assert context.spl_template_status == "active"
 
 
 def test_safety_review_flags_all_true() -> None:

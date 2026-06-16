@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-11T10:33:35+00:00",
+  "generated_at": "2026-06-16T19:30:48+00:00",
   "intake_register_records": 12,
   "row_counts": {
     "use_cases": 8
@@ -35,7 +35,7 @@
       "planning_skill": "threshold_anomaly",
       "rag_added": true,
       "runtime_support_status": "planned",
-      "spl_template": "planned",
+      "spl_template": "active",
       "status": "tests_added",
       "tests_added": true,
       "workflow_added": true
