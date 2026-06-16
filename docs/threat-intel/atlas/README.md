@@ -8,10 +8,16 @@ Place pasted/downloaded source files in:
 
 - `docs/threat-intel/atlas/raw/`
 
-Suggested filenames:
+Canonical staged filenames (source-of-truth, already present):
 
-- `atlas_matrix_raw.json`
-- `atlas_case_study_frequency_raw.json`
+- `ATLAS_Matrix.json`
+- `ATLAS_Case_Study_Frequency.json`
+
+## Review reports (pre-normalization)
+
+Duplicate/multi-tactic review artifacts go in:
+
+- `docs/threat-intel/atlas/reports/`
 
 ## Normalized output
 
@@ -23,5 +29,5 @@ Required process:
 
 1. Preserve raw file bytes exactly.
 2. Run duplicate/multi-tactic check on `techniqueID`.
-3. Review duplicate report.
+3. Review duplicate report (`reports/`).
 4. Normalize only after approval.
