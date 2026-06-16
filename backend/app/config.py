@@ -104,6 +104,11 @@ class Settings(BaseSettings):
     ioc_registry_path: str = ""
     detection_registry_enabled: bool = False
     detection_registry_path: str = ""
+    # WS-G offline ATT&CK/ATLAS STIX resolver (plan §15). Default-off, fail-closed:
+    # unset/missing path -> resolver returns None (no names), exactly as today. These
+    # are path vars, not a posture flag; MCP-execution + all-on SOC posture unchanged.
+    ai_soc_attack_stix_path: str = ""
+    ai_soc_atlas_stix_path: str = ""
     routing_compare_logging_enabled: bool = True
     # Stage 3L-S3 Steps 1–2: shadow compare envelope only (no route authority change).
     route_authority_compare_enabled: bool = True
