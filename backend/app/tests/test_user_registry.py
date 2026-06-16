@@ -113,3 +113,20 @@ def test_debug_api_uses_profile_flag(users_file: Path, client: TestClient, monke
     )
     allowed = client.get("/api/debug/traces")
     assert allowed.status_code == 200
+
+
+def test_env_fallback_session_payload_resolves_without_registry_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Simulate env fallback login token payload when users.json has no matching user.
+    monkeypatch.setattr(settings, "app_auth_users_path", "")
+    monkeypatch.setattr(settings, "app_auth_user", "legacy-user")
+    monkeypatch.setattr(settings, "app_auth_role", "soc_lead")
+    user_registry.reload_users_for_tests()
+
+    resolved = user_registry.session_user_from_token_payload(
+        {"username": "legacy-user", "role": "soc_lead"},
+    )
+
+    assert resolved is not None
+    assert resolved["username"] == "legacy-user"
+    assert resolved["role"] == "soc_lead"
+    assert resolved["debug_access"] is True

@@ -205,7 +205,17 @@ def session_user_from_token_payload(payload: dict[str, Any]) -> dict[str, Any] |
     username = str(payload.get("username") or "").strip()
     user = get_user(username)
     if user is None:
-        return None
+        # Backward-compat for env-fallback login: token may reference the legacy
+        # APP_AUTH_USER that is intentionally absent from users.json.
+        env_user = settings.app_auth_user.strip()
+        if not env_user or username != env_user:
+            return None
+        role = str(payload.get("role") or settings.app_auth_role or "demo_analyst").strip() or "demo_analyst"
+        return {
+            "username": env_user,
+            "role": role,
+            "debug_access": _default_debug_access_for_role(role),
+        }
     return {
         "username": user.username,
         "role": user.role,
