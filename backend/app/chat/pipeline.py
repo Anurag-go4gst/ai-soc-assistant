@@ -133,11 +133,13 @@ from app.chat.evidence_loop import (
     MAX_MCP_HOPS,
     ROUTE_DISCOVERY_HOP,
     assess_loop,
+    cve_requirements_present,
     initialize_loop,
     loop_initialized,
     record_execution_hop,
     record_hop,
 )
+from app.cve.snapshot_store import CveSnapshotStore
 from app.connectors.mcp.mcp_tool_plan_shadow import (
     mcp_tool_plan_llm_advisory_enabled,
     run_mcp_tool_plan_shadow,
@@ -701,6 +703,34 @@ def _loop_required_produces(evidence_payload: dict[str, Any] | None) -> list[str
         if isinstance(value, list):
             needs.extend(str(item) for item in value)
     return needs
+
+
+def _resolve_vulnerability_source_status(state: ChatPipelineState) -> dict[str, Any] | None:
+    """Plan §3 A4: when the evidence plan needs CVE/vulnerability context, resolve
+    the operator-vendored CVE snapshot read model into honest provenance.
+
+    Returns None when no CVE-class requirement is in play. Fail-closed: with no
+    package configured (`AI_SOC_CVE_SNAPSHOT_DIR` empty, the default) the status is
+    `not_onboarded` — identical to today's posture. CVE stays a capability gap for
+    routing (Splunk cannot serve it); this only enriches the trace with status +
+    provenance so an onboarded deployment is honest instead of blindly degraded.
+    """
+    required = [str(item) for item in (state.get("mcp_required_produces") or [])]
+    if not cve_requirements_present(required):
+        return None
+    store = CveSnapshotStore(
+        package_dir=settings.ai_soc_cve_snapshot_dir or None,
+        stale_after_days=settings.ai_soc_cve_snapshot_stale_after_days,
+    )
+    status = store.vulnerability_source_status()
+    return {
+        "status": status.status,
+        "snapshot_id": status.snapshot_id,
+        "snapshot_generated_at": status.snapshot_generated_at,
+        "snapshot_age_days": status.snapshot_age_days,
+        "limitation": status.limitation,
+        "provenance": status.provenance,
+    }
 
 
 def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[str, Any]) -> bool:
@@ -2051,6 +2081,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 "hops": state.get("mcp_evidence") or [],
                 "planner": state.get("mcp_loop_planner"),
             }
+            # Plan §3 A4: attach CVE snapshot provenance when the plan needs
+            # vulnerability context (None otherwise; not_onboarded by default).
+            vuln_source = _resolve_vulnerability_source_status(state)
+            if vuln_source is not None:
+                control_plane_trace["evidence_loop"]["vulnerability_source"] = vuln_source
 
     session_context_status = None
     if settings.ai_soc_session_context_enabled and isinstance(session_resolution, SessionContextResolution):
