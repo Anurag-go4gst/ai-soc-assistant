@@ -2,7 +2,7 @@
 
 Evaluation only — imperative `/chat` remains live runtime; `LANGGRAPH_ORCHESTRATION_ENABLED=false`.
 
-- Generated: `2026-06-16T13:22:38.835866+00:00`
+- Generated: `2026-06-16T13:44:48.358074+00:00`
 - Schema: `2026-06-08-phase13-v1`
 - Total evaluated: **8** (expected minimum **8**)
 - Exact matches: **8**
