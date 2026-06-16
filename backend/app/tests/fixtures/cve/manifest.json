@@ -1,0 +1,24 @@
+{
+  "snapshot_id": "cve-fixture-2026-06-16",
+  "schema_version": "cve_snapshot_v1",
+  "generated_at_utc": "2026-06-16T00:00:00Z",
+  "source_window_start": "2026-06-01T00:00:00Z",
+  "source_window_end": "2026-06-16T00:00:00Z",
+  "counts": {
+    "cves": 1,
+    "changes": 0,
+    "rejected": 0
+  },
+  "artifacts": {
+    "cve_snapshot.json": {
+      "sha256": "39e603d31b552b436b7f0db73cb053e0f3a7f61848fb8b550fdc74b5d5f2db4c"
+    },
+    "cve_change_log.json": {
+      "sha256": "f71a76d83ebe8dbe5747db155143c6e5efa8c323ddd0c3d40aab92202824a83c"
+    }
+  },
+  "signature": "fixture-signature-placeholder",
+  "signer_id": "fixture-signer",
+  "reviewer": "test-reviewer",
+  "approver": "test-approver"
+}

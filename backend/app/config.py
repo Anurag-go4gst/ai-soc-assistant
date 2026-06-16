@@ -109,6 +109,9 @@ class Settings(BaseSettings):
     # are path vars, not a posture flag; MCP-execution + all-on SOC posture unchanged.
     ai_soc_attack_stix_path: str = ""
     ai_soc_atlas_stix_path: str = ""
+    # WS-A CVE snapshot read model (plan §3 A5). Default-off, fail-closed.
+    ai_soc_cve_snapshot_dir: str = ""
+    ai_soc_cve_snapshot_stale_after_days: int = 30
     routing_compare_logging_enabled: bool = True
     # Stage 3L-S3 Steps 1–2: shadow compare envelope only (no route authority change).
     route_authority_compare_enabled: bool = True
