@@ -80,12 +80,17 @@ def verify_manifest(package_dir: str | Path) -> ManifestVerificationResult:
             if not artifact_path.is_file():
                 errors.append(f"artifact_missing:{name}")
                 continue
+            # A package whose manifest omits a digest for an artifact is NOT
+            # verifiable — fail closed rather than silently trusting the bytes.
+            if not expected:
+                errors.append(f"artifact_sha256_absent:{name}")
+                continue
             actual = _sha256_file(artifact_path)
-            if expected and actual != expected:
+            if actual != expected:
                 errors.append(f"artifact_sha256_mismatch:{name}")
 
     return ManifestVerificationResult(
         ok=not errors,
         errors=tuple(errors),
-        manifest=manifest if not errors else manifest,
+        manifest=manifest,
     )

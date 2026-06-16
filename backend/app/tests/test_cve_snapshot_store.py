@@ -1,6 +1,8 @@
 """CVE A5 snapshot store + manifest verifier tests."""
 from __future__ import annotations
 
+import json
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -43,3 +45,17 @@ def test_lookup_cve_from_fixture() -> None:
     row = store.lookup_cve("CVE-2024-0001")
     assert row is not None
     assert row.get("severity") == "HIGH"
+
+
+def test_manifest_with_absent_sha256_fails_closed(tmp_path: Path) -> None:
+    """A manifest that omits a per-artifact digest must NOT verify (hardening)."""
+    pkg = tmp_path / "pkg"
+    shutil.copytree(FIXTURE_DIR, pkg)
+    manifest = json.loads((pkg / "manifest.json").read_text())
+    manifest["artifacts"]["cve_snapshot.json"].pop("sha256")
+    (pkg / "manifest.json").write_text(json.dumps(manifest))
+    result = verify_manifest(pkg)
+    assert result.ok is False
+    assert any(e.startswith("artifact_sha256_absent") for e in result.errors)
+    # And the store degrades to not_onboarded rather than trusting it.
+    assert CveSnapshotStore(package_dir=pkg).vulnerability_source_status().status == "not_onboarded"
