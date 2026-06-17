@@ -78,6 +78,20 @@ PRECONDITIONS: tuple[TechniquePrecondition, ...] = (
         ("lateral_movement_evidence",),
         "No lateral movement or remote-service authentication observed.",
     ),
+    TechniquePrecondition(
+        "T1048",
+        "Exfiltration Over Alternative Protocol",
+        ("outbound_transfer",),
+        "No outbound data transfer observed; large volume alone does not prove "
+        "exfiltration over an alternative protocol.",
+    ),
+    TechniquePrecondition(
+        "T1071.004",
+        "Application Layer Protocol: DNS",
+        ("network_telemetry",),
+        "No supporting DNS command-and-control/tunneling telemetry observed; DNS "
+        "volume alone is not proof of DNS-based C2.",
+    ),
 )
 
 PRECONDITION_BY_ID: dict[str, TechniquePrecondition] = {
