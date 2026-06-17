@@ -73,8 +73,22 @@ _REPO_ROOT_CANDIDATES = (
 # structure/frequency/coverage gap, not human-readable technique detail.
 _ATLAS_MATRIX_PATH = "docs/threat-intel/atlas/raw/ATLAS_Matrix.json"
 _ATLAS_FREQ_PATH = "docs/threat-intel/atlas/raw/ATLAS_Case_Study_Frequency.json"
+# WS-E E3: collapsed canonical layer (one row per techniqueID with tactics[] +
+# per-tactic scores + source_sha256 provenance). Preferred over raw when present.
+_ATLAS_NORMALIZED_PATH = "docs/threat-intel/atlas/normalized/atlas_matrix_normalized.json"
 # ATLAS tactics with no enterprise-ATT&CK analogue → zero SOC coverage by design.
 _ATLAS_AI_ONLY_TACTICS = ("ai-attack-staging", "ai-model-access")
+
+
+def _load_atlas_normalized() -> dict[str, Any] | None:
+    """Return the E3 normalized ATLAS artifact, or None if absent/unreadable."""
+    path = repo_root() / _ATLAS_NORMALIZED_PATH
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return None
+    techniques = payload.get("techniques") if isinstance(payload, dict) else None
+    return payload if isinstance(techniques, list) else None
 
 
 def _atlas_technique_names(technique_ids: list[str]) -> dict[str, str]:
@@ -125,36 +139,58 @@ def build_atlas_coverage_gap() -> dict[str, Any]:
     real-world case-study frequency, and fails closed when ATLAS is not onboarded.
     Read-only; no runtime routing or evidence change.
     """
-    matrix = _load_atlas_layer(_ATLAS_MATRIX_PATH)
     limitation_ids_only = (
         "ATLAS Navigator layers carry technique IDs + tactics + case-study scores only "
         "(no names/descriptions); load the full ATLAS data bundle for analyst-readable detail."
     )
-    if matrix is None:
-        return {
-            "schema_role": "atlas_coverage_gap_v1",
-            "atlas_source_status": "not_onboarded",
-            "technique_count": 0,
-            "covered_count": 0,
-            "gap_count": 0,
-            "tactics": {},
-            "ai_only_tactics": {},
-            "top_techniques_by_case_study_frequency": [],
-            "limitation": "ATLAS raw layer is not onboarded in this deployment; AI-threat coverage is unknown.",
-        }
-
-    freq_rows = _load_atlas_layer(_ATLAS_FREQ_PATH) or []
-    freq = {row.get("techniqueID"): row.get("score", 0) for row in freq_rows}
-
     id_tactics: dict[str, set[str]] = {}
     per_tactic: Counter[str] = Counter()
-    for row in matrix:
-        tid = str(row.get("techniqueID") or "")
-        tactic = str(row.get("tactic") or "")
-        if not tid:
-            continue
-        id_tactics.setdefault(tid, set()).add(tactic)
-        per_tactic[tactic] += 1
+    freq: dict[str, Any] = {}
+    normalization_provenance: dict[str, Any] | None = None
+
+    # WS-E: prefer the E3 normalized canonical layer (collapsed, provenance-stamped);
+    # fall back to the raw Navigator layers; fail closed if neither is onboarded.
+    normalized = _load_atlas_normalized()
+    if normalized is not None:
+        atlas_source_status = "onboarded_normalized"
+        normalization_provenance = {
+            "source_sha256": (normalized.get("provenance") or {}).get("source_sha256"),
+            "normalization_rules_version": normalized.get("normalization_rules_version"),
+            "source_file": (normalized.get("provenance") or {}).get("source_file"),
+        }
+        for row in normalized["techniques"]:
+            tid = str(row.get("technique_id") or "")
+            if not tid:
+                continue
+            tactics = row.get("tactics") or []
+            id_tactics.setdefault(tid, set()).update(str(t) for t in tactics)
+            for t in tactics:
+                per_tactic[str(t)] += 1
+            freq[tid] = row.get("case_study_score", 0)
+    else:
+        matrix = _load_atlas_layer(_ATLAS_MATRIX_PATH)
+        if matrix is None:
+            return {
+                "schema_role": "atlas_coverage_gap_v1",
+                "atlas_source_status": "not_onboarded",
+                "technique_count": 0,
+                "covered_count": 0,
+                "gap_count": 0,
+                "tactics": {},
+                "ai_only_tactics": {},
+                "top_techniques_by_case_study_frequency": [],
+                "limitation": "ATLAS raw layer is not onboarded in this deployment; AI-threat coverage is unknown.",
+            }
+        atlas_source_status = "onboarded_raw_layer"
+        freq_rows = _load_atlas_layer(_ATLAS_FREQ_PATH) or []
+        freq = {row.get("techniqueID"): row.get("score", 0) for row in freq_rows}
+        for row in matrix:
+            tid = str(row.get("techniqueID") or "")
+            tactic = str(row.get("tactic") or "")
+            if not tid:
+                continue
+            id_tactics.setdefault(tid, set()).add(tactic)
+            per_tactic[tactic] += 1
 
     distinct = sorted(id_tactics)
     multi_tactic = {tid: sorted(tacs) for tid, tacs in id_tactics.items() if len(tacs) > 1}
@@ -172,7 +208,8 @@ def build_atlas_coverage_gap() -> dict[str, Any]:
 
     return {
         "schema_role": "atlas_coverage_gap_v1",
-        "atlas_source_status": "onboarded_raw_layer",
+        "atlas_source_status": atlas_source_status,
+        "normalization_provenance": normalization_provenance,
         "mitre_metadata_role": MITRE_METADATA_ROLE,
         # Enterprise ATT&CK and ATLAS share no IDs, so our SOC catalogue covers none
         # of the AML taxonomy today — this is the AI/LLM/MCP-threat gap, stated plainly.

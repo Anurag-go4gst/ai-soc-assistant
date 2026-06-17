@@ -100,7 +100,9 @@ def atlas_reference_for_question(question: str, *, limit: int = 8) -> list[dict[
     if not detect_ai_threat_signal(question):
         return []
     coverage = build_atlas_coverage_gap()
-    if coverage.get("atlas_source_status") != "onboarded_raw_layer":
+    # Accept any onboarded ATLAS source (raw Navigator layer or the E3 normalized
+    # canonical layer); only a not_onboarded deployment yields no references.
+    if not str(coverage.get("atlas_source_status") or "").startswith("onboarded"):
         return []
     top = coverage.get("top_techniques_by_case_study_frequency") or []
     return [

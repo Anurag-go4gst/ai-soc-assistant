@@ -31,8 +31,10 @@ def test_detection_coverage_inverted_index_matches_rows() -> None:
 def test_atlas_coverage_gap_shape() -> None:
     payload = build_atlas_coverage_gap()
     assert payload["schema_role"] == "atlas_coverage_gap_v1"
-    # ATLAS is onboarded as raw in-repo; enterprise covers none of the AML taxonomy.
-    assert payload["atlas_source_status"] == "onboarded_raw_layer"
+    # ATLAS is onboarded in-repo (WS-E: normalized canonical layer preferred over raw);
+    # enterprise covers none of the AML taxonomy.
+    assert payload["atlas_source_status"] == "onboarded_normalized"
+    assert payload["normalization_provenance"]["source_sha256"]
     assert payload["technique_count"] > 0
     assert payload["covered_count"] == 0
     assert payload["gap_count"] == payload["technique_count"]
@@ -42,3 +44,15 @@ def test_atlas_coverage_gap_shape() -> None:
     # Frequency ranking is descending by case-study score.
     scores = [row["score"] for row in payload["top_techniques_by_case_study_frequency"]]
     assert scores == sorted(scores, reverse=True)
+
+
+def test_atlas_coverage_falls_back_to_raw_when_normalized_absent(monkeypatch) -> None:
+    """WS-E: normalized layer preferred, but absent -> raw Navigator layer still works."""
+    from app.knowledge import mapping_exports
+
+    monkeypatch.setattr(mapping_exports, "_load_atlas_normalized", lambda: None)
+    payload = mapping_exports.build_atlas_coverage_gap()
+    assert payload["atlas_source_status"] == "onboarded_raw_layer"
+    assert payload["normalization_provenance"] is None
+    assert payload["technique_count"] > 0
+    assert payload["gap_count"] == payload["technique_count"]
