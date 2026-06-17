@@ -13,7 +13,16 @@ def cve_requirements_from_plan(evidence_plan: dict[str, Any] | None) -> list[str
     required: list[str] = []
     if not isinstance(evidence_plan, dict):
         return required
-    for key in ("missing_evidence", "evidence_needs", "required_produces"):
+    # Canonical evidence-plan keys emitted by app.chat.evidence_planner, plus the
+    # older loop-state aliases (mcp_required_produces path) for completeness.
+    for key in (
+        "required_evidence_keys",
+        "optional_evidence_keys",
+        "missing_required_evidence",
+        "missing_evidence",
+        "evidence_needs",
+        "required_produces",
+    ):
         value = evidence_plan.get(key)
         if isinstance(value, list):
             required.extend(str(item) for item in value)

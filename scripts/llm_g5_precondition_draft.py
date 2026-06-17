@@ -78,13 +78,40 @@ def _promoted_techniques() -> list[dict]:
     return out
 
 
+_KEY_GLOSSARY = (
+    "recon_evidence=reconnaissance/scanning; resource_development_evidence=adversary infra/tooling prep; "
+    "initial_access_evidence=entry vector (phishing/exploit/valid-account entry); "
+    "process_execution_evidence=process/command/script execution; persistence_evidence=persistence mechanism "
+    "(autorun/service/task/account); privilege_escalation_evidence=privilege gain; "
+    "defense_evasion_evidence=evasion/obfuscation/log-tamper/tool-disable; credential_access_evidence=credential "
+    "theft/dumping/access; discovery_evidence=enumeration of hosts/accounts/services; "
+    "lateral_movement_evidence=movement between hosts; collection_evidence=data staging/collection; "
+    "network_telemetry=command-and-control/network comms; outbound_transfer=data leaving the network "
+    "(exfiltration); impact_evidence=destruction/encryption/disruption; successful_login=confirmed successful auth; "
+    "credential_dumping_evidence=OS credential dump (LSASS/SAM/NTDS); endpoint_telemetry=EDR/host telemetry present"
+)
+# Few-shot anchors (techniques NOT in the promotion set, so no answer leakage).
+_FEWSHOT = (
+    'Examples:\n'
+    'Input: T1041 Exfiltration Over C2 Channel [Exfiltration] — data sent over the existing C2 channel.\n'
+    'Output: {"evidence_key":"outbound_transfer","candidate_rule":"Outbound data volume to a C2 destination '
+    'exceeds baseline.","confirmed_rule":"Outbound transfer correlated to an established C2 channel and staged data."}\n'
+    'Input: T1110 Brute Force [Credential Access] — repeated authentication attempts to guess credentials.\n'
+    'Output: {"evidence_key":"credential_access_evidence","candidate_rule":"High volume of authentication failures '
+    'from a source.","confirmed_rule":"Failure burst followed by a successful login from the same source."}\n'
+)
+
+
 def _draft_one(tech: dict, timeout: float) -> dict:
     prompt = (
-        "You are a SOC detection engineer. For the MITRE ATT&CK technique below, choose the SINGLE "
-        f"most relevant positive-evidence key from this exact list: {sorted(ALLOWED_KEYS)}.\n"
-        f"Technique {tech['technique_id']} ({tech['name']}) [{tech['tactic']}]: {tech['description']}\n"
-        'Return ONLY JSON: {"evidence_key": "...", "candidate_rule": "<one sentence>", '
-        '"confirmed_rule": "<one sentence>"}'
+        "You are a SOC detection engineer mapping a MITRE ATT&CK technique to ONE positive-evidence key — the "
+        "signal a SOC finding must carry before the technique can be claimed (candidate-tier; conservative).\n\n"
+        f"Allowed keys (pick exactly one, verbatim):\n{_KEY_GLOSSARY}\n\n"
+        f"{_FEWSHOT}\n"
+        f"Now classify:\nInput: {tech['technique_id']} {tech['name']} [{tech['tactic']}] — {tech['description']}\n"
+        'Output ONLY a JSON object, no prose, no markdown fences: '
+        '{"evidence_key":"<one key from the list>","candidate_rule":"<one sentence, the minimal suspicious '
+        'signal>","confirmed_rule":"<one sentence, what raises it to confirmed>"}'
     )
     body = json.dumps({
         "model": LLM_MODEL,
