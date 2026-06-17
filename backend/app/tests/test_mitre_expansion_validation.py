@@ -17,12 +17,15 @@ _spec.loader.exec_module(mev)
 
 def test_extraction_yields_out_of_subset_candidates():
     candidates, bundle = mev.extract_candidates()
-    # 15-technique bundle (incl. T1048 + T1071.004 bundle-completeness adds); the
-    # out-of-subset proposals are the audit llm_invalid_ids union minus bundle.
-    # T1071.004 was promoted into the bundle so it drops from the candidate set.
-    assert len(bundle) == 15
-    assert len(candidates) == 96
-    assert "T1071.004" not in candidates  # now in-bundle
+    # Post-G5 bulk promotion: 98-technique bundle (15 curated + 83 promoted). The
+    # 83 promote_candidate IDs are now in-bundle, so the only out-of-subset proposals
+    # left are the 13 dropped ones (ICS T08xx + deprecated/renumbered enterprise IDs).
+    assert len(bundle) == 98
+    assert len(candidates) == 13
+    assert "T1071.004" not in candidates  # promoted earlier
+    assert "T1003" not in candidates  # promoted by G5
+    # Remaining are the genuinely-dropped IDs (ICS + deprecated/renumbered).
+    assert {"T0819", "T1086", "T1043", "T1562.001"} <= set(candidates)
     # No bundle ID leaks into the candidate set.
     assert not (set(candidates) & bundle)
     # Deterministic ordering (sorted).
