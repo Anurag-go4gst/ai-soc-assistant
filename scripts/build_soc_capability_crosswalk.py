@@ -217,6 +217,30 @@ def _spl_template_id(
     return None
 
 
+def _registry_spl_template_status(
+    *,
+    catalog: dict[str, Any] | None,
+    enrichment: dict[str, Any] | None,
+    matrix_row: dict[str, Any] | None,
+    template_index: dict[str, dict[str, Any]],
+) -> str:
+    """Resolve SPL template status: enrichment override, then governed registry, then matrix."""
+    if enrichment and enrichment.get("spl_template_status"):
+        return str(enrichment["spl_template_status"])
+    template_id = _spl_template_id(catalog, enrichment)
+    if template_id:
+        record = template_index.get(template_id)
+        if isinstance(record, dict):
+            status = record.get("status")
+            if status == "active" and record.get("enabled"):
+                return "active"
+            if isinstance(status, str) and status:
+                return status
+    if matrix_row and matrix_row.get("spl_template_status"):
+        return str(matrix_row["spl_template_status"])
+    return "unavailable"
+
+
 def _workflow_status(enrichment: dict[str, Any] | None, field: str) -> str:
     if not enrichment:
         return "missing"
@@ -393,6 +417,7 @@ def _build_question_rows(
     catalog_index: dict[str, dict[str, Any]],
     enrichment_index: dict[str, dict[str, Any]],
     intake_by_use_case: dict[str, list[dict[str, Any]]],
+    template_index: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     runtime_by_ref: dict[str, dict[str, Any]] = {}
     for entry in runtime_map.get("entries") or []:
@@ -419,9 +444,12 @@ def _build_question_rows(
             if isinstance((catalog or {}).get("secondary_skills"), list)
             else None
         )
-        spl_status = matrix_row.get("spl_template_status")
-        if enrichment and enrichment.get("spl_template_status"):
-            spl_status = enrichment.get("spl_template_status")
+        spl_status = _registry_spl_template_status(
+            catalog=catalog,
+            enrichment=enrichment,
+            matrix_row=matrix_row,
+            template_index=template_index,
+        )
         common = _build_common_row_fields(
             use_case_id=use_case_id,
             catalog=catalog,
@@ -453,6 +481,7 @@ def _build_use_case_rows(
     catalog_index: dict[str, dict[str, Any]],
     enrichment_index: dict[str, dict[str, Any]],
     intake_by_use_case: dict[str, list[dict[str, Any]]],
+    template_index: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -466,7 +495,12 @@ def _build_use_case_rows(
         planning_skill = (enrichment or {}).get("planning_or_analytic_skill")
         if not planning_skill and isinstance(catalog.get("secondary_skills"), list):
             planning_skill = catalog["secondary_skills"][0] if catalog["secondary_skills"] else None
-        spl_status = (enrichment or {}).get("spl_template_status") or "unavailable"
+        spl_status = _registry_spl_template_status(
+            catalog=catalog,
+            enrichment=enrichment,
+            matrix_row=None,
+            template_index=template_index,
+        )
         common = _build_common_row_fields(
             use_case_id=use_case_id,
             catalog=catalog,
@@ -493,6 +527,12 @@ def _build_use_case_rows(
         if use_case_id in seen:
             continue
         intake_records = intake_by_use_case.get(use_case_id, [])
+        spl_status = _registry_spl_template_status(
+            catalog=None,
+            enrichment=enrichment,
+            matrix_row=None,
+            template_index=template_index,
+        )
         common = _build_common_row_fields(
             use_case_id=use_case_id,
             catalog=None,
@@ -503,7 +543,7 @@ def _build_use_case_rows(
             planning_or_analytic_skill=enrichment.get("planning_or_analytic_skill"),
             mapping_status="enrichment_only_export_row",
             mapping_confidence="high",
-            spl_template_status=enrichment.get("spl_template_status"),
+            spl_template_status=spl_status,
         )
         rows.append(
             {
@@ -642,15 +682,23 @@ def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
 
     catalog_index = _index_catalog(catalog, warnings)
     enrichment_index = _index_enrichment(enrichment, warnings)
+    template_index = _index_templates(_load_json(SPL_TEMPLATES_PATH, warnings), warnings)
     intake_by_use_case = _index_intake_by_use_case(register, warnings)
     discovery_index = _index_discovery(discovery)
     triage_index = _index_triage(triage)
     proposed_by_skill = _index_proposed_by_github_skill(proposed)
 
     question_rows = _build_question_rows(
-        matrix_rows, runtime_map, catalog_index, enrichment_index, intake_by_use_case
+        matrix_rows,
+        runtime_map,
+        catalog_index,
+        enrichment_index,
+        intake_by_use_case,
+        template_index,
     )
-    use_case_rows = _build_use_case_rows(catalog_index, enrichment_index, intake_by_use_case)
+    use_case_rows = _build_use_case_rows(
+        catalog_index, enrichment_index, intake_by_use_case, template_index
+    )
     github_skill_rows = _build_github_skill_rows(
         register,
         enrichment_index,

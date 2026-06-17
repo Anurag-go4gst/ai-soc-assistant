@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-06-16T19:30:54+00:00",
+  "generated_at": "2026-06-17T04:37:06+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -3365,7 +3365,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "auth_account_lockout_trend",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "auth_account_lockout_trend",
       "validation_status": "needs_soc_review"
@@ -3412,7 +3412,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "after_hours_login_critical_asset",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "auth_after_hours_critical_asset",
       "validation_status": "needs_soc_review"
@@ -3552,7 +3552,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "auth_failed_login_top_users_exclude_service_accounts",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "auth_failed_login_top_users_exclude_service_accounts",
       "validation_status": "needs_soc_review"
@@ -3688,7 +3688,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "auth_new_source_ip",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "auth_new_source_ip_login",
       "validation_status": "needs_soc_review"
@@ -3872,7 +3872,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "aws_console_success_logins_by_user",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "aws_console_success_logins_by_user",
       "validation_status": "needs_soc_review"
@@ -3918,7 +3918,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "aws_iam_policy_modifications",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "aws_iam_policy_modifications",
       "validation_status": "needs_soc_review"
@@ -3963,7 +3963,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "aws_security_group_modifications",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "aws_security_group_modifications",
       "validation_status": "needs_soc_review"
@@ -4009,7 +4009,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "notable_critical_review_mitre",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "critical_notable_mitre_review",
       "validation_status": "needs_soc_review"
@@ -4500,7 +4500,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "edr_suspicious_process",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "edr_suspicious_process",
       "validation_status": "needs_soc_review"
@@ -4731,7 +4731,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "firewall_deny_spike",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "net_firewall_deny_spike",
       "validation_status": "needs_soc_review"
@@ -4905,7 +4905,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "vpn_failure_spike",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "net_vpn_login_anomaly",
       "validation_status": "needs_soc_review"

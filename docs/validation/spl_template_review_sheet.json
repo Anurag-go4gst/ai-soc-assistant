@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_spl_templates",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-17T04:19:23+00:00",
+  "generated_at": "2026-06-17T05:30:21+00:00",
   "row_counts": {
     "use_cases": 50
   },
@@ -12,7 +12,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "auth_account_lockout_trend",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "auth_account_lockout_trend",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
@@ -23,7 +23,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "after_hours_login_critical_asset",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "auth_after_hours_critical_asset",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
@@ -58,7 +58,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "auth_failed_login_top_users_exclude_service_accounts",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "auth_failed_login_top_users_exclude_service_accounts",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
@@ -91,7 +91,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "auth_new_source_ip",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "auth_new_source_ip_login",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
@@ -139,7 +139,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "aws_console_success_logins_by_user",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "aws_console_success_logins_by_user",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
@@ -150,7 +150,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "aws_iam_policy_modifications",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "aws_iam_policy_modifications",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
@@ -161,7 +161,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "aws_security_group_modifications",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "aws_security_group_modifications",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
@@ -172,7 +172,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "notable_critical_review_mitre",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "critical_notable_mitre_review",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
@@ -297,7 +297,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "edr_suspicious_process",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "edr_suspicious_process",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
@@ -352,7 +352,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "firewall_deny_spike",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "net_firewall_deny_spike",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
@@ -396,7 +396,7 @@
       "review_notes": "",
       "review_only": true,
       "spl_template_id": "vpn_failure_spike",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "template_file_status": "active",
       "use_case_id": "net_vpn_login_anomaly",
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
