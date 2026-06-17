@@ -513,12 +513,37 @@ def extract_query_signals(
             and alert_context_present
         )
     )
-    hybrid_alert_review = (
+    # Generic critical/notable alert investigation that asks for MITRE and/or CVE
+    # context. Without this, such a query matches no investigation signal and falls
+    # to pure `mitre_map` -> knowledge_only (no SPL/MITRE investigation), which made
+    # the flagship "review critical alert + cross-reference MITRE + check CVEs" query
+    # answer hollow. Scoped tightly (review/investigate verb + alert context +
+    # MITRE-or-CVE ask + critical/notable/CVE subject) so pure "explain/map" asks stay
+    # knowledge.
+    _cve_or_vuln = any(term in normalized for term in ("cve", "unpatched", "vulnerab"))
+    _review_verb = any(
+        term in normalized
+        for term in ("review", "investigate", "triage", "cross-reference", "cross reference", "look into")
+    )
+    _critical_subject = any(
+        term in normalized for term in ("critical alert", "notable", "incident", "affected host")
+    )
+    critical_alert_review = bool(
         alert_context_present
-        and (success_after_failure or failed_login)
-        and mitre_map
-        and (severity_request or review_only_spl)
         and not run_execution
+        and _review_verb
+        and (mitre_map or _cve_or_vuln)
+        and (_critical_subject or _cve_or_vuln)
+    )
+    hybrid_alert_review = (
+        (
+            alert_context_present
+            and (success_after_failure or failed_login)
+            and mitre_map
+            and (severity_request or review_only_spl)
+            and not run_execution
+        )
+        or critical_alert_review
     )
 
     mitre_requires_alert_context = bool(
