@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from app.config import settings
@@ -70,19 +71,26 @@ def append_cve_snapshot_source_evidence(
         return source_evidence
     status = str(vuln.get("status") or "not_onboarded")
     collection_status = "collected" if status == "onboarded_snapshot" else "blocked"
+    # Must satisfy SourceEvidenceEnvelope (schemas/responses.py): all required
+    # fields present, else the whole /chat response fails validation.
     item = {
         "evidence_id": f"{trace_id}:vulnerability_source",
+        "trace_id": trace_id,
         "source_type": "cve_snapshot",
         "source_name": "vulnerability_source",
         "tool_name": "cve_snapshot_store",
         "collection_status": collection_status,
         "query_or_request_summary": "CVE snapshot read-model status (plan §3 A4)",
         "result_count": 0,
+        "fields_returned": [],
         "preview_rows": [],
+        "raw_result_stored": False,
         "warnings": [] if status == "onboarded_snapshot" else ["cve_snapshot_not_actionable"],
+        "sensitivity_flags": [],
         "output_type": "vulnerability_source_status",
         "provider_used": "cve_snapshot_store",
         "provenance": "operator_vendored_cve_package",
+        "created_at": datetime.now(UTC).isoformat(),
         "vulnerability_source": vuln,
     }
     return [*source_evidence, item]

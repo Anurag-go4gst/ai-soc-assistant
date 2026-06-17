@@ -79,3 +79,19 @@ def test_vulnerability_context_line_surfaces_status():
     assert "not onboarded" in vulnerability_context_line({"status": "not_onboarded"})
     assert vulnerability_context_line(None) is None
     assert vulnerability_context_line({}) is None
+
+
+def test_cve_evidence_item_satisfies_source_evidence_envelope():
+    """Regression: the appended CVE item must validate against SourceEvidenceEnvelope,
+    else a CVE-triggering /chat turn fails response validation (caught in live smoke)."""
+    from app.cve.evidence_adapter import append_cve_snapshot_source_evidence
+    from app.schemas.responses import SourceEvidenceEnvelope
+
+    items = append_cve_snapshot_source_evidence(
+        [], trace_id="trace-x", evidence_plan={"optional_evidence_keys": ["vulnerability_source"]}
+    )
+    assert len(items) == 1
+    # Must not raise — all required envelope fields present.
+    env = SourceEvidenceEnvelope(**items[0])
+    assert env.source_name == "vulnerability_source"
+    assert env.trace_id == "trace-x"
