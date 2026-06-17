@@ -20,9 +20,14 @@ def test_spl_templates_are_strict_and_planned_until_scd_exists() -> None:
     assert failed.validation_rules["allowed_sourcetypes"] == ["pgcil:auth"]
     assert failed.returned_fields == ["host", "src", "failed_logins", "distinct_users", "first_seen", "last_seen", "action"]
     assert "head 100" in (failed.spl_text or "")
+    # firewall_deny_spike was promoted to a governed template (WS-B) once the
+    # pgcil:firewall sourcetype was added to the allowlist; it is now active and
+    # constrained to that single sourcetype/index.
     assert firewall is not None
-    assert firewall.status == "planned"
-    assert firewall.validation_rules["blocked_until_scd_fields_exist"] is True
+    assert firewall.status == "active"
+    assert firewall.validation_rules["allowed_indexes"] == ["pgcil_soc"]
+    assert firewall.validation_rules["allowed_sourcetypes"] == ["pgcil:firewall"]
+    assert "head 100" in (firewall.spl_text or "")
 
 
 def test_local_mitre_kb_is_versioned_and_uses_supported_not_confirmed_for_failed_login() -> None:

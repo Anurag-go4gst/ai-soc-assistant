@@ -203,8 +203,10 @@ def test_disabled_and_sample_templates_not_production_executable() -> None:
     disabled_ids = {t.template_id for t in disabled_templates()}
     assert sample_ids.isdisjoint(enabled_ids)
     assert sample_ids.issubset(disabled_ids)
-    # Planned templates (status != active) are also not production executable.
-    assert "firewall_deny_spike" in disabled_ids
+    # firewall_deny_spike was promoted (WS-B) from planned to an active governed
+    # template once pgcil:firewall joined the allowlist — now production-executable.
+    assert "firewall_deny_spike" in enabled_ids
+    assert "firewall_deny_spike" not in disabled_ids
 
 
 # M. Template metadata aligns with Q1A validator query_shape.
