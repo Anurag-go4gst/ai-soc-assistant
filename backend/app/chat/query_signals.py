@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Any
 
 from app.query_understanding.models import QueryUnderstandingResult
@@ -66,6 +67,27 @@ _EXACT_105_HUNT_PATTERNS = (
     "threat_intel_enrichment",
     "asset_identity_context",
 )
+
+# Cisco precision-layer hunt families (intent cascade hardening §4). These are
+# the descriptive pattern_type names registered in cisco_question_runtime_map_v1.
+# Treated as exact-105 hunt patterns so a registered Cisco hunt inherits the
+# review-only SPL drafting path (spl_generation_only) instead of falling to the
+# guided floor. DERIVED from the Cisco runtime registry (the single source of
+# truth) — the hunt pattern_types of registered Cisco entries — so it can never
+# drift from the registry and is not a parallel hand-maintained list. Metadata
+# (environment_hygiene) entries are excluded by the pattern_type filter.
+
+
+@lru_cache(maxsize=1)
+def _cisco_hunt_patterns() -> frozenset[str]:
+    from app.coverage.question_runtime_map import list_cisco_question_runtime_entries
+
+    patterns: set[str] = set()
+    for entry in list_cisco_question_runtime_entries():
+        pt = str(entry.get("pattern_type") or "").strip()
+        if pt and pt != "environment_hygiene":
+            patterns.add(pt)
+    return frozenset(patterns)
 
 
 def _explicit_log_search_requested(normalized: str) -> bool:
@@ -569,6 +591,7 @@ def extract_query_signals(
     )
     exact_105_hunt_spl = exact_105_match and (
         getattr(qu, "mapped_pattern_type", None) in _EXACT_105_HUNT_PATTERNS
+        or getattr(qu, "mapped_pattern_type", None) in _cisco_hunt_patterns()
     )
 
     non_soc_or_out_of_scope = any(
