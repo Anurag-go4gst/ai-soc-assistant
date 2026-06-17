@@ -57,6 +57,7 @@ class GovernedContextPackage:
     # never execution schema or credentials). For out-of-catalog / weak composition.
     skill_sections: list[str] = field(default_factory=list)
     mcp_tool_hints: list[str] = field(default_factory=list)
+    t2_grounding_block: str | None = None
     use_case_id: str | None = None
 
     def to_prompt_block(self, *, max_chars: int = DEFAULT_MAX_CONTEXT_CHARS) -> str:
@@ -75,7 +76,8 @@ class GovernedContextPackage:
             (2, "do_not_claim", self.unsupported_claims_avoid[:10]),
             (3, "limitations", self.limitations[:8]),
             (4, "skill_sections", self.skill_sections[:8]),
-            (4, "mcp_tool_hints", self.mcp_tool_hints[:8]),
+            (4, "t2_grounding", [self.t2_grounding_block] if self.t2_grounding_block else []),
+            (5, "mcp_tool_hints", self.mcp_tool_hints[:8]),
             (5, "resource_decisions", self.resource_decisions[:10]),
             (6, "soc_kb_snippets", self.soc_kb_snippets[:6]),
         ]
@@ -145,6 +147,7 @@ def build_governed_context_package_for_contract(
     resource_decisions: list[str] | None = None,
     skill_sections: list[str] | None = None,
     mcp_tool_hints: list[str] | None = None,
+    t2_grounding_block: str | None = None,
     routed_skill: str | None = None,
 ) -> GovernedContextPackage:
     """Rich package for finalize-stage sidecars + out-of-catalog composition.
@@ -169,6 +172,7 @@ def build_governed_context_package_for_contract(
         soc_kb_snippets=[str(item) for item in (soc_kb_snippets or []) if item],
         skill_sections=[str(item) for item in (skill_sections or []) if item],
         mcp_tool_hints=[str(item) for item in (mcp_tool_hints or []) if item],
+        t2_grounding_block=t2_grounding_block,
         use_case_id=contract.use_case_id,
     )
 

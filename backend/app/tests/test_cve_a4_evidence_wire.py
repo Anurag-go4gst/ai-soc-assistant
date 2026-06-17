@@ -31,7 +31,7 @@ def test_resolver_none_without_cve_requirement():
 
 def test_resolver_not_onboarded_by_default(monkeypatch):
     # Default posture: no package configured -> fail-closed not_onboarded.
-    monkeypatch.setattr(pipeline.settings, "ai_soc_cve_snapshot_dir", "", raising=False)
+    monkeypatch.setattr("app.cve.evidence_adapter.settings.ai_soc_cve_snapshot_dir", "", raising=False)
     state = {"mcp_required_produces": ["vulnerability_source"]}
     result = pipeline._resolve_vulnerability_source_status(state)
     assert result is not None
@@ -40,11 +40,27 @@ def test_resolver_not_onboarded_by_default(monkeypatch):
 
 
 def test_resolver_onboarded_when_package_configured(monkeypatch):
-    monkeypatch.setattr(pipeline.settings, "ai_soc_cve_snapshot_dir", str(FIXTURE_DIR), raising=False)
-    monkeypatch.setattr(pipeline.settings, "ai_soc_cve_snapshot_stale_after_days", 100000, raising=False)
+    monkeypatch.setattr(
+        "app.cve.evidence_adapter.settings.ai_soc_cve_snapshot_dir",
+        str(FIXTURE_DIR),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.cve.evidence_adapter.settings.ai_soc_cve_snapshot_stale_after_days",
+        100000,
+        raising=False,
+    )
     state = {"mcp_required_produces": ["unpatched_cve_correlation"]}
     result = pipeline._resolve_vulnerability_source_status(state)
     assert result is not None
     assert result["status"] == "onboarded_snapshot"
     assert result["snapshot_id"] == "cve-fixture-2026-06-16"
     assert result["provenance"]["signer_id"] == "fixture-signer"
+
+
+def test_resolver_uses_evidence_plan_when_loop_state_absent(monkeypatch):
+    monkeypatch.setattr("app.cve.evidence_adapter.settings.ai_soc_cve_snapshot_dir", "", raising=False)
+    state = {"evidence_plan": {"missing_evidence": ["vulnerability_source"]}}
+    result = pipeline._resolve_vulnerability_source_status(state)
+    assert result is not None
+    assert result["status"] == "not_onboarded"

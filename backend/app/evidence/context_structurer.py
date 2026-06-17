@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.cve.evidence_adapter import vulnerability_source_from_evidence
+
 
 def structure_context(
     *,
@@ -68,6 +70,7 @@ def structure_context(
         "synthesis_allowed": False,
         "rag_approval_summary": _rag_approval_summary(source_evidence),
         "evidence_origin_labels": _evidence_origin_labels(source_evidence),
+        "vulnerability_source": vulnerability_source_from_evidence(source_evidence),
     }
 
 

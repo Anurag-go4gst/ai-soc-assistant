@@ -139,7 +139,15 @@ from app.chat.evidence_loop import (
     record_execution_hop,
     record_hop,
 )
-from app.cve.snapshot_store import CveSnapshotStore
+from app.chat.guided_hunt_grounding import (
+    T2_UNVERIFIED_BANNER,
+    build_guided_hunt_grounding,
+    guided_hunt_grounding_trace,
+)
+from app.cve.evidence_adapter import (
+    append_cve_snapshot_source_evidence,
+    resolve_vulnerability_source_status as resolve_cve_vulnerability_status,
+)
 from app.connectors.mcp.mcp_tool_plan_shadow import (
     mcp_tool_plan_llm_advisory_enabled,
     run_mcp_tool_plan_shadow,
@@ -708,29 +716,11 @@ def _loop_required_produces(evidence_payload: dict[str, Any] | None) -> list[str
 def _resolve_vulnerability_source_status(state: ChatPipelineState) -> dict[str, Any] | None:
     """Plan §3 A4: when the evidence plan needs CVE/vulnerability context, resolve
     the operator-vendored CVE snapshot read model into honest provenance.
-
-    Returns None when no CVE-class requirement is in play. Fail-closed: with no
-    package configured (`AI_SOC_CVE_SNAPSHOT_DIR` empty, the default) the status is
-    `not_onboarded` — identical to today's posture. CVE stays a capability gap for
-    routing (Splunk cannot serve it); this only enriches the trace with status +
-    provenance so an onboarded deployment is honest instead of blindly degraded.
     """
-    required = [str(item) for item in (state.get("mcp_required_produces") or [])]
-    if not cve_requirements_present(required):
-        return None
-    store = CveSnapshotStore(
-        package_dir=settings.ai_soc_cve_snapshot_dir or None,
-        stale_after_days=settings.ai_soc_cve_snapshot_stale_after_days,
+    return resolve_cve_vulnerability_status(
+        required_produces=[str(item) for item in (state.get("mcp_required_produces") or [])],
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
     )
-    status = store.vulnerability_source_status()
-    return {
-        "status": status.status,
-        "snapshot_id": status.snapshot_id,
-        "snapshot_generated_at": status.snapshot_generated_at,
-        "snapshot_age_days": status.snapshot_age_days,
-        "limitation": status.limitation,
-        "provenance": status.provenance,
-    }
 
 
 def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[str, Any]) -> bool:
@@ -1702,6 +1692,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     answer_contract = None
     missing_evidence_reasoning_trace: dict[str, Any] | None = None
     llm_turn_budget_trace: dict[str, Any] | None = None
+    guided_grounding_block = None
     contract_evidence_plan = evidence_plan_for_analyst
     # Contract is a read-model that drives the section-ordered analyst card; build it
     # for every classified answer so no path falls back to a one-paragraph bubble.
@@ -1731,6 +1722,18 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             if no_match_limitation not in limitations:
                 limitations.append(no_match_limitation)
                 answer_contract = answer_contract.model_copy(update={"limitations": limitations})
+        if path_type == "guided_investigation":
+            guided_grounding_block = build_guided_hunt_grounding(
+                query=request.message,
+                answer_contract=answer_contract,
+                soc_kb_retrieval=state.get("soc_kb_retrieval")
+                if isinstance(state.get("soc_kb_retrieval"), dict)
+                else None,
+            )
+            merged_limits = list(answer_contract.limitations)
+            if T2_UNVERIFIED_BANNER not in merged_limits:
+                merged_limits.append(T2_UNVERIFIED_BANNER)
+                answer_contract = answer_contract.model_copy(update={"limitations": merged_limits})
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
         if budget.sidecar_budget_exhausted():
             reasoner_result = MissingEvidenceReasonerResult(skipped_reason="turn_budget_exhausted")
@@ -1880,6 +1883,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                         mcp_allowed=bool(answer_contract.mcp_allowed),
                     ),
                     routed_skill=_context_selected_skill(state),
+                    t2_grounding_block=(
+                        guided_grounding_block.to_prompt_block() if guided_grounding_block else None
+                    ),
                 )
             _t0 = time.monotonic()
             composer_result = compose_governed_answer(
@@ -2081,11 +2087,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 "hops": state.get("mcp_evidence") or [],
                 "planner": state.get("mcp_loop_planner"),
             }
-            # Plan §3 A4: attach CVE snapshot provenance when the plan needs
-            # vulnerability context (None otherwise; not_onboarded by default).
-            vuln_source = _resolve_vulnerability_source_status(state)
-            if vuln_source is not None:
+        # Plan §3 A4: attach CVE snapshot provenance when the plan needs vulnerability context.
+        vuln_source = _resolve_vulnerability_source_status(state)
+        if vuln_source is not None:
+            if isinstance(control_plane_trace.get("evidence_loop"), dict):
                 control_plane_trace["evidence_loop"]["vulnerability_source"] = vuln_source
+            else:
+                control_plane_trace["vulnerability_source"] = vuln_source
+        if path_type == "guided_investigation" and guided_grounding_block is not None:
+            control_plane_trace["guided_hunt_grounding"] = guided_hunt_grounding_trace(
+                guided_grounding_block
+            )
 
     session_context_status = None
     if settings.ai_soc_session_context_enabled and isinstance(session_resolution, SessionContextResolution):
@@ -4480,6 +4492,11 @@ def _context_stage(
         source_evidence,
         trace_id=trace_id,
         mcp_evidence=mcp_evidence,
+    )
+    source_evidence = append_cve_snapshot_source_evidence(
+        source_evidence,
+        trace_id=trace_id,
+        evidence_plan=evidence_plan,
     )
     telemetry.record_step(
         trace_id,

@@ -1,10 +1,9 @@
-"""WS-F scaffold — deterministic grounding assembler for T2 (out-of-catalogue) rescue.
+"""WS-F — deterministic grounding assembler for T2 (out-of-catalogue) rescue.
 
-SCAFFOLD ONLY. Not imported by `/chat` or any demo path yet. The LLM never selects
-authority here: this module deterministically assembles a *grounding block* from
-in-repo references (detection families, enterprise MITRE candidates, ATLAS AI-threat
-references, SOC-KB and skill hooks) that a future T2 guided-hunt path can inject into
-a sidecar prompt. Output is advisory context, never authority.
+Deterministically assembles a *grounding block* from in-repo references (detection
+families, enterprise MITRE candidates, ATLAS AI-threat references, SOC-KB and skill
+hooks) for the guided-hunt path and weak-case LLM composition. Output is advisory
+context, never authority.
 
 Design intent (see plan 2026-06-16_1258 §14 WS-F):
 - T2 questions are unknown — they may be AI/LLM/MCP-threat questions. We keep an
@@ -141,11 +140,11 @@ def assemble_grounding(
     soc_kb_refs: list[str] | None = None,
     skill_refs: list[str] | None = None,
 ) -> GroundingBlock:
-    """Deterministically assemble a T2 grounding block. SCAFFOLD — not wired to /chat.
+    """Deterministically assemble a T2 grounding block.
 
     Detection families, enterprise MITRE refs, SOC-KB and skill refs are passed in by
-    the (future) caller from deterministic registries; this scaffold owns the ATLAS
-    AI-threat reference resolution and the resolver-backed technique detail lookup.
+    the caller from deterministic registries; this module owns the ATLAS AI-threat
+    reference resolution and the resolver-backed technique detail lookup.
     """
     resolver = resolver or NullTechniqueResolver()
     ai_signal = detect_ai_threat_signal(question)
