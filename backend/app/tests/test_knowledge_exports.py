@@ -180,7 +180,7 @@ def test_skill_enrichment_status_matrix_json_export_works() -> None:
 
     assert payload["artifact"] == "skill_enrichment_status_matrix"
     assert payload.get("export_kind") == "json_backed"
-    assert payload["row_counts"]["use_cases"] == 12
+    assert payload["row_counts"]["use_cases"] == 13
 
 
 def test_rejected_github_skills_markdown_export_works() -> None:

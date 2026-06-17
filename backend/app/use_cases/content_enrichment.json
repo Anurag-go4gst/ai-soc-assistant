@@ -1157,6 +1157,93 @@
         "no_unsupported_mitre_claims": true,
         "offensive_steps_removed": true
       }
+    },
+    "critical_notable_mitre_review": {
+      "use_case_id": "critical_notable_mitre_review",
+      "use_case_status": "active",
+      "spl_template_status": "active",
+      "allowed_spl_templates": [
+        "notable_critical_review_mitre"
+      ],
+      "domain": "soc-operations",
+      "subdomain": "alert-triage",
+      "live_execution_skill": "attack_discovery",
+      "planning_or_analytic_skill": "multi_signal_correlation",
+      "mitre_candidates": [
+        "T1110.001",
+        "T1078",
+        "T1059.001"
+      ],
+      "conditional_mitre_candidates": [
+        {
+          "technique_id": "T1078",
+          "condition": "Only when successful valid-account use is evidenced in the correlated alerts."
+        }
+      ],
+      "not_claimed_defaults": [
+        "account_compromise",
+        "credential_dumping",
+        "defense_evasion_confirmed"
+      ],
+      "answer_rules": [
+        "Correlate critical alerts with MITRE ATT&CK at candidate tier; do not assert confirmed techniques without supporting evidence.",
+        "CVE correlation is advisory: state vulnerability-source status, and require asset + product/CPE join keys before any 'unpatched CVE on affected host' claim.",
+        "Do not claim credential dumping (T1003) or defense impairment (T1562.001) without direct evidence.",
+        "SPL/execution remains review-gated."
+      ],
+      "analyst_checklist": [
+        "Confirm the critical alerts, affected hosts, and time window.",
+        "Map observed behavior to MITRE ATT&CK candidates (not confirmed).",
+        "Check vulnerability-source onboarding status; correlate CVEs only with asset + CPE join keys.",
+        "Validate asset criticality before severity claims."
+      ],
+      "investigation_workflow": [
+        "Scope critical/notable alerts by host and time window.",
+        "Derive candidate MITRE techniques from alert behavior.",
+        "Attach CVE context from the onboarded snapshot when asset + product join keys are present; otherwise mark advisory.",
+        "Keep SPL generation and execution behind validation and review gates."
+      ],
+      "limitations": [
+        "MITRE mappings are candidate-tier without corroborating evidence.",
+        "CVE correlation requires asset inventory + product/CPE join keys; snapshot presence alone is not a host-level unpatched-CVE claim."
+      ],
+      "evidence_requirements": [
+        "alert_id",
+        "host",
+        "time_window"
+      ],
+      "optional_sources": [
+        "rag:sop",
+        "vulnerability_source"
+      ],
+      "rag_doc_ids": [
+        "alert_triage_sop"
+      ],
+      "reuse_types": [
+        "workflow_reference",
+        "evidence_reference",
+        "mitre_reference"
+      ],
+      "github_reference_skills": [],
+      "tags": [
+        "alert_triage",
+        "critical_alert",
+        "mitre",
+        "cve",
+        "curated_internal_2026-06-17"
+      ],
+      "enrichment_status": "content_added",
+      "test_status": "tested",
+      "safety_review": {
+        "defensive_only": true,
+        "hil_and_validation_preserved": true,
+        "limitations_included": true,
+        "no_arbitrary_commands": true,
+        "no_direct_tool_execution": true,
+        "no_runtime_markdown_loading": true,
+        "no_unsupported_mitre_claims": true,
+        "offensive_steps_removed": true
+      }
     }
   }
 }

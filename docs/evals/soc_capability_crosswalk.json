@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-06-17T07:23:01+00:00",
+  "generated_at": "2026-06-17T10:39:33+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -3316,7 +3316,7 @@
     "catalog_use_cases": 47,
     "discovery_skills": 754,
     "enrichment_only_use_cases": 3,
-    "enrichment_records": 12,
+    "enrichment_records": 13,
     "github_skill_rows": 12,
     "proposed_use_case_rows": 3,
     "question_rows": 105,
@@ -3963,26 +3963,21 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
+      "answer_rules_status": "present",
       "catalog_present": true,
-      "enrichment_present": false,
-      "evidence_requirements": {
-        "optional_entities": [
-          "host",
-          "alert_id",
-          "time_window"
-        ],
-        "optional_sources": [
-          "rag:sop"
-        ],
-        "required_entities": [],
-        "required_sources": [
-          "mcp:splunk"
-        ]
-      },
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "alert_id",
+        "host",
+        "time_window"
+      ],
       "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "github_reuse_type": [
+        "evidence_reference",
+        "mitre_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
@@ -3996,17 +3991,17 @@
         "T1059.001"
       ],
       "mitre_metadata_role": "metadata_not_evidence",
-      "planning_or_analytic_skill": "mitre_mapping",
+      "planning_or_analytic_skill": "multi_signal_correlation",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
-      "runtime_support_status": "planned",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "notable_critical_review_mitre",
       "spl_template_status": "active",
-      "tests_added": false,
+      "tests_added": true,
       "use_case_id": "critical_notable_mitre_review",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "present",

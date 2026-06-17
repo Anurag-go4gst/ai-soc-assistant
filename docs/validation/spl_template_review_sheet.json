@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_spl_templates",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-17T07:06:22+00:00",
+  "generated_at": "2026-06-17T10:39:33+00:00",
   "row_counts": {
     "use_cases": 50
   },
@@ -169,7 +169,9 @@
       "validator_expectation": "Deterministic spl_validator is the final gate; candidate SPL is review-only with execution_enabled=false. No SPL execution and no MCP enablement."
     },
     {
-      "allowed_spl_templates": [],
+      "allowed_spl_templates": [
+        "notable_critical_review_mitre"
+      ],
       "no_execution": true,
       "review_notes": "",
       "review_only": true,

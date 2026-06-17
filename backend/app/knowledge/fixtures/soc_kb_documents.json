@@ -745,6 +745,46 @@
   "is_current_version": true
  },
  {
+  "doc_id": "skill-enrich-critical_notable_mitre_review-v1",
+  "collection_id": "soc_sop",
+  "title": "Skill enrichment guidance: critical notable mitre review",
+  "document_type": "sop",
+  "namespace": "alert-triage",
+  "domain": "soc-operations",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "attack_discovery",
+   "knowledge_recall"
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "alert_triage",
+   "critical_alert",
+   "critical_notable_mitre_review",
+   "curated_internal_2026-06-17",
+   "cve",
+   "mitre",
+   "source:internal_curated"
+  ],
+  "owner": "SOC skill enrichment",
+  "uploaded_by": "skill_enrichment_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-06-11T00:00:00Z",
+  "updated_at": "2026-06-11T00:00:00Z",
+  "is_current_version": true
+ },
+ {
   "doc_id": "skill-enrich-dns_beaconing_candidate-v1",
   "collection_id": "soc_sop",
   "title": "Skill enrichment guidance: dns beaconing candidate",

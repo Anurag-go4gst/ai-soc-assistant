@@ -44,6 +44,8 @@ REQUIRED_RECORD_IDS = {
     "auth_after_hours_critical_asset",
     "net_vpn_login_anomaly",
     "net_firewall_deny_spike",
+    # CVE surfacing (2026-06-17) — CVE-review use case declares vulnerability_source.
+    "critical_notable_mitre_review",
 }
 
 REQUIRED_RECORD_FIELDS = {

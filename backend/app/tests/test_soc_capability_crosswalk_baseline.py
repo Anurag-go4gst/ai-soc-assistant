@@ -71,7 +71,7 @@ def test_crosswalk_file_exists_with_schema(crosswalk: dict) -> None:
     assert crosswalk["row_counts"]["use_case_rows"] == 50
     assert crosswalk["row_counts"]["github_skill_rows"] == 12
     assert crosswalk["row_counts"]["catalog_use_cases"] == 47
-    assert crosswalk["row_counts"]["enrichment_records"] == 12
+    assert crosswalk["row_counts"]["enrichment_records"] == 13
     assert crosswalk["row_counts"]["enrichment_only_use_cases"] == 3
 
 

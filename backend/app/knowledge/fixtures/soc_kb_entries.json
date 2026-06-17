@@ -1956,6 +1956,234 @@
   "approval_status": "coe_reviewed"
  },
  {
+  "entry_id": "skill-enrich-critical_notable_mitre_review-checklist",
+  "doc_id": "skill-enrich-critical_notable_mitre_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: critical notable mitre review",
+  "section_id": "CRITICAL_NOTABLE_MITRE_REVIEW-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Confirm the critical alerts, affected hosts, and time window. Map observed behavior to MITRE ATT&CK candidates (not confirmed). Check vulnerability-source onboarding status; correlate CVEs only with asset + CPE join keys. Validate asset criticality before severity claims.",
+  "source_refs": [
+   "content_enrichment.json#critical_notable_mitre_review.checklist"
+  ],
+  "citation": "Skill enrichment critical_notable_mitre_review v1 CHECKLIST",
+  "retrieval_hints": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "synonyms": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "positive_examples": [
+   "Confirm the critical alerts, affected hosts, and time window."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-critical_notable_mitre_review-workflow",
+  "doc_id": "skill-enrich-critical_notable_mitre_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: critical notable mitre review",
+  "section_id": "CRITICAL_NOTABLE_MITRE_REVIEW-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Scope critical/notable alerts by host and time window. Derive candidate MITRE techniques from alert behavior. Attach CVE context from the onboarded snapshot when asset + product join keys are present; otherwise mark advisory. Keep SPL generation and execution behind validation and review gates.",
+  "source_refs": [
+   "content_enrichment.json#critical_notable_mitre_review.workflow"
+  ],
+  "citation": "Skill enrichment critical_notable_mitre_review v1 WORKFLOW",
+  "retrieval_hints": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "synonyms": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "positive_examples": [
+   "Scope critical/notable alerts by host and time window."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-critical_notable_mitre_review-limits",
+  "doc_id": "skill-enrich-critical_notable_mitre_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: critical notable mitre review",
+  "section_id": "CRITICAL_NOTABLE_MITRE_REVIEW-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "MITRE mappings are candidate-tier without corroborating evidence. CVE correlation requires asset inventory + product/CPE join keys; snapshot presence alone is not a host-level unpatched-CVE claim.",
+  "source_refs": [
+   "content_enrichment.json#critical_notable_mitre_review.limits"
+  ],
+  "citation": "Skill enrichment critical_notable_mitre_review v1 LIMITS",
+  "retrieval_hints": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "synonyms": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "positive_examples": [
+   "MITRE mappings are candidate-tier without corroborating evidence."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-critical_notable_mitre_review-rules",
+  "doc_id": "skill-enrich-critical_notable_mitre_review-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: critical notable mitre review",
+  "section_id": "CRITICAL_NOTABLE_MITRE_REVIEW-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Correlate critical alerts with MITRE ATT&CK at candidate tier; do not assert confirmed techniques without supporting evidence. CVE correlation is advisory: state vulnerability-source status, and require asset + product/CPE join keys before any 'unpatched CVE on affected host' claim. Do not claim credential dumping (T1003) or defense impairment (T1562.001) without direct evidence. SPL/execution remains review-gated.",
+  "source_refs": [
+   "content_enrichment.json#critical_notable_mitre_review.rules"
+  ],
+  "citation": "Skill enrichment critical_notable_mitre_review v1 RULES",
+  "retrieval_hints": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "synonyms": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "positive_examples": [
+   "Correlate critical alerts with MITRE ATT&CK at candidate tier; do not assert confirmed techniques without supporting evidence."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "alert triage",
+   "critical alert",
+   "critical notable mitre review",
+   "curated internal 2026-06-17",
+   "cve",
+   "mitre"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
   "entry_id": "skill-enrich-dns_beaconing_candidate-checklist",
   "doc_id": "skill-enrich-dns_beaconing_candidate-v1",
   "doc_version": "1.0",
