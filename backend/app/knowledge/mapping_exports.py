@@ -77,6 +77,33 @@ _ATLAS_FREQ_PATH = "docs/threat-intel/atlas/raw/ATLAS_Case_Study_Frequency.json"
 _ATLAS_AI_ONLY_TACTICS = ("ai-attack-staging", "ai-model-access")
 
 
+def _atlas_technique_names(technique_ids: list[str]) -> dict[str, str]:
+    """Resolve AML technique IDs → names via the offline ATLAS YAML resolver.
+
+    Returns {} when the resolver is not onboarded (graceful ID-only fallback). Names
+    are metadata only — never authority over status/coverage.
+    """
+    try:
+        from app.config import settings
+        from app.threat.attack_data_resolver import AttackDataResolver
+
+        yaml_path = getattr(settings, "ai_soc_atlas_yaml_path", "") or ""
+        if not yaml_path:
+            return {}
+        path = yaml_path if Path(yaml_path).is_absolute() else str(repo_root() / yaml_path)
+        resolver = AttackDataResolver(atlas_yaml_path=path)
+        if not resolver.operational:
+            return {}
+        names: dict[str, str] = {}
+        for tid in technique_ids:
+            detail = resolver.detail(tid)
+            if detail and detail.get("name"):
+                names[tid] = detail["name"]
+        return names
+    except Exception:  # noqa: BLE001 - enrichment is best-effort; never break the card
+        return {}
+
+
 def _load_atlas_layer(path_suffix: str) -> list[dict[str, Any]] | None:
     """Return the ``techniques`` rows of an ATLAS Navigator layer, or None if the
     file is absent/unreadable (air-gapped deployments may not have onboarded it)."""
@@ -133,6 +160,9 @@ def build_atlas_coverage_gap() -> dict[str, Any]:
     multi_tactic = {tid: sorted(tacs) for tid, tacs in id_tactics.items() if len(tacs) > 1}
     ai_only = {tac: per_tactic[tac] for tac in _ATLAS_AI_ONLY_TACTICS if tac in per_tactic}
     top_by_freq = sorted(distinct, key=lambda i: freq.get(i, 0), reverse=True)[:10]
+    # WS-G G4: enrich with technique names when the offline ATLAS resolver is
+    # onboarded (graceful: ID-only when absent). Resolver supplies metadata only.
+    _names = _atlas_technique_names(top_by_freq)
 
     return {
         "schema_role": "atlas_coverage_gap_v1",
@@ -147,9 +177,15 @@ def build_atlas_coverage_gap() -> dict[str, Any]:
         "ai_only_tactics": ai_only,
         "multi_tactic_technique_count": len(multi_tactic),
         "top_techniques_by_case_study_frequency": [
-            {"technique_id": tid, "score": freq.get(tid, 0), "tactics": sorted(id_tactics[tid])}
+            {
+                "technique_id": tid,
+                "name": _names.get(tid, ""),
+                "score": freq.get(tid, 0),
+                "tactics": sorted(id_tactics[tid]),
+            }
             for tid in top_by_freq
         ],
+        "technique_names_resolved": bool(_names),
         "limitation": limitation,
     }
 

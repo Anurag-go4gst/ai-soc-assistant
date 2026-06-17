@@ -61,9 +61,25 @@ def extract_candidates() -> tuple[list[str], set[str]]:
 
 
 def _resolver():
-    """Build the resolver from config paths; None on any import/config failure."""
+    """Build a technique resolver from config paths; None on any import/config failure.
+
+    Prefers the vendored ATT&CK-Excel + ATLAS-YAML backend (zero extra deps); falls
+    back to the STIX backend if only STIX paths are configured.
+    """
     try:
         from app.config import settings
+
+        from app.threat.attack_data_resolver import AttackDataResolver
+
+        xlsx = getattr(settings, "ai_soc_attack_xlsx_path", "") or None
+        yaml_path = getattr(settings, "ai_soc_atlas_yaml_path", "") or None
+        if xlsx or yaml_path:
+            resolver = AttackDataResolver(
+                attack_xlsx_path=str(ROOT / xlsx) if xlsx and not Path(xlsx).is_absolute() else xlsx,
+                atlas_yaml_path=str(ROOT / yaml_path) if yaml_path and not Path(yaml_path).is_absolute() else yaml_path,
+            )
+            if resolver.operational:
+                return resolver
         from app.threat.stix_resolver import StixTechniqueResolver
 
         return StixTechniqueResolver(

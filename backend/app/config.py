@@ -109,6 +109,11 @@ class Settings(BaseSettings):
     # are path vars, not a posture flag; MCP-execution + all-on SOC posture unchanged.
     ai_soc_attack_stix_path: str = ""
     ai_soc_atlas_stix_path: str = ""
+    # WS-G offline ATT&CK Excel + ATLAS YAML resolver (the vendored, zero-extra-dep
+    # backend; preferred over STIX when present). Default to the vendored repo paths;
+    # missing file -> resolver returns None, fail-closed. Path vars, not posture flags.
+    ai_soc_attack_xlsx_path: str = "docs/evals/enterprise-attack-v19.1.xlsx"
+    ai_soc_atlas_yaml_path: str = "docs/threat-intel/atlas/raw/ATLAS.yaml"
     # WS-A CVE snapshot read model (plan §3 A5). Default-off, fail-closed.
     ai_soc_cve_snapshot_dir: str = ""
     ai_soc_cve_snapshot_stale_after_days: int = 30
