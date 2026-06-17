@@ -46,23 +46,16 @@ UNSERVABLE_REQUIREMENTS = frozenset(
     }
 )
 
-# CVE/vulnerability-class requirements that an onboarded CVE snapshot read model
+# CVE/vulnerability-class requirements an onboarded CVE snapshot read model
 # (plan §3 A4) can inform — never SERVE from Splunk, so they stay capability gaps
 # for routing, but the loop can attach honest `vulnerability_source.status`
-# provenance instead of a bare "not onboarded". Subset of UNSERVABLE_REQUIREMENTS.
-CVE_VULNERABILITY_REQUIREMENTS = frozenset(
-    {"cve", "cve_correlation", "unpatched_cve_correlation", "vulnerability_source"}
+# provenance instead of a bare "not onboarded". Defined in the leaf CVE module so
+# app.cve.evidence_adapter can share it without an import cycle; re-exported here
+# for existing importers.
+from app.cve.requirements import (  # noqa: E402
+    CVE_VULNERABILITY_REQUIREMENTS,
+    cve_requirements_present,
 )
-
-
-def cve_requirements_present(required: list[str] | set[str] | None) -> bool:
-    """True when any CVE/vulnerability-class requirement is in the plan.
-
-    Pure predicate — the snapshot store IO lives in the pipeline (this module
-    stays IO-free); the caller uses this to decide whether to resolve and attach
-    `vulnerability_source.status` provenance to the trace.
-    """
-    return bool(set(required or ()) & CVE_VULNERABILITY_REQUIREMENTS)
 
 
 @dataclass

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.chat.evidence_loop import cve_requirements_present
 from app.config import settings
+from app.cve.requirements import cve_requirements_present
 from app.cve.snapshot_store import CveSnapshotStore
 
 
