@@ -582,6 +582,20 @@ def extract_query_signals(
         and not non_soc_or_out_of_scope
     )
 
+    # Engine-3-safe floor shape signal (intent cascade hardening, Batch 0).
+    # CLASS PATTERN, not per-question keywords: an imperative detection verb +
+    # a broad security/telemetry subject identifies a SOC-shaped, actionable
+    # hunt that should land on the guided floor instead of a hollow
+    # clarification dump. Guarded against out-of-scope / containment / explicit
+    # run-SPL so those keep their existing honest outcomes.
+    soc_actionable_hunt = bool(
+        _has_detection_verb(normalized)
+        and _has_security_telemetry_subject(normalized)
+        and not non_soc_or_out_of_scope
+        and not block_or_contain
+        and not explicit_run_spl
+    )
+
     return {
         "normalized_query": normalized,
         "policy_terms": policy_terms,
@@ -654,6 +668,7 @@ def extract_query_signals(
         "exact_105_analytics": exact_105_analytics,
         "exact_105_hunt_spl": exact_105_hunt_spl,
         "soc_investigation_shaped": soc_investigation_shaped,
+        "soc_actionable_hunt": soc_actionable_hunt,
         "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),
         "spl_authoring_shaped": bool(spl_generation and not run_execution),
         "alert_summary_shaped": bool(alert_context_present and not spl_generation),
@@ -688,6 +703,112 @@ def extract_query_signals(
         "explicit_run_spl": explicit_run_spl,
         "projected_action_mode": "recommend_only" if block_or_contain else None,
     }
+
+
+# Class patterns for the Engine-3-safe guided floor (Batch 0). These are
+# intentionally broad and grouped, not per-question. The verb pattern is an
+# imperative detection intent; the subject pattern is a broad security /
+# telemetry / OT lexicon. Both must fire (plus the negative guards in
+# extract_query_signals) for soc_actionable_hunt.
+_DETECTION_VERB_RE = re.compile(
+    r"\b(?:show|list|identify|flag|detect|find any|locate|review|correlate|audit|trace|hunt for)\b"
+    r"|\balert on\b"
+    r"|\b(?:are|is) there\b",
+    re.IGNORECASE,
+)
+_SECURITY_SUBJECT_TERMS = (
+    "connection",
+    "login",
+    "auth",
+    "authentication",
+    "session",
+    "traffic",
+    "scan",
+    "scanning",
+    "packet",
+    "icmp",
+    "dns",
+    "firewall",
+    "vlan",
+    "vpn",
+    "tacacs",
+    "ise",
+    "duo",
+    "mab",
+    "goose",
+    "mms",
+    "modbus",
+    "iccp",
+    "plc",
+    "rtu",
+    "hmi",
+    "scada",
+    "ssh",
+    "tls",
+    "cipher",
+    "driver",
+    "process",
+    "endpoint",
+    "host",
+    " ip ",
+    "ip address",
+    "source ip",
+    "port",
+    "certificate",
+    "config change",
+    "configuration change",
+    "ios configuration",
+    "privilege",
+    "privileged",
+    "route",
+    "routing",
+    "ospf",
+    "bgp",
+    "sgt",
+    "umbrella",
+    "stealthwatch",
+    "firepower",
+    "catalyst",
+    "setpoint",
+    "breaker",
+    "relay",
+    " ot ",
+    "substation",
+    "wireless",
+    "rogue",
+    "malware",
+    "kernel",
+    "tftp",
+    "banner",
+    "inverter",
+    "transformer",
+    "control logic",
+    "audit trail",
+    "audit log",
+    "log process",
+    "anyconnect",
+    "secure endpoint",
+    "secure email",
+    "workstation",
+    "device profile",
+    "broadcast polling",
+    "data link",
+    "exception code",
+    "protocol",
+    "gps clock",
+    "agc",
+    "master station",
+    "energy management",
+)
+
+
+def _has_detection_verb(normalized: str) -> bool:
+    return bool(_DETECTION_VERB_RE.search(normalized))
+
+
+def _has_security_telemetry_subject(normalized: str) -> bool:
+    padded = f" {normalized} "
+    return any(term in padded for term in _SECURITY_SUBJECT_TERMS)
 
 
 def _spl_generation_suppressed(normalized: str) -> bool:

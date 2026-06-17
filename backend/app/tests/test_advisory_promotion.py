@@ -113,6 +113,12 @@ def test_end_to_end_promotion_through_build_query_to_intent() -> None:
     assert result.candidate_mappings["match_path"] == "llm_promoted_with_registry_validation"
     assert result.candidate_mappings["question_ref"] == "q0.q010"
     assert result.llm_intent_advisory.adjudication_status == "promoted"
+    # §10.2 post-promotion intent reconcile: the promoted route must reach
+    # intent_classification, not just candidate_mappings. q0.q010 is a
+    # top_n_aggregation / aggregate_and_rank skill -> spl_generation_only.
+    assert result.intent_classification.intent_family == "spl_generation_only"
+    assert result.intent_classification.intent_family != "clarification_required"
+    assert result.intent_classification.requires_clarification is False
 
 
 def test_no_advisory_means_behavior_unchanged() -> None:
