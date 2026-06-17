@@ -64,3 +64,18 @@ def test_resolver_uses_evidence_plan_when_loop_state_absent(monkeypatch):
     result = pipeline._resolve_vulnerability_source_status(state)
     assert result is not None
     assert result["status"] == "not_onboarded"
+
+
+def test_vulnerability_context_line_surfaces_status():
+    """A4b: CVE status renders as an advisory analyst-card line (not a confirmed claim)."""
+    from app.cve.evidence_adapter import vulnerability_context_line
+
+    onboarded = vulnerability_context_line(
+        {"status": "onboarded_snapshot", "snapshot_id": "cve-x", "snapshot_age_days": 2}
+    )
+    assert onboarded and "onboarded" in onboarded
+    assert "join keys" in onboarded  # never a confirmed unpatched-CVE claim
+    assert "stale" in vulnerability_context_line({"status": "stale", "snapshot_id": "cve-x"})
+    assert "not onboarded" in vulnerability_context_line({"status": "not_onboarded"})
+    assert vulnerability_context_line(None) is None
+    assert vulnerability_context_line({}) is None

@@ -147,6 +147,7 @@ from app.chat.guided_hunt_grounding import (
 from app.cve.evidence_adapter import (
     append_cve_snapshot_source_evidence,
     resolve_vulnerability_source_status as resolve_cve_vulnerability_status,
+    vulnerability_context_line,
 )
 from app.connectors.mcp.mcp_tool_plan_shadow import (
     mcp_tool_plan_llm_advisory_enabled,
@@ -1759,6 +1760,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_contract = answer_contract.model_copy(update={"limitations": merged_limits})
         missing_evidence_reasoning_trace = reasoner_result.to_trace_dict()
         llm_turn_budget_trace = budget.to_trace_dict()
+        # Plan §3 A4b: surface the CVE snapshot status in the visible analyst card
+        # (advisory; never a confirmed unpatched-CVE claim without join keys).
+        _vuln_line = vulnerability_context_line(
+            structured_context.get("vulnerability_source") if isinstance(structured_context, dict) else None
+        )
+        if _vuln_line:
+            _limits = list(answer_contract.limitations)
+            if _vuln_line not in _limits:
+                _limits.append(_vuln_line)
+                answer_contract = answer_contract.model_copy(update={"limitations": _limits})
     else:
         missing_evidence_reasoning_trace = None
         llm_turn_budget_trace = None

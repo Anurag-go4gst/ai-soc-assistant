@@ -79,6 +79,31 @@ def append_cve_snapshot_source_evidence(
     return [*source_evidence, item]
 
 
+def vulnerability_context_line(vuln: dict[str, Any] | None) -> str | None:
+    """Analyst-facing one-liner for the CVE snapshot status (plan §3 A4b).
+
+    Onboarded snapshots are advisory context — never a confirmed unpatched-CVE claim
+    without asset/CPE join keys. Returns None when there is no CVE context to state.
+    """
+    if not isinstance(vuln, dict) or not vuln.get("status"):
+        return None
+    status = str(vuln["status"])
+    if status == "onboarded_snapshot":
+        sid = vuln.get("snapshot_id") or "snapshot"
+        age = vuln.get("snapshot_age_days")
+        age_txt = f", {age}d old" if isinstance(age, int) else ""
+        return (
+            f"Vulnerability context: CVE snapshot onboarded ({sid}{age_txt}); advisory only "
+            "— host/product correlation requires asset + CPE join keys before any unpatched-CVE claim."
+        )
+    if status == "stale":
+        return (
+            f"Vulnerability context: CVE snapshot is stale ({vuln.get('snapshot_id') or 'snapshot'}); "
+            "treat as degraded and refresh before relying on CVE correlation."
+        )
+    return "Vulnerability context: CVE source not onboarded in this deployment; no CVE correlation performed."
+
+
 def vulnerability_source_from_evidence(source_evidence: list[dict[str, Any]]) -> dict[str, Any] | None:
     for item in source_evidence:
         if item.get("source_name") == "vulnerability_source" or item.get("source_type") == "cve_snapshot":
