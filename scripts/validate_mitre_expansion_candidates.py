@@ -11,11 +11,10 @@ Offline, deterministic, no LLM. Two stages:
      expansion candidates (97 of them). There is NO ``expansion`` bucket in the audit
      JSON; this set is derived, per COE report §4.
 
-  2. DISPOSITION (resolver-gated): if the offline StixTechniqueResolver is operational
-     (mitreattack-python onboarded + STIX bundle vendored), classify each ID as
-     ``promote_candidate`` (valid, current), ``deprecated``/``revoked`` (drop), or
-     ``not_found`` (drop/hallucinated). Until the bundle is onboarded every row is
-     ``pending_bundle`` — honest, not a fake disposition.
+  2. DISPOSITION (resolver-gated): when an offline resolver is operational
+     (``AttackDataResolver`` xlsx/yaml preferred, else ``StixTechniqueResolver`` STIX),
+     classify each ID as ``promote_candidate``, ``deprecated``/``revoked``, or
+     ``not_found``. Until a resolver is onboarded every row is ``pending_bundle``.
 
 Writes docs/evals/mitre_expansion_validated.{json,md}. Exit 0.
 """
@@ -61,36 +60,21 @@ def extract_candidates() -> tuple[list[str], set[str]]:
 
 
 def _resolver():
-    """Build a technique resolver from config paths; None on any import/config failure.
-
-    Prefers the vendored ATT&CK-Excel + ATLAS-YAML backend (zero extra deps); falls
-    back to the STIX backend if only STIX paths are configured.
-    """
+    """Build a technique resolver from config paths; None on any import/config failure."""
     try:
-        from app.config import settings
+        from app.threat.attack_data_resolver import technique_resolver_from_settings
 
-        from app.threat.attack_data_resolver import AttackDataResolver
-
-        xlsx = getattr(settings, "ai_soc_attack_xlsx_path", "") or None
-        yaml_path = getattr(settings, "ai_soc_atlas_yaml_path", "") or None
-        if xlsx or yaml_path:
-            resolver = AttackDataResolver(
-                attack_xlsx_path=str(ROOT / xlsx) if xlsx and not Path(xlsx).is_absolute() else xlsx,
-                atlas_yaml_path=str(ROOT / yaml_path) if yaml_path and not Path(yaml_path).is_absolute() else yaml_path,
-            )
-            if resolver.operational:
-                return resolver
-        from app.threat.stix_resolver import StixTechniqueResolver
-
-        return StixTechniqueResolver(
-            attack_stix_path=getattr(settings, "ai_soc_attack_stix_path", "") or None,
-            atlas_stix_path=getattr(settings, "ai_soc_atlas_stix_path", "") or None,
-        )
+        resolver = technique_resolver_from_settings()
+        if not getattr(resolver, "operational", False):
+            return None
+        return resolver
     except Exception:  # noqa: BLE001 - resolver is optional; extraction still runs
         return None
 
 
 def disposition(candidates: list[str], resolver) -> list[dict]:
+    from app.threat.attack_data_resolver import AttackDataResolver, absent_technique_disposition
+
     rows: list[dict] = []
     operational = bool(resolver and getattr(resolver, "operational", False))
     for tid in candidates:
@@ -99,7 +83,11 @@ def disposition(candidates: list[str], resolver) -> list[dict]:
             continue
         detail = resolver.detail(tid)
         if detail is None:
-            verdict = "not_found"
+            verdict = (
+                absent_technique_disposition(tid)
+                if isinstance(resolver, AttackDataResolver)
+                else "not_found"
+            )
         elif detail.get("deprecated") or detail.get("revoked"):
             verdict = "deprecated"
         else:
@@ -123,10 +111,9 @@ def _render_md(report: dict) -> str:
         + ", ".join(f"`{k}`={v}" for k, v in sorted(counts.items())),
         "",
         "> Candidates = union of all `results[*].llm_invalid_ids` (out-of-subset "
-        "proposals) minus the local 13-technique bundle. No `expansion` bucket exists "
-        "in the audit JSON; this "
-        "set is derived. Until the STIX bundle is onboarded, every row is "
-        "`pending_bundle` (honest, not a fabricated promote/drop).",
+        "proposals) minus the local bundle. No `expansion` bucket exists in the audit "
+        "JSON; this set is derived. When no offline resolver is onboarded, every row "
+        "is `pending_bundle` (honest, not a fabricated promote/drop).",
         "",
         "| techniqueID | disposition | name |",
         "|---|---|---|",

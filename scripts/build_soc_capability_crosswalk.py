@@ -710,7 +710,7 @@ def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
 
     expected_questions = 105
     expected_use_cases = 50
-    expected_github = 7
+    expected_github = 12
     if len(question_rows) != expected_questions:
         warnings.append(
             f"question row count drift: expected {expected_questions}, got {len(question_rows)}"

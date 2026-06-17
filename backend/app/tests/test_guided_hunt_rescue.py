@@ -43,6 +43,15 @@ def test_detection_families_from_question() -> None:
     assert "dns_beaconing_candidate" in families
 
 
+def test_build_guided_hunt_grounding_resolves_atlas_names() -> None:
+    block = build_guided_hunt_grounding(
+        query="hunt prompt injection against our llm endpoint",
+    )
+    assert block.ai_threat_signal is True
+    assert block.atlas_references
+    assert any(detail.get("name") for detail in block.technique_details.values())
+
+
 def test_build_guided_hunt_grounding_carries_unverified_banner() -> None:
     block = build_guided_hunt_grounding(
         query="hunt prompt injection against our llm endpoint",

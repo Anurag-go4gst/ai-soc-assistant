@@ -9,15 +9,16 @@ Design intent (see plan 2026-06-16_1258 §14 WS-F):
 - T2 questions are unknown — they may be AI/LLM/MCP-threat questions. We keep an
   ATLAS reference reachable so the depository is not lost even before full ATLAS
   data is onboarded. Today ATLAS references are IDs + tactics + case-study scores
-  only (no names); a `TechniqueResolver` slot lets a later mitreattack-python /
-  ATLAS-STIX backend fill in names/descriptions without changing callers.
+  only (no names); a `TechniqueResolver` slot lets an offline ATT&CK-Excel /
+  ATLAS-YAML or STIX backend fill in names/descriptions without changing callers.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
 
 from app.knowledge.mapping_exports import build_atlas_coverage_gap
+from app.threat.resolver_types import NullTechniqueResolver, TechniqueResolver
 
 # Keywords that flag a question as AI/LLM/MCP-threat shaped → attach ATLAS reference.
 # Deterministic and intentionally broad; this only adds advisory context, never routes.
@@ -28,25 +29,6 @@ _AI_THREAT_KEYWORDS: tuple[str, ...] = (
     "model endpoint", "mcp server", "mcp tool", "agent", "ai assistant",
     "foundation model", "adversarial example", "model evasion",
 )
-
-
-@runtime_checkable
-class TechniqueResolver(Protocol):
-    """Resolves a technique ID (ATT&CK Txxxx or ATLAS AML.Txxxx) to detail.
-
-    Default deployment uses :class:`NullTechniqueResolver` (returns None). A later
-    offline backend built on mitreattack-python + local STIX bundles can implement
-    this to return {"name", "description", "deprecated"} without touching callers.
-    """
-
-    def detail(self, technique_id: str) -> dict[str, Any] | None: ...
-
-
-class NullTechniqueResolver:
-    """No-op resolver — names/descriptions unavailable until STIX bundle onboarded."""
-
-    def detail(self, technique_id: str) -> dict[str, Any] | None:  # noqa: ARG002
-        return None
 
 
 @dataclass
@@ -168,11 +150,12 @@ def assemble_grounding(
         if detail:
             block.technique_details[tid] = detail
 
-    if atlas_refs and not block.technique_details:
+    atlas_ids = [str(r.get("technique_id") or "") for r in atlas_refs]
+    atlas_names_resolved = any(tid in block.technique_details for tid in atlas_ids if tid)
+    if atlas_refs and not atlas_names_resolved:
         block.limitations.append(
             "ATLAS references are technique IDs + tactics + case-study scores only; "
-            "onboard the ATLAS STIX bundle (via a mitreattack-python-backed resolver) "
-            "for names/descriptions."
+            "onboard the vendored ATLAS YAML (or STIX bundle) resolver for names/descriptions."
         )
     if ai_signal and not atlas_refs:
         block.limitations.append("AI-threat question detected but ATLAS taxonomy is not onboarded.")

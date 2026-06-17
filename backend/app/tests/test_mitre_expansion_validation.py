@@ -47,6 +47,18 @@ class _FakeResolver:
         return self._table.get(tid)
 
 
+def test_disposition_classifies_attack_data_absent_as_deprecated():
+    from app.threat.attack_data_resolver import AttackDataResolver
+
+    candidates, _ = mev.extract_candidates()
+    xlsx = Path(__file__).resolve().parents[3] / "docs" / "evals" / "enterprise-attack-v19.1.xlsx"
+    atlas = Path(__file__).resolve().parents[3] / "docs" / "threat-intel" / "atlas" / "raw" / "ATLAS.yaml"
+    resolver = AttackDataResolver(attack_xlsx_path=xlsx, atlas_yaml_path=atlas)
+    rows = mev.disposition(["T1086", "T0819"], resolver)
+    by_id = {r["technique_id"]: r["disposition"] for r in rows}
+    assert by_id == {"T1086": "deprecated", "T0819": "not_found"}
+
+
 def test_disposition_classifies_with_operational_resolver():
     table = {
         "T1003": {"name": "OS Credential Dumping", "deprecated": False, "revoked": False},

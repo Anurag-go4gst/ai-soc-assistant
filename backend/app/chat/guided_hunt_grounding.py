@@ -9,10 +9,9 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
-from app.chat.grounding_assembler import GroundingBlock, NullTechniqueResolver, assemble_grounding
-from app.config import settings
+from app.chat.grounding_assembler import GroundingBlock, assemble_grounding
 from app.knowledge.mapping_exports import load_github_intake_register
-from app.threat.stix_resolver import StixTechniqueResolver
+from app.threat.attack_data_resolver import technique_resolver_from_settings
 
 T2_UNVERIFIED_BANNER = (
     "LLM-assisted, out-of-catalogue, unverified — validate against local telemetry and policy."
@@ -34,17 +33,6 @@ def _skill_register_records() -> list[dict[str, Any]]:
     register = load_github_intake_register()
     records = register.get("records")
     return [row for row in records if isinstance(row, dict)] if isinstance(records, list) else []
-
-
-def stix_resolver_from_settings() -> StixTechniqueResolver | NullTechniqueResolver:
-    attack = (settings.ai_soc_attack_stix_path or "").strip()
-    atlas = (settings.ai_soc_atlas_stix_path or "").strip()
-    if not attack and not atlas:
-        return NullTechniqueResolver()
-    return StixTechniqueResolver(
-        attack_stix_path=attack or None,
-        atlas_stix_path=atlas or None,
-    )
 
 
 def soc_kb_refs_from_retrieval(soc_kb_retrieval: dict[str, Any] | None) -> list[str]:
@@ -119,7 +107,7 @@ def build_guided_hunt_grounding(
             families.append(use_case)
     block = assemble_grounding(
         query,
-        resolver=stix_resolver_from_settings(),
+        resolver=technique_resolver_from_settings(),
         detection_families=families,
         enterprise_mitre_refs=enterprise_mitre_refs_from_contract(answer_contract),
         soc_kb_refs=soc_kb_refs_from_retrieval(soc_kb_retrieval),

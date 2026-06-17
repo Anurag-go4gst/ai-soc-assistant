@@ -126,7 +126,7 @@ def build_atlas_coverage_gap() -> dict[str, Any]:
     Read-only; no runtime routing or evidence change.
     """
     matrix = _load_atlas_layer(_ATLAS_MATRIX_PATH)
-    limitation = (
+    limitation_ids_only = (
         "ATLAS Navigator layers carry technique IDs + tactics + case-study scores only "
         "(no names/descriptions); load the full ATLAS data bundle for analyst-readable detail."
     )
@@ -163,6 +163,12 @@ def build_atlas_coverage_gap() -> dict[str, Any]:
     # WS-G G4: enrich with technique names when the offline ATLAS resolver is
     # onboarded (graceful: ID-only when absent). Resolver supplies metadata only.
     _names = _atlas_technique_names(top_by_freq)
+    limitation = (
+        "Top techniques include resolved AML names from the vendored ATLAS YAML; "
+        "Navigator raw layers remain ID+tactics+scores for full-matrix views."
+        if _names
+        else limitation_ids_only
+    )
 
     return {
         "schema_role": "atlas_coverage_gap_v1",

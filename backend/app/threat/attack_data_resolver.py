@@ -30,11 +30,69 @@ from xml.etree import ElementTree as ET
 logger = logging.getLogger("ai_soc.threat.attack_data_resolver")
 
 _XLSX_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+_ICS_TECHNIQUE_ID = re.compile(r"^T0[89]")
+_ENTERPRISE_TECHNIQUE_ID = re.compile(r"^T\d")
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _resolve_path(path: str | Path | None) -> Path | None:
+    if path is None:
+        return None
+    raw = str(path).strip()
+    if not raw:
+        return None
+    resolved = Path(raw)
+    return resolved if resolved.is_absolute() else _repo_root() / resolved
+
+
+def absent_technique_disposition(technique_id: str) -> str:
+    """Classify a None ``detail()`` for AttackDataResolver (COE G3 reporting).
+
+    Enterprise xlsx excludes revoked/deprecated/renumbered techniques, so absent
+    enterprise ``T*`` IDs are ``deprecated``. ICS ``T08xx``/``T09xx`` queried
+    against the enterprise export are ``not_found`` (wrong matrix).
+    """
+    tid = (technique_id or "").strip()
+    if tid.startswith("AML."):
+        return "not_found"
+    if _ICS_TECHNIQUE_ID.match(tid):
+        return "not_found"
+    if _ENTERPRISE_TECHNIQUE_ID.match(tid):
+        return "deprecated"
+    return "not_found"
+
+
+def technique_resolver_from_settings() -> Any:
+    """Build the best available offline resolver from ``settings`` (xlsx/yaml first)."""
+    from app.config import settings
+    from app.threat.resolver_types import NullTechniqueResolver
+    from app.threat.stix_resolver import StixTechniqueResolver
+
+    xlsx = _resolve_path(getattr(settings, "ai_soc_attack_xlsx_path", "") or None)
+    yaml_path = _resolve_path(getattr(settings, "ai_soc_atlas_yaml_path", "") or None)
+    if xlsx or yaml_path:
+        resolver = AttackDataResolver(attack_xlsx_path=xlsx, atlas_yaml_path=yaml_path)
+        if resolver.operational:
+            return resolver
+    attack = _resolve_path(getattr(settings, "ai_soc_attack_stix_path", "") or None)
+    atlas = _resolve_path(getattr(settings, "ai_soc_atlas_stix_path", "") or None)
+    if attack or atlas:
+        return StixTechniqueResolver(
+            attack_stix_path=str(attack) if attack else None,
+            atlas_stix_path=str(atlas) if atlas else None,
+        )
+    return NullTechniqueResolver()
 
 
 def _col_index(cell_ref: str) -> int:
     """'C12' -> 2 (zero-based column index)."""
-    letters = re.match(r"[A-Z]+", cell_ref).group()
+    match = re.match(r"[A-Z]+", cell_ref or "")
+    if match is None:
+        return 0
+    letters = match.group()
     n = 0
     for ch in letters:
         n = n * 26 + (ord(ch) - 64)
@@ -151,14 +209,25 @@ class AttackDataResolver:
     """
 
     def __init__(self, attack_xlsx_path: str | Path | None = None, atlas_yaml_path: str | Path | None = None) -> None:
-        self._xlsx = Path(attack_xlsx_path) if attack_xlsx_path else None
-        self._yaml = Path(atlas_yaml_path) if atlas_yaml_path else None
+        self._xlsx = _resolve_path(attack_xlsx_path)
+        self._yaml = _resolve_path(atlas_yaml_path)
         self._enterprise_cache: dict[str, dict[str, Any]] | None = None
         self._atlas_cache: dict[str, dict[str, Any]] | None = None
 
     @property
     def operational(self) -> bool:
-        return bool((self._xlsx and self._xlsx.exists()) or (self._yaml and self._yaml.exists()))
+        return bool(
+            (self._xlsx and self._xlsx.exists())
+            or (self._yaml and self._yaml.exists())
+        )
+
+    @property
+    def enterprise_operational(self) -> bool:
+        return bool(self._xlsx and self._xlsx.exists())
+
+    @property
+    def atlas_operational(self) -> bool:
+        return bool(self._yaml and self._yaml.exists())
 
     def _enterprise(self) -> dict[str, dict[str, Any]]:
         if self._enterprise_cache is None:

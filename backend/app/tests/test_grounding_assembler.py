@@ -36,7 +36,7 @@ def test_assemble_grounding_scaffold_shape() -> None:
     assert block.atlas_references  # AI question carries ATLAS refs
     # Null resolver → no names yet → explicit limitation recorded.
     assert block.technique_details == {}
-    assert any("ATLAS STIX bundle" in lim for lim in block.limitations)
+    assert any("ATLAS YAML" in lim or "names/descriptions" in lim for lim in block.limitations)
     text = block.to_prompt_block()
     assert "advisory only" in text
     assert "ATLAS" in text
