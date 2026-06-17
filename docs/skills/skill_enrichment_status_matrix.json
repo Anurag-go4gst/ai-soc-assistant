@@ -1,10 +1,26 @@
 {
-  "generated_at": "2026-06-16T19:30:48+00:00",
+  "generated_at": "2026-06-17T07:06:22+00:00",
   "intake_register_records": 12,
   "row_counts": {
-    "use_cases": 8
+    "use_cases": 12
   },
   "rows": [
+    {
+      "answer_rules": true,
+      "evidence_added": true,
+      "github_acceptance_not_runtime_activation": true,
+      "github_reference_skills": [],
+      "internal_use_case": "auth_after_hours_critical_asset",
+      "live_skill": "attack_discovery",
+      "mitre_added": "metadata_only",
+      "planning_skill": "threshold_anomaly",
+      "rag_added": true,
+      "runtime_support_status": "planned",
+      "spl_template": "active",
+      "status": "tests_added",
+      "tests_added": true,
+      "workflow_added": true
+    },
     {
       "answer_rules": true,
       "evidence_added": true,
@@ -99,6 +115,22 @@
       "answer_rules": true,
       "evidence_added": true,
       "github_acceptance_not_runtime_activation": true,
+      "github_reference_skills": [],
+      "internal_use_case": "edr_suspicious_process",
+      "live_skill": "attack_discovery",
+      "mitre_added": "metadata_only",
+      "planning_skill": "rarity_anomaly",
+      "rag_added": true,
+      "runtime_support_status": "planned",
+      "spl_template": "active",
+      "status": "tests_added",
+      "tests_added": true,
+      "workflow_added": true
+    },
+    {
+      "answer_rules": true,
+      "evidence_added": true,
+      "github_acceptance_not_runtime_activation": true,
       "github_reference_skills": [
         "analyzing-email-headers-for-phishing-investigation",
         "triaging-security-alerts-in-splunk"
@@ -129,6 +161,38 @@
       "rag_added": true,
       "runtime_support_status": "planned",
       "spl_template": "planned",
+      "status": "tests_added",
+      "tests_added": true,
+      "workflow_added": true
+    },
+    {
+      "answer_rules": true,
+      "evidence_added": true,
+      "github_acceptance_not_runtime_activation": true,
+      "github_reference_skills": [],
+      "internal_use_case": "net_firewall_deny_spike",
+      "live_skill": "attack_discovery",
+      "mitre_added": "metadata_only",
+      "planning_skill": "threshold_anomaly",
+      "rag_added": true,
+      "runtime_support_status": "planned",
+      "spl_template": "active",
+      "status": "tests_added",
+      "tests_added": true,
+      "workflow_added": true
+    },
+    {
+      "answer_rules": true,
+      "evidence_added": true,
+      "github_acceptance_not_runtime_activation": true,
+      "github_reference_skills": [],
+      "internal_use_case": "net_vpn_login_anomaly",
+      "live_skill": "attack_discovery",
+      "mitre_added": "metadata_only",
+      "planning_skill": "threshold_anomaly",
+      "rag_added": true,
+      "runtime_support_status": "planned",
+      "spl_template": "active",
       "status": "tests_added",
       "tests_added": true,
       "workflow_added": true

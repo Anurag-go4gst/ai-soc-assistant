@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-06-17T04:37:06+00:00",
+  "generated_at": "2026-06-17T07:06:22+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -3316,7 +3316,7 @@
     "catalog_use_cases": 47,
     "discovery_skills": 754,
     "enrichment_only_use_cases": 3,
-    "enrichment_records": 8,
+    "enrichment_records": 12,
     "github_skill_rows": 12,
     "proposed_use_case_rows": 3,
     "question_rows": 105,
@@ -3371,28 +3371,22 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
+      "answer_rules_status": "present",
       "catalog_present": true,
-      "enrichment_present": false,
-      "evidence_requirements": {
-        "optional_entities": [
-          "user",
-          "time_window"
-        ],
-        "optional_sources": [
-          "identity"
-        ],
-        "required_entities": [
-          "host"
-        ],
-        "required_sources": [
-          "mcp:splunk",
-          "asset_inventory"
-        ]
-      },
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "user",
+        "host",
+        "src",
+        "event_time",
+        "asset_criticality"
+      ],
       "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "github_reuse_type": [
+        "evidence_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
@@ -3405,17 +3399,17 @@
         "T1078"
       ],
       "mitre_metadata_role": "metadata_not_evidence",
-      "planning_or_analytic_skill": "asset_enrichment",
+      "planning_or_analytic_skill": "threshold_anomaly",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
-      "runtime_support_status": "planned",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "after_hours_login_critical_asset",
       "spl_template_status": "active",
-      "tests_added": false,
+      "tests_added": true,
       "use_case_id": "auth_after_hours_critical_asset",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",
@@ -4461,26 +4455,23 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
+      "answer_rules_status": "present",
       "catalog_present": true,
-      "enrichment_present": false,
-      "evidence_requirements": {
-        "optional_entities": [
-          "host",
-          "user"
-        ],
-        "optional_sources": [
-          "edr",
-          "asset_inventory"
-        ],
-        "required_entities": [],
-        "required_sources": [
-          "mcp:splunk"
-        ]
-      },
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "host",
+        "user",
+        "process_name",
+        "command_line",
+        "parent_process",
+        "time_window"
+      ],
       "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "github_reuse_type": [
+        "evidence_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
@@ -4493,17 +4484,17 @@
         "T1059"
       ],
       "mitre_metadata_role": "metadata_not_evidence",
-      "planning_or_analytic_skill": "asset_enrichment",
+      "planning_or_analytic_skill": "rarity_anomaly",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
-      "runtime_support_status": "planned",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "edr_suspicious_process",
       "spl_template_status": "active",
-      "tests_added": false,
+      "tests_added": true,
       "use_case_id": "edr_suspicious_process",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "present",
@@ -4694,25 +4685,22 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
+      "answer_rules_status": "present",
       "catalog_present": true,
-      "enrichment_present": false,
-      "evidence_requirements": {
-        "optional_entities": [
-          "source_ip",
-          "destination_ip"
-        ],
-        "optional_sources": [
-          "asset_inventory"
-        ],
-        "required_entities": [],
-        "required_sources": [
-          "mcp:splunk"
-        ]
-      },
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "src",
+        "dest",
+        "deny_count",
+        "dest_port",
+        "time_window"
+      ],
       "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "github_reuse_type": [
+        "evidence_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
@@ -4724,17 +4712,17 @@
       ],
       "mitre_candidates": [],
       "mitre_metadata_role": null,
-      "planning_or_analytic_skill": "network_enrichment",
+      "planning_or_analytic_skill": "threshold_anomaly",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
-      "runtime_support_status": "planned",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "firewall_deny_spike",
       "spl_template_status": "active",
-      "tests_added": false,
+      "tests_added": true,
       "use_case_id": "net_firewall_deny_spike",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",
@@ -4867,25 +4855,22 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
+      "answer_rules_status": "present",
       "catalog_present": true,
-      "enrichment_present": false,
-      "evidence_requirements": {
-        "optional_entities": [
-          "user",
-          "source_ip"
-        ],
-        "optional_sources": [
-          "identity"
-        ],
-        "required_entities": [],
-        "required_sources": [
-          "mcp:splunk"
-        ]
-      },
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "user",
+        "src",
+        "failed_vpn_logins",
+        "distinct_sources",
+        "time_window"
+      ],
       "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "github_reuse_type": [
+        "evidence_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
@@ -4898,17 +4883,17 @@
         "T1078"
       ],
       "mitre_metadata_role": "metadata_not_evidence",
-      "planning_or_analytic_skill": "identity_enrichment",
+      "planning_or_analytic_skill": "threshold_anomaly",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
-      "runtime_support_status": "planned",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "vpn_failure_spike",
       "spl_template_status": "active",
-      "tests_added": false,
+      "tests_added": true,
       "use_case_id": "net_vpn_login_anomaly",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",

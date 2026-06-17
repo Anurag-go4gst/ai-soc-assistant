@@ -39,6 +39,11 @@ REQUIRED_RECORD_IDS = {
     "endpoint_ransomware_impact_review",
     # Internally curated (Anurag, 2026-06-11) — checklist content staged for WS2.
     "auth_privileged_login_anomaly",
+    # WS-D (2026-06-17) — enrichment for the newly governed template families.
+    "edr_suspicious_process",
+    "auth_after_hours_critical_asset",
+    "net_vpn_login_anomaly",
+    "net_firewall_deny_spike",
 }
 
 REQUIRED_RECORD_FIELDS = {

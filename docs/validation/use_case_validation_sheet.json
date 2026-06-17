@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_use_cases",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-17T05:30:21+00:00",
+  "generated_at": "2026-06-17T07:06:22+00:00",
   "row_counts": {
     "use_cases": 50
   },
@@ -21,16 +21,16 @@
     },
     {
       "catalog_present": true,
-      "enrichment_present": false,
+      "enrichment_present": true,
       "live_execution_skill": "attack_discovery",
       "notes": "",
-      "rag_status": "missing",
+      "rag_status": "configured",
       "review_decision": "",
-      "runtime_support_status": "planned",
+      "runtime_support_status": "runtime_active",
       "spl_template_status": "active",
-      "tests_added": false,
+      "tests_added": true,
       "use_case_id": "auth_after_hours_critical_asset",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "catalog_present": true,
@@ -333,16 +333,16 @@
     },
     {
       "catalog_present": true,
-      "enrichment_present": false,
+      "enrichment_present": true,
       "live_execution_skill": "attack_discovery",
       "notes": "",
-      "rag_status": "missing",
+      "rag_status": "configured",
       "review_decision": "",
-      "runtime_support_status": "planned",
+      "runtime_support_status": "runtime_active",
       "spl_template_status": "active",
-      "tests_added": false,
+      "tests_added": true,
       "use_case_id": "edr_suspicious_process",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "catalog_present": false,
@@ -398,16 +398,16 @@
     },
     {
       "catalog_present": true,
-      "enrichment_present": false,
+      "enrichment_present": true,
       "live_execution_skill": "attack_discovery",
       "notes": "",
-      "rag_status": "missing",
+      "rag_status": "configured",
       "review_decision": "",
-      "runtime_support_status": "planned",
+      "runtime_support_status": "runtime_active",
       "spl_template_status": "active",
-      "tests_added": false,
+      "tests_added": true,
       "use_case_id": "net_firewall_deny_spike",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "catalog_present": true,
@@ -450,16 +450,16 @@
     },
     {
       "catalog_present": true,
-      "enrichment_present": false,
+      "enrichment_present": true,
       "live_execution_skill": "attack_discovery",
       "notes": "",
-      "rag_status": "missing",
+      "rag_status": "configured",
       "review_decision": "",
-      "runtime_support_status": "planned",
+      "runtime_support_status": "runtime_active",
       "spl_template_status": "active",
-      "tests_added": false,
+      "tests_added": true,
       "use_case_id": "net_vpn_login_anomaly",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "catalog_present": true,

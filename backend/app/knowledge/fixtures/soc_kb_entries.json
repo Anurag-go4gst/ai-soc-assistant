@@ -1092,6 +1092,230 @@
   ]
  },
  {
+  "entry_id": "skill-enrich-auth_after_hours_critical_asset-checklist",
+  "doc_id": "skill-enrich-auth_after_hours_critical_asset-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: auth after hours critical asset",
+  "section_id": "AUTH_AFTER_HOURS_CRITICAL_ASSET-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Confirm user, host, source IP, and event time. Compare against the user's normal working hours and asset criticality. Check for concurrent failures or new-source logins. Validate before severity claims.",
+  "source_refs": [
+   "content_enrichment.json#auth_after_hours_critical_asset.checklist"
+  ],
+  "citation": "Skill enrichment auth_after_hours_critical_asset v1 CHECKLIST",
+  "retrieval_hints": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17"
+  ],
+  "synonyms": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Confirm user, host, source IP, and event time."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_after_hours_critical_asset-workflow",
+  "doc_id": "skill-enrich-auth_after_hours_critical_asset-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: auth after hours critical asset",
+  "section_id": "AUTH_AFTER_HOURS_CRITICAL_ASSET-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Scope after-hours authentications to critical assets by user/host/time. Compare against baseline working hours and known maintenance windows. Pivot to source reputation and concurrent activity. Keep SPL generation and execution behind validation and review gates.",
+  "source_refs": [
+   "content_enrichment.json#auth_after_hours_critical_asset.workflow"
+  ],
+  "citation": "Skill enrichment auth_after_hours_critical_asset v1 WORKFLOW",
+  "retrieval_hints": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17"
+  ],
+  "synonyms": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Scope after-hours authentications to critical assets by user/host/time."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_after_hours_critical_asset-limits",
+  "doc_id": "skill-enrich-auth_after_hours_critical_asset-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: auth after hours critical asset",
+  "section_id": "AUTH_AFTER_HOURS_CRITICAL_ASSET-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Off-hours activity is common for shift workers, automation, and global teams. Timing alone does not establish valid-account abuse.",
+  "source_refs": [
+   "content_enrichment.json#auth_after_hours_critical_asset.limits"
+  ],
+  "citation": "Skill enrichment auth_after_hours_critical_asset v1 LIMITS",
+  "retrieval_hints": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17"
+  ],
+  "synonyms": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Off-hours activity is common for shift workers, automation, and global teams."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-auth_after_hours_critical_asset-rules",
+  "doc_id": "skill-enrich-auth_after_hours_critical_asset-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: auth after hours critical asset",
+  "section_id": "AUTH_AFTER_HOURS_CRITICAL_ASSET-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Do not claim compromise from after-hours timing alone. Valid-account abuse (T1078) is candidate-only without corroborating anomaly or context. Do not assert credential dumping (T1003) from login timing. SPL/execution remains review-gated.",
+  "source_refs": [
+   "content_enrichment.json#auth_after_hours_critical_asset.rules"
+  ],
+  "citation": "Skill enrichment auth_after_hours_critical_asset v1 RULES",
+  "retrieval_hints": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17"
+  ],
+  "synonyms": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Do not claim compromise from after-hours timing alone."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "after hours",
+   "auth after hours critical asset",
+   "authentication",
+   "critical asset",
+   "curated internal 2026-06-17",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
   "entry_id": "skill-enrich-auth_failed_login_spike-checklist",
   "doc_id": "skill-enrich-auth_failed_login_spike-v1",
   "doc_version": "1.0",
@@ -2164,6 +2388,230 @@
   "approval_status": "coe_reviewed"
  },
  {
+  "entry_id": "skill-enrich-edr_suspicious_process-checklist",
+  "doc_id": "skill-enrich-edr_suspicious_process-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: edr suspicious process",
+  "section_id": "EDR_SUSPICIOUS_PROCESS-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Confirm process_name, parent_process, and command_line. Check for encoded or download command-line markers. Review host/user criticality before severity claims. Corroborate with network or persistence signals.",
+  "source_refs": [
+   "content_enrichment.json#edr_suspicious_process.checklist"
+  ],
+  "citation": "Skill enrichment edr_suspicious_process v1 CHECKLIST",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Confirm process_name, parent_process, and command_line."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-edr_suspicious_process-workflow",
+  "doc_id": "skill-enrich-edr_suspicious_process-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: edr suspicious process",
+  "section_id": "EDR_SUSPICIOUS_PROCESS-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Scope suspicious process executions by host, user, and time window. Identify LOLBins and encoded/download command lines. Pivot to parent/child lineage and network connections. Keep SPL generation and execution behind validation and review gates.",
+  "source_refs": [
+   "content_enrichment.json#edr_suspicious_process.workflow"
+  ],
+  "citation": "Skill enrichment edr_suspicious_process v1 WORKFLOW",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Scope suspicious process executions by host, user, and time window."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-edr_suspicious_process-limits",
+  "doc_id": "skill-enrich-edr_suspicious_process-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: edr suspicious process",
+  "section_id": "EDR_SUSPICIOUS_PROCESS-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Process execution telemetry alone does not establish malicious intent. Legitimate admin tooling can match LOLBin patterns.",
+  "source_refs": [
+   "content_enrichment.json#edr_suspicious_process.limits"
+  ],
+  "citation": "Skill enrichment edr_suspicious_process v1 LIMITS",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Process execution telemetry alone does not establish malicious intent."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-edr_suspicious_process-rules",
+  "doc_id": "skill-enrich-edr_suspicious_process-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: edr suspicious process",
+  "section_id": "EDR_SUSPICIOUS_PROCESS-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Do not claim malware or compromise from process execution alone. LOLBin or encoded/download command lines are suspicious, not proof; mark execution evidence-supported only with corroborating telemetry. Do not assert Impair Defenses (T1562.001) without direct tool/service tamper evidence. SPL/execution remains review-gated.",
+  "source_refs": [
+   "content_enrichment.json#edr_suspicious_process.rules"
+  ],
+  "citation": "Skill enrichment edr_suspicious_process v1 RULES",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Do not claim malware or compromise from process execution alone."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "edr",
+   "edr suspicious process",
+   "lolbin",
+   "process execution",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
   "entry_id": "skill-enrich-email_phishing_header_review-checklist",
   "doc_id": "skill-enrich-email_phishing_header_review-v1",
   "doc_version": "1.0",
@@ -2591,6 +3039,454 @@
    "endpoint ransomware impact review",
    "impact",
    "ransomware"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-net_firewall_deny_spike-checklist",
+  "doc_id": "skill-enrich-net_firewall_deny_spike-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: net firewall deny spike",
+  "section_id": "NET_FIREWALL_DENY_SPIKE-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Confirm src, dest, deny_count, and destination ports. Distinguish inbound scanning from outbound blocked traffic. Check destination reputation and port spread. Validate before severity claims.",
+  "source_refs": [
+   "content_enrichment.json#net_firewall_deny_spike.checklist"
+  ],
+  "citation": "Skill enrichment net_firewall_deny_spike v1 CHECKLIST",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Confirm src, dest, deny_count, and destination ports."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-net_firewall_deny_spike-workflow",
+  "doc_id": "skill-enrich-net_firewall_deny_spike-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: net firewall deny spike",
+  "section_id": "NET_FIREWALL_DENY_SPIKE-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Scope firewall denies per source/destination with port spread and time window. Separate scanning/misconfig from targeted blocked activity. Pivot to reputation and correlated host telemetry. Keep SPL generation and execution behind validation and review gates.",
+  "source_refs": [
+   "content_enrichment.json#net_firewall_deny_spike.workflow"
+  ],
+  "citation": "Skill enrichment net_firewall_deny_spike v1 WORKFLOW",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Scope firewall denies per source/destination with port spread and time window."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-net_firewall_deny_spike-limits",
+  "doc_id": "skill-enrich-net_firewall_deny_spike-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: net firewall deny spike",
+  "section_id": "NET_FIREWALL_DENY_SPIKE-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Deny events represent blocked traffic; a spike is not evidence of successful compromise. Scanning and misconfiguration are common benign causes.",
+  "source_refs": [
+   "content_enrichment.json#net_firewall_deny_spike.limits"
+  ],
+  "citation": "Skill enrichment net_firewall_deny_spike v1 LIMITS",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Deny events represent blocked traffic; a spike is not evidence of successful compromise."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-net_firewall_deny_spike-rules",
+  "doc_id": "skill-enrich-net_firewall_deny_spike-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: net firewall deny spike",
+  "section_id": "NET_FIREWALL_DENY_SPIKE-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Do not assert intrusion or C2 from a firewall deny spike alone. Deny spikes are frequently scanning, misconfiguration, or blocked-by-design traffic. No MITRE technique is asserted for deny-volume alone; keep mappings not-claimed without corroborating evidence. SPL/execution remains review-gated.",
+  "source_refs": [
+   "content_enrichment.json#net_firewall_deny_spike.rules"
+  ],
+  "citation": "Skill enrichment net_firewall_deny_spike v1 RULES",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network",
+   "splunk"
+  ],
+  "positive_examples": [
+   "Do not assert intrusion or C2 from a firewall deny spike alone."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "deny spike",
+   "firewall",
+   "net firewall deny spike",
+   "network",
+   "splunk"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-net_vpn_login_anomaly-checklist",
+  "doc_id": "skill-enrich-net_vpn_login_anomaly-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Analyst checklist: net vpn login anomaly",
+  "section_id": "NET_VPN_LOGIN_ANOMALY-CHECKLIST",
+  "section_title": "Analyst checklist",
+  "entry_type": "procedure",
+  "source_excerpt": "Confirm user, source IPs, and failure counts. Distinguish single-user lockout from distributed source spread. Check for a successful VPN login following the failures. Validate before severity claims.",
+  "source_refs": [
+   "content_enrichment.json#net_vpn_login_anomaly.checklist"
+  ],
+  "citation": "Skill enrichment net_vpn_login_anomaly v1 CHECKLIST",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "vpn"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "splunk",
+   "vpn"
+  ],
+  "positive_examples": [
+   "Confirm user, source IPs, and failure counts."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "splunk",
+   "vpn"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-net_vpn_login_anomaly-workflow",
+  "doc_id": "skill-enrich-net_vpn_login_anomaly-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Investigation workflow: net vpn login anomaly",
+  "section_id": "NET_VPN_LOGIN_ANOMALY-WORKFLOW",
+  "section_title": "Investigation workflow",
+  "entry_type": "procedure",
+  "source_excerpt": "Scope failed VPN authentications per user with source spread and time window. Separate credential/config issues from distributed guessing. Pivot to success-after-failure and source reputation. Keep SPL generation and execution behind validation and review gates.",
+  "source_refs": [
+   "content_enrichment.json#net_vpn_login_anomaly.workflow"
+  ],
+  "citation": "Skill enrichment net_vpn_login_anomaly v1 WORKFLOW",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "vpn"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "splunk",
+   "vpn"
+  ],
+  "positive_examples": [
+   "Scope failed VPN authentications per user with source spread and time window."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "splunk",
+   "vpn"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-net_vpn_login_anomaly-limits",
+  "doc_id": "skill-enrich-net_vpn_login_anomaly-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Limitations and non-claims: net vpn login anomaly",
+  "section_id": "NET_VPN_LOGIN_ANOMALY-LIMITS",
+  "section_title": "Limitations and non-claims",
+  "entry_type": "constraint",
+  "source_excerpt": "Failed VPN logins alone do not establish credential validity or compromise. NAT/shared egress can inflate source counts.",
+  "source_refs": [
+   "content_enrichment.json#net_vpn_login_anomaly.limits"
+  ],
+  "citation": "Skill enrichment net_vpn_login_anomaly v1 LIMITS",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "vpn"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "splunk",
+   "vpn"
+  ],
+  "positive_examples": [
+   "Failed VPN logins alone do not establish credential validity or compromise."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "splunk",
+   "vpn"
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "expected_skills": [
+   "alert_summary",
+   "knowledge_recall"
+  ],
+  "mitre_refs": [],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "confidence_weight": 0.6,
+  "status": "published",
+  "approval_status": "coe_reviewed"
+ },
+ {
+  "entry_id": "skill-enrich-net_vpn_login_anomaly-rules",
+  "doc_id": "skill-enrich-net_vpn_login_anomaly-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Answer rules: net vpn login anomaly",
+  "section_id": "NET_VPN_LOGIN_ANOMALY-RULES",
+  "section_title": "Answer rules",
+  "entry_type": "rule",
+  "source_excerpt": "Do not claim breach from a VPN failed-login spike alone. Spikes may be expired credentials, client misconfig, or MFA friction — not necessarily attack. Valid-account abuse (T1078) is candidate-only; needs success-after-anomaly + context. SPL/execution remains review-gated.",
+  "source_refs": [
+   "content_enrichment.json#net_vpn_login_anomaly.rules"
+  ],
+  "citation": "Skill enrichment net_vpn_login_anomaly v1 RULES",
+  "retrieval_hints": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "vpn"
+  ],
+  "synonyms": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "splunk",
+   "vpn"
+  ],
+  "positive_examples": [
+   "Do not claim breach from a VPN failed-login spike alone."
+  ],
+  "negative_examples": [],
+  "tags": [
+   "curated internal 2026-06-17",
+   "failed login",
+   "net vpn login anomaly",
+   "remote access",
+   "splunk",
+   "vpn"
   ],
   "allowed_use": [
    "hil_guidance",
