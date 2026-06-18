@@ -116,3 +116,9 @@ def test_actionable_family_floor() -> None:
         f"only {actionable}/50 Cisco questions landed in an actionable family; "
         f"distribution={dict(distribution)}"
     )
+
+
+def test_metadata_q44_routes_to_knowledge_not_guided() -> None:
+    rows = {qid: fam for qid, _, fam in _classify_all()}
+    assert rows["cisco.endpoint.044"] == "knowledge_only"
+    assert rows["cisco.endpoint.044"] != "guided_investigation"

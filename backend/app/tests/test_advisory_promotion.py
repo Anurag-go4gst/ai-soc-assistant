@@ -125,3 +125,33 @@ def test_no_advisory_means_behavior_unchanged() -> None:
     understanding = understand_query(OUT_OF_SET_QUERY)
     result = build_query_to_intent(query=OUT_OF_SET_QUERY, query_understanding=understanding)
     assert result.candidate_mappings["match_path"] == "out_of_registry"
+
+
+GUIDED_OUT_OF_REGISTRY_QUERY = "Detect any login anomalies on vpn pool segment 7"
+
+
+def test_promotion_upgrades_guided_investigation_intent(monkeypatch) -> None:
+    import app.coverage.semantic_question_index as sqi
+
+    monkeypatch.setattr(sqi, "semantic_candidates", lambda query, **kw: [])
+    understanding = understand_query(GUIDED_OUT_OF_REGISTRY_QUERY)
+    assert understanding.deterministic_match_path == "out_of_registry"
+    pre = build_query_to_intent(query=GUIDED_OUT_OF_REGISTRY_QUERY, query_understanding=understanding)
+    assert pre.intent_classification.intent_family == "guided_investigation"
+    result = build_query_to_intent(
+        query=GUIDED_OUT_OF_REGISTRY_QUERY,
+        query_understanding=understanding,
+        llm_intent_advisory=_advisory(adjudication_status="skipped"),
+    )
+    assert result.candidate_mappings["match_path"] == "llm_promoted_with_registry_validation"
+    assert result.intent_classification.intent_family == "spl_generation_only"
+    assert result.intent_classification.requires_clarification is False
+
+
+def test_promoted_cisco_hunt_pattern_maps_to_spl_generation() -> None:
+    from app.chat.intent_classifier import _family_from_promoted_skill
+
+    assert (
+        _family_from_promoted_skill("behavioral_detection_binding", "cisco_it_to_ot_crossing")
+        == "spl_generation_only"
+    )

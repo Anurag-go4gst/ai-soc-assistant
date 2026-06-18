@@ -15,7 +15,10 @@ from app.chat.contracts.intent_classification import (
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.chat.llm_intent_advisor import adjudicate_llm_intent_advisory, apply_advisory_promotion
 from app.chat.query_signals import extract_query_signals
+from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
+from app.coverage.question_runtime_map import question_runtime_entry
 from app.query_understanding.models import QueryUnderstandingResult
+from app.use_cases.registry import load_use_case_catalog
 
 
 _CATALOG_MATCH_PATHS = frozenset({"use_case_catalog", "exact_105_plus_use_case_catalog"})
@@ -99,6 +102,20 @@ def classify_intent(
             action_mode="recommend_only",
             reason="Destructive or containment action requires human review and overrides SPL generation.",
             requested_output_type="ACTION_PLAN",
+        )
+
+    # Non-SOC / out-of-scope must win before explicit-search and analytics branches;
+    # otherwise "Show me vacation policy…" can be misread as log-search SPL drafting.
+    if signals.get("non_soc_or_out_of_scope"):
+        return _build_classification(
+            intent_family="clarification_required",
+            primary_intent="knowledge_recall",
+            query_type="ask_for_explanation",
+            answer_goal=["clarification"],
+            confidence=0.45,
+            requires_clarification=True,
+            reason="Request is out of SOC scope; clarification recommended.",
+            requested_output_type=None,
         )
 
     if (
@@ -412,7 +429,9 @@ def classify_intent(
             requested_output_type="INVESTIGATION",
         )
 
-    if signals.get("explicit_search_intent") and not signals.get("run_execution"):
+    if signals.get("explicit_search_intent") and not signals.get("run_execution") and not signals.get(
+        "non_soc_or_out_of_scope"
+    ):
         goals: list[AnswerGoal] = ["spl_artifact"]
         if signals.get("investigation_triage_guidance") or signals.get("procedural_investigation"):
             goals.append("procedural_steps")
@@ -441,7 +460,9 @@ def classify_intent(
     registry_analytics = bool(signals.get("exact_105_analytics")) and exact_match
     registry_hunt = bool(signals.get("exact_105_hunt_spl")) and exact_match
     if (registry_analytics or registry_hunt or signals.get("analytics_aggregation")) and not (
-        signals.get("block_or_contain") or signals.get("explicit_run_spl")
+        signals.get("block_or_contain")
+        or signals.get("explicit_run_spl")
+        or signals.get("non_soc_or_out_of_scope")
     ):
         if registry_analytics:
             reason = (
@@ -549,6 +570,23 @@ def classify_intent(
             requested_output_type="INVESTIGATION",
         )
 
+    mapped_pattern = (
+        getattr(query_understanding, "mapped_pattern_type", None)
+        if query_understanding is not None
+        else None
+    )
+    if mapped_pattern == "environment_hygiene":
+        return _build_classification(
+            intent_family="knowledge_only",
+            primary_intent="knowledge_recall",
+            query_type="ask_for_explanation",
+            answer_goal=["analyst_action_guidance"],
+            confidence=0.78,
+            requires_clarification=False,
+            reason="Environment/metadata hygiene question; governed knowledge path.",
+            requested_output_type=None,
+        )
+
     # Terminal floor (Batch 0 — intent cascade hardening). This sits AFTER every
     # match rung above (incl. the catalog rescue) and AFTER Engine 1/2; Engine 3
     # advisory promotion runs later in build_query_to_intent and can still upgrade
@@ -620,7 +658,6 @@ def build_query_to_intent(
         candidate_mappings=candidate_mappings,
         query_understanding=query_understanding,
     )
-    conflicts = _intent_conflicts(intent, candidate_mappings, query_understanding)
     adjudicated_advisory = adjudicate_llm_intent_advisory(
         llm_intent_advisory,
         query_understanding=query_understanding,
@@ -629,9 +666,10 @@ def build_query_to_intent(
     # WS1 T1.3: out_of_registry intake may adopt a registry-validated advisory
     # candidate; deterministic rungs and unsafe/clarification outcomes always win.
     # Veto scope: explicit human-review outcomes (unsafe action, run-SPL
-    # demand) always win. The default insufficient-signals clarification does
-    # NOT veto — those queries are exactly the population promotion rescues.
-    explicit_review = bool(intent.requires_hil or intent.primary_intent == "human_review")
+    # demand) always win. The default insufficient-signals clarification and
+    # guided_investigation requires_hil do NOT veto — those populations are
+    # exactly what promotion rescues.
+    explicit_review = intent.primary_intent == "human_review"
     candidate_mappings, adjudicated_advisory = apply_advisory_promotion(
         advisory=adjudicated_advisory,
         candidate_mappings=candidate_mappings,
@@ -651,6 +689,7 @@ def build_query_to_intent(
         candidate_mappings=candidate_mappings,
         explicit_review=explicit_review,
     )
+    conflicts = _intent_conflicts(intent, candidate_mappings, query_understanding)
     llm_status = _llm_intent_assist_status(
         query_understanding,
         candidate_mappings,
@@ -683,9 +722,10 @@ def _family_from_promoted_skill(skill: str | None, pattern_type: str | None) -> 
         "aggregate_and_rank",
         "threshold_anomaly",
     }
-    if skill_norm in knowledge_skills:
+    if skill_norm in knowledge_skills or pattern_norm == "environment_hygiene":
         return "knowledge_only"
-    if skill_norm in spl_skills or pattern_norm in (
+    hunt_patterns = EXACT_105_HUNT_PATTERNS | cisco_hunt_pattern_types()
+    if skill_norm in spl_skills or pattern_norm in hunt_patterns or pattern_norm in (
         "top_n_aggregation",
         "threshold_anomaly",
     ):
@@ -704,7 +744,7 @@ def _reconcile_intent_after_promotion(
 
     Only acts when (a) Engine-3 promotion actually fired
     (match_path == "llm_promoted_with_registry_validation") and (b) the
-    pre-promotion intent was the default clarification (not an explicit
+    pre-promotion intent was clarification or guided_investigation (not an explicit
     human-review/unsafe outcome and not an already-actionable family). This keeps
     deterministic-wins precedence: a query the deterministic rungs already routed
     to a real family is left untouched.
@@ -713,7 +753,7 @@ def _reconcile_intent_after_promotion(
         return intent
     if str(candidate_mappings.get("match_path") or "") != "llm_promoted_with_registry_validation":
         return intent
-    if intent.intent_family != "clarification_required":
+    if intent.intent_family not in {"clarification_required", "guided_investigation"}:
         return intent
 
     question_ref = candidate_mappings.get("question_ref")
@@ -722,40 +762,47 @@ def _reconcile_intent_after_promotion(
     pattern_type: str | None = None
 
     if question_ref:
-        from app.coverage.question_runtime_map import question_runtime_entry
-
         entry = question_runtime_entry(str(question_ref))
         if entry:
             skill = entry.get("proposed_primary_skill") or entry.get("legacy_router_intent_hint")
             pattern_type = entry.get("pattern_type")
     elif use_case_ids:
-        from app.use_cases.registry import load_use_case_catalog
-
         catalog = {item.use_case_id: item for item in load_use_case_catalog()}
         item = catalog.get(str(use_case_ids[0]))
         if item is not None:
             skill = getattr(item, "primary_skill", None)
 
     if skill is None and pattern_type is None:
-        # Could not resolve metadata; leave clarification rather than guess.
+        # Could not resolve metadata; leave pre-promotion intent rather than guess.
         return intent
 
     family = _family_from_promoted_skill(skill, pattern_type)
     requested_output = "SPL" if family == "spl_generation_only" else "INVESTIGATION"
     if family == "knowledge_only":
         requested_output = None
+    if family == "spl_generation_only":
+        primary_intent = "spl_generation"
+        query_type = "ask_for_query_generation"
+        answer_goal: list[AnswerGoal] = ["spl_artifact"]
+        action_mode = None
+    elif family == "knowledge_only":
+        primary_intent = "knowledge_recall"
+        query_type = "ask_for_explanation"
+        answer_goal = ["analyst_action_guidance"]
+        action_mode = None
+    else:
+        primary_intent = "attack_discovery"
+        query_type = "investigation_with_guidance"
+        answer_goal = ["procedural_steps", "analyst_action_guidance"]
+        action_mode = "recommend_only"
     return _build_classification(
         intent_family=family,
-        primary_intent="spl_generation" if family == "spl_generation_only" else "attack_discovery",
-        query_type="ask_for_query_generation"
-        if family == "spl_generation_only"
-        else "investigation_with_guidance",
-        answer_goal=["spl_artifact"]
-        if family == "spl_generation_only"
-        else ["procedural_steps", "analyst_action_guidance"],
+        primary_intent=primary_intent,
+        query_type=query_type,
+        answer_goal=answer_goal,
         confidence=0.7,
         requires_clarification=False,
-        action_mode=None if family == "spl_generation_only" else "recommend_only",
+        action_mode=action_mode,
         reason=(
             "Engine-3 LLM advisory promoted an out-of-registry query to a "
             "registry-validated route; intent reconciled to the promoted family "

@@ -79,7 +79,13 @@ def adjudicate_route(
         )
 
     if plan is not None and (
-        plan.answer_mode == "rag_only" or (not plan.spl_allowed and not plan.mcp_allowed)
+        plan.answer_mode == "rag_only"
+        or (
+            not plan.spl_allowed
+            and not plan.mcp_allowed
+            and not plan.needs_mitre
+            and not plan.needs_spl
+        )
     ):
         return _result(
             deterministic_route=deterministic_route,

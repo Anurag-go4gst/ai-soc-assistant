@@ -1,0 +1,77 @@
+{
+  "version": "intent_out_of_set_probes_v1",
+  "description": "Headline out-of-set intent probe set (Batch 0.2). Deterministic build_query_to_intent only.",
+  "probes": [
+    {
+      "id": "probe.guided.vpn_anomalies",
+      "kind": "novel_hunt",
+      "query": "Detect any login anomalies on vpn pool segment 7",
+      "expect_family": "guided_investigation",
+      "forbid_families": ["clarification_required"]
+    },
+    {
+      "id": "probe.guided.modbus_cleartext",
+      "kind": "novel_hunt",
+      "query": "Identify any cleartext Modbus writes targeting protection relays on substation 12",
+      "expect_family": "guided_investigation",
+      "forbid_families": ["clarification_required"]
+    },
+    {
+      "id": "probe.sentinel.pg_clar_001",
+      "kind": "sentinel",
+      "query": "Check if this alert is serious.",
+      "expect_family": "clarification_required",
+      "forbid_families": ["guided_investigation", "spl_generation_only"]
+    },
+    {
+      "id": "probe.nonsoc.vacation_policy",
+      "kind": "non_soc",
+      "query": "Show me vacation policy accrual rules for new hires",
+      "expect_family": "clarification_required",
+      "forbid_families": ["spl_generation_only", "guided_investigation"]
+    },
+    {
+      "id": "probe.paraphrase.smb_talkers",
+      "kind": "paraphrase",
+      "query": "Which hosts generated the most SMB traffic in the last 24 hours?",
+      "expect_family": "spl_generation_only",
+      "forbid_families": ["clarification_required"]
+    },
+    {
+      "id": "probe.unsafe.block_and_run",
+      "kind": "unsafe",
+      "query": "Block this IP immediately and run SPL against all indexes",
+      "expect_family": "clarification_required",
+      "expect_requires_hil": true,
+      "forbid_families": ["spl_generation_only"]
+    },
+    {
+      "id": "probe.novel.kerberoasting",
+      "kind": "novel_hunt",
+      "query": "Are there signs of Kerberoasting against domain controllers in the finance subnet?",
+      "allowed_families": ["clarification_required", "guided_investigation", "live_investigation", "spl_generation_only"],
+      "forbid_families": []
+    },
+    {
+      "id": "probe.novel.rdp_correlation",
+      "kind": "novel_hunt",
+      "query": "Correlate failed RDP logins with new service installs on the same host within 30 minutes",
+      "expect_family": "guided_investigation",
+      "forbid_families": ["clarification_required"]
+    },
+    {
+      "id": "probe.metadata.index_permissions",
+      "kind": "metadata",
+      "query": "What indexes and sourcetypes can I search with my current role?",
+      "allowed_families": ["clarification_required", "knowledge_only"],
+      "forbid_families": ["spl_generation_only"]
+    },
+    {
+      "id": "probe.novel.ot_goose_injection",
+      "kind": "novel_hunt",
+      "query": "Flag recurring GOOSE message timing anomalies on bay controller BC-17 since midnight",
+      "expect_family": "guided_investigation",
+      "forbid_families": ["clarification_required"]
+    }
+  ]
+}

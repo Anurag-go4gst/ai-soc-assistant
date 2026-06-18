@@ -189,3 +189,28 @@ def test_query_to_intent_envelope_fields_present() -> None:
         "reason",
     ):
         assert field in intent
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Show me vacation policy accrual rules for new hires",
+        "What is the HR vacation policy?",
+        "Show me the payroll expense reimbursement policy",
+    ],
+)
+def test_non_soc_show_me_does_not_draft_spl(query: str) -> None:
+    result = _result(query)
+    intent = result.intent_classification
+    assert result.query_signals["non_soc_or_out_of_scope"] is True
+    assert intent.intent_family == "clarification_required"
+    assert intent.intent_family != "spl_generation_only"
+    assert intent.requires_clarification is True
+    assert "out of soc scope" in intent.reason.lower()
+
+
+def test_non_soc_does_not_trigger_explicit_search_spl_path() -> None:
+    query = "Show me vacation policy accrual rules for new hires"
+    result = _result(query)
+    assert result.query_signals["explicit_search_intent"] is True
+    assert result.intent_classification.intent_family == "clarification_required"

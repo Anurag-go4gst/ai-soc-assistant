@@ -1,0 +1,66 @@
+{
+  "probe_count": 10,
+  "rows": {
+    "probe.guided.modbus_cleartext": {
+      "intent_family": "guided_investigation",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": true
+    },
+    "probe.guided.vpn_anomalies": {
+      "intent_family": "guided_investigation",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": true
+    },
+    "probe.metadata.index_permissions": {
+      "intent_family": "clarification_required",
+      "match_path": "out_of_registry",
+      "requires_clarification": true,
+      "requires_hil": false
+    },
+    "probe.nonsoc.vacation_policy": {
+      "intent_family": "clarification_required",
+      "match_path": "out_of_registry",
+      "requires_clarification": true,
+      "requires_hil": false
+    },
+    "probe.novel.kerberoasting": {
+      "intent_family": "clarification_required",
+      "match_path": "out_of_registry",
+      "requires_clarification": true,
+      "requires_hil": false
+    },
+    "probe.novel.ot_goose_injection": {
+      "intent_family": "guided_investigation",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": true
+    },
+    "probe.novel.rdp_correlation": {
+      "intent_family": "guided_investigation",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": true
+    },
+    "probe.paraphrase.smb_talkers": {
+      "intent_family": "spl_generation_only",
+      "match_path": "near_105_question",
+      "requires_clarification": false,
+      "requires_hil": false
+    },
+    "probe.sentinel.pg_clar_001": {
+      "intent_family": "clarification_required",
+      "match_path": "out_of_registry",
+      "requires_clarification": true,
+      "requires_hil": false
+    },
+    "probe.unsafe.block_and_run": {
+      "intent_family": "clarification_required",
+      "match_path": "out_of_registry",
+      "requires_clarification": true,
+      "requires_hil": true
+    }
+  },
+  "version": "intent_out_of_set_probes_baseline_v1"
+}

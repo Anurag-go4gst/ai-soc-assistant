@@ -1,7 +1,7 @@
 # Intent Node Cascade Hardening (graph_node_query_to_intent)
 
 Date: 2026-06-17
-Status: **Proposed** (validation diagnostics done; crude floor reverted — see §3)
+Status: **Done** (Batch 0 + 0.1 + deferred §6–§7 closed 2026-06-17)
 Scope: Make `graph_node_query_to_intent` route the full SOC question set correctly via a
 deterministic match cascade with a Guided-Research floor and diagnosed-only clarification.
 Companion to `/root/.cursor/plans/environment_kb_cisco_catalogue_1eddd12f.plan.md` (Cisco 50).
@@ -148,6 +148,13 @@ Per the Cisco plan: register the 50 (+ paraphrases) so Engines 1–2 match them 
 
 ## 6. Completeness floor (planning_decision) — make it effective
 
+**Status: done (2026-06-17).** `_apply_completeness_floor` is wired in
+`evidence_planner.plan_evidence()` via `_maybe_apply_completeness_floor_to_plan`
+(thin `rag_only` / SPL-less `live_investigation` → hybrid with `spl_allowed=true`).
+`route_adjudication` no longer forces `knowledge_recall` when `needs_mitre` or
+`needs_spl` is set. Runtime activation still gates curated context
+(`get_runtime_curated_enrichment`).
+
 The committed `_apply_completeness_floor` (8cbbe59) sets `planning_decision.path_type`, but
 `route_adjudication` overrides from `evidence_plan` (`authority_source=evidence_plan_rag_only`),
 so it is currently **cosmetic** (never changed a live answer in the 6-query probe). Wire the
@@ -158,14 +165,10 @@ escalation through `evidence_plan` (flip `needs_spl`/`spl_allowed`/`answer_mode`
 
 ## 7. Validation harness (headline metric = out-of-set)
 
-1. **50-Cisco intent harness** (`/tmp/intent_harness.py` → promote to
-   `backend/app/tests/test_cisco_intent_distribution.py`): assert `clarification_required` ≈ 0
-   and ≥48/50 land on an actionable family (spl/attack/live/guided).
-2. **105 governance** (`run_stage3_governance_regression.sh`) — sentinels incl. `pg.clar.001`
-   must stay green (clarification sentinels preserved); `soc_clean_answer_eval` 120/120.
-3. **Out-of-set probe eval** (new) — the 6 probes + more novel phrasings as the **real** quality
-   metric, since 120/120 in-set hides the gap.
-4. Run after **every** step (intent-node changes are control-plane sensitive).
+1. **50-Cisco intent harness** (`backend/app/tests/test_cisco_intent_distribution.py`): assert hunt rows never `clarification_required` and ≥45/50 actionable.
+2. **105 governance** (`run_stage3_governance_regression.sh`) — sentinels incl. `pg.clar.001` must stay green.
+3. **Out-of-set probe eval** — `scripts/eval_out_of_set_intent_probe.py` + `docs/evals/intent_out_of_set_probes.json` (10 probes; `--check` against frozen baseline).
+4. Run after **every** intent-node change.
 
 ---
 

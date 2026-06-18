@@ -5,12 +5,15 @@ from typing import Any
 from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.intent_classification import IntentClassification
 from app.config import settings
+from app.chat.planning_decision import _apply_completeness_floor
 from app.use_cases.content_enrichment import (
     CuratedEnrichmentContext,
     get_content_enrichment,
     get_runtime_curated_enrichment,
     resolve_use_case_activation,
 )
+
+_COMPLETENESS_FLOOR_REASON = "completeness_floor_escalated_thin_in_catalog_under_route"
 
 _CATALOG_PROJECTION_WHEN_INACTIVE = frozenset(
     {
@@ -50,6 +53,12 @@ def plan_evidence(
     selected_use_case_id = _use_case_id(selected_use_case, query_understanding, query_to_intent, routed)
 
     def with_enrichment(plan: EvidencePlan) -> EvidencePlan:
+        plan = _maybe_apply_completeness_floor_to_plan(
+            plan,
+            intent=intent,
+            use_case_id=selected_use_case_id,
+            query_understanding=query_understanding,
+        )
         enriched = _apply_curated_enrichment(
             plan,
             use_case_id=selected_use_case_id,
@@ -290,6 +299,54 @@ def plan_evidence(
             action_mode=intent.action_mode or "recommend_only",
             reasons=["live_investigation"],
         )
+    )
+
+
+def _evidence_plan_path_type_for_completeness(plan: EvidencePlan) -> str | None:
+    """Map an evidence plan to a planning path_type for completeness-floor checks."""
+    if plan.answer_mode == "rag_only":
+        return "rag_only"
+    if plan.answer_mode == "live_investigation" and not plan.needs_spl and not plan.needs_mcp:
+        return "generic_soc_guidance"
+    return None
+
+
+def _maybe_apply_completeness_floor_to_plan(
+    plan: EvidencePlan,
+    *,
+    intent: IntentClassification,
+    use_case_id: str | None,
+    query_understanding: Any,
+) -> EvidencePlan:
+    """Escalate thin in-catalog under-routes so route_adjudication sees SPL/hybrid."""
+    path_type = _evidence_plan_path_type_for_completeness(plan)
+    if path_type is None:
+        return plan
+    curated = get_runtime_curated_enrichment(use_case_id) if use_case_id else None
+    escalated_path, applied = _apply_completeness_floor(
+        path_type,
+        intent.model_dump(),
+        curated,
+        query_understanding,
+    )
+    if not applied or escalated_path != "hybrid_investigation":
+        return plan
+    reasons = list(plan.reasons or [])
+    if _COMPLETENESS_FLOOR_REASON not in reasons:
+        reasons.append(_COMPLETENESS_FLOOR_REASON)
+    return plan.model_copy(
+        update={
+            "answer_mode": "hybrid",
+            "rag_phase": "pre_mcp",
+            "needs_rag": True,
+            "needs_spl": True,
+            "needs_mcp": False,
+            "needs_mitre": True,
+            "spl_allowed": True,
+            "mcp_allowed": False,
+            "policy_context_recommended": True,
+            "reasons": reasons,
+        }
     )
 
 
