@@ -102,7 +102,7 @@
       "requires_clarification": false,
       "response_mode": "deterministic_knowledge_or_routing",
       "route_final": "knowledge_recall",
-      "selected_skill": "attack_discovery",
+      "selected_skill": "knowledge_recall",
       "severity_label": "P3 Medium",
       "spl_approved": null,
       "spl_template_status": null
@@ -408,7 +408,7 @@
       "requires_clarification": true,
       "response_mode": "insufficient_evidence",
       "route_final": "knowledge_recall",
-      "selected_skill": "alert_summary",
+      "selected_skill": "knowledge_recall",
       "severity_label": "Not assigned from this question alone",
       "spl_approved": null,
       "spl_template_status": null

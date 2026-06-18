@@ -58,3 +58,19 @@ def test_cisco_metadata_live_path_surfaces_environment_hygiene_envelope() -> Non
     assert envelope["planned_tool"] == "splunk_get_metadata"
     assert "splunk_run_query" not in envelope["planned_tool_sequence"]
     assert execution["executed_spl"] is None
+
+def test_dns_observation_window_paraphrase_live_contract() -> None:
+    payload = _chat("List all DNS requests during the observation window.")
+
+    understanding = payload["query_understanding"]
+    preview = payload.get("spl_draft_preview")
+    validation = payload.get("spl_validation")
+
+    assert understanding["mapped_question_ref"] == "cisco.perim.010"
+    assert payload["selected_skill"] == "spl_generation"
+    assert preview is not None
+    assert preview["detection_family"] == "dns_query_window_review"
+    if validation is not None:
+        assert validation["approved"] is False
+        assert validation["normalized_spl"] is None
+

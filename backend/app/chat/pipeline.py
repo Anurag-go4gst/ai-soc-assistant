@@ -846,7 +846,6 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
         )
     _apply_ood_llm_lab_metadata(route_plan_shadow, request.message)
     apply_analyst_summary_shadow(route_plan_shadow)
-    skill_selection = select_skill_chain(routed=routed, selected_use_case=state.get("selected_use_case"))
     comparison = routed.get("comparison", {})
     route_adjudication_payload: dict[str, Any] | None = None
     llm_plan_validation_payload: dict[str, Any] | None = None
@@ -870,6 +869,19 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
             "legacy_intent_authority": False,
             "route_adjudication_authority_source": adjudication.authority_source,
         }
+    effective_routed = {
+        **routed,
+        "skill": (
+            routing_skill_resolution.get("effective_skill")
+            if isinstance(routing_skill_resolution.get("effective_skill"), str)
+            and str(routing_skill_resolution.get("effective_skill")).strip()
+            else str(routed.get("skill") or "knowledge_recall")
+        ),
+    }
+    skill_selection = select_skill_chain(
+        routed=effective_routed,
+        selected_use_case=state.get("selected_use_case"),
+    )
     if should_validate_llm_advisory_plan():
         advisory_plan = build_advisory_plan_from_context(
             comparison=comparison if isinstance(comparison, dict) else None,
@@ -1711,7 +1723,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     governance_trace = build_governance_trace(
         demo_mode=False,
         use_case_id=response_use_case.use_case_id if response_use_case else None,
-        selected_skill=str(routed["skill"]),
+        selected_skill=_effective_routing_skill(state),
         severity_decision=severity_decision,
         investigation_lineage=investigation_lineage,
         source_evidence=source_evidence,
@@ -2224,7 +2236,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         user_query=request.message,
         fallback_active=True if partial_fallback else None,
         response_packaging_status=response_packaging_status,
-        selected_skill=str(routed["skill"]),
+        selected_skill=_effective_routing_skill(state),
         primary_operation=primary_operation,
         coverage_id=coverage_id,
         route_authority=route_authority,

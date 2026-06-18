@@ -350,17 +350,35 @@ def _normalize_evidence_need(item: dict[str, Any], advisory: LLMSemanticAdvisory
     ).__dict__
 
 
+
+def _registry_paraphrase_authoritative(understanding: Any) -> bool:
+    """Question-runtime paraphrase rows with a mapped ref are registry-authoritative."""
+    path = getattr(understanding, "deterministic_match_path", "")
+    if path not in {"semantic_105_question", "near_105_question"}:
+        return False
+    question_ref = getattr(understanding, "mapped_question_ref", None)
+    if not isinstance(question_ref, str) or not question_ref.strip():
+        return False
+    score = getattr(understanding, "question_registry_match_score", None)
+    return score is None or float(score) >= 0.75
+
+
+
 def _deterministic_uncertain(deterministic: dict[str, Any], understanding: Any) -> bool:
     match_path = getattr(understanding, "deterministic_match_path", "")
+    low_confidence = float(deterministic.get("confidence", 0.0)) < 0.70
+    needs_clarification = deterministic.get("tool_plan") == ["needs_clarification"]
+    if _registry_paraphrase_authoritative(understanding):
+        return low_confidence or needs_clarification
     if match_path in {"exact_105_question", "exact_105_plus_use_case_catalog", "use_case_catalog"}:
         return (
-            float(deterministic.get("confidence", 0.0)) < 0.70
-            or deterministic.get("tool_plan") == ["needs_clarification"]
+            low_confidence
+            or needs_clarification
             or getattr(understanding, "llm_advisory_recommended", False)
         )
     return (
-        float(deterministic.get("confidence", 0.0)) < 0.70
-        or deterministic.get("tool_plan") == ["needs_clarification"]
+        low_confidence
+        or needs_clarification
         or getattr(understanding, "llm_advisory_recommended", False)
         or match_path in {"near_105_question", "out_of_registry"}
     )

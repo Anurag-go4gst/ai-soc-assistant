@@ -2308,6 +2308,10 @@ PATTERN_TYPE_FAMILY_FALLBACK: dict[str, str] = {
     # identity rows are caught by explicit keyword rules instead.
 }
 
+_PARAPHRASE_KEYWORD_FAMILY_OVERRIDES = frozenset({
+    "dns_query_window_review",
+})
+
 PATTERN_TYPE_FAMILY_FALLBACK.update(
     {
         "cisco_it_to_ot_crossing": "esp_it_to_ot_connection",
@@ -2621,10 +2625,17 @@ def build_draft_preview(
     if _is_governed_spl_ready(spl_validation):
         return None
     resolved_family = family_id
-    if resolved_family is None and pattern_type:
-        resolved_family = PATTERN_TYPE_FAMILY_FALLBACK.get(pattern_type)
     if resolved_family is None:
-        resolved_family = match_detection_family(user_query)
+        keyword_family = match_detection_family(user_query)
+        pattern_family = (
+            PATTERN_TYPE_FAMILY_FALLBACK.get(pattern_type) if pattern_type else None
+        )
+        if keyword_family in _PARAPHRASE_KEYWORD_FAMILY_OVERRIDES:
+            resolved_family = keyword_family
+        elif pattern_family:
+            resolved_family = pattern_family
+        elif keyword_family:
+            resolved_family = keyword_family
     if resolved_family is None and use_case_id:
         resolved_family = CATALOGUE_USE_CASE_FAMILY.get(use_case_id)
     family = _family_by_id(resolved_family) if resolved_family else None

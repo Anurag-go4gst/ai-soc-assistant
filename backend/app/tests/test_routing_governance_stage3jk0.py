@@ -99,16 +99,12 @@ def test_llm_assisted_accepts_validated_question_ref_when_deterministic_is_uncer
 
     routed = route_skill("source IPs with the most outbound connections", llm_connector=connector)
 
-    assert connector.calls == 1
+    assert connector.calls == 0
     assert routed["skill"] == "attack_discovery"
-    assert routed["selected_by"] == "llm_advisory_validated"
-    assert routed["llm_adjudication"]["status"] == "accepted"
-    assert routed["llm_adjudication"]["deterministic_reconsidered_after_llm"] is True
-    assert routed["llm_adjudication"]["llm_question_ref_candidate"] == "q0.q002"
-    assert routed["llm_adjudication"]["selected_question_ref"] == "q0.q002"
-    assert routed["llm_adjudication"]["selected_coverage_id"] == "cov.q002.top_outbound_source_ips"
-    assert routed["route_decision"]["adjudication_status"] == "accepted"
-    assert "deterministic_reconsidered_after_llm" in routed["route_decision"]["guard_checks"]
+    assert routed["selected_by"] == "query_understanding_105_near"
+    assert routed["routing_provenance"]["mapped_question_ref"] == "q0.q002"
+    assert "qu_route_authority_preserved" in routed["route_decision"]["guard_checks"]
+    assert "llm_shadow_skipped_registry_authority" in routed["route_decision"]["guard_checks"]
 
 
 def test_llm_assisted_rejects_unknown_question_ref_and_keeps_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -124,12 +120,10 @@ def test_llm_assisted_rejects_unknown_question_ref_and_keeps_deterministic(monke
 
     routed = route_skill("source IPs with the most outbound connections", llm_connector=connector)
 
-    assert connector.calls == 1
+    assert connector.calls == 0
     assert routed["skill"] == "attack_discovery"
-    assert routed["selected_by"] != "llm_advisory_validated"
-    assert routed["llm_adjudication"]["status"] == "rejected"
-    assert "unknown_llm_question_ref_rejected:q0.q999" in routed["llm_semantic_advisory"]["warnings"]
-    assert "unknown_llm_selected_skill_rejected:Imaginary Skill" in routed["llm_semantic_advisory"]["warnings"]
+    assert routed["selected_by"] == "query_understanding_105_near"
+    assert routed["llm_semantic_advisory"] is None
 
 
 def test_context_dependent_mitre_prompt_forces_clarification_before_llm(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -169,6 +163,22 @@ def test_legacy_llm_primary_config_maps_to_safe_assisted_mode() -> None:
     validated = _validate(Settings(routing_mode="llm_primary"))
     assert validated.routing_mode == "llm_assisted_semantic"
 
+
+
+def test_semantic_105_paraphrase_retains_registry_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "routing_mode", "llm_assisted_semantic")
+    connector = CountingLlmConnector(skill="knowledge_recall", confidence=0.99)
+
+    routed = route_skill(
+        "List all DNS requests during the observation window.",
+        llm_connector=connector,
+    )
+
+    assert connector.calls == 0
+    assert routed["skill"] == "spl_generation"
+    assert routed["selected_by"] == "query_understanding_105_near"
+    assert routed["routing_provenance"]["mapped_question_ref"] == "cisco.perim.010"
+    assert "qu_route_authority_preserved" in routed["route_decision"]["guard_checks"]
 
 @dataclass
 class CountingLlmConnector:
