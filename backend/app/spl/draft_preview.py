@@ -2278,8 +2278,11 @@ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-2
 
 
 from app.spl.cisco_draft_families import cisco_detection_families
+from app.spl.ot_protocol_families import ot_protocol_detection_families
 
-DETECTION_FAMILIES: tuple[DetectionFamily, ...] = _CORE_DETECTION_FAMILIES + cisco_detection_families()
+DETECTION_FAMILIES: tuple[DetectionFamily, ...] = (
+    _CORE_DETECTION_FAMILIES + cisco_detection_families() + ot_protocol_detection_families()
+)
 
 # Registry-first fallback: exact-105 pattern_type → detection family, used only
 # when the keyword matcher finds nothing (keyword matches keep priority so
@@ -2466,6 +2469,39 @@ def match_detection_family(user_query: str) -> str | None:
             return "dns_domain_spread"
         if re.search(r"\b(?:most|top|largest|highest|unusual|volume|spike|busiest)\b", normalized):
             return "dns_query_volume"
+    # OT-protocol + identity hunt families (Google-25 testing ground). Each upgrades
+    # an out-of-registry hunt from guided hypotheses to a review-only SPL draft.
+    # Reached only after a registry/use-case miss, so Cisco-50 / 105 rows are unaffected.
+    if "modbus" in normalized and re.search(r"non[-\s]?standard|other\s+than|\b502\b", normalized):
+        return "ot_modbus_nonstandard_port"
+    if re.search(r"\bdnp\s?3\b", normalized) and re.search(r"function\s+code", normalized):
+        return "ot_dnp3_function_code"
+    if re.search(r"\bpmu\b|phasor|synchrophasor", normalized):
+        return "ot_pmu_stream_gap"
+    if re.search(r"\bplc", normalized) and re.search(r"\bmode\b|program\s+mode|stop\s+mode|run\s+mode|stop\s+or\s+program", normalized):
+        return "ot_plc_mode_change"
+    if "firmware" in normalized and re.search(r"meter|\bami\b|outdated|unauthorized", normalized):
+        return "ot_ami_firmware_anomaly"
+    if re.search(r"\brtu\b", normalized) and re.search(r"drop|disconnect", normalized):
+        return "ot_rtu_connection_drops"
+    if (
+        re.search(r"\bscada\b", normalized)
+        and re.search(r"default|vendor", normalized)
+        and re.search(r"credential|login|logon", normalized)
+    ):
+        return "ot_scada_default_credentials"
+    if re.search(r"firewall", normalized) and re.search(r"polic|rule", normalized) and re.search(r"chang|modif", normalized):
+        return "ot_dmz_firewall_policy_change"
+    if re.search(r"\b4720\b", normalized) or (
+        re.search(r"account", normalized)
+        and re.search(r"creat", normalized)
+        and re.search(r"active\s+directory|\bad\b|domain", normalized)
+    ):
+        return "windows_account_creation_4720"
+    if re.search(r"concurrent", normalized) and (
+        re.search(r"\bvpn\b", normalized) or re.search(r"two\s+(?:different|separate)\s+locations?", normalized)
+    ):
+        return "auth_impossible_travel"
     best_id: str | None = None
     best_score = 0
     for family in DETECTION_FAMILIES:
