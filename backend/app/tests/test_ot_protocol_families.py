@@ -28,6 +28,7 @@ CASES = [
     ("Show any firewall policy or rule changes on the OT DMZ firewalls.", "ot_dmz_firewall_policy_change"),
     ("List any new Active Directory accounts created (event code 4720) in the last 7 days.", "windows_account_creation_4720"),
     ("Flag any vendor VPN account logged in concurrently from two different locations.", "auth_impossible_travel"),
+    ("Detect any USB mass storage devices mounted on Substation HMI workstations.", "ot_usb_removable_media"),
 ]
 
 

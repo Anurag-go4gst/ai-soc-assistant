@@ -2484,6 +2484,8 @@ def match_detection_family(user_query: str) -> str | None:
         return "ot_ami_firmware_anomaly"
     if re.search(r"\brtu\b", normalized) and re.search(r"drop|disconnect", normalized):
         return "ot_rtu_connection_drops"
+    if re.search(r"\busb\b", normalized) and re.search(r"mass\s+storage|removable|storage\s+device|mounted", normalized):
+        return "ot_usb_removable_media"
     if (
         re.search(r"\bscada\b", normalized)
         and re.search(r"default|vendor", normalized)

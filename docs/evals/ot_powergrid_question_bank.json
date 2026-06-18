@@ -1,6 +1,6 @@
 {
   "name": "OT PowerGrid (Google-25) testing-ground bank",
-  "purpose": "Out-of-Cisco-50 OT analyst phrasings used as a probe corpus. Documentation/testing-ground only; NOT a governance commit gate. coverage_status reflects live deterministic pipeline output (MCP execution off, review-only). guided_investigation rows with a draft_family produce a review-only lab SPL draft + engage RAG grounding + LLM weak-case composer when LLM flags + provider are on.",
+  "purpose": "Out-of-Cisco-50 OT analyst phrasings used as a probe corpus. Documentation/testing-ground only; NOT a governance commit gate. coverage_status reflects live deterministic pipeline output (MCP execution off, review-only).",
   "coverage_counts": {
     "spl_review": 22,
     "metadata_hygiene": 3
@@ -117,13 +117,13 @@
       "topic": "USB on HMI",
       "question": "Detect any USB mass storage devices mounted on Substation HMI workstations.",
       "coverage_status": "spl_review",
-      "selected_skill": "attack_discovery",
-      "deterministic_match_path": "use_case_catalog",
+      "selected_skill": "guided_investigation",
+      "deterministic_match_path": "out_of_registry",
       "mapped_pattern_type": null,
-      "use_case_id": "ot_tftp_hmi",
-      "draft_family": "substation_hmi_brute_force",
+      "use_case_id": null,
+      "draft_family": "ot_usb_removable_media",
       "soc_investigation_shaped": true,
-      "produces_spl": true,
+      "produces_spl": false,
       "produces_draft": true,
       "metadata_envelope": false
     },

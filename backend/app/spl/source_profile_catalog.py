@@ -59,6 +59,18 @@ SOURCE_PROFILE_SLOT_DEFINITIONS: tuple[SourceProfileSlotDefinition, ...] = (
     SourceProfileSlotDefinition("sldc_node", "SLDC node", "ot", "State Load Despatch Center node/asset label", "SLDC"),
     SourceProfileSlotDefinition("vendor_maint_start_hour", "Vendor maintenance start hour", "compliance", "Approved OEM vendor maintenance start hour, 0-23", "22"),
     SourceProfileSlotDefinition("vendor_maint_end_hour", "Vendor maintenance end hour", "compliance", "Approved OEM vendor maintenance end hour, 0-23", "5"),
+    # OT-protocol lab draft slots (ot_protocol_families.py) — review-only Google-25 hunts.
+    SourceProfileSlotDefinition("ot_auth_index", "OT auth index", "ot_index", "Index for OT/SCADA host authentication events", "ot_soc"),
+    SourceProfileSlotDefinition("ot_auth_sourcetype", "OT auth sourcetype", "ot_sourcetype", "Sourcetype for OT/SCADA login events", "ot:auth"),
+    SourceProfileSlotDefinition("ot_network_index", "OT network index", "ot_index", "Index for OT protocol / SCADA network telemetry", "ot_soc"),
+    SourceProfileSlotDefinition("ot_modbus_sourcetype", "OT Modbus sourcetype", "ot_sourcetype", "Sourcetype for Modbus TCP traffic", "ot:modbus"),
+    SourceProfileSlotDefinition("ot_dnp3_sourcetype", "OT DNP3 sourcetype", "ot_sourcetype", "Sourcetype for DNP3 traffic", "ot:dnp3"),
+    SourceProfileSlotDefinition("ot_scada_sourcetype", "OT SCADA sourcetype", "ot_sourcetype", "Sourcetype for SCADA/RTU/PLC status and control events", "ot:scada"),
+    SourceProfileSlotDefinition("ot_pmu_sourcetype", "OT PMU sourcetype", "ot_sourcetype", "Sourcetype for PMU / synchrophasor (C37.118) streams", "ot:pmu"),
+    SourceProfileSlotDefinition("ot_asset_index", "OT asset index", "ot_index", "Index for OT asset/meter inventory and firmware telemetry", "ot_soc"),
+    SourceProfileSlotDefinition("ot_meter_sourcetype", "OT meter sourcetype", "ot_sourcetype", "Sourcetype for AMI / smart-meter firmware telemetry", "ot:meter"),
+    SourceProfileSlotDefinition("ot_firewall_index", "OT firewall index", "ot_index", "Index for OT-DMZ firewall audit/config events", "ot_soc"),
+    SourceProfileSlotDefinition("ot_firewall_sourcetype", "OT firewall sourcetype", "ot_sourcetype", "Sourcetype for OT-DMZ firewall policy/rule change events", "ot:firewall"),
 )
 
 

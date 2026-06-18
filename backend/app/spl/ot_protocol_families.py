@@ -273,6 +273,37 @@ def ot_protocol_detection_families() -> tuple[DetectionFamily, ...]:
             ),
         ),
         _family(
+            "ot_usb_removable_media",
+            pattern_texts=(
+                r"\busb\b",
+                r"mass\s+storage",
+                r"removable\s+(?:media|device|storage)",
+                r"\bmounted\b",
+            ),
+            draft_spl=_tier1_stats_spl(
+                "windows_index",
+                "windows_security_sourcetype",
+                filter_clause="(EventCode=6416 OR *usb* OR *removable* OR *mass storage*)",
+                eval_lines=(
+                    'eval host_norm=coalesce(host, ComputerName, dvc, "unknown")',
+                    'eval device_norm=lower(coalesce(DeviceDescription, device_name, ClassName, "removable"))',
+                    'eval user_norm=lower(coalesce(SubjectUserName, user, "unknown"))',
+                ),
+                where_clause='like(device_norm, "%usb%") OR like(device_norm, "%mass storage%") OR like(device_norm, "%removable%") OR like(device_norm, "%disk%")',
+                stats_by="host_norm device_norm user_norm",
+            ),
+            assumptions=_base_assumptions(
+                "Surfaces USB / removable mass-storage device mounts on (Windows-based) HMI workstations.",
+            ),
+            required_log_fields=("index", "sourcetype", "host", "EventCode", "_time"),
+            required_source_profile_fields=("windows_index", "windows_security_sourcetype"),
+            investigation_checklist=(
+                "Confirm whether removable media is permitted on this HMI per OT media-control policy.",
+                "Limitation: HMIs without Windows 6416 auditing or an EDR USB sensor will be missed.",
+                "MITRE (candidate, unconfirmed): T1091 Replication Through Removable Media (ICS T0847).",
+            ),
+        ),
+        _family(
             "windows_account_creation_4720",
             pattern_texts=(
                 r"\b4720\b",

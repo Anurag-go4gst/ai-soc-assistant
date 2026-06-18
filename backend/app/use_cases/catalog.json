@@ -3627,7 +3627,11 @@
       "display_name": "Cisco cleartext sessions to Phase-1 RTUs",
       "category": "Network / Firewall",
       "intent_patterns": [
-        "cleartext",
+        "cleartext http",
+        "cleartext vnc",
+        "cleartext telnet",
+        "cleartext ftp",
+        "cleartext session",
         "phase-1 rtu",
         "firepower",
         "vnc"
@@ -3984,7 +3988,8 @@
       "category": "OT / Critical infrastructure later",
       "intent_patterns": [
         "tftp",
-        "hmi",
+        "hmi tftp",
+        "tftp backup",
         "configuration backup"
       ],
       "example_queries": [
