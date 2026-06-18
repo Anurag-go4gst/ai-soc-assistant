@@ -371,6 +371,7 @@ class AnalystResponseEnvelope(BaseModel):
     limitations: list[str] = []
     required_evidence: list[str] = []
     spl_status_detail: dict[str, object] | None = None
+    environment_hygiene: dict[str, object] | None = None
     section_order: list[str] = []
     render_sections: dict[str, bool] = {}
 
@@ -472,6 +473,7 @@ class PlaceholderResponse(BaseModel):
     context_sufficiency: ContextSufficiencyEnvelope | None = None
     route_plan_shadow: RoutePlanShadowEnvelope | None = None
     analyst_response: AnalystResponseEnvelope | None = None
+    environment_hygiene: dict[str, object] | None = None
     foundation_sec_governance: FoundationSecGovernance | None = None
     spl_template: dict[str, object] | None = None
     evidence_plan: dict[str, object] | None = None

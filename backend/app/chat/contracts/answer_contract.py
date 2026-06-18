@@ -256,8 +256,12 @@ def build_answer_contract(
     is_clarification_turn = str(plan.get("answer_mode") or "") == "clarification" or bool(
         intent.get("requires_clarification")
     )
-    if str(match_path or "") == "out_of_registry" and not bool(review.get("required")):
-        if is_clarification_turn:
+    weak_match_path = str(match_path or "") in {
+        "out_of_registry",
+        "query_understanding_weak",
+    }
+    if weak_match_path and not bool(review.get("required")):
+        if is_clarification_turn or str(match_path or "") == "query_understanding_weak":
             out_of_catalog_notice = (
                 "This question is outside the governed question catalog. The closest "
                 "governed questions are suggested below — confirm one or refine the ask."

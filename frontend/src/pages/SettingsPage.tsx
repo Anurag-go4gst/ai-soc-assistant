@@ -104,7 +104,7 @@ export function SettingsPage() {
           <TabsList className="flex w-full justify-start overflow-x-auto">
             <TabsTrigger value="providers">Providers/MCP</TabsTrigger>
             <TabsTrigger value="mcp">MCP</TabsTrigger>
-            <TabsTrigger value="source-profiles">Source Profiles</TabsTrigger>
+            <TabsTrigger value="source-profiles">Environment Knowledge</TabsTrigger>
             <TabsTrigger value="rag">RAG</TabsTrigger>
             <TabsTrigger value="llm">LLM</TabsTrigger>
             <TabsTrigger value="embeddings">Embeddings</TabsTrigger>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { Database, RefreshCw, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -11,7 +12,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { SourceProfileSettingsResponse } from '@/types/api';
+import { AssetRegistryPanel } from './AssetRegistryPanel';
+import { IocRegistryPanel } from './IocRegistryPanel';
 import { SettingRow } from './SettingRow';
 
 export function SourceProfileSettingsPanel() {
@@ -67,17 +71,12 @@ export function SourceProfileSettingsPanel() {
   };
 
   const slots = data?.slots ?? [];
-  const byCategory = {
-    index: slots.filter((s) => s.category === 'index'),
-    sourcetype: slots.filter((s) => s.category === 'sourcetype'),
-  };
-
   return (
     <Card className="soc-panel">
       <CardHeader className="py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Database className="h-4 w-4 text-cyan-400" /> Source Profiles (COE)
+            <Database className="h-4 w-4 text-cyan-400" /> Environment Knowledge (COE)
           </CardTitle>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" disabled={discovering || loading} onClick={() => void onDiscover()}>
@@ -93,9 +92,9 @@ export function SourceProfileSettingsPanel() {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="rounded-md border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-50">
-          Enter your environment&apos;s Splunk index and sourcetype names. SPL placeholders like{' '}
+          Enter your environment&apos;s Splunk index, sourcetype, zone, network, and asset knowledge. SPL placeholders like{' '}
           <code className="text-cyan-200">&lt;auth_index&gt;</code> resolve through this map at chat time.
-          On conflict, live MCP discovery wins over stored values; missing slots trigger analyst review (HIL).
+          COE-entered values win over discovery; missing slots trigger analyst review (HIL).
         </p>
         {data ? (
           <div className="rounded-md border border-slate-800 bg-slate-950/50 p-3 text-xs">
@@ -125,44 +124,81 @@ export function SourceProfileSettingsPanel() {
           <Badge variant="secondary">Loading slot definitions…</Badge>
         ) : (
           <>
-            {(['index', 'sourcetype'] as const).map((category) => (
-              <div key={category} className="space-y-3">
-                <p className="soc-eyebrow text-cyan-400">{category === 'index' ? 'Indexes' : 'Sourcetypes'}</p>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {byCategory[category].map((slot) => (
-                    <div key={slot.slot_id} className="space-y-1.5 rounded-md border border-slate-800 bg-slate-950/40 p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <Label htmlFor={slot.slot_id} className="text-sm font-medium text-slate-100">
-                          {slot.label}
-                        </Label>
-                        <span className="font-mono text-[0.65rem] text-slate-500">&lt;{slot.slot_id}&gt;</span>
-                      </div>
-                      <p className="text-[0.7rem] text-slate-500">{slot.description}</p>
-                      <Input
-                        id={slot.slot_id}
-                        value={draft[slot.slot_id] ?? ''}
-                        placeholder={slot.example}
-                        className="font-mono text-xs"
-                        onChange={(event) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            [slot.slot_id]: event.target.value,
-                          }))
-                        }
-                      />
-                      {data?.field_sources?.[slot.slot_id] ? (
-                        <p className="text-[0.65rem] text-slate-500">
-                          Source: <span className="text-slate-300">{data.field_sources[slot.slot_id]}</span>
-                        </p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+            <Tabs defaultValue="telemetry">
+              <TabsList className="flex w-full justify-start overflow-x-auto">
+                <TabsTrigger value="telemetry">Telemetry Routing</TabsTrigger>
+                <TabsTrigger value="environment">Slots</TabsTrigger>
+                <TabsTrigger value="assets">Asset Registry</TabsTrigger>
+                <TabsTrigger value="ioc">IOC Registry</TabsTrigger>
+              </TabsList>
+              <TabsContent value="telemetry" className="mt-3 space-y-3">
+                {(['index', 'sourcetype', 'cisco_index', 'cisco_sourcetype'] as const).map((category) => (
+                  <SlotSection key={category} category={category} slots={slots.filter((s) => s.category === category)} draft={draft} setDraft={setDraft} data={data} />
+                ))}
+              </TabsContent>
+              <TabsContent value="environment" className="mt-3 space-y-3">
+                {(['zone', 'network', 'ot', 'compliance'] as const).map((category) => (
+                  <SlotSection key={category} category={category} slots={slots.filter((s) => s.category === category)} draft={draft} setDraft={setDraft} data={data} />
+                ))}
+              </TabsContent>
+              <TabsContent value="assets" className="mt-3">
+                <AssetRegistryPanel />
+              </TabsContent>
+              <TabsContent value="ioc" className="mt-3">
+                <IocRegistryPanel />
+              </TabsContent>
+            </Tabs>
           </>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+type SlotSectionProps = {
+  category: string;
+  slots: SourceProfileSettingsResponse['slots'];
+  draft: Record<string, string>;
+  setDraft: Dispatch<SetStateAction<Record<string, string>>>;
+  data: SourceProfileSettingsResponse | null;
+};
+
+function SlotSection({ category, slots, draft, setDraft, data }: SlotSectionProps) {
+  if (!slots.length) return null;
+  const label = category.replace(/_/g, ' ');
+  return (
+    <div className="space-y-3">
+      <p className="soc-eyebrow text-cyan-400">{label}</p>
+      <div className="grid gap-3 md:grid-cols-2">
+        {slots.map((slot) => (
+          <div key={slot.slot_id} className="space-y-1.5 rounded-md border border-slate-800 bg-slate-950/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor={slot.slot_id} className="text-sm font-medium text-slate-100">
+                {slot.label}
+              </Label>
+              <span className="font-mono text-[0.65rem] text-slate-500">&lt;{slot.slot_id}&gt;</span>
+            </div>
+            <p className="text-[0.7rem] text-slate-500">{slot.description}</p>
+            <Input
+              id={slot.slot_id}
+              value={draft[slot.slot_id] ?? ''}
+              placeholder={slot.example}
+              className="font-mono text-xs"
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  [slot.slot_id]: event.target.value,
+                }))
+              }
+            />
+            {data?.field_sources?.[slot.slot_id] ? (
+              <p className="text-[0.65rem] text-slate-500">
+                Source: <span className="text-slate-300">{data.field_sources[slot.slot_id]}</span>
+              </p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

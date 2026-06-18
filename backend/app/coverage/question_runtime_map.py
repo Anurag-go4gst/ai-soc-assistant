@@ -96,6 +96,11 @@ def list_cisco_question_runtime_entries(*, reload: bool = False) -> list[dict[st
 
 def question_runtime_entry(question_ref: str, *, reload: bool = False) -> dict[str, Any] | None:
     ref = question_ref.strip().lower()
+    if ref.startswith("cisco."):
+        for entry in list_cisco_question_runtime_entries(reload=reload):
+            if str(entry.get("question_id", "")).lower() == ref or str(entry.get("question_ref", "")).lower() == ref:
+                return entry
+        return None
     if not ref.startswith("q0."):
         digits = "".join(ch for ch in ref if ch.isdigit())
         if digits:

@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-06-17T10:39:33+00:00",
+  "generated_at": "2026-06-18T04:50:08+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -3313,7 +3313,7 @@
     }
   ],
   "row_counts": {
-    "catalog_use_cases": 47,
+    "catalog_use_cases": 58,
     "discovery_skills": 754,
     "enrichment_only_use_cases": 3,
     "enrichment_records": 13,
@@ -3321,7 +3321,7 @@
     "proposed_use_case_rows": 3,
     "question_rows": 105,
     "triage_scores": 754,
-    "use_case_rows": 50
+    "use_case_rows": 61
   },
   "schema_version": "2026-06-07-phase0b-v1",
   "use_case_rows": [
@@ -3963,6 +3963,216 @@
       "validation_status": "needs_soc_review"
     },
     {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "cert_in_hash_match",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "cert_in_hash_match",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "cii_scan_detection",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "cii_scan_detection",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "cisco_cleartext_to_rtu",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "cisco_cleartext_to_rtu",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "cisco_duo_mfa_fatigue",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "cisco_duo_mfa_fatigue",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "cisco_stealthwatch_scan_with_asset",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "cisco_stealthwatch_scan_with_asset",
+      "validation_status": "needs_soc_review"
+    },
+    {
       "answer_rules_status": "present",
       "catalog_present": true,
       "enrichment_present": true,
@@ -4600,6 +4810,48 @@
       "enrichment_present": false,
       "evidence_requirements": {
         "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "loto_breaker_correlation",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "loto_breaker_correlation",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
           "source_ip",
           "destination_ip"
         ],
@@ -4943,6 +5195,48 @@
       "enrichment_present": false,
       "evidence_requirements": {
         "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "ot_firmware_drift",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "ot_firmware_drift",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
           "user",
           "host",
           "source_ip"
@@ -4981,6 +5275,48 @@
       "spl_template_status": "unavailable",
       "tests_added": false,
       "use_case_id": "ot_it_to_ot_auth_anomaly",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "ot_master_spoof",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "ot_master_spoof",
       "validation_status": "needs_soc_review"
     },
     {
@@ -5030,6 +5366,48 @@
       "enrichment_present": false,
       "evidence_requirements": {
         "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "ot_tftp_hmi",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "ot_tftp_hmi",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
           "source_ip",
           "time_window"
         ],
@@ -5065,6 +5443,48 @@
       "spl_template_status": "unavailable",
       "tests_added": false,
       "use_case_id": "ot_unexpected_command",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "physical_access_impossible",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "physical_access_impossible",
       "validation_status": "needs_soc_review"
     },
     {
@@ -5182,6 +5602,49 @@
       "spl_template_status": "unavailable",
       "tests_added": false,
       "use_case_id": "soc_draft_ticket",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "time_window",
+          "index",
+          "sourcetype"
+        ],
+        "optional_sources": [
+          "mcp:splunk",
+          "environment_kb",
+          "asset_registry"
+        ],
+        "required_entities": [],
+        "required_sources": []
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "knowledge_recall",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003",
+        "T1110"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "source_discovery",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": null,
+      "spl_template_status": "unavailable",
+      "tests_added": false,
+      "use_case_id": "soc_environment_hygiene",
       "validation_status": "needs_soc_review"
     },
     {

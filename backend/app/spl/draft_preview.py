@@ -31,9 +31,13 @@ _FIREWALL_LOG_FIELDS: tuple[str, ...] = (
     "_time",
 )
 _FIREWALL_PROFILE_FIELDS: tuple[str, ...] = (
+    "esp_firewall_index",
+    "esp_firewall_sourcetype",
+    "cisco_firewall_index",
+    "cisco_firewall_sourcetype",
     "corporate_it_zone",
-    "ot_control_center_zone",
     "corporate_it_cidr",
+    "ot_control_center_zone",
     "ot_control_center_cidr",
 )
 
@@ -219,7 +223,7 @@ def _family(
     )
 
 
-DETECTION_FAMILIES: tuple[DetectionFamily, ...] = (
+_CORE_DETECTION_FAMILIES: tuple[DetectionFamily, ...] = (
     _family(
         "windows_privileged_group_changes",
         pattern_texts=(
@@ -2232,8 +2236,50 @@ search index=<network_index> (sourcetype=<dns_sourcetype> OR sourcetype=<firewal
             "Do not declare correlation-based compromise from co-presence alone.",
         ),
     ),
+    _family(
+        "cisco_catalogue_review",
+        pattern_texts=(
+            r"\bcisco\b",
+            r"\bsubstation\b",
+            r"\bscada\b",
+            r"\bot\b",
+            r"\bgrid\b",
+        ),
+        draft_spl="""
+search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now
+| eval src_norm=coalesce(src_ip, src, source, "unknown")
+| eval dest_norm=coalesce(dest_ip, dest, destination, "unknown")
+| eval action_norm=lower(coalesce(action, event_action, disposition, "unknown"))
+| eval signature_norm=coalesce(signature, event_name, rule, message, "unspecified")
+| stats count as event_count values(action_norm) as actions values(signature_norm) as signatures earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_norm dest_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| table src_norm dest_norm event_count actions signatures first_seen last_seen
+| sort - event_count
+| head 100
+""",
+        assumptions=(
+            "Generic Cisco/OT catalogue review used only when no narrower governed template or lab family exists.",
+            "This draft summarizes candidate network/security events; it does not assert product-specific field semantics.",
+            "Replace network index/sourcetype placeholders with the correct Cisco product source profile before review.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "src_ip", "dest_ip", "action", "signature", "_time"),
+        required_source_profile_fields=("network_index", "network_traffic_sourcetype"),
+        investigation_checklist=(
+            "Confirm the Cisco product source and normalize source/destination/action fields before using this draft.",
+            "Narrow to the row's Cisco product family when the Environment KB has product-specific indexes.",
+            "Use this as triage scaffolding only; promote repeated rows to a governed template after COE review.",
+        ),
+    ),
 )
 
+
+
+from app.spl.cisco_draft_families import cisco_detection_families
+
+DETECTION_FAMILIES: tuple[DetectionFamily, ...] = _CORE_DETECTION_FAMILIES + cisco_detection_families()
 
 # Registry-first fallback: exact-105 pattern_type → detection family, used only
 # when the keyword matcher finds nothing (keyword matches keep priority so
@@ -2258,6 +2304,57 @@ PATTERN_TYPE_FAMILY_FALLBACK: dict[str, str] = {
     # (asset criticality / business owner) has no SPL answer; the listable
     # identity rows are caught by explicit keyword rules instead.
 }
+
+PATTERN_TYPE_FAMILY_FALLBACK.update(
+    {
+        "cisco_it_to_ot_crossing": "esp_it_to_ot_connection",
+        "cisco_firewall_geo_egress": "cisco_firewall_geo_egress",
+        "cisco_firewall_dns_bypass": "cisco_firewall_dns_bypass",
+        "dns_query_window_review": "dns_query_window_review",
+        "cisco_vpn_after_hours_login": "auth_after_hours_login",
+        "cisco_ise_failed_login_spike": "auth_failed_login_threshold",
+        "auth_failed_login_spike": "auth_failed_login_threshold",
+        "scada_log_cleared": "windows_account_lockout",
+        "cisco_hmi_terminal_spawn": "endpoint_suspicious_process",
+        "endpoint_unsigned_driver": "endpoint_persistence_schtask_service",
+        "endpoint_hosts_file_change": "endpoint_hosts_file_change",
+        "cisco_amp_process_injection": "cisco_amp_process_injection",
+        "ssh_weak_cipher": "ssh_weak_cipher",
+        "cert_in_hash_match": "ioc_destination_match",
+        "cisco_routing_protocol_anomaly": "cisco_routing_protocol_anomaly",
+        "cisco_cleartext_to_rtu": "cisco_cleartext_to_rtu",
+        "cisco_ios_port_security": "cisco_ios_port_security",
+        "cisco_stealthwatch_scan": "cisco_stealthwatch_scan",
+        "cisco_sgt_classification_failure": "cisco_sgt_classification_failure",
+        "cisco_icmp_anomaly": "cisco_icmp_anomaly",
+        "cisco_ios_config_change": "cisco_ios_config_change",
+        "cisco_tacacs_privilege": "cisco_tacacs_privilege",
+        "cisco_ise_mab": "cisco_ise_mab",
+        "cisco_ise_posture": "cisco_ise_posture",
+        "cisco_ise_quarantine": "cisco_ise_quarantine",
+        "cisco_wlc_rogue_ap": "cisco_wlc_rogue_ap",
+        "cisco_duo_mfa_fatigue": "cisco_duo_mfa_fatigue",
+        "cisco_ise_profile_shift": "cisco_ise_profile_shift",
+        "cisco_tacacs_stale_session": "cisco_tacacs_stale_session",
+        "ot_goose_burst": "ot_goose_burst",
+        "ot_mms_write": "ot_mms_write",
+        "iccp_disconnect": "iccp_disconnect",
+        "ot_modbus_exception": "ot_modbus_exception",
+        "ot_firmware_drift": "ot_firmware_drift",
+        "ot_master_spoof": "ot_master_spoof",
+        "ot_ems_db_change": "ot_ems_db_change",
+        "ot_dpi_malformed": "ot_dpi_malformed",
+        "ot_solar_setpoint_change": "ot_solar_setpoint_change",
+        "ot_tftp_hmi": "ot_tftp_hmi",
+        "physical_access_impossible": "physical_access_impossible",
+        "cii_scan_detection": "cii_scan_detection",
+        "ot_dual_master_conflict": "ot_dual_master_conflict",
+        "ntp_stratum_change": "ntp_stratum_change",
+        "loto_breaker_correlation": "loto_breaker_correlation",
+        "agc_frequency_anomaly": "agc_frequency_anomaly",
+        "endpoint_tooling_install": "endpoint_tooling_install",
+    }
+)
 
 
 # Phase D coverage close: catalogue use cases whose detection is genuinely answered
@@ -2356,6 +2453,11 @@ def match_detection_family(user_query: str) -> str | None:
     dns_context = bool(re.search(r"\bdns\b", normalized)) or (
         "domain" in normalized and re.search(r"\bquer(?:y|ies|ied)\b", normalized)
     )
+    if dns_context and re.search(
+        r"list\s+all|observation\s+window|during\s+the\s+(?:observation\s+)?window",
+        normalized,
+    ):
+        return "dns_query_window_review"
     if dns_context:
         if re.search(r"domains?\b", normalized) and re.search(
             r"\b(?:multiple|many|several)\b.*\bhosts?\b|\bhosts?\b.*\b(?:multiple|many|several)\b",
@@ -2469,9 +2571,8 @@ def build_draft_preview(
 ) -> dict[str, Any] | None:
     """Build a lab-only draft preview dict when the flag is enabled and query matches.
 
-    Family resolution order: explicit family_id, then the keyword matcher, then the
-    exact-105 registry pattern_type fallback, then the catalogue use_case fallback
-    (Phase D — catalogue rows whose detection an existing lab family covers).
+    Family resolution order: explicit family_id, then registry pattern_type fallback,
+    then the keyword matcher, then the catalogue use_case fallback (Phase D).
     """
     if not settings.ai_soc_spl_draft_preview_enabled:
         return None
@@ -2481,9 +2582,11 @@ def build_draft_preview(
         return None
     if _is_governed_spl_ready(spl_validation):
         return None
-    resolved_family = family_id or match_detection_family(user_query)
+    resolved_family = family_id
     if resolved_family is None and pattern_type:
         resolved_family = PATTERN_TYPE_FAMILY_FALLBACK.get(pattern_type)
+    if resolved_family is None:
+        resolved_family = match_detection_family(user_query)
     if resolved_family is None and use_case_id:
         resolved_family = CATALOGUE_USE_CASE_FAMILY.get(use_case_id)
     family = _family_by_id(resolved_family) if resolved_family else None

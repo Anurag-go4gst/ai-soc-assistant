@@ -29,6 +29,14 @@ _INDEX_STEMS = (
     "monitored_index",
     "scada_firewall_index",
     "ot_firewall_index",
+    "cisco_firewall_index",
+    "cisco_ise_index",
+    "cisco_ios_index",
+    "stealthwatch_index",
+    "cisco_tacacs_index",
+    "cisco_wlc_index",
+    "cisco_duo_index",
+    "cisco_amp_index",
 )
 
 _SOURCETYPE_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -44,6 +52,14 @@ _SOURCETYPE_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("notable_or_risk_sourcetype", ("notable", "risk")),
     ("proxy_or_firewall_sourcetype", ("proxy", "firewall", "web")),
     ("internal_traffic_sourcetype", ("traffic", "network", "flow")),
+    ("cisco_firewall_sourcetype", ("cisco", "firepower", "asa", "firewall")),
+    ("cisco_ise_sourcetype", ("ise", "nac")),
+    ("cisco_ios_sourcetype", ("ios", "catalyst", "syslog")),
+    ("stealthwatch_sourcetype", ("stealthwatch", "secure network", "flow")),
+    ("cisco_tacacs_sourcetype", ("tacacs",)),
+    ("cisco_wlc_sourcetype", ("wlc", "wireless")),
+    ("cisco_duo_sourcetype", ("duo", "mfa")),
+    ("cisco_amp_sourcetype", ("amp", "secure endpoint")),
 )
 
 
@@ -98,6 +114,14 @@ def _stem_matches_index(stem: str, index_name: str) -> bool:
         "monitored": ("monitored", "inventory"),
         "scada_firewall": ("scada", "ot", "ics"),
         "ot_firewall": ("ot", "ics", "scada"),
+        "cisco_firewall": ("cisco", "firepower", "asa", "firewall"),
+        "cisco_ise": ("ise", "nac"),
+        "cisco_ios": ("ios", "catalyst", "router", "switch"),
+        "stealthwatch": ("stealthwatch", "secure_network", "flow"),
+        "cisco_tacacs": ("tacacs",),
+        "cisco_wlc": ("wlc", "wireless"),
+        "cisco_duo": ("duo", "mfa"),
+        "cisco_amp": ("amp", "secure_endpoint", "edr"),
     }
     for token in aliases.get(stem_key, (stem_key,)):
         if token in lowered:

@@ -92,6 +92,64 @@ def enterprise_mitre_refs_from_contract(answer_contract: Any | None) -> list[str
     return [str(item) for item in refs if item][:12]
 
 
+
+
+def environment_kb_grounding_context() -> tuple[list[str], list[str]]:
+    """Summarize configured Environment KB slots and asset registry hints."""
+    from app.environment.asset_registry_store import load_asset_registry_document
+    from app.spl.source_profile_catalog import list_source_profile_slot_definitions
+    from app.spl.source_profile_resolver import build_policy_derived_profile, merge_profiles
+    from app.spl.source_profile_store import load_persisted_source_profile_document
+
+    document = load_persisted_source_profile_document()
+    values = dict(document.get("values") or {})
+    effective = merge_profiles(build_policy_derived_profile(), values)
+
+    slot_summaries: list[str] = []
+    missing_slots: list[str] = []
+    for slot in list_source_profile_slot_definitions():
+        slot_id = str(slot.get("slot_id") or "")
+        configured = str(effective.get(slot_id) or "").strip()
+        if configured:
+            preview = configured if len(configured) <= 48 else configured[:45] + "..."
+            slot_summaries.append(f"{slot_id}={preview}")
+        else:
+            missing_slots.append(slot_id)
+
+    if missing_slots:
+        slot_summaries.append(f"missing_slots={','.join(missing_slots[:8])}")
+
+    assets = list(load_asset_registry_document().get("assets") or [])
+    hints: list[str] = []
+    if assets:
+        hints.append(f"asset_count={len(assets)}")
+        master_stations = sum(1 for row in assets if isinstance(row, dict) and row.get("is_master_station"))
+        if master_stations:
+            hints.append(f"master_station_count={master_stations}")
+        purdue_layers = sorted(
+            {
+                str(row.get("purdue_layer") or "").strip()
+                for row in assets
+                if isinstance(row, dict) and str(row.get("purdue_layer") or "").strip()
+            }
+        )
+        if purdue_layers:
+            hints.append("purdue_layers=" + ",".join(purdue_layers[:6]))
+        regions = sorted(
+            {
+                str(row.get("region") or "").strip()
+                for row in assets
+                if isinstance(row, dict) and str(row.get("region") or "").strip()
+            }
+        )
+        if regions:
+            hints.append("regions=" + ",".join(regions[:6]))
+    else:
+        hints.append("asset_registry=not_configured")
+
+    return slot_summaries[:12], hints[:8]
+
+
 def build_guided_hunt_grounding(
     *,
     query: str,
@@ -113,6 +171,9 @@ def build_guided_hunt_grounding(
         soc_kb_refs=soc_kb_refs_from_retrieval(soc_kb_retrieval),
         skill_refs=skill_refs_for_question(query),
     )
+    kb_slots, asset_hints = environment_kb_grounding_context()
+    block.environment_kb_slots = kb_slots
+    block.asset_registry_hints = asset_hints
     if _T2_UNVERIFIED_BANNER not in block.limitations:
         block.limitations.append(_T2_UNVERIFIED_BANNER)
     return block

@@ -166,13 +166,9 @@ def semantic_candidates(
     scored.sort(key=lambda item: item[0], reverse=True)
     candidates = []
     for score, entry in scored[:limit]:
-        candidates.append(
-            {
-                "question_ref": entry.get("question_ref"),
-                "question": entry.get("question"),
-                "_semantic_match_score": round(score, 4),
-            }
-        )
+        row = dict(entry)
+        row["_semantic_match_score"] = round(score, 4)
+        candidates.append(row)
     return candidates
 
 

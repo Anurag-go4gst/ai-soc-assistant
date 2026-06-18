@@ -9,39 +9,14 @@ from __future__ import annotations
 import pytest
 
 from app.safeguards.spl_validator import validate_spl
-from app.spl.policy import SplValidationPolicy, load_spl_policy
+from app.spl.policy import load_spl_policy, policy_with_template_profile
 from app.spl.template_registry import get_spl_template
 
 TEMPLATE_ID = "edr_suspicious_process"
 
 
-def _policy_for(template) -> SplValidationPolicy:
-    """Build the validation policy from the template's own validation_rules,
-    mirroring scripts/llm_template_audit.py."""
-    base = load_spl_policy()
-    rules = template.validation_rules or {}
-
-    def field(key: str, fallback):
-        raw = rules.get(key)
-        if isinstance(raw, list) and raw:
-            return tuple(str(x).strip().lower() for x in raw if str(x).strip())
-        return fallback
-
-    return SplValidationPolicy(
-        enabled=base.enabled,
-        allowed_indexes=field("allowed_indexes", base.allowed_indexes),
-        allowed_sourcetypes=field("allowed_sourcetypes", base.allowed_sourcetypes),
-        default_earliest=base.default_earliest,
-        default_latest=base.default_latest,
-        max_result_limit=base.max_result_limit,
-        allowed_commands=field("allowed_commands", base.allowed_commands),
-        blocked_commands=base.blocked_commands,
-        allow_wildcard_indexes=base.allow_wildcard_indexes,
-        allow_macros=base.allow_macros,
-        allow_subsearches=base.allow_subsearches,
-        allow_external_calls=base.allow_external_calls,
-        policy_version=base.policy_version,
-    )
+def _policy_for(template):
+    return policy_with_template_profile(load_spl_policy(), template.validation_rules)
 
 
 @pytest.fixture

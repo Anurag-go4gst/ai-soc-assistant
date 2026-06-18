@@ -105,3 +105,13 @@ def test_cve_adapter_onboarded_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
     assert payload is not None
     assert payload["status"] == "onboarded_snapshot"
     assert evidence[0]["collection_status"] == "collected"
+
+
+def test_build_guided_hunt_grounding_includes_environment_kb_context() -> None:
+    block = build_guided_hunt_grounding(query="hunt lateral movement across substations")
+    assert isinstance(block.environment_kb_slots, list)
+    assert isinstance(block.asset_registry_hints, list)
+    assert block.asset_registry_hints
+    trace = guided_hunt_grounding_trace(block)
+    assert "environment_kb_slots" in trace["grounding"]
+    assert "asset_registry_hints" in trace["grounding"]

@@ -32,10 +32,16 @@ class QueryEntities(BaseModel):
     source_ip: list[str] = Field(default_factory=list)
     destination_ip: list[str] = Field(default_factory=list)
     time_window: str | None = None
+    observation_window: str | None = None
     index: list[str] = Field(default_factory=list)
     sourcetype: list[str] = Field(default_factory=list)
     alert_id: list[str] = Field(default_factory=list)
     event_type: list[str] = Field(default_factory=list)
+    cve_ids: list[str] = Field(default_factory=list)
+    mitre_techniques: list[str] = Field(default_factory=list)
+    port_numbers: list[str] = Field(default_factory=list)
+    purdue_layers: list[str] = Field(default_factory=list)
+    zone_labels: list[str] = Field(default_factory=list)
 
 
 class QueryUnderstandingResult(BaseModel):

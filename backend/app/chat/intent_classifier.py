@@ -429,6 +429,23 @@ def classify_intent(
             requested_output_type="INVESTIGATION",
         )
 
+    mapped_pattern = (
+        getattr(query_understanding, "mapped_pattern_type", None)
+        if query_understanding is not None
+        else None
+    )
+    if mapped_pattern == "environment_hygiene":
+        return _build_classification(
+            intent_family="knowledge_only",
+            primary_intent="knowledge_recall",
+            query_type="ask_for_explanation",
+            answer_goal=["analyst_action_guidance"],
+            confidence=0.78,
+            requires_clarification=False,
+            reason="Environment/metadata hygiene question; governed metadata path.",
+            requested_output_type=None,
+        )
+
     if signals.get("explicit_search_intent") and not signals.get("run_execution") and not signals.get(
         "non_soc_or_out_of_scope"
     ):
@@ -568,23 +585,6 @@ def classify_intent(
             action_mode="recommend_only",
             reason="Maps to a catalog SOC use case; route to the registry skill (review-only, execution disabled).",
             requested_output_type="INVESTIGATION",
-        )
-
-    mapped_pattern = (
-        getattr(query_understanding, "mapped_pattern_type", None)
-        if query_understanding is not None
-        else None
-    )
-    if mapped_pattern == "environment_hygiene":
-        return _build_classification(
-            intent_family="knowledge_only",
-            primary_intent="knowledge_recall",
-            query_type="ask_for_explanation",
-            answer_goal=["analyst_action_guidance"],
-            confidence=0.78,
-            requires_clarification=False,
-            reason="Environment/metadata hygiene question; governed knowledge path.",
-            requested_output_type=None,
         )
 
     # Terminal floor (Batch 0 — intent cascade hardening). This sits AFTER every

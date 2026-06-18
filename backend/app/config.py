@@ -250,6 +250,7 @@ class Settings(BaseSettings):
     ai_soc_source_profile_map: str = ""
     # Persisted COE source profile map (Settings UI). Empty = backend/data/source_profile_map.json
     ai_soc_source_profile_store_path: str = ""
+    ai_soc_asset_registry_store_path: str = ""
     ai_soc_llm_template_match_provider: str = ""
     ai_soc_llm_template_match_model: str = ""
     ai_soc_llm_template_render_provider: str = ""
@@ -336,9 +337,12 @@ class Settings(BaseSettings):
     spl_default_latest: str = "now"
     spl_max_result_limit: int = 100
     spl_allowed_commands: str = (
-        "search,stats,where,table,fields,sort,dedup,rename,eval,timechart,bin,head,streamstats"
+        "search,stats,where,table,fields,sort,dedup,rename,eval,timechart,bin,bucket,head,streamstats,iplocation,mvexpand"
     )
     spl_blocked_commands: str = "delete,collect,outputlookup,sendemail,script,map,rest,loadjob,inputlookup"
+    spl_allowed_lookups: str = ""
+    spl_allow_join_in_governed_templates: bool = False
+    spl_allow_transaction_in_governed_templates: bool = False
 
     # ``ai_soc_telemetry_sink`` is the AI-SOC product's own telemetry sink
     # selector (not a Splunk product setting). Supported today: ``db`` (writes

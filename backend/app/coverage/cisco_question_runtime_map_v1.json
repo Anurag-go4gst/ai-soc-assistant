@@ -16,7 +16,29 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [
+        "show any traffic crossing from the it corporate network directly into ot purdue level 1 or level 2 devices",
+        "detect connections from the corporate it network into ot scada devices"
+      ],
+      "template_wave": "wave1",
+      "eval_gate_min_wave": "wave1",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_it_to_ot_crossing",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_firewall_index",
+        "cisco_firewall_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.perim.002",
@@ -29,7 +51,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_routing_protocol_anomaly",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_ios_index",
+        "cisco_ios_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.perim.003",
@@ -42,7 +83,32 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave3",
+      "eval_gate_min_wave": "wave3",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_cleartext_to_rtu",
+      "spl_policy_tier": "tier2_lookup",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "phase1_rtu_ips",
+        "cisco_firewall_index",
+        "cisco_firewall_sourcetype"
+      ],
+      "required_asset_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "criticality"
+      ],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.perim.004",
@@ -55,7 +121,26 @@
       "proposed_operation_type": "threshold_check",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_ios_port_security",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_ios_index",
+        "cisco_ios_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.perim.005",
@@ -68,7 +153,32 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave3",
+      "eval_gate_min_wave": "wave3",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_stealthwatch_scan",
+      "spl_policy_tier": "tier2_lookup",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "stealthwatch_index",
+        "stealthwatch_sourcetype",
+        "ot_asset_ips"
+      ],
+      "required_asset_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "criticality"
+      ],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.perim.006",
@@ -83,8 +193,29 @@
       "mcp_execution_enabled": false,
       "paraphrase_questions": [
         "show outbound connections to foreign countries",
-        "list firewall traffic leaving to other countries from the industrial dmz"
-      ]
+        "list firewall traffic leaving to other countries from the industrial dmz",
+        "show outbound connections from grid infrastructure to destinations outside india",
+        "outbound connections from the grid to foreign geographic locations"
+      ],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_firewall_geo_egress",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_firewall_index",
+        "cisco_firewall_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.perim.007",
@@ -97,7 +228,26 @@
       "proposed_operation_type": "threshold_check",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_sgt_classification_failure",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_ios_index",
+        "cisco_ios_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.perim.008",
@@ -110,7 +260,26 @@
       "proposed_operation_type": "threshold_check",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_icmp_anomaly",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_firewall_index",
+        "cisco_firewall_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.perim.009",
@@ -123,7 +292,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_ios_config_change",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_ios_index",
+        "cisco_ios_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.perim.010",
@@ -139,7 +327,26 @@
       "paraphrase_questions": [
         "list all dns requests during the observation window",
         "show endpoints resolving external domains bypassing internal dns"
-      ]
+      ],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_firewall_dns_bypass",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_firewall_index",
+        "cisco_firewall_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.identity.011",
@@ -152,7 +359,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_tacacs_privilege",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_tacacs_index",
+        "cisco_tacacs_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.identity.012",
@@ -165,7 +391,26 @@
       "proposed_operation_type": "correlate_signals",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_ise_mab",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_ise_index",
+        "cisco_ise_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.identity.013",
@@ -178,7 +423,26 @@
       "proposed_operation_type": "threshold_check",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_ise_posture",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_ise_index",
+        "cisco_ise_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.identity.014",
@@ -191,7 +455,29 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [
+        "show out-of-hours operator logins to the state load despatch center consoles",
+        "alert on logins outside approved maintenance hours"
+      ],
+      "template_wave": "wave1",
+      "eval_gate_min_wave": "wave1",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_vpn_after_hours_login",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.identity.015",
@@ -207,7 +493,26 @@
       "paraphrase_questions": [
         "same user failing login at multiple sites",
         "repeated authentication failures across substations"
-      ]
+      ],
+      "template_wave": "wave1",
+      "eval_gate_min_wave": "wave1",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_ise_failed_login_spike",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_ise_index",
+        "cisco_ise_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.identity.016",
@@ -220,7 +525,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_ise_quarantine",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_ise_index",
+        "cisco_ise_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.identity.017",
@@ -233,7 +557,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_wlc_rogue_ap",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_wlc_index",
+        "cisco_wlc_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.identity.018",
@@ -246,7 +589,31 @@
       "proposed_operation_type": "sequence_match",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave3",
+      "eval_gate_min_wave": "wave3",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_duo_mfa_fatigue",
+      "spl_policy_tier": "tier2_lookup",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_duo_index",
+        "cisco_duo_sourcetype"
+      ],
+      "required_asset_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "criticality"
+      ],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.identity.019",
@@ -259,7 +626,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_ise_profile_shift",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_ise_index",
+        "cisco_ise_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.identity.020",
@@ -272,7 +658,26 @@
       "proposed_operation_type": "threshold_check",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_tacacs_stale_session",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_tacacs_index",
+        "cisco_tacacs_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.ot.021",
@@ -287,7 +692,26 @@
       "mcp_execution_enabled": false,
       "paraphrase_questions": [
         "detect goose message burst on the substation network"
-      ]
+      ],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ot_goose_burst",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.ot.022",
@@ -300,7 +724,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ot_mms_write",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.ot.023",
@@ -313,7 +756,26 @@
       "proposed_operation_type": "threshold_check",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "iccp_disconnect",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.ot.024",
@@ -326,7 +788,26 @@
       "proposed_operation_type": "threshold_check",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ot_modbus_exception",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.ot.025",
@@ -339,7 +820,30 @@
       "proposed_operation_type": "lookup_match",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave3",
+      "eval_gate_min_wave": "wave3",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ot_firmware_drift",
+      "spl_policy_tier": "tier2_lookup",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "ot_asset_ips"
+      ],
+      "required_asset_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "criticality"
+      ],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.ot.026",
@@ -352,7 +856,30 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave3",
+      "eval_gate_min_wave": "wave3",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ot_master_spoof",
+      "spl_policy_tier": "tier2_lookup",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "master_station_ips"
+      ],
+      "required_asset_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "criticality"
+      ],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.ot.027",
@@ -365,7 +892,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ot_ems_db_change",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.ot.028",
@@ -378,7 +924,26 @@
       "proposed_operation_type": "threshold_check",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ot_dpi_malformed",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.ot.029",
@@ -391,7 +956,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ot_solar_setpoint_change",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.ot.030",
@@ -404,7 +988,30 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave3",
+      "eval_gate_min_wave": "wave3",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ot_tftp_hmi",
+      "spl_policy_tier": "tier2_lookup",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "ot_asset_ips"
+      ],
+      "required_asset_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "criticality"
+      ],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.compliance.031",
@@ -417,7 +1024,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ssh_weak_cipher",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.compliance.032",
@@ -430,7 +1056,30 @@
       "proposed_operation_type": "correlate_signals",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave3",
+      "eval_gate_min_wave": "wave3",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "physical_access_impossible",
+      "spl_policy_tier": "tier2_lookup",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "ot_asset_ips"
+      ],
+      "required_asset_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "criticality"
+      ],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.compliance.033",
@@ -443,7 +1092,30 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave3",
+      "eval_gate_min_wave": "wave3",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cii_scan_detection",
+      "spl_policy_tier": "tier2_lookup",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "ot_asset_ips"
+      ],
+      "required_asset_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "criticality"
+      ],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.compliance.034",
@@ -456,7 +1128,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave1",
+      "eval_gate_min_wave": "wave1",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "scada_log_cleared",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.compliance.035",
@@ -469,7 +1160,26 @@
       "proposed_operation_type": "correlate_signals",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ot_dual_master_conflict",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.compliance.036",
@@ -482,7 +1192,26 @@
       "proposed_operation_type": "threshold_check",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "ntp_stratum_change",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.compliance.037",
@@ -495,7 +1224,30 @@
       "proposed_operation_type": "correlate_signals",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave3",
+      "eval_gate_min_wave": "wave3",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "loto_breaker_correlation",
+      "spl_policy_tier": "tier2_lookup",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "ot_asset_ips"
+      ],
+      "required_asset_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "criticality"
+      ],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.compliance.038",
@@ -508,7 +1260,26 @@
       "proposed_operation_type": "threshold_check",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "agc_frequency_anomaly",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.compliance.039",
@@ -521,7 +1292,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "endpoint_tooling_install",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "network_index",
+        "network_traffic_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.compliance.040",
@@ -534,7 +1324,30 @@
       "proposed_operation_type": "ioc_correlation",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave3",
+      "eval_gate_min_wave": "wave3",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cert_in_hash_match",
+      "spl_policy_tier": "tier2_lookup",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cert_in_ioc_hashes"
+      ],
+      "required_asset_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "criticality"
+      ],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.endpoint.041",
@@ -547,7 +1360,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave1",
+      "eval_gate_min_wave": "wave1",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_hmi_terminal_spawn",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "endpoint_index",
+        "endpoint_process_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.endpoint.042",
@@ -560,7 +1392,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "cisco_amp_process_injection",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "cisco_amp_index",
+        "cisco_amp_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.endpoint.043",
@@ -573,7 +1424,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave2",
+      "eval_gate_min_wave": "wave2",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "endpoint_hosts_file_change",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "endpoint_index",
+        "endpoint_process_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.endpoint.044",
@@ -586,7 +1456,27 @@
       "proposed_operation_type": "source_discovery",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [
+        "what indexes and sourcetypes are available for our ot monitoring data",
+        "which indexes do i have access to in this splunk instance",
+        "list the indexes available for ot monitoring"
+      ],
+      "template_wave": "batch2_metadata",
+      "eval_gate_min_wave": "batch2_metadata",
+      "expected_path_type": "metadata_hygiene",
+      "expected_pattern_type": "environment_hygiene",
+      "spl_policy_tier": "metadata_only",
+      "mcp_tool_sequence": [
+        "splunk_get_indexes"
+      ],
+      "required_kb_slots": [],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.endpoint.045",
@@ -599,7 +1489,23 @@
       "proposed_operation_type": "source_discovery",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "batch2_metadata",
+      "eval_gate_min_wave": "batch2_metadata",
+      "expected_path_type": "metadata_hygiene",
+      "expected_pattern_type": "environment_hygiene",
+      "spl_policy_tier": "metadata_only",
+      "mcp_tool_sequence": [
+        "splunk_get_index_info"
+      ],
+      "required_kb_slots": [],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.endpoint.046",
@@ -612,7 +1518,23 @@
       "proposed_operation_type": "source_discovery",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "batch2_metadata",
+      "eval_gate_min_wave": "batch2_metadata",
+      "expected_path_type": "metadata_hygiene",
+      "expected_pattern_type": "environment_hygiene",
+      "spl_policy_tier": "metadata_only",
+      "mcp_tool_sequence": [
+        "splunk_get_metadata"
+      ],
+      "required_kb_slots": [],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.endpoint.047",
@@ -625,7 +1547,27 @@
       "proposed_operation_type": "source_discovery",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [
+        "list the detection saved searches and macros currently configured for ot monitoring",
+        "what saved searches and macros are configured for monitoring",
+        "show the detection rules and knowledge objects set up for ot"
+      ],
+      "template_wave": "batch2_metadata",
+      "eval_gate_min_wave": "batch2_metadata",
+      "expected_path_type": "metadata_hygiene",
+      "expected_pattern_type": "environment_hygiene",
+      "spl_policy_tier": "metadata_only",
+      "mcp_tool_sequence": [
+        "splunk_get_knowledge_objects"
+      ],
+      "required_kb_slots": [],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.endpoint.048",
@@ -638,7 +1580,27 @@
       "proposed_operation_type": "source_discovery",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [
+        "what is the current health and status of our splunk indexer cluster",
+        "show the splunk server version and cluster status",
+        "what version is our splunk deployment running"
+      ],
+      "template_wave": "batch2_metadata",
+      "eval_gate_min_wave": "batch2_metadata",
+      "expected_path_type": "metadata_hygiene",
+      "expected_pattern_type": "environment_hygiene",
+      "spl_policy_tier": "metadata_only",
+      "mcp_tool_sequence": [
+        "splunk_get_info"
+      ],
+      "required_kb_slots": [],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.endpoint.049",
@@ -651,7 +1613,26 @@
       "proposed_operation_type": "detection_binding",
       "route_blocked": false,
       "mcp_execution_enabled": false,
-      "paraphrase_questions": []
+      "paraphrase_questions": [],
+      "template_wave": "wave1",
+      "eval_gate_min_wave": "wave1",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "endpoint_unsigned_driver",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "endpoint_index",
+        "endpoint_process_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     },
     {
       "question_id": "cisco.endpoint.050",
@@ -666,7 +1647,26 @@
       "mcp_execution_enabled": false,
       "paraphrase_questions": [
         "same admin account failing login across different substations in a short window"
-      ]
+      ],
+      "template_wave": "wave1",
+      "eval_gate_min_wave": "wave1",
+      "expected_path_type": "review_only_spl",
+      "expected_pattern_type": "auth_failed_login_spike",
+      "spl_policy_tier": "tier1",
+      "mcp_tool_sequence": [
+        "splunk_run_query"
+      ],
+      "required_kb_slots": [
+        "endpoint_index",
+        "endpoint_process_sourcetype"
+      ],
+      "required_asset_fields": [],
+      "safety_expectations": [
+        "execution_enabled_false",
+        "candidate_only",
+        "no_live_rows_claimed"
+      ],
+      "notes": "Cisco Appendix A deterministic catalogue row; review-only posture."
     }
   ]
 }

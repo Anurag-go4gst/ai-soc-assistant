@@ -1,0 +1,41 @@
+{
+  "schema_version": "cisco_paraphrase_eval_rows_v1",
+  "description": "Focused paraphrase bridge checks for Cisco power-grid catalogue routing. Rows assert deterministic routing metadata only; no SPL execution is authorized.",
+  "rows": [
+    {
+      "case_id": "dns_window",
+      "query": "List DNS requests during the observation window for endpoints bypassing Cisco Umbrella.",
+      "expected_question_id": "cisco.perim.010",
+      "expected_pattern_type": "cisco_firewall_dns_bypass",
+      "expected_path_type": "review_only_spl"
+    },
+    {
+      "case_id": "geo_egress",
+      "query": "Show firewall traffic from the industrial DMZ going to foreign countries.",
+      "expected_question_id": "cisco.perim.006",
+      "expected_pattern_type": "cisco_firewall_geo_egress",
+      "expected_path_type": "review_only_spl"
+    },
+    {
+      "case_id": "multi_site_auth",
+      "query": "same user failing login at multiple sites",
+      "expected_question_id": "cisco.identity.015",
+      "expected_pattern_type": "cisco_ise_failed_login_spike",
+      "expected_path_type": "review_only_spl"
+    },
+    {
+      "case_id": "umbrella_bypass",
+      "query": "Find substation hosts resolving external domains without using internal Umbrella DNS.",
+      "expected_question_id": "cisco.perim.010",
+      "expected_pattern_type": "cisco_firewall_dns_bypass",
+      "expected_path_type": "review_only_spl"
+    },
+    {
+      "case_id": "metadata_wording",
+      "query": "log generation formats transmitting operational updates with ingest latency indicators",
+      "expected_question_id": "cisco.endpoint.046",
+      "expected_pattern_type": "environment_hygiene",
+      "expected_path_type": "metadata_hygiene"
+    }
+  ]
+}

@@ -26,6 +26,9 @@ import type {
   SourceProfileDiscoverResponse,
   SourceProfileSaveResponse,
   SourceProfileSettingsResponse,
+  AssetRegistryRecord,
+  AssetRegistryResponse,
+  IocRegistrySettingsResponse,
   KnowledgeExportArtifact,
   KnowledgeMappingSummary,
 } from '../types/api';
@@ -293,6 +296,36 @@ export async function discoverSourceProfilesFromMcp(): Promise<SourceProfileDisc
   });
   if (!response.ok) {
     throw new Error(`MCP source discovery failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getAssetRegistry(): Promise<AssetRegistryResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/asset-registry`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`Asset registry load failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+
+export async function getIocRegistrySettings(): Promise<IocRegistrySettingsResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/ioc-registry`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`IOC registry load failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveAssetRegistry(assets: AssetRegistryRecord[]): Promise<AssetRegistryResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/asset-registry`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assets }),
+  });
+  if (!response.ok) {
+    throw new Error(`Asset registry save failed: ${response.status}`);
   }
   return response.json();
 }

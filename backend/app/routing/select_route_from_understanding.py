@@ -34,7 +34,7 @@ def select_route_from_understanding(
 
     if path in _EXACT_105_PATHS:
         return _route_exact_105(understanding, query, path, keyword_would_have)
-    if path == "near_105_question":
+    if path in {"near_105_question", "semantic_105_question"}:
         return _route_near_105(understanding, query, keyword_would_have)
     if path == "use_case_catalog":
         return _route_catalog_only(understanding, query, keyword_would_have)

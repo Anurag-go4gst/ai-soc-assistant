@@ -20,6 +20,7 @@ from app.intel.ioc_registry import (
     get_source,
     infer_ioc_type,
     load_ioc_registry,
+    resolve_ioc_registry_path,
 )
 
 BLOCK_CANNOT_ROUTE_LOOKUP_STALE = "cannot_route_lookup_stale"
@@ -178,18 +179,9 @@ def preflight_ioc_requirements(
 
 
 def _resolve_registry_path(registry_path: str | Path | None) -> Path:
-    if registry_path:
-        return Path(registry_path)
-    configured = settings.ioc_registry_path.strip()
-    if configured:
-        candidate = Path(configured)
-        # A configured path is often relative to the repo root, but the backend
-        # runs from backend/. Fall back to the packaged default when it is missing
-        # so a misconfigured path never crashes the lookup.
-        if candidate.exists():
-            return candidate
-        return _DEFAULT_IOC_REGISTRY_PATH
-    return _DEFAULT_IOC_REGISTRY_PATH
+    if registry_path is None:
+        return resolve_ioc_registry_path(None)
+    return resolve_ioc_registry_path(registry_path)
 
 
 def _redacted_provenance(source: object, record: object) -> str:

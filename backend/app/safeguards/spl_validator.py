@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.spl.policy import SplValidationPolicy, load_spl_policy
+from app.spl.policy import SplValidationPolicy, load_spl_policy, policy_with_template_profile
 
 SECRET_PATTERNS = (
     re.compile(r"\b(password|passwd|secret|token|api[_-]?key|credential)\b", re.IGNORECASE),
@@ -60,8 +60,13 @@ CIM_PIPELINE_COMMANDS = {"tstats", "from", "where", "fields", "table", "sort", "
 RISKY_COMMANDS = {"collect", "outputlookup", "delete", "sendemail", "map", "script", "rest", "loadjob", "savedsearch", "inputlookup"}
 
 
-def validate_spl(query: str, policy: SplValidationPolicy | None = None) -> dict[str, Any]:
+def validate_spl(
+    query: str,
+    policy: SplValidationPolicy | None = None,
+    template_profile: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     policy = policy or load_spl_policy()
+    policy = policy_with_template_profile(policy, template_profile)
     spl = _normalize_whitespace(query)
     query_shape = _detect_query_shape(spl)
     if query_shape == QUERY_SHAPE_TSTATS_DATAMODEL:
@@ -82,7 +87,10 @@ def _validate_raw_search(spl: str, policy: SplValidationPolicy) -> dict[str, Any
         reject_reasons.append("empty_spl")
 
     commands = _extract_commands(spl)
-    blocked = sorted((set(commands) | _risky_command_tokens(lowered)).intersection(set(policy.blocked_commands) | RISKY_COMMANDS))
+    command_set_for_block = set(commands) | _risky_command_tokens(lowered)
+    if _lookup_allowed(spl, policy):
+        command_set_for_block.discard("inputlookup")
+    blocked = sorted(command_set_for_block.intersection(set(policy.blocked_commands) | RISKY_COMMANDS))
     disallowed = sorted(command for command in set(commands) if command not in policy.allowed_commands)
     indexes = _extract_field_values(spl, "index")
     sourcetypes = _extract_field_values(spl, "sourcetype")
@@ -91,6 +99,9 @@ def _validate_raw_search(spl: str, policy: SplValidationPolicy) -> dict[str, Any
         reject_reasons.append(f"blocked_command:{','.join(blocked)}")
     if disallowed:
         reject_reasons.append(f"disallowed_command:{','.join(disallowed)}")
+    reject_reasons.extend(_lookup_rejects(spl, commands, policy))
+    reject_reasons.extend(_join_transaction_rejects(spl, commands, policy))
+    warnings.extend(_tiered_command_warnings(spl, commands))
     if not commands or commands[0] != "search":
         reject_reasons.append("first_command_must_be_search")
     if "earliest=" not in lowered or "latest=" not in lowered:
@@ -355,11 +366,77 @@ def _extract_commands(spl: str) -> list[str]:
         if not match:
             continue
         command = match.group(1).lower()
+        if command == "bucket":
+            command = "bin"
         if index == 0 and command not in {"search", "tstats", "from", "inputlookup"}:
             commands.append("search")
         else:
             commands.append(command)
     return commands
+
+
+def _safe_lookup_name(value: str) -> str:
+    from app.spl.policy import _safe_lookup_name as policy_safe_lookup_name
+
+    return policy_safe_lookup_name(value)
+
+
+def _extract_lookup_names(spl: str) -> list[str]:
+    names: list[str] = []
+    for match in re.finditer(r"(?:^|\|\s*)(lookup|inputlookup)\s+([^\s|]+)", spl, re.IGNORECASE):
+        raw = match.group(2)
+        names.append(_safe_lookup_name(raw))
+    return names
+
+
+def _lookup_allowed(spl: str, policy: SplValidationPolicy) -> bool:
+    names = _extract_lookup_names(spl)
+    return bool(names) and all(name and name in policy.allowed_lookups for name in names)
+
+
+def _lookup_rejects(spl: str, commands: list[str], policy: SplValidationPolicy) -> list[str]:
+    if not ({"lookup", "inputlookup"} & set(commands)):
+        return []
+    names = _extract_lookup_names(spl)
+    if not names or any(not name for name in names):
+        return ["lookup_name_invalid"]
+    allowed = set(policy.allowed_lookups)
+    rejected = sorted(name for name in names if name not in allowed)
+    if rejected:
+        return [f"lookup_not_allowlisted:{','.join(rejected)}"]
+    return []
+
+
+def _join_transaction_rejects(spl: str, commands: list[str], policy: SplValidationPolicy) -> list[str]:
+    rejects: list[str] = []
+    lowered = spl.lower()
+    if "join" in commands:
+        if not policy.allow_join:
+            rejects.append("join_not_allowed")
+        if not _has_final_head(lowered):
+            rejects.append("join_requires_result_head")
+        if not re.search(r"\|\s*join\b[^|]*\bmax=\d+\b", lowered):
+            rejects.append("join_requires_max_option")
+    if "transaction" in commands:
+        if not policy.allow_transaction:
+            rejects.append("transaction_not_allowed")
+        if not re.search(r"\|\s*transaction\b[^|]*(?:maxspan=\S+|maxevents=\d+)", lowered):
+            rejects.append("transaction_requires_maxspan_or_maxevents")
+    return rejects
+
+
+def _tiered_command_warnings(spl: str, commands: list[str]) -> list[str]:
+    if "mvexpand" not in commands:
+        return []
+    lowered = spl.lower()
+    mvexpand_match = re.search(r"\|\s*mvexpand\b", lowered)
+    if mvexpand_match and not re.search(r"\|\s*head\s+\d+\b", lowered[mvexpand_match.end() :]):
+        return ["mvexpand_without_downstream_head"]
+    return []
+
+
+def _has_final_head(lowered_spl: str) -> bool:
+    return bool(re.search(r"\|\s*head\s+\d+\s*$", lowered_spl.strip()))
 
 
 def _extract_field_values(spl: str, field: str) -> list[str]:

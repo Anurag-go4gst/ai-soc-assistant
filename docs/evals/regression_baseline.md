@@ -87,6 +87,28 @@ python3 scripts/run_langgraph_dual_parity_eval.py --check
 
 Recorded baseline (2026-06-08): **120** rows, **120** exact matches, **0** critical mismatches.
 
+## Cisco Power-Grid Catalogue Gate
+
+Primary gate:
+
+```bash
+AI_SOC_DISABLE_DOTENV=1 AI_SOC_SPL_DRAFT_PREVIEW_ENABLED=false \
+python3 scripts/run_cisco_powergrid_question_eval.py --profile deterministic --min-wave wave3 --check
+```
+
+Expected baseline (2026-06-18): **50 pass**, **0 review**, **0 fail**, **0 critical**.
+
+Additional focused gates:
+
+```bash
+cd backend
+PYTHONPATH=../backend:.. python3 -m pytest \
+  app/tests/test_cisco_paraphrase_eval.py \
+  app/tests/test_cisco_live_chat_contract.py -q
+```
+
+These assert paraphrase routing and live `/chat` governance posture: Cisco SPL-review rows stay non-executable, metadata-hygiene rows expose the read-only `environment_hygiene` envelope, and no metadata row generates candidate SPL.
+
 ## Phase 11–13 demo / LangGraph parity (documentation)
 
 - Flag profiles: `docs/demo/flag_cutover_matrix.md`

@@ -2,7 +2,7 @@
   "artifact": "soc_validation_demo_scenarios",
   "csv_supported": false,
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-17T10:39:33+00:00",
+  "generated_at": "2026-06-18T04:50:08+00:00",
   "row_counts": {
     "scenarios": 8
   },

@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Response
 from pydantic import BaseModel
 
 from app.config import SUPPORTED_AI_SOC_LLM_MODES, SUPPORTED_ROUTING_MODES, settings
@@ -29,6 +29,13 @@ from app.connectors.mcp.registry import SUPPORTED_AUTH_MODES as SUPPORTED_MCP_AU
 from app.connectors.mcp.registry import SUPPORTED_MCP_TYPES, SUPPORTED_TRANSPORTS
 from app.connectors.rag import get_rag_connector
 from app.connectors.telemetry import get_telemetry_connector, metrics
+from app.auth.session import require_auth
+from app.intel.ioc_registry import save_ioc_registry_document, summarize_ioc_registry_for_settings
+from app.environment.asset_registry_store import (
+    import_asset_registry_payload,
+    load_asset_registry_document,
+    save_asset_registry,
+)
 from app.knowledge.soc_kb_retriever import soc_kb_status_summary
 from app.llm.registry_settings import build_llm_governance_status
 from app.providers import ProviderType, mock_asset_inventory_profile, splunk_provider_profile
@@ -42,7 +49,7 @@ from app.spl.source_profile_store import (
 )
 from app.splunk.capabilities import build_splunk_capability_profile
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 class ProviderDraftCheckRequest(BaseModel):
@@ -1625,6 +1632,14 @@ class SourceProfileSaveRequest(BaseModel):
     values: dict[str, str] = {}
 
 
+class AssetRegistrySaveRequest(BaseModel):
+    assets: list[dict[str, object]] = []
+
+
+class IocRegistrySaveRequest(BaseModel):
+    registry: dict[str, object]
+
+
 @router.get("/settings/source-profiles")
 def get_source_profile_settings() -> dict:
     document = load_persisted_source_profile_document()
@@ -1640,12 +1655,13 @@ def get_source_profile_settings() -> dict:
         "mcp_discovery_trace": mcp_trace,
         "orchestration_order": [
             "policy_env",
-            "coe_store",
             "rag_kb",
             "chat_session",
             "mcp_discovery",
+            "asset_registry",
+            "coe_store",
         ],
-        "conflict_preference": "mcp_discovery_over_coe_store",
+        "conflict_preference": "coe_store_over_asset_registry_over_mcp_discovery",
         "updated_at": document.get("updated_at"),
         "updated_by": document.get("updated_by"),
         "store_path_configured": bool(getattr(settings, "ai_soc_source_profile_store_path", "")),
@@ -1667,7 +1683,7 @@ def save_source_profile_settings(payload: SourceProfileSaveRequest) -> dict:
 @router.post("/settings/source-profiles/discover-from-mcp")
 def discover_source_profiles_from_mcp() -> dict:
     discovered, trace = run_mcp_source_discovery(discovery_allowed=True)
-    document = merge_mcp_discovery_into_store(discovered, overwrite=True)
+    document = merge_mcp_discovery_into_store(discovered, overwrite=False)
     return {
         "saved": True,
         "discovered_slots": list(discovered.keys()),
@@ -1677,3 +1693,92 @@ def discover_source_profiles_from_mcp() -> dict:
         "updated_at": document.get("updated_at"),
         "updated_by": document.get("updated_by"),
     }
+
+
+@router.get("/settings/asset-registry")
+def get_asset_registry_settings() -> dict:
+    document = load_asset_registry_document()
+    assets = list(document.get("assets") or [])
+    return {
+        "assets": assets,
+        "asset_count": len(assets),
+        "updated_at": document.get("updated_at"),
+        "updated_by": document.get("updated_by"),
+        "source": document.get("source"),
+        "store_path_configured": bool(getattr(settings, "ai_soc_asset_registry_store_path", "")),
+        "execution_authority": "advisory_only",
+    }
+
+
+@router.put("/settings/asset-registry")
+def save_asset_registry_settings(payload: AssetRegistrySaveRequest) -> dict:
+    try:
+        document = save_asset_registry(payload.assets, updated_by="coe_ui")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    assets = list(document.get("assets") or [])
+    return {
+        "saved": True,
+        "assets": assets,
+        "asset_count": len(assets),
+        "updated_at": document.get("updated_at"),
+        "updated_by": document.get("updated_by"),
+        "source": document.get("source"),
+    }
+
+
+@router.post("/settings/asset-registry/import")
+def import_asset_registry_settings(
+    payload: str = Body(default=""),
+    content_type: str = Header(default="application/json"),
+) -> dict:
+    try:
+        document = import_asset_registry_payload(payload, content_type=content_type, updated_by="coe_ui")
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    assets = list(document.get("assets") or [])
+    return {
+        "saved": True,
+        "assets": assets,
+        "asset_count": len(assets),
+        "updated_at": document.get("updated_at"),
+        "updated_by": document.get("updated_by"),
+        "source": document.get("source"),
+    }
+
+
+@router.get("/settings/asset-registry/export")
+def export_asset_registry_settings() -> Response:
+    document = load_asset_registry_document()
+    body = json.dumps({"assets": document.get("assets") or []}, indent=2, sort_keys=True) + "\n"
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="asset_registry.json"'},
+    )
+
+
+@router.get("/settings/ioc-registry")
+def get_ioc_registry_settings() -> dict:
+    summary = summarize_ioc_registry_for_settings()
+    return {
+        **summary,
+        "read_only_hashes": True,
+        "import_instructions": (
+            "Replace the JSON file at import_path_hint with a validated CERT-In / COE IOC bundle, "
+            "then set IOC_REGISTRY_ENABLED=true in the deployment environment."
+        ),
+    }
+
+
+@router.put("/settings/ioc-registry")
+def save_ioc_registry_settings(payload: IocRegistrySaveRequest) -> dict:
+    try:
+        summary = save_ioc_registry_document(dict(payload.registry))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "saved": True,
+        **summary,
+    }
+

@@ -709,7 +709,8 @@ def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
     proposed_use_case_rows = proposed.get("proposed_use_cases") if isinstance(proposed, dict) else []
 
     expected_questions = 105
-    expected_use_cases = 50
+    enrichment_only_ids = set(enrichment_index) - set(catalog_index)
+    expected_use_cases = len(catalog_index) + len(enrichment_only_ids)
     expected_github = 12
     if len(question_rows) != expected_questions:
         warnings.append(
@@ -718,7 +719,7 @@ def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
     if len(use_case_rows) != expected_use_cases:
         warnings.append(
             f"use_case row count drift: expected {expected_use_cases} "
-            f"(46 catalog + 3 enrichment-only), got {len(use_case_rows)}"
+            f"(catalog {len(catalog_index)} + enrichment-only {len(enrichment_only_ids)}), got {len(use_case_rows)}"
         )
     if len(github_skill_rows) != expected_github:
         warnings.append(

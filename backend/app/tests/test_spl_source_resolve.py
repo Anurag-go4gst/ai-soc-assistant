@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 from app.safeguards.spl_validator import validate_spl
 from app.spl.source_profile_resolver import (
@@ -102,7 +103,33 @@ def test_resolve_missing_slots_returns_hil_review() -> None:
     assert "open_source_profile_settings" in review["allowed_actions"]
 
 
-def test_mcp_discovery_wins_over_coe_store(monkeypatch, tmp_path) -> None:
+def test_resolve_revalidation_uses_template_profile(monkeypatch) -> None:
+    template = SimpleNamespace(
+        validation_rules={
+            "allowed_lookups": ["ot_asset_inventory.csv"],
+            "allowed_indexes": ["pgcil_soc"],
+            "allowed_sourcetypes": ["pgcil:network"],
+        }
+    )
+    monkeypatch.setattr("app.spl.spl_source_resolve.get_spl_template", lambda template_id: template)
+    spl = (
+        "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now "
+        "| lookup ot_asset_inventory.csv ip as dest_ip OUTPUT asset_name "
+        "| stats count by asset_name | head 50"
+    )
+    result = resolve_spl_source_profile(
+        spl,
+        user_query="asset enrichment",
+        session_slots={"network_index": "pgcil_soc", "network_traffic_sourcetype": "pgcil:network"},
+        run_mcp_discovery=False,
+        template_id="lookup_template",
+    )
+    assert result.fully_resolved
+    assert result.validation is not None
+    assert result.validation["approved"] is True
+
+
+def test_coe_store_wins_over_mcp_discovery(monkeypatch, tmp_path) -> None:
     from app.config import settings
     from app.spl import source_profile_store as store
 
@@ -110,9 +137,28 @@ def test_mcp_discovery_wins_over_coe_store(monkeypatch, tmp_path) -> None:
     store_path = tmp_path / "source_profile_map.json"
     monkeypatch.setattr(settings, "ai_soc_source_profile_store_path", str(store_path))
     store.save_persisted_source_profile(
-        {"auth_index": "wrong_index", "auth_sourcetype": "wrong:st"},
+        {"auth_index": "pgcil_soc", "auth_sourcetype": "pgcil:auth"},
         updated_by="coe_ui",
     )
+    spl = (
+        "search index=<auth_index> sourcetype=<auth_sourcetype> action=failure "
+        "earliest=-24h latest=now | stats count by user | sort -count | head 100"
+    )
+    result = resolve_spl_source_profile(spl, user_query="failed login spike")
+    assert result.fully_resolved
+    assert result.resolved_slots["auth_index"] == "pgcil_soc"
+    assert result.slot_sources["auth_index"] == "coe_ui"
+    assert "mcp_discovery" in result.tiers_used
+
+
+def test_mcp_discovery_fills_blank_coe_slots(monkeypatch, tmp_path) -> None:
+    from app.config import settings
+    from app.spl import source_profile_store as store
+
+    monkeypatch.setattr(settings, "mcp_discovery_enabled", True)
+    store_path = tmp_path / "source_profile_map.json"
+    monkeypatch.setattr(settings, "ai_soc_source_profile_store_path", str(store_path))
+    store.save_persisted_source_profile({}, updated_by="coe_ui")
     spl = (
         "search index=<auth_index> sourcetype=<auth_sourcetype> action=failure "
         "earliest=-24h latest=now | stats count by user | sort -count | head 100"

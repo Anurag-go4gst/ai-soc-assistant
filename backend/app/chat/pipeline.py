@@ -74,6 +74,7 @@ from app.spl.draft_preview import (
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.spl.spl_relevance_check import check_spl_relevance
 from app.spl.mcp_loop_discovery import execute_loop_discovery_hop
+from app.spl.mcp_source_discovery import run_mcp_source_discovery
 from app.spl.spl_source_resolve import build_spl_source_profile_review, resolve_spl_source_profile
 from app.splunk.spl_services import (
     explain_spl,
@@ -926,7 +927,12 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     candidate_mapped_pattern = None
     if query_understanding is not None and getattr(
         query_understanding, "deterministic_match_path", None
-    ) in ("exact_105_question", "exact_105_plus_use_case_catalog"):
+    ) in (
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog",
+        "near_105_question",
+        "semantic_105_question",
+    ):
         candidate_mapped_pattern = getattr(query_understanding, "mapped_pattern_type", None)
     session_refined = _session_spl_refine_stage(
         state=state,
@@ -997,15 +1003,16 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
     if getattr(request, "execution_review_action", None) == "update_spl" and getattr(request, "analyst_provided_spl", None):
         analyst_spl = str(request.analyst_provided_spl).strip()
         if analyst_spl:
+            candidate = state.get("candidate_spl")
             resolve_result = resolve_spl_source_profile(
                 analyst_spl,
                 user_query=request.message,
                 soc_kb_retrieval=state.get("soc_kb_retrieval"),
                 session_slots=dict(getattr(session_pins, "source_profile_slots", None) or {}),
+                template_id=str(candidate.get("template_id") or "") if isinstance(candidate, dict) else None,
             )
             if resolve_result.fully_resolved and isinstance(resolve_result.validation, dict):
                 spl_validation = resolve_result.validation
-                candidate = state.get("candidate_spl")
                 if isinstance(candidate, dict):
                     state = {
                         **state,
@@ -1204,6 +1211,7 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
         soc_kb_retrieval=soc_kb_retrieval,
         session_slots=session_slots,
         required_sources=required_sources,
+        template_id=str(candidate.get("template_id") or "") or None,
     )
     trace = {
         "resolved_slots": resolve_result.resolved_slots,
@@ -1332,6 +1340,49 @@ def _record_guided_resource_outcome(
         planning_copy["resource_plan_summary"] = update_decisions(planning["resource_plan_summary"])
         result["planning_decision"] = planning_copy
     return result
+
+
+_ENV_HYGIENE_TOOLS_BY_QID = {
+    "cisco.endpoint.044": "splunk_get_indexes",
+    "cisco.endpoint.045": "splunk_get_index_info",
+    "cisco.endpoint.046": "splunk_get_metadata",
+    "cisco.endpoint.047": "splunk_get_knowledge_objects",
+    "cisco.endpoint.048": "splunk_get_info",
+}
+
+
+def _environment_hygiene_envelope(state: ChatPipelineState) -> dict[str, Any] | None:
+    qu = state.get("query_understanding")
+    if getattr(qu, "mapped_pattern_type", None) != "environment_hygiene":
+        return None
+    question_ref = str(getattr(qu, "mapped_question_ref", "") or "")
+    tool = _ENV_HYGIENE_TOOLS_BY_QID.get(question_ref, "splunk_get_indexes")
+    preview: dict[str, Any] = {}
+    trace: dict[str, Any] = {"planned_tool": tool}
+    if tool in {"splunk_get_indexes", "splunk_get_metadata"} and settings.mcp_discovery_enabled:
+        preview, trace = run_mcp_source_discovery(discovery_allowed=True)
+    status = "planned"
+    if preview:
+        status = "collected_preview"
+    elif not settings.mcp_discovery_enabled:
+        status = "configured_unavailable"
+    return {
+        "status": status,
+        "question_ref": question_ref or None,
+        "pattern_type": "environment_hygiene",
+        "needs_spl": False,
+        "execution_enabled": False,
+        "execution_eligible": False,
+        "planned_tool": tool,
+        "planned_tool_sequence": [tool],
+        "preview": preview,
+        "trace": trace,
+        "governance": "read_only_metadata_discovery; no splunk_run_query; no live rows claimed unless collected",
+        "limitations": [
+            "Metadata discovery is read-only and scoped to the configured MCP service account.",
+            "When MCP discovery is disabled or unavailable, this is a planned checklist rather than live Splunk state.",
+        ],
+    }
 
 
 def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
@@ -1573,6 +1624,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     candidate_spl = state.get("candidate_spl")
     spl_draft_preview = state.get("spl_draft_preview")
     llm_spl_candidate = state.get("llm_spl_candidate")
+    environment_hygiene = _environment_hygiene_envelope(state)
+    if environment_hygiene is not None:
+        tool = str(environment_hygiene.get("planned_tool") or "splunk_get_indexes")
+        message = (
+            "Environment metadata hygiene is a read-only discovery path. "
+            f"The governed next step is {tool}; SPL search generation and execution remain disabled."
+        )
+        note = "Metadata hygiene answer path selected; no candidate SPL or MCP search execution."
+        spl_draft_preview = None
     if _session_stale_clarification_required(state):
         human_review = _session_stale_clarification_review()
         message = human_review["safe_message_for_user"]
@@ -1795,6 +1855,26 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
         llm_spl_candidate=llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None,
     )
+    if environment_hygiene is not None and analyst_response is not None:
+        limitations = list(analyst_response.limitations or [])
+        for item in environment_hygiene.get("limitations") or []:
+            if str(item) not in limitations:
+                limitations.append(str(item))
+        checklist = list(analyst_response.analyst_checklist or [])
+        planned_tool = str(environment_hygiene.get("planned_tool") or "splunk_get_indexes")
+        planned_item = f"Review planned read-only metadata tool: {planned_tool}."
+        if planned_item not in checklist:
+            checklist.append(planned_item)
+        analyst_response = analyst_response.model_copy(
+            update={
+                "direct_answer_summary": message,
+                "environment_hygiene": environment_hygiene,
+                "limitations": limitations,
+                "analyst_checklist": checklist,
+                "spl_status": "metadata_only_no_spl",
+                "execution_status_label": "review_only_not_executed",
+            }
+        )
     mitre_risk_rationale_trace: dict[str, Any] | None = None
     resource_plan_shadow_trace: dict[str, Any] | None = None
     if answer_contract is not None and analyst_response is not None:
@@ -1875,10 +1955,23 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             enrichment_projection = llm_facing_curated_enrichment_projection(enrichment_context)
             if enrichment_projection is None:
                 enrichment_projection = get_guidance_only_enrichment_projection(composer_use_case_id)
+            routed_payload = state.get("routed") if isinstance(state.get("routed"), dict) else {}
+            intent_payload = (
+                state.get("intent_classification")
+                if isinstance(state.get("intent_classification"), dict)
+                else {}
+            )
             weak_case = qualifies_for_weak_case_composition(
                 answer_contract,
                 path_type=path_type,
                 intent_family=intent_family or None,
+                match_path=_match_path_from_state(state) or _candidate_match_path(state),
+                router_confidence=(
+                    float(routed_payload["confidence"])
+                    if isinstance(routed_payload.get("confidence"), (int, float))
+                    else None
+                ),
+                needs_clarification=bool(intent_payload.get("requires_clarification")),
             )
             soc_snippets = soc_kb_snippets_from_source_evidence(source_evidence)
             skill_sections = skill_sections_from_enrichment(enrichment_projection)
@@ -2190,6 +2283,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         final_answer_validation=final_answer_validation,
         mitre_decision=mitre_decision,
         analyst_response=analyst_response,
+        environment_hygiene=environment_hygiene,
         mitre_evidence_status=visibility.get("mitre_evidence_status"),
         spl_template_status=visibility.get("spl_template_status"),
         node_trace=visibility.get("node_trace"),
@@ -3337,13 +3431,14 @@ def _candidate_from_default_template(
         user_query,
         normalized_slots=slot_outcome.normalized_slots,
     )
-    validation = validate_spl(rendered_spl)
+    validation = validate_spl(rendered_spl, template_profile=template.validation_rules)
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
     final_spl, validation, optimization = merge_post_validation_optimization(
         rendered_spl,
         validation,
         profile=profile,
         user_query=user_query,
+        template_profile=template.validation_rules,
     )
     candidate_payload = {
         "trace_id": trace_id,

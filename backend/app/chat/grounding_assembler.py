@@ -44,6 +44,8 @@ class GroundingBlock:
     skill_refs: list[str] = field(default_factory=list)
     technique_details: dict[str, dict[str, Any]] = field(default_factory=dict)
     limitations: list[str] = field(default_factory=list)
+    environment_kb_slots: list[str] = field(default_factory=list)
+    asset_registry_hints: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -56,6 +58,8 @@ class GroundingBlock:
             "skill_refs": list(self.skill_refs),
             "technique_details": dict(self.technique_details),
             "limitations": list(self.limitations),
+            "environment_kb_slots": list(self.environment_kb_slots),
+            "asset_registry_hints": list(self.asset_registry_hints),
         }
 
     def to_prompt_block(self) -> str:
@@ -74,6 +78,10 @@ class GroundingBlock:
             lines.append(f"- SOC-KB reference: {ref}")
         for ref in self.skill_refs:
             lines.append(f"- Skill reference: {ref}")
+        for slot in self.environment_kb_slots:
+            lines.append(f"- Environment KB slot: {slot}")
+        for hint in self.asset_registry_hints:
+            lines.append(f"- Asset registry hint: {hint}")
         for limitation in self.limitations:
             lines.append(f"- Limitation: {limitation}")
         return "\n".join(lines)

@@ -2,11 +2,12 @@
 
 Authority order (later wins on conflict):
   1. Policy / env defaults (lowest)
-  2. COE persisted store (Settings UI)
-  3. SOC-KB RAG hints
-  4. Session / chat-provided slots
-  5. MCP discovery (splunk_get_indexes / get_metadata) — highest for conflicts
-  6. HIL only when slots still missing after merge
+  2. SOC-KB RAG hints
+  3. Session / chat-provided slots
+  4. MCP discovery fills blanks from splunk_get_indexes / get_metadata
+  5. Asset registry derived slots
+  6. COE persisted store (Settings UI) — highest for conflicts
+  7. HIL only when slots still missing after merge
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from typing import Any
 from app.config import settings
 from app.orchestration.human_review import human_review
 from app.safeguards.spl_validator import validate_spl
+from app.environment.asset_registry_store import build_asset_registry_profile
 from app.spl.mcp_source_discovery import run_mcp_source_discovery
 from app.spl.rag_source_profile_bridge import extract_rag_source_profile
 from app.spl.source_profile_resolver import (
@@ -25,6 +27,7 @@ from app.spl.source_profile_resolver import (
     substitute_placeholders,
 )
 from app.spl.source_profile_store import load_persisted_source_profile, load_persisted_source_profile_document
+from app.spl.template_registry import get_spl_template
 
 
 @dataclass(frozen=True)
@@ -49,7 +52,7 @@ def build_spl_source_profile_review(missing_slots: list[str]) -> dict[str, Any]:
         safe_message_for_user=(
             "This SPL still needs source configuration before search can run. "
             f"Provide values for: {slot_list}. "
-            "Open Settings → Source Profiles to enter COE index/sourcetype names, "
+            "Open Settings → Environment Knowledge to enter COE index/sourcetype names, "
             "or refresh from MCP discovery."
         ),
         required=True,
@@ -63,15 +66,18 @@ def _slot_source_map(
     rag_profile: dict[str, str],
     session_slots: dict[str, str],
     mcp_profile: dict[str, str],
+    asset_profile: dict[str, str],
 ) -> dict[str, str]:
     sources: dict[str, str] = {}
-    for slot_id in set(persisted) | set(rag_profile) | set(session_slots) | set(mcp_profile):
-        if slot_id in mcp_profile:
+    for slot_id in set(persisted) | set(rag_profile) | set(session_slots) | set(mcp_profile) | set(asset_profile):
+        if slot_id in persisted:
+            sources[slot_id] = persisted_sources.get(slot_id, "coe_ui")
+        elif slot_id in asset_profile:
+            sources[slot_id] = "asset_registry"
+        elif slot_id in mcp_profile:
             sources[slot_id] = "mcp_discovery"
         elif slot_id in session_slots:
             sources[slot_id] = "chat_or_session"
-        elif slot_id in persisted:
-            sources[slot_id] = persisted_sources.get(slot_id, "coe_ui")
         elif slot_id in rag_profile:
             sources[slot_id] = "rag_kb"
         else:
@@ -87,6 +93,7 @@ def resolve_spl_source_profile(
     session_slots: dict[str, str] | None = None,
     required_sources: list[str] | None = None,
     run_mcp_discovery: bool = True,
+    template_id: str | None = None,
 ) -> SourceResolveResult:
     del user_query
     text = (spl or "").strip()
@@ -124,7 +131,13 @@ def resolve_spl_source_profile(
         if mcp_profile:
             tiers_used.append("mcp_discovery")
 
-    profile = merge_profiles(policy_profile, persisted, rag_profile, session_profile, mcp_profile)
+    asset_profile = build_asset_registry_profile(required_slots)
+    if asset_profile:
+        tiers_used.append("asset_registry")
+
+    # COE/manual persisted values are authoritative. MCP discovery fills blanks
+    # only in the effective merge and must not override analyst-entered slots.
+    profile = merge_profiles(policy_profile, rag_profile, session_profile, mcp_profile, asset_profile, persisted)
 
     resolved_slots = {slot: profile[slot] for slot in required_slots if slot in profile and profile[slot]}
     substituted, missing_slots = substitute_placeholders(text, profile)
@@ -134,6 +147,7 @@ def resolve_spl_source_profile(
         rag_profile=rag_profile,
         session_slots=session_profile,
         mcp_profile=mcp_profile,
+        asset_profile=asset_profile,
     )
 
     if missing_slots:
@@ -147,7 +161,11 @@ def resolve_spl_source_profile(
             fully_resolved=False,
         )
 
-    validation = validate_spl(substituted)
+    template = get_spl_template(template_id)
+    validation = validate_spl(
+        substituted,
+        template_profile=template.validation_rules if template is not None else None,
+    )
     fully_resolved = bool(validation.get("approved") and validation.get("normalized_spl"))
     if fully_resolved:
         tiers_used.append("validated_normalized_spl")

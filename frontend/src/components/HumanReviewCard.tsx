@@ -124,7 +124,7 @@ export function HumanReviewCard({
       {showSourceProfileLink ? (
         <div className="mt-3">
           <Button asChild variant="outline" size="sm">
-            <Link to="/settings/source-profiles">Open Source Profiles</Link>
+            <Link to="/settings/source-profiles">Open Environment Knowledge</Link>
           </Button>
         </div>
       ) : null}

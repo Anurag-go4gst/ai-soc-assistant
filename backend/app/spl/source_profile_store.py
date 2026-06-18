@@ -96,9 +96,14 @@ def save_persisted_source_profile(
 def merge_mcp_discovery_into_store(
     discovered: dict[str, str],
     *,
-    overwrite: bool = True,
+    overwrite: bool = False,
 ) -> dict[str, Any]:
-    """Merge MCP discovery values; MCP wins on conflict when overwrite=True."""
+    """Merge MCP discovery values.
+
+    COE/manual source-profile values are authoritative. MCP discovery may fill
+    blanks, but it must not overwrite stored values unless a caller explicitly
+    opts into that behavior for an admin remediation flow.
+    """
     with _store_lock:
         current = _read_document()
         values = dict(current.get("values") or {})

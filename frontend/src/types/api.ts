@@ -913,6 +913,57 @@ export interface SourceProfileDiscoverResponse extends SourceProfileSaveResponse
   mcp_discovery_trace: SourceProfileSettingsResponse['mcp_discovery_trace'];
 }
 
+export interface AssetRegistryRecord {
+  ip: string;
+  mac?: string;
+  asset_name: string;
+  asset_type?: string;
+  purdue_layer?: string;
+  criticality?: string;
+  substation_id?: string;
+  region?: string;
+  is_master_station?: boolean;
+  expected_firmware?: string;
+  notes?: string;
+}
+
+
+export interface IocRegistryHashRecord {
+  value: string;
+  hash_type: string;
+  confidence: string;
+  tlp: string;
+}
+
+export interface IocRegistrySettingsResponse {
+  enabled: boolean;
+  registry_path: string;
+  import_path_hint: string;
+  path_exists: boolean;
+  hash_count: number;
+  hashes: IocRegistryHashRecord[];
+  advisory_id?: string | null;
+  imported_at?: string | null;
+  staleness_status?: string | null;
+  source_count: number;
+  ioc_count: number;
+  validation_errors: string[];
+  read_only_hashes?: boolean;
+  import_instructions?: string;
+  saved?: boolean;
+}
+
+export interface AssetRegistryResponse {
+  assets: AssetRegistryRecord[];
+  asset_count: number;
+  updated_at?: string | null;
+  updated_by?: string | null;
+  source?: string | null;
+  store_path_configured?: boolean;
+  execution_authority?: string;
+  saved?: boolean;
+}
+
 export interface McpConnectionVerificationResult {
   action: string;
   status: string;
