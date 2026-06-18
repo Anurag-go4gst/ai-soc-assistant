@@ -4615,6 +4615,7 @@ def _context_stage(
         source_evidence,
         trace_id=trace_id,
         evidence_plan=evidence_plan,
+        query=query,
     )
     telemetry.record_step(
         trace_id,

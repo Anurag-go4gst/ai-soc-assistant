@@ -95,3 +95,46 @@ def test_cve_evidence_item_satisfies_source_evidence_envelope():
     env = SourceEvidenceEnvelope(**items[0])
     assert env.source_name == "vulnerability_source"
     assert env.trace_id == "trace-x"
+
+
+def test_kev_findings_for_query_flags_only_known_exploited():
+    """KEV enrichment: referenced CVE IDs that resolve AND carry kev=True are returned."""
+    from app.cve.evidence_adapter import kev_findings_for_query
+
+    class _StubStore:
+        _rows = {
+            "CVE-2024-1111": {"cve_id": "CVE-2024-1111", "kev": True, "kev_date_added": "2024-03-01", "severity": "CRITICAL"},
+            "CVE-2024-2222": {"cve_id": "CVE-2024-2222", "kev": False, "severity": "HIGH"},
+        }
+
+        def lookup_cve(self, cve_id: str):
+            return self._rows.get(cve_id.upper())
+
+    store = _StubStore()
+    q = "Investigate the alert citing CVE-2024-1111 and cve-2024-2222 on the EMS host."
+    findings = kev_findings_for_query(store, q)
+    assert [f["cve_id"] for f in findings] == ["CVE-2024-1111"]  # only the KEV one, normalized
+    assert findings[0]["kev_date_added"] == "2024-03-01"
+    # Degrades cleanly: no query / no CVE IDs / unknown CVE -> empty.
+    assert kev_findings_for_query(store, "") == []
+    assert kev_findings_for_query(store, "no cve mentioned") == []
+    assert kev_findings_for_query(store, "CVE-2030-9999") == []  # not in snapshot
+
+
+def test_vulnerability_context_line_surfaces_kev_warning():
+    from app.cve.evidence_adapter import vulnerability_context_line
+
+    line = vulnerability_context_line(
+        {
+            "status": "onboarded_snapshot",
+            "snapshot_id": "cve-x",
+            "snapshot_age_days": 1,
+            "kev_findings": [{"cve_id": "CVE-2024-1111", "kev_date_added": "2024-03-01"}],
+        }
+    )
+    assert "KEV" in line and "CVE-2024-1111" in line and "prioritize" in line.lower()
+    # No KEV findings -> base advisory line only, no KEV warning.
+    base = vulnerability_context_line(
+        {"status": "onboarded_snapshot", "snapshot_id": "cve-x", "kev_findings": []}
+    )
+    assert "onboarded" in base and "KEV" not in base

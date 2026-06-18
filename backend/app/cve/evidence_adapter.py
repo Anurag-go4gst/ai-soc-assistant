@@ -2,12 +2,44 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from typing import Any
 
 from app.config import settings
 from app.cve.requirements import cve_requirements_present
 from app.cve.snapshot_store import CveSnapshotStore
+
+_CVE_ID_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
+
+
+def kev_findings_for_query(store: CveSnapshotStore, query: str | None) -> list[dict[str, Any]]:
+    """Look up CVE IDs referenced in the query and return those flagged CISA-KEV.
+
+    Honest + degrading: only CVE IDs that resolve in the snapshot AND carry kev=True
+    are returned. Snapshots built before KEV support (no `kev` field) yield nothing.
+    """
+    if not query:
+        return []
+    findings: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in _CVE_ID_RE.findall(query):
+        cve_id = raw.upper()
+        if cve_id in seen:
+            continue
+        seen.add(cve_id)
+        row = store.lookup_cve(cve_id)
+        if isinstance(row, dict) and row.get("kev"):
+            findings.append(
+                {
+                    "cve_id": cve_id,
+                    "kev_date_added": row.get("kev_date_added"),
+                    "kev_action_due": row.get("kev_action_due"),
+                    "severity": row.get("severity"),
+                }
+            )
+    findings.sort(key=lambda f: f["cve_id"])
+    return findings
 
 
 def cve_requirements_from_plan(evidence_plan: dict[str, Any] | None) -> list[str]:
@@ -34,6 +66,7 @@ def resolve_vulnerability_source_status(
     *,
     required_produces: list[str] | None = None,
     evidence_plan: dict[str, Any] | None = None,
+    query: str | None = None,
 ) -> dict[str, Any] | None:
     """Resolve CVE snapshot read-model status when the plan needs vulnerability context."""
     required = list(required_produces or [])
@@ -45,6 +78,10 @@ def resolve_vulnerability_source_status(
         stale_after_days=settings.ai_soc_cve_snapshot_stale_after_days,
     )
     status = store.vulnerability_source_status()
+    # KEV enrichment only makes sense against an onboarded (verified) snapshot.
+    kev_findings = (
+        kev_findings_for_query(store, query) if status.status == "onboarded_snapshot" else []
+    )
     return {
         "status": status.status,
         "snapshot_id": status.snapshot_id,
@@ -52,6 +89,7 @@ def resolve_vulnerability_source_status(
         "snapshot_age_days": status.snapshot_age_days,
         "limitation": status.limitation,
         "provenance": status.provenance,
+        "kev_findings": kev_findings,
     }
 
 
@@ -61,11 +99,13 @@ def append_cve_snapshot_source_evidence(
     trace_id: str,
     required_produces: list[str] | None = None,
     evidence_plan: dict[str, Any] | None = None,
+    query: str | None = None,
 ) -> list[dict[str, Any]]:
     """Append honest CVE snapshot provenance — never fabricates CVE rows."""
     vuln = resolve_vulnerability_source_status(
         required_produces=required_produces,
         evidence_plan=evidence_plan,
+        query=query,
     )
     if vuln is None:
         return source_evidence
@@ -109,10 +149,18 @@ def vulnerability_context_line(vuln: dict[str, Any] | None) -> str | None:
         sid = vuln.get("snapshot_id") or "snapshot"
         age = vuln.get("snapshot_age_days")
         age_txt = f", {age}d old" if isinstance(age, int) else ""
-        return (
+        base = (
             f"Vulnerability context: CVE snapshot onboarded ({sid}{age_txt}); advisory only "
             "— host/product correlation requires asset + CPE join keys before any unpatched-CVE claim."
         )
+        kev = vuln.get("kev_findings")
+        if isinstance(kev, list) and kev:
+            ids = ", ".join(str(f.get("cve_id")) for f in kev if f.get("cve_id"))
+            base += (
+                f" ⚠ {len(kev)} referenced CVE(s) are on the CISA Known-Exploited (KEV) list "
+                f"[{ids}] — prioritize patching/containment over routine triage."
+            )
+        return base
     if status == "stale":
         return (
             f"Vulnerability context: CVE snapshot is stale ({vuln.get('snapshot_id') or 'snapshot'}); "

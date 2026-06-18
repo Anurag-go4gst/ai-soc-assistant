@@ -63,6 +63,7 @@ def test_dns_observation_window_paraphrase_live_contract() -> None:
     payload = _chat("List all DNS requests during the observation window.")
 
     understanding = payload["query_understanding"]
+    analyst = payload["analyst_response"]
     preview = payload.get("spl_draft_preview")
     validation = payload.get("spl_validation")
 
@@ -70,7 +71,32 @@ def test_dns_observation_window_paraphrase_live_contract() -> None:
     assert payload["selected_skill"] == "spl_generation"
     assert preview is not None
     assert preview["detection_family"] == "dns_query_window_review"
+    assert analyst is not None
+    assert analyst["draft_spl_code"]
+    assert analyst["spl_draft_preview"]["detection_family"] == "dns_query_window_review"
+    assert analyst["spl_status_detail"]["generation_status"] == "draft_preview"
+    assert analyst["spl_status_detail"]["reason"] == "draft_preview_lab"
+    assert analyst["hil_status"] == "required"
+    assert analyst["direct_answer_summary"]
+    bad_answer_fragments = (
+        "spl query generation is blocked",
+        "hil status is not required",
+        "human intelligence (hil) status is not required",
+        "no mitre techniques are applicable as none are listed in the contract",
+        "spl template status is unknown",
+        "spl validation failed",
+    )
+    rendered_text = " ".join(
+        str(value)
+        for value in (
+            analyst.get("direct_answer_summary"),
+            analyst.get("one_sentence_finding"),
+            analyst.get("foundation_sec_analysis"),
+            analyst.get("spl_status_detail", {}).get("reason_display"),
+        )
+        if value
+    ).lower()
+    assert not any(fragment in rendered_text for fragment in bad_answer_fragments)
     if validation is not None:
         assert validation["approved"] is False
         assert validation["normalized_spl"] is None
-
