@@ -117,6 +117,9 @@ class Settings(BaseSettings):
     # WS-A CVE snapshot read model (plan §3 A5). Default-off, fail-closed.
     ai_soc_cve_snapshot_dir: str = ""
     ai_soc_cve_snapshot_stale_after_days: int = 30
+    # NVD API key for the connected-zone CVE snapshot builder (operator tooling only;
+    # never used by the air-gapped runtime). Registered so the .env value loads cleanly.
+    nvd_api_key: str = ""
     routing_compare_logging_enabled: bool = True
     # Stage 3L-S3 Steps 1–2: shadow compare envelope only (no route authority change).
     route_authority_compare_enabled: bool = True
