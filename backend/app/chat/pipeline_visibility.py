@@ -180,6 +180,7 @@ def build_pipeline_node_trace(
             guardrail_status="review_required" if spl_status in {"planned", "unavailable"} else "passed",
             human_review_required=bool(spl_status in {"planned", "unavailable"}),
             limitations=_spl_limitations(spl_status),
+            llm_call=_spl_node_llm_call(candidate_spl if isinstance(candidate_spl, dict) else None),
         )
     )
 
@@ -356,6 +357,9 @@ def build_pipeline_visibility(
             spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
         ),
         "node_trace": node_trace,
+        # Authoritative per-turn list of where the LLM was actually invoked, so the
+        # analyst can see which step(s) used the model vs deterministic logic.
+        "llm_calls": _llm_calls_summary(state),
         "answer_guard_status": guard_status,
         "final_answer_safety_status": safety_status,
     }
@@ -370,8 +374,9 @@ def _trace_record(
     guardrail_status: GuardrailStatus,
     human_review_required: bool,
     limitations: list[str],
+    llm_call: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    record = {
         "node_name": node_name,
         "input_summary": input_summary,
         "output_summary": output_summary,
@@ -379,7 +384,35 @@ def _trace_record(
         "guardrail_status": guardrail_status,
         "human_review_required": human_review_required,
         "limitations": limitations,
+        # Whether an LLM call was made at this node (advisory; deterministic stays
+        # authoritative). None when the node is purely deterministic.
+        "llm_call": llm_call,
     }
+    return record
+
+
+def _spl_node_llm_call(candidate_spl: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Mark the SPL node when the governed LLM T2 producer was invoked."""
+    if not isinstance(candidate_spl, dict) or not candidate_spl.get("llm_fallback_used"):
+        return None
+    return {
+        "called": True,
+        "role": "spl_t2_producer",
+        "status": candidate_spl.get("llm_fallback_status"),
+        "provider": candidate_spl.get("selected_candidate_spl_provider"),
+        "model": candidate_spl.get("llm_model_family") or candidate_spl.get("model"),
+        "governed": True,
+        "execution_eligible": bool(candidate_spl.get("execution_eligible")),
+    }
+
+
+def _llm_calls_summary(state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Authoritative list of LLM invocations this turn (from the turn budget)."""
+    budget = state.get("llm_turn_budget")
+    records = getattr(budget, "records", None)
+    if not isinstance(records, list):
+        return []
+    return [dict(r) for r in records if isinstance(r, dict)]
 
 
 def _spl_status_reason(status: str | None) -> str:

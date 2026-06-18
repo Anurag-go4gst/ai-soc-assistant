@@ -2211,6 +2211,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_guard=answer_guard.model_dump(),
             node_trace=visibility.get("node_trace"),
         )
+        control_plane_trace["llm_calls"] = visibility.get("llm_calls")
         control_plane_trace["llm_composer"] = composer_trace
         if missing_evidence_reasoning_trace is not None:
             control_plane_trace["missing_evidence_reasoning"] = missing_evidence_reasoning_trace
