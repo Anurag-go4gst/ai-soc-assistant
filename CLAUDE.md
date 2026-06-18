@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent instructions (read first)
+
+**Canonical rules for all coding agents:** [`AGENTS.md`](AGENTS.md)
+
+Claude Code must follow `AGENTS.md` in full — especially **Agent Execution Playbook** (repo-first research, end-to-end tracing, validation gates, common mistakes, and prompt patterns). This file adds project context, stack, gotchas, and plan index; it does not override safety boundaries or operating rules in `AGENTS.md`.
+
+**Active work:** see [`plans/README.md`](plans/README.md) and the **Active work** section in `AGENTS.md`.
+
 ## Project
 
 AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC dashboard. FastAPI backend + React/TypeScript frontend + Postgres. The app currently supports skill routing, workflow planning, candidate SPL generation, deterministic SPL validation, MCP discovery/tool selection, human-in-the-loop gates, optional explicitly-enabled mock MCP execution, a generic multi-MCP readiness registry, a multi-LLM provider/model readiness registry, governed SOC-KB RAG retrieval into `SourceEvidence`/`StructuredContext`, a Context Sufficiency Gate (Stage 3J), a governed LLM configuration/status layer (Stage 3J-B), telemetry/status surfaces, and deterministic safeguards. Production access goes through Nginx at `https://cisco-vai.vnudge.com`; Docker service ports are bound to `127.0.0.1` and must never be exposed publicly.
@@ -223,7 +231,9 @@ Until staging smoke passes, live envelopes carry `real_schema_unverified` (adapt
 | `plans/2026-06-02_chat-control-plane-master.md` | **Done** — chat control plane implementation (phases 0–11 on `master`). `CONTROL_PLANE_ENABLED=false` remains rollout default until COE approves. |
 | `plans/AI_SOC_MASTER_PLAN.md` | **Active implementation roadmap** — hardening, skill enrichment, pipeline/LangGraph, GitHub skill intake (Tracks A–D); Batches 2–5 completed, next batch requires explicit scope approval. |
 | `plans/STAGE_3K_Q1C_TO_Q4_SPINE.md` | Logic hierarchy, rules, status tables — agents read for Q1C→Q4 spine context. |
+| `plans/2026-06-17_1730_intent-node-cascade-hardening.md` | **Done** — intent cascade floor, Engine-3 reconcile, Cisco 50 intent harness, completeness floor wiring, out-of-set probe eval |
 | `/root/.cursor/plans/guided_investigation_5th_skill_098a0cdf.plan.md` | Done — guided investigation fifth route plus confirmed air-gapped Splunk MCP seven-tool binding; discovery remains planned-only and execution-gated. |
+| `.cursor/plans/environment_kb_cisco_catalogue_1eddd12f.plan.md` | **Next (Batch 1)** — Environment KB, Cisco 50 bank/eval, tiered SPL; read Review Addendum §A–D before coding |
 | `/root/.cursor/plans/spl_generation_audit_30f60bc7.plan.md` | **Done** — relevance-first SPL audit (Phases A–H). Final: 105 100/102 deterministic (102/102 with `--llm-mock`), catalogue 31/31, governance green. G: lab-tier LLM exposure; E: `spl_simplifier`; F: offline template audit; H: `graph_node_spl_source_resolve`. Completion review: `plans/2026-06-13_spl-generation-audit-completion.md`. Commit `8f44eee`. |
 | `/root/.cursor/plans/llm_lab-tier_spl_exposure_0c7c3c33.plan.md` | **Done** — merged into SPL audit close (`8f44eee`). Lab-tier exposure + H0–H4 source resolve; H2 MCP discovery scaffold only until COE. |
 

@@ -2,6 +2,94 @@
 
 Guidance for coding agents working in this repository.
 
+**Audience:** Cursor, Codex, Claude Code, and any other coding agent — treat this file as **canonical**. [`CLAUDE.md`](CLAUDE.md) adds Claude-specific entry context and links here; do not maintain conflicting rules in two places.
+
+## Agent Execution Playbook
+
+Cross-cutting rules learned from review cycles. These apply to **every** task, not only the current plan.
+
+### Before writing code
+
+1. **Read the repo, not just the plan.** Grep for existing loaders, tests, flags, and seam functions. Plans go stale; the tree is authoritative for what exists.
+2. **Trace the full path you are changing.** For routing/intent work: `query → understand_query → build_query_to_intent → plan_evidence → route_adjudication → finalize`. Fixing one layer (e.g. `candidate_mappings` only) while leaving `intent_classification` or `evidence_plan` unchanged often produces **cosmetic** improvements with no analyst-visible effect.
+3. **Identify downstream consumers.** Example: `planning_decision` trace metadata alone does not change live answers if `route_adjudication` reads `evidence_plan` instead.
+4. **Prefer extend over recreate.** Add assertions to existing tests and entries to existing JSON maps; avoid parallel modules that drift.
+5. **Scope one objective per change set.** Do not mix control-plane logic, connector readiness, UI polish, eval baseline refresh, and deployment in one commit unless explicitly asked.
+
+### During implementation
+
+6. **Preserve governance defaults.** MCP execution off, candidate SPL non-executable, LLM advisory-only, deterministic wins on conflict — unless the user explicitly approves a stage boundary change.
+7. **Fail closed on ambiguity.** Missing slots, unverified registry rows, and off-scope queries → clarification or honest degrade — not fabricated indexes, SPL, or live MCP rows.
+8. **Match existing conventions.** Read surrounding modules for naming, import style, Pydantic patterns, and test layout before adding helpers.
+9. **No inline imports** unless a documented circular-dependency exception exists (see workspace rules).
+10. **Security-sensitive writes need auth, validation, redaction, and limits.** Settings APIs, import/export, CSV upload, asset registry — enforce session/admin guards, size caps, formula-injection protection, and audit fields; never add public unauthenticated write endpoints.
+11. **Authority precedence must be explicit.** When merging config (source profiles, slots, registry hints): COE/manual values win; RAG/session/MCP may **fill blanks only**, not override operator-configured security-sensitive fields.
+
+### Validation (do not skip)
+
+12. **Run targeted tests for every touched package**, then the relevant gate:
+    - Control plane / intent: `pytest` on affected tests + `scripts/eval_out_of_set_intent_probe.py --check` when intent changes
+    - Broad backend: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest`
+    - Governance: `./scripts/run_stage3_governance_regression.sh` before claiming control-plane work done
+    - Frontend: `cd frontend && npm run build` for any UI change; prod serves `frontend/dist` via Nginx
+13. **Probe with novel queries**, not only in-catalog golden rows. In-set 105/120 passing can hide out-of-registry clarification dumps.
+14. **Do not commit accidental eval baseline drift** (`soc_clean_answer_eval_*`, `langgraph_dual_parity_*`, etc.) unless the task was explicitly to refresh baselines.
+15. **Report what you verified** (commands run, pass/fail counts). "Should work" is not verification.
+
+### Review and handoff
+
+16. **State repo-vs-plan deltas.** If the plan says "wire loader" but loader exists, say so and narrow remaining work — do not re-implement.
+17. **Call out deferrals explicitly.** Trace-only wiring, COE-gated flags, and mock-only paths are not the same as production behavior.
+18. **List known gaps** left for a follow-up PR instead of silently shipping partial behavior.
+19. **Do not mark todos complete** in plan frontmatter unless the acceptance criteria in the plan (or addendum) are met and tested.
+
+### Common agent mistakes (avoid)
+
+| Mistake | Why it hurts | Do instead |
+|---------|--------------|------------|
+| Updating `candidate_mappings` but not `intent_classification` after promotion | Evidence plan and route stay on old family | Reconcile intent after promotion; test end-to-end |
+| Treating `requires_hil=true` as unsafe veto for all advisory paths | Blocks Engine-3 rescue on guided floor | Veto only `primary_intent == human_review` (unsafe/run-SPL) |
+| Letting `explicit_search_intent` fire before non-SOC guards | HR/policy queries draft SPL | Early `non_soc_or_out_of_scope` exit |
+| Trace-only completeness floor | Planner trace says hybrid; answer stays rag-only | Wire floor into `plan_evidence` / honor in adjudication |
+| Blanket Tier-2 SPL capabilities on all templates | Expands attack surface | Per-template `validation_rules`; test unused caps stay off |
+| MCP discovery overriding COE slots | Wrong index/sourcetype in production SPL | COE/manual wins; MCP fills missing only |
+| Metadata hygiene returning hunt SPL or fake live rows | Misleading analyst card | `planned` / `configured_unavailable` / live sanitized only when enabled |
+| "Implement the plan" without reading code | Duplicates completed work | Grep + extend existing tests first |
+| One giant commit mixing concerns | Hard review, easy regressions | Stage-scoped commits per Commit Hygiene below |
+| Passing only in-set evals | Misses 29/50-style classification dumps | Use out-of-set probe harness + novel phrasing |
+
+### Good prompts for the user to give agents
+
+**Effective:**
+
+- "Implement Batch 1 PR #1 from `plans/…` addendum §D only. Grep for existing Cisco loader first. Run governance regression + probe eval before done."
+- "Fix the bug where X; add a regression test; do not change unrelated routing."
+- "Review my implementation against AGENTS.md playbook items 1–3 and report gaps."
+
+**Weak (agent will under-deliver or over-scoped):**
+
+- "Implement the Cisco plan." (too broad; plan may be stale)
+- "Make intent work better." (no acceptance criteria)
+- "Fix everything in the review." (no priority or test gate)
+- "Commit and push." (without specifying scope or excluding baseline noise)
+
+### Documentation map
+
+| File | Purpose |
+|------|---------|
+| [`AGENTS.md`](AGENTS.md) | **This file** — rules, safety, playbook, verification |
+| [`hooks.md`](hooks.md) | Cursor hooks + optional Git pre-commit |
+| [`CLAUDE.md`](CLAUDE.md) | Claude Code entry — stack, gotchas, plan index (links here for rules) |
+| [`plans/README.md`](plans/README.md) | Active work pointers |
+| [`plans/`](plans/) | Versioned implementation specs |
+| `.cursor/plans/` | Cursor-local plans — may be ahead of git; reconcile into `plans/` for shared truth |
+
+## Active work (pointers)
+
+- **Intent cascade:** Done — [`plans/2026-06-17_1730_intent-node-cascade-hardening.md`](plans/2026-06-17_1730_intent-node-cascade-hardening.md). Harness: `test_cisco_intent_distribution.py`, `scripts/eval_out_of_set_intent_probe.py`.
+- **Cisco Environment KB + 50-Q catalogue:** Next — full spec in `.cursor/plans/environment_kb_cisco_catalogue_1eddd12f.plan.md`; read **Review Addendum §A–D** before Batch 1 (repo-state, phased eval gates, security). Loader/map largely exist — extend, do not recreate.
+- **Master roadmap:** [`plans/AI_SOC_MASTER_PLAN.md`](plans/AI_SOC_MASTER_PLAN.md).
+
 ## Operating Rules
 
 - Read the local code before changing behavior. Preserve the existing FastAPI + React/Vite structure.

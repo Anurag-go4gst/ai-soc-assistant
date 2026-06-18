@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": ".cursor/hooks/stop-verify-handoff.sh",
+        "loop_limit": 1
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": ".cursor/hooks/subagent-verify-handoff.sh",
+        "matcher": "implementer|generalPurpose|shell",
+        "loop_limit": 1
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/before-shell-guardrails.sh"
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": ".cursor/hooks/block-secret-paths.sh",
+        "matcher": "Write|ApplyPatch|EditNotebook",
+        "failClosed": true
+      }
+    ]
+  }
+}

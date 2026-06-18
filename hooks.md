@@ -1,17 +1,70 @@
 # hooks.md
 
-Suggested local hook policy for this repository.
+Hook policy for this repository — **Cursor project hooks** (active) plus **optional Git pre-commit** (manual install).
 
-These hooks are guidance only. Do not install or modify Git hooks without an explicit request.
+Canonical agent rules: [`AGENTS.md`](AGENTS.md) (Agent Execution Playbook). Hooks automate guardrails and verification handoff; they do not replace reading that playbook.
 
-## Pre-Commit Checks
+## Cursor project hooks (active)
+
+Config: [`.cursor/hooks.json`](.cursor/hooks.json)  
+Scripts: [`.cursor/hooks/`](.cursor/hooks/)
+
+Cursor reloads `hooks.json` on save. If hooks do not fire, restart Cursor and check **Settings → Hooks** or the **Hooks** output channel.
+
+| Event | Script | Purpose |
+|-------|--------|---------|
+| `stop` | `stop-verify-handoff.sh` | Writes [`.cursor/last-handoff.md`](.cursor/last-handoff.md) for Claude/Codex; optional one-turn verify follow-up (`loop_limit: 1`) |
+| `subagentStop` | `subagent-verify-handoff.sh` | After implementer/generalPurpose/shell subagents — nudge parent to review diff and run tests |
+| `beforeShellExecution` | `before-shell-guardrails.sh` | Block force-push to main/master, `git config` changes; ask on broad `git add` / public docker publish |
+| `preToolUse` (Write/ApplyPatch/EditNotebook) | `block-secret-paths.sh` | Deny writes to `.env`, credential-like paths (`failClosed: true`) |
+
+### Disable verify follow-up (keep handoff file)
+
+Verification follow-ups on `stop` / `subagentStop` add one extra agent turn. To disable only that behavior while keeping `.cursor/last-handoff.md`:
+
+```bash
+touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
+```
+
+Remove the file to re-enable follow-ups.
+
+### Cross-agent handoff (Cursor → Claude Code / Codex)
+
+1. Cursor agent finishes → `stop` hook writes `.cursor/last-handoff.md`.
+2. Open the same repo in Claude Code or Codex.
+3. Paste the suggested verify prompt from that file, or ask: *"Follow `.cursor/last-handoff.md` and AGENTS.md playbook."*
+
+Requires `jq` on the PATH for hook scripts (already used by guardrail scripts).
+
+## Optional Git pre-commit hook
+
+Script: [`scripts/hooks/run-pre-commit-checks.sh`](scripts/hooks/run-pre-commit-checks.sh)
+
+**Not installed by default.** Install only when you want commit-time checks for all tools (not just Cursor):
+
+```bash
+chmod +x scripts/hooks/run-pre-commit-checks.sh
+ln -sf ../../scripts/hooks/run-pre-commit-checks.sh .git/hooks/pre-commit
+```
+
+What it does on `git commit`:
+
+- **Fail** if `.env` is staged
+- **Fail** if staged diff matches private-key / bearer-token / session-secret patterns
+- **Warn** on execution-boundary patterns (MCP exec flags, tool calling, etc.)
+- **Warn** (non-blocking) if fast backend smoke tests fail when `backend/` is staged
+- **Fail** if `frontend/` is staged and `npm run build` fails
+
+Uninstall: `rm .git/hooks/pre-commit`
+
+## Manual pre-commit checks (no Git hook)
 
 Run focused checks based on touched files:
 
 - Backend Python changes:
   ```bash
   cd backend
-  python3 -m pytest
+  PYTHONPATH=../backend:.. python3 -m pytest
   ```
 
 - Frontend TypeScript/React changes:
@@ -20,13 +73,19 @@ Run focused checks based on touched files:
   npm run build
   ```
 
-- Test harness or execution-boundary changes:
+- Control plane / intent changes:
   ```bash
-  python3 -m test_harness.harness.runner --json
-  TELEMETRY_MODE=none python3 -m test_harness.harness.runner --json
+  ./scripts/run_stage3_governance_regression.sh
+  PYTHONPATH=backend:. python3 scripts/eval_out_of_set_intent_probe.py --check
   ```
 
-## Secret Guardrails
+- Test harness or execution-boundary changes:
+  ```bash
+  PYTHONPATH=backend:. python3 -m test_harness.harness.runner --json
+  TELEMETRY_MODE=none PYTHONPATH=backend:. python3 -m test_harness.harness.runner --json
+  ```
+
+## Secret guardrails
 
 Reject commits that include:
 
@@ -44,25 +103,23 @@ git diff --cached | grep -Ei 'api[_-]?key|bearer |password|token|session_secret|
 
 Manual review is still required because placeholder examples may intentionally contain names such as `API_KEY=` with empty or fake values.
 
-## Stage Boundary Guardrails
+## Stage boundary guardrails
 
 Until a later stage explicitly enables execution, review staged diffs for accidental additions of:
 
-- SPL generation
-- SPL execution
+- SPL execution (beyond governed candidate generation)
 - MCP tool execution
-- RAG retrieval
-- final LLM synthesis
+- final LLM synthesis enabled without COE approval
 - Splunk telemetry write paths
-- direct LLM-to-MCP tool calling
+- direct LLM-to-MCP tool calling (`supports_tool_calling: true`)
 
 Useful scan:
 
 ```bash
-git diff --cached | grep -Ei 'execute_validated_spl|run_query|generate_spl|complete_synthesis|record_mcp_execution|splunk_write|tool_calling.*true'
+git diff --cached | grep -Ei 'execute_validated_spl|run_query|complete_synthesis|record_mcp_execution|splunk_write|tool_calling.*true|MCP_GLOBAL_EXECUTION_ENABLED\s*=\s*true'
 ```
 
-## Commit Message Convention
+## Commit message convention
 
 Use concise imperative messages:
 
@@ -70,3 +127,11 @@ Use concise imperative messages:
 - `Add multi-MCP and multi-LLM readiness registry`
 - `Update agent guidance for readiness stages`
 
+## Hook layers (summary)
+
+| Layer | Scope | When it runs |
+|-------|-------|--------------|
+| `AGENTS.md` playbook | All agents | Every session (read manually) |
+| Cursor hooks | Cursor agent | During edit / shell / stop |
+| Git pre-commit | Any client | On `git commit` (optional) |
+| CI / PR checks | Remote | On push (existing repo CI) |
