@@ -19,6 +19,8 @@ _NVD_SAMPLE = {
         {
             "cve": {
                 "id": "CVE-2024-1234",
+                "cisaExploitAdd": "2024-03-01",
+                "cisaActionDue": "2024-03-22",
                 "metrics": {"cvssMetricV31": [{"cvssData": {"baseSeverity": "CRITICAL"}}]},
                 "configurations": [
                     {"nodes": [{"cpeMatch": [{"criteria": "cpe:2.3:a:acme:widget:1.0:*:*:*:*:*:*:*"}]}]}
@@ -38,6 +40,54 @@ def test_normalize_nvd_items_is_deterministic_and_defensive():
     assert rows[0]["products"] == ["widget"]
     assert rows[1]["severity"] == "UNKNOWN"
     assert rows[1]["products"] == []
+    # KEV flag derives from the NVD-embedded cisaExploitAdd field.
+    assert rows[0]["kev"] is True
+    assert rows[0]["kev_date_added"] == "2024-03-01"
+    assert rows[1]["kev"] is False
+    assert rows[1]["kev_date_added"] is None
+
+
+_NVD_CHANGES_SAMPLE = {
+    "cveChanges": [
+        {"change": {"cveId": "CVE-2024-1234", "eventName": "CVE CISA KEV Update", "sourceIdentifier": "cisa", "created": "2024-03-01T00:00:00.000"}},
+        {"change": {"cveId": "CVE-2024-5678", "eventName": "Initial Analysis", "sourceIdentifier": "nvd@nist.gov", "created": "2024-02-01T00:00:00.000"}},
+        {"not_a_change": True},  # dropped
+    ]
+}
+
+
+def test_normalize_nvd_changes_sorts_and_flags_kev():
+    rows = cbs.normalize_nvd_changes(_NVD_CHANGES_SAMPLE["cveChanges"])
+    assert [r["cve_id"] for r in rows] == ["CVE-2024-5678", "CVE-2024-1234"]  # sorted by created
+    kev_row = next(r for r in rows if r["cve_id"] == "CVE-2024-1234")
+    assert kev_row["kev_update"] is True
+    assert kev_row["event"] == "CVE CISA KEV Update"
+    assert all(r["kev_update"] is False for r in rows if r["cve_id"] == "CVE-2024-5678")
+
+
+def test_change_log_populated_from_raw_changes(tmp_path: Path):
+    import sys
+
+    raw = tmp_path / "nvd.json"
+    raw.write_text(json.dumps(_NVD_SAMPLE))
+    raw_changes = tmp_path / "changes.json"
+    raw_changes.write_text(json.dumps(_NVD_CHANGES_SAMPLE))
+    out = tmp_path / "pkg"
+    argv = sys.argv
+    sys.argv = [
+        "cve_build_snapshot.py", "--out", str(out), "--raw", str(raw),
+        "--raw-changes", str(raw_changes),
+        "--signature", "sig-abc", "--signer-id", "soc-signer",
+    ]
+    try:
+        assert cbs.main() == 0
+    finally:
+        sys.argv = argv
+    change_log = json.loads((out / "cve_change_log.json").read_text())
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert len(change_log["changes"]) == 2
+    assert manifest["counts"]["changes"] == 2
+    assert manifest["counts"]["kev"] == 1
 
 
 def test_built_package_verifies_and_loads(tmp_path: Path):
