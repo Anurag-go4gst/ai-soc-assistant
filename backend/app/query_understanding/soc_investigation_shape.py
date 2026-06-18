@@ -46,8 +46,80 @@ def prefers_guided_investigation_over_catalog(query: str) -> bool:
     return not any(term in normalized for term in _CONCRETE_SPL_CATALOG_MARKERS)
 
 
+# OT/ICS/grid hunt context. Detection-imperative phrasing ("flag/detect/identify
+# <protocol or asset>") over these tokens is investigation-shaped even without an
+# explicit "hunt"/"anomaly" word, so out-of-registry OT-protocol asks reach the
+# guided_investigation rescue (where RAG grounding + LLM enrichment can engage)
+# instead of dropping to a thin knowledge_recall answer.
+_OT_ICS_CONTEXT = (
+    "modbus",
+    "dnp3",
+    "dnp 3",
+    "iec-104",
+    "iec 104",
+    "iec-101",
+    "iec-61850",
+    "iec 61850",
+    "goose",
+    "iccp",
+    "scada",
+    " plc",
+    " rtu",
+    " ied",
+    " hmi",
+    " ics ",
+    "ot dmz",
+    "ami ",
+    "smart meter",
+    "pmu",
+    "phasor",
+    "synchrophasor",
+    "substation",
+    "breaker",
+    "relay",
+    "setpoint",
+    "inverter",
+    "firmware",
+    "purdue",
+    "agc",
+    "sldc",
+    "feeder",
+    "distribution transformer",
+    "energy management system",
+    # IT/identity hunt cues for out-of-registry detection asks with no OT token
+    # (concurrent-session / impossible-travel, AD account-lifecycle event codes).
+    "concurrent",
+    "two different locations",
+    "two separate locations",
+    "impossible travel",
+    "event code 4720",
+    "event code 4624",
+    "event code 4625",
+    "account creation",
+    "newly created account",
+    "credential dumping",
+)
+_DETECTION_VERBS = (
+    "flag ",
+    "detect ",
+    "identify ",
+    "show ",
+    "list ",
+    "alert on",
+    "find ",
+    "surface ",
+    "monitor ",
+    "look for",
+)
+
+
 def detect_soc_investigation_shape(query: str, *, exact_105_match: bool = False) -> bool:
     normalized = " ".join(query.lower().split())
+    # Pad so leading-space context tokens (e.g. " plc", " rtu") match at the edges.
+    padded = f" {normalized} "
+    ot_ics_detection = any(verb in padded for verb in _DETECTION_VERBS) and any(
+        ctx in padded for ctx in _OT_ICS_CONTEXT
+    )
     hunt_phrasing = any(
         term in normalized
         for term in (
@@ -109,7 +181,7 @@ def detect_soc_investigation_shape(query: str, *, exact_105_match: bool = False)
     )
     non_soc = any(term in normalized for term in ("hr policy", "vacation policy", "payroll", "expense policy"))
     return bool(
-        (hunt_phrasing or (anomaly_phrasing and network_or_ot_context))
+        (hunt_phrasing or (anomaly_phrasing and network_or_ot_context) or ot_ics_detection)
         and not unsafe_or_execution
         and not sop_only
         and not non_soc
