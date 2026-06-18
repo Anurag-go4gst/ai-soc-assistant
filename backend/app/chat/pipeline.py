@@ -3341,6 +3341,12 @@ def _candidate_spl_stage(
             "candidate_families": (
                 _ambiguous_families(user_query) if llm_failover_enabled else None
             ),
+            # WS-F: governed deterministic grounding (detection families + MITRE/ATLAS
+            # + AI-threat refs) so the T2 LLM SPL is anchored to in-repo references,
+            # never invented. Advisory context only; the producer still validates output.
+            "t2_grounding": (
+                _build_t2_grounding_block(user_query) if llm_failover_enabled else None
+            ),
         },
     )
     if fallback_candidate is not None:
@@ -3716,6 +3722,25 @@ def _ambiguous_families(user_query: str) -> list[str] | None:
     the prompt is not cluttered for the common single-match case."""
     families = candidate_detection_families(user_query)
     return families if len(families) > 1 else None
+
+
+def _build_t2_grounding_block(user_query: str) -> str | None:
+    """WS-F governed grounding for the T2 LLM SPL producer (advisory, never authority).
+
+    Anchors the out-of-catalogue prompt to in-repo detection families + MITRE/ATLAS
+    references so the LLM SPL is grounded, not invented. Best-effort: never breaks the
+    SPL path."""
+    try:
+        from app.chat.grounding_assembler import assemble_grounding
+
+        block = assemble_grounding(
+            user_query,
+            detection_families=candidate_detection_families(user_query, limit=4),
+        )
+        text = block.to_prompt_block()
+        return text or None
+    except Exception:
+        return None
 
 
 def _should_use_llm_spl_failover(skill: str) -> bool:

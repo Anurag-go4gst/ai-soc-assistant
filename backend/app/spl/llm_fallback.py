@@ -550,6 +550,13 @@ def _user_prompt(
             parts.append("Routing context (use it to anchor the data source and entity):")
             parts.extend(ctx_lines)
             parts.append("")
+        grounding = context.get("t2_grounding")
+        if isinstance(grounding, str) and grounding.strip():
+            parts.append(
+                "Deterministic grounding (advisory — anchor families/MITRE/sources; do not invent indexes):"
+            )
+            parts.append(grounding.strip())
+            parts.append("")
     if relevance_feedback:
         parts.append(
             "Your previous attempt did not answer the question. Fix these specific mismatches:"

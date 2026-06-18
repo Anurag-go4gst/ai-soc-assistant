@@ -8,10 +8,10 @@
       "requires_hil": true
     },
     "probe.guided.vpn_anomalies": {
-      "intent_family": "guided_investigation",
+      "intent_family": "spl_generation_only",
       "match_path": "out_of_registry",
       "requires_clarification": false,
-      "requires_hil": true
+      "requires_hil": false
     },
     "probe.metadata.index_permissions": {
       "intent_family": "clarification_required",
@@ -26,9 +26,9 @@
       "requires_hil": false
     },
     "probe.novel.kerberoasting": {
-      "intent_family": "clarification_required",
+      "intent_family": "spl_generation_only",
       "match_path": "out_of_registry",
-      "requires_clarification": true,
+      "requires_clarification": false,
       "requires_hil": false
     },
     "probe.novel.ot_goose_injection": {
@@ -38,10 +38,10 @@
       "requires_hil": true
     },
     "probe.novel.rdp_correlation": {
-      "intent_family": "guided_investigation",
+      "intent_family": "spl_generation_only",
       "match_path": "out_of_registry",
       "requires_clarification": false,
-      "requires_hil": true
+      "requires_hil": false
     },
     "probe.paraphrase.smb_talkers": {
       "intent_family": "spl_generation_only",

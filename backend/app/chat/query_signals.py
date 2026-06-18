@@ -28,6 +28,15 @@ _ANALYTICS_RANK_RE = re.compile(
     r"\b(?:most|top|highest|largest|busiest|noisiest|rank|ranked|ranking)\b",
     re.IGNORECASE,
 )
+# Named detection behaviours / SOC hunt nouns — result-seeking even without a
+# ranking word or registry match (e.g. "kerberoasting", "credential dumping").
+_DETECTION_TECHNIQUE_RE = re.compile(
+    r"\b(?:kerberoast\w*|credential\s+dump\w*|lateral\s+movement|brute[\s-]?force|"
+    r"exfil\w*|beacon\w*|c2|command[\s-]and[\s-]control|dga|tunnel\w*|"
+    r"privilege\s+escalation|persistence|port\s+scan\w*|scanning|"
+    r"shadow\s+cop\w*|log\s+clear\w*|impossible\s+travel|spray\w*)\b",
+    re.IGNORECASE,
+)
 _ANALYTICS_PHRASES = (
     "top talkers",
     "top talker",
@@ -584,6 +593,30 @@ def extract_query_signals(
         and not explicit_run_spl
     )
 
+    # Broad detection/analytics floor (anti-dead-end). Routes result-seeking SOC asks
+    # to the governed SPL path (template -> family -> validated LLM T2 producer ->
+    # honest scaffold), never a knowledge_recall dead-end. Genuine "how should I
+    # investigate" hunts stay guided; knowledge/SOP/explain/unsafe/out-of-scope keep
+    # their honest outcomes. Safe because the SPL producer is governed: it validates,
+    # quality-lints, and forces execution off (no raw free-form SPL reaches the analyst).
+    soc_detection_intent = bool(
+        (
+            analytics_aggregation
+            or _ANALYTICS_RANK_RE.search(normalized)
+            or soc_actionable_hunt
+            or explicit_search_intent
+            or _DETECTION_TECHNIQUE_RE.search(normalized)
+        )
+        and not knowledge_definition
+        and not playbook_procedure
+        and not sop_show_request
+        and not mitre_explain
+        and not non_soc_or_out_of_scope
+        and not block_or_contain
+        and not explicit_run_spl
+        and not soc_investigation_shaped
+    )
+
     return {
         "normalized_query": normalized,
         "policy_terms": policy_terms,
@@ -657,6 +690,7 @@ def extract_query_signals(
         "exact_105_hunt_spl": exact_105_hunt_spl,
         "soc_investigation_shaped": soc_investigation_shaped,
         "soc_actionable_hunt": soc_actionable_hunt,
+        "soc_detection_intent": soc_detection_intent,
         "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),
         "spl_authoring_shaped": bool(spl_generation and not run_execution),
         "alert_summary_shaped": bool(alert_context_present and not spl_generation),

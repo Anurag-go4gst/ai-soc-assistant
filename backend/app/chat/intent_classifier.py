@@ -609,6 +609,21 @@ def classify_intent(
             requested_output_type=None,
         )
 
+    if signals.get("soc_detection_intent"):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.6,
+            requires_clarification=False,
+            reason=(
+                "SOC detection/analytics request without a registry match; review-only "
+                "SPL via the governed LLM T2 producer (validated, execution disabled)."
+            ),
+            requested_output_type="SPL",
+        )
+
     if signals.get("soc_actionable_hunt"):
         return _build_classification(
             intent_family="guided_investigation",

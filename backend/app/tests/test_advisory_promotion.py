@@ -127,7 +127,9 @@ def test_no_advisory_means_behavior_unchanged() -> None:
     assert result.candidate_mappings["match_path"] == "out_of_registry"
 
 
-GUIDED_OUT_OF_REGISTRY_QUERY = "Detect any login anomalies on vpn pool segment 7"
+# Investigation-shaped ("how should I investigate") stays guided pre-promotion;
+# concrete "Detect ..." asks now route to spl_generation via the governed T2 floor.
+GUIDED_OUT_OF_REGISTRY_QUERY = "How should I investigate unusual login activity on vpn pool segment 7"
 
 
 def test_promotion_upgrades_guided_investigation_intent(monkeypatch) -> None:
