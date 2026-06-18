@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -10,9 +11,18 @@ from typing import Any
 class TurnLlmBudget:
     max_sidecar_calls: int = 2
     max_narration_calls: int = 1
+    # Wall-clock ceiling for all blocking LLM calls on a turn. Without it, stacked
+    # sidecars on a slow on-prem model push /chat to 70-160s (the deterministic
+    # answer is unaffected). 0 disables the time gate. Default leaves room for the
+    # most valuable single call while capping the worst-case stack.
+    deadline_seconds: float = 75.0
     sidecar_calls: int = 0
     narration_calls: int = 0
+    started_at: float = field(default_factory=time.monotonic)
     records: list[dict[str, Any]] = field(default_factory=list)
+
+    def time_budget_exhausted(self) -> bool:
+        return self.deadline_seconds > 0 and (time.monotonic() - self.started_at) >= self.deadline_seconds
 
     def record_sidecar(
         self,
@@ -55,15 +65,18 @@ class TurnLlmBudget:
         )
 
     def sidecar_budget_exhausted(self) -> bool:
-        return self.sidecar_calls >= self.max_sidecar_calls
+        return self.sidecar_calls >= self.max_sidecar_calls or self.time_budget_exhausted()
 
     def narration_budget_exhausted(self) -> bool:
-        return self.narration_calls >= self.max_narration_calls
+        return self.narration_calls >= self.max_narration_calls or self.time_budget_exhausted()
 
     def to_trace_dict(self) -> dict[str, Any]:
         return {
             "max_sidecar_calls": self.max_sidecar_calls,
             "max_narration_calls": self.max_narration_calls,
+            "deadline_seconds": self.deadline_seconds,
+            "elapsed_seconds": round(time.monotonic() - self.started_at, 2),
+            "time_budget_exhausted": self.time_budget_exhausted(),
             "sidecar_calls": self.sidecar_calls,
             "narration_calls": self.narration_calls,
             "records": list(self.records),

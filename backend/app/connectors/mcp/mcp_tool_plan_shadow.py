@@ -32,6 +32,7 @@ def run_mcp_tool_plan_shadow(
     session_role: str | None = None,
     needs_mcp: bool = False,
     needs_spl: bool = False,
+    allow_llm_advisory: bool = True,
     client: Any | None = None,
 ) -> dict[str, Any] | None:
     """Return advisory chronology metadata for control_plane_trace; None when skipped."""
@@ -46,7 +47,7 @@ def run_mcp_tool_plan_shadow(
     rbac_role = resolve_mcp_rbac_role(session_role_for_mcp_gate(session_role))
     spl_ok = bool(spl_approved)
 
-    if mcp_tool_plan_llm_advisory_enabled():
+    if allow_llm_advisory and mcp_tool_plan_llm_advisory_enabled():
         plan_payload = plan_tool_chronology(
             query,
             target_index=target_index,
@@ -67,7 +68,9 @@ def run_mcp_tool_plan_shadow(
             "llm_label": None,
             "llm_unservable": [],
             "llm_error": None,
-            "skipped_reason": "live_path_deterministic_only",
+            "skipped_reason": "live_path_deterministic_only"
+            if allow_llm_advisory
+            else "llm_advisory_disabled_for_turn",
         }
 
     return {

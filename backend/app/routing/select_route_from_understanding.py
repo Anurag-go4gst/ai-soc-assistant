@@ -225,13 +225,25 @@ def _route_out_of_registry(
     from app.chat.query_signals import extract_query_signals
 
     signals = extract_query_signals(query, understanding)
-    if understanding.soc_investigation_shaped and not signals["action_or_containment_shaped"]:
+    action = bool(signals["action_or_containment_shaped"])
+
+    # A/B: a question that maps to a known detection family is a concrete SPL ask.
+    # Route it to the SPL path so the review-only draft is built, instead of the
+    # knowledge_recall dead-end that discards the identified family.
+    if not action and _detection_family_match(query):
+        return _route_detection_spl(
+            understanding, query, keyword_would_have,
+            reason="out_of_registry_detection_family_floor",
+        )
+
+    if understanding.soc_investigation_shaped and not action:
         return _route_guided_investigation_rescue(
             understanding,
             query,
             keyword_would_have,
             reason="out_of_registry_soc_investigation_rescue",
         )
+
     base = dict(LOW_CONFIDENCE_ROUTE)
     base["reasons"] = list(base.get("reasons", [])) + ["out_of_registry_no_105_or_catalog_match"]
     provenance = build_routing_provenance(
@@ -274,6 +286,49 @@ def _route_guided_investigation_rescue(
         provenance["deterministic_match_path"] = "out_of_registry"
         provenance["catalog_keyword_rescue"] = True
     return base, provenance
+
+
+def _route_detection_spl(
+    understanding: QueryUnderstandingResult,
+    query: str,
+    keyword_would_have: dict[str, Any],
+    *,
+    reason: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Out-of-registry detection/analytics ask → review-only SPL path (never executed).
+
+    The downstream SPL stage builds a family lab draft when one matches, else the
+    governed LLM T2 shaper proposes a validated, review-only candidate. This replaces
+    the knowledge_recall dead-end for questions that clearly want a detection/SPL.
+    """
+    base = {
+        "skill": "spl_generation",
+        "tool_plan": _tool_plan_for_skill("spl_generation"),
+        "confidence": 0.5,
+        "reasons": [reason, "review_only", "execution_disabled"],
+    }
+    provenance = build_routing_provenance(
+        understanding,
+        selected_by="out_of_registry_detection_floor",
+        authority_source="out_of_registry_detection_floor",
+        skill=base["skill"],
+        tool_plan=list(base["tool_plan"]),
+        confidence=float(base["confidence"]),
+        keyword_router_would_have_selected=keyword_would_have,
+        rescue_mode=True,
+        why_not_knowledge_recall="Query requests a detection/analytics result; route to review-only SPL, not a knowledge answer.",
+    )
+    return base, provenance
+
+
+def _detection_family_match(query: str) -> bool:
+    """True when the deterministic keyword matcher maps the query to a draft family."""
+    try:
+        from app.spl.draft_preview import match_detection_family
+
+        return bool(match_detection_family(query))
+    except Exception:
+        return False
 
 
 def _keyword_fallback(

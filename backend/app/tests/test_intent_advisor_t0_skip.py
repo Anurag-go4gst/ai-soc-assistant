@@ -29,3 +29,32 @@ def test_exact_105_turn_skips_intent_sidecar(monkeypatch: pytest.MonkeyPatch) ->
     advisory = state.get("llm_intent_advisory") or {}
     assert advisory.get("dropped_reasons") == ["deterministic_exact_match_t0"]
     assert advisory.get("llm_called") is False
+
+
+def test_high_confidence_semantic_105_turn_skips_intent_sidecar(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_mode", "local")
+    monkeypatch.setattr(
+        "app.chat.pipeline.generate_llm_intent_advisory",
+        lambda *_, **__: pytest.fail("high-confidence registry match must skip intent sidecar"),
+    )
+
+    query = "List all DNS requests during the observation window"
+    qu = understand_query(query)
+    assert qu.deterministic_match_path == "semantic_105_question"
+    assert qu.mapped_question_ref == "cisco.perim.010"
+    assert qu.question_registry_match_score >= 0.95
+
+    state = graph_node_query_to_intent(
+        {
+            "request": ChatRequest(message=query),
+            "effective_query": query,
+            "query_understanding": qu,
+            "routed": {"skill": "spl_generation"},
+        }
+    )
+
+    advisory = state.get("llm_intent_advisory") or {}
+    assert advisory.get("dropped_reasons") == ["registry_backed_high_confidence_t0"]
+    assert advisory.get("llm_called") is False

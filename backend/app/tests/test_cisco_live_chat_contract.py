@@ -59,7 +59,15 @@ def test_cisco_metadata_live_path_surfaces_environment_hygiene_envelope() -> Non
     assert "splunk_run_query" not in envelope["planned_tool_sequence"]
     assert execution["executed_spl"] is None
 
-def test_dns_observation_window_paraphrase_live_contract() -> None:
+def test_dns_observation_window_paraphrase_live_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.chat.pipeline.run_mitre_risk_rationale",
+        lambda **_: pytest.fail("draft preview path must skip MITRE/risk LLM rationale"),
+    )
+    monkeypatch.setattr(
+        "app.chat.pipeline.run_resource_plan_shadow",
+        lambda **_: pytest.fail("draft preview path must skip resource-plan LLM shadow"),
+    )
     payload = _chat("List all DNS requests during the observation window.")
 
     understanding = payload["query_understanding"]
@@ -69,6 +77,10 @@ def test_dns_observation_window_paraphrase_live_contract() -> None:
 
     assert understanding["mapped_question_ref"] == "cisco.perim.010"
     assert payload["selected_skill"] == "spl_generation"
+    assert payload["candidate_spl"]["generation_mode"] == "deterministic_lab_draft"
+    assert payload["candidate_spl"]["selected_candidate_spl_provider"] == "deterministic_lab_draft"
+    assert payload["spl_validation"]["selected_candidate_spl_provider"] == "deterministic_lab_draft"
+    assert payload["candidate_spl"]["llm_fallback_status"] == "lab_draft_fallback"
     assert preview is not None
     assert preview["detection_family"] == "dns_query_window_review"
     assert analyst is not None

@@ -522,7 +522,9 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
         "selected_use_case": selected_use_case,
         "routed": routed,
         "route_plan_shadow": route_plan_shadow,
-        "llm_turn_budget": TurnLlmBudget(),
+        "llm_turn_budget": TurnLlmBudget(
+            deadline_seconds=float(getattr(settings, "ai_soc_llm_turn_deadline_seconds", 75.0))
+        ),
     }
 
 
@@ -547,6 +549,9 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         match_path=candidate_mappings.get("match_path"),
         registry_warnings=list(getattr(qu, "registry_warnings", None) or []) if qu is not None else None,
     )
+    if not skip_advisory and _high_confidence_registry_match_t0(qu):
+        skip_advisory = True
+        skip_reason = "registry_backed_high_confidence_t0"
     if skip_advisory:
         llm_advisory = LLMIntentAdvisory(dropped_reasons=[skip_reason or "deterministic_exact_match_t0"])
     elif budget.sidecar_budget_exhausted():
@@ -594,6 +599,21 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         "selected_use_case": selected_use_case,
         "llm_turn_budget": budget,
     }
+
+
+def _high_confidence_registry_match_t0(query_understanding: Any | None) -> bool:
+    if query_understanding is None:
+        return False
+    match_path = str(getattr(query_understanding, "deterministic_match_path", "") or "")
+    if match_path not in {"near_105_question", "semantic_105_question"}:
+        return False
+    if getattr(query_understanding, "registry_warnings", None):
+        return False
+    question_ref = getattr(query_understanding, "mapped_question_ref", None)
+    if not isinstance(question_ref, str) or not question_ref.strip():
+        return False
+    score = getattr(query_understanding, "question_registry_match_score", None)
+    return isinstance(score, (int, float)) and float(score) >= 0.95
 
 
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
@@ -1891,25 +1911,40 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     resource_plan_shadow_trace: dict[str, Any] | None = None
     if answer_contract is not None and analyst_response is not None:
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
-        rationale_result = run_mitre_risk_rationale(
-            contract=answer_contract,
-            query=request.message,
-            severity_decision=severity_decision,
-            mitre_decision=mitre_decision if isinstance(mitre_decision, dict) else None,
-            mitre_branch_result=mitre_branch_payload if isinstance(mitre_branch_payload, dict) else None,
-            budget_exhausted=budget.sidecar_budget_exhausted(),
-            budget=budget,  # per-internal-call accounting (mitre + risk = up to 2 slots)
+        draft_preview_active = isinstance(spl_draft_preview, dict) and bool(
+            str(spl_draft_preview.get("draft_spl") or "").strip()
         )
-        mitre_risk_rationale_trace = rationale_result.to_trace_dict()
-        rationale_updates: dict[str, Any] = {}
-        if rationale_result.severity_rationale_prose:
-            rationale_updates["severity_rationale"] = rationale_result.severity_rationale_prose
-        if rationale_result.mitre_rationale_prose:
-            rationale_updates["foundation_sec_analysis"] = rationale_result.mitre_rationale_prose
-        if rationale_updates:
-            analyst_response = analyst_response.model_copy(update=rationale_updates)
-        if llm_turn_budget_trace is not None:
-            llm_turn_budget_trace = budget.to_trace_dict()
+        if draft_preview_active:
+            mitre_risk_rationale_trace = {
+                "llm_called": False,
+                "guard_status": "skipped",
+                "fallback_used": True,
+                "skipped_reason": "draft_spl_preview_active",
+                "provider_label": None,
+                "severity_rationale_present": bool(analyst_response.severity_rationale),
+                "mitre_rationale_present": bool(analyst_response.foundation_sec_analysis),
+                "adapter_warnings": [],
+            }
+        else:
+            rationale_result = run_mitre_risk_rationale(
+                contract=answer_contract,
+                query=request.message,
+                severity_decision=severity_decision,
+                mitre_decision=mitre_decision if isinstance(mitre_decision, dict) else None,
+                mitre_branch_result=mitre_branch_payload if isinstance(mitre_branch_payload, dict) else None,
+                budget_exhausted=budget.sidecar_budget_exhausted(),
+                budget=budget,  # per-internal-call accounting (mitre + risk = up to 2 slots)
+            )
+            mitre_risk_rationale_trace = rationale_result.to_trace_dict()
+            rationale_updates: dict[str, Any] = {}
+            if rationale_result.severity_rationale_prose:
+                rationale_updates["severity_rationale"] = rationale_result.severity_rationale_prose
+            if rationale_result.mitre_rationale_prose:
+                rationale_updates["foundation_sec_analysis"] = rationale_result.mitre_rationale_prose
+            if rationale_updates:
+                analyst_response = analyst_response.model_copy(update=rationale_updates)
+            if llm_turn_budget_trace is not None:
+                llm_turn_budget_trace = budget.to_trace_dict()
 
         evidence_plan_payload = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
         live_plan_source = None
@@ -1917,7 +1952,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             live_resource_plan = evidence_plan_payload.get("resource_plan")
             if isinstance(live_resource_plan, dict):
                 live_plan_source = live_resource_plan.get("plan_source")
-        if budget.sidecar_budget_exhausted():
+        if draft_preview_active:
+            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "draft_spl_preview_active"}
+        elif budget.sidecar_budget_exhausted():
             resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "turn_budget_exhausted"}
         else:
             _t0 = time.monotonic()
@@ -2188,6 +2225,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             session_role=state.get("session_role"),
             needs_mcp=_mcp_tool_plan_needs_mcp(state, spl_validation),
             needs_spl=spl_validation is not None,
+            allow_llm_advisory=not draft_preview_active,
         )
         if mcp_tool_plan_shadow_trace is not None:
             control_plane_trace["mcp_tool_plan_shadow"] = mcp_tool_plan_shadow_trace
@@ -3263,6 +3301,26 @@ def _candidate_spl_stage(
             reason=str(spl_governance.get("governed_limitation") or "spl_template_unavailable_no_free_spl_fallback"),
             spl_governance=spl_governance,
         )
+
+    # Catalogue/runtime-map matches already carry deterministic pattern authority.
+    # If no governed template rendered and a lab draft family exists for that
+    # mapped pattern, prefer the deterministic review-only draft over the slow
+    # advisory LLM fallback. This keeps candidate SPL non-executable while
+    # avoiding timeout-prone model calls for known Cisco catalogue paraphrases.
+    if mapped_pattern_type and not template_id:
+        lab_draft_candidate = _candidate_from_lab_draft(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+            pattern_type=mapped_pattern_type,
+            use_case_id=use_case_id,
+            llm_fallback_reason="deterministic_draft_preferred_for_catalog_pattern",
+        )
+        if lab_draft_candidate is not None:
+            return lab_draft_candidate
 
     fallback_candidate = _candidate_from_llm_fallback(
         trace_id=trace_id,

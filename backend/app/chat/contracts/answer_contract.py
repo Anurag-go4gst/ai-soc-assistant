@@ -405,6 +405,29 @@ def _spl_status_detail(
     if not isinstance(spl_validation, dict):
         return None
     template_status = str(spl_validation.get("spl_template_status") or "unknown")
+    provider = str(
+        spl_validation.get("selected_candidate_spl_provider")
+        or (candidate_spl or {}).get("selected_candidate_spl_provider")
+        or (candidate_spl or {}).get("generation_mode")
+        or ""
+    )
+    fallback_status = str(
+        spl_validation.get("llm_fallback_status")
+        or (candidate_spl or {}).get("llm_fallback_status")
+        or ""
+    )
+    if provider == "deterministic_lab_draft" or fallback_status == "lab_draft_fallback":
+        return {
+            "template_status": "unavailable",
+            "generation_status": "draft_preview",
+            "generation": "draft_preview_lab",
+            "review_required": True,
+            "block_reason": "governed_spl_not_ready",
+            "reason": "draft_preview_lab",
+            "reason_display": "Review-only draft preview",
+            "required_fields": [],
+            "template_id": spl_validation.get("template_id") or (candidate_spl or {}).get("template_id"),
+        }
     reason = _spl_block_reason(spl_validation)
     if spl_validation.get("approved") and spl_validation.get("normalized_spl"):
         return {

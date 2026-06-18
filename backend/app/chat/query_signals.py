@@ -25,7 +25,7 @@ _ANALYTICS_SUBJECT_RE = re.compile(
     re.IGNORECASE,
 )
 _ANALYTICS_RANK_RE = re.compile(
-    r"\b(?:most|top|highest|largest|busiest)\b",
+    r"\b(?:most|top|highest|largest|busiest|noisiest|rank|ranked|ranking)\b",
     re.IGNORECASE,
 )
 _ANALYTICS_PHRASES = (
@@ -302,7 +302,14 @@ def extract_query_signals(
         term in normalized
         for term in ("playbook", "runbook", "sop", "standard operating procedure", "procedure steps", "checklist")
     )
-    knowledge_definition = normalized.startswith("what is ") or normalized.startswith("what are ")
+    # A definition asks "what is/are <concept>" wanting an explanation. A ranked or
+    # aggregated data ask ("what are the top 5 source IPs by DNS volume") is analytics,
+    # not a definition — don't let the knowledge branch swallow it into knowledge_recall.
+    knowledge_definition = (
+        (normalized.startswith("what is ") or normalized.startswith("what are "))
+        and not _ANALYTICS_RANK_RE.search(normalized)
+        and not _ANALYTICS_SUBJECT_RE.search(normalized)
+    )
     dga = "dga" in normalized or "domain generation" in normalized
     block_or_contain = any(
         term in normalized

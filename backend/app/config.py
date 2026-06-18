@@ -211,6 +211,10 @@ class Settings(BaseSettings):
     ai_soc_llm_default_provider: str = ""
     ai_soc_llm_default_model: str = ""
     ai_soc_llm_timeout_seconds: int = 30
+    # Wall-clock ceiling for all blocking LLM calls on a single /chat turn. Caps the
+    # stacked-sidecar latency on the slow on-prem model so a turn cannot hang 70-160s;
+    # the deterministic answer always ships. 0 disables the gate.
+    ai_soc_llm_turn_deadline_seconds: float = 75.0
     ai_soc_llm_max_input_tokens: int = 8000
     ai_soc_llm_max_output_tokens: int = 1024
     ai_soc_llm_temperature: float = 0.2
