@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { Toaster } from 'sonner';
-import { getCurrentUser, getHealth, logout } from './api/client';
+import { Toaster, toast } from 'sonner';
+import { getCurrentUser, getHealth, logout, UNAUTHORIZED_EVENT } from './api/client';
 import { AppShell } from './components/AppShell';
 import { TooltipProvider } from './components/ui/tooltip';
 import { ChatPage } from './pages/ChatPage';
@@ -39,6 +39,21 @@ export default function App() {
     };
     window.addEventListener('ai-soc-profile-updated', onProfileUpdated);
     return () => window.removeEventListener('ai-soc-profile-updated', onProfileUpdated);
+  }, []);
+
+  // Any gated API call returning 401 means the session expired/was invalidated.
+  // Drop the cached auth state so the app bounces to the login screen instead of
+  // leaving the user in a logged-in-looking shell where every call silently fails.
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setAuth((current) => {
+        if (current && current.authenticated === false) return current;
+        toast.error('Your session has expired. Please sign in again.');
+        return { authenticated: false };
+      });
+    };
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
 
   useEffect(() => {

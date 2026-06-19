@@ -35,6 +35,40 @@ import type {
 
 const API_BASE_URL = getApiBaseUrl();
 
+export const UNAUTHORIZED_EVENT = 'ai-soc-unauthorized';
+
+// Endpoints whose 401 is an expected business outcome (bad login, anonymous
+// probe) and must NOT bounce the user to the login screen.
+const UNAUTHORIZED_BOUNCE_EXCLUDED = ['/auth/login', '/auth/me'];
+
+// Global 401 interceptor. The SPA validates auth once on mount via the
+// un-gated /auth/me probe and caches the result, so an expired session leaves
+// the app rendering a logged-in shell while every gated API call returns 401.
+// Catch those 401s centrally and emit an event the App listens for to force a
+// re-auth, instead of each panel silently surfacing a toast.
+function installUnauthorizedInterceptor(): void {
+  if (typeof window === 'undefined') return;
+  const flagged = window as typeof window & { __aiSocAuthInterceptor?: boolean };
+  if (flagged.__aiSocAuthInterceptor) return;
+  flagged.__aiSocAuthInterceptor = true;
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const response = await originalFetch(input, init);
+    if (response.status === 401) {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const isApiCall = url.includes(API_BASE_URL);
+      const isExcluded = UNAUTHORIZED_BOUNCE_EXCLUDED.some((path) => url.includes(path));
+      if (isApiCall && !isExcluded) {
+        window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
+      }
+    }
+    return response;
+  };
+}
+
+installUnauthorizedInterceptor();
+
 export async function getHealth(): Promise<HealthResponse> {
   const response = await fetch(`${API_BASE_URL}/health`, { credentials: 'include' });
   if (!response.ok) {
