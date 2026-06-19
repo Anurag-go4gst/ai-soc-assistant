@@ -47,6 +47,26 @@ fail closed (safe), neither leaks SPL:
 The deterministic floor (WS-0 answer-shape router + WS-1 signal-class guidance +
 WS-2/WS-7 surfacing) remains the actual T2 answer source today.
 
+## Update — json_object + tolerant parser slice (2026-06-19)
+
+Shipped: producer now passes `response_format={"type":"json_object"}` and
+`_strict_json_payload` gained a tolerant net (`_extract_first_json_object` +
+trailing-comma repair; truncated output still fails closed).
+
+Re-probe (post-restart, both within budget at ~100s/110s) **still failed**
+`strict_json_parse_failed: Expecting ',' delimiter`. A direct diagnostic isolated
+why:
+
+- `finish_reason=stop`, `predicted_n=58` → **not truncation**.
+- The on-host llama-server **ignores `response_format=json_object`** — it returned
+  ` ```json ` fences. With a small (2-key) schema the fenced content was valid
+  JSON; with the producer's large 15-key schema the 8B drops a delimiter.
+
+So on this hardware: json_object is a no-op (server build), the parser handles
+fences/prose/trailing-commas (proven by unit test) but cannot invent a missing
+comma. Live SPL breadth is still not delivered — root cause is the 8B's JSON
+reliability on a large schema, not latency or truncation.
+
 ## Next steps (not in this slice)
 
 - Pass `response_format={"type":"json_object"}` into the producer's

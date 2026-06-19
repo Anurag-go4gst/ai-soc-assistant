@@ -183,15 +183,19 @@ def test_fallback_schema_invalid_clarifies(monkeypatch: pytest.MonkeyPatch) -> N
     assert result.clarification_reason == CLARIFICATION_INVALID_SCHEMA
 
 
-def test_fallback_rejects_json_with_surrounding_prose(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fallback_tolerates_json_with_surrounding_prose(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Behavior change (tolerant-parser slice): small instruct models wrap JSON in
+    # prose / ```json fences. The producer now extracts the first balanced object
+    # and processes it through the normal validation gates, instead of rejecting it
+    # as schema-invalid. Governance still applies (the extracted SPL is validated).
     _enable(monkeypatch)
     result = generate_llm_spl_fallback(
         user_query="x",
         llm_raw_output_provider=lambda: f"Here is JSON:\n{_raw(_APPROVED_SPL)}",
     )
     assert result is not None
-    assert result.approved is False
-    assert result.clarification_reason == CLARIFICATION_INVALID_SCHEMA
+    assert result.clarification_reason != CLARIFICATION_INVALID_SCHEMA
+    assert result.approved is True
 
 
 def test_fallback_needs_clarification_surfaces_questions(monkeypatch: pytest.MonkeyPatch) -> None:

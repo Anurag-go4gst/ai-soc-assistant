@@ -12,16 +12,18 @@
         "status": "needs_clarification",
         "lab_tier": false,
         "clarification_required": true,
-        "clarification_reason": "llm_spl_fallback_client_unavailable",
+        "clarification_reason": "llm_spl_fallback_schema_invalid",
         "validation_approved": false,
         "normalized_spl_is_null": true,
         "execution_eligible": null,
         "quality_status": null,
         "hard_fail_count": 0,
-        "latency_ms": null,
+        "latency_ms": 100880,
         "candidate_spl_excerpt": "",
-        "adapter_errors": [],
-        "wall_ms": 200120
+        "adapter_errors": [
+          "strict_json_parse_failed:Expecting ',' delimiter"
+        ],
+        "wall_ms": 100882
       }
     },
     {
@@ -38,12 +40,12 @@
         "execution_eligible": null,
         "quality_status": null,
         "hard_fail_count": 0,
-        "latency_ms": 76706,
+        "latency_ms": 110560,
         "candidate_spl_excerpt": "",
         "adapter_errors": [
           "strict_json_parse_failed:Expecting ',' delimiter"
         ],
-        "wall_ms": 76707
+        "wall_ms": 110560
       }
     }
   ]

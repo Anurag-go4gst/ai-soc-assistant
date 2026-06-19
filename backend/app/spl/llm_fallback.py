@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -91,6 +92,11 @@ def generate_llm_spl_fallback(
                 ),
                 max_tokens=min(settings.ai_soc_llm_max_output_tokens, 400),
                 temperature=0.0,
+                # Force valid JSON on OpenAI-compatible / llama.cpp servers so a small
+                # instruct model cannot emit malformed JSON (missing commas, prose,
+                # ```json fences) that the strict parser would reject. The tolerant
+                # repair pass in _strict_json_payload is the secondary net.
+                response_format={"type": "json_object"},
             )
         except LocalChatError:
             return _clarification(CLARIFICATION_NO_CLIENT)
@@ -365,21 +371,71 @@ def _strip_code_fences(text: str) -> str:
     return body.strip()
 
 
+def _extract_first_json_object(text: str) -> str | None:
+    """Return the first balanced {...} object, ignoring braces inside strings.
+
+    Small instruct models often wrap JSON in prose or emit a trailing token after
+    the object; this lifts just the object so the strict parser can validate it.
+    """
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_string = False
+    escaped = False
+    for index in range(start, len(text)):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    return None
+
+
+def _repair_json_text(text: str) -> str:
+    """Best-effort, conservative repairs for common small-model JSON defects.
+
+    Only removes trailing commas before } or ] — it never rewrites values, so it
+    cannot turn invalid logic into a false positive. Missing-delimiter / truncated
+    output stays a parse failure (fail-closed)."""
+    return re.sub(r",(\s*[}\]])", r"\1", text)
+
+
 def _strict_json_payload(raw_output: str) -> tuple[dict[str, Any] | None, list[str]]:
     text = _strip_code_fences(raw_output or "")
     if not text:
         return None, ["empty_llm_output"]
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError as exc:
-        return None, [f"strict_json_parse_failed:{exc.msg}"]
-    if not isinstance(payload, dict):
-        return None, ["strict_json_object_required"]
-    if json.dumps(payload, sort_keys=True, separators=(",", ":")) != json.dumps(
-        json.loads(text), sort_keys=True, separators=(",", ":")
-    ):
-        return None, ["strict_json_object_required"]
-    return payload, []
+    # Tolerant pre-parse net (secondary to response_format=json_object): lift the
+    # first balanced object out of any surrounding prose, then drop trailing commas.
+    candidates = [text]
+    extracted = _extract_first_json_object(text)
+    if extracted and extracted != text:
+        candidates.append(extracted)
+    candidates.append(_repair_json_text(extracted or text))
+    last_error = "strict_json_parse_failed:unknown"
+    for candidate in candidates:
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            last_error = f"strict_json_parse_failed:{exc.msg}"
+            continue
+        if not isinstance(payload, dict):
+            last_error = "strict_json_object_required"
+            continue
+        return payload, []
+    return None, [last_error]
 
 
 def _confidence_score(value: Any) -> float:

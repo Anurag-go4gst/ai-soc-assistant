@@ -8,13 +8,14 @@ Invariant on every fired row: `normalized_spl` is null, `execution_eligible` is 
 > Hunt for a flood of DNP3 unsolicited responses from an RTU to the SCADA master outside its normal class-poll schedule.
 
 - fired=`True` status=`needs_clarification` lab_tier=`False` approved=`False` normalized_spl_null=`True` execution_eligible=`None`
-- quality_status=`None` latency_ms=`None` wall_ms=`200120`
+- quality_status=`None` latency_ms=`100880` wall_ms=`100882`
+- adapter_errors: ["strict_json_parse_failed:Expecting ',' delimiter"]
 - SPL: ``
 
 ### pj.002
 > Detect Modbus/TCP write-single-register or write-multiple-coils commands sent to boiler-control PLCs from hosts other than the approved engineering workstation.
 
 - fired=`True` status=`needs_clarification` lab_tier=`False` approved=`False` normalized_spl_null=`True` execution_eligible=`None`
-- quality_status=`None` latency_ms=`76706` wall_ms=`76707`
+- quality_status=`None` latency_ms=`110560` wall_ms=`110560`
 - adapter_errors: ["strict_json_parse_failed:Expecting ',' delimiter"]
 - SPL: ``
