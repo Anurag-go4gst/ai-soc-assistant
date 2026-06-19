@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.config import settings
+
 AnswerGoal = Literal[
     "live_results",
     "analyst_action_guidance",
@@ -109,6 +111,7 @@ def build_answer_contract(
     query_signals: dict[str, Any] | None = None,
     use_case_id: str | None = None,
     match_path: str | None = None,
+    spl_draft_preview: dict[str, Any] | None = None,
 ) -> AnswerContract:
     intent = intent_classification or {}
     plan = evidence_plan or {}
@@ -313,7 +316,7 @@ def build_answer_contract(
     render["triage_checklist"] = bool(checklist)
     render["evidence_checklist"] = bool(required_evidence)
 
-    return AnswerContract(
+    contract = AnswerContract(
         answer_goal=goals,
         intent_family=intent_family,
         answer_mode=str(plan.get("answer_mode") or "") or None,
@@ -355,6 +358,18 @@ def build_answer_contract(
         required_evidence=required_evidence,
         spl_status_detail=spl_status_detail,
     )
+    if settings.ai_soc_t2_answer_surfacing_enabled and user_query:
+        from app.chat.t2_answer_surfacing import enhance_answer_contract_for_t2_surfacing
+
+        contract = enhance_answer_contract_for_t2_surfacing(
+            contract,
+            candidate_spl=candidate_spl,
+            spl_draft_preview=spl_draft_preview,
+            spl_validation=spl_validation,
+            user_query=user_query or "",
+            match_path=match_path,
+        )
+    return contract
 
 
 def _branch_bucket(branch: dict[str, Any], key: str) -> list[str]:

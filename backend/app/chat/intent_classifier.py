@@ -15,6 +15,7 @@ from app.chat.contracts.intent_classification import (
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.chat.llm_intent_advisor import adjudicate_llm_intent_advisory, apply_advisory_promotion
 from app.chat.query_signals import extract_query_signals
+from app.config import settings
 from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
 from app.coverage.question_runtime_map import question_runtime_entry
 from app.query_understanding.models import QueryUnderstandingResult
@@ -274,6 +275,23 @@ def classify_intent(
                 "and review-only governed SPL without execution."
             ),
             requested_output_type="INVESTIGATION",
+        )
+
+
+    if (
+        settings.ai_soc_t2_rag_surfacing_enabled
+        and signals.get("regulatory_reporting")
+        and not signals.get("live_investigation_verbs")
+    ):
+        return _build_classification(
+            intent_family="policy_knowledge",
+            primary_intent="knowledge_recall",
+            query_type="ask_for_policy",
+            answer_goal=["policy_citation", "procedural_steps"],
+            confidence=0.9,
+            requires_clarification=False,
+            reason="Regulatory reporting obligation question routed to governed knowledge recall.",
+            requested_output_type="SOP",
         )
 
     if signals.get("mitre_explain"):

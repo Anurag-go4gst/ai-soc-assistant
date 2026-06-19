@@ -296,6 +296,12 @@ def _apply_guided_investigation_card(
                 payload.get("recommended_actions") or payload.get("analyst_checklist")
             ),
             "limitations": bool(payload.get("limitations")),
+            "spl_artifact": bool(
+                contract.render_sections.get("spl_artifact")
+                or payload.get("draft_spl_code")
+                or payload.get("spl_code")
+            ),
+            "draft_spl_preview": bool(payload.get("draft_spl_code")),
         }
     )
     payload["render_sections"] = render
@@ -413,6 +419,21 @@ def _apply_knowledge_profile_cleanup(payload: dict[str, Any], contract: AnswerCo
 
 
 def _sop_knowledge_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
+    playbook = envelope.retrieved_playbook if isinstance(envelope.retrieved_playbook, dict) else {}
+    sop = envelope.sop_guidance if isinstance(envelope.sop_guidance, dict) else {}
+    steps = [str(item).strip() for item in sop.get("triage_steps") or [] if str(item).strip()]
+    title = str(playbook.get("title") or "").strip()
+    purpose = str(playbook.get("purpose") or "").strip()
+    if steps or title or purpose:
+        parts: list[str] = []
+        if title:
+            parts.append(title)
+        if purpose:
+            parts.append(purpose)
+        if steps:
+            numbered = "\n".join(f"{index}. {step}" for index, step in enumerate(steps[:8], start=1))
+            parts.append(f"Triage steps:\n{numbered}")
+        return "\n\n".join(parts)
     return "Governed SOP retrieved. SPL and MCP were skipped as requested."
 
 

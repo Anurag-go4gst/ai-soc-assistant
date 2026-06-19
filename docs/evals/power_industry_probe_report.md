@@ -4,7 +4,7 @@ Bank: **Power Industry Probe Bank (10)** | Questions: **10**
 
 ## Quality flags (heuristic)
 
-- `thin_answer`: 9
+- `thin_answer`: 1
 - `no_spl_no_checklist`: 9
 - `human_review_only`: 10
 - `scorecard_fail`: 0
@@ -40,14 +40,14 @@ Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC re
 
 **Summary excerpt:**
 
-Guided investigation (review-only)
+Guided investigation — signal class: protocol command (review-only)
+Detected OT/protocol signals: mms.
 Hypotheses
-- Approved vendor or maintenance communication changed.
-- A configuration or routing change introduced a new destination.
-- An OT asset is beaconing or transferring data unexpectedly.
+- Approved engineering or vendor maintenance command.
+- Misconfigured master/slave polling or unsolicited response storm.
+- Unauthorized write or function-code abuse on OT field gear.
 Evidence to collect
-- Firewall sessions: source asset, destination, port, bytes, duration, first/last seen.
-- DNS/proxy context: resolved name, category, reputation, and peer hosts.
+- OT protocol logs: function code, register/object, source master, response timing.
 
 ### pi.003 — vendor VPN + OT firewall correlation
 **Tier:** T2 | **Stress:** multi_signal_correlation
@@ -60,7 +60,13 @@ Evidence to collect
 
 **Summary excerpt:**
 
-Governed SPL draft ready. It has passed deterministic validation and has not been executed.
+Objective: Correlate vendor contractor VPN logins with any OT DMZ firewall policy changes on the same day. What should analysts validate first?
+A governed SPL draft was produced and passed deterministic validation; it is review-only and was not executed (MCP execution disabled).
+Review steps:
+- Confirm the index/sourcetype and field mappings match your deployment before running.
+- Validate the time window and any thresholds against the asset baseline.
+- Run as review-only first; treat counts as evidence to corroborate, not a verdict.
+Limitations: no live results were returned; no severity or MITRE technique is claimed from the draft alone.
 
 ### pi.004 — PMU stream gap sabotage hunt
 **Tier:** T2 | **Stress:** ambiguous_cause + hunt
@@ -78,6 +84,9 @@ SOC review checklist:
 - Limitation: gaps inferred from status fields; true sample-rate gap detection needs PDC counters.
 - MITRE (candidate, unconfirmed): T0815 Denial of Service (ICS) — only if gaps are adversary-induced.
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+SOC review checklist:
+- Correlate stream gaps with PDC health, GPS time-sync loss, or network congestion.
+- Limitation: gaps inferred from status fields; true sample-rate gap detection needs PDC counters.
 
 ### pi.005 — AMI head-end firmware
 **Tier:** T2 | **Stress:** missing_lookup + detection_imperative
@@ -95,6 +104,9 @@ SOC review checklist:
 - Limitation: 'unauthorized' needs an approved-firmware baseline (lookup pending).
 - MITRE (candidate, unconfirmed): T0857 System Firmware (ICS) — confirm only with a change/anomaly signal.
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+SOC review checklist:
+- Compare observed firmware versions against the approved baseline per meter model.
+- Limitation: 'unauthorized' needs an approved-firmware baseline (lookup pending).
 
 ### pi.006 — transformer diff alarm attack judgment
 **Tier:** T1/T2 | **Stress:** analytics + mitre_overclaim_risk
@@ -102,12 +114,18 @@ Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC re
 > Show transformer differential protection alarm spikes across all 400kV bays and tell me if this pattern alone indicates a coordinated attack.
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=False) | Checklist: 0 | Actions: 0
-- Human review: True (spl_source_profile_clarification) | Scorecard: `pass`
+- SPL: False (approved=True) | Checklist: 0 | Actions: 0
+- Human review: True (execution_approval) | Scorecard: `pass`
 
 **Summary excerpt:**
 
-SPL validation complete. MCP execution is disabled.
+Objective: Show transformer differential protection alarm spikes across all 400kV bays and tell me if this pattern alone indicates a coordinated attack.
+A governed SPL draft was produced and passed deterministic validation; it is review-only and was not executed (MCP execution disabled).
+Review steps:
+- Confirm the index/sourcetype and field mappings match your deployment before running.
+- Validate the time window and any thresholds against the asset baseline.
+- Run as review-only first; treat counts as evidence to corroborate, not a verdict.
+Limitations: no live results were returned; no severity or MITRE technique is claimed from the draft alone.
 
 ### pi.007 — SCADA historian gap + RDP jump host
 **Tier:** T2 | **Stress:** checklist_request + multi_source
@@ -116,7 +134,7 @@ SPL validation complete. MCP execution is disabled.
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
 - SPL: False (approved=None) | Checklist: 0 | Actions: 0
-- Human review: True (execution_approval) | Scorecard: `pass`
+- Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
 
@@ -135,12 +153,19 @@ This draft is scoped to allowed/established traffic. If you want all attempts, i
 > Hunt for IEC-104 STARTDT or STOPDT command sequences from master stations not listed in our asset CMDB.
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=False) | Checklist: 0 | Actions: 0
-- Human review: True (spl_source_profile_clarification) | Scorecard: `review`
+- SPL: False (approved=True) | Checklist: 0 | Actions: 0
+- Human review: True (precondition_review) | Scorecard: `review`
 
 **Summary excerpt:**
 
-SPL validation complete. MCP execution is disabled.
+Asset-scoped investigation — IEC-104 (review-only)
+Checklist:
+- Pin the investigation to IEC-104: confirm owner, function, zone, and criticality.
+- Pull this asset's syslog/event history and compare against its own baseline and peer assets.
+- Correlate the anomaly with change tickets, maintenance windows, and recent config/firmware pushes.
+- Check upstream access paths (engineering workstation, jump host, vendor session) for the same window.
+- Validate time integrity before trusting event ordering on the device.
+Judgment: odd syslog on this asset alone does NOT confirm compromise — corroborate across independent signals (access, change, network) before declaring an incident. No MITRE technique or severity is claimed from this question alone.
 
 ### pi.009 — EMS portal fail-then-success
 **Tier:** T1 | **Stress:** success_after_failure + ot_context
@@ -149,7 +174,7 @@ SPL validation complete. MCP execution is disabled.
 
 - Skill: `None` | Mode: `clarification` | Support: `None`
 - SPL: False (approved=None) | Checklist: 0 | Actions: 0
-- Human review: True (execution_approval) | Scorecard: `pass`
+- Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
 
@@ -159,6 +184,8 @@ SOC review checklist:
 - Review MFA outcome and device posture for the successful login when available.
 - Correlate with password-reset, IdP admin, or lockout events before escalation.
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+SOC review checklist:
+- Confirm the success genuinely followed the failure burst (not interleaved noise).
 
 ### pi.010 — storm restoration remote ops
 **Tier:** T2 | **Stress:** benign_vs_malicious_separation

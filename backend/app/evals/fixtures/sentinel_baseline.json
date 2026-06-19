@@ -81,7 +81,8 @@
     },
     "pg.dns.001": {
       "analyst_enabled_sections": [
-        "policy_citation"
+        "policy_citation",
+        "procedural_steps"
       ],
       "answer_mode": "rag_only",
       "candidate_spl_present": false,
@@ -89,7 +90,8 @@
       "draft_spl_present": false,
       "draft_status": null,
       "enabled_sections": [
-        "policy_citation"
+        "policy_citation",
+        "procedural_steps"
       ],
       "execution_eligible": null,
       "execution_status": "skipped",
@@ -487,6 +489,7 @@
         "evidence_checklist",
         "investigation_guidance",
         "limitations",
+        "policy_citation",
         "procedural_steps",
         "severity_assessment",
         "spl_artifact",
@@ -502,6 +505,7 @@
         "evidence_checklist",
         "investigation_guidance",
         "limitations",
+        "policy_citation",
         "procedural_steps",
         "severity_assessment",
         "spl_artifact",

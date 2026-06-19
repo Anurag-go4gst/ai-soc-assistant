@@ -241,6 +241,12 @@ class Settings(BaseSettings):
     ai_soc_spl_template_governance_enabled: bool = False
     # Lab-only SPL draft preview when governed template/source profile is unavailable. Default off.
     ai_soc_spl_draft_preview_enabled: bool = False
+    # T2 answer-shape router + signal-class guidance (WS-0/WS-1). Default off.
+    ai_soc_t2_answer_shape_enabled: bool = False
+    # T2 answer surfacing — expose SPL drafts in analyst card (WS-2). Default off.
+    ai_soc_t2_answer_surfacing_enabled: bool = False
+    # T2 RAG/playbook surfacing — render SOC-KB steps on knowledge turns (WS-7a). Default off.
+    ai_soc_t2_rag_surfacing_enabled: bool = False
     # Phase 4/5: curated enrichment activation for runtime evidence/planner paths. Default off.
     ai_soc_curated_enrichment_activation_enabled: bool = False
     ai_soc_llm_reasoning_provider: str = ""

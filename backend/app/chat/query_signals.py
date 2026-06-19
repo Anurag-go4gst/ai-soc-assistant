@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.chat.answer_shape_router import is_regulatory_reporting_query
 from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
 from app.query_understanding.models import QueryUnderstandingResult
 from app.query_understanding.soc_investigation_shape import (
@@ -87,6 +88,7 @@ def extract_query_signals(
     query_understanding: QueryUnderstandingResult | None = None,
 ) -> dict[str, Any]:
     normalized = " ".join(query.lower().split())
+    regulatory_reporting = is_regulatory_reporting_query(query)
     qu = query_understanding
 
     policy_terms = any(
@@ -698,6 +700,7 @@ def extract_query_signals(
         "non_soc_or_out_of_scope": non_soc_or_out_of_scope,
         "alert_context_present": alert_context_present,
         "hybrid_alert_review": hybrid_alert_review,
+        "regulatory_reporting": regulatory_reporting,
         "projected_needs_rag": policy_terms
         or escalation_without_policy_word
         or playbook_procedure

@@ -176,8 +176,14 @@ def build_investigation_triage_guidance(query: str) -> str:
 
 def build_guided_investigation_guidance(query: str, entities: dict | None = None) -> str:
     """Review-only hunt guidance for out-of-registry SOC investigation shapes."""
+    from app.config import settings
+
+    if settings.ai_soc_t2_answer_shape_enabled:
+        from app.chat.signal_class_guidance import build_signal_class_guidance
+
+        return build_signal_class_guidance(query, entities)
+
     normalized = " ".join(query.lower().split())
-    _ = entities
     if any(term in normalized for term in ("ot", "scada", "chatter", "new external", "overnight")):
         hypotheses = [
             "Approved vendor or maintenance communication changed.",

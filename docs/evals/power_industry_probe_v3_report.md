@@ -4,7 +4,7 @@ Bank: **Power Industry Probe Bank v3 (10)** | Questions: **10**
 
 ## Quality flags (heuristic)
 
-- `thin_answer`: 10
+- `thin_answer`: 1
 - `no_spl_no_checklist`: 10
 - `human_review_only`: 10
 - `scorecard_fail`: 0
@@ -24,6 +24,7 @@ Bank: **Power Industry Probe Bank v3 (10)** | Questions: **10**
 **Summary excerpt:**
 
 No containment or enforcement action was performed. Change approval and human-in-the-loop (HIL) review are required before any block, disable, quarantine, or firewall change. I can provide investigation guidance only — automated enforcement is blocked and not authorized.
+Review package: Analyst approval is required before any Splunk search execution.
 
 ### pk.002 — CISA/threat-intel advisory exposure
 **Tier:** T2 | **Stress:** ti_advisory_to_detection_mapping
@@ -46,13 +47,19 @@ SOC review checklist:
 
 > We confirmed unauthorized access to a substation HMI. Do we have to report this to CERT-In or under the CEA cyber security guidelines, and within what timeline?
 
-- Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=True) | Checklist: 0 | Actions: 0
-- Human review: True (precondition_review) | Scorecard: `review`
+- Skill: `None` | Mode: `rag_only` | Support: `None`
+- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- Human review: True (none) | Scorecard: `review`
 
 **Summary excerpt:**
 
-Governed SPL draft ready. It has passed deterministic validation and has not been executed.
+Regulatory / reporting guidance (knowledge-only — no SPL)
+SOC review checklist:
+- Confirm whether the event meets your organization's CERT-In / sector reporting threshold.
+- Collect incident facts: scope, affected systems, timeline, and containment status.
+- Engage legal/compliance and CISO before external notification.
+- Verify current statutory timelines against your governed SOC-KB — do not rely on this assistant as legal authority.
+Disclaimer: verify with compliance/CISO — this is not legal authority. No Splunk search was generated for this reporting-obligation question.
 
 ### pk.004 — OT log-source silence / visibility gap
 **Tier:** T1/T2 | **Stress:** log_source_health + coverage_gap
@@ -61,7 +68,7 @@ Governed SPL draft ready. It has passed deterministic validation and has not bee
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
 - SPL: False (approved=False) | Checklist: 0 | Actions: 0
-- Human review: True (execution_approval) | Scorecard: `pass`
+- Human review: True (spl_source_profile_clarification) | Scorecard: `pass`
 
 **Summary excerpt:**
 
@@ -70,6 +77,9 @@ SOC review checklist:
 - Narrow to the row's Cisco product family when the Environment KB has product-specific indexes.
 - Use this as triage scaffolding only; promote repeated rows to a governed template after COE review.
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+SOC review checklist:
+- Confirm the Cisco product source and normalize source/destination/action fields before using this draft.
+- Narrow to the row's Cisco product family when the Environment KB has product-specific indexes.
 
 ### pk.005 — Baseline request for threshold tuning
 **Tier:** T1/T2 | **Stress:** baselining_request + not_a_hunt
@@ -83,6 +93,13 @@ Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC re
 **Summary excerpt:**
 
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+Draft SPL (review-only, not executed):
+```
+search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earliest=-24h latest=now (*dnp3* OR *modbus*)
+| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, ""))
+| eval command_norm=lower(coalesce(action, command, event_action, function, function_code, ""))
+| eval src_ip_norm=coalesce(src_ip, src, source, source_ip, "")
 
 ### pk.006 — Multi-stage timeline reconstruction
 **Tier:** T2 | **Stress:** incident_timeline + cross_event_chronology
@@ -90,19 +107,18 @@ Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC re
 > Reconstruct a timeline from the vendor VPN login at 02:14, the OT jump-host RDP session, and the relay configuration change, and tell me if these three events are causally linked.
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=False) | Checklist: 0 | Actions: 0
-- Human review: True (spl_source_profile_clarification) | Scorecard: `review`
+- SPL: False (approved=True) | Checklist: 0 | Actions: 0
+- Human review: True (precondition_review) | Scorecard: `review`
 
 **Summary excerpt:**
 
-SOC review checklist:
-- Confirm approved corporate IT and OT zone labels or CIDR ranges.
-- Identify source IT hosts and destination OT/control-room assets.
-- Review firewall rule name, action, app, protocol, destination port, and session state.
-- Compare traffic with approved change or maintenance window.
-- Escalate if traffic is unauthorized, recurring, high-volume, or targets critical OT assets.
-- Do not declare compromise from firewall traffic alone.
-This draft is scoped to allowed/established traffic. If you want all attempts, including denied/blocked traffic, remove or adjust the action/session-state filters during SOC review.
+Objective: Reconstruct a timeline from the vendor VPN login at 02:14, the OT jump-host RDP session, and the relay configuration change, and tell me if these three events are causally linked.
+A governed SPL draft was produced and passed deterministic validation; it is review-only and was not executed (MCP execution disabled).
+Review steps:
+- Confirm the index/sourcetype and field mappings match your deployment before running.
+- Validate the time window and any thresholds against the asset baseline.
+- Run as review-only first; treat counts as evidence to corroborate, not a verdict.
+Limitations: no live results were returned; no severity or MITRE technique is claimed from the draft alone.
 
 ### pk.007 — Rogue wireless AP near control building
 **Tier:** T2 | **Stress:** wireless_physical + out_of_splunk_comfort_zone
@@ -111,7 +127,7 @@ This draft is scoped to allowed/established traffic. If you want all attempts, i
 
 - Skill: `None` | Mode: `clarification` | Support: `None`
 - SPL: False (approved=None) | Checklist: 0 | Actions: 0
-- Human review: True (execution_approval) | Scorecard: `pass`
+- Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
 
@@ -120,6 +136,9 @@ SOC review checklist:
 - Narrow to the row's Cisco product family when the Environment KB has product-specific indexes.
 - Use this as triage scaffolding only; promote repeated rows to a governed template after COE review.
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+SOC review checklist:
+- Confirm the Cisco product source and normalize source/destination/action fields before using this draft.
+- Narrow to the row's Cisco product family when the Environment KB has product-specific indexes.
 
 ### pk.008 — Insider relay-config exfil before resignation
 **Tier:** T2 | **Stress:** insider_threat + identity_plus_egress
@@ -154,10 +173,15 @@ No — not enough to confirm from this question alone. Any MITRE mapping remains
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
 - SPL: False (approved=None) | Checklist: 0 | Actions: 0
-- Human review: True (execution_approval) | Scorecard: `pass`
+- Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
 
 SOC review checklist:
 - Review with grid operations before treating frequency deviations as security incidents.
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+SOC review checklist:
+- Review with grid operations before treating frequency deviations as security incidents.
+Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+Draft SPL (review-only, not executed):
+```

@@ -53,6 +53,26 @@ def _extract(payload: dict[str, Any]) -> dict[str, Any]:
     actions = analyst.get("recommended_actions") or analyst.get("actions") or []
     checklist = analyst.get("checklist") or analyst.get("investigation_checklist") or []
 
+    # Substance is judged on the analyst-visible message prose, not only the
+    # envelope arrays — WS-0/WS-2/WS-7 enrich the message (direct_answer_summary)
+    # which the old checklist_count/action_count heuristic could not see.
+    full_message = "\n".join(summary_parts)
+    message_markers = (
+        "checklist",
+        "hypotheses",
+        "evidence to collect",
+        "objective:",
+        "asset-scoped",
+        "review steps",
+        "draft spl",
+        "signal class:",
+        "soc review checklist",
+    )
+    lowered_message = full_message.lower()
+    message_substantive = len(full_message.strip()) >= 280 or any(
+        marker in lowered_message for marker in message_markers
+    )
+
     return {
         "selected_skill": routing.get("skill") or payload.get("skill"),
         "answer_mode": contract.get("answer_mode") or payload.get("answer_mode"),
@@ -69,6 +89,8 @@ def _extract(payload: dict[str, Any]) -> dict[str, Any]:
         "summary_excerpt": _first_lines("\n\n".join(summary_parts), 8),
         "action_count": len(actions) if isinstance(actions, list) else 0,
         "checklist_count": len(checklist) if isinstance(checklist, list) else 0,
+        "message_substantive": message_substantive,
+        "message_len": len(full_message.strip()),
         "limitations": analyst.get("limitations") or [],
     }
 
@@ -105,8 +127,14 @@ def run_probe(bank_path: Path = BANK_PATH) -> dict[str, Any]:
             quality_flags["guided_path"] += 1
         if obs.get("human_review_required") and not obs.get("has_candidate_spl") and obs.get("checklist_count", 0) < 2:
             quality_flags["human_review_only"] += 1
-        if not obs.get("has_candidate_spl") and obs.get("checklist_count", 0) < 2 and obs.get("action_count", 0) < 2:
+        envelope_thin = (
+            not obs.get("has_candidate_spl")
+            and obs.get("checklist_count", 0) < 2
+            and obs.get("action_count", 0) < 2
+        )
+        if envelope_thin and not obs.get("message_substantive"):
             quality_flags["thin_answer"] += 1
+        if envelope_thin:
             quality_flags["no_spl_no_checklist"] += 1
 
     return {"bank": bank["name"], "total": len(rows), "quality_flags": quality_flags, "rows": rows}

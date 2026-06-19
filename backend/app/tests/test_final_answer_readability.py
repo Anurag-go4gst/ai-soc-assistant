@@ -327,7 +327,11 @@ def test_sop_knowledge_profile_suppresses_alert_analysis_fields() -> None:
     )
     result = apply_final_answer_readability(envelope, contract)
     summary = (result.direct_answer_summary or "").lower()
-    assert result.direct_answer_summary == "Governed SOP retrieved. SPL and MCP were skipped as requested."
+    # WS-7a: the SOP/knowledge summary now surfaces the retrieved playbook title +
+    # purpose instead of the legacy thin status string. Alert-analysis fields stay
+    # suppressed on a knowledge-only turn.
+    assert "brute-force login sop" in summary
+    assert "scope and escalation checks" in summary
     assert result.severity_label is None
     assert result.mitre_mappings == []
     assert result.spl_code is None

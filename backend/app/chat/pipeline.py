@@ -75,6 +75,7 @@ from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.spl.spl_relevance_check import check_spl_relevance
 from app.spl.mcp_loop_discovery import execute_loop_discovery_hop
 from app.spl.mcp_source_discovery import run_mcp_source_discovery
+from app.spl.source_profile_resolver import extract_placeholder_slots
 from app.spl.spl_source_resolve import build_spl_source_profile_review, resolve_spl_source_profile
 from app.splunk.spl_services import (
     explain_spl,
@@ -1292,8 +1293,15 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
         updated["spl_validation"] = resolved_validation
         return updated
 
-    if resolve_result.missing_slots:
-        review = build_spl_source_profile_review(resolve_result.missing_slots)
+    clarification_slots = list(resolve_result.missing_slots)
+    if not clarification_slots and is_lab_tier and not resolve_result.fully_resolved:
+        # Policy/COE may fill placeholders while validation still fails (e.g. sourcetype
+        # not on allowlist). Lab-tier drafts must surface source-profile clarification,
+        # not fall through to execution-stage spl_revision.
+        clarification_slots = extract_placeholder_slots(spl)
+
+    if clarification_slots:
+        review = build_spl_source_profile_review(clarification_slots)
         existing_review = state.get("human_review")
         if isinstance(existing_review, dict) and existing_review.get("required"):
             review = {
@@ -1307,7 +1315,7 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
         updated_spl_validation = {
             **validation,
             "review_required_reason": "spl_source_profile_clarification",
-            "source_profile_missing_slots": resolve_result.missing_slots,
+            "source_profile_missing_slots": clarification_slots,
             "source_resolve_tiers": resolve_result.tiers_used,
         }
         updated["spl_validation"] = updated_spl_validation
@@ -1634,6 +1642,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
 
     planning_decision = state.get("planning_decision")
     path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
+    qu = state.get("query_understanding")
+    entities_payload: dict[str, Any] | None = None
+    if qu is not None and hasattr(qu, "entities"):
+        entities_payload = qu.entities.model_dump()
+    elif isinstance(qu, dict) and isinstance(qu.get("entities"), dict):
+        entities_payload = qu["entities"]
+    match_path_for_t2 = _candidate_match_path(state)
     message = _chat_message(
         spl_validation,
         execution,
@@ -1642,6 +1657,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         planning_decision=planning_decision,
         soc_kb_retrieval=state.get("soc_kb_retrieval"),
         user_query=request.message,
+        entities=entities_payload,
+        match_path=match_path_for_t2,
     )
     note = _chat_note(
         spl_validation,
@@ -1722,6 +1739,21 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             "Governed template SPL was not produced. HIL/SOC review is required. "
             "No MCP execution was run."
         )
+        if (
+            not human_review.get("required")
+            and human_review.get("review_type") != "spl_source_profile_clarification"
+            and isinstance(spl_validation, dict)
+            and spl_validation.get("approved") is False
+        ):
+            from app.orchestration.human_review import human_review as build_human_review
+
+            human_review = build_human_review(
+                "intent_clarification",
+                "lab_draft_preview_review_required",
+                "soc_analyst",
+                ["review_draft_spl", "confirm_source_profile", "cancel"],
+                message,
+            )
 
     evidence_origin = resolve_response_evidence_origin(
         source_evidence=source_evidence,
@@ -2138,6 +2170,49 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         )
         if not has_guidance:
             analyst_response = None
+    if settings.ai_soc_t2_rag_surfacing_enabled:
+        from app.chat.rag_answer_surfacing import apply_rag_answer_surfacing
+
+        message, answer_contract, analyst_response, human_review = apply_rag_answer_surfacing(
+            message=message,
+            answer_contract=answer_contract,
+            analyst_response=analyst_response,
+            source_evidence=source_evidence,
+            evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+            context_sufficiency=context_sufficiency if isinstance(context_sufficiency, dict) else None,
+            user_query=request.message,
+            human_review=human_review if isinstance(human_review, dict) else None,
+        )
+        if answer_contract is not None:
+            answer_contract_payload = answer_contract.model_dump()
+    if settings.ai_soc_t2_answer_surfacing_enabled:
+        from app.chat.t2_answer_surfacing import apply_t2_answer_surfacing
+
+        message, answer_contract, analyst_response = apply_t2_answer_surfacing(
+            message=message,
+            answer_contract=answer_contract,
+            analyst_response=analyst_response,
+            human_review=human_review if isinstance(human_review, dict) else None,
+            candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
+            spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+            spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+            user_query=request.message,
+            match_path=match_path_for_t2,
+        )
+    if settings.ai_soc_t2_answer_surfacing_enabled:
+        # WS-7b/7c: enrich a status-only stub with an asset-scoped checklist
+        # (named entity) or a T1 objective headline (SPL artifact present). Runs
+        # on in-catalogue rows too, so it is not happy-path-bypassed.
+        from app.chat.entity_headline_surfacing import apply_entity_and_headline_surfacing
+
+        message, analyst_response = apply_entity_and_headline_surfacing(
+            message=message,
+            answer_contract=answer_contract,
+            analyst_response=analyst_response,
+            spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+            candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
+            user_query=request.message,
+        )
     final_answer_validation = None
     guided_without_control_plane = (
         isinstance(state.get("planning_decision"), dict)
@@ -4336,6 +4411,8 @@ def _chat_message(
     planning_decision: dict[str, Any] | None = None,
     soc_kb_retrieval: dict[str, Any] | None = None,
     user_query: str | None = None,
+    entities: dict[str, Any] | None = None,
+    match_path: str | None = None,
 ) -> str:
     from app.chat.guidance_templates import (
         build_conceptual_mitre_guidance,
@@ -4358,7 +4435,14 @@ def _chat_message(
             return build_spl_execution_refusal_guidance()
         return build_unsafe_action_guidance()
     if path_type == "guided_investigation" and user_query:
-        return build_guided_investigation_guidance(user_query)
+        # WS-0: route through the answer-shape router so non-hunt shapes
+        # (IR/containment, regulatory, timeline, baselining, source-health,
+        # insider/DLP, process-aware) get their shaped builders. The router
+        # falls back to build_guided_investigation_guidance when the shape flag
+        # is off or the match path is in-catalogue (happy-path bypass).
+        from app.chat.answer_shape_router import build_shaped_guidance
+
+        return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
     if user_query and is_policy_escalation_guidance_query(user_query):
         return build_policy_escalation_guidance(user_query)
     if user_query and is_mitre_evidence_threshold_query(user_query):

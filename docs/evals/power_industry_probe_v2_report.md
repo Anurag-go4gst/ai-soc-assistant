@@ -4,7 +4,7 @@ Bank: **Power Industry Probe Bank v2 (10)** | Questions: **10**
 
 ## Quality flags (heuristic)
 
-- `thin_answer`: 5
+- `thin_answer`: 0
 - `no_spl_no_checklist`: 5
 - `human_review_only`: 10
 - `scorecard_fail`: 0
@@ -19,11 +19,18 @@ Bank: **Power Industry Probe Bank v2 (10)** | Questions: **10**
 
 - Skill: `None` | Mode: `clarification` | Support: `None`
 - SPL: False (approved=None) | Checklist: 0 | Actions: 0
-- Human review: True (execution_approval) | Scorecard: `pass`
+- Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
 
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+Draft SPL (review-only, not executed):
+```
+search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earliest=-24h latest=now (*dnp3* OR *modbus*)
+| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, ""))
+| eval command_norm=lower(coalesce(action, command, event_action, function, function_code, ""))
+| eval src_ip_norm=coalesce(src_ip, src, source, source_ip, "")
 
 ### pj.002 — Modbus unauthorized write to PLC register
 **Tier:** T2 | **Stress:** control_write_detection + mitre_overclaim_risk
@@ -41,6 +48,9 @@ SOC review checklist:
 - Limitation: protocol tag depends on DPI/sourcetype fidelity; raw TCP without app tag may be missed.
 - MITRE (candidate, unconfirmed): T0830/T0885 (ICS) — non-standard control-protocol port use.
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+SOC review checklist:
+- Confirm whether any non-502 Modbus port is an approved gateway/relay before escalation.
+- Limitation: protocol tag depends on DPI/sourcetype fidelity; raw TCP without app tag may be missed.
 
 ### pj.003 — USB removable-media bridge on hydro control net
 **Tier:** T2 | **Stress:** air_gap_bridge + missing_endpoint_telemetry
@@ -48,8 +58,8 @@ Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC re
 > An engineering workstation on our air-gapped hydro plant control network had a USB drive inserted and an executable ran minutes later. How should the SOC investigate a removable-media bridge into the OT zone?
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=False) | Checklist: 0 | Actions: 0
-- Human review: True (spl_source_profile_clarification) | Scorecard: `review`
+- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- Human review: True (none) | Scorecard: `review`
 
 **Summary excerpt:**
 
@@ -58,6 +68,9 @@ SOC review checklist:
 - Limitation: HMIs without Windows 6416 auditing or an EDR USB sensor will be missed.
 - MITRE (candidate, unconfirmed): T1091 Replication Through Removable Media (ICS T0847).
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+SOC review checklist:
+- Confirm whether removable media is permitted on this HMI per OT media-control policy.
+- Limitation: HMIs without Windows 6416 auditing or an EDR USB sensor will be missed.
 
 ### pj.004 — Substation time-sync (NTP/IRIG-B) tamper
 **Tier:** T2 | **Stress:** timing_integrity + cross_device_correlation
@@ -70,14 +83,14 @@ Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC re
 
 **Summary excerpt:**
 
-Guided investigation (review-only)
+Guided investigation — signal class: timing integrity (review-only)
+Detected OT/protocol signals: ntp, irig-b, gps, pdc.
 Hypotheses
-- Expected operational activity or a recent approved change.
-- Telemetry or configuration drift producing an apparent anomaly.
-- Suspicious activity that requires corroboration across independent sources.
+- Planned NTP/IRIG-B source change or GPS antenna maintenance.
+- Stratum drift or leap-second handling on a subset of clocks.
+- Deliberate or accidental time-source tamper affecting OT sequencing.
 Evidence to collect
-- Firewall, DNS, proxy, and endpoint events for a bounded time window.
-- Asset ownership, criticality, baseline, and recent change history.
+- NTP/IRIG-B/PTP source health, stratum, and peer-offset logs.
 
 ### pj.005 — OPC server tag-subscription spike
 **Tier:** T1/T2 | **Stress:** analytics + benign_vs_malicious_separation
@@ -90,14 +103,14 @@ Evidence to collect
 
 **Summary excerpt:**
 
-Guided investigation (review-only)
+Guided investigation — signal class: protocol command (review-only)
+Detected OT/protocol signals: opc, recon.
 Hypotheses
-- Approved vendor or maintenance communication changed.
-- A configuration or routing change introduced a new destination.
-- An OT asset is beaconing or transferring data unexpectedly.
+- Approved engineering or vendor maintenance command.
+- Misconfigured master/slave polling or unsolicited response storm.
+- Unauthorized write or function-code abuse on OT field gear.
 Evidence to collect
-- Firewall sessions: source asset, destination, port, bytes, duration, first/last seen.
-- DNS/proxy context: resolved name, category, reputation, and peer hosts.
+- OT protocol logs: function code, register/object, source master, response timing.
 
 ### pj.006 — SLDC operator off-shift / impossible travel
 **Tier:** T1 | **Stress:** identity_anomaly + ot_context
@@ -111,13 +124,13 @@ Evidence to collect
 **Summary excerpt:**
 
 Guided investigation (review-only)
+No specialised OT family is mapped for this signal yet — using a generic hunt skeleton.
 Hypotheses
 - Expected operational activity or a recent approved change.
-- Telemetry or configuration drift producing an apparent anomaly.
-- Suspicious activity that requires corroboration across independent sources.
+- Telemetry drift producing an apparent anomaly.
+- Suspicious activity requiring corroboration across independent sources.
 Evidence to collect
-- Firewall, DNS, proxy, and endpoint events for a bounded time window.
-- Asset ownership, criticality, baseline, and recent change history.
+- Relevant OT/IT logs for a bounded time window.
 
 ### pj.007 — OT-to-IT data-diode egress bypass
 **Tier:** T2 | **Stress:** egress_exfil + architecture_constraint
@@ -130,14 +143,14 @@ Evidence to collect
 
 **Summary excerpt:**
 
-Guided investigation (review-only)
+Guided investigation — signal class: egress exfil (review-only)
+Detected OT/protocol signals: data diode, diode.
 Hypotheses
-- Approved vendor or maintenance communication changed.
-- A configuration or routing change introduced a new destination.
-- An OT asset is beaconing or transferring data unexpectedly.
+- Expected historian or backup replication across the diode.
+- Misrouted OT flow violating one-way policy.
+- Covert exfiltration requiring byte-volume and destination corroboration.
 Evidence to collect
-- Firewall sessions: source asset, destination, port, bytes, duration, first/last seen.
-- DNS/proxy context: resolved name, category, reputation, and peer hosts.
+- Diode/policy direction: allowed destinations and protocols.
 
 ### pj.008 — Numerical relay firmware push off-window
 **Tier:** T2 | **Stress:** change_outside_window + missing_baseline
@@ -150,14 +163,14 @@ Evidence to collect
 
 **Summary excerpt:**
 
-Guided investigation (review-only)
+Guided investigation — signal class: change management (review-only)
+Detected OT/protocol signals: firmware, relay, maintenance window.
 Hypotheses
-- Expected operational activity or a recent approved change.
-- Telemetry or configuration drift producing an apparent anomaly.
-- Suspicious activity that requires corroboration across independent sources.
+- Approved firmware or relay configuration push in-window.
+- Emergency restoration change outside the normal maintenance window.
+- Unauthorized config/firmware change without ticket alignment.
 Evidence to collect
-- Firewall, DNS, proxy, and endpoint events for a bounded time window.
-- Asset ownership, criticality, baseline, and recent change history.
+- Change tickets: approver, window, asset list, rollback plan.
 
 ### pj.009 — IT phish -> OT jump-host pivot
 **Tier:** T2 | **Stress:** it_ot_pivot + multi_signal_correlation
@@ -195,3 +208,6 @@ SOC review checklist:
 - Limitation: protocol tag depends on DPI/sourcetype fidelity; raw TCP without app tag may be missed.
 - MITRE (candidate, unconfirmed): T0830/T0885 (ICS) — non-standard control-protocol port use.
 Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.
+SOC review checklist:
+- Confirm whether any non-502 Modbus port is an approved gateway/relay before escalation.
+- Limitation: protocol tag depends on DPI/sourcetype fidelity; raw TCP without app tag may be missed.

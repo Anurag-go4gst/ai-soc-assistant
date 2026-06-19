@@ -1,0 +1,172 @@
+"""T2 answer surfacing — merge guidance package and expose SPL drafts (WS-2)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from app.chat.answer_shape_router import classify_answer_shape, shape_suppresses_spl, should_bypass_shape_router
+from app.chat.contracts.answer_contract import AnswerContract
+from app.config import settings
+from app.schemas.responses import AnalystResponseEnvelope
+from app.spl.draft_preview import DRAFT_PREVIEW_STATUS_MESSAGE, build_draft_preview_analyst_message
+
+
+_HIL_KIND_COPY: dict[str, str] = {
+    "spl_source_profile_clarification": "Confirm index/sourcetype for this draft before review.",
+    "execution_approval": "Analyst approval is required before any Splunk search execution.",
+    "intent_clarification": "Additional context is required before proceeding.",
+    "answer_guard_blocked": "Answer Guard blocked the draft — review the technical trace.",
+    "session_context_stale": "Session context is stale — repeat alert context or start fresh.",
+}
+
+
+def human_review_kind_to_analyst_copy(kind: str | None, fallback: str | None = None) -> str:
+    if not kind:
+        return str(fallback or "Human-in-the-loop review is required before execution.")
+    return _HIL_KIND_COPY.get(str(kind), str(fallback or "Analyst review is required before execution."))
+
+
+def _has_spl_artifact(
+    *,
+    candidate_spl: dict[str, Any] | None,
+    spl_draft_preview: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+) -> bool:
+    if isinstance(spl_draft_preview, dict) and str(spl_draft_preview.get("draft_spl") or "").strip():
+        return True
+    if isinstance(candidate_spl, dict) and str(candidate_spl.get("candidate_spl") or "").strip():
+        return True
+    if isinstance(spl_validation, dict) and str(spl_validation.get("normalized_spl") or spl_validation.get("candidate_spl") or "").strip():
+        return True
+    return False
+
+
+def enhance_answer_contract_for_t2_surfacing(
+    contract: AnswerContract,
+    *,
+    candidate_spl: dict[str, Any] | None,
+    spl_draft_preview: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+    user_query: str,
+    match_path: str | None,
+) -> AnswerContract:
+    if not settings.ai_soc_t2_answer_surfacing_enabled or should_bypass_shape_router(match_path):
+        return contract
+    shape = classify_answer_shape(user_query).primary_shape
+    if shape_suppresses_spl(shape):
+        render = dict(contract.render_sections)
+        render["spl_artifact"] = False
+        return contract.model_copy(update={"render_sections": render, "spl_present": False, "spl_status": "not_required"})
+    if not _has_spl_artifact(
+        candidate_spl=candidate_spl,
+        spl_draft_preview=spl_draft_preview,
+        spl_validation=spl_validation,
+    ):
+        return contract
+    render = dict(contract.render_sections)
+    render["spl_artifact"] = True
+    render["draft_spl_preview"] = bool(
+        isinstance(spl_draft_preview, dict) and str(spl_draft_preview.get("draft_spl") or "").strip()
+    )
+    section_order = list(contract.section_order)
+    if "spl_artifact" not in section_order:
+        section_order.append("spl_artifact")
+    spl_status = contract.spl_status if contract.spl_status != "not_required" else "review_required"
+    return contract.model_copy(
+        update={
+            "render_sections": render,
+            "spl_present": True,
+            "spl_status": spl_status,
+            "section_order": section_order,
+        }
+    )
+
+
+def build_merged_t2_message(
+    *,
+    guidance_text: str,
+    human_review: dict[str, Any] | None,
+    spl_draft_preview: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+    limitations: list[str] | None = None,
+    user_query: str,
+    match_path: str | None,
+) -> str:
+    if not settings.ai_soc_t2_answer_surfacing_enabled or should_bypass_shape_router(match_path):
+        return guidance_text
+    shape = classify_answer_shape(user_query).primary_shape
+    parts: list[str] = [guidance_text.strip()] if guidance_text and guidance_text.strip() else []
+    if not shape_suppresses_spl(shape):
+        if isinstance(spl_draft_preview, dict) and str(spl_draft_preview.get("draft_spl") or "").strip():
+            draft_block = build_draft_preview_analyst_message(spl_draft_preview)
+            draft_spl = str(spl_draft_preview.get("draft_spl") or "").strip()
+            parts.append(f"{draft_block}\n\nDraft SPL (review-only, not executed):\n```\n{draft_spl}\n```")
+        elif isinstance(candidate_spl, dict) and str(candidate_spl.get("candidate_spl") or "").strip():
+            parts.append(
+                "Candidate SPL draft (review-only, not executed):\n"
+                f"```\n{candidate_spl['candidate_spl'].strip()}\n```"
+            )
+        elif isinstance(spl_validation, dict) and str(spl_validation.get("normalized_spl") or "").strip():
+            parts.append(
+                "Governed SPL draft (validated, not executed):\n"
+                f"```\n{spl_validation['normalized_spl'].strip()}\n```"
+            )
+    if limitations:
+        lim_lines = [str(item) for item in limitations if str(item).strip()]
+        if lim_lines:
+            parts.append("Limitations:\n" + "\n".join(f"- {line}" for line in lim_lines))
+    review = human_review if isinstance(human_review, dict) else {}
+    if review.get("required"):
+        kind = str(review.get("review_type") or review.get("kind") or "")
+        hil_copy = human_review_kind_to_analyst_copy(kind, review.get("safe_message_for_user"))
+        parts.append(f"Review package: {hil_copy}")
+    elif isinstance(spl_draft_preview, dict):
+        parts.append(f"Review package: {DRAFT_PREVIEW_STATUS_MESSAGE}")
+    merged = "\n\n".join(part for part in parts if part)
+    return merged or guidance_text
+
+
+def apply_t2_answer_surfacing(
+    *,
+    message: str,
+    answer_contract: AnswerContract | None,
+    analyst_response: AnalystResponseEnvelope | None,
+    human_review: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None,
+    spl_draft_preview: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+    user_query: str,
+    match_path: str | None,
+) -> tuple[str, AnswerContract | None, AnalystResponseEnvelope | None]:
+    if not settings.ai_soc_t2_answer_surfacing_enabled or should_bypass_shape_router(match_path):
+        return message, answer_contract, analyst_response
+    limitations = list(answer_contract.limitations) if answer_contract is not None else []
+    merged_message = build_merged_t2_message(
+        guidance_text=message,
+        human_review=human_review,
+        spl_draft_preview=spl_draft_preview,
+        candidate_spl=candidate_spl,
+        spl_validation=spl_validation,
+        limitations=limitations,
+        user_query=user_query,
+        match_path=match_path,
+    )
+    updated_contract = answer_contract
+    if answer_contract is not None:
+        updated_contract = enhance_answer_contract_for_t2_surfacing(
+            answer_contract,
+            candidate_spl=candidate_spl,
+            spl_draft_preview=spl_draft_preview,
+            spl_validation=spl_validation,
+            user_query=user_query,
+            match_path=match_path,
+        )
+    updated_response = analyst_response
+    if analyst_response is not None and updated_contract is not None:
+        from app.chat.final_answer_readability import apply_final_answer_readability
+
+        updated_response = apply_final_answer_readability(analyst_response, updated_contract)
+        if merged_message:
+            updated_response = updated_response.model_copy(update={"direct_answer_summary": merged_message[:2000]})
+    return merged_message, updated_contract, updated_response

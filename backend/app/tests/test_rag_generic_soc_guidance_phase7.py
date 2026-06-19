@@ -176,9 +176,11 @@ def test_brute_force_sop_answer_is_knowledge_only_without_alert_analysis_wording
     assert response.analyst_response is not None
     assert response.analyst_response.response_profile == "knowledge_recall"
     summary = (response.analyst_response.direct_answer_summary or "").lower()
-    assert response.analyst_response.direct_answer_summary == (
-        "Governed SOP retrieved. SPL and MCP were skipped as requested."
-    )
+    # WS-7a: the knowledge-only SOP summary now surfaces the retrieved playbook
+    # (title / purpose / steps) instead of the legacy thin status string. It must
+    # stay knowledge-only — no alert-analysis wording (asserted by the loop below).
+    assert "sop" in summary or "investigation" in summary
+    assert summary.strip()
     assert "p3" not in (response.analyst_response.severity_label or "").lower()
     assert not response.analyst_response.mitre_mappings
     assert not response.analyst_response.not_claimed
