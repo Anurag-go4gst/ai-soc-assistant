@@ -19,6 +19,7 @@ AnswerShape = Literal[
     "timeline_reconstruction",
     "insider_dlp",
     "process_aware_ot",
+    "supply_chain_firmware_integrity",
 ]
 
 IN_CATALOG_MATCH_PATHS = frozenset(
@@ -34,6 +35,7 @@ _SHAPE_PRECEDENCE: tuple[AnswerShape, ...] = (
     "ir_containment_advisory",
     "regulatory_knowledge",
     "process_aware_ot",
+    "supply_chain_firmware_integrity",
     "insider_dlp",
     "timeline_reconstruction",
     "ti_advisory_mapping",
@@ -88,6 +90,12 @@ _PROCESS_AWARE = re.compile(
     r"frequency deviation|grid-physics|generation control)\b",
     re.IGNORECASE,
 )
+_SUPPLY_CHAIN_FW = re.compile(
+    r"\bsupply[\s-]?chain\b|"
+    r"\b(?:firmware|code[\s-]?signing)\b.{0,60}\b(?:certificate|signing cert|key rotation|signed with|unexpected (?:cert|certificate|key))\b|"
+    r"\bsigned with an unexpected\b",
+    re.IGNORECASE,
+)
 _HUNT = re.compile(
     r"\b(hunt|investigate|suspicious|anomal|unusual|anything to|where should i start|"
     r"what should (?:soc|analyst)|evidence (?:to )?collect)\b",
@@ -98,6 +106,7 @@ _SHAPE_DETECTORS: tuple[tuple[AnswerShape, re.Pattern[str]], ...] = (
     ("ir_containment_advisory", _IR_CONTAINMENT),
     ("regulatory_knowledge", _REGULATORY),
     ("process_aware_ot", _PROCESS_AWARE),
+    ("supply_chain_firmware_integrity", _SUPPLY_CHAIN_FW),
     ("insider_dlp", _INSIDER_DLP),
     ("timeline_reconstruction", _TIMELINE),
     ("ti_advisory_mapping", _TI_ADVISORY),
@@ -118,6 +127,27 @@ def is_regulatory_reporting_query(query: str) -> bool:
     """True when the query is a regulatory / reporting-obligation ask (WS-7a)."""
     normalized = " ".join(query.lower().split())
     return bool(_REGULATORY.search(normalized))
+
+
+def is_supply_chain_firmware_query(query: str) -> bool:
+    """True for vendor firmware / code-signing integrity asks (WS pk.009)."""
+    normalized = " ".join(query.lower().split())
+    if "supply chain" in normalized or "supply-chain" in normalized:
+        return True
+    firmware = any(term in normalized for term in ("firmware", "code-signing", "code signing"))
+    integrity = any(
+        term in normalized
+        for term in (
+            "certificate",
+            "signing cert",
+            "key rotation",
+            "signed with",
+            "unexpected cert",
+            "unexpected certificate",
+            "unexpected code",
+        )
+    )
+    return firmware and integrity
 
 
 def should_bypass_shape_router(match_path: str | None) -> bool:
@@ -188,6 +218,8 @@ def _build_primary_shape_guidance(
         return _insider_dlp_guidance(query, entities)
     if shape == "process_aware_ot":
         return _process_aware_guidance(query, entities)
+    if shape == "supply_chain_firmware_integrity":
+        return build_supply_chain_firmware_guidance(query)
     from app.chat.guidance_templates import build_guided_investigation_guidance
 
     return build_guided_investigation_guidance(query, entities)
@@ -328,6 +360,35 @@ def _process_aware_guidance(query: str, entities: dict[str, Any] | None) -> str:
         "- Review engineering logs, relay event files, and operations shift notes.\n"
         "- Escalate to grid operations before technique-level conclusions.\n\n"
         "Limitations: security analytics alone cannot prove grid instability intent."
+    )
+
+
+def build_supply_chain_firmware_guidance(query: str) -> str:
+    """Judgment + investigation substance for vendor firmware / code-signing asks.
+
+    WS-5d: pairs the deterministic "not enough to confirm" judgment with concrete
+    steps to separate a legitimate vendor key rotation from a supply-chain
+    compromise — never judgment alone.
+    """
+    from app.chat.guidance_templates import build_conceptual_mitre_guidance
+
+    judgment = build_conceptual_mitre_guidance(query)
+    return (
+        "Supply-chain firmware integrity review (review-only)\n\n"
+        f"{judgment}\n\n"
+        "Separate legitimate key rotation from compromise:\n"
+        "- Verify the code-signing certificate: issuer chain, validity window, and thumbprint "
+        "against the vendor's known-good signing key.\n"
+        "- Confirm an out-of-band vendor advisory or change ticket authorizing a key rotation "
+        "for this firmware release.\n"
+        "- Compare the firmware hash/version against the vendor's published release manifest.\n"
+        "- Correlate the push: source host/account, delivery channel, and whether all targeted "
+        "devices were updated in one window (a single mass push raises risk).\n"
+        "- Hold rollout, stage to a test bench, and preserve the prior firmware image for rollback.\n\n"
+        "Limitations: an unexpected signing certificate alone does NOT confirm compromise — "
+        "corroborate certificate provenance, vendor authorization, and firmware hash first. Any "
+        "MITRE mapping stays candidate (e.g. candidate T0857 System Firmware / supply-chain) "
+        "until provenance is verified."
     )
 
 

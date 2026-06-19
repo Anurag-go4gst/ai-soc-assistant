@@ -166,11 +166,18 @@ Governed SPL drafting is in review-only mode for this search request. Confirm in
 
 - Skill: `None` | Mode: `clarification` | Support: `None`
 - SPL: False (approved=None) | Checklist: 0 | Actions: 0
-- Human review: True (execution_approval) | Scorecard: `pass`
+- Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
 
+Supply-chain firmware integrity review (review-only)
 No — not enough to confirm from this question alone. Any MITRE mapping remains candidate or requires validation until source-grounded evidence is reviewed. Investigation step: corroborate logs, confirm asset context, build a timeline, and validate across independent signals. Do not claim compromise without collected, validated search results.
+Separate legitimate key rotation from compromise:
+- Verify the code-signing certificate: issuer chain, validity window, and thumbprint against the vendor's known-good signing key.
+- Confirm an out-of-band vendor advisory or change ticket authorizing a key rotation for this firmware release.
+- Compare the firmware hash/version against the vendor's published release manifest.
+- Correlate the push: source host/account, delivery channel, and whether all targeted devices were updated in one window (a single mass push raises risk).
+- Hold rollout, stage to a test bench, and preserve the prior firmware image for rollback.
 
 ### pk.010 — Frequency-control command anomaly (AGC)
 **Tier:** T2 | **Stress:** process_aware_anomaly + grid_physics

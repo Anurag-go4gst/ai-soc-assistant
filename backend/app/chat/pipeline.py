@@ -4447,6 +4447,17 @@ def _chat_message(
         return build_policy_escalation_guidance(user_query)
     if user_query and is_mitre_evidence_threshold_query(user_query):
         return build_mitre_evidence_threshold_guidance(user_query)
+    if settings.ai_soc_t2_answer_shape_enabled and user_query:
+        # WS pk.009: supply-chain firmware/code-signing asks get judgment + substance
+        # (cert provenance, vendor authorization, hash, rollout correlation), not the
+        # conceptual-mitre judgment alone. Flag-gated; default posture unchanged.
+        from app.chat.answer_shape_router import (
+            build_supply_chain_firmware_guidance,
+            is_supply_chain_firmware_query,
+        )
+
+        if is_supply_chain_firmware_query(user_query):
+            return build_supply_chain_firmware_guidance(user_query)
     if user_query and is_conceptual_mitre_confirm_query(user_query):
         return build_conceptual_mitre_guidance(user_query)
     if user_query:

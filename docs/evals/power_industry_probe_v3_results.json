@@ -258,15 +258,15 @@
         "execution_eligible": null,
         "human_review_required": true,
         "human_review_kind": "execution_approval",
-        "scorecard_verdict": "pass",
+        "scorecard_verdict": "review",
         "scorecard_issues": [],
         "mitre_status": null,
         "guided_grounding": false,
-        "summary_excerpt": "No \u2014 not enough to confirm from this question alone. Any MITRE mapping remains candidate or requires validation until source-grounded evidence is reviewed. Investigation step: corroborate logs, confirm asset context, build a timeline, and validate across independent signals. Do not claim compromise without collected, validated search results.",
+        "summary_excerpt": "Supply-chain firmware integrity review (review-only)\nNo \u2014 not enough to confirm from this question alone. Any MITRE mapping remains candidate or requires validation until source-grounded evidence is reviewed. Investigation step: corroborate logs, confirm asset context, build a timeline, and validate across independent signals. Do not claim compromise without collected, validated search results.\nSeparate legitimate key rotation from compromise:\n- Verify the code-signing certificate: issuer chain, validity window, and thumbprint against the vendor's known-good signing key.\n- Confirm an out-of-band vendor advisory or change ticket authorizing a key rotation for this firmware release.\n- Compare the firmware hash/version against the vendor's published release manifest.\n- Correlate the push: source host/account, delivery channel, and whether all targeted devices were updated in one window (a single mass push raises risk).\n- Hold rollout, stage to a test bench, and preserve the prior firmware image for rollback.",
         "action_count": 0,
         "checklist_count": 0,
         "message_substantive": true,
-        "message_len": 344,
+        "message_len": 1307,
         "limitations": []
       }
     },
