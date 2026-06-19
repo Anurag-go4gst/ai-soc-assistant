@@ -116,5 +116,11 @@ def should_attach_compose_hil(
     ):
         return True, "proposed_mcp_search_review"
     if confidence < compose_hil_threshold():
+        # A review-only SPL draft is a concrete, actionable deliverable — its value is
+        # the validated (non-executable) SPL, not the narration prose. Don't let low
+        # narration confidence gate it into a "blocked / human review" framing; the
+        # SPL is already review-only and the analyst can act on it directly.
+        if "spl_artifact" in (contract.section_order or []):
+            return False, None
         return True, "composition_confidence_below_threshold"
     return False, None
