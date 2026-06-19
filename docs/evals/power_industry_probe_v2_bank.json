@@ -1,0 +1,79 @@
+{
+  "name": "Power Industry Probe Bank v2 (10)",
+  "purpose": "Second, fully-disjoint out-of-happy-path OT/grid SOC corpus for live pipeline probing. Compared against v1 (pi.001-010). Not a governance gate.",
+  "date": "2026-06-19",
+  "total": 10,
+  "disjoint_from": "power_industry_probe_bank.json (pi.001-010)",
+  "entries": [
+    {
+      "question_id": "pj.001",
+      "topic": "DNP3 unsolicited responses from RTU",
+      "tier": "T2",
+      "stress_axis": "out_of_catalog_protocol_hunt + ambiguous_cause",
+      "question": "An RTU at a 220kV substation started sending a flood of DNP3 unsolicited responses to the SCADA master outside its normal class-poll schedule. How do we tell a misconfigured RTU from an attacker forcing unsolicited reporting?"
+    },
+    {
+      "question_id": "pj.002",
+      "topic": "Modbus unauthorized write to PLC register",
+      "tier": "T2",
+      "stress_axis": "control_write_detection + mitre_overclaim_risk",
+      "question": "Detect any Modbus/TCP write-single-register or write-multiple-coils commands sent to boiler-control PLCs at our thermal plant DCS from hosts other than the approved engineering workstation, and tell me if a single write proves sabotage."
+    },
+    {
+      "question_id": "pj.003",
+      "topic": "USB removable-media bridge on hydro control net",
+      "tier": "T2",
+      "stress_axis": "air_gap_bridge + missing_endpoint_telemetry",
+      "question": "An engineering workstation on our air-gapped hydro plant control network had a USB drive inserted and an executable ran minutes later. How should the SOC investigate a removable-media bridge into the OT zone?"
+    },
+    {
+      "question_id": "pj.004",
+      "topic": "Substation time-sync (NTP/IRIG-B) tamper",
+      "tier": "T2",
+      "stress_axis": "timing_integrity + cross_device_correlation",
+      "question": "Several substation IEDs and the PDC drifted in time and then snapped back within the same hour. Hunt for NTP or IRIG-B time-source manipulation versus a failing GPS clock."
+    },
+    {
+      "question_id": "pj.005",
+      "topic": "OPC server tag-subscription spike",
+      "tier": "T1/T2",
+      "stress_axis": "analytics + benign_vs_malicious_separation",
+      "question": "Show a spike in new OPC tag subscriptions on the SCADA OPC server in the last 24 hours and help me judge whether it is an HMI reconnaissance sweep or a normal engineering session."
+    },
+    {
+      "question_id": "pj.006",
+      "topic": "SLDC operator off-shift / impossible travel",
+      "tier": "T1",
+      "stress_axis": "identity_anomaly + ot_context",
+      "question": "A State Load Despatch Centre operator account logged into the EMS from two different regional offices within 30 minutes and outside the rostered shift. What should analysts validate before calling this account compromise?"
+    },
+    {
+      "question_id": "pj.007",
+      "topic": "OT-to-IT data-diode egress bypass",
+      "tier": "T2",
+      "stress_axis": "egress_exfil + architecture_constraint",
+      "question": "Our OT network is supposed to be one-way through a data diode to the IT historian. Hunt for any outbound session from an OT asset that reached the corporate network or internet, bypassing the diode."
+    },
+    {
+      "question_id": "pj.008",
+      "topic": "Numerical relay firmware push off-window",
+      "tier": "T2",
+      "stress_axis": "change_outside_window + missing_baseline",
+      "question": "Find configuration or firmware pushes to SEL or ABB numerical relays made through a vendor engineering tool outside any approved maintenance window in the last 30 days."
+    },
+    {
+      "question_id": "pj.009",
+      "topic": "IT phish -> OT jump-host pivot",
+      "tier": "T2",
+      "stress_axis": "it_ot_pivot + multi_signal_correlation",
+      "question": "A corporate AD user clicked a phishing link this morning, and the same identity has standing RDP rights to an OT jump host. Correlate the phishing event with any subsequent OT jump-host access and tell analysts what to check first."
+    },
+    {
+      "question_id": "pj.010",
+      "topic": "Renewable inverter Modbus scan",
+      "tier": "T2",
+      "stress_axis": "internal_recon_scan + renewable_scada",
+      "question": "Hunt for an internal host sweeping Modbus/TCP port 502 across our solar farm inverter SCADA range. Is a port sweep alone enough to declare an active intrusion?"
+    }
+  ]
+}

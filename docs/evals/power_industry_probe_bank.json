@@ -1,0 +1,78 @@
+{
+  "name": "Power Industry Probe Bank (10)",
+  "purpose": "Out-of-happy-path OT/grid SOC questions for live pipeline probing. Not a governance gate.",
+  "date": "2026-06-19",
+  "total": 10,
+  "entries": [
+    {
+      "question_id": "pi.001",
+      "topic": "GOOSE burst during outage",
+      "tier": "T2",
+      "stress_axis": "compound_ot_protocol + judgment",
+      "question": "Our protection relay at a 400kV substation logged an unexpected GOOSE message burst during a planned outage window. How should grid SOC investigate whether this is misoperation or malicious manipulation?"
+    },
+    {
+      "question_id": "pi.002",
+      "topic": "IEC 61850 MMS unapproved assets",
+      "tier": "T2",
+      "stress_axis": "out_of_catalog_hunt + missing_asset_list",
+      "question": "Find IEC 61850 MMS sessions from engineering laptops that are not on the approved maintenance asset list."
+    },
+    {
+      "question_id": "pi.003",
+      "topic": "vendor VPN + OT firewall correlation",
+      "tier": "T2",
+      "stress_axis": "multi_signal_correlation",
+      "question": "Correlate vendor contractor VPN logins with any OT DMZ firewall policy changes on the same day. What should analysts validate first?"
+    },
+    {
+      "question_id": "pi.004",
+      "topic": "PMU stream gap sabotage hunt",
+      "tier": "T2",
+      "stress_axis": "ambiguous_cause + hunt",
+      "question": "A PMU at our regional control center stopped streaming synchrophasor data for 20 minutes then resumed. Hunt for signs of ingestion sabotage versus upstream network loss."
+    },
+    {
+      "question_id": "pi.005",
+      "topic": "AMI head-end firmware",
+      "tier": "T2",
+      "stress_axis": "missing_lookup + detection_imperative",
+      "question": "Are there any unapproved firmware downloads initiated from the AMI head-end system in the last week?"
+    },
+    {
+      "question_id": "pi.006",
+      "topic": "transformer diff alarm attack judgment",
+      "tier": "T1/T2",
+      "stress_axis": "analytics + mitre_overclaim_risk",
+      "question": "Show transformer differential protection alarm spikes across all 400kV bays and tell me if this pattern alone indicates a coordinated attack."
+    },
+    {
+      "question_id": "pi.007",
+      "topic": "SCADA historian gap + RDP jump host",
+      "tier": "T2",
+      "stress_axis": "checklist_request + multi_source",
+      "question": "What is the investigation checklist when SCADA historian gaps coincide with new remote desktop sessions on OT jump hosts?"
+    },
+    {
+      "question_id": "pi.008",
+      "topic": "IEC-104 rogue master",
+      "tier": "T2",
+      "stress_axis": "out_of_catalog_protocol_hunt",
+      "question": "Hunt for IEC-104 STARTDT or STOPDT command sequences from master stations not listed in our asset CMDB."
+    },
+    {
+      "question_id": "pi.009",
+      "topic": "EMS portal fail-then-success",
+      "tier": "T1",
+      "stress_axis": "success_after_failure + ot_context",
+      "question": "Compare failed authentication events on the Energy Management System web portal with successful logins from the same source IPs within 15 minutes."
+    },
+    {
+      "question_id": "pi.010",
+      "topic": "storm restoration remote ops",
+      "tier": "T2",
+      "stress_axis": "benign_vs_malicious_separation",
+      "question": "During storm restoration we see many simultaneous remote switch operations across substations. How do I separate legitimate operator activity from potential unauthorized remote control?"
+    }
+  ]
+}
