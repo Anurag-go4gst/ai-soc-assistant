@@ -140,4 +140,7 @@ def apply_entity_and_headline_surfacing(
         updated_response = analyst_response.model_copy(
             update={"direct_answer_summary": enriched[:2000]}
         )
+        from app.chat.guidance_envelope import populate_envelope_from_guidance
+
+        updated_response = populate_envelope_from_guidance(updated_response, enriched)
     return enriched, updated_response

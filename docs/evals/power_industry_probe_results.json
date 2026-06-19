@@ -3,8 +3,8 @@
   "total": 10,
   "quality_flags": {
     "thin_answer": 1,
-    "no_spl_no_checklist": 9,
-    "human_review_only": 10,
+    "no_spl_no_checklist": 2,
+    "human_review_only": 3,
     "scorecard_fail": 0,
     "guided_path": 0
   },
@@ -59,7 +59,7 @@
         "guided_grounding": true,
         "summary_excerpt": "Guided investigation \u2014 signal class: protocol command (review-only)\nDetected OT/protocol signals: mms.\nHypotheses\n- Approved engineering or vendor maintenance command.\n- Misconfigured master/slave polling or unsolicited response storm.\n- Unauthorized write or function-code abuse on OT field gear.\nEvidence to collect\n- OT protocol logs: function code, register/object, source master, response timing.",
         "action_count": 9,
-        "checklist_count": 0,
+        "checklist_count": 5,
         "message_substantive": true,
         "message_len": 1359,
         "limitations": [
@@ -87,16 +87,19 @@
         "execution_eligible": null,
         "human_review_required": true,
         "human_review_kind": "precondition_review",
-        "scorecard_verdict": "review",
+        "scorecard_verdict": "pass",
         "scorecard_issues": [],
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "Objective: Correlate vendor contractor VPN logins with any OT DMZ firewall policy changes on the same day. What should analysts validate first?\nA governed SPL draft was produced and passed deterministic validation; it is review-only and was not executed (MCP execution disabled).\nReview steps:\n- Confirm the index/sourcetype and field mappings match your deployment before running.\n- Validate the time window and any thresholds against the asset baseline.\n- Run as review-only first; treat counts as evidence to corroborate, not a verdict.\nLimitations: no live results were returned; no severity or MITRE technique is claimed from the draft alone.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 3,
+        "checklist_count": 4,
         "message_substantive": true,
         "message_len": 650,
-        "limitations": []
+        "limitations": [
+          "Failed VPN logins alone do not establish credential validity or compromise.",
+          "NAT/shared egress can inflate source counts."
+        ]
       }
     },
     {
@@ -120,8 +123,8 @@
         "mitre_status": null,
         "guided_grounding": true,
         "summary_excerpt": "SOC review checklist:\n- Correlate stream gaps with PDC health, GPS time-sync loss, or network congestion.\n- Limitation: gaps inferred from status fields; true sample-rate gap detection needs PDC counters.\n- MITRE (candidate, unconfirmed): T0815 Denial of Service (ICS) \u2014 only if gaps are adversary-induced.\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nSOC review checklist:\n- Correlate stream gaps with PDC health, GPS time-sync loss, or network congestion.\n- Limitation: gaps inferred from status fields; true sample-rate gap detection needs PDC counters.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 8,
+        "checklist_count": 3,
         "message_substantive": true,
         "message_len": 2391,
         "limitations": [
@@ -154,8 +157,8 @@
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "SOC review checklist:\n- Compare observed firmware versions against the approved baseline per meter model.\n- Limitation: 'unauthorized' needs an approved-firmware baseline (lookup pending).\n- MITRE (candidate, unconfirmed): T0857 System Firmware (ICS) \u2014 confirm only with a change/anomaly signal.\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nSOC review checklist:\n- Compare observed firmware versions against the approved baseline per meter model.\n- Limitation: 'unauthorized' needs an approved-firmware baseline (lookup pending).",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 3,
+        "checklist_count": 3,
         "message_substantive": true,
         "message_len": 1768,
         "limitations": []
@@ -182,7 +185,7 @@
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "Objective: Show transformer differential protection alarm spikes across all 400kV bays and tell me if this pattern alone indicates a coordinated attack.\nA governed SPL draft was produced and passed deterministic validation; it is review-only and was not executed (MCP execution disabled).\nReview steps:\n- Confirm the index/sourcetype and field mappings match your deployment before running.\n- Validate the time window and any thresholds against the asset baseline.\n- Run as review-only first; treat counts as evidence to corroborate, not a verdict.\nLimitations: no live results were returned; no severity or MITRE technique is claimed from the draft alone.",
-        "action_count": 0,
+        "action_count": 3,
         "checklist_count": 0,
         "message_substantive": true,
         "message_len": 659,
@@ -210,8 +213,8 @@
         "mitre_status": null,
         "guided_grounding": true,
         "summary_excerpt": "SOC review checklist:\n- Confirm approved corporate IT and OT zone labels or CIDR ranges.\n- Identify source IT hosts and destination OT/control-room assets.\n- Review firewall rule name, action, app, protocol, destination port, and session state.\n- Compare traffic with approved change or maintenance window.\n- Escalate if traffic is unauthorized, recurring, high-volume, or targets critical OT assets.\n- Do not declare compromise from firewall traffic alone.\nThis draft is scoped to allowed/established traffic. If you want all attempts, including denied/blocked traffic, remove or adjust the action/session-state filters during SOC review.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 10,
+        "checklist_count": 6,
         "message_substantive": true,
         "message_len": 4149,
         "limitations": [
@@ -244,8 +247,8 @@
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "Asset-scoped investigation \u2014 IEC-104 (review-only)\nChecklist:\n- Pin the investigation to IEC-104: confirm owner, function, zone, and criticality.\n- Pull this asset's syslog/event history and compare against its own baseline and peer assets.\n- Correlate the anomaly with change tickets, maintenance windows, and recent config/firmware pushes.\n- Check upstream access paths (engineering workstation, jump host, vendor session) for the same window.\n- Validate time integrity before trusting event ordering on the device.\nJudgment: odd syslog on this asset alone does NOT confirm compromise \u2014 corroborate across independent signals (access, change, network) before declaring an incident. No MITRE technique or severity is claimed from this question alone.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 5,
+        "checklist_count": 5,
         "message_substantive": true,
         "message_len": 753,
         "limitations": []
@@ -272,8 +275,8 @@
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "SOC review checklist:\n- Confirm the success genuinely followed the failure burst (not interleaved noise).\n- Check whether the successful login came from the same source IP/host as the failures.\n- Review MFA outcome and device posture for the successful login when available.\n- Correlate with password-reset, IdP admin, or lockout events before escalation.\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nSOC review checklist:\n- Confirm the success genuinely followed the failure burst (not interleaved noise).",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 4,
+        "checklist_count": 4,
         "message_substantive": true,
         "message_len": 2565,
         "limitations": []

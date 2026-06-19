@@ -5,8 +5,8 @@ Bank: **Power Industry Probe Bank v3 (10)** | Questions: **10**
 ## Quality flags (heuristic)
 
 - `thin_answer`: 1
-- `no_spl_no_checklist`: 10
-- `human_review_only`: 10
+- `no_spl_no_checklist`: 2
+- `human_review_only`: 3
 - `scorecard_fail`: 0
 - `guided_path`: 0
 
@@ -18,7 +18,7 @@ Bank: **Power Industry Probe Bank v3 (10)** | Questions: **10**
 > Ransomware just hit our corporate IT domain controller. Should we isolate the OT network from IT right now, and what exact steps should the SOC take to protect the SCADA environment without tripping the grid?
 
 - Skill: `None` | Mode: `clarification` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 7 | Actions: 7
 - Human review: True (execution_approval) | Scorecard: `pass`
 
 **Summary excerpt:**
@@ -38,7 +38,7 @@ Limitations: no containment action was performed. Automated block/disable/quaran
 > A new advisory says the VOLTZITE actor is targeting electric utilities with living-off-the-land techniques on grid OT. Based on what we log today, are we exposed and what should we hunt for?
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=True) | Checklist: 0 | Actions: 0
+- SPL: False (approved=True) | Checklist: 3 | Actions: 0
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
@@ -73,7 +73,7 @@ Disclaimer: verify with compliance/CISO — this is not legal authority. No Splu
 > Which of our OT assets and substation log sources have stopped sending events to Splunk in the last 7 days, so I know my blind spots before the audit?
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=False) | Checklist: 0 | Actions: 0
+- SPL: False (approved=False) | Checklist: 3 | Actions: 3
 - Human review: True (spl_source_profile_clarification) | Scorecard: `pass`
 
 **Summary excerpt:**
@@ -93,7 +93,7 @@ SOC review checklist:
 > What does normal Modbus polling volume look like for our boiler PLCs over a typical week, so I can set a sensible alert threshold for abnormal control traffic?
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 5 | Actions: 5
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
@@ -113,8 +113,8 @@ search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earli
 > Reconstruct a timeline from the vendor VPN login at 02:14, the OT jump-host RDP session, and the relay configuration change, and tell me if these three events are causally linked.
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=True) | Checklist: 0 | Actions: 0
-- Human review: True (precondition_review) | Scorecard: `review`
+- SPL: False (approved=True) | Checklist: 4 | Actions: 3
+- Human review: True (precondition_review) | Scorecard: `pass`
 
 **Summary excerpt:**
 
@@ -132,7 +132,7 @@ Limitations: no live results were returned; no severity or MITRE technique is cl
 > Our wireless IDS flagged a rogue Wi-Fi access point broadcasting near the substation control building. How does the SOC determine if this is a bridge into the OT network?
 
 - Skill: `None` | Mode: `clarification` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 3 | Actions: 3
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
@@ -165,7 +165,7 @@ Governed SPL drafting is in review-only mode for this search request. Confirm in
 > A vendor pushed a firmware update signed with an unexpected code-signing certificate to 40 RTUs overnight. How do we determine whether this is a legitimate vendor key rotation or a supply-chain compromise?
 
 - Skill: `None` | Mode: `clarification` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 5 | Actions: 5
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
@@ -185,7 +185,7 @@ Separate legitimate key rotation from compromise:
 > We saw automatic generation control setpoint commands that would have pushed grid frequency outside the 49.9-50.1 Hz band. Hunt for whether these AGC commands were legitimate dispatch or injected, and what evidence separates the two.
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 1 | Actions: 6
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**

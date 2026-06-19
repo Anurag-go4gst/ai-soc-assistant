@@ -3,8 +3,8 @@
   "total": 10,
   "quality_flags": {
     "thin_answer": 1,
-    "no_spl_no_checklist": 10,
-    "human_review_only": 10,
+    "no_spl_no_checklist": 2,
+    "human_review_only": 3,
     "scorecard_fail": 0,
     "guided_path": 0
   },
@@ -30,8 +30,8 @@
         "mitre_status": null,
         "guided_grounding": true,
         "summary_excerpt": "IR / containment advisory (review-only \u2014 no automated enforcement)\nStaged guidance:\n- Confirm scope: affected OT assets, zones, and blast radius before any isolation.\n- Coordinate with grid operations / control-room before disconnecting SCADA paths.\n- Preserve forensic state: snapshot configs, session logs, and recent change tickets.\n- Prefer monitored segmentation over abrupt shutdown unless safety requires immediate action.\n- Document approvers and rollback plan; human-in-the-loop required for any enforcement.\nLimitations: no containment action was performed. Automated block/disable/quarantine remains blocked until analyst approval.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 7,
+        "checklist_count": 7,
         "message_substantive": true,
         "message_len": 884,
         "limitations": [
@@ -62,7 +62,7 @@
         "guided_grounding": false,
         "summary_excerpt": "SOC review checklist:\n- Confirm asset criticality and ownership.\n- Review correlated authentication and endpoint telemetry.\n- Collect timeline context before severity or MITRE claims.",
         "action_count": 0,
-        "checklist_count": 0,
+        "checklist_count": 3,
         "message_substantive": true,
         "message_len": 184,
         "limitations": []
@@ -117,8 +117,8 @@
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "SOC review checklist:\n- Confirm the Cisco product source and normalize source/destination/action fields before using this draft.\n- Narrow to the row's Cisco product family when the Environment KB has product-specific indexes.\n- Use this as triage scaffolding only; promote repeated rows to a governed template after COE review.\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nSOC review checklist:\n- Confirm the Cisco product source and normalize source/destination/action fields before using this draft.\n- Narrow to the row's Cisco product family when the Environment KB has product-specific indexes.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 3,
+        "checklist_count": 3,
         "message_substantive": true,
         "message_len": 1900,
         "limitations": []
@@ -145,8 +145,8 @@
         "mitre_status": null,
         "guided_grounding": true,
         "summary_excerpt": "Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nDraft SPL (review-only, not executed):\n```\nsearch index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earliest=-24h latest=now (*dnp3* OR *modbus*)\n| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, \"\"))\n| eval command_norm=lower(coalesce(action, command, event_action, function, function_code, \"\"))\n| eval src_ip_norm=coalesce(src_ip, src, source, source_ip, \"\")",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 5,
+        "checklist_count": 5,
         "message_substantive": true,
         "message_len": 1839,
         "limitations": [
@@ -174,16 +174,19 @@
         "execution_eligible": null,
         "human_review_required": true,
         "human_review_kind": "precondition_review",
-        "scorecard_verdict": "review",
+        "scorecard_verdict": "pass",
         "scorecard_issues": [],
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "Objective: Reconstruct a timeline from the vendor VPN login at 02:14, the OT jump-host RDP session, and the relay configuration change, and tell me if these three events are causally linked.\nA governed SPL draft was produced and passed deterministic validation; it is review-only and was not executed (MCP execution disabled).\nReview steps:\n- Confirm the index/sourcetype and field mappings match your deployment before running.\n- Validate the time window and any thresholds against the asset baseline.\n- Run as review-only first; treat counts as evidence to corroborate, not a verdict.\nLimitations: no live results were returned; no severity or MITRE technique is claimed from the draft alone.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 3,
+        "checklist_count": 4,
         "message_substantive": true,
         "message_len": 697,
-        "limitations": []
+        "limitations": [
+          "Failed VPN logins alone do not establish credential validity or compromise.",
+          "NAT/shared egress can inflate source counts."
+        ]
       }
     },
     {
@@ -207,8 +210,8 @@
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "SOC review checklist:\n- Confirm the Cisco product source and normalize source/destination/action fields before using this draft.\n- Narrow to the row's Cisco product family when the Environment KB has product-specific indexes.\n- Use this as triage scaffolding only; promote repeated rows to a governed template after COE review.\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nSOC review checklist:\n- Confirm the Cisco product source and normalize source/destination/action fields before using this draft.\n- Narrow to the row's Cisco product family when the Environment KB has product-specific indexes.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 3,
+        "checklist_count": 3,
         "message_substantive": true,
         "message_len": 1976,
         "limitations": []
@@ -263,8 +266,8 @@
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "Supply-chain firmware integrity review (review-only)\nNo \u2014 not enough to confirm from this question alone. Any MITRE mapping remains candidate or requires validation until source-grounded evidence is reviewed. Investigation step: corroborate logs, confirm asset context, build a timeline, and validate across independent signals. Do not claim compromise without collected, validated search results.\nSeparate legitimate key rotation from compromise:\n- Verify the code-signing certificate: issuer chain, validity window, and thumbprint against the vendor's known-good signing key.\n- Confirm an out-of-band vendor advisory or change ticket authorizing a key rotation for this firmware release.\n- Compare the firmware hash/version against the vendor's published release manifest.\n- Correlate the push: source host/account, delivery channel, and whether all targeted devices were updated in one window (a single mass push raises risk).\n- Hold rollout, stage to a test bench, and preserve the prior firmware image for rollback.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 5,
+        "checklist_count": 5,
         "message_substantive": true,
         "message_len": 1307,
         "limitations": []
@@ -291,8 +294,8 @@
         "mitre_status": null,
         "guided_grounding": true,
         "summary_excerpt": "SOC review checklist:\n- Review with grid operations before treating frequency deviations as security incidents.\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nSOC review checklist:\n- Review with grid operations before treating frequency deviations as security incidents.\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nDraft SPL (review-only, not executed):\n```",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 6,
+        "checklist_count": 1,
         "message_substantive": true,
         "message_len": 1908,
         "limitations": [

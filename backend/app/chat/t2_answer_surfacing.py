@@ -169,4 +169,9 @@ def apply_t2_answer_surfacing(
         updated_response = apply_final_answer_readability(analyst_response, updated_contract)
         if merged_message:
             updated_response = updated_response.model_copy(update={"direct_answer_summary": merged_message[:2000]})
+        from app.chat.guidance_envelope import populate_envelope_from_guidance
+
+        updated_response = populate_envelope_from_guidance(
+            updated_response, merged_message, limitations=limitations
+        )
     return merged_message, updated_contract, updated_response

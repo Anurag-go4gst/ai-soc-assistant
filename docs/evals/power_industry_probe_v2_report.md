@@ -5,8 +5,8 @@ Bank: **Power Industry Probe Bank v2 (10)** | Questions: **10**
 ## Quality flags (heuristic)
 
 - `thin_answer`: 0
-- `no_spl_no_checklist`: 5
-- `human_review_only`: 10
+- `no_spl_no_checklist`: 1
+- `human_review_only`: 1
 - `scorecard_fail`: 0
 - `guided_path`: 0
 
@@ -38,7 +38,7 @@ search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> earli
 > Detect any Modbus/TCP write-single-register or write-multiple-coils commands sent to boiler-control PLCs at our thermal plant DCS from hosts other than the approved engineering workstation, and tell me if a single write proves sabotage.
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 3 | Actions: 8
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
@@ -58,7 +58,7 @@ SOC review checklist:
 > An engineering workstation on our air-gapped hydro plant control network had a USB drive inserted and an executable ran minutes later. How should the SOC investigate a removable-media bridge into the OT zone?
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 3 | Actions: 3
 - Human review: True (none) | Scorecard: `review`
 
 **Summary excerpt:**
@@ -78,7 +78,7 @@ SOC review checklist:
 > Several substation IEDs and the PDC drifted in time and then snapped back within the same hour. Hunt for NTP or IRIG-B time-source manipulation versus a failing GPS clock.
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 9
+- SPL: False (approved=None) | Checklist: 5 | Actions: 9
 - Human review: True (execution_approval) | Scorecard: `pass`
 
 **Summary excerpt:**
@@ -98,7 +98,7 @@ Evidence to collect
 > Show a spike in new OPC tag subscriptions on the SCADA OPC server in the last 24 hours and help me judge whether it is an HMI reconnaissance sweep or a normal engineering session.
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 9
+- SPL: False (approved=None) | Checklist: 5 | Actions: 9
 - Human review: True (execution_approval) | Scorecard: `pass`
 
 **Summary excerpt:**
@@ -118,7 +118,7 @@ Evidence to collect
 > A State Load Despatch Centre operator account logged into the EMS from two different regional offices within 30 minutes and outside the rostered shift. What should analysts validate before calling this account compromise?
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 9
+- SPL: False (approved=None) | Checklist: 5 | Actions: 9
 - Human review: True (execution_approval) | Scorecard: `pass`
 
 **Summary excerpt:**
@@ -138,7 +138,7 @@ Evidence to collect
 > Our OT network is supposed to be one-way through a data diode to the IT historian. Hunt for any outbound session from an OT asset that reached the corporate network or internet, bypassing the diode.
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 9
+- SPL: False (approved=None) | Checklist: 5 | Actions: 9
 - Human review: True (execution_approval) | Scorecard: `pass`
 
 **Summary excerpt:**
@@ -158,7 +158,7 @@ Evidence to collect
 > Find configuration or firmware pushes to SEL or ABB numerical relays made through a vendor engineering tool outside any approved maintenance window in the last 30 days.
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 9
+- SPL: False (approved=None) | Checklist: 5 | Actions: 9
 - Human review: True (execution_approval) | Scorecard: `pass`
 
 **Summary excerpt:**
@@ -178,7 +178,7 @@ Evidence to collect
 > A corporate AD user clicked a phishing link this morning, and the same identity has standing RDP rights to an OT jump host. Correlate the phishing event with any subsequent OT jump-host access and tell analysts what to check first.
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=False) | Checklist: 0 | Actions: 0
+- SPL: False (approved=False) | Checklist: 6 | Actions: 6
 - Human review: True (spl_source_profile_clarification) | Scorecard: `pass`
 
 **Summary excerpt:**
@@ -198,7 +198,7 @@ This draft is scoped to allowed/established traffic. If you want all attempts, i
 > Hunt for an internal host sweeping Modbus/TCP port 502 across our solar farm inverter SCADA range. Is a port sweep alone enough to declare an active intrusion?
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 3 | Actions: 8
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**

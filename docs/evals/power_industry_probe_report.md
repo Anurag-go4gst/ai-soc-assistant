@@ -5,8 +5,8 @@ Bank: **Power Industry Probe Bank (10)** | Questions: **10**
 ## Quality flags (heuristic)
 
 - `thin_answer`: 1
-- `no_spl_no_checklist`: 9
-- `human_review_only`: 10
+- `no_spl_no_checklist`: 2
+- `human_review_only`: 3
 - `scorecard_fail`: 0
 - `guided_path`: 0
 
@@ -35,7 +35,7 @@ Lab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC re
 > Find IEC 61850 MMS sessions from engineering laptops that are not on the approved maintenance asset list.
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 9
+- SPL: False (approved=None) | Checklist: 5 | Actions: 9
 - Human review: True (execution_approval) | Scorecard: `pass`
 
 **Summary excerpt:**
@@ -55,8 +55,8 @@ Evidence to collect
 > Correlate vendor contractor VPN logins with any OT DMZ firewall policy changes on the same day. What should analysts validate first?
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=True) | Checklist: 0 | Actions: 0
-- Human review: True (precondition_review) | Scorecard: `review`
+- SPL: False (approved=True) | Checklist: 4 | Actions: 3
+- Human review: True (precondition_review) | Scorecard: `pass`
 
 **Summary excerpt:**
 
@@ -74,7 +74,7 @@ Limitations: no live results were returned; no severity or MITRE technique is cl
 > A PMU at our regional control center stopped streaming synchrophasor data for 20 minutes then resumed. Hunt for signs of ingestion sabotage versus upstream network loss.
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 3 | Actions: 8
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
@@ -94,7 +94,7 @@ SOC review checklist:
 > Are there any unapproved firmware downloads initiated from the AMI head-end system in the last week?
 
 - Skill: `None` | Mode: `clarification` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 3 | Actions: 3
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
@@ -114,7 +114,7 @@ SOC review checklist:
 > Show transformer differential protection alarm spikes across all 400kV bays and tell me if this pattern alone indicates a coordinated attack.
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=True) | Checklist: 0 | Actions: 0
+- SPL: False (approved=True) | Checklist: 0 | Actions: 3
 - Human review: True (execution_approval) | Scorecard: `pass`
 
 **Summary excerpt:**
@@ -133,7 +133,7 @@ Limitations: no live results were returned; no severity or MITRE technique is cl
 > What is the investigation checklist when SCADA historian gaps coincide with new remote desktop sessions on OT jump hosts?
 
 - Skill: `None` | Mode: `guided_investigation` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 6 | Actions: 10
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**
@@ -153,7 +153,7 @@ This draft is scoped to allowed/established traffic. If you want all attempts, i
 > Hunt for IEC-104 STARTDT or STOPDT command sequences from master stations not listed in our asset CMDB.
 
 - Skill: `None` | Mode: `live_investigation` | Support: `None`
-- SPL: False (approved=True) | Checklist: 0 | Actions: 0
+- SPL: False (approved=True) | Checklist: 5 | Actions: 5
 - Human review: True (precondition_review) | Scorecard: `review`
 
 **Summary excerpt:**
@@ -173,7 +173,7 @@ Judgment: odd syslog on this asset alone does NOT confirm compromise — corrobo
 > Compare failed authentication events on the Energy Management System web portal with successful logins from the same source IPs within 15 minutes.
 
 - Skill: `None` | Mode: `clarification` | Support: `None`
-- SPL: False (approved=None) | Checklist: 0 | Actions: 0
+- SPL: False (approved=None) | Checklist: 4 | Actions: 4
 - Human review: True (execution_approval) | Scorecard: `review`
 
 **Summary excerpt:**

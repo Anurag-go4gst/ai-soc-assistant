@@ -50,8 +50,19 @@ def _extract(payload: dict[str, Any]) -> dict[str, Any]:
         if isinstance(msg, str):
             summary_parts.append(msg.strip())
 
-    actions = analyst.get("recommended_actions") or analyst.get("actions") or []
-    checklist = analyst.get("checklist") or analyst.get("investigation_checklist") or []
+    actions = (
+        analyst.get("recommended_actions")
+        or analyst.get("investigation_steps")
+        or analyst.get("actions")
+        or []
+    )
+    checklist = (
+        analyst.get("analyst_checklist")
+        or analyst.get("investigation_checklist")
+        or analyst.get("checklist")
+        or analyst.get("initial_assessment")
+        or []
+    )
 
     # Substance is judged on the analyst-visible message prose, not only the
     # envelope arrays — WS-0/WS-2/WS-7 enrich the message (direct_answer_summary)

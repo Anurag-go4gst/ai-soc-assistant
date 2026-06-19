@@ -3,8 +3,8 @@
   "total": 10,
   "quality_flags": {
     "thin_answer": 0,
-    "no_spl_no_checklist": 5,
-    "human_review_only": 10,
+    "no_spl_no_checklist": 1,
+    "human_review_only": 1,
     "scorecard_fail": 0,
     "guided_path": 0
   },
@@ -58,8 +58,8 @@
         "mitre_status": null,
         "guided_grounding": true,
         "summary_excerpt": "SOC review checklist:\n- Confirm whether any non-502 Modbus port is an approved gateway/relay before escalation.\n- Limitation: protocol tag depends on DPI/sourcetype fidelity; raw TCP without app tag may be missed.\n- MITRE (candidate, unconfirmed): T0830/T0885 (ICS) \u2014 non-standard control-protocol port use.\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nSOC review checklist:\n- Confirm whether any non-502 Modbus port is an approved gateway/relay before escalation.\n- Limitation: protocol tag depends on DPI/sourcetype fidelity; raw TCP without app tag may be missed.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 8,
+        "checklist_count": 3,
         "message_substantive": true,
         "message_len": 2321,
         "limitations": [
@@ -92,8 +92,8 @@
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "SOC review checklist:\n- Confirm whether removable media is permitted on this HMI per OT media-control policy.\n- Limitation: HMIs without Windows 6416 auditing or an EDR USB sensor will be missed.\n- MITRE (candidate, unconfirmed): T1091 Replication Through Removable Media (ICS T0847).\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nSOC review checklist:\n- Confirm whether removable media is permitted on this HMI per OT media-control policy.\n- Limitation: HMIs without Windows 6416 auditing or an EDR USB sensor will be missed.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 3,
+        "checklist_count": 3,
         "message_substantive": true,
         "message_len": 1963,
         "limitations": []
@@ -121,7 +121,7 @@
         "guided_grounding": true,
         "summary_excerpt": "Guided investigation \u2014 signal class: timing integrity (review-only)\nDetected OT/protocol signals: ntp, irig-b, gps, pdc.\nHypotheses\n- Planned NTP/IRIG-B source change or GPS antenna maintenance.\n- Stratum drift or leap-second handling on a subset of clocks.\n- Deliberate or accidental time-source tamper affecting OT sequencing.\nEvidence to collect\n- NTP/IRIG-B/PTP source health, stratum, and peer-offset logs.",
         "action_count": 9,
-        "checklist_count": 0,
+        "checklist_count": 5,
         "message_substantive": true,
         "message_len": 1362,
         "limitations": [
@@ -155,7 +155,7 @@
         "guided_grounding": true,
         "summary_excerpt": "Guided investigation \u2014 signal class: protocol command (review-only)\nDetected OT/protocol signals: opc, recon.\nHypotheses\n- Approved engineering or vendor maintenance command.\n- Misconfigured master/slave polling or unsolicited response storm.\n- Unauthorized write or function-code abuse on OT field gear.\nEvidence to collect\n- OT protocol logs: function code, register/object, source master, response timing.",
         "action_count": 9,
-        "checklist_count": 0,
+        "checklist_count": 5,
         "message_substantive": true,
         "message_len": 1366,
         "limitations": [
@@ -189,7 +189,7 @@
         "guided_grounding": true,
         "summary_excerpt": "Guided investigation (review-only)\nNo specialised OT family is mapped for this signal yet \u2014 using a generic hunt skeleton.\nHypotheses\n- Expected operational activity or a recent approved change.\n- Telemetry drift producing an apparent anomaly.\n- Suspicious activity requiring corroboration across independent sources.\nEvidence to collect\n- Relevant OT/IT logs for a bounded time window.",
         "action_count": 9,
-        "checklist_count": 0,
+        "checklist_count": 5,
         "message_substantive": true,
         "message_len": 1063,
         "limitations": [
@@ -223,7 +223,7 @@
         "guided_grounding": true,
         "summary_excerpt": "Guided investigation \u2014 signal class: egress exfil (review-only)\nDetected OT/protocol signals: data diode, diode.\nHypotheses\n- Expected historian or backup replication across the diode.\n- Misrouted OT flow violating one-way policy.\n- Covert exfiltration requiring byte-volume and destination corroboration.\nEvidence to collect\n- Diode/policy direction: allowed destinations and protocols.",
         "action_count": 9,
-        "checklist_count": 0,
+        "checklist_count": 5,
         "message_substantive": true,
         "message_len": 1323,
         "limitations": [
@@ -257,7 +257,7 @@
         "guided_grounding": true,
         "summary_excerpt": "Guided investigation \u2014 signal class: change management (review-only)\nDetected OT/protocol signals: firmware, relay, maintenance window.\nHypotheses\n- Approved firmware or relay configuration push in-window.\n- Emergency restoration change outside the normal maintenance window.\n- Unauthorized config/firmware change without ticket alignment.\nEvidence to collect\n- Change tickets: approver, window, asset list, rollback plan.",
         "action_count": 9,
-        "checklist_count": 0,
+        "checklist_count": 5,
         "message_substantive": true,
         "message_len": 1346,
         "limitations": [
@@ -290,8 +290,8 @@
         "mitre_status": null,
         "guided_grounding": false,
         "summary_excerpt": "SOC review checklist:\n- Confirm approved corporate IT and OT zone labels or CIDR ranges.\n- Identify source IT hosts and destination OT/control-room assets.\n- Review firewall rule name, action, app, protocol, destination port, and session state.\n- Compare traffic with approved change or maintenance window.\n- Escalate if traffic is unauthorized, recurring, high-volume, or targets critical OT assets.\n- Do not declare compromise from firewall traffic alone.\nThis draft is scoped to allowed/established traffic. If you want all attempts, including denied/blocked traffic, remove or adjust the action/session-state filters during SOC review.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 6,
+        "checklist_count": 6,
         "message_substantive": true,
         "message_len": 3591,
         "limitations": []
@@ -318,8 +318,8 @@
         "mitre_status": null,
         "guided_grounding": true,
         "summary_excerpt": "SOC review checklist:\n- Confirm whether any non-502 Modbus port is an approved gateway/relay before escalation.\n- Limitation: protocol tag depends on DPI/sourcetype fidelity; raw TCP without app tag may be missed.\n- MITRE (candidate, unconfirmed): T0830/T0885 (ICS) \u2014 non-standard control-protocol port use.\nLab-only draft SPL preview. Not governed, not approved, not executed. HIL/SOC review is required before any future execution path.\nSOC review checklist:\n- Confirm whether any non-502 Modbus port is an approved gateway/relay before escalation.\n- Limitation: protocol tag depends on DPI/sourcetype fidelity; raw TCP without app tag may be missed.",
-        "action_count": 0,
-        "checklist_count": 0,
+        "action_count": 8,
+        "checklist_count": 3,
         "message_substantive": true,
         "message_len": 2321,
         "limitations": [
