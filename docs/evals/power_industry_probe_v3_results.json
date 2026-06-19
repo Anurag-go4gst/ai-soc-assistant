@@ -28,13 +28,16 @@
         "scorecard_verdict": "pass",
         "scorecard_issues": [],
         "mitre_status": null,
-        "guided_grounding": false,
-        "summary_excerpt": "No containment or enforcement action was performed. Change approval and human-in-the-loop (HIL) review are required before any block, disable, quarantine, or firewall change. I can provide investigation guidance only \u2014 automated enforcement is blocked and not authorized.\nReview package: Analyst approval is required before any Splunk search execution.",
+        "guided_grounding": true,
+        "summary_excerpt": "IR / containment advisory (review-only \u2014 no automated enforcement)\nStaged guidance:\n- Confirm scope: affected OT assets, zones, and blast radius before any isolation.\n- Coordinate with grid operations / control-room before disconnecting SCADA paths.\n- Preserve forensic state: snapshot configs, session logs, and recent change tickets.\n- Prefer monitored segmentation over abrupt shutdown unless safety requires immediate action.\n- Document approvers and rollback plan; human-in-the-loop required for any enforcement.\nLimitations: no containment action was performed. Automated block/disable/quarantine remains blocked until analyst approval.",
         "action_count": 0,
         "checklist_count": 0,
         "message_substantive": true,
-        "message_len": 353,
-        "limitations": []
+        "message_len": 884,
+        "limitations": [
+          "No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy.",
+          "LLM-assisted, out-of-catalogue, unverified \u2014 validate against local telemetry and policy."
+        ]
       }
     },
     {

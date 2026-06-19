@@ -369,6 +369,46 @@ def extract_query_signals(
         # ("disable the CEO's account") — containment regardless of phrasing.
         re.search(r"\b(disable|lock|suspend)\b[^.?!]{0,40}\baccount\b", normalized)
     )
+    # Containment DECISION-SUPPORT (not an enforcement command): the analyst is
+    # asking whether/how to contain, not ordering an action. These must reach the
+    # IR/containment advisory shape (review-only staged guidance) instead of the
+    # bare unsafe refusal. Conservative: requires interrogative/advisory framing
+    # AND must not be an explicit "run it / do it now" enforcement imperative.
+    _advisory_framing = any(
+        phrase in normalized
+        for phrase in (
+            "should we",
+            "should i",
+            "what step",
+            "what exact step",
+            "how should",
+            "how do we",
+            "how can we",
+            "is it safe to",
+            "do we need to",
+            "what is the right",
+            "what do you recommend",
+            "without tripping",
+            "without disrupting",
+        )
+    )
+    _enforcement_imperative = any(
+        phrase in normalized
+        for phrase in (
+            "isolate it now",
+            "isolate now",
+            "right now isolate",
+            "do it now",
+            "block it now",
+            "go ahead and",
+            "just isolate",
+            "just block",
+            "just disable",
+        )
+    )
+    containment_decision_support = bool(
+        block_or_contain and _advisory_framing and not _enforcement_imperative and not explicit_run_spl
+    )
     conceptual_mitre_judgment = bool(
         re.search(
             r"\b((enough|sufficient) to confirm|alone confirm|treated as lateral movement|prove compromise"
@@ -701,6 +741,7 @@ def extract_query_signals(
         "alert_context_present": alert_context_present,
         "hybrid_alert_review": hybrid_alert_review,
         "regulatory_reporting": regulatory_reporting,
+        "containment_decision_support": containment_decision_support,
         "projected_needs_rag": policy_terms
         or escalation_without_policy_word
         or playbook_procedure

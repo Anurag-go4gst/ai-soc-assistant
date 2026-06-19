@@ -318,6 +318,14 @@ def _resolve_path_type(
     family = str(intent.get("intent_family") or "")
     runtime_status = crosswalk.get("runtime_support_status")
 
+    if settings.ai_soc_t2_answer_shape_enabled and _containment_decision_support_detected(
+        intent, query_understanding
+    ):
+        # "Should we isolate OT? what steps?" — route to guided so the answer-shape
+        # router emits ir_containment_advisory (staged advice, no enforcement).
+        # Flag-gated: default/pytest posture keeps the unsafe_blocked refusal.
+        return "guided_investigation"
+
     if _unsafe_containment_detected(intent, query_understanding):
         return "unsafe_blocked"
 
@@ -433,7 +441,34 @@ def _live_execution_skill(routed: dict[str, Any]) -> str | None:
     return None
 
 
+def _containment_decision_support_detected(intent: dict[str, Any], query_understanding: Any) -> bool:
+    """True when the analyst is ASKING whether/how to contain (decision support),
+    not ordering enforcement. These route to the IR/containment advisory shape
+    (review-only staged guidance) instead of the bare unsafe refusal.
+
+    The query text is authoritative here: the upstream intent may label an advisory
+    "should we isolate / what steps" question as human_review, but the
+    ``containment_decision_support`` signal already requires interrogative framing
+    AND excludes enforcement imperatives + explicit run-it asks, so a genuine
+    command ("disable the account", "isolate the host now") never qualifies.
+    """
+    _ = intent
+    raw_query = getattr(query_understanding, "raw_query", None)
+    if isinstance(raw_query, str) and raw_query.strip():
+        signals = extract_query_signals(raw_query)
+        return bool(
+            signals.get("containment_decision_support") and not signals.get("explicit_run_spl")
+        )
+    return False
+
+
 def _unsafe_containment_detected(intent: dict[str, Any], query_understanding: Any) -> bool:
+    # Decision-support containment questions are handled as guided IR advisory
+    # upstream (flag-gated); they must not fall through to the unsafe refusal.
+    if settings.ai_soc_t2_answer_shape_enabled and _containment_decision_support_detected(
+        intent, query_understanding
+    ):
+        return False
     if str(intent.get("primary_intent") or "") == "human_review" and bool(intent.get("requires_hil")):
         return True
     raw_query = getattr(query_understanding, "raw_query", None)
