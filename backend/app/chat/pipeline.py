@@ -72,6 +72,7 @@ from app.spl.draft_preview import (
     candidate_detection_families,
 )
 from app.spl.llm_fallback import generate_llm_spl_fallback
+from app.spl.llm_plan_compiler import generate_llm_spl_via_plan
 from app.spl.spl_relevance_check import check_spl_relevance
 from app.spl.mcp_loop_discovery import execute_loop_discovery_hop
 from app.spl.mcp_source_discovery import run_mcp_source_discovery
@@ -3995,9 +3996,17 @@ def _candidate_from_llm_fallback(
     # answers the question, and regenerate once with the mismatch feedback before
     # accepting. A timeout/unavailable client returns a clarification result (no
     # raw output), which the gate treats as not-relevant and falls through.
-    result = generate_llm_spl_fallback(
-        user_query=user_query, context=llm_context, correctness_mode=True
-    )
+    #
+    # Plan-plus-compiler is the PRIMARY producer (proven reliable + repeatable on
+    # the on-host 8B: 10/10 lab-tier in the seeded eval): the LLM emits a small
+    # detection plan and deterministic code compiles SOC-STD-compliant SPL. Free-
+    # form generation is the automatic fallback when the plan path yields no usable
+    # SPL. Both flow through the same validation / quality / lab-tier gates.
+    result = generate_llm_spl_via_plan(user_query=user_query)
+    if result is None or not str(getattr(result, "candidate_spl", "") or "").strip():
+        result = generate_llm_spl_fallback(
+            user_query=user_query, context=llm_context, correctness_mode=True
+        )
     if result is None:
         return None
     relevance = _gate_llm_spl_relevance(result, user_query)

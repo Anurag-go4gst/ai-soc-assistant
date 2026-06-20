@@ -136,6 +136,17 @@ Set = 6 pj.* hunts + 4 novel pn.* hunts (OPC tag spike, off-hours HMI logon, GOO
 storm, historian bulk export) not used while tuning the compiler. Clears the review
 verdict's bar (>=10 novel T2, repeated seeded runs).
 
+## Update 4 — wired into the pipeline T2 producer (2026-06-20)
+
+`graph_node_workflow_spl` now calls `generate_llm_spl_via_plan` as the PRIMARY T2
+producer, with free-form `generate_llm_spl_fallback` as the automatic fallback when
+the plan path yields no usable SPL. No new flag — it stays inside the already-off
+`ai_soc_llm_spl_fallback_enabled` gate, and both producers short-circuit when the
+LLM is disabled (mock/.env.example posture), so deterministic-floor behaviour is
+unchanged (pj probe: thin 0, scorecard_fail 0; governance regression PASS). The
+plan-compiler activates only when the LLM is truly enabled with a reachable
+endpoint.
+
 ## Next steps (not in this slice)
 
 - Pass `response_format={"type":"json_object"}` into the producer's
