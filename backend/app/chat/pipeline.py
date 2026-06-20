@@ -4073,6 +4073,33 @@ def _candidate_from_llm_fallback(
                 if rule_id not in reject_reasons:
                     reject_reasons.append(rule_id)
 
+    if not expose_spl:
+        # Diagnostic telemetry: preserve why an LLM SPL attempt was not exposed so
+        # blocked/rejected drafts are debuggable in /debug. Redacted + best-effort;
+        # never breaks the SPL path. The candidate SPL is lab-tier (placeholders, no
+        # secrets) but still excerpted defensively.
+        try:
+            rejected_spl = str(getattr(result, "candidate_spl", "") or "")
+            telemetry.record_step(
+                trace_id,
+                "llm_spl_rejected",
+                "completed",
+                skill=skill,
+                generation_mode=getattr(result, "provider", "llm_spl_advisory"),
+                relevant=relevance.relevant,
+                quality_status=result.quality_status,
+                hard_fail_count=result.hard_fail_count,
+                reject_reasons=reject_reasons[:12],
+                quality_findings=[
+                    {"rule_id": str(f.get("rule_id")), "severity": str(f.get("severity"))}
+                    for f in (result.quality_findings or [])
+                ][:12],
+                adapter_errors=list(result.adapter_errors or [])[:6],
+                rejected_spl_excerpt=(rejected_spl[:280] + "…") if len(rejected_spl) > 280 else rejected_spl,
+            )
+        except Exception:  # noqa: BLE001 - telemetry must never break chat
+            logger.warning("llm_spl_rejected_telemetry_failed", exc_info=True)
+
     llm_lab_labels = {
         "governed": False,
         "catalog_approved": False,
