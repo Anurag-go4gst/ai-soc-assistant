@@ -1,8 +1,8 @@
 {
   "mode": "plan",
-  "total": 2,
-  "producer_fired": 2,
-  "governance_invariants_held": 2,
+  "total": 10,
+  "producer_fired": 10,
+  "governance_invariants_held": 10,
   "rows": [
     {
       "id": "pj.001",
@@ -26,7 +26,7 @@
         "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | eval src_ip_norm=lower(coalesce(src_ip, \"unknown\")), dest_ip_norm=lower(coalesce(dest_ip, \"unknown\")), host_norm=lower(coalesce(host, \"unknown\")) | stats count as\u2026",
         "adapter_errors": [],
         "repeatable": true,
-        "wall_ms": 46422
+        "wall_ms": 42149
       }
     },
     {
@@ -51,7 +51,207 @@
         "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | eval src_ip_norm=lower(coalesce(src_ip, \"unknown\")), dest_ip_norm=lower(coalesce(dest_ip, \"unknown\")) | stats count as event_count earliest(_time) as first_seen_e\u2026",
         "adapter_errors": [],
         "repeatable": true,
-        "wall_ms": 39677
+        "wall_ms": 40123
+      }
+    },
+    {
+      "id": "pj.004",
+      "q": "Hunt for NTP or IRIG-B time-source manipulation across substation IEDs and the PDC.",
+      "observed": {
+        "fired": true,
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
+        "validation_approved": false,
+        "normalized_spl_is_null": true,
+        "execution_eligible": null,
+        "quality_status": "passed",
+        "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
+        "latency_ms": null,
+        "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | eval src_ip_norm=lower(coalesce(src_ip, \"unknown\")), dest_ip_norm=lower(coalesce(dest_ip, \"unknown\")), host_norm=lower(coalesce(host, \"unknown\")) | stats dc(funct\u2026",
+        "adapter_errors": [],
+        "repeatable": true,
+        "wall_ms": 40044
+      }
+    },
+    {
+      "id": "pj.007",
+      "q": "Hunt for any outbound session from an OT asset that reached the corporate network or internet, bypassing the data diode.",
+      "observed": {
+        "fired": true,
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
+        "validation_approved": false,
+        "normalized_spl_is_null": true,
+        "execution_eligible": null,
+        "quality_status": "passed",
+        "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
+        "latency_ms": null,
+        "candidate_spl_excerpt": "search index=<ot_network_index> sourcetype=<ot_network_sourcetype> earliest=-24h latest=now | eval src_ip_norm=lower(coalesce(src_ip, \"unknown\")), dest_ip_norm=lower(coalesce(dest_ip, \"unknown\")), host_norm=lower(coalesce(host, \"unknown\")) \u2026",
+        "adapter_errors": [],
+        "repeatable": true,
+        "wall_ms": 35161
+      }
+    },
+    {
+      "id": "pj.008",
+      "q": "Find configuration or firmware pushes to SEL or ABB numerical relays made through a vendor engineering tool outside any approved maintenance window.",
+      "observed": {
+        "fired": true,
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
+        "validation_approved": false,
+        "normalized_spl_is_null": true,
+        "execution_eligible": null,
+        "quality_status": "passed",
+        "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
+        "latency_ms": null,
+        "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | eval src_ip_norm=lower(coalesce(src_ip, \"unknown\")), dest_ip_norm=lower(coalesce(dest_ip, \"unknown\")), host_norm=lower(coalesce(host, \"unknown\")) | stats dc(funct\u2026",
+        "adapter_errors": [],
+        "repeatable": true,
+        "wall_ms": 39363
+      }
+    },
+    {
+      "id": "pj.010",
+      "q": "Hunt for an internal host sweeping Modbus/TCP port 502 across the solar farm inverter SCADA range.",
+      "observed": {
+        "fired": true,
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
+        "validation_approved": false,
+        "normalized_spl_is_null": true,
+        "execution_eligible": null,
+        "quality_status": "passed",
+        "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
+        "latency_ms": null,
+        "candidate_spl_excerpt": "search index=<ot_network_index> sourcetype=<ot_network_sourcetype> earliest=-24h latest=now | eval src_ip_norm=lower(coalesce(src_ip, \"unknown\")) | stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_ep\u2026",
+        "adapter_errors": [],
+        "repeatable": true,
+        "wall_ms": 37331
+      }
+    },
+    {
+      "id": "pn.001",
+      "q": "Hunt for OPC tag subscription spikes on the SCADA OPC server in the last 24 hours by source host.",
+      "observed": {
+        "fired": true,
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
+        "validation_approved": false,
+        "normalized_spl_is_null": true,
+        "execution_eligible": null,
+        "quality_status": "passed",
+        "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
+        "latency_ms": null,
+        "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | eval src_host_norm=lower(coalesce(src_host, \"unknown\")) | stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_h\u2026",
+        "adapter_errors": [],
+        "repeatable": true,
+        "wall_ms": 31325
+      }
+    },
+    {
+      "id": "pn.002",
+      "q": "Detect off-hours interactive logons to substation HMI workstations grouped by user and host.",
+      "observed": {
+        "fired": true,
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
+        "validation_approved": false,
+        "normalized_spl_is_null": true,
+        "execution_eligible": null,
+        "quality_status": "passed",
+        "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
+        "latency_ms": null,
+        "candidate_spl_excerpt": "search index=<endpoint_index> sourcetype=<endpoint_sourcetype> earliest=-24h latest=now | eval user_norm=lower(coalesce(user, \"unknown\")), host_norm=lower(coalesce(host, \"unknown\")) | stats count as event_count earliest(_time) as first_seen\u2026",
+        "adapter_errors": [],
+        "repeatable": true,
+        "wall_ms": 38034
+      }
+    },
+    {
+      "id": "pn.003",
+      "q": "Hunt for a GOOSE message storm on the substation process LAN by source IED.",
+      "observed": {
+        "fired": true,
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
+        "validation_approved": false,
+        "normalized_spl_is_null": true,
+        "execution_eligible": null,
+        "quality_status": "passed",
+        "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
+        "latency_ms": null,
+        "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | eval src_ip_norm=lower(coalesce(src_ip, \"unknown\")) | stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip_no\u2026",
+        "adapter_errors": [],
+        "repeatable": true,
+        "wall_ms": 36022
+      }
+    },
+    {
+      "id": "pn.004",
+      "q": "Find bulk data exports from the SCADA historian to external destinations by source host and bytes transferred.",
+      "observed": {
+        "fired": true,
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
+        "validation_approved": false,
+        "normalized_spl_is_null": true,
+        "execution_eligible": null,
+        "quality_status": "passed",
+        "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
+        "latency_ms": null,
+        "candidate_spl_excerpt": "search index=<ot_network_index> sourcetype=<ot_network_sourcetype> earliest=-24h latest=now | eval src_ip_norm=lower(coalesce(src_ip, \"unknown\")), dest_ip_norm=lower(coalesce(dest_ip, \"unknown\")), host_norm=lower(coalesce(host, \"unknown\")) \u2026",
+        "adapter_errors": [],
+        "repeatable": true,
+        "wall_ms": 37889
       }
     }
   ]

@@ -129,6 +129,13 @@ analyst now receives a usable, validated, review-only lab SPL.
 This is the path forward for live T2 SPL breadth. Free-form SPL generation on the
 8B stays unreliable; the plan-plus-compiler is the reliable producer.
 
+**10-question seeded eval (`--plan --live-limit 10`):** 10/10 fired, **10/10
+lab_tier**, **10/10 quality passed**, **10/10 repeatable** (byte-stable across two
+seeded runs), 10/10 governance invariants held, all rejects placeholder-only.
+Set = 6 pj.* hunts + 4 novel pn.* hunts (OPC tag spike, off-hours HMI logon, GOOSE
+storm, historian bulk export) not used while tuning the compiler. Clears the review
+verdict's bar (>=10 novel T2, repeated seeded runs).
+
 ## Next steps (not in this slice)
 
 - Pass `response_format={"type":"json_object"}` into the producer's

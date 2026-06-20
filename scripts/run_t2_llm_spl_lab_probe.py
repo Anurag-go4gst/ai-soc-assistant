@@ -51,6 +51,13 @@ QUESTIONS: list[dict[str, str]] = [
     {"id": "pj.007", "q": "Hunt for any outbound session from an OT asset that reached the corporate network or internet, bypassing the data diode."},
     {"id": "pj.008", "q": "Find configuration or firmware pushes to SEL or ABB numerical relays made through a vendor engineering tool outside any approved maintenance window."},
     {"id": "pj.010", "q": "Hunt for an internal host sweeping Modbus/TCP port 502 across the solar farm inverter SCADA range."},
+    # Novel T2 hunts (not used while tuning the plan-compiler) — breadth eval per review verdict.
+    {"id": "pn.001", "q": "Hunt for OPC tag subscription spikes on the SCADA OPC server in the last 24 hours by source host."},
+    {"id": "pn.002", "q": "Detect off-hours interactive logons to substation HMI workstations grouped by user and host."},
+    {"id": "pn.003", "q": "Hunt for a GOOSE message storm on the substation process LAN by source IED."},
+    {"id": "pn.004", "q": "Find bulk data exports from the SCADA historian to external destinations by source host and bytes transferred."},
+    {"id": "pn.005", "q": "Detect engineering VPN sessions reaching the PLC control subnet outside the approved maintenance window by user."},
+    {"id": "pn.006", "q": "Hunt for DNS tunneling indicators from OT jump hosts by source host and distinct query count."},
 ]
 
 
