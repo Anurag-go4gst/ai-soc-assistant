@@ -379,3 +379,43 @@ Re-run `pi+pj+pk` after each phase and fill this table; pi2 tracked separately u
 - LLM SPL gate: `backend/app/chat/pipeline.py:3805-3811`
 - Evidence-plan gate: `backend/app/chat/pipeline.py:650-659`
 - Probe posture overlay: `backend/app/evals/sentinel_eval.py` (`sentinel_runtime`)
+
+---
+
+## 16. Completion status (2026-06-20)
+
+Implemented across commits `433ffba … bcc9c81` on `cp-cyclic-evidence-loop`. All
+landed behind default-off flags / happy-path bypass; governance regression green
+on every commit; deterministic floor + in-catalogue 105/50 unchanged.
+
+| WS / item | Status | Evidence |
+|-----------|--------|----------|
+| **WS-0** answer-shape router | ✅ Shipped | `answer_shape_router.py` (deterministic, precedence, happy-path bypass); wired into guided path; pk.001/003/005/006 reshaped |
+| **WS-1** signal-class generator | ✅ Shipped | `signal_class_guidance.py` (entity-aware + OT-term extractor); pj.004/005/006/008 class-correct; process_aware regex narrowed |
+| **WS-2** answer surfacing | ✅ Shipped | `t2_answer_surfacing.py` (force SPL artifact, plain HIL copy) |
+| **WS-7a** RAG/regulatory surfacing | ✅ Shipped | `rag_answer_surfacing.py`; regulatory → knowledge_recall, no SPL, disclaimer |
+| **WS-7b/7c** entity-bound + T1 headline | ✅ Shipped | `entity_headline_surfacing.py`; pi2.009 / pi2.005-006 / pk.006 |
+| envelope population | ✅ Shipped | `guidance_envelope.py`; no_spl 9/5/10 → 2/1/2 |
+| pk.001 containment split | ✅ Shipped | decision-support → IR advisory; enforcement still refuses |
+| pk.009 supply-chain | ✅ Shipped | judgment + substance shape |
+| **T2 LLM SPL producer** | ✅ Shipped + exceeded | json_schema + token floor + tolerant parser + **plan-compiler** (`llm_plan_compiler.py`); seeded; **10/10 lab-tier** live; wired as primary T2 producer; rejected-attempt diagnostics |
+| **WS-5** judgment honesty | ✅ Shipped | conceptual-MITRE + supply-chain pairing |
+| **T-6** rollback guard / happy-path bypass | ✅ Shipped | exact-105/50 bypass WS-0; render gated |
+| **T-1/T-2** posture flags | Documented | live-fire conditions + deploy-parity recorded; flip is operator/COE call |
+| **T-4** producer-fired assertion | ✅ Shipped | lab probe `fired`/`reject_reasons`/`repeatable` |
+| **T-5** /debug spot-check | ◑ Partial | `llm_spl_rejected` diagnostic step added; live trace spot-check pending |
+| **WS-3** named OT draft families | ⤬ Superseded | generic plan-compiler + WS-1 cover OT hunts; discrete `ot_*` families not added |
+| **WS-4** true multi-leg composition | ◑ Partial | timeline + insider/entity shapes shipped; resource-planner 2-leg compose not built |
+| **WS-6** eval `--check` CI gate | ◑ Partial | probe runners measure substance + reject_reasons; `--check`/CI wiring not added |
+| **T-3** advisory dict-vs-model handover | ⤬ Open | not normalized |
+| **WS-D** LLM prose narration sidecar | ⤬ Deferred | out of scope this effort |
+| **WS-5** execution eligibility | ⤬ COE-gated | by design; MCP execution stays off |
+
+**Metrics:** probe thin 9/5/10 → **1/0/1**; no_spl 9/5/10 → **2/1/2**; live
+plan-compiler **10/10 lab-tier, repeatable**; governance regression PASS; sentinel
+17/17.
+
+**Verdict:** the core objective — fixing out-of-happy-path / T2 answer quality and
+making live T2 SPL reliable — is **shipped and met**. Remaining items are secondary
+(multi-leg compose, eval CI `--check`, advisory handover) or intentionally deferred
+(LLM prose narration, execution eligibility = COE). T2 execution remains off.
