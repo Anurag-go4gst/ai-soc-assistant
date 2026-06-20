@@ -121,6 +121,7 @@ class LocalChatClient:
         max_tokens: int,
         temperature: float,
         response_format: dict | None = None,
+        seed: int | None = None,
     ) -> ChatResult:
         if not self.base_url.strip():
             raise LocalChatError("base_url_not_configured")
@@ -138,6 +139,10 @@ class LocalChatClient:
             "temperature": temperature,
             "stream": False,
         }
+        # Fixed seed makes generation repeatable (temperature=0 alone does not on
+        # llama.cpp without a seed) — required for byte-stable SPL diagnostics.
+        if seed is not None:
+            payload["seed"] = seed
         # OpenAI-compatible structured-output hint (e.g. {"type": "json_object"});
         # forces valid JSON on llama.cpp servers that support it.
         if response_format is not None:

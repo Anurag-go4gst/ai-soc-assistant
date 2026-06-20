@@ -60,7 +60,7 @@ def _mock_payload(query: str) -> str:
     # fields -> sort -> head (mirrors the governed lab-draft pattern). Placeholder
     # index/sourcetype keep it lab-tier (review-only, non-executable).
     spl = (
-        "search index=<ot_index> sourcetype=<ot_sourcetype> "
+        "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now "
         "| stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch "
         "by src_ip dest_ip "
         '| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S") '
@@ -125,26 +125,41 @@ def run(mode: str, live_limit: int, live_timeout: int = 120) -> dict[str, Any]:
 
     _enable_producer()
     live_client = None
-    if mode == "live":
+    if mode in {"live", "plan"}:
         from app.llm.clients.local_chat_client import LocalChatClient
 
         live_client = LocalChatClient(base_url=LIVE_BASE_URL, model=LIVE_MODEL, timeout_seconds=live_timeout)
 
     rows: list[dict[str, Any]] = []
-    questions = QUESTIONS[:live_limit] if mode == "live" else QUESTIONS
+    questions = QUESTIONS[:live_limit] if mode in {"live", "plan"} else QUESTIONS
     for entry in questions:
         started = time.monotonic()
         try:
-            if mode == "live":
+            if mode == "plan":
+                # Plan-plus-compiler: LLM emits a small detection plan (seeded),
+                # deterministic code compiles SOC-STD-compliant SPL. Run twice to
+                # verify the seeded plan is byte-stable.
+                from app.spl.llm_plan_compiler import generate_llm_spl_via_plan
+
+                result = generate_llm_spl_via_plan(user_query=entry["q"], client=live_client)
+                second = generate_llm_spl_via_plan(user_query=entry["q"], client=live_client)
+                observed = _summarize(result)
+                observed["repeatable"] = (
+                    result is not None
+                    and second is not None
+                    and getattr(result, "candidate_spl", None) == getattr(second, "candidate_spl", None)
+                )
+            elif mode == "live":
                 # correctness_mode mirrors the pipeline's T2 producer call.
                 result = generate_llm_spl_fallback(
                     user_query=entry["q"], client=live_client, correctness_mode=True
                 )
+                observed = _summarize(result)
             else:
                 result = generate_llm_spl_fallback(
                     user_query=entry["q"], llm_raw_output_provider=lambda q=entry["q"]: _mock_payload(q)
                 )
-            observed = _summarize(result)
+                observed = _summarize(result)
         except Exception as exc:  # noqa: BLE001 - probe must report, not crash
             observed = {"fired": False, "error": f"{type(exc).__name__}: {exc}"}
         observed["wall_ms"] = int((time.monotonic() - started) * 1000)
@@ -204,7 +219,7 @@ def write_markdown(result: dict[str, Any], out_md: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["mock", "live"], default="mock")
+    parser.add_argument("--mode", choices=["mock", "live", "plan"], default="mock")
     parser.add_argument("--live-limit", type=int, default=2)
     parser.add_argument("--live-timeout", type=int, default=120)
     args = parser.parse_args()

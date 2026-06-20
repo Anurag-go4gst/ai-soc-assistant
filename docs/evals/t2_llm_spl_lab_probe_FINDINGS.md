@@ -103,6 +103,32 @@ reason (so it is not subset-eligible for lab exposure). This is validator/SPL-co
 tuning, not a parsing problem; `reject_reasons` is now captured in the probe summary
 to drive that next slice.
 
+## Update 3 — plan-plus-compiler PASSES live (2026-06-20)
+
+The earlier "blocked" rows were not an 8B capability wall: pj.001 actually had
+stats + head and failed only on `strftime(_time)` ordering (SOC-STD-U02); the large
+15-field schema overloaded the model. Per the verdict, we split the work:
+
+- **LLM → small detection plan** (data_domain, filters, group_by, metric) via a
+  compact json_schema — easy for an 8B.
+- **Deterministic compiler** (`app/spl/llm_plan_compiler.py`) assembles
+  SOC-STD-compliant SPL: placeholders, time bound, coalesce-normalized stats,
+  `strftime` AFTER stats, sort, `head 100`, allowlisted commands only, injection-
+  sanitized values.
+- Compiled SPL flows through the **existing** governed producer (validation,
+  SOC-STD quality lint, adapter, lab-tier gating) unchanged — SOC-STD not weakened.
+- A fixed **seed** (client now forwards `seed`) makes generation repeatable.
+
+**Live `--plan` probe result (on-host 8B):** pj.001 + pj.002 →
+`status=candidate_generated`, `lab_tier=True`, `quality=passed`,
+`repeatable=True` (byte-stable across two seeded runs), rejects reduced to
+placeholder-only (`disallowed_index`/`disallowed_sourcetype`). Governance
+invariants held (approved=false, normalized_spl=null, execution disabled). The
+analyst now receives a usable, validated, review-only lab SPL.
+
+This is the path forward for live T2 SPL breadth. Free-form SPL generation on the
+8B stays unreliable; the plan-plus-compiler is the reliable producer.
+
 ## Next steps (not in this slice)
 
 - Pass `response_format={"type":"json_object"}` into the producer's

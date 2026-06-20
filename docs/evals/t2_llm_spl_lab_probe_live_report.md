@@ -8,12 +8,12 @@ Invariant on every fired row: `normalized_spl` is null, `execution_eligible` is 
 > Hunt for a flood of DNP3 unsolicited responses from an RTU to the SCADA master outside its normal class-poll schedule.
 
 - fired=`True` status=`blocked` lab_tier=`False` approved=`False` normalized_spl_null=`True` execution_eligible=`None`
-- quality_status=`passed` latency_ms=`133446` wall_ms=`133448`
+- quality_status=`failed` latency_ms=`97172` wall_ms=`97174`
 - SPL: ``
 
 ### pj.002
 > Detect Modbus/TCP write-single-register or write-multiple-coils commands sent to boiler-control PLCs from hosts other than the approved engineering workstation.
 
 - fired=`True` status=`blocked` lab_tier=`False` approved=`False` normalized_spl_null=`True` execution_eligible=`None`
-- quality_status=`passed` latency_ms=`61070` wall_ms=`61071`
+- quality_status=`passed` latency_ms=`57057` wall_ms=`57059`
 - SPL: ``

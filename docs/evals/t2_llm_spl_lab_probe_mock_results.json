@@ -9,17 +9,21 @@
       "q": "Hunt for a flood of DNP3 unsolicited responses from an RTU to the SCADA master outside its normal class-poll schedule.",
       "observed": {
         "fired": true,
-        "status": "blocked",
-        "lab_tier": false,
-        "clarification_required": true,
-        "clarification_reason": "llm_spl_fallback_validation_failed",
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
         "validation_approved": false,
         "normalized_spl_is_null": true,
         "execution_eligible": null,
         "quality_status": "passed",
         "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
         "latency_ms": null,
-        "candidate_spl_excerpt": "",
+        "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip dest_ip | eval first_seen=strftime(first_seen_epoch, \"%Y\u2026",
         "adapter_errors": [],
         "wall_ms": 1
       }
@@ -29,17 +33,21 @@
       "q": "Detect Modbus/TCP write-single-register or write-multiple-coils commands sent to boiler-control PLCs from hosts other than the approved engineering workstation.",
       "observed": {
         "fired": true,
-        "status": "blocked",
-        "lab_tier": false,
-        "clarification_required": true,
-        "clarification_reason": "llm_spl_fallback_validation_failed",
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
         "validation_approved": false,
         "normalized_spl_is_null": true,
         "execution_eligible": null,
         "quality_status": "passed",
         "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
         "latency_ms": null,
-        "candidate_spl_excerpt": "",
+        "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip dest_ip | eval first_seen=strftime(first_seen_epoch, \"%Y\u2026",
         "adapter_errors": [],
         "wall_ms": 0
       }
@@ -49,17 +57,21 @@
       "q": "Hunt for NTP or IRIG-B time-source manipulation across substation IEDs and the PDC.",
       "observed": {
         "fired": true,
-        "status": "blocked",
-        "lab_tier": false,
-        "clarification_required": true,
-        "clarification_reason": "llm_spl_fallback_validation_failed",
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
         "validation_approved": false,
         "normalized_spl_is_null": true,
         "execution_eligible": null,
         "quality_status": "passed",
         "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
         "latency_ms": null,
-        "candidate_spl_excerpt": "",
+        "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip dest_ip | eval first_seen=strftime(first_seen_epoch, \"%Y\u2026",
         "adapter_errors": [],
         "wall_ms": 0
       }
@@ -69,17 +81,21 @@
       "q": "Hunt for any outbound session from an OT asset that reached the corporate network or internet, bypassing the data diode.",
       "observed": {
         "fired": true,
-        "status": "blocked",
-        "lab_tier": false,
-        "clarification_required": true,
-        "clarification_reason": "llm_spl_fallback_validation_failed",
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
         "validation_approved": false,
         "normalized_spl_is_null": true,
         "execution_eligible": null,
         "quality_status": "passed",
         "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
         "latency_ms": null,
-        "candidate_spl_excerpt": "",
+        "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip dest_ip | eval first_seen=strftime(first_seen_epoch, \"%Y\u2026",
         "adapter_errors": [],
         "wall_ms": 0
       }
@@ -89,17 +105,21 @@
       "q": "Find configuration or firmware pushes to SEL or ABB numerical relays made through a vendor engineering tool outside any approved maintenance window.",
       "observed": {
         "fired": true,
-        "status": "blocked",
-        "lab_tier": false,
-        "clarification_required": true,
-        "clarification_reason": "llm_spl_fallback_validation_failed",
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
         "validation_approved": false,
         "normalized_spl_is_null": true,
         "execution_eligible": null,
         "quality_status": "passed",
         "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
         "latency_ms": null,
-        "candidate_spl_excerpt": "",
+        "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip dest_ip | eval first_seen=strftime(first_seen_epoch, \"%Y\u2026",
         "adapter_errors": [],
         "wall_ms": 0
       }
@@ -109,17 +129,21 @@
       "q": "Hunt for an internal host sweeping Modbus/TCP port 502 across the solar farm inverter SCADA range.",
       "observed": {
         "fired": true,
-        "status": "blocked",
-        "lab_tier": false,
-        "clarification_required": true,
-        "clarification_reason": "llm_spl_fallback_validation_failed",
+        "status": "candidate_generated",
+        "lab_tier": true,
+        "clarification_required": false,
+        "clarification_reason": null,
         "validation_approved": false,
         "normalized_spl_is_null": true,
         "execution_eligible": null,
         "quality_status": "passed",
         "hard_fail_count": 0,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
         "latency_ms": null,
-        "candidate_spl_excerpt": "",
+        "candidate_spl_excerpt": "search index=<ot_index> sourcetype=<ot_sourcetype> earliest=-24h latest=now | stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip dest_ip | eval first_seen=strftime(first_seen_epoch, \"%Y\u2026",
         "adapter_errors": [],
         "wall_ms": 0
       }
