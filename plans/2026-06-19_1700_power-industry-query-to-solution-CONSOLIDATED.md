@@ -1,7 +1,7 @@
 # Plan — Power Industry Query-to-Solution Quality (CONSOLIDATED, T2-forward)
 
-Status: **Proposed** — consolidates two independent plans + a 30-question live probe + a live-code review.
-Date: 2026-06-19
+Status: **In Progress — core shipped (§16)** — consolidates two independent plans + a 30-question live probe + a live-code review. Remaining items + no-COE completion playbook in §17–§18.
+Date: 2026-06-19 (updated 2026-06-20)
 Author: Claude (Opus 4.8) for Anurag
 
 ## 0. Sources merged
@@ -419,3 +419,113 @@ plan-compiler **10/10 lab-tier, repeatable**; governance regression PASS; sentin
 making live T2 SPL reliable — is **shipped and met**. Remaining items are secondary
 (multi-leg compose, eval CI `--check`, advisory handover) or intentionally deferred
 (LLM prose narration, execution eligibility = COE). T2 execution remains off.
+
+---
+
+## 17. Final implementation findings (2026-06-20)
+
+What the build proved, beyond the original plan:
+
+1. **The dominant defect was answer-shape, then signal-shape, then render** — fixed
+   top-down (WS-0 → WS-1 → WS-2). Scorecard `pass` on wrong answers confirmed the
+   analyst card is the only real metric.
+2. **Small on-prem 8B cannot free-form SPL reliably** — not a capability wall but
+   overload (SPL + 15-field schema + SOC-STD ordering + governance metadata at once).
+   It tripped `strftime`-before-stats and dropped delimiters.
+3. **Three compounding LLM-IO facts**, each fixed:
+   - the server **ignores `response_format=json_object`** but **honors `json_schema`/`grammar`** (constrained generation = always-valid JSON);
+   - the SPL JSON needs ~500 tokens — the shared `ai_soc_llm_max_output_tokens=400` truncated it (fixed with a decoupled floor `max(640, min(setting,768))`);
+   - `temperature=0` is **not** repeatable on llama.cpp without a `seed`.
+4. **Plan-plus-compiler is the reliable producer**: LLM emits a small detection
+   plan; deterministic code compiles SOC-STD-compliant SPL. 10/10 lab-tier,
+   repeatable, on the live 8B. This is the pattern for any small-model structured
+   output here.
+5. **Degraded LLM is a real ops risk**: the server silently dropped to 0.6 tok/s
+   over multi-day uptime; `scripts/llm_health_guard.py` restarts it.
+
+---
+
+## 18. Guidelines to complete the remaining parts (no-COE path)
+
+Assumption: **we do not wait for COE** — the operator (Anurag) takes the sign-off
+role. Safety guardrails stay; only the *approver* changes. Keep every change behind
+a default-off flag with a one-line rollback.
+
+### 18.1 WS-4 — multi-leg / correlation composition
+- **Goal:** two-domain questions (phish ∧ jump-host, VPN ∧ firewall, fail ∧ success,
+  vendor-VPN ∧ relay-change) list both evidence legs + a join key.
+- **Approach:** in `evidence_planner.plan_evidence`, detect ≥2 domains → emit
+  `evidence_legs: [{domain, entity, fields}, …]` + `correlation: {join_key, window}`.
+  Reuse the **plan-compiler**: emit one detection plan per leg, compile each, and a
+  third "correlation" plan that `stats … by <join_key>` over both. Render all legs in
+  the card (WS-2 path).
+- **Files:** `app/chat/evidence_planner.py`, `app/spl/llm_plan_compiler.py`
+  (multi-plan helper), `app/chat/t2_answer_surfacing.py`.
+- **Acceptance:** pj.009, pk.006, pi.003/pi.007 show both legs + join; governance green.
+
+### 18.2 WS-6 — eval `--check` gate
+- **Goal:** CI fails when a recognised shape returns boilerplate, payload SPL is
+  dropped from the card, or answer-shape mismatches (regulatory → SPL = fail).
+- **Approach:** add `--check` to `run_power_industry_probe*.py` returning exit 1 on
+  any violation (reuse `message_substantive` + shape classifier + reject_reasons).
+  Add the 3 banks as a **non-gating report** to `run_stage3_governance_regression.sh`
+  first; promote to gating after one green week.
+- **Acceptance:** `--check` red on a seeded regression; green on current tree.
+
+### 18.3 T-3 — advisory dict-vs-model handover
+- **Goal:** `llm_intent_advisory` reaches consumers as `LLMIntentAdvisory`, not a dict.
+- **Approach:** at `pipeline.py:~613`, keep the model in state (store the object, not
+  `payload.get(...)`), or add `LLMIntentAdvisory.from_payload()` and normalize at each
+  consumer boundary. Add a unit test asserting no field drop.
+- **Files:** `app/chat/pipeline.py`, `app/chat/contracts/llm_intent_advisory.py`.
+
+### 18.4 WS-D — LLM prose narration sidecar
+- **Goal:** narrate the analyst summary with the on-prem model; **facts stay
+  deterministic** (severity/MITRE/actions/SPL/execution_eligible).
+- **Approach:** reuse the SPL lessons — `json_schema` (or plain + tolerant parser),
+  `seed`, token floor, **off the blocking path** (sidecar with timeout →
+  deterministic fallback). Answer Guard on. EC fixture path stays isolated.
+  Flags already exist (`AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED`,
+  `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED`).
+- **Acceptance:** prose narrated; deterministic authority unchanged; timeout falls
+  back; governance + EC parity green.
+
+### 18.5 WS-5 — execution eligibility WITHOUT COE (operator-owned)
+This is the only item that turns SPL execution **on**. Do it in strict order; the
+operator owns the residual risk in place of COE.
+
+**Non-negotiable guardrails that MUST remain (no degrade):**
+- `validate_spl` pass + **full slot resolution** (no placeholders) — source-tier does
+  NOT decide executability;
+- SOC-STD quality lint pass + relevance gate pass;
+- injection defense + allowlisted commands only; **SAIA/write/admin/generative MCP
+  tools stay blocked**;
+- per-call SPL confirmation (B4) + an explicit **execution HIL** distinct from the
+  review HIL;
+- dangerous-answer block (unsafe enforcement, fabricated live results, unsupported
+  compromise) via `out_of_set_eval` CRITICAL classes;
+- raw `candidate_spl` is never executed — only an approved `normalized_spl`.
+
+**Steps:**
+1. Implement the §13.5 eligibility rule in the contract: `execution_eligible =
+   guardrail_pass AND slots_resolved AND analyst_approved` (NOT tier).
+2. Split HIL copy: "review package" vs "execution approval" (already partly done in
+   WS-2/WS-5).
+3. **Operator sign-off in lieu of COE:** record the decision + date + approver in
+   `contracts/splunk_mcp_connection_contract.md` (`schema_confirmed`/`operator_signoff=true`).
+4. Flip flags in a **non-prod** env first: `MCP_GLOBAL_EXECUTION_ENABLED=true` +
+   `MCP_SERVER_<NAME>_EXECUTION_ENABLED=true` (mock) → run the mock-execution smoke.
+5. Live Splunk: set `SPLUNK_MCP_BASE_URL` + token, align `SPL_ALLOWED_INDEXES/SOURCETYPES`,
+   staging smoke = one approved search end-to-end (confirm rows or honest empty).
+6. Limited prod: **read-only searches only**, one approved query at a time, execution
+   HIL on every call. Monitor `/debug` traces + the `llm_spl_rejected` / execution
+   telemetry.
+7. **Rollback:** flags off = instant revert to review-only.
+
+**Phasing:** lab mock-exec → staging live read-only → limited prod read-only. Do not
+enable write/active-response tools. Re-run `run_stage3_governance_regression.sh` +
+the probe `--check` at each phase.
+
+### 18.6 Suggested order
+T-3 (cheap correctness) → WS-6 `--check` (locks quality so later changes are safe) →
+WS-4 (analyst value) → WS-D (prose) → WS-5 (execution, operator-signed, last).
