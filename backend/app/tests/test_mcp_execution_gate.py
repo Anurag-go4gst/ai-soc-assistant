@@ -323,6 +323,58 @@ def test_saved_search_is_blocked_at_execution_gate() -> None:
     assert review["reason"] == "saved_search_execution_disabled"
 
 
+def test_unresolved_source_slots_are_never_execution_eligible() -> None:
+    registry = McpRegistryStatus(
+        mode="mock",
+        default_server="splunk_soc",
+        global_execution_enabled=True,
+        servers=[
+            McpServerStatus(
+                name="splunk_soc",
+                type="splunk",
+                enabled=True,
+                implemented=True,
+                configured=True,
+                available=True,
+                transport="mock",
+                url_configured=False,
+                command_configured=False,
+                auth_mode="none",
+                auth_configured=True,
+                execution_enabled=True,
+                discovered_tools_count=1,
+                discovered_tools_safe_names=["splunk_run_query"],
+                discovered_tools=[{
+                    "name": "splunk_run_query",
+                    "description": "",
+                    "capability": "spl_search",
+                    "categories": ["execution"],
+                    "blocked": False,
+                    "blocked_reason": None,
+                }],
+                blocked_tools_count=0,
+                blocked_tools_safe_names=[],
+                search_execution_allowed=True,
+            )
+        ],
+    )
+    validation = {
+        **APPROVED_VALIDATION,
+        "normalized_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-15m latest=now | stats count | head 100",
+    }
+
+    review = _gate_review(
+        selected_skill="attack_discovery",
+        spl_validation=validation,
+        selected_mcp_server="splunk_soc",
+        selected_mcp_tool="splunk_run_query",
+        registry=registry,
+    )
+
+    assert review["required"] is True
+    assert review["reason"] == "spl_source_slots_unresolved"
+
+
 class FakeTelemetry:
     def __init__(self) -> None:
         self.mcp_events: list[dict[str, Any]] = []

@@ -44,11 +44,14 @@ def build_control_plane_trace(
         else None
     )
 
+    advisory = state.get("llm_intent_advisory")
+    if hasattr(advisory, "model_dump"):
+        advisory = advisory.model_dump()
     trace = {
         "routing_provenance": routing_provenance,
         "planning_decision": state.get("planning_decision"),
         "query_to_intent": state.get("query_to_intent"),
-        "llm_intent_advisory": state.get("llm_intent_advisory"),
+        "llm_intent_advisory": advisory,
         "evidence_plan": state.get("evidence_plan"),
         "route_adjudication": state.get("route_adjudication"),
         "llm_plan_validation": state.get("llm_plan_validation"),
@@ -113,7 +116,13 @@ def _llm_advisory_trace(state: dict[str, Any]) -> dict[str, Any]:
     query_to_intent = state.get("query_to_intent") if isinstance(state.get("query_to_intent"), dict) else {}
     intent_advisory = query_to_intent.get("llm_intent_advisory")
     if not isinstance(intent_advisory, dict):
-        intent_advisory = state.get("llm_intent_advisory") if isinstance(state.get("llm_intent_advisory"), dict) else {}
+        state_advisory = state.get("llm_intent_advisory")
+        if hasattr(state_advisory, "model_dump"):
+            intent_advisory = state_advisory.model_dump()
+        elif isinstance(state_advisory, dict):
+            intent_advisory = state_advisory
+        else:
+            intent_advisory = {}
     route_candidate = (
         route_advisory.get("llm_selected_skill_candidate")
         or route_advisory.get("skill")

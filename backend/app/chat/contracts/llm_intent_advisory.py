@@ -25,3 +25,10 @@ class LLMIntentAdvisory(BaseModel):
     adjudication_reason: str | None = None
     provider_label: str | None = None
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """Read-only dict compatibility for legacy trace/test consumers.
+
+        Live node boundaries retain this validated model; callers that only read
+        optional advisory fields can migrate without a flag-day conversion.
+        """
+        return getattr(self, key, default)

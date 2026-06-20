@@ -37,6 +37,14 @@ python3 scripts/eval_sentinel.py --check || fail "sentinel baseline diff"
 section "Tier-D answer quality (T5.1)"
 python3 scripts/eval_answer_quality.py --check || fail "answer quality gate"
 
+section "power-industry answer-shape probes (non-gating observation)"
+python3 scripts/run_power_industry_probe.py --check \
+  || echo "WARN: power-industry pi probe has quality violations (non-gating)"
+python3 scripts/run_power_industry_probe_v2.py --check \
+  || echo "WARN: power-industry pj probe has quality violations (non-gating)"
+python3 scripts/run_power_industry_probe_v3.py --check \
+  || echo "WARN: power-industry pk probe has quality violations (non-gating)"
+
 section "backend pytest"
 (cd backend && python3 -m pytest -q) || fail "backend pytest"
 

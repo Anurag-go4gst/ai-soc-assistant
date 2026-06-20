@@ -42,6 +42,18 @@ def test_shape_router_regulatory_beats_hunt(monkeypatch) -> None:
     assert shape_suppresses_spl(result.primary_shape) is True
 
 
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("A new advisory targets utilities; based on what we log today, are we exposed?", "ti_advisory_mapping"),
+        ("Which OT log sources have stopped sending events to Splunk?", "source_health"),
+        ("What does normal Modbus polling volume look like over a typical week?", "baselining"),
+    ],
+)
+def test_canonical_shape_phrases_are_classified(query: str, expected: str) -> None:
+    assert classify_answer_shape(query).primary_shape == expected
+
+
 def test_signal_classes_differ_for_ot_protocols(monkeypatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_t2_answer_shape_enabled", True)
     dnp3 = build_guided_investigation_guidance(

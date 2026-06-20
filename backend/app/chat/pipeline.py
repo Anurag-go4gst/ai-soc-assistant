@@ -122,6 +122,13 @@ from app.planner.executor import (
 )
 from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
+from app.chat.answer_shape_router import (
+    build_shaped_guidance,
+    build_supply_chain_firmware_guidance,
+    classify_answer_shape,
+    is_supply_chain_firmware_query,
+    should_bypass_shape_router,
+)
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.llm.missing_evidence_reasoner import (
@@ -228,7 +235,7 @@ class ChatPipelineState(TypedDict, total=False):
     note: str
     governance_trace: Any
     query_to_intent: dict[str, Any] | None
-    llm_intent_advisory: dict[str, Any] | None
+    llm_intent_advisory: LLMIntentAdvisory | None
     intent_classification: dict[str, Any] | None
     evidence_plan: dict[str, Any] | None
     planning_decision: dict[str, Any] | None
@@ -596,7 +603,10 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     return {
         **state,
         "query_to_intent": payload,
-        "llm_intent_advisory": payload.get("llm_intent_advisory"),
+        # Preserve the validated model at the node boundary.  The serialized copy
+        # remains in query_to_intent for the wire/trace contract, while live
+        # consumers receive the typed advisory and cannot silently lose fields.
+        "llm_intent_advisory": result.llm_intent_advisory,
         "intent_classification": payload.get("intent_classification"),
         "selected_use_case": selected_use_case,
         "llm_turn_budget": budget,
@@ -1735,7 +1745,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         and synthesis_status.status != "partial_timeout"
         and not _is_governed_spl_ready_for_response(spl_validation)
     ):
-        message = build_draft_preview_analyst_message(spl_draft_preview)
+        shaped_non_hunt = (
+            settings.ai_soc_t2_answer_shape_enabled
+            and bool(request.message)
+            and not should_bypass_shape_router(match_path_for_t2)
+            and classify_answer_shape(request.message, entities=entities_payload).primary_shape != "hunt"
+        )
+        # Keep the shaped guidance as the answer body. WS-2 appends the draft
+        # artifact below; replacing the message here erased timeline, insider,
+        # baseline, source-health, and process-aware answers.
+        if not shaped_non_hunt:
+            message = build_draft_preview_analyst_message(spl_draft_preview)
         note = (
             "Governed template SPL was not produced. HIL/SOC review is required. "
             "No MCP execution was run."
@@ -2402,7 +2422,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         governance_trace=governance_trace,
         query_to_intent=state.get("query_to_intent"),
         planning_decision=state.get("planning_decision"),
-        llm_intent_advisory=state.get("llm_intent_advisory"),
+        llm_intent_advisory=(
+            state["llm_intent_advisory"].model_dump()
+            if isinstance(state.get("llm_intent_advisory"), LLMIntentAdvisory)
+            else state.get("llm_intent_advisory")
+        ),
         evidence_plan=state.get("evidence_plan"),
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
@@ -4470,14 +4494,22 @@ def _chat_message(
         if user_query and is_explicit_run_spl_query(user_query):
             return build_spl_execution_refusal_guidance()
         return build_unsafe_action_guidance()
+    # WS-0 is an out-of-registry answer-shape floor, not a guided-path-only
+    # decoration.  Some T2 asks legitimately retain an SPL-review planning path;
+    # they still need the deterministic regulatory/baseline/timeline/insider/OT
+    # answer builder.  Exact/semantic catalogue paths remain byte-identical.
+    if settings.ai_soc_t2_answer_shape_enabled and user_query:
+        if (
+            not should_bypass_shape_router(match_path)
+            and classify_answer_shape(user_query, entities=entities).primary_shape != "hunt"
+        ):
+            return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
     if path_type == "guided_investigation" and user_query:
         # WS-0: route through the answer-shape router so non-hunt shapes
         # (IR/containment, regulatory, timeline, baselining, source-health,
         # insider/DLP, process-aware) get their shaped builders. The router
         # falls back to build_guided_investigation_guidance when the shape flag
         # is off or the match path is in-catalogue (happy-path bypass).
-        from app.chat.answer_shape_router import build_shaped_guidance
-
         return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
     if user_query and is_policy_escalation_guidance_query(user_query):
         return build_policy_escalation_guidance(user_query)
@@ -4487,11 +4519,6 @@ def _chat_message(
         # WS pk.009: supply-chain firmware/code-signing asks get judgment + substance
         # (cert provenance, vendor authorization, hash, rollout correlation), not the
         # conceptual-mitre judgment alone. Flag-gated; default posture unchanged.
-        from app.chat.answer_shape_router import (
-            build_supply_chain_firmware_guidance,
-            is_supply_chain_firmware_query,
-        )
-
         if is_supply_chain_firmware_query(user_query):
             return build_supply_chain_firmware_guidance(user_query)
     if user_query and is_conceptual_mitre_confirm_query(user_query):

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from app.chat.signal_class_guidance import build_signal_class_guidance
+from app.chat.multi_leg_evidence import compose_multi_leg_evidence, render_multi_leg_guidance
 from app.config import settings
 
 AnswerShape = Literal[
@@ -56,17 +57,18 @@ _REGULATORY = re.compile(
     re.IGNORECASE,
 )
 _TI_ADVISORY = re.compile(
-    r"\b(threat intel|threat intelligence|ttp[s]?|ioc[s]?|advisory mapping|"
-    r"what (?:do we|can we) (?:detect|log) (?:for|today))\b",
+    r"\b(threat intel|threat intelligence|ttp[s]?|ioc[s]?|advisory mapping|new advisory|"
+    r"what (?:do we|can we) (?:detect|log) (?:for|today)|what we log today)\b",
     re.IGNORECASE,
 )
 _SOURCE_HEALTH = re.compile(
     r"\b(log source health|silent source|blind spot|coverage gap|missing logs|"
-    r"ingestion gap|source health|data gap)\b",
+    r"ingestion gap|source health|data gap|log sources? (?:have )?stopped sending|"
+    r"stopped sending events)\b",
     re.IGNORECASE,
 )
 _BASELINING = re.compile(
-    r"\b(what is normal|baseline|baselining|normal behavior|typical volume|"
+    r"\b(what is normal|what does normal|baseline|baselining|normal behavior|typical volume|"
     r"descriptive stats|establish a baseline)\b",
     re.IGNORECASE,
 )
@@ -188,10 +190,13 @@ def build_shaped_guidance(
         return build_guided_investigation_guidance(query, entities)
     result = classify_answer_shape(query, entities=entities)
     primary = _build_primary_shape_guidance(query, result.primary_shape, entities=entities)
-    if result.secondary_shape is None:
-        return primary
-    secondary = _build_secondary_section(query, result.secondary_shape, entities=entities)
-    return f"{primary}\n\n---\n\n{secondary}"
+    sections = [primary]
+    if result.secondary_shape is not None:
+        sections.append(_build_secondary_section(query, result.secondary_shape, entities=entities))
+    multi_leg = render_multi_leg_guidance(compose_multi_leg_evidence(query))
+    if multi_leg:
+        sections.append(multi_leg)
+    return "\n\n---\n\n".join(sections)
 
 
 def _build_primary_shape_guidance(

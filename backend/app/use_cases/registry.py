@@ -25,6 +25,13 @@ def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
     matches: list[UseCaseSelection] = []
     for use_case in load_use_case_catalog():
         matched = [pattern for pattern in _expanded_match_terms(use_case) if pattern.lower() in normalized]
+        # "advisory" alone is not evidence of a CERT-In hash/IOC match.  It
+        # falsely captured generic threat-intelligence advisories and bypassed
+        # the T2 answer-shape path with an unrelated compliance use case.
+        if use_case.use_case_id == "cert_in_hash_match" and not any(
+            token in normalized for token in ("cert-in", "cert in", "hash", "ioc", "indicator")
+        ):
+            matched = []
         if not matched:
             continue
         confidence = min(

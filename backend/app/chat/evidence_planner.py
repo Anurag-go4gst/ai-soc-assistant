@@ -6,6 +6,7 @@ from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.intent_classification import IntentClassification
 from app.config import settings
 from app.chat.planning_decision import _apply_completeness_floor
+from app.chat.multi_leg_evidence import compose_multi_leg_evidence
 from app.use_cases.content_enrichment import (
     CuratedEnrichmentContext,
     get_content_enrichment,
@@ -65,6 +66,9 @@ def plan_evidence(
             query_to_intent=query_to_intent,
             query_understanding=query_understanding,
         )
+        multi_leg = compose_multi_leg_evidence(str(getattr(query_understanding, "raw_query", "") or ""))
+        if multi_leg:
+            enriched = enriched.model_copy(update=multi_leg)
         return _attach_resource_plan(
             enriched,
             intent=intent,
@@ -380,7 +384,17 @@ def _attach_resource_plan(
             composed.provenance["llm_bridge"] = "deferred_not_inline"
     except Exception:
         return plan
-    return plan.model_copy(update={"resource_plan": composed.model_dump()})
+    composed_payload = composed.model_dump()
+    if plan.evidence_legs:
+        provenance = dict(composed_payload.get("provenance") or {})
+        provenance.update(
+            {
+                "evidence_legs": list(plan.evidence_legs),
+                "correlation": dict(plan.correlation or {}),
+            }
+        )
+        composed_payload["provenance"] = provenance
+    return plan.model_copy(update={"resource_plan": composed_payload})
 
 
 def _apply_curated_enrichment(

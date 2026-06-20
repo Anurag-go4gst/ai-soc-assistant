@@ -108,6 +108,19 @@ def test_resolve_execution_spl_without_confirmation_flag(monkeypatch) -> None:
     assert validation["approved"] is True
 
 
+def test_explicit_live_confirmation_requirement_overrides_disabled_flag(monkeypatch) -> None:
+    monkeypatch.setattr("app.orchestration.execution_confirmation.settings.ai_soc_require_spl_execution_confirmation", False)
+    validation, review = resolve_execution_spl(
+        spl_validation=APPROVED_VALIDATION,
+        execution_review_action=None,
+        analyst_provided_spl=None,
+        pending_execution=None,
+        require_confirmation=True,
+    )
+    assert validation is None
+    assert review is None
+
+
 class FakeTelemetry:
     def __init__(self) -> None:
         self.mcp_events: list[dict] = []

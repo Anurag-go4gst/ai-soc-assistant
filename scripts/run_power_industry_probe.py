@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import uuid
@@ -19,6 +20,9 @@ from app.api.routes_chat import chat  # noqa: E402
 from app.evals.golden_answer_runner import _model_to_dict  # noqa: E402
 from app.evals.sentinel_eval import sentinel_runtime  # noqa: E402
 from app.schemas.requests import ChatRequest  # noqa: E402
+from app.chat.answer_shape_router import classify_answer_shape  # noqa: E402
+from app.chat.signal_class_guidance import classify_signal_class  # noqa: E402
+from scripts.power_industry_probe_quality import collect_violations  # noqa: E402
 
 BANK_PATH = REPO_ROOT / "docs" / "evals" / "power_industry_probe_bank.json"
 OUT_JSON = REPO_ROOT / "docs" / "evals" / "power_industry_probe_results.json"
@@ -39,6 +43,7 @@ def _extract(payload: dict[str, Any]) -> dict[str, Any]:
     human = payload.get("human_review") or {}
     scorecard = payload.get("answer_scorecard") or {}
     trace = payload.get("control_plane_trace") or {}
+    preview = payload.get("spl_draft_preview") or {}
 
     summary_parts: list[str] = []
     for key in ("summary", "headline", "analyst_summary", "message"):
@@ -84,11 +89,28 @@ def _extract(payload: dict[str, Any]) -> dict[str, Any]:
         marker in lowered_message for marker in message_markers
     )
 
+    payload_spl = bool(
+        spl.get("spl")
+        or spl.get("query")
+        or spl.get("candidate_spl")
+        or preview.get("draft_spl")
+        or validation.get("normalized_spl")
+    )
+    card_spl = bool(
+        analyst.get("draft_spl_code")
+        or analyst.get("spl_code")
+        or analyst.get("spl_draft_preview")
+        or contract.get("render_sections", {}).get("spl_artifact")
+        or "draft spl" in lowered_message
+        or "candidate spl" in lowered_message
+    )
     return {
         "selected_skill": routing.get("skill") or payload.get("skill"),
         "answer_mode": contract.get("answer_mode") or payload.get("answer_mode"),
         "support_status": contract.get("support_status") or payload.get("support_status"),
-        "has_candidate_spl": bool(spl.get("spl") or spl.get("query") or payload.get("normalized_spl")),
+        "has_candidate_spl": payload_spl,
+        "payload_has_spl": payload_spl,
+        "card_has_spl": card_spl,
         "spl_approved": validation.get("approved"),
         "execution_eligible": spl.get("execution_eligible") or validation.get("execution_eligible"),
         "human_review_required": bool(human),
@@ -117,6 +139,12 @@ def run_probe(bank_path: Path = BANK_PATH) -> dict[str, Any]:
                 response = chat(ChatRequest(message=question, session_id=f"pi-probe-{uuid.uuid4()}"))
                 payload = _model_to_dict(response)
                 observed = _extract(payload)
+                entities = getattr(payload.get("query_understanding"), "entities", None)
+                observed["answer_shape"] = classify_answer_shape(question).primary_shape
+                observed["signal_class"] = classify_signal_class(
+                    question,
+                    entities.model_dump() if hasattr(entities, "model_dump") else None,
+                )
                 rows.append({**entry, "status": "ok", "observed": observed})
             except Exception as exc:
                 rows.append({**entry, "status": "error", "error": str(exc)})
@@ -148,7 +176,9 @@ def run_probe(bank_path: Path = BANK_PATH) -> dict[str, Any]:
         if envelope_thin:
             quality_flags["no_spl_no_checklist"] += 1
 
-    return {"bank": bank["name"], "total": len(rows), "quality_flags": quality_flags, "rows": rows}
+    result = {"bank": bank["name"], "total": len(rows), "quality_flags": quality_flags, "rows": rows}
+    result["quality_violations"] = collect_violations(result)
+    return result
 
 
 def write_markdown(result: dict[str, Any], path: Path) -> None:
@@ -175,11 +205,18 @@ def write_markdown(result: dict[str, Any], path: Path) -> None:
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true", help="Exit non-zero on answer-shape, boilerplate, or SPL-card regressions")
+    args = parser.parse_args(argv)
     result = run_probe()
-    OUT_JSON.write_text(json.dumps(result, indent=2), encoding="utf-8")
-    write_markdown(result, OUT_MD)
-    print(json.dumps({"total": result["total"], "quality_flags": result["quality_flags"]}, indent=2))
+    if not args.check:
+        OUT_JSON.write_text(json.dumps(result, indent=2), encoding="utf-8")
+        write_markdown(result, OUT_MD)
+    summary = {"total": result["total"], "quality_flags": result["quality_flags"], "quality_violations": result["quality_violations"]}
+    print(json.dumps(summary, indent=2))
+    if args.check and result["quality_violations"]:
+        return 1
     return 0
 
 

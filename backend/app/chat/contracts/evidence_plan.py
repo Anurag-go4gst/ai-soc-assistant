@@ -48,3 +48,5 @@ class EvidencePlan(BaseModel):
     # WS0 T0.2: composed step plan (None until the composer attaches one);
     # legacy booleans above remain the wire contract for existing consumers.
     resource_plan: dict | None = None
+    evidence_legs: list[dict] = Field(default_factory=list)
+    correlation: dict | None = None
