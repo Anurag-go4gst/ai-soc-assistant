@@ -368,6 +368,13 @@ def extract_query_signals(
         # disable/lock/suspend targeting any account, with words between
         # ("disable the CEO's account") — containment regardless of phrasing.
         re.search(r"\b(disable|lock|suspend)\b[^.?!]{0,40}\baccount\b", normalized)
+    ) or bool(
+        # network-segmentation containment phrasings: "cut the link", "sever the
+        # connection", "air-gap / segment off the OT network".
+        re.search(r"\b(cut|sever)\b[^.?!]{0,24}\b(link|connection|network)\b", normalized)
+        or "air-gap" in normalized
+        or "air gap" in normalized
+        or "segment off" in normalized
     )
     # Containment DECISION-SUPPORT (not an enforcement command): the analyst is
     # asking whether/how to contain, not ordering an action. These must reach the

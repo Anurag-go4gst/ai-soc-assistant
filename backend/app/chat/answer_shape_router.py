@@ -48,7 +48,11 @@ _SHAPE_PRECEDENCE: tuple[AnswerShape, ...] = (
 _IR_CONTAINMENT = re.compile(
     r"\b(isolate|isolation|contain|containment|disconnect|quarantine|segment now|"
     r"shut down|cut off)\b.{0,48}\b(ot|scada|plc|substation|grid)\b|"
-    r"\bshould (?:we|soc) (?:isolate|contain|disconnect)\b",
+    r"\bshould (?:we|soc) (?:isolate|contain|disconnect)\b|"
+    # decision-support phrasings: "should we cut the link / sever / segment / "
+    # air-gap …" between zones (load dispatch, DMZ, IT/OT) during an incident.
+    r"\bshould (?:we|soc)\b.{0,40}\b(cut|sever|segment|isolate|disconnect|air[\s-]?gap)\b|"
+    r"\b(cut|sever)\b.{0,24}\b(link|connection|network)\b",
     re.IGNORECASE,
 )
 _REGULATORY = re.compile(
