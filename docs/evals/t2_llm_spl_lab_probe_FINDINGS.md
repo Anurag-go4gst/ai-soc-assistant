@@ -67,6 +67,42 @@ fences/prose/trailing-commas (proven by unit test) but cannot invent a missing
 comma. Live SPL breadth is still not delivered — root cause is the 8B's JSON
 reliability on a large schema, not latency or truncation.
 
+## Update 2 — parsing SOLVED via constrained generation (2026-06-20)
+
+A 4-mode diagnostic (`scripts/diag_llm_json_modes.py`) settled the root cause:
+
+| mode | valid JSON | notes |
+|------|-----------|-------|
+| plain | no | ```json fences; truncated at 512 (finish_reason=length) |
+| `json_object` | no | server **ignores** it — fences + dropped delimiter |
+| **`json_schema`** | **yes** | clean object, no fences |
+| **`grammar` (GBNF)** | **yes** | clean object, no fences |
+
+So this llama-server honors `json_schema`/`grammar` but not `json_object`. And the
+real truncation limit was **`min(ai_soc_llm_max_output_tokens, …)` = 400** (the
+running setting), which cut the ~490–580-token SPL JSON mid-string.
+
+Fixes shipped:
+- Producer `response_format` → `json_schema` (with the SPL schema); falls back to a
+  plain call + tolerant parser on HTTP 400 (server without json_schema).
+- SPL output budget decoupled from the synthesis budget with a floor:
+  `_spl_max_output_tokens() = max(640, min(setting, 768))` — narration tuning can no
+  longer truncate SPL.
+- Prompt: dropped the now-redundant "no markdown fences" prose (json_schema enforces
+  format); **all SOC-STD-SPL-001 C–I policy rules kept** — no policy degrade.
+- Tolerant parser kept as the secondary net.
+
+Live re-probe result: **2/2 fired, no JSON parse errors, `quality_status=passed`**
+(parsed → adapted → validated → SOC-STD lint passed). Governance invariants held
+(approved=false, normalized_spl=null, execution_eligible=false). The response is now
+reliably parsed.
+
+Remaining (separate layer, not parsing): rows came back `status=blocked` rather than
+`lab_tier` — the execution validator rejected the model's SPL for a non-placeholder
+reason (so it is not subset-eligible for lab exposure). This is validator/SPL-content
+tuning, not a parsing problem; `reject_reasons` is now captured in the probe summary
+to drive that next slice.
+
 ## Next steps (not in this slice)
 
 - Pass `response_format={"type":"json_object"}` into the producer's

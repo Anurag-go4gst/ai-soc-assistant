@@ -113,6 +113,7 @@ def _summarize(result: Any) -> dict[str, Any]:
         "execution_eligible": getattr(result, "execution_eligible", None),
         "quality_status": getattr(result, "quality_status", None),
         "hard_fail_count": getattr(result, "hard_fail_count", None),
+        "reject_reasons": list(validation.get("reject_reasons") or []),
         "latency_ms": getattr(result, "latency_ms", None),
         "candidate_spl_excerpt": (spl[:240] + "…") if len(spl) > 240 else spl,
         "adapter_errors": list(getattr(result, "adapter_errors", []) or []),
@@ -135,7 +136,10 @@ def run(mode: str, live_limit: int, live_timeout: int = 120) -> dict[str, Any]:
         started = time.monotonic()
         try:
             if mode == "live":
-                result = generate_llm_spl_fallback(user_query=entry["q"], client=live_client)
+                # correctness_mode mirrors the pipeline's T2 producer call.
+                result = generate_llm_spl_fallback(
+                    user_query=entry["q"], client=live_client, correctness_mode=True
+                )
             else:
                 result = generate_llm_spl_fallback(
                     user_query=entry["q"], llm_raw_output_provider=lambda q=entry["q"]: _mock_payload(q)

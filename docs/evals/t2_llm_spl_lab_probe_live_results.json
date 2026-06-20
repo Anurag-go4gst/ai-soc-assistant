@@ -9,21 +9,19 @@
       "q": "Hunt for a flood of DNP3 unsolicited responses from an RTU to the SCADA master outside its normal class-poll schedule.",
       "observed": {
         "fired": true,
-        "status": "needs_clarification",
+        "status": "blocked",
         "lab_tier": false,
         "clarification_required": true,
-        "clarification_reason": "llm_spl_fallback_schema_invalid",
+        "clarification_reason": "llm_spl_fallback_validation_failed",
         "validation_approved": false,
         "normalized_spl_is_null": true,
         "execution_eligible": null,
-        "quality_status": null,
+        "quality_status": "passed",
         "hard_fail_count": 0,
-        "latency_ms": 100880,
+        "latency_ms": 133446,
         "candidate_spl_excerpt": "",
-        "adapter_errors": [
-          "strict_json_parse_failed:Expecting ',' delimiter"
-        ],
-        "wall_ms": 100882
+        "adapter_errors": [],
+        "wall_ms": 133448
       }
     },
     {
@@ -31,21 +29,19 @@
       "q": "Detect Modbus/TCP write-single-register or write-multiple-coils commands sent to boiler-control PLCs from hosts other than the approved engineering workstation.",
       "observed": {
         "fired": true,
-        "status": "needs_clarification",
+        "status": "blocked",
         "lab_tier": false,
         "clarification_required": true,
-        "clarification_reason": "llm_spl_fallback_schema_invalid",
+        "clarification_reason": "llm_spl_fallback_validation_failed",
         "validation_approved": false,
         "normalized_spl_is_null": true,
         "execution_eligible": null,
-        "quality_status": null,
+        "quality_status": "passed",
         "hard_fail_count": 0,
-        "latency_ms": 110560,
+        "latency_ms": 61070,
         "candidate_spl_excerpt": "",
-        "adapter_errors": [
-          "strict_json_parse_failed:Expecting ',' delimiter"
-        ],
-        "wall_ms": 110560
+        "adapter_errors": [],
+        "wall_ms": 61071
       }
     }
   ]

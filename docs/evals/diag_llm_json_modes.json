@@ -1,0 +1,38 @@
+{
+  "plain": {
+    "finish_reason": "length",
+    "predicted_n": 512,
+    "tok_per_s": 4.72,
+    "content_valid_json": false,
+    "json_error": "Expecting value: line 1 column 1 (char 0)",
+    "content_excerpt": "```json\n{\n  \"status\": \"candidate_generated\",\n  \"confidence_score\": 0.65,\n  \"confidence_label\": \"medium\",\n  \"detection_family\": \"SCADA Modbus Write\",\n  \"candidate_spl\": \"search index=<scada_index> sourcetype=<scada_sourcetype> (protocol=modbus AND function_code=16) NOT cidrmatch(\\\"<engineering_workstation_cidr>\\\", src_ip_norm) | eval src_ip_norm=coalesce(src_ip, src, source, \\\"\\\"); dest_ip_norm=coa",
+    "wall_s": 115.0
+  },
+  "json_object": {
+    "finish_reason": "stop",
+    "predicted_n": 504,
+    "tok_per_s": 5.01,
+    "content_valid_json": false,
+    "json_error": "Expecting value: line 1 column 1 (char 0)",
+    "content_excerpt": "```json\n{\n  \"status\": \"candidate_generated\",\n  \"confidence_score\": 0.65,\n  \"confidence_label\": \"medium\",\n  \"detection_family\": \"SCADA Modbus Write\",\n  \"candidate_spl\": \"search index=<scada_index> sourcetype=<scada_sourcetype> (protocol=modbus AND function_code=16) NOT cidrmatch(\\\"<engineering_workstation_cidr>\\\", src_ip_norm) | eval src_ip_norm=coalesce(src_ip, src, source, \\\"\\\"); dest_ip_norm=coa",
+    "wall_s": 100.9
+  },
+  "json_schema": {
+    "finish_reason": "stop",
+    "predicted_n": 510,
+    "tok_per_s": 4.88,
+    "content_valid_json": true,
+    "json_error": null,
+    "content_excerpt": "{\n  \"status\": \"candidate_generated\",\n  \"candidate_spl\": \"search index=<scada_firewall_index> sourcetype=<scada_firewall_sourcetype> (protocol=modbus AND function_code=16) NOT cidrmatch(\\\"<engineering_workstation_cidr>\\\", src_ip_norm) | eval src_ip_norm=coalesce(src_ip, src, source, \\\"\\\"); dest_ip_norm=coalesce(dest_ip, dest, destination, \\\"\\\"); protocol_norm=lower(coalesce(protocol, proto, \\\"\\\"));",
+    "wall_s": 104.8
+  },
+  "grammar": {
+    "finish_reason": "stop",
+    "predicted_n": 418,
+    "tok_per_s": 4.39,
+    "content_valid_json": true,
+    "json_error": null,
+    "content_excerpt": "{\"status\": \"candidate_generated\", \"confidence_score\": 0.65, \"confidence_label\": \"medium\", \"detection_family\": \"SCADA Modbus Write\", \"candidate_spl\": \"search index=<scada_index> sourcetype=<scada_sourcetype> (protocol=modbus AND function_code=16) NOT cidrmatch('<engineering_workstation_cidr>', src_ip_norm) | eval src_ip_norm=coalesce(src_ip, src, source, source_ip, 'unknown'), dest_ip_norm=coalesce",
+    "wall_s": 95.4
+  }
+}

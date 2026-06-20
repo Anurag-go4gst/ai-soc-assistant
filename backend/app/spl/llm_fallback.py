@@ -90,14 +90,38 @@ def generate_llm_spl_fallback(
                 user_prompt=_user_prompt(
                     user_query, context=context, relevance_feedback=relevance_feedback
                 ),
-                max_tokens=min(settings.ai_soc_llm_max_output_tokens, 400),
+                # Raised from 400: the full advisory schema needs ~500 tokens; 400
+                # truncated mid-JSON (finish_reason=length) on live probes.
+                max_tokens=_spl_max_output_tokens(),
                 temperature=0.0,
-                # Force valid JSON on OpenAI-compatible / llama.cpp servers so a small
-                # instruct model cannot emit malformed JSON (missing commas, prose,
-                # ```json fences) that the strict parser would reject. The tolerant
-                # repair pass in _strict_json_payload is the secondary net.
-                response_format={"type": "json_object"},
+                # Constrained generation: a json_schema response_format makes
+                # llama.cpp grammar-constrain the output to a valid JSON object with
+                # our keys — diagnosed as the only mode this server honors (plain /
+                # json_object emitted ```json fences + dropped delimiters). This is
+                # the reliable fix; the tolerant repair in _strict_json_payload stays
+                # as the secondary net for servers that ignore json_schema.
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {"name": "spl_advisory", "schema": SPL_ADVISORY_JSON_SCHEMA},
+                },
             )
+        except LocalChatError as exc:
+            # A server that rejects json_schema (HTTP 400) degrades to a plain
+            # call + the tolerant parser, rather than failing closed outright.
+            if "http_400" in str(exc):
+                try:
+                    completion = active_client.generate(
+                        system_prompt=_system_prompt(correctness_mode=correctness_mode),
+                        user_prompt=_user_prompt(
+                            user_query, context=context, relevance_feedback=relevance_feedback
+                        ),
+                        max_tokens=_spl_max_output_tokens(),
+                        temperature=0.0,
+                    )
+                except LocalChatError:
+                    return _clarification(CLARIFICATION_NO_CLIENT)
+            else:
+                return _clarification(CLARIFICATION_NO_CLIENT)
         except LocalChatError:
             return _clarification(CLARIFICATION_NO_CLIENT)
         raw_output = completion.text
@@ -413,6 +437,18 @@ def _repair_json_text(text: str) -> str:
     return re.sub(r",(\s*[}\]])", r"\1", text)
 
 
+# SPL generation needs ~490-580 output tokens (full 15-key schema + a complete
+# candidate_spl). Decouple it from the shared synthesis budget
+# (ai_soc_llm_max_output_tokens, often tuned low for narration, e.g. 400) with a
+# hard floor so narration tuning can never truncate SPL mid-JSON again.
+_SPL_OUTPUT_TOKENS_FLOOR = 640
+_SPL_OUTPUT_TOKENS_CEILING = 768
+
+
+def _spl_max_output_tokens() -> int:
+    return max(_SPL_OUTPUT_TOKENS_FLOOR, min(settings.ai_soc_llm_max_output_tokens, _SPL_OUTPUT_TOKENS_CEILING))
+
+
 def _strict_json_payload(raw_output: str) -> tuple[dict[str, Any] | None, list[str]]:
     text = _strip_code_fences(raw_output or "")
     if not text:
@@ -502,13 +538,40 @@ def _correctness_engineering_block() -> str:
     )
 
 
+# JSON schema for constrained generation. Mirrors the keys the adapter/_user_prompt
+# expect. `required` covers the governance-critical flags so the model always emits
+# them; the adapter still forces execution_eligible=false (no policy reliance on the
+# model honoring these — schema only guarantees the keys are present and parseable).
+SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "status": {"type": "string"},
+        "confidence_score": {"type": "number"},
+        "confidence_label": {"type": "string"},
+        "detection_family": {"type": "string"},
+        "candidate_spl": {"type": "string"},
+        "assumptions": {"type": "array", "items": {"type": "string"}},
+        "required_fields": {"type": "array", "items": {"type": "string"}},
+        "missing_details": {"type": "array", "items": {"type": "string"}},
+        "clarifying_questions": {"type": "array", "items": {"type": "string"}},
+        "validation_notes": {"type": "array", "items": {"type": "string"}},
+        "soc_std_rules_applied": {"type": "array", "items": {"type": "string"}},
+        "risk_notes": {"type": "array", "items": {"type": "string"}},
+        "execution_eligible": {"type": "boolean"},
+        "governed": {"type": "boolean"},
+        "catalog_approved": {"type": "boolean"},
+    },
+    "required": ["status", "candidate_spl", "execution_eligible", "governed", "catalog_approved"],
+}
+
+
 def _system_prompt(correctness_mode: bool = False) -> str:
     if correctness_mode:
         datamodels = ", ".join(APPROVED_CIM_DATAMODELS)
         return (
             "You are the AI SOC SPL advisory fallback (lab candidate only — never governed, "
-            "never catalog-approved, never executable). Output ONE JSON object and nothing else: "
-            "no markdown fences, no text before or after.\n"
+            "never catalog-approved, never executable). Return one JSON object "
+            "matching the provided schema.\n"
             f"{_correctness_engineering_block()}"
             "Decide whether the request is sufficiently specified. Return clarification questions when the "
             "required log source is unclear, fields required for logic are missing, or the user asks to "
@@ -539,8 +602,8 @@ def _system_prompt(correctness_mode: bool = False) -> str:
         )
     return (
         "You are the AI SOC SPL advisory fallback (lab candidate only — never governed, "
-        "never catalog-approved, never executable). Output ONE JSON object and nothing else: "
-        "no markdown fences, no text before or after.\n"
+        "never catalog-approved, never executable). Return one JSON object "
+        "matching the provided schema.\n"
         f"{_soc_std_spl_001_prompt_rules()}"
         f"{_detection_family_prompt()}"
         "Decide whether the request is sufficiently specified. Return clarification questions when "
