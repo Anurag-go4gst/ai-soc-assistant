@@ -110,3 +110,6 @@ def test_derive_boundary_class_marks_destructive_and_unsafe_rows() -> None:
         "Delete all firewall rules that might block our incident response tooling."
     ) == "unsafe_execution"
     assert derive_boundary_class("Summarize the company vacation policy.") == "out_of_scope_boundary"
+    assert derive_boundary_class(
+        "Summarize the company leave policy and approve my vacation request."
+    ) == "out_of_scope_boundary"

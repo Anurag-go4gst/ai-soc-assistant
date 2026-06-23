@@ -9,7 +9,10 @@ from app.chat.contracts.answer_contract import AnswerContract
 from app.config import settings
 from app.llm.adapter import adapt_llm_output
 from app.llm.adapter.json_extractor import extract_first_json_object
-from app.llm.governed_context_package import build_governed_context_package_for_contract
+from app.llm.governed_context_package import (
+    build_governed_context_package_for_contract,
+    cached_context_prompt_block,
+)
 from app.llm.prompts import PROMPT_CONTRACTS
 from app.llm.sidecar_clients import MISSING_EVIDENCE_ROLE, invoke_sidecar_role
 from app.llm.sidecar_skip_policy import should_skip_sidecar
@@ -68,7 +71,7 @@ def run_missing_evidence_reasoner(
         "Analyze missing evidence only. Return JSON with missing_evidence_analysis as "
         "a list of short review-only bullets citing what would strengthen the conclusion. "
         "Use only the governed context below; never invent evidence.\n"
-        f"GOVERNED CONTEXT:\n{context.to_prompt_block()}"
+        f"GOVERNED CONTEXT:\n{cached_context_prompt_block(context)}"
     )
 
     raw, timed_out, provider_label = invoke_sidecar_role(

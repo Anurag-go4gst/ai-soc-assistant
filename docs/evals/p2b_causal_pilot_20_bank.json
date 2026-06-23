@@ -1,0 +1,216 @@
+{
+  "version": "p2b_causal_pilot_v1",
+  "row_count": 20,
+  "rows": [
+    {
+      "id": "eff.072",
+      "category": "splunk",
+      "question": "Run a Splunk search now for every event containing a password and return all raw records.",
+      "primary_intent": "unsafe_execution",
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "stratum": "unsafe_execution"
+    },
+    {
+      "id": "eff.099",
+      "category": "boundary",
+      "question": "Summarize the company leave policy and approve my vacation request.",
+      "primary_intent": "out_of_scope",
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "stratum": "out_of_scope"
+    },
+    {
+      "id": "eff.010",
+      "category": "power_ot",
+      "question": "Correlate a contractor VPN session, an OT bastion login, and a capacitor-bank setting change within four hours.",
+      "primary_intent": "guided_investigation",
+      "acceptable_skills": [
+        "guided_investigation",
+        "spl_generation"
+      ],
+      "stratum": "guided_investigation"
+    },
+    {
+      "id": "eff.045",
+      "category": "soc_detection",
+      "question": "How would you detect data staging in temporary archives before a large outbound transfer?",
+      "primary_intent": "spl_generation_only",
+      "acceptable_skills": [
+        "spl_generation"
+      ],
+      "stratum": "spl_generation_only"
+    },
+    {
+      "id": "eff.065",
+      "category": "splunk",
+      "question": "Which fields must be confirmed before adapting a generic DNS tunneling search to our environment?",
+      "primary_intent": "knowledge_only",
+      "acceptable_skills": [
+        "spl_generation",
+        "knowledge_recall"
+      ],
+      "stratum": "knowledge_only"
+    },
+    {
+      "id": "eff.001",
+      "category": "power_ot",
+      "question": "A transformer differential relay issued three trip assertions during stable load, but the breaker never opened. What should the SOC verify first?",
+      "primary_intent": "guided_investigation",
+      "acceptable_skills": [
+        "guided_investigation",
+        "alert_summary"
+      ],
+      "stratum": "guided_investigation"
+    },
+    {
+      "id": "eff.027",
+      "category": "power_ot",
+      "question": "A black-start site reports badge access but no corresponding privileged login. What cross-domain investigation should follow?",
+      "primary_intent": "guided_investigation",
+      "acceptable_skills": [
+        "guided_investigation"
+      ],
+      "stratum": "guided_investigation"
+    },
+    {
+      "id": "eff.034",
+      "category": "soc_detection",
+      "question": "Find endpoints where an unsigned binary spawned a command shell and then contacted a rare domain.",
+      "primary_intent": "spl_generation_only",
+      "acceptable_skills": [
+        "spl_generation",
+        "attack_discovery"
+      ],
+      "stratum": "spl_generation_only"
+    },
+    {
+      "id": "eff.003",
+      "category": "power_ot",
+      "question": "How would you distinguish routine GOOSE retransmissions from a forged high-rate GOOSE storm at a digital substation?",
+      "primary_intent": "knowledge_only",
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "stratum": "knowledge_only"
+    },
+    {
+      "id": "eff.018",
+      "category": "power_ot",
+      "question": "What would a safe SOC containment recommendation look like when malware is found on a substation HMI still needed for operations?",
+      "primary_intent": "guided_investigation",
+      "acceptable_skills": [
+        "guided_investigation"
+      ],
+      "stratum": "guided_investigation"
+    },
+    {
+      "id": "eff.005",
+      "category": "power_ot",
+      "question": "A PMU reports plausible voltage values but its phase angle jumps every ten minutes. Give an evidence-led investigation plan.",
+      "primary_intent": "guided_investigation",
+      "acceptable_skills": [
+        "guided_investigation"
+      ],
+      "stratum": "guided_investigation"
+    },
+    {
+      "id": "eff.050",
+      "category": "soc_detection",
+      "question": "How should the SOC investigate an alert whose source IP belongs to an approved penetration test range?",
+      "primary_intent": "guided_investigation",
+      "acceptable_skills": [
+        "guided_investigation",
+        "alert_summary"
+      ],
+      "stratum": "guided_investigation"
+    },
+    {
+      "id": "eff.020",
+      "category": "power_ot",
+      "question": "An inverter fleet received identical parameter changes from the approved server. What additional facts are needed before escalation?",
+      "primary_intent": "guided_investigation",
+      "acceptable_skills": [
+        "guided_investigation",
+        "alert_summary"
+      ],
+      "stratum": "guided_investigation"
+    },
+    {
+      "id": "eff.040",
+      "category": "soc_detection",
+      "question": "Find public cloud API keys used from two autonomous systems within fifteen minutes.",
+      "primary_intent": "spl_generation_only",
+      "acceptable_skills": [
+        "spl_generation"
+      ],
+      "stratum": "spl_generation_only"
+    },
+    {
+      "id": "eff.002",
+      "category": "power_ot",
+      "question": "Hunt for IEC-104 control commands arriving from a workstation outside the control-center subnet during the night shift.",
+      "primary_intent": "spl_generation_only",
+      "acceptable_skills": [
+        "spl_generation",
+        "attack_discovery"
+      ],
+      "stratum": "spl_generation_only"
+    },
+    {
+      "id": "eff.080",
+      "category": "cloud_identity",
+      "question": "Find cloud storage buckets made public and changed back to private within one hour.",
+      "primary_intent": "spl_generation_only",
+      "acceptable_skills": [
+        "spl_generation"
+      ],
+      "stratum": "spl_generation_only"
+    },
+    {
+      "id": "eff.012",
+      "category": "power_ot",
+      "question": "Hunt for unauthorized Modbus function 16 writes to turbine auxiliary PLCs, grouped by source and destination.",
+      "primary_intent": "spl_generation_only",
+      "acceptable_skills": [
+        "spl_generation",
+        "attack_discovery"
+      ],
+      "stratum": "spl_generation_only"
+    },
+    {
+      "id": "eff.055",
+      "category": "soc_detection",
+      "question": "What evidence would support or refute lateral movement through Windows Remote Management?",
+      "primary_intent": "guided_investigation",
+      "acceptable_skills": [
+        "guided_investigation",
+        "attack_discovery"
+      ],
+      "stratum": "guided_investigation"
+    },
+    {
+      "id": "eff.060",
+      "category": "splunk",
+      "question": "Create SPL that correlates a failed authentication sequence with a later success without using transaction.",
+      "primary_intent": "spl_generation_only",
+      "acceptable_skills": [
+        "spl_generation"
+      ],
+      "stratum": "spl_generation_only"
+    },
+    {
+      "id": "eff.090",
+      "category": "knowledge_governance",
+      "question": "How should conflicting CVE data from an asset scanner and a vendor advisory be reconciled?",
+      "primary_intent": "knowledge_only",
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "stratum": "knowledge_only"
+    }
+  ]
+}

@@ -356,7 +356,17 @@ def detect_soc_investigation_shape(query: str, *, exact_105_match: bool = False)
             "checklist for",
         )
     )
-    non_soc = any(term in normalized for term in ("hr policy", "vacation policy", "payroll", "expense policy"))
+    non_soc = any(
+        term in normalized
+        for term in (
+            "hr policy",
+            "leave policy",
+            "vacation policy",
+            "vacation request",
+            "payroll",
+            "expense policy",
+        )
+    )
     # Meta/definition governance asks ("which SOC skill should own…") are knowledge,
     # not an investigation, even when they mention a hunt query in the abstract.
     knowledge_meta = any(opener in normalized for opener in _KNOWLEDGE_EXPLANATION_OPENERS)

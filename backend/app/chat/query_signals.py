@@ -628,7 +628,15 @@ def extract_query_signals(
     )
 
     non_soc_or_out_of_scope = any(
-        term in normalized for term in ("hr policy", "vacation policy", "payroll", "expense policy")
+        term in normalized
+        for term in (
+            "hr policy",
+            "leave policy",
+            "vacation policy",
+            "vacation request",
+            "payroll",
+            "expense policy",
+        )
     )
     soc_investigation_shaped = bool(
         detect_soc_investigation_shape(query, exact_105_match=exact_105_match)

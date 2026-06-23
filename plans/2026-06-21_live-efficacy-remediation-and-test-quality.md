@@ -953,3 +953,43 @@ request keeps occupying the single model slot") now CLOSED.**
 - Full backend suite: 2698 passed, 1 skipped, 6 xfailed.
 - Next: P2-B adaptive multi-role graph (after 20-row causal pilot).
 
+## 11. P2-B Adaptive multi-role hybrid graph — closure (2026-06-23)
+
+**P2-B scaffold implemented and gated. Live profile-1/2/3 paired runs remain the
+next eval step before claiming full-graph benefit.**
+
+### Done
+- **Deterministic role planner** (`hybrid_role_graph.py`): staged graph, per-role
+  enable/skip/consumer/deps, `prompt_version_hash`, complexity-tier deadline
+  (`compute_turn_deadline_seconds`, max 150s).
+- **Pipeline integration** (`pipeline.py`): dynamic turn budget at init-routing;
+  `build_hybrid_role_plan()` at context-finalize; specialist/composer/MCP hops
+  consult `hybrid_role_plan.role_enabled()`; trace at
+  `control_plane_trace.hybrid_role_graph`.
+- **Boundary short-circuit**: unsafe/out-of-scope turns disable *all* LLM roles
+  (including resource-plan and MCP tool-plan shadows) via `derive_boundary_class()`
+  and `_boundary_blocks_llm_roles()`. eff.072/eff.098/eff.099 covered.
+- **Out-of-scope markers** (`query_signals.py`, `soc_investigation_shape.py`):
+  `leave policy`, `vacation request` added for eff.099.
+- **Context cache** (`governed_context_package.py`): bounded LRU
+  `cached_context_prompt_block()`; wired into `missing_evidence_reasoner.py`.
+- **20-row causal pilot** (`docs/evals/p2b_causal_pilot_20_bank.json`,
+  `scripts/run_p2b_causal_pilot.py`): offline role-plan gate — 20/20 PASS,
+  boundary rows zero enabled roles.
+- **Tests**: `test_hybrid_role_graph.py`, pilot bank row count, boundary shadow
+  disable, dynamic deadline, context cache stability.
+
+### Deferred (P3 / live eval)
+- Live profile 1/2/3 paired runs (plan §4.6) — offline pilot is the gate scaffold.
+- Governed-composer prompt redesign (2–4 sentences → full narrative).
+- Injection/repeatability prompt-contract suite for all roles.
+- Intent-advisor context cache wiring (reasoner only today).
+
+### Gates
+- 20-row causal pilot `--check`: **PASS** (0 failures; 18/20 rows enable shadow
+  roles only in offline scaffold with `answer_contract=None`).
+- P1+P2 targeted pytest (40 tests): **PASS**.
+- Governance regression: **PASS** (`stage3_governance_regression: PASS`).
+- Boundary rows disable all LLM roles: **PASS** (eff.072, eff.099).
+- Next: P3 MITRE/CVE/RAG labeled packs + live §4.6 profile expansion.
+

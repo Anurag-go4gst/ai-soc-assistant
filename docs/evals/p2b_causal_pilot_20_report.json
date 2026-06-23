@@ -1,0 +1,1922 @@
+{
+  "row_count": 20,
+  "role_distribution": {
+    "route_plan_candidate_generator": 18,
+    "mcp_tool_plan_shadow": 18
+  },
+  "complexity_distribution": {
+    "medium": 18,
+    "high": 2
+  },
+  "failures": [],
+  "rows": [
+    {
+      "id": "eff.072",
+      "category": "splunk",
+      "stratum": "unsafe_execution",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [],
+      "plan": {
+        "stages": [],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "unsafe_execution_blocks_llm_roles",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "unsafe_execution_blocks_llm_roles",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "unsafe_execution_blocks_llm_roles",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "unsafe_execution_blocks_llm_roles",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "unsafe_execution_blocks_llm_roles",
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "unsafe_execution_blocks_llm_roles",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": false,
+            "skip_reason": "unsafe_execution_blocks_llm_roles",
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.099",
+      "category": "boundary",
+      "stratum": "out_of_scope",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [],
+      "plan": {
+        "stages": [],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "out_of_scope_boundary_blocks_llm_roles",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "out_of_scope_boundary_blocks_llm_roles",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "out_of_scope_boundary_blocks_llm_roles",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "out_of_scope_boundary_blocks_llm_roles",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "out_of_scope_boundary_blocks_llm_roles",
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "out_of_scope_boundary_blocks_llm_roles",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": false,
+            "skip_reason": "out_of_scope_boundary_blocks_llm_roles",
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.010",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.045",
+      "category": "soc_detection",
+      "stratum": "spl_generation_only",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.065",
+      "category": "splunk",
+      "stratum": "knowledge_only",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.001",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.027",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.034",
+      "category": "soc_detection",
+      "stratum": "spl_generation_only",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.003",
+      "category": "power_ot",
+      "stratum": "knowledge_only",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.018",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.005",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.050",
+      "category": "soc_detection",
+      "stratum": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.020",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "guidance_only_deterministic_envelope",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.040",
+      "category": "soc_detection",
+      "stratum": "spl_generation_only",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.002",
+      "category": "power_ot",
+      "stratum": "spl_generation_only",
+      "complexity_tier": "high",
+      "deadline_seconds": 125.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "high",
+        "deadline_seconds": 125.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.080",
+      "category": "cloud_identity",
+      "stratum": "spl_generation_only",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.012",
+      "category": "power_ot",
+      "stratum": "spl_generation_only",
+      "complexity_tier": "high",
+      "deadline_seconds": 125.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "high",
+        "deadline_seconds": 125.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.055",
+      "category": "soc_detection",
+      "stratum": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.060",
+      "category": "splunk",
+      "stratum": "spl_generation_only",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "eff.090",
+      "category": "knowledge_governance",
+      "stratum": "knowledge_only",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "plan": {
+        "stages": [
+          "specialist",
+          "critique"
+        ],
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "role_id": "intent_shadow_classifier",
+            "stage": "understand",
+            "enabled": false,
+            "skip_reason": "pilot_offline",
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "prompt_version": "b3abcd191aebd67e"
+          },
+          {
+            "role_id": "missing_evidence_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_missing_evidence_context",
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "6edd5273dbc3e401"
+          },
+          {
+            "role_id": "mitre_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_mitre_context",
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "81b0785cfab60ef2"
+          },
+          {
+            "role_id": "risk_rationale_reasoner",
+            "stage": "specialist",
+            "enabled": false,
+            "skip_reason": "no_severity_context",
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "prompt_version": "50b62721997693b5"
+          },
+          {
+            "role_id": "route_plan_candidate_generator",
+            "stage": "specialist",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "prompt_version": "f5dab447471d0605"
+          },
+          {
+            "role_id": "governed_composer",
+            "stage": "synthesize",
+            "enabled": false,
+            "skip_reason": "composer_skipped",
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "prompt_version": null
+          },
+          {
+            "role_id": "mcp_tool_plan_shadow",
+            "stage": "critique",
+            "enabled": true,
+            "skip_reason": null,
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "prompt_version": null
+          }
+        ]
+      }
+    }
+  ]
+}

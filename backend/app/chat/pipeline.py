@@ -136,7 +136,12 @@ from app.llm.missing_evidence_reasoner import (
     MissingEvidenceReasonerResult,
     run_missing_evidence_reasoner,
 )
-from app.llm.mitre_risk_rationale import run_mitre_risk_rationale
+from app.llm.mitre_risk_rationale import (
+    MitreRiskRationaleResult,
+    build_deterministic_mitre_rationale,
+    build_deterministic_severity_rationale,
+    run_mitre_risk_rationale,
+)
 from app.planner.resource_plan_shadow import run_resource_plan_shadow
 from app.connectors.mcp.mcp_tool_chronology import deterministic_default_chronology
 from app.connectors.mcp.mcp_tool_planner import plan_tool_chronology
@@ -484,6 +489,23 @@ def _persist_live_chat_error(
         logger.warning("live_chat_error_telemetry_persist_failed", exc_info=True)
 
 
+
+def _compute_turn_deadline_for_state(query_understanding: Any, routed: dict[str, Any]) -> float:
+    """P2-B dynamic turn deadline from query shape and routed skill."""
+    from app.llm.hybrid_role_graph import compute_turn_deadline_seconds
+
+    provenance = routed.get("routing_provenance") if isinstance(routed, dict) else {}
+    match_path = provenance.get("deterministic_match_path") if isinstance(provenance, dict) else None
+    selected_skill = str(routed.get("skill") or "knowledge_recall") if isinstance(routed, dict) else "knowledge_recall"
+    soc_shaped = bool(getattr(query_understanding, "soc_investigation_shaped", False))
+    return compute_turn_deadline_seconds(
+        match_path=match_path,
+        selected_skill=selected_skill,
+        soc_investigation_shaped=soc_shaped,
+    )
+
+
+
 def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("understanding_query")
     request = state["request"]
@@ -539,7 +561,7 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
         "routed": routed,
         "route_plan_shadow": route_plan_shadow,
         "llm_turn_budget": TurnLlmBudget(
-            deadline_seconds=float(getattr(settings, "ai_soc_llm_turn_deadline_seconds", 75.0))
+            deadline_seconds=_compute_turn_deadline_for_state(query_understanding, routed),
         ),
     }
 
@@ -1843,6 +1865,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         query_understanding=state.get("query_understanding"),
     )
     answer_contract = None
+    hybrid_role_plan = None
     missing_evidence_reasoning_trace: dict[str, Any] | None = None
     llm_turn_budget_trace: dict[str, Any] | None = None
     guided_grounding_block = None
@@ -1887,8 +1910,52 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             if T2_UNVERIFIED_BANNER not in merged_limits:
                 merged_limits.append(T2_UNVERIFIED_BANNER)
                 answer_contract = answer_contract.model_copy(update={"limitations": merged_limits})
+        from app.chat.guidance_templates import should_skip_llm_composer as _skip_composer_fn
+
+        _intent_family = ""
+        if isinstance(intent_classification, dict):
+            _intent_family = str(intent_classification.get("intent_family") or "")
+        _skip_comp, _skip_comp_reason = _skip_composer_fn(
+            query=request.message,
+            path_type=path_type,
+            intent_family=_intent_family or None,
+            use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
+        )
+        _draft_preview_active = isinstance(spl_draft_preview, dict) and bool(
+            str(spl_draft_preview.get("draft_spl") or "").strip()
+        )
+        _llm_adv = state.get("llm_intent_advisory")
+        _intent_skipped = bool(getattr(_llm_adv, "dropped_reasons", None)) if _llm_adv is not None else True
+        _intent_skip = (
+            (_llm_adv.dropped_reasons or [None])[0]
+            if _llm_adv is not None and getattr(_llm_adv, "dropped_reasons", None)
+            else None
+        )
+        from app.llm.hybrid_role_graph import build_hybrid_role_plan
+
+        hybrid_role_plan = build_hybrid_role_plan(
+            query=request.message,
+            match_path=_candidate_match_path(state),
+            selected_skill=_effective_routing_skill(state),
+            answer_contract=answer_contract,
+            path_type=path_type,
+            intent_family=_intent_family or None,
+            draft_preview_active=_draft_preview_active,
+            skip_composer=_skip_comp,
+            skip_composer_reason=_skip_comp_reason,
+            intent_advisory_skipped=_intent_skipped,
+            intent_skip_reason=_intent_skip,
+            control_plane_enabled=bool(settings.control_plane_enabled),
+            soc_investigation_shaped=bool(
+                getattr(state.get("query_understanding"), "soc_investigation_shaped", False)
+            ),
+        )
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
-        if (hop_block := budget.sidecar_hop_blocked(role="missing_evidence_reasoner")):
+        if not hybrid_role_plan.role_enabled("missing_evidence_reasoner"):
+            reasoner_result = MissingEvidenceReasonerResult(
+                skipped_reason=hybrid_role_plan.skip_reason("missing_evidence_reasoner")
+            )
+        elif (hop_block := budget.sidecar_hop_blocked(role="missing_evidence_reasoner")):
             reasoner_result = MissingEvidenceReasonerResult(skipped_reason=hop_block)
         else:
             _t0 = time.monotonic()
@@ -1985,6 +2052,22 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 "mitre_rationale_present": bool(analyst_response.foundation_sec_analysis),
                 "adapter_warnings": [],
             }
+        elif hybrid_role_plan is None or not hybrid_role_plan.role_enabled("mitre_reasoner"):
+            rationale_result = MitreRiskRationaleResult(
+                severity_rationale_prose=build_deterministic_severity_rationale(severity_decision),
+                mitre_rationale_prose=build_deterministic_mitre_rationale(
+                    contract=answer_contract,
+                    mitre_branch_result=mitre_branch_payload if isinstance(mitre_branch_payload, dict) else None,
+                ),
+                guard_status="skipped",
+                fallback_used=True,
+                skipped_reason=(
+                    hybrid_role_plan.skip_reason("mitre_reasoner")
+                    if hybrid_role_plan is not None
+                    else "hybrid_plan_unavailable"
+                ),
+            )
+            mitre_risk_rationale_trace = rationale_result.to_trace_dict()
         else:
             rationale_result = run_mitre_risk_rationale(
                 contract=answer_contract,
@@ -2014,6 +2097,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 live_plan_source = live_resource_plan.get("plan_source")
         if draft_preview_active:
             resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "draft_spl_preview_active"}
+        elif hybrid_role_plan is None or not hybrid_role_plan.role_enabled("route_plan_candidate_generator"):
+            resource_plan_shadow_trace = {
+                "llm_called": False,
+                "skipped_reason": (
+                    hybrid_role_plan.skip_reason("route_plan_candidate_generator")
+                    if hybrid_role_plan is not None
+                    else "hybrid_plan_unavailable"
+                ),
+            }
         elif (hop_block := budget.sidecar_hop_blocked(role="route_plan_candidate_generator")):
             resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": hop_block}
         else:
@@ -2049,7 +2141,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         intent_family=intent_family or None,
         use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
     )
-    if answer_contract is not None and analyst_response is not None and not skip_composer:
+    if (
+        answer_contract is not None
+        and analyst_response is not None
+        and hybrid_role_plan is not None
+        and hybrid_role_plan.role_enabled("governed_composer")
+        and not skip_composer
+    ):
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
         # Do not start slow narration when its configured socket window cannot fit
         # inside the remaining turn budget. The deterministic envelope is complete.
@@ -2358,7 +2456,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
         tool_plan_reserve = max(1.0, float(settings.ai_soc_llm_timeout_seconds))
         allow_tool_plan_llm = (
-            not draft_preview_active
+            hybrid_role_plan is not None
+            and hybrid_role_plan.role_enabled("mcp_tool_plan_shadow")
+            and not draft_preview_active
             and budget.sidecar_hop_blocked(role="mcp_tool_plan_shadow") is None
             and budget.can_start_call(reserve_seconds=tool_plan_reserve)
         )
@@ -2387,6 +2487,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 )
         if llm_turn_budget_trace is not None:
             control_plane_trace["llm_turn_budget"] = budget.to_trace_dict()
+        if hybrid_role_plan is not None:
+            control_plane_trace["hybrid_role_graph"] = hybrid_role_plan.to_trace_dict()
         # Stage 4B: surface the governed evidence-loop so it is debuggable in
         # prod traces (chronology, bounded hop count, accumulated hops, verdict).
         if state.get("mcp_chronology") is not None:

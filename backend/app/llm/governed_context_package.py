@@ -15,6 +15,7 @@ callers pass only already-redacted strings, and the package never reaches into
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -25,6 +26,7 @@ from app.query_understanding.models import QueryUnderstandingResult
 
 if TYPE_CHECKING:
     from app.chat.contracts.answer_contract import AnswerContract
+
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +119,29 @@ class GovernedContextPackage:
             len(kept),
         )
         return rendered + f"\n{CONTEXT_TRUNCATION_MARKER}: true"
+
+
+from collections import OrderedDict
+
+# P2-B: cache stable context prompt blocks within a process (bounded LRU).
+_CONTEXT_PROMPT_CACHE: OrderedDict[str, str] = OrderedDict()
+_CONTEXT_CACHE_MAX = 64
+
+
+def cached_context_prompt_block(package: GovernedContextPackage, *, max_chars: int = DEFAULT_MAX_CONTEXT_CHARS) -> str:
+    """Return ``package.to_prompt_block()`` with a bounded in-process cache."""
+    key = hashlib.sha256(
+        (package.raw_query + "|" + str(package.match_path) + "|" + str(package.routed_skill)).encode()
+    ).hexdigest()[:32]
+    cached = _CONTEXT_PROMPT_CACHE.get(key)
+    if cached is not None:
+        _CONTEXT_PROMPT_CACHE.move_to_end(key)
+        return cached
+    block = package.to_prompt_block(max_chars=max_chars)
+    _CONTEXT_PROMPT_CACHE[key] = block
+    if len(_CONTEXT_PROMPT_CACHE) > _CONTEXT_CACHE_MAX:
+        _CONTEXT_PROMPT_CACHE.popitem(last=False)
+    return block
 
 
 def build_governed_context_package_v1(
