@@ -993,3 +993,19 @@ next eval step before claiming full-graph benefit.**
 - Boundary rows disable all LLM roles: **PASS** (eff.072, eff.099).
 - Next: P3 MITRE/CVE/RAG labeled packs + live §4.6 profile expansion.
 
+### §4.6 three-profile ablation scaffold (2026-06-23)
+- **`scripts/run_p2b_ablation.py`** computes the capability surface of all three
+  plan-§4.6 profiles per row — P1 deterministic card, P2 + routed asset legs
+  (MITRE/CVE/RAG/SPL/GitHub-skill), P3 + adaptive LLM roles — with per-role and
+  full-graph ablation and paired structural deltas.
+- **Gate (`--check`)**: capability monotonic `P1 ⊆ P2 ⊆ P3`; boundary turns escalate
+  neither assets nor roles; non-boundary rows gain ≥1 affordance; every enabled role
+  feeds a visible consumer. **PASS 20/20, 0 failures** (mean gain P2−P1=1.5,
+  P3−P2=2.0; offline P3 understates composer/MITRE roles, which need a live
+  `answer_contract`). Report: `docs/evals/p2b_ablation_20_report.json`.
+- **Tests**: `test_p2b_ablation.py` (8 — monotonic, boundary-safety, consumer,
+  resource-leg probe).
+- **Operator residual**: the live, blinded profile-1/2/3 paired quality run (latency
+  + human review) is the only remaining §4.6 step; this scaffold is its gating
+  prerequisite.
+
