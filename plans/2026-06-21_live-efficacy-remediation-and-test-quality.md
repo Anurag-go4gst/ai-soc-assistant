@@ -1009,3 +1009,33 @@ next eval step before claiming full-graph benefit.**
   + human review) is the only remaining §4.6 step; this scaffold is its gating
   prerequisite.
 
+## 12. P4 MCP mock-execution E2E — closure (2026-06-23)
+
+**Deterministic mock-execution contract matrix complete. Staging live read-only is
+the operator residual.**
+
+### Done
+- **20-row execution-contract bank** (`docs/evals/mcp_execution_contract_20_bank.json`)
+  spanning normalized-ready, missing slots, failed validation, confirm, update,
+  reject, empty result, timeout, permission denied, malformed result, row
+  truncation, unsafe tool, viewer RBAC, connector exception, precondition-not-ready,
+  LLM-rec-cannot-override, and candidate-SPL-never-executed.
+- **E2E driver** (`test_mcp_execution_contract_e2e.py`) runs each row through the real
+  `evaluate_mcp_execution` gate with **mock execution enabled in the test env only**
+  (prod global/per-server exec flags stay off). Asserts the expected gate decision
+  per row plus cross-cutting invariants: candidate SPL is never the executed SPL,
+  every executed SPL equals the fully-resolved normalized SPL passed to the
+  connector, empty (status ok / 0 rows) is an honest negative result (not a failure),
+  and every non-executed row surfaces an analyst-visible review or block reason.
+
+### Gate
+- **20/20 expected gate decisions: PASS** (`test_mcp_execution_contract_e2e.py`, 21
+  tests incl. bank-count).
+- Candidate SPL never executed: PASS (invariant on every row).
+- Honest empty/timeout/denied/malformed/truncation outcomes: PASS.
+
+### Operator residual (live, not implementer)
+- Staging live read-only execution, one query at a time after operator schema
+  sign-off (`schema_confirmed=true`); SAIA/write/admin/generative tools stay blocked
+  and global execution default-off. See §"Splunk MCP go-live".
+
