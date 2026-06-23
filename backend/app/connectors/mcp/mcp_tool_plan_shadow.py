@@ -33,6 +33,7 @@ def run_mcp_tool_plan_shadow(
     needs_mcp: bool = False,
     needs_spl: bool = False,
     allow_llm_advisory: bool = True,
+    llm_advisory_skip_reason: str | None = None,
     client: Any | None = None,
 ) -> dict[str, Any] | None:
     """Return advisory chronology metadata for control_plane_trace; None when skipped."""
@@ -70,7 +71,7 @@ def run_mcp_tool_plan_shadow(
             "llm_error": None,
             "skipped_reason": "live_path_deterministic_only"
             if allow_llm_advisory
-            else "llm_advisory_disabled_for_turn",
+            else (llm_advisory_skip_reason or "llm_advisory_disabled_for_turn"),
         }
 
     return {

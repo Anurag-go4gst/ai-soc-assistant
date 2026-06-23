@@ -8,6 +8,7 @@ import json
 import pytest
 
 from app.chat import pipeline as chat_pipeline
+from app.llm.clients.local_chat_client import LocalChatError
 from app.spl.draft_quality import STANDARD_ID
 from app.spl.llm_fallback import (
     CLARIFICATION_INVALID_SCHEMA,
@@ -661,3 +662,38 @@ def test_pipeline_lab_tier_exposes_spl_but_blocks_execution(monkeypatch: pytest.
     assert validation_payload["normalized_spl"] is None
     assert validation_payload["execution_eligible"] is False
     assert validation_payload["exposure_tier"] == "lab_candidate"
+
+
+def test_pipeline_expected_provider_error_degrades_to_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+
+    def _provider_failure(**_kwargs):
+        raise LocalChatError("url_error:timeout")
+
+    monkeypatch.setattr("app.chat.pipeline.generate_llm_spl_via_plan", _provider_failure)
+    assert chat_pipeline._candidate_from_llm_fallback(
+        trace_id="t",
+        skill="attack_discovery",
+        user_query="Show failed logins",
+        telemetry=_Telemetry(),
+        profile=_Profile(),
+        request_enabled=True,
+    ) is None
+
+
+def test_pipeline_programming_error_is_not_masked_as_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", True)
+
+    def _signature_bug(**_kwargs):
+        raise TypeError("signature drift")
+
+    monkeypatch.setattr("app.chat.pipeline.generate_llm_spl_via_plan", _signature_bug)
+    with pytest.raises(TypeError, match="signature drift"):
+        chat_pipeline._candidate_from_llm_fallback(
+            trace_id="t",
+            skill="attack_discovery",
+            user_query="Show failed logins",
+            telemetry=_Telemetry(),
+            profile=_Profile(),
+            request_enabled=True,
+        )

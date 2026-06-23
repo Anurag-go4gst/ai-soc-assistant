@@ -177,7 +177,9 @@ def invoke_sidecar_role(
             return None, True, None
         hop_timeout = min(timeout, _FAILOVER_HOP_TIMEOUT_SECONDS)
         # Fresh holder: the primary call was orphaned on timeout and may still
-        # be running; it must not clobber the fallback's answered_label.
+        # be running; it must not clobber the fallback's answered_label. The
+        # model-slot guard in run_sidecar_llm_with_timeout keeps the fallback from
+        # piling onto the slot while that orphan still holds it (skips instead).
         fallback_label_holder: list[str | None] = [None]
         fallback_provider = _build_callable_for_client(
             client=fallback_client,

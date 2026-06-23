@@ -87,3 +87,20 @@ def test_shadow_can_disable_llm_advisory_per_turn(monkeypatch) -> None:
     assert out is not None
     assert out["planner"]["llm_called"] is False
     assert out["planner"]["skipped_reason"] == "llm_advisory_disabled_for_turn"
+
+
+def test_shadow_surfaces_turn_budget_skip_reason(monkeypatch) -> None:
+    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.settings.control_plane_enabled", True)
+    monkeypatch.setattr(
+        "app.connectors.mcp.mcp_tool_plan_shadow.mcp_tool_plan_llm_advisory_enabled",
+        lambda: True,
+    )
+    out = run_mcp_tool_plan_shadow(
+        query="List DNS requests",
+        needs_spl=True,
+        allow_llm_advisory=False,
+        llm_advisory_skip_reason="turn_budget_exhausted",
+    )
+    assert out is not None
+    assert out["planner"]["llm_called"] is False
+    assert out["planner"]["skipped_reason"] == "turn_budget_exhausted"

@@ -570,8 +570,8 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         skip_reason = "registry_backed_high_confidence_t0"
     if skip_advisory:
         llm_advisory = LLMIntentAdvisory(dropped_reasons=[skip_reason or "deterministic_exact_match_t0"])
-    elif budget.sidecar_budget_exhausted():
-        llm_advisory = LLMIntentAdvisory(dropped_reasons=["turn_budget_exhausted"])
+    elif (hop_block := budget.sidecar_hop_blocked(role="intent_shadow_classifier")):
+        llm_advisory = LLMIntentAdvisory(dropped_reasons=[hop_block])
     else:
         _t0 = time.monotonic()
         llm_advisory = generate_llm_intent_advisory(
@@ -1888,8 +1888,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 merged_limits.append(T2_UNVERIFIED_BANNER)
                 answer_contract = answer_contract.model_copy(update={"limitations": merged_limits})
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
-        if budget.sidecar_budget_exhausted():
-            reasoner_result = MissingEvidenceReasonerResult(skipped_reason="turn_budget_exhausted")
+        if (hop_block := budget.sidecar_hop_blocked(role="missing_evidence_reasoner")):
+            reasoner_result = MissingEvidenceReasonerResult(skipped_reason=hop_block)
         else:
             _t0 = time.monotonic()
             reasoner_result = run_missing_evidence_reasoner(
@@ -1992,7 +1992,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 severity_decision=severity_decision,
                 mitre_decision=mitre_decision if isinstance(mitre_decision, dict) else None,
                 mitre_branch_result=mitre_branch_payload if isinstance(mitre_branch_payload, dict) else None,
-                budget_exhausted=budget.sidecar_budget_exhausted(),
+                budget_exhausted=budget.sidecar_hop_blocked(role="mitre_reasoner") is not None,
                 budget=budget,  # per-internal-call accounting (mitre + risk = up to 2 slots)
             )
             mitre_risk_rationale_trace = rationale_result.to_trace_dict()
@@ -2014,8 +2014,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 live_plan_source = live_resource_plan.get("plan_source")
         if draft_preview_active:
             resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "draft_spl_preview_active"}
-        elif budget.sidecar_budget_exhausted():
-            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "turn_budget_exhausted"}
+        elif (hop_block := budget.sidecar_hop_blocked(role="route_plan_candidate_generator")):
+            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": hop_block}
         else:
             _t0 = time.monotonic()
             shadow_result = run_resource_plan_shadow(
@@ -2054,12 +2054,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         # Do not start slow narration when its configured socket window cannot fit
         # inside the remaining turn budget. The deterministic envelope is complete.
         narration_reserve = max(1.0, float(settings.ai_soc_llm_timeout_seconds))
-        if budget.narration_budget_exhausted() or not budget.can_start_call(
-            reserve_seconds=narration_reserve
-        ):
+        if (hop_block := budget.narration_hop_blocked(reserve_seconds=narration_reserve)):
             composer_trace = {
                 **composer_trace,
-                "llm_composer_skipped_reason": "turn_budget_exhausted",
+                "llm_composer_skipped_reason": hop_block,
             }
         else:
             composer_use_case_id = (
@@ -2361,7 +2359,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         tool_plan_reserve = max(1.0, float(settings.ai_soc_llm_timeout_seconds))
         allow_tool_plan_llm = (
             not draft_preview_active
-            and not budget.sidecar_budget_exhausted()
+            and budget.sidecar_hop_blocked(role="mcp_tool_plan_shadow") is None
             and budget.can_start_call(reserve_seconds=tool_plan_reserve)
         )
         mcp_tool_plan_shadow_trace = run_mcp_tool_plan_shadow(

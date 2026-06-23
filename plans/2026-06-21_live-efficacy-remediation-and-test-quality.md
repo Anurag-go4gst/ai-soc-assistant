@@ -926,3 +926,30 @@ SPL/investigation rows unchanged. 200-test governance/routing subset + new P1 te
 green; 105/105, 50/50, P1 gate 97%/97.9%/0-collapse PASS. The two full-suite
 `stage3ji2/3` failures are a subprocess-`PYTHONPATH` (`contracts` import) harness
 artifact — both pass 40/40 under canonical `PYTHONPATH=.:..`; unrelated to P1.
+
+## 10. P2-A LLM deadline & duplication control — closure (2026-06-23)
+
+**All P2-A gates implemented and tested. Slot-orphan hardening (gate "no abandoned
+request keeps occupying the single model slot") now CLOSED.**
+
+### Done
+- **Pre-hop deadline gates** (`turn_llm_budget.py`): `sidecar_hop_blocked()` / `narration_hop_blocked()` + `hop_reserve_seconds()`; wired before intent, missing-evidence, MITRE/risk rationale, resource-plan shadow, composer, MCP tool-plan shadow (`pipeline.py`, `mitre_risk_rationale.py`).
+- **Intent T0 skip** (high-confidence registry) — already in place; preserved.
+- **One narration owner** — CP on → composer; CP off → `lab_runner`; proven by `test_p2a_narration_exclusivity.py`.
+- **Failover seed/structured-output negotiation** — `failover_client.py` + `test_failover_seed_contract.py` (P0 carry-over).
+- **Marginal-value trace fields** — `record_sidecar`/`record_narration` now include `deadline_remaining_seconds`, `reserve_seconds`, optional `token_usage`/`cancelled`.
+- **Single-flight model-slot guard** (`sidecar_governance.py`): `_MODEL_SLOT_SEMAPHORE` (`AI_SOC_LLM_MODEL_SLOTS`, default 1) modeling one physical VPS slot. `run_sidecar_llm_with_timeout` try-acquires (non-blocking default, optional bounded `slot_wait_seconds`); the worker releases in `finally` so the slot stays held by a timed-out **orphan** until the call truly finishes (caller timeout does NOT free it). A busy slot → `NOTE_LLM_SLOT_BUSY` skip → deterministic fallback, never a second concurrent request piled onto the slot (the documented single-slot thrash). The post-timeout Instruct retry in `sidecar_clients.py` now honors the slot: it runs only when capacity is actually free, never on top of the orphan. Per-test isolation via `reset_model_slot_guard` autouse fixture (`conftest.py`); the worker binds the live semaphore so a stale orphan releases its own object.
+- **Health-guard baseline/resilience gate** — `llm_health_guard.py` baseline (no `--restart`) measures/reports only; resilience (`--restart`) may restart a degraded single-slot model. Tested in `test_llm_health_guard.py` (tok/s + wall-time + reachability decision; baseline never restarts).
+
+### Deferred (P2-B scope — prompt redesign)
+- Compact role schemas + stable-context cache (plan item 5) — belongs to the P2-B prompt-contract redesign, not the P2-A deadline/duplication gates.
+
+### Gates
+- Pre-hop reserve: PASS (unit + pipeline wiring).
+- Narration exclusivity: PASS (`test_p2a_narration_exclusivity.py`, `test_narration_paths_parity.py`).
+- Failover seed: PASS (`test_failover_seed_contract.py`).
+- **Single model slot — no orphan pile-on: PASS** (`test_sidecar_slot_single_flight.py`, `test_sidecar_timeout_failover.py::test_single_slot_primary_timeout_does_not_pile_on_instruct`).
+- Health-guard baseline/resilience: PASS (`test_llm_health_guard.py`).
+- Full backend suite: 2698 passed, 1 skipped, 6 xfailed.
+- Next: P2-B adaptive multi-role graph (after 20-row causal pilot).
+

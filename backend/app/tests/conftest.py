@@ -14,12 +14,29 @@ fallback, so behavior matches an unreachable endpoint rather than a new mode.
 from __future__ import annotations
 
 import os
+import threading
 from collections.abc import Iterator
 from urllib.error import URLError
 
 import pytest
 
 LIVE_LLM_OPT_IN_ENV = "AI_SOC_TESTS_ALLOW_LIVE_LLM"
+
+
+@pytest.fixture(autouse=True)
+def reset_model_slot_guard() -> Iterator[None]:
+    """Give each test a fresh model-slot semaphore.
+
+    The single-flight guard intentionally keeps a timed-out (orphaned) sidecar hop
+    holding the slot until its provider truly finishes — correct single-slot
+    semantics. In-process that means a slow-provider test could leave the slot held
+    and poison the next test's non-blocking acquire. Rebinding to a fresh semaphore
+    isolates tests; an orphan releasing the stale object is harmless.
+    """
+    from app.llm import sidecar_governance as sg
+
+    sg._MODEL_SLOT_SEMAPHORE = threading.BoundedSemaphore(sg._MODEL_SLOTS)
+    yield
 
 
 def _blocked_urlopen(*args: object, **kwargs: object) -> object:

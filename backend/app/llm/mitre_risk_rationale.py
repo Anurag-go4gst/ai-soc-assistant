@@ -181,12 +181,17 @@ def run_mitre_risk_rationale(
             skipped_reason="rationale_disabled",
         )
     if budget_exhausted:
+        skip = "turn_budget_exhausted"
+        if budget is not None:
+            hop = budget.sidecar_hop_blocked(role=MITRE_REASONER_ROLE)
+            if hop:
+                skip = hop
         return MitreRiskRationaleResult(
             severity_rationale_prose=det_severity,
             mitre_rationale_prose=det_mitre,
             guard_status="skipped",
             fallback_used=True,
-            skipped_reason="turn_budget_exhausted",
+            skipped_reason=skip,
         )
 
     skip, skip_reason = should_skip_sidecar(
@@ -223,10 +228,10 @@ def run_mitre_risk_rationale(
     guard_status = "passed"
     fallback_used = False
 
-    def _budget_blocks() -> bool:
-        return budget is not None and budget.sidecar_budget_exhausted()
+    def _budget_blocks(role: str) -> bool:
+        return budget is not None and budget.sidecar_hop_blocked(role=role) is not None
 
-    if (det_mitre or contract.candidate_mitre or contract.mitre_technique_ids) and not _budget_blocks():
+    if (det_mitre or contract.candidate_mitre or contract.mitre_technique_ids) and not _budget_blocks(MITRE_REASONER_ROLE):
         _t0 = time.monotonic()
         mitre_prose, called, label, role_warnings, blocked = _invoke_reasoning_role(
             role=MITRE_REASONER_ROLE,
@@ -252,7 +257,7 @@ def run_mitre_risk_rationale(
             fallback_used = True
             mitre_prose = det_mitre
 
-    if severity_decision and severity_decision.severity_label and not _budget_blocks():
+    if severity_decision and severity_decision.severity_label and not _budget_blocks(RISK_RATIONALE_ROLE):
         _t0 = time.monotonic()
         severity_prose, called, label, role_warnings, blocked = _invoke_reasoning_role(
             role=RISK_RATIONALE_ROLE,

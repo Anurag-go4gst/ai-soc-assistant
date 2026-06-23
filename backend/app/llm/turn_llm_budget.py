@@ -7,14 +7,24 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+def hop_reserve_seconds(role: str) -> float:
+    """Wall time that must remain before starting a sidecar hop."""
+    from app.config import settings
+    from app.llm.sidecar_clients import sidecar_timeout_seconds
+
+    return max(
+        1.0,
+        min(
+            sidecar_timeout_seconds(role),
+            float(getattr(settings, "ai_soc_llm_timeout_seconds", 30) or 30),
+        ),
+    )
+
+
 @dataclass
 class TurnLlmBudget:
     max_sidecar_calls: int = 2
     max_narration_calls: int = 1
-    # Wall-clock ceiling for all blocking LLM calls on a turn. Without it, stacked
-    # sidecars on a slow on-prem model push /chat to 70-160s (the deterministic
-    # answer is unaffected). 0 disables the time gate. Default leaves room for the
-    # most valuable single call while capping the worst-case stack.
     deadline_seconds: float = 75.0
     sidecar_calls: int = 0
     narration_calls: int = 0
@@ -24,6 +34,68 @@ class TurnLlmBudget:
     def time_budget_exhausted(self) -> bool:
         return self.deadline_seconds > 0 and (time.monotonic() - self.started_at) >= self.deadline_seconds
 
+    def remaining_seconds(self) -> float | None:
+        if self.deadline_seconds <= 0:
+            return None
+        return max(0.0, self.deadline_seconds - (time.monotonic() - self.started_at))
+
+    def can_start_call(self, *, reserve_seconds: float = 0.0) -> bool:
+        remaining = self.remaining_seconds()
+        return remaining is None or remaining > max(0.0, reserve_seconds)
+
+    def sidecar_hop_blocked(self, *, role: str) -> str | None:
+        if self.sidecar_calls >= self.max_sidecar_calls:
+            return "turn_budget_exhausted"
+        if self.time_budget_exhausted():
+            return "turn_budget_exhausted"
+        reserve = hop_reserve_seconds(role)
+        if not self.can_start_call(reserve_seconds=reserve):
+            return "insufficient_deadline_reserve"
+        return None
+
+    def narration_hop_blocked(self, *, reserve_seconds: float | None = None) -> str | None:
+        if self.narration_calls >= self.max_narration_calls:
+            return "turn_budget_exhausted"
+        if self.time_budget_exhausted():
+            return "turn_budget_exhausted"
+        reserve = reserve_seconds if reserve_seconds is not None else hop_reserve_seconds("governed_composer")
+        if not self.can_start_call(reserve_seconds=reserve):
+            return "insufficient_deadline_reserve"
+        return None
+
+    def _record_entry(
+        self,
+        *,
+        kind: str,
+        outcome: str,
+        role: str | None = None,
+        provider_label: str | None = None,
+        latency_ms: int | None = None,
+        model: str | None = None,
+        reserve_seconds: float | None = None,
+        token_usage: dict[str, Any] | None = None,
+        cancelled: bool | None = None,
+    ) -> dict[str, Any]:
+        remaining = self.remaining_seconds()
+        entry: dict[str, Any] = {
+            "kind": kind,
+            "outcome": outcome,
+            "latency_ms": latency_ms,
+            "model": model,
+            "deadline_remaining_seconds": round(remaining, 2) if remaining is not None else None,
+        }
+        if role is not None:
+            entry["role"] = role
+        if provider_label is not None:
+            entry["provider_label"] = provider_label
+        if reserve_seconds is not None:
+            entry["reserve_seconds"] = round(reserve_seconds, 2)
+        if token_usage:
+            entry["token_usage"] = dict(token_usage)
+        if cancelled is not None:
+            entry["cancelled"] = cancelled
+        return entry
+
     def record_sidecar(
         self,
         *,
@@ -32,17 +104,23 @@ class TurnLlmBudget:
         outcome: str,
         latency_ms: int | None = None,
         model: str | None = None,
+        reserve_seconds: float | None = None,
+        token_usage: dict[str, Any] | None = None,
+        cancelled: bool | None = None,
     ) -> None:
         self.sidecar_calls += 1
         self.records.append(
-            {
-                "kind": "sidecar",
-                "role": role,
-                "provider_label": provider_label,
-                "outcome": outcome,
-                "latency_ms": latency_ms,
-                "model": model,
-            }
+            self._record_entry(
+                kind="sidecar",
+                role=role,
+                provider_label=provider_label,
+                outcome=outcome,
+                latency_ms=latency_ms,
+                model=model,
+                reserve_seconds=reserve_seconds if reserve_seconds is not None else hop_reserve_seconds(role),
+                token_usage=token_usage,
+                cancelled=cancelled,
+            )
         )
 
     def record_narration(
@@ -52,16 +130,22 @@ class TurnLlmBudget:
         outcome: str,
         latency_ms: int | None = None,
         model: str | None = None,
+        reserve_seconds: float | None = None,
+        token_usage: dict[str, Any] | None = None,
+        cancelled: bool | None = None,
     ) -> None:
         self.narration_calls += 1
         self.records.append(
-            {
-                "kind": "narration",
-                "provider_label": provider_label,
-                "outcome": outcome,
-                "latency_ms": latency_ms,
-                "model": model,
-            }
+            self._record_entry(
+                kind="narration",
+                provider_label=provider_label,
+                outcome=outcome,
+                latency_ms=latency_ms,
+                model=model,
+                reserve_seconds=reserve_seconds,
+                token_usage=token_usage,
+                cancelled=cancelled,
+            )
         )
 
     def sidecar_budget_exhausted(self) -> bool:
@@ -71,11 +155,13 @@ class TurnLlmBudget:
         return self.narration_calls >= self.max_narration_calls or self.time_budget_exhausted()
 
     def to_trace_dict(self) -> dict[str, Any]:
+        remaining = self.remaining_seconds()
         return {
             "max_sidecar_calls": self.max_sidecar_calls,
             "max_narration_calls": self.max_narration_calls,
             "deadline_seconds": self.deadline_seconds,
             "elapsed_seconds": round(time.monotonic() - self.started_at, 2),
+            "remaining_seconds": round(remaining, 2) if remaining is not None else None,
             "time_budget_exhausted": self.time_budget_exhausted(),
             "sidecar_calls": self.sidecar_calls,
             "narration_calls": self.narration_calls,

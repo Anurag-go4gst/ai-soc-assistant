@@ -28,6 +28,7 @@ BASE_URL = "http://127.0.0.1:8081"
 MODEL = "foundation-sec-1.1-8b-instruct-q8_0.gguf"
 SERVICE = "llama-server.service"
 DEFAULT_THRESHOLD = 2.0  # tok/s; observed bad=0.6, clean=~5.7
+DEFAULT_MAX_WALL_SECONDS = 20.0  # catches queue/prompt-eval stalls hidden by generation tok/s
 PROBE_TOKENS = 48
 
 
@@ -100,18 +101,37 @@ def restart_service() -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD, help="min healthy tok/s")
+    parser.add_argument(
+        "--max-wall-seconds",
+        type=float,
+        default=DEFAULT_MAX_WALL_SECONDS,
+        help="maximum acceptable end-to-end probe latency",
+    )
+    parser.add_argument("--probe-timeout", type=int, default=120, help="bounded completion probe timeout")
     parser.add_argument("--restart", action="store_true", help="restart the service if degraded")
     args = parser.parse_args()
 
-    before = measure_tok_per_s()
-    result: dict = {"threshold": args.threshold, "before": before}
-    healthy = before.get("reachable") and before.get("tok_per_s", 0.0) >= args.threshold
+    before = measure_tok_per_s(timeout=args.probe_timeout)
+    result: dict = {
+        "threshold": args.threshold,
+        "max_wall_seconds": args.max_wall_seconds,
+        "before": before,
+    }
+    healthy = (
+        before.get("reachable")
+        and before.get("tok_per_s", 0.0) >= args.threshold
+        and before.get("wall_s", float("inf")) <= args.max_wall_seconds
+    )
 
     if not healthy and args.restart:
         result["restart"] = restart_service()
         # Warm-up call is implicit in re-measure.
-        result["after"] = measure_tok_per_s()
-        healthy = result["after"].get("reachable") and result["after"].get("tok_per_s", 0.0) >= args.threshold
+        result["after"] = measure_tok_per_s(timeout=args.probe_timeout)
+        healthy = (
+            result["after"].get("reachable")
+            and result["after"].get("tok_per_s", 0.0) >= args.threshold
+            and result["after"].get("wall_s", float("inf")) <= args.max_wall_seconds
+        )
 
     result["healthy"] = bool(healthy)
     print(json.dumps(result, indent=2))
