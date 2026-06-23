@@ -11,7 +11,7 @@ from uuid import uuid4
 from app.config import settings
 from app.connectors.telemetry import get_telemetry_connector
 from app.connectors.telemetry import metrics as _telemetry_metrics
-from app.connectors.telemetry.log_context import reset_trace_id, set_trace_id
+from app.connectors.telemetry.log_context import current_trace_id, reset_trace_id, set_trace_id
 from app.actions.capability_policy import action_capability_for
 from app.chat.analyst_response_builder import build_analyst_response_for_live
 from app.answer_guard.models import AnswerGuardStatus
@@ -71,6 +71,7 @@ from app.spl.draft_preview import (
     build_draft_preview_analyst_message,
     candidate_detection_families,
 )
+from app.llm.clients.local_chat_client import LocalChatError
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.spl.llm_plan_compiler import generate_llm_spl_via_plan
 from app.spl.spl_relevance_check import check_spl_relevance
@@ -487,7 +488,13 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("understanding_query")
     request = state["request"]
     query_text = state.get("effective_query") or request.message
-    trace_id = str(uuid4())
+    # Reuse the request-boundary trace seeded before dependencies execute. This
+    # keeps success telemetry, protected exception diagnostics, and the sanitized
+    # 500 envelope on one correlation id. Direct/in-process callers still receive
+    # a fresh id.
+    trace_id = current_trace_id()
+    if not trace_id or trace_id == "-":
+        trace_id = str(uuid4())
     set_trace_id(trace_id)
     qu_failed = False
     try:
@@ -2044,7 +2051,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     if answer_contract is not None and analyst_response is not None and not skip_composer:
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
-        if budget.narration_budget_exhausted():
+        # Do not start slow narration when its configured socket window cannot fit
+        # inside the remaining turn budget. The deterministic envelope is complete.
+        narration_reserve = max(1.0, float(settings.ai_soc_llm_timeout_seconds))
+        if budget.narration_budget_exhausted() or not budget.can_start_call(
+            reserve_seconds=narration_reserve
+        ):
             composer_trace = {
                 **composer_trace,
                 "llm_composer_skipped_reason": "turn_budget_exhausted",
@@ -2271,6 +2283,36 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 "synthesis_readiness": False,
             }
             response_mode = _response_mode(context_sufficiency, human_review, spl_validation)
+
+    # P1 steps 4–5: deterministic skill-contribution contract + investigation floor.
+    # Records what the selected skill contributed to the finalized card (sections,
+    # evidence keys, provenance, skip reason, survival) and guarantees an
+    # investigation skill never returns a silent empty card.
+    from app.chat.skill_contribution import (
+        apply_investigation_floor,
+        build_skill_contribution,
+        derive_boundary_class,
+    )
+
+    _routing_provenance = (
+        (state.get("routed") or {}).get("routing_provenance")
+        if isinstance(state.get("routed"), dict)
+        else None
+    )
+    skill_contribution = build_skill_contribution(
+        selected_skill=_effective_routing_skill(state),
+        envelope=analyst_response,
+        routing_provenance=_routing_provenance if isinstance(_routing_provenance, dict) else None,
+        source_evidence=source_evidence,
+        human_review=human_review if isinstance(human_review, dict) else None,
+        boundary_class=derive_boundary_class(request.message),
+    )
+    if analyst_response is not None:
+        analyst_response = apply_investigation_floor(
+            envelope=analyst_response, contribution=skill_contribution
+        )
+    skill_contribution_record: dict[str, Any] = skill_contribution.to_dict()
+
     visibility: dict[str, Any] = {}
     control_plane_trace = None
     if settings.control_plane_enabled:
@@ -2315,6 +2357,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             control_plane_trace["mitre_risk_rationale"] = mitre_risk_rationale_trace
         if resource_plan_shadow_trace is not None:
             control_plane_trace["resource_plan_shadow"] = resource_plan_shadow_trace
+        budget = state.get("llm_turn_budget") or TurnLlmBudget()
+        tool_plan_reserve = max(1.0, float(settings.ai_soc_llm_timeout_seconds))
+        allow_tool_plan_llm = (
+            not draft_preview_active
+            and not budget.sidecar_budget_exhausted()
+            and budget.can_start_call(reserve_seconds=tool_plan_reserve)
+        )
         mcp_tool_plan_shadow_trace = run_mcp_tool_plan_shadow(
             query=request.message,
             target_index=_target_index_from_validation(spl_validation),
@@ -2322,12 +2371,24 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             session_role=state.get("session_role"),
             needs_mcp=_mcp_tool_plan_needs_mcp(state, spl_validation),
             needs_spl=spl_validation is not None,
-            allow_llm_advisory=not draft_preview_active,
+            allow_llm_advisory=allow_tool_plan_llm,
+            llm_advisory_skip_reason=(
+                "turn_budget_exhausted"
+                if not draft_preview_active and not allow_tool_plan_llm
+                else None
+            ),
         )
         if mcp_tool_plan_shadow_trace is not None:
             control_plane_trace["mcp_tool_plan_shadow"] = mcp_tool_plan_shadow_trace
+            planner_meta = mcp_tool_plan_shadow_trace.get("planner") or {}
+            if planner_meta.get("llm_called"):
+                budget.record_sidecar(
+                    role="mcp_tool_plan_shadow",
+                    provider_label=planner_meta.get("llm_label"),
+                    outcome="completed" if not planner_meta.get("llm_error") else "dropped",
+                )
         if llm_turn_budget_trace is not None:
-            control_plane_trace["llm_turn_budget"] = llm_turn_budget_trace
+            control_plane_trace["llm_turn_budget"] = budget.to_trace_dict()
         # Stage 4B: surface the governed evidence-loop so it is debuggable in
         # prod traces (chronology, bounded hop count, accumulated hops, verdict).
         if state.get("mcp_chronology") is not None:
@@ -2392,6 +2453,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case=response_use_case,
         selected_skill_chain=state["selected_skill_chain"],
         skill_selection=state["skill_selection"],
+        skill_contribution=skill_contribution_record,
         message=message,
         note=note,
         analyst_summary=(
@@ -4026,11 +4088,32 @@ def _candidate_from_llm_fallback(
     # detection plan and deterministic code compiles SOC-STD-compliant SPL. Free-
     # form generation is the automatic fallback when the plan path yields no usable
     # SPL. Both flow through the same validation / quality / lab-tier gates.
-    result = generate_llm_spl_via_plan(user_query=user_query)
-    if result is None or not str(getattr(result, "candidate_spl", "") or "").strip():
-        result = generate_llm_spl_fallback(
-            user_query=user_query, context=llm_context, correctness_mode=True
+    # Expected provider failures degrade to the deterministic path. Programming
+    # errors (TypeError/signature drift, ValueError, etc.) intentionally propagate
+    # to the sanitized P0-0 error envelope so they remain visible and diagnosable.
+    try:
+        result = generate_llm_spl_via_plan(user_query=user_query)
+        if result is None or not str(getattr(result, "candidate_spl", "") or "").strip():
+            result = generate_llm_spl_fallback(
+                user_query=user_query, context=llm_context, correctness_mode=True
+            )
+    except LocalChatError as exc:
+        try:
+            telemetry.record_step(
+                trace_id,
+                "llm_spl_producer_failed",
+                "failed",
+                skill=skill,
+                exception_type=type(exc).__name__,
+            )
+        except Exception:  # noqa: BLE001 - telemetry must never break chat
+            logger.warning("llm_spl_producer_failed_telemetry_failed", exc_info=True)
+        logger.warning(
+            "llm_spl_producer_failed exc_type=%s trace_id=%s",
+            type(exc).__name__,
+            trace_id,
         )
+        return None
     if result is None:
         return None
     relevance = _gate_llm_spl_relevance(result, user_query)

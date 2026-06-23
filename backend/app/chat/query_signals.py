@@ -335,6 +335,13 @@ def extract_query_signals(
             "push firewall",
             "firewall rule to deny",
             "deny rule",
+            # destructive admin / policy-wipe asks (eff.098 class)
+            "delete all firewall",
+            "delete firewall",
+            "remove all firewall",
+            "remove firewall rule",
+            "wipe firewall",
+            "purge firewall",
             "contain ",
             "isolate ",
             "quarantine ",
@@ -375,6 +382,9 @@ def extract_query_signals(
         or "air-gap" in normalized
         or "air gap" in normalized
         or "segment off" in normalized
+    ) or bool(
+        # destructive firewall/policy deletion without an explicit "block" verb
+        re.search(r"\b(delete|remove|wipe|purge)\b[^.?!]{0,40}\bfirewall\b", normalized)
     )
     # Containment DECISION-SUPPORT (not an enforcement command): the analyst is
     # asking whether/how to contain, not ordering an action. These must reach the

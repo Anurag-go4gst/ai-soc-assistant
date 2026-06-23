@@ -461,6 +461,7 @@ class PlaceholderResponse(BaseModel):
     selected_use_case: UseCaseSelection | None = None
     selected_skill_chain: SkillChain | None = None
     skill_selection: SkillSelectionResult | None = None
+    skill_contribution: dict[str, object] | None = None
     workflow_plan: WorkflowPlan | None = None
     candidate_spl: CandidateSplEnvelope | None = None
     spl_validation: SplValidationEnvelope | None = None

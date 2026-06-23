@@ -224,8 +224,26 @@ def _route_out_of_registry(
     # request, but it must never turn an unsafe action into guided guidance.
     from app.chat.query_signals import extract_query_signals
 
+    from app.query_understanding.soc_investigation_shape import (
+        detect_investigation_request,
+        detect_spl_artifact_request,
+    )
+
     signals = extract_query_signals(query, understanding)
     action = bool(signals["action_or_containment_shaped"])
+
+    # P1 floor 1 — analyst investigation/triage/evidence framing routes to the
+    # guided_investigation rescue, ahead of the keyword detection-family match.
+    # The family matcher is greedy (it fires on PMU/HMI nouns), so without this an
+    # "evidence-led investigation plan" was being pulled into the SPL path. Genuine
+    # knowledge-explanation openers are excluded inside the detector.
+    if not action and detect_investigation_request(query):
+        return _route_guided_investigation_rescue(
+            understanding,
+            query,
+            keyword_would_have,
+            reason="out_of_registry_investigation_request_floor",
+        )
 
     # A/B: a question that maps to a known detection family is a concrete SPL ask.
     # Route it to the SPL path so the review-only draft is built, instead of the
@@ -234,6 +252,14 @@ def _route_out_of_registry(
         return _route_detection_spl(
             understanding, query, keyword_would_have,
             reason="out_of_registry_detection_family_floor",
+        )
+
+    # P1 floor 2 — explicit Splunk-search / detection-imperative asks must produce a
+    # review-only SPL draft, never collapse to a knowledge answer.
+    if not action and detect_spl_artifact_request(query):
+        return _route_detection_spl(
+            understanding, query, keyword_would_have,
+            reason="out_of_registry_spl_artifact_floor",
         )
 
     if understanding.soc_investigation_shaped and not action:
