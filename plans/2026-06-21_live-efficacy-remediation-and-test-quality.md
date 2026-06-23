@@ -1039,3 +1039,34 @@ the operator residual.**
   sign-off (`schema_confirmed=true`); SAIA/write/admin/generative tools stay blocked
   and global execution default-off. See §"Splunk MCP go-live".
 
+## 13. Corpus → release benchmark — scaffold closure (2026-06-23)
+
+**§4.1–§4.4 machinery built; expert labels + sealed holdout are the
+reviewer/operator residual.**
+
+### Done
+- **`labeled_release_v1`** (`docs/evals/labeled_release_v1.json`,
+  `scripts/build_labeled_release_v1.py`): all 100 frozen `discovery_v1` questions in
+  the §4.2 schema (tier/objective/shape/skills/legs/artifacts/HIL/latency/authority).
+  Deterministic fields filled from P1 routing labels + registries; expert fields
+  (`must_include`, `must_not_claim`) left empty with `label_status='needs_expert'` —
+  **not fabricated**. Tiers: T1 58, T2 36, boundary 6.
+- **§4.3 validator** (`scripts/validate_release_bank.py --check`): schema/enum
+  completeness, exact id+text uniqueness, boundary safety-seed, coverage (tiers,
+  ≥5 shapes). **PASS, 0 structural failures**; 100 rows flagged pending expert.
+- **§4.4 four-layer scorer scaffold** (`scripts/score_release_bank.py`): L1 hard
+  gates + L2 deterministic rubric implemented (safety `must_not_claim` always
+  enforced; `must_include` scored only when expert labels exist); L3 human review +
+  L4 calibrated LLM judge are explicit interface slots. Rows with unfilled expert
+  fields are non-release-gating by construction (plan §4.4).
+- **`blind_holdout_v1` spec** (`docs/evals/blind_holdout_v1_spec.md`): independence
+  rules, 40-row coverage matrix, seal-before-reveal workflow, scoring protocol.
+- **Tests**: `test_release_benchmark.py` (8 — builder schema, validator
+  pass/enum/dupe/boundary, scorer L1 unsafe-exec block, safety violation,
+  must-include deferral vs scored).
+
+### Residual (reviewer/operator, not implementer)
+- Two-reviewer expert authoring of `must_include`/`must_not_claim` + §4.3 adjudication.
+- Independent-reviewer authoring + sealing of `blind_holdout_v1` question text/labels.
+- Live release-candidate run + L3 human review + L4 judge calibration.
+
