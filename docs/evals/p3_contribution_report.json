@@ -1,0 +1,346 @@
+{
+  "note": "deterministic asset-contribution floor; live \u226590% relevance rubric + human-rated usefulness are the operator residual (plan \u00a7456). RAG live SOC-KB retrieval is residual.",
+  "class_counts": {
+    "mitre": 15,
+    "cve": 6,
+    "github_skill": 15,
+    "rag": 3
+  },
+  "failures": [],
+  "sections": {
+    "mitre": {
+      "rows": [
+        {
+          "class": "mitre",
+          "use_case_id": "auth_failed_login_spike",
+          "entry_count": 3,
+          "statuses": [
+            "needs_review",
+            "supported"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "auth_success_after_failure",
+          "entry_count": 2,
+          "statuses": [
+            "candidate",
+            "needs_review"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "auth_new_source_ip_login",
+          "entry_count": 1,
+          "statuses": [
+            "candidate"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "auth_impossible_travel",
+          "entry_count": 1,
+          "statuses": [
+            "candidate"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "auth_privileged_login_anomaly",
+          "entry_count": 1,
+          "statuses": [
+            "candidate"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "auth_service_account_abnormal_login",
+          "entry_count": 1,
+          "statuses": [
+            "candidate"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "auth_account_lockout_trend",
+          "entry_count": 1,
+          "statuses": [
+            "needs_review"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "auth_mfa_failure_spike",
+          "entry_count": 1,
+          "statuses": [
+            "needs_review"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "auth_disabled_account_login",
+          "entry_count": 1,
+          "statuses": [
+            "candidate"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "auth_after_hours_critical_asset",
+          "entry_count": 1,
+          "statuses": [
+            "candidate"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "net_port_scanning",
+          "entry_count": 1,
+          "statuses": [
+            "needs_review"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "net_vpn_login_anomaly",
+          "entry_count": 1,
+          "statuses": [
+            "candidate"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "dns_unusual_query_volume",
+          "entry_count": 1,
+          "statuses": [
+            "needs_review"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "dns_tunneling_candidate",
+          "entry_count": 1,
+          "statuses": [
+            "needs_review"
+          ],
+          "provenance": true,
+          "ok": true
+        },
+        {
+          "class": "mitre",
+          "use_case_id": "dns_beaconing_candidate",
+          "entry_count": 1,
+          "statuses": [
+            "needs_review"
+          ],
+          "provenance": true,
+          "ok": true
+        }
+      ],
+      "failures": []
+    },
+    "cve": {
+      "rows": [
+        {
+          "class": "cve",
+          "query": "Is CVE-2021-44228 (log4j) exploitable on our hosts?",
+          "status": "not_onboarded",
+          "limitation": true,
+          "ok": true
+        },
+        {
+          "class": "cve",
+          "query": "Affected versions for the OpenSSL advisory?",
+          "status": "not_onboarded",
+          "limitation": true,
+          "ok": true
+        },
+        {
+          "class": "cve",
+          "query": "Scanner says critical but vendor disputes \u2014 which is right?",
+          "status": "not_onboarded",
+          "limitation": true,
+          "ok": true
+        },
+        {
+          "class": "cve",
+          "query": "Join CVE findings to our asset inventory.",
+          "status": "not_onboarded",
+          "limitation": true,
+          "ok": true
+        },
+        {
+          "class": "cve",
+          "query": "Unknown CVE-9999-0000 \u2014 do we have it?",
+          "status": "not_onboarded",
+          "limitation": true,
+          "ok": true
+        },
+        {
+          "class": "cve",
+          "query": "How stale is the vulnerability snapshot?",
+          "status": "not_onboarded",
+          "limitation": true,
+          "ok": true
+        }
+      ],
+      "failures": []
+    },
+    "github_skill": {
+      "rows": [
+        {
+          "class": "github_skill",
+          "skill_id": "attack_discovery",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "spl_generation",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "knowledge_recall",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "guided_investigation",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "mitre_mapping",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "alert_summary",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "investigation_notes",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "out_of_scope",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "query_understanding",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "spl_validation",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "evidence_collection",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "asset_enrichment",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "identity_enrichment",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "network_enrichment",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        },
+        {
+          "class": "github_skill",
+          "skill_id": "context_sufficiency",
+          "contract_ok": true,
+          "no_authority_override": true,
+          "ok": true
+        }
+      ],
+      "failures": []
+    },
+    "rag": {
+      "rows": [
+        {
+          "class": "rag",
+          "query": "account lockout playbook",
+          "honest_no_fabrication": true
+        },
+        {
+          "class": "rag",
+          "query": "NERC CIP incident reporting timeline",
+          "honest_no_fabrication": true
+        },
+        {
+          "class": "rag",
+          "query": "no such knowledge xyz123",
+          "honest_no_fabrication": true
+        }
+      ],
+      "failures": []
+    }
+  }
+}

@@ -1070,3 +1070,34 @@ reviewer/operator residual.**
 - Independent-reviewer authoring + sealing of `blind_holdout_v1` question text/labels.
 - Live release-candidate run + L3 human review + L4 judge calibration.
 
+## 14. P3 asset-contribution floor — closure (2026-06-23)
+
+**Deterministic contribution floor built and gated; live relevance rubric +
+human-rated usefulness are the operator residual.**
+
+### Done
+- **`scripts/eval_p3_contribution.py --check`** proves "asset → governed contribution
+  → visible structure with provenance" deterministically, driven from the REAL repo
+  assets — no fabricated rows:
+  - **MITRE** (15 real use cases via `build_mitre_permitted_for_question`): statused
+    buckets (`supported`/`candidate`/`needs_review`/`not_mapped`/`not_applicable`),
+    bundle-validated, provenance (`use_case_ids`, `in_local_bundle`). Invariant: no
+    entry is ever `confirmed`/`proven`/`verified` (ATT&CK = behavior, not analytics).
+  - **CVE** (6 query scenarios via `CveSnapshotStore.vulnerability_source_status`):
+    honest typed chain (status + provenance); `not_onboarded` is substantive (carries
+    a limitation), never silent or fabricated.
+  - **GitHub-skill** (15 registry skills): each exposes a governed contract
+    (`display_name`/`allowed_tools`/`blocked_tools`/`hil_policy`/`action_tier_allowed`)
+    and carries NO authority/system override field (untrusted-data invariant).
+  - **RAG**: offline retriever never fabricates a citation (explicit no-match note).
+- **Result**: MITRE 15/15, CVE 6/6, skill 15/15, RAG 3/3 — **0 failures**. Report:
+  `docs/evals/p3_contribution_report.json`.
+- **Tests**: `test_p3_contribution.py` (4).
+
+### Operator residual (live, not implementer)
+- Live ≥90% answer-relevance/evidence-linkage rubric on `/chat` and ≥80% human-rated
+  GitHub-skill usefulness on applicable rows (plan §456 gate).
+- Live governed SOC-KB RAG retrieval into `SourceEvidence` (offline retriever is a
+  stub by design); RAG chunk→visible-sentence tracing on real retrieved content.
+- The 15 SOP/RAG + expert `must_include` labels for the labeled packs (reviewer).
+
