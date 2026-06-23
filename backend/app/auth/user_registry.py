@@ -201,6 +201,74 @@ def set_debug_access(username: str, *, enabled: bool) -> AuthUser:
     return user
 
 
+def upsert_user(
+    username: str,
+    *,
+    password: str,
+    role: str = "analyst",
+    debug_access: bool | None = None,
+) -> AuthUser:
+    """Create or update a registry user and persist it to ``users.json``.
+
+    This is the supported provisioning path: it round-trips through the same
+    locked document/persist machinery as ``set_debug_access`` so concurrent edits
+    do not race. ``debug_access`` defaults to the role's default when omitted. The
+    password is stored as-is (the auth layer compares it with ``hmac.compare_digest``
+    on the plaintext); ``users.json`` is operator-protected and git-ignored.
+    """
+    normalized = username.strip()
+    if not normalized:
+        raise ValueError("username_required")
+    if not password:
+        raise ValueError("password_required")
+    role_value = role.strip() or "analyst"
+    effective_debug = (
+        _default_debug_access_for_role(role_value) if debug_access is None else bool(debug_access)
+    )
+    with _STORE_LOCK:
+        document = json.loads(json.dumps(_document_unlocked()))
+        users = document.get("users")
+        if not isinstance(users, list):
+            raise ValueError("invalid_users_registry")
+        record: dict[str, Any] = {
+            "username": normalized,
+            "password": password,
+            "role": role_value,
+            "debug_access": effective_debug,
+        }
+        for index, raw in enumerate(users):
+            if isinstance(raw, dict) and str(raw.get("username") or "").strip() == normalized:
+                users[index] = record
+                break
+        else:
+            users.append(record)
+        _persist(document)
+    user = get_user(normalized)
+    if user is None:
+        raise KeyError("user_not_found")
+    return user
+
+
+def delete_user(username: str) -> bool:
+    """Remove a registry user. Returns True when a record was removed."""
+    normalized = username.strip()
+    with _STORE_LOCK:
+        document = json.loads(json.dumps(_document_unlocked()))
+        users = document.get("users")
+        if not isinstance(users, list):
+            raise ValueError("invalid_users_registry")
+        remaining = [
+            raw
+            for raw in users
+            if not (isinstance(raw, dict) and str(raw.get("username") or "").strip() == normalized)
+        ]
+        if len(remaining) == len(users):
+            return False
+        document["users"] = remaining
+        _persist(document)
+    return True
+
+
 def session_user_from_token_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
     username = str(payload.get("username") or "").strip()
     user = get_user(username)

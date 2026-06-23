@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import glob
 import json
+import logging
 import os
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -13,6 +15,40 @@ import asyncpg
 
 from app.config import settings
 from app.connectors.telemetry.redaction import minimize
+
+logger = logging.getLogger("ai_soc.telemetry.read_store")
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    """Best-effort coercion of a JSON/JSONB column value into a plain dict.
+
+    asyncpg (and the file sink) may hand back JSON values as a dict, or as a
+    serialized JSON ``str``/``bytes`` depending on driver/codec configuration.
+    ``dict("...")`` on a string raises ``ValueError`` and previously aborted the
+    whole timeline fetch (HTTP 500). This normalizer never raises: undecodable
+    input becomes a redacted decode-error marker so a single bad row does not
+    lose the rest of the trace.
+    """
+    if value is None:
+        return {}
+    if isinstance(value, Mapping):
+        return dict(value)
+    if isinstance(value, (str, bytes, bytearray)):
+        text = value.decode("utf-8", "replace") if isinstance(value, (bytes, bytearray)) else value
+        if not text.strip():
+            return {}
+        try:
+            parsed = json.loads(text)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return {"_decode_error": True}
+        if isinstance(parsed, dict):
+            return parsed
+        # The telemetry contract is object-shaped. Do not echo an unexpected
+        # array/scalar into the debug API: it may contain unreviewed sensitive
+        # values and is not useful for reconstruction.
+        return {"_decode_error": True, "_decode_error_reason": "non_object_json"}
+    return {"_decode_error": True}
+
 
 _EVENT_TABLES: tuple[tuple[str, str], ...] = (
     ("step", "ai_trace_steps"),
@@ -53,7 +89,7 @@ def fetch_trace_bundle(trace_id: str, *, max_events: int | None = None) -> dict[
     if timeline is None:
         return None
     run = timeline.get("run") or {}
-    metadata = run.get("metadata") if isinstance(run.get("metadata"), dict) else {}
+    metadata = _as_dict(run.get("metadata"))
     events = timeline.get("events") or []
     return {
         "trace_id": trace_id,
@@ -68,6 +104,7 @@ def fetch_trace_bundle(trace_id: str, *, max_events: int | None = None) -> dict[
         "turn_id": metadata.get("turn_id"),
         "event_truncated": bool(timeline.get("event_truncated")),
         "event_limit": timeline.get("event_limit"),
+        "decode_error_count": int(timeline.get("decode_error_count") or 0),
     }
 
 
@@ -129,6 +166,19 @@ async def _list_trace_runs_async(
         await conn.close()
 
 
+def _normalize_event(event_value: Any) -> tuple[dict[str, Any], bool]:
+    """Map a single raw JSON event value to a redacted event dict.
+
+    Returns the minimized event plus a flag indicating whether the value could
+    not be decoded (so the caller can count decode errors). A decode failure
+    yields a redacted ``{"_decode_error": True}`` marker rather than raising,
+    so one corrupt row never aborts the surrounding timeline.
+    """
+    normalized = _as_dict(event_value)
+    is_decode_error = normalized.get("_decode_error") is True
+    return minimize(normalized), is_decode_error
+
+
 async def _fetch_trace_timeline_async(trace_id: str, *, max_events: int | None = None) -> dict[str, Any] | None:
     conn = await _connect()
     try:
@@ -141,12 +191,23 @@ async def _fetch_trace_timeline_async(trace_id: str, *, max_events: int | None =
             trace_id,
         )
         events: list[dict[str, Any]] = []
+        decode_error_count = 0
+        if run_row is not None and _as_dict(run_row["metadata"]).get("_decode_error") is True:
+            decode_error_count += 1
         for kind, table in _EVENT_TABLES:
-            events.extend(await _fetch_events_for_table(conn, kind, table, trace_id))
+            table_events, table_decode_errors = await _fetch_events_for_table(conn, kind, table, trace_id)
+            events.extend(table_events)
+            decode_error_count += table_decode_errors
         if run_row is None and not events:
             return None
         events.sort(key=lambda item: item.get("created_at") or "")
         events, truncated = _cap_events(events, max_events=max_events)
+        if decode_error_count:
+            logger.warning(
+                "telemetry timeline decoded with %d malformed event(s) for trace_id=%s",
+                decode_error_count,
+                trace_id,
+            )
         run = _serialize_run(run_row) if run_row else {
             "trace_id": trace_id,
             "run_id": trace_id,
@@ -160,18 +221,62 @@ async def _fetch_trace_timeline_async(trace_id: str, *, max_events: int | None =
             "answer_mode": None,
             "selected_skill": None,
         }
-        if isinstance(run.get("metadata"), dict):
-            run["answer_mode"] = run["metadata"].get("answer_mode")
-            run["selected_skill"] = run["metadata"].get("selected_skill")
+        run_metadata = _as_dict(run.get("metadata"))
+        if run_metadata:
+            run["answer_mode"] = run_metadata.get("answer_mode")
+            run["selected_skill"] = run_metadata.get("selected_skill")
         return {
             "run": run,
             "events": events,
             "event_count": len(events),
             "event_truncated": truncated,
             "event_limit": max_events,
+            "decode_error_count": decode_error_count,
         }
     finally:
         await conn.close()
+
+
+def _map_step_rows_to_events(
+    kind: str,
+    rows: list[Any],
+) -> tuple[list[dict[str, Any]], int]:
+    """Pure mapping of ``ai_trace_steps`` rows → normalized events + decode count."""
+    events: list[dict[str, Any]] = []
+    decode_errors = 0
+    for row in rows:
+        event, is_decode_error = _normalize_event(row["event"])
+        decode_errors += int(is_decode_error)
+        events.append(
+            {
+                "kind": kind,
+                "created_at": _iso(row["created_at"]),
+                "step_name": row["step_name"],
+                "status": row["status"],
+                "event": event,
+            }
+        )
+    return events, decode_errors
+
+
+def _map_event_rows_to_events(
+    kind: str,
+    rows: list[Any],
+) -> tuple[list[dict[str, Any]], int]:
+    """Pure mapping of generic event-table rows → normalized events + decode count."""
+    events: list[dict[str, Any]] = []
+    decode_errors = 0
+    for row in rows:
+        event, is_decode_error = _normalize_event(row["event"])
+        decode_errors += int(is_decode_error)
+        events.append(
+            {
+                "kind": kind,
+                "created_at": _iso(row["created_at"]),
+                "event": event,
+            }
+        )
+    return events, decode_errors
 
 
 async def _fetch_events_for_table(
@@ -179,9 +284,9 @@ async def _fetch_events_for_table(
     kind: str,
     table: str,
     trace_id: str,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], int]:
     if table not in {name for _, name in _EVENT_TABLES}:
-        return []
+        return [], 0
     if table == "ai_trace_steps":
         rows = await conn.fetch(
             """
@@ -192,16 +297,7 @@ async def _fetch_events_for_table(
             """,
             trace_id,
         )
-        return [
-            {
-                "kind": kind,
-                "created_at": _iso(row["created_at"]),
-                "step_name": row["step_name"],
-                "status": row["status"],
-                "event": minimize(dict(row["event"] or {})),
-            }
-            for row in rows
-        ]
+        return _map_step_rows_to_events(kind, list(rows))
     rows = await conn.fetch(
         f"""
         SELECT trace_id, event, created_at
@@ -211,20 +307,13 @@ async def _fetch_events_for_table(
         """,
         trace_id,
     )
-    return [
-        {
-            "kind": kind,
-            "created_at": _iso(row["created_at"]),
-            "event": minimize(dict(row["event"] or {})),
-        }
-        for row in rows
-    ]
+    return _map_event_rows_to_events(kind, list(rows))
 
 
 def _serialize_run(row: asyncpg.Record | None) -> dict[str, Any]:
     if row is None:
         return {}
-    metadata = minimize(dict(row["metadata"] or {}))
+    metadata = minimize(_as_dict(row["metadata"]))
     started_at = row["started_at"]
     ended_at = row["ended_at"]
     duration_ms = None
@@ -312,8 +401,8 @@ def _file_assemble_runs(records: list[dict[str, Any]]) -> dict[str, dict[str, An
                 "ended_at": None,
             },
         )
-        meta = rec.get("metadata")
-        if isinstance(meta, dict):
+        meta = _as_dict(rec.get("metadata")) if rec.get("metadata") is not None else None
+        if meta:
             run["metadata"] = {**run["metadata"], **meta}
         if rec_type == "run_start":
             run["run_id"] = rec.get("run_id") or trace_id
@@ -334,7 +423,7 @@ def _file_assemble_runs(records: list[dict[str, Any]]) -> dict[str, dict[str, An
 
 
 def _finalize_file_run(run: dict[str, Any]) -> None:
-    metadata = run.get("metadata") if isinstance(run.get("metadata"), dict) else {}
+    metadata = _as_dict(run.get("metadata"))
     duration_ms = None
     started = _parse_iso(run.get("started_at"))
     ended = _parse_iso(run.get("ended_at"))
@@ -372,13 +461,18 @@ def _file_fetch_trace_timeline(trace_id: str, *, max_events: int | None) -> dict
     runs = _file_assemble_runs(records)
     run = runs.get(trace_id)
     events: list[dict[str, Any]] = []
+    decode_error_count = 0
+    if run is not None and _as_dict(run.get("metadata")).get("_decode_error") is True:
+        decode_error_count += 1
     for rec in records:
         if rec.get("trace_id") != trace_id:
             continue
         kind = rec.get("type")
         if kind not in _EVENT_KINDS:
             continue
-        event = {"kind": kind, "created_at": rec.get("created_at"), "event": minimize(rec.get("event") or {})}
+        normalized_event, is_decode_error = _normalize_event(rec.get("event"))
+        decode_error_count += int(is_decode_error)
+        event = {"kind": kind, "created_at": rec.get("created_at"), "event": normalized_event}
         if kind == "step":
             event["step_name"] = rec.get("step_name")
             event["status"] = rec.get("status")
@@ -408,6 +502,7 @@ def _file_fetch_trace_timeline(trace_id: str, *, max_events: int | None) -> dict
         "event_count": len(capped),
         "event_truncated": truncated,
         "event_limit": max_events,
+        "decode_error_count": decode_error_count,
     }
 
 

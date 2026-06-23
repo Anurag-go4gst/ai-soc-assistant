@@ -10,10 +10,37 @@ from __future__ import annotations
 import contextvars
 import logging
 from typing import Any
+from uuid import UUID, uuid4
+
+# Client-known correlation headers. The client (e.g. the efficacy runner) mints a
+# request id, sends it as ``X-Request-ID``, and the server echoes the adopted trace
+# id as ``X-Trace-ID``. Because the client already knows the id, it can query the
+# trace after a transport timeout — when it never received the response header.
+REQUEST_ID_HEADER = "X-Request-ID"
+TRACE_ID_HEADER = "X-Trace-ID"
 
 _TRACE_ID: contextvars.ContextVar[str] = contextvars.ContextVar("ai_soc_trace_id", default="-")
 
 _factory_installed = False
+
+
+def coerce_request_id(raw: str | None) -> str:
+    """Return a canonical UUID trace id from an untrusted client header value.
+
+    Accept the client's ``X-Request-ID`` only when it is a syntactically valid
+    UUID (prevents log/trace-id injection and unbounded values); otherwise mint a
+    fresh server-side UUID so every turn still has a correlatable id.
+    """
+    if raw:
+        try:
+            candidate = UUID(raw.strip())
+            # Accept only random UUIDv4 identifiers. This rejects nil, timestamp-
+            # based, and other structurally valid but unsuitable caller values.
+            if candidate.version == 4:
+                return str(candidate)
+        except (ValueError, AttributeError, TypeError):
+            pass
+    return str(uuid4())
 
 
 def set_trace_id(trace_id: str | None) -> contextvars.Token:

@@ -130,3 +130,45 @@ def test_env_fallback_session_payload_resolves_without_registry_row(monkeypatch:
     assert resolved["username"] == "legacy-user"
     assert resolved["role"] == "soc_lead"
     assert resolved["debug_access"] is True
+
+
+def test_upsert_user_creates_and_authenticates(users_file: Path) -> None:
+    created = user_registry.upsert_user(
+        "jane@velocis.in", password="s3cret", role="analyst"
+    )
+    assert created.username == "jane@velocis.in"
+    assert created.role == "analyst"
+    assert created.debug_access is False  # analyst role default
+    assert user_registry.authenticate("jane@velocis.in", "s3cret") is not None
+    # Persisted to the registry file.
+    document = json.loads(users_file.read_text(encoding="utf-8"))
+    assert any(u["username"] == "jane@velocis.in" for u in document["users"])
+
+
+def test_upsert_user_updates_existing_and_role_default_debug(users_file: Path) -> None:
+    # soc_lead role defaults debug_access true when not specified.
+    user = user_registry.upsert_user("analyst", password="newpass", role="soc_lead")
+    assert user.role == "soc_lead"
+    assert user.debug_access is True
+    assert user_registry.authenticate("analyst", "newpass") is not None
+    assert user_registry.authenticate("analyst", "pass-a") is None  # old password replaced
+
+
+def test_upsert_user_explicit_debug_overrides_role_default(users_file: Path) -> None:
+    user = user_registry.upsert_user(
+        "lead@velocis.in", password="p", role="soc_lead", debug_access=False
+    )
+    assert user.debug_access is False
+
+
+def test_upsert_user_rejects_empty(users_file: Path) -> None:
+    with pytest.raises(ValueError):
+        user_registry.upsert_user("  ", password="p")
+    with pytest.raises(ValueError):
+        user_registry.upsert_user("x@y.z", password="")
+
+
+def test_delete_user_lifecycle(users_file: Path) -> None:
+    assert user_registry.delete_user("analyst") is True
+    assert user_registry.get_user("analyst") is None
+    assert user_registry.delete_user("analyst") is False  # already gone
