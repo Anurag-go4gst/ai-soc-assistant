@@ -1,0 +1,219 @@
+{
+  "probed_at": "2026-06-24T09:37:44Z",
+  "base_url": "http://127.0.0.1:8010/api",
+  "questions": 10,
+  "summary": {
+    "quality_counts": {
+      "pass": 5,
+      "fail": 5
+    },
+    "by_skill": {
+      "cve": {
+        "pass": 1,
+        "fail": 1
+      },
+      "mitre": {
+        "pass": 3
+      },
+      "github": {
+        "fail": 3
+      },
+      "cross": {
+        "pass": 1,
+        "fail": 1
+      }
+    },
+    "path_type_counts": {
+      "clarification_required": 4,
+      "spl_review": 3,
+      "generic_soc_guidance": 1,
+      "mitre_context_required": 1,
+      "rag_only": 1
+    },
+    "selected_skill_counts": {
+      "knowledge_recall": 7,
+      "spl_generation": 2,
+      "guided_investigation": 1
+    },
+    "llm_coverage": {
+      "with_llm_sidecars": 0,
+      "with_mitre_risk_rationale": 10,
+      "with_resource_plan_shadow": 10
+    },
+    "slow_turns": [
+      "m02"
+    ]
+  },
+  "results": [
+    {
+      "id": "m01",
+      "skill": "cve",
+      "question": "CVE check: CISA advisory for CVE-2024-6387 in OpenSSH. What can we conclude from logs only, and what evidence is still required?",
+      "elapsed_s": 1.3,
+      "path_type": "clarification_required",
+      "selected_skill": "knowledge_recall",
+      "has_card": true,
+      "quality": "pass",
+      "issues": [],
+      "message_preview": "Asset-scoped investigation \u2014 CVE-2024 (review-only) |  | Checklist: | - Pin the investigation to CVE-2024: confirm owner, function, zone, and criticality. | - Pull this asset's syslog/event history and compare against its own baseline and peer assets. | - Correlate the anomaly with change tickets, maintenance windows, and recent",
+      "trace_id": "c6753e91-eea7-4467-8d9a-970346d2e2c9",
+      "has_llm_sidecars": false,
+      "has_mitre_risk_rationale": true,
+      "has_resource_plan_shadow": true
+    },
+    {
+      "id": "m02",
+      "skill": "cve",
+      "question": "CVE triage: suspected vulnerable relay management host. Provide review-only steps to validate exposure without claiming compromise.",
+      "elapsed_s": 122.9,
+      "path_type": "spl_review",
+      "selected_skill": "spl_generation",
+      "has_card": true,
+      "quality": "fail",
+      "issues": [
+        "slow_turn"
+      ],
+      "message_preview": "Guided investigation \u2014 signal class: change management (review-only) |  | Detected OT/protocol signals: relay. |  | Hypotheses | - Approved firmware or relay configuration push in-window. | - Emergency restoration change outside the normal maintenance window. | - Unauthorized config/firmware change without ticket alignment. |  | Evidenc",
+      "trace_id": "c3f279b8-8d04-44ed-8739-0e6488719329",
+      "has_llm_sidecars": false,
+      "has_mitre_risk_rationale": true,
+      "has_resource_plan_shadow": true
+    },
+    {
+      "id": "m03",
+      "skill": "mitre",
+      "question": "MITRE mapping request: suspicious OT remote command sequence. Return candidate vs confirmed vs not-claimed labels and threshold logic.",
+      "elapsed_s": 1.1,
+      "path_type": "generic_soc_guidance",
+      "selected_skill": "knowledge_recall",
+      "has_card": true,
+      "quality": "pass",
+      "issues": [],
+      "message_preview": "I need alert context before mapping to MITRE ATT&CK. Share the alert title, detection rule, notable/event ID, or the SPL and a few sample fields.",
+      "trace_id": "a0c98de6-42ef-4434-a0e4-51fcf875cd0e",
+      "has_llm_sidecars": false,
+      "has_mitre_risk_rationale": true,
+      "has_resource_plan_shadow": true
+    },
+    {
+      "id": "m04",
+      "skill": "mitre",
+      "question": "Map this behavior to ATT&CK for ICS only if evidence supports it; otherwise explain why not and what context is missing.",
+      "elapsed_s": 1.1,
+      "path_type": "mitre_context_required",
+      "selected_skill": "knowledge_recall",
+      "has_card": true,
+      "quality": "pass",
+      "issues": [],
+      "message_preview": "I need alert context before mapping to MITRE ATT&CK. Share the alert title, detection rule, notable/event ID, or the SPL and a few sample fields.",
+      "trace_id": "e3325ed5-9f18-4e3d-9ef0-174c390d97e1",
+      "has_llm_sidecars": false,
+      "has_mitre_risk_rationale": true,
+      "has_resource_plan_shadow": true
+    },
+    {
+      "id": "m05",
+      "skill": "github",
+      "question": "GitHub PAT exposure: how to investigate unauthorized workflow file pushes in last 24h, including audit fields and containment steps?",
+      "elapsed_s": 69.0,
+      "path_type": "spl_review",
+      "selected_skill": "guided_investigation",
+      "has_card": true,
+      "quality": "fail",
+      "issues": [
+        "github_contract_missing"
+      ],
+      "message_preview": "Guided investigation (review-only) |  | No specialised OT family is mapped for this signal yet \u2014 using a generic hunt skeleton. |  | Hypotheses | - Expected operational activity or a recent approved change. | - Telemetry drift producing an apparent anomaly. | - Suspicious activity requiring corroboration across independent sources. | ",
+      "trace_id": "06e8919d-e2dc-4611-bbde-87fc86edd45d",
+      "has_llm_sidecars": false,
+      "has_mitre_risk_rationale": true,
+      "has_resource_plan_shadow": true
+    },
+    {
+      "id": "m06",
+      "skill": "github",
+      "question": "Review-only GitHub incident plan: leaked token suspected, detect repo/branch/workflow tampering and validate actor attribution.",
+      "elapsed_s": 1.5,
+      "path_type": "clarification_required",
+      "selected_skill": "knowledge_recall",
+      "has_card": true,
+      "quality": "fail",
+      "issues": [
+        "github_contract_missing"
+      ],
+      "message_preview": "Investigation planning is complete. Provide source profile details or run a review-only search when logs are required; no MCP execution was performed.",
+      "trace_id": "a15b68ab-3107-4d3a-997e-150b209a52fe",
+      "has_llm_sidecars": false,
+      "has_mitre_risk_rationale": true,
+      "has_resource_plan_shadow": true
+    },
+    {
+      "id": "m07",
+      "skill": "cross",
+      "question": "Cross-skill: combine CVE context, MITRE candidate mapping, and GitHub commit timeline into one analyst checklist.",
+      "elapsed_s": 0.9,
+      "path_type": "rag_only",
+      "selected_skill": "knowledge_recall",
+      "has_card": true,
+      "quality": "pass",
+      "issues": [],
+      "message_preview": "I need alert context before mapping to MITRE ATT&CK. Share the alert title, detection rule, notable/event ID, or the SPL and a few sample fields.",
+      "trace_id": "1c8f7f5d-ee8d-4431-9ae2-a374e84e201d",
+      "has_llm_sidecars": false,
+      "has_mitre_risk_rationale": true,
+      "has_resource_plan_shadow": true
+    },
+    {
+      "id": "m08",
+      "skill": "cross",
+      "question": "Given possible OpenSSH CVE, suspicious remote commands, and unexpected CI workflow change, produce a staged investigation with confidence bounds.",
+      "elapsed_s": 1.1,
+      "path_type": "clarification_required",
+      "selected_skill": "knowledge_recall",
+      "has_card": true,
+      "quality": "fail",
+      "issues": [
+        "cross_skill_missing"
+      ],
+      "message_preview": "Investigation planning is complete. Provide source profile details or run a review-only search when logs are required; no MCP execution was performed. |  | Review package: Answer Guard blocked the draft \u2014 review the technical trace.",
+      "trace_id": "774d144a-590f-4a36-b4e7-23f5efe92bdf",
+      "has_llm_sidecars": false,
+      "has_mitre_risk_rationale": true,
+      "has_resource_plan_shadow": true
+    },
+    {
+      "id": "m09",
+      "skill": "github",
+      "question": "What concrete GitHub evidence proves PAT abuse vs normal automation for a changed Actions workflow?",
+      "elapsed_s": 1.0,
+      "path_type": "clarification_required",
+      "selected_skill": "knowledge_recall",
+      "has_card": true,
+      "quality": "fail",
+      "issues": [
+        "github_contract_missing"
+      ],
+      "message_preview": "Investigation planning is complete. Provide source profile details or run a review-only search when logs are required; no MCP execution was performed.",
+      "trace_id": "fd9f6046-4bdd-4502-948c-ffa878b45e86",
+      "has_llm_sidecars": false,
+      "has_mitre_risk_rationale": true,
+      "has_resource_plan_shadow": true
+    },
+    {
+      "id": "m10",
+      "skill": "mitre",
+      "question": "For ATT&CK mapping, show status labels and refuse to over-claim if only one weak signal exists.",
+      "elapsed_s": 37.9,
+      "path_type": "spl_review",
+      "selected_skill": "spl_generation",
+      "has_card": true,
+      "quality": "pass",
+      "issues": [],
+      "message_preview": "Objective: For ATT&CK mapping, show status labels and refuse to over-claim if only one weak signal exists. |  | A governed SPL draft was produced and passed deterministic validation; it is review-only and was not executed (MCP execution disabled). |  | Review steps: | - Confirm the index/sourcetype and field mappings match your ",
+      "trace_id": "4b4a6978-dd6b-4a0e-8abf-b1eef3f587e7",
+      "has_llm_sidecars": false,
+      "has_mitre_risk_rationale": true,
+      "has_resource_plan_shadow": true
+    }
+  ]
+}
