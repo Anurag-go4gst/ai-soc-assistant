@@ -247,3 +247,18 @@ def test_r1_ambiguous_families_helper():
     assert len(ambiguous) > 1  # SMB top-talkers + exfil/lateral both plausible
     single = candidate_detection_families("Which hosts generated the most DNS queries?")
     assert len(single) <= 1
+
+
+def test_recommended_actions_from_draft_unglues_p2review() -> None:
+    from app.chat.analyst_response_builder import _recommended_actions_from_draft
+
+    actions = _recommended_actions_from_draft(
+        {
+            "recommended_actions": [
+                "P2Review failed-login volume and source distribution.",
+            ]
+        }
+    )
+    assert actions
+    assert "P2Review" not in " ".join(actions)
+    assert actions[0].startswith("P2 —")

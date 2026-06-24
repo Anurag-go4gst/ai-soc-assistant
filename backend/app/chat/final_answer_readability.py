@@ -94,8 +94,8 @@ _DRAFT_FAMILY_LEAD_INS = {
         "claim compromise without corroborating evidence."
     ),
     "auth_failed_login_threshold": (
-        "This ranks source/user pairs by failed-login volume over 24 hours. Thresholds "
-        "are illustrative — tune per environment. Lab draft only — not executed."
+        "This ranks failed-login volume for analyst review. The time window and aggregation "
+        "shape follow the question; tune thresholds per environment. Lab draft only — not executed."
     ),
     "dns_beaconing_hunt": (
         "This surfaces high-volume or unusually long DNS queries as beaconing candidates. "
@@ -122,6 +122,19 @@ _DRAFT_GENERIC_LEAD_IN = (
 def _draft_preview_lead_in(spl_draft_preview: Any) -> str:
     preview = spl_draft_preview if isinstance(spl_draft_preview, dict) else {}
     family = str(preview.get("detection_family") or "")
+    if family == "auth_failed_login_threshold":
+        window = str(preview.get("time_window_label") or "the requested time window")
+        shape = str(preview.get("aggregation_shape") or "")
+        if shape == "user_ranking":
+            return (
+                f"This ranks users by failed-login volume over {window}. Abnormally high "
+                "activity is surfaced by relative ranking (top-N), not a fixed count threshold. "
+                "Lab draft only — not executed."
+            )
+        return (
+            f"This ranks source/user pairs by failed-login volume over {window}. "
+            "Tune any threshold after review. Lab draft only — not executed."
+        )
     return _DRAFT_FAMILY_LEAD_INS.get(family, _DRAFT_GENERIC_LEAD_IN)
 
 
@@ -186,6 +199,9 @@ def apply_draft_preview_readability(envelope: AnalystResponseEnvelope) -> Analys
     payload = _scrub_draft_preview_contradictions(payload)
     payload["one_sentence_finding"] = None
     _apply_analytics_draft_severity_guard(payload, presentation)
+    payload["recommended_actions"] = _format_investigation_actions(
+        payload.get("recommended_actions") or []
+    )
     return AnalystResponseEnvelope.model_validate(payload)
 
 
@@ -735,13 +751,19 @@ def _maybe_scrub_direct_answer_summary(text: str, contract: AnswerContract) -> s
     return scrub_blocked_context_display_phrasing(text)
 
 
+def unglue_priority_action(text: str) -> str:
+    """Normalize glued priority prefixes such as ``P2Review`` → ``P2 — Review``."""
+    cleaned = str(text).strip()
+    glued = re.match(r"^(P[1-4])([A-Za-z])", cleaned)
+    if glued:
+        cleaned = f"{glued.group(1)} — {cleaned[len(glued.group(1)):].lstrip(' -—')}"
+    return re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", cleaned)
+
+
 def _format_investigation_actions(actions: list[Any]) -> list[str]:
     formatted: list[str] = []
     for item in actions:
-        text = str(item).strip()
-        glued = re.match(r"^(P[1-4])([A-Za-z])", text)
-        if glued:
-            text = f"{glued.group(1)} — {text[len(glued.group(1)):].lstrip(' -—')}"
+        text = unglue_priority_action(str(item))
         if re.match(r"^P[1-4]\s*[—-]\s*", text):
             formatted.append(re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", text))
             continue

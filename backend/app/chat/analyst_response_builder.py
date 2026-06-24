@@ -8,7 +8,11 @@ from typing import Any
 from app.config import settings
 from app.schemas.responses import AnalystResponseEnvelope
 from app.chat.contracts.answer_contract import build_answer_contract
-from app.chat.final_answer_readability import apply_draft_preview_readability, apply_final_answer_readability
+from app.chat.final_answer_readability import (
+    apply_draft_preview_readability,
+    apply_final_answer_readability,
+    unglue_priority_action,
+)
 from app.chat.network_boundary_display import resolve_analyst_use_case_label, scrub_auth_anomaly_display_text
 from app.risk.severity_policy import (
     ANALYTICS_REVIEW_TYPE_NOTE,
@@ -598,9 +602,9 @@ def _recommended_actions_from_draft(draft: dict[str, Any]) -> list[str]:
         return []
     formatted: list[str] = []
     for index, item in enumerate(actions):
-        text = str(item)
-        if text.startswith(("P1", "P2", "P3", "P4")):
-            formatted.append(text.replace(" - ", " — ", 1) if " - " in text else text)
+        text = unglue_priority_action(str(item))
+        if re.match(r"^P[1-4]\s*[—-]\s*", text):
+            formatted.append(re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", text))
         else:
             priority = "P1" if index == 0 else "P2" if index == 1 else "P3"
             formatted.append(f"{priority} — {text}")
@@ -621,12 +625,9 @@ def _recommended_from_rag(source_evidence: list[dict[str, Any]]) -> list[str]:
 
 
 def _format_rag_action(text: str) -> str:
-    cleaned = text.strip()
-    glued = re.match(r"^(P[1-4])([A-Za-z])", cleaned)
-    if glued:
-        cleaned = f"{glued.group(1)} — {cleaned[len(glued.group(1)):].lstrip(' -—')}"
+    cleaned = unglue_priority_action(text)
     if re.match(r"^P[1-4]\s*[—-]\s*", cleaned):
-        return re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", cleaned)
+        return cleaned
     return f"P2 — {cleaned.replace('_', ' ')}"
 
 

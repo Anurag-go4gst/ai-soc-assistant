@@ -13,6 +13,7 @@ from app.chat.network_boundary_display import (
 )
 from app.config import settings
 from app.safeguards.spl_validator import validate_spl
+from app.spl.draft_preview_customization import customize_draft_preview_for_query
 from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
 
 _FIREWALL_LOG_FIELDS: tuple[str, ...] = (
@@ -2642,8 +2643,13 @@ def build_draft_preview(
     if family is None:
         return None
 
-    draft_spl = family.draft_spl
-    assumptions_text = " ".join(family.assumptions)
+    draft_spl, customized_assumptions, customization_meta = customize_draft_preview_for_query(
+        user_query,
+        family_id=family.family_id,
+        draft_spl=family.draft_spl,
+        assumptions=family.assumptions,
+    )
+    assumptions_text = " ".join(customized_assumptions)
     quality = evaluate_draft_quality(
         draft_spl,
         extra_text=assumptions_text,
@@ -2662,7 +2668,8 @@ def build_draft_preview(
         "family_title": presentation["title"],
         "review_type": presentation["review_type"],
         "review_type_display": presentation["review_type_display"],
-        "assumptions": list(family.assumptions),
+        "assumptions": list(customized_assumptions),
+        **customization_meta,
         "required_log_fields": list(family.required_log_fields),
         "required_source_profile_fields": list(family.required_source_profile_fields),
         "required_source_fields": list(family.required_source_fields),

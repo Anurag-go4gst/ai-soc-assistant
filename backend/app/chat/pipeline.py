@@ -1857,12 +1857,18 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     resolved_use_case_id = (
         response_use_case.use_case_id if response_use_case is not None else use_case_id
     )
+    from app.spl.draft_preview_customization import reconcile_evidence_plan_for_draft_preview
+
     evidence_plan_for_analyst = resolve_analyst_evidence_plan(
         state.get("evidence_plan"),
         use_case_id=resolved_use_case_id,
         intent_classification=intent_classification,
         query_to_intent=state.get("query_to_intent"),
         query_understanding=state.get("query_understanding"),
+    )
+    evidence_plan_for_analyst = reconcile_evidence_plan_for_draft_preview(
+        evidence_plan_for_analyst,
+        spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
     )
     answer_contract = None
     hybrid_role_plan = None
