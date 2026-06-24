@@ -29,8 +29,10 @@ _ROLE_TIMEOUT_SECONDS: dict[str, float] = {
     "route_plan_candidate_generator": 120.0,
     "spl_advisory_generator": 120.0,
     "mitre_candidate_mapper": 120.0,
+    "mitre_reasoner": 120.0,
     "template_match_semantic_assist": 90.0,
     "template_render_parameter_assist": 90.0,
+    "governed_composer": 120.0,
 }
 
 # Failover hop (Instruct retry after primary timeout) — give it enough to complete
@@ -145,6 +147,7 @@ def invoke_sidecar_role(
     max_tokens: int = 800,
     timeout_seconds: float | None = None,
     temperature: float | None = None,
+    allow_failover: bool = True,
 ) -> tuple[str | None, bool, str | None]:
     """Invoke a sidecar role; returns (raw_output, timed_out, answered_label)."""
     if settings.ai_soc_llm_mode.strip().lower() in {"mock", "disabled", ""}:
@@ -171,7 +174,7 @@ def invoke_sidecar_role(
     if not call.timed_out:
         return call.raw_output, False, answered_label_holder[0]
 
-    if len(client.chain) > 1:
+    if allow_failover and len(client.chain) > 1:
         fallback_client = _instruct_failover_client(client)
         if fallback_client is None:
             return None, True, None

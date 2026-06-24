@@ -39,6 +39,33 @@ class TurnLlmBudget:
             return None
         return max(0.0, self.deadline_seconds - (time.monotonic() - self.started_at))
 
+    def capped_hop_timeout_seconds(
+        self,
+        *,
+        role: str,
+        min_seconds: float = 1.0,
+    ) -> float | None:
+        """Wall-clock timeout for one hop, capped to the remaining turn budget."""
+        from app.llm.sidecar_clients import sidecar_timeout_seconds
+
+        role_timeout = sidecar_timeout_seconds(role)
+        remaining = self.remaining_seconds()
+        if remaining is None:
+            return role_timeout
+        if remaining <= min_seconds:
+            return None
+        return max(min_seconds, min(role_timeout, remaining))
+
+    def composer_reserve_seconds(self) -> float:
+        """Reserve required before starting governed composer narration."""
+        from app.config import settings
+
+        configured = max(1.0, float(getattr(settings, "ai_soc_llm_timeout_seconds", 30) or 30))
+        remaining = self.remaining_seconds()
+        if remaining is None:
+            return configured
+        return max(1.0, min(configured, remaining))
+
     def can_start_call(self, *, reserve_seconds: float = 0.0) -> bool:
         remaining = self.remaining_seconds()
         return remaining is None or remaining > max(0.0, reserve_seconds)

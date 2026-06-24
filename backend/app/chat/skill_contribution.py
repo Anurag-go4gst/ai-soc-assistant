@@ -254,3 +254,44 @@ def apply_investigation_floor(
     contribution.visible_domain_section = True
     contribution.survived_into_card = True
     return updated
+
+def apply_out_of_catalog_guidance_floor(
+    *,
+    envelope: AnalystResponseEnvelope | None,
+    contribution: SkillContribution,
+    message: str,
+    match_path: str | None,
+) -> AnalystResponseEnvelope | None:
+    """Preserve shaped out-of-catalog guidance when synthesis produced no narrative."""
+    if envelope is not None and contribution.visible_domain_section:
+        return envelope
+    if str(match_path or "") != "out_of_registry":
+        return envelope
+    if contribution.selected_skill not in INVESTIGATION_SKILLS:
+        return envelope
+    direct = str(message or "").strip()
+    if not direct or direct.lower().startswith("no governed kb/sop match"):
+        return envelope
+    if envelope is None:
+        envelope = AnalystResponseEnvelope(
+            finding_title="SOC investigation guidance",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:1200],
+            response_profile="hybrid_alert_review",
+        )
+    else:
+        envelope = envelope.model_copy(
+            update={
+                "direct_answer_summary": direct[:1200],
+                "one_sentence_finding": direct[:1200] or envelope.one_sentence_finding,
+            }
+        )
+    contribution.floor_applied = True
+    contribution.gap_recorded = True
+    contribution.skip_reason = contribution.skip_reason or "out_of_catalog_guidance_floor"
+    if "analysis_narrative" not in contribution.contributed_sections:
+        contribution.contributed_sections.append("analysis_narrative")
+    contribution.visible_domain_section = True
+    contribution.survived_into_card = True
+    return envelope
+

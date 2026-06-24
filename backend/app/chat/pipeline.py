@@ -595,25 +595,31 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     elif (hop_block := budget.sidecar_hop_blocked(role="intent_shadow_classifier")):
         llm_advisory = LLMIntentAdvisory(dropped_reasons=[hop_block])
     else:
-        _t0 = time.monotonic()
-        llm_advisory = generate_llm_intent_advisory(
-            query_text,
-            query_understanding=query_understanding,
-            candidate_mappings=candidate_mappings,
-            routed_skill=routed_skill,
-        )
-        if llm_advisory.llm_called:
-            outcome = "completed"
-            if "llm_timed_out" in llm_advisory.dropped_reasons:
-                outcome = "timed_out"
-            elif llm_advisory.dropped_reasons:
-                outcome = "dropped"
-            budget.record_sidecar(
-                role="intent_shadow_classifier",
-                provider_label=llm_advisory.provider_label,
-                outcome=outcome,
-                latency_ms=int((time.monotonic() - _t0) * 1000),
+        _intent_timeout = budget.capped_hop_timeout_seconds(role="intent_shadow_classifier")
+        if _intent_timeout is None:
+            llm_advisory = LLMIntentAdvisory(dropped_reasons=["insufficient_deadline_reserve"])
+        else:
+            _t0 = time.monotonic()
+            llm_advisory = generate_llm_intent_advisory(
+                query_text,
+                query_understanding=query_understanding,
+                candidate_mappings=candidate_mappings,
+                routed_skill=routed_skill,
+                timeout_seconds=_intent_timeout,
+                allow_failover=not budget.time_budget_exhausted(),
             )
+            if llm_advisory.llm_called:
+                outcome = "completed"
+                if "llm_timed_out" in llm_advisory.dropped_reasons:
+                    outcome = "timed_out"
+                elif llm_advisory.dropped_reasons:
+                    outcome = "dropped"
+                budget.record_sidecar(
+                    role="intent_shadow_classifier",
+                    provider_label=llm_advisory.provider_label,
+                    outcome=outcome,
+                    latency_ms=int((time.monotonic() - _t0) * 1000),
+                )
     result = build_query_to_intent(
         query=query_text,
         query_understanding=query_understanding,
@@ -1780,11 +1786,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             and not should_bypass_shape_router(match_path_for_t2)
             and classify_answer_shape(request.message, entities=entities_payload).primary_shape != "hunt"
         )
-        # Keep the shaped guidance as the answer body. WS-2 appends the draft
-        # artifact below; replacing the message here erased timeline, insider,
-        # baseline, source-health, and process-aware answers.
-        if not shaped_non_hunt:
-            message = build_draft_preview_analyst_message(spl_draft_preview)
+        draft_block = build_draft_preview_analyst_message(spl_draft_preview)
+        if shaped_non_hunt:
+            # Keep shaped guidance as the answer body; append draft when surfacing is off.
+            if not settings.ai_soc_t2_answer_surfacing_enabled and draft_block not in message:
+                message = f"{message}\n\n{draft_block}".strip()
+        elif settings.ai_soc_t2_answer_surfacing_enabled:
+            pass
+        else:
+            message = draft_block
         note = (
             "Governed template SPL was not produced. HIL/SOC review is required. "
             "No MCP execution was run."
@@ -1964,19 +1974,27 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         elif (hop_block := budget.sidecar_hop_blocked(role="missing_evidence_reasoner")):
             reasoner_result = MissingEvidenceReasonerResult(skipped_reason=hop_block)
         else:
-            _t0 = time.monotonic()
-            reasoner_result = run_missing_evidence_reasoner(
-                contract=answer_contract,
-                query=request.message,
-                resource_decisions=_resource_decision_labels(state),
-            )
-            if reasoner_result.llm_called:
-                budget.record_sidecar(
-                    role="missing_evidence_reasoner",
-                    provider_label=reasoner_result.provider_label,
-                    outcome="timed_out" if reasoner_result.timed_out else "completed",
-                    latency_ms=int((time.monotonic() - _t0) * 1000),
+            _reasoner_timeout = budget.capped_hop_timeout_seconds(role="missing_evidence_reasoner")
+            if _reasoner_timeout is None:
+                reasoner_result = MissingEvidenceReasonerResult(
+                    skipped_reason="insufficient_deadline_reserve"
                 )
+            else:
+                _t0 = time.monotonic()
+                reasoner_result = run_missing_evidence_reasoner(
+                    contract=answer_contract,
+                    query=request.message,
+                    resource_decisions=_resource_decision_labels(state),
+                    timeout_seconds=_reasoner_timeout,
+                    allow_failover=not budget.time_budget_exhausted(),
+                )
+                if reasoner_result.llm_called:
+                    budget.record_sidecar(
+                        role="missing_evidence_reasoner",
+                        provider_label=reasoner_result.provider_label,
+                        outcome="timed_out" if reasoner_result.timed_out else "completed",
+                        latency_ms=int((time.monotonic() - _t0) * 1000),
+                    )
         if reasoner_result.bullets:
             merged_limits = list(answer_contract.limitations)
             for bullet in reasoner_result.bullets:
@@ -2157,7 +2175,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
         # Do not start slow narration when its configured socket window cannot fit
         # inside the remaining turn budget. The deterministic envelope is complete.
-        narration_reserve = max(1.0, float(settings.ai_soc_llm_timeout_seconds))
+        narration_reserve = budget.composer_reserve_seconds()
         if (hop_block := budget.narration_hop_blocked(reserve_seconds=narration_reserve)):
             composer_trace = {
                 **composer_trace,
@@ -2207,6 +2225,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                         guided_grounding_block.to_prompt_block() if guided_grounding_block else None
                     ),
                 )
+            _composer_timeout = budget.capped_hop_timeout_seconds(role="governed_composer")
             _t0 = time.monotonic()
             composer_result = compose_governed_answer(
                 contract=answer_contract,
@@ -2215,6 +2234,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 context_package=context_package,
                 path_type=path_type,
                 intent_family=intent_family or None,
+                timeout_seconds=_composer_timeout,
             )
             composer_trace = {**composer_trace, **composer_result.trace_payload()}
             if composer_result.llm_composer_used:
@@ -2303,7 +2323,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 or answer_contract.missing_evidence
             )
         )
-        if not has_guidance:
+        has_shaped_message = bool(
+            message
+            and match_path_for_t2 == "out_of_registry"
+            and path_type
+            in {"guided_investigation", "hybrid_investigation", "spl_review", "spl_review_plus_rag"}
+            and not message.lower().startswith("no governed kb/sop match")
+        )
+        if not has_guidance and not has_shaped_message:
             analyst_response = None
     if settings.ai_soc_t2_rag_surfacing_enabled:
         from app.chat.rag_answer_surfacing import apply_rag_answer_surfacing
@@ -2392,6 +2419,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     # investigation skill never returns a silent empty card.
     from app.chat.skill_contribution import (
         apply_investigation_floor,
+        apply_out_of_catalog_guidance_floor,
         build_skill_contribution,
         derive_boundary_class,
     )
@@ -2408,6 +2436,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         source_evidence=source_evidence,
         human_review=human_review if isinstance(human_review, dict) else None,
         boundary_class=derive_boundary_class(request.message),
+    )
+    analyst_response = apply_out_of_catalog_guidance_floor(
+        envelope=analyst_response,
+        contribution=skill_contribution,
+        message=message,
+        match_path=match_path_for_t2,
     )
     if analyst_response is not None:
         analyst_response = apply_investigation_floor(
@@ -4688,11 +4722,16 @@ def _chat_message(
     # they still need the deterministic regulatory/baseline/timeline/insider/OT
     # answer builder.  Exact/semantic catalogue paths remain byte-identical.
     if settings.ai_soc_t2_answer_shape_enabled and user_query:
-        if (
-            not should_bypass_shape_router(match_path)
-            and classify_answer_shape(user_query, entities=entities).primary_shape != "hunt"
-        ):
-            return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
+        if not should_bypass_shape_router(match_path):
+            shape = classify_answer_shape(user_query, entities=entities)
+            if shape.primary_shape != "hunt":
+                return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
+            if (
+                str(match_path or "") == "out_of_registry"
+                and path_type
+                in {"guided_investigation", "hybrid_investigation", "spl_review", "spl_review_plus_rag"}
+            ):
+                return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
     if path_type == "guided_investigation" and user_query:
         # WS-0: route through the answer-shape router so non-hunt shapes
         # (IR/containment, regulatory, timeline, baselining, source-health,

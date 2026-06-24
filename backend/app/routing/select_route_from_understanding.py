@@ -232,6 +232,24 @@ def _route_out_of_registry(
     signals = extract_query_signals(query, understanding)
     action = bool(signals["action_or_containment_shaped"])
 
+    # T2 answer-shape floor — runs for containment decision-support asks too, but
+    # never for unsafe execution or explicit run-SPL.
+    from app.config import settings as _settings
+    from app.query_understanding.soc_investigation_shape import is_unsafe_execution
+
+    if _settings.ai_soc_t2_answer_shape_enabled:
+        normalized = " ".join(query.lower().split())
+        if not is_unsafe_execution(normalized) and not signals.get("explicit_run_spl"):
+            from app.chat.answer_shape_router import classify_answer_shape
+
+            if classify_answer_shape(query).primary_shape != "hunt":
+                return _route_guided_investigation_rescue(
+                    understanding,
+                    query,
+                    keyword_would_have,
+                    reason="out_of_registry_t2_answer_shape_floor",
+                )
+
     # P1 floor 1 — analyst investigation/triage/evidence framing routes to the
     # guided_investigation rescue, ahead of the keyword detection-family match.
     # The family matcher is greedy (it fires on PMU/HMI nouns), so without this an

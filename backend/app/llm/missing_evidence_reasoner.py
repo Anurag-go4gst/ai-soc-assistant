@@ -46,6 +46,8 @@ def run_missing_evidence_reasoner(
     query: str = "",
     soc_kb_snippets: list[str] | None = None,
     resource_decisions: list[str] | None = None,
+    timeout_seconds: float | None = None,
+    allow_failover: bool = True,
 ) -> MissingEvidenceReasonerResult:
     if not settings.ai_soc_llm_enabled or settings.ai_soc_llm_mode.strip().lower() == "disabled":
         return MissingEvidenceReasonerResult(skipped_reason="llm_disabled")
@@ -79,6 +81,8 @@ def run_missing_evidence_reasoner(
         user_prompt=user_prompt,
         system_prompt=system,
         max_tokens=600,
+        timeout_seconds=timeout_seconds,
+        allow_failover=allow_failover,
     )
     if timed_out:
         return MissingEvidenceReasonerResult(

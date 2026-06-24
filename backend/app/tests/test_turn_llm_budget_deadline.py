@@ -78,3 +78,32 @@ def test_record_sidecar_includes_deadline_remaining():
     rec = b.records[-1]
     assert "deadline_remaining_seconds" in rec
     assert "reserve_seconds" in rec
+
+
+def test_capped_hop_timeout_clamps_to_remaining(monkeypatch):
+    from app.llm.turn_llm_budget import TurnLlmBudget
+
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_timeout_seconds", 120)
+    b = TurnLlmBudget(deadline_seconds=0.25)
+    import time
+    time.sleep(0.12)
+    capped = b.capped_hop_timeout_seconds(role="intent_shadow_classifier", min_seconds=0.05)
+    assert capped is not None
+    assert capped <= 0.14
+
+
+def test_capped_hop_timeout_none_when_budget_exhausted():
+    from app.llm.turn_llm_budget import TurnLlmBudget
+    import time
+
+    b = TurnLlmBudget(deadline_seconds=0.05)
+    time.sleep(0.06)
+    assert b.capped_hop_timeout_seconds(role="intent_shadow_classifier") is None
+
+
+def test_composer_reserve_clamps_to_remaining():
+    from app.llm.turn_llm_budget import TurnLlmBudget
+
+    b = TurnLlmBudget(deadline_seconds=40.0)
+    reserve = b.composer_reserve_seconds()
+    assert 1.0 <= reserve <= 40.0
