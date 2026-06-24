@@ -26,6 +26,7 @@ EVIDENCE_TIER_STUB_OR_METADATA = "stub_or_metadata"
 
 _SOURCE_GROUNDED_SOURCE_TYPES = frozenset({"splunk_mcp"})
 _STUB_SOURCE_TYPES = frozenset({"manual", "splunk_mcp_saia", "rag", "soc_kb"})
+_NON_EXECUTED_STATUSES = frozenset({"skipped", "blocked", "denied", "pending"})
 
 
 @dataclass(frozen=True)
@@ -200,6 +201,8 @@ def resolve_evidence_tier(
         return EVIDENCE_TIER_SIGNAL_ONLY
 
     exec_status = str((execution or {}).get("status") or "")
+    if exec_status in _NON_EXECUTED_STATUSES:
+        return EVIDENCE_TIER_STUB_OR_METADATA
     if exec_status == "executed":
         for item in source_evidence or []:
             if not isinstance(item, dict):

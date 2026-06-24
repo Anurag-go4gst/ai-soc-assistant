@@ -627,10 +627,12 @@ def _apply_no_collected_evidence_render_gate(
         payload["splunk_status_line"] = None
         payload["evidence_summary"] = None
     if not contract.allow_severity_assessment:
-        payload["severity_label"] = None
-        payload["severity_confidence"] = None
-        payload["severity_rationale"] = None
-        payload["severity_safety_note"] = None
+        severity_label = payload.get("severity_label")
+        if severity_label != ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL:
+            payload["severity_label"] = None
+            payload["severity_confidence"] = None
+            payload["severity_rationale"] = None
+            payload["severity_safety_note"] = None
     if not contract.allow_mitre_mapping:
         payload["mitre_mappings"] = []
         payload["not_claimed"] = []
