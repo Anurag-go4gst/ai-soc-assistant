@@ -47,7 +47,7 @@ def _health_ok(timeout: float = 5.0) -> bool:
         return False
 
 
-def measure_runtime(*, timeout: float = 30.0) -> dict:
+def measure_runtime(*, timeout: float = 45.0) -> dict:
     """Stream a small completion and return measured throughput + classification."""
     if settings.ai_soc_llm_mode.strip().lower() in {"mock", "disabled", ""} or not settings.ai_soc_llm_enabled:
         return {"reachable": False, "tok_per_s": None, "status": "llm_disabled", "healthy": False, "reason": "llm_disabled"}
