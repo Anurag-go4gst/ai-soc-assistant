@@ -29,7 +29,11 @@ MODEL = "foundation-sec-1.1-8b-instruct-q8_0.gguf"
 SERVICE = "llama-server.service"
 DEFAULT_THRESHOLD = 2.0  # tok/s; observed bad=0.6, clean=~5.7
 DEFAULT_MAX_WALL_SECONDS = 20.0  # catches queue/prompt-eval stalls hidden by generation tok/s
-PROBE_TOKENS = 48
+# Stream-measure the rate from the first few tokens so a slow-but-alive model
+# (e.g. ~1 tok/s under CPU steal) reports its TRUE rate fast, instead of waiting
+# for a large completion and timing out — which used to read as a false 0.0.
+STREAM_SAMPLE_TOKENS = 12
+PROBE_TOKENS = 16
 
 
 def _health_ok(timeout: int = 5) -> bool:
@@ -41,16 +45,22 @@ def _health_ok(timeout: int = 5) -> bool:
 
 
 def measure_tok_per_s(timeout: int = 120) -> dict:
-    """Fire a small completion and return measured throughput (tok/s) + details."""
+    """Stream a small completion and measure generation rate from inter-token timing.
+
+    Returns ``tok_per_s`` as a float on success, or ``None`` when the rate could not
+    be measured (timeout / transport / no tokens) — ``None`` means UNKNOWN, never to
+    be confused with a real 0.0. A live-but-slow model yields its true low rate; only
+    an actually unreachable endpoint reports ``reachable: False``.
+    """
     if not _health_ok():
-        return {"reachable": False, "tok_per_s": 0.0, "error": "health_check_failed"}
+        return {"reachable": False, "tok_per_s": None, "status": "unreachable", "error": "health_check_failed"}
     body = json.dumps(
         {
             "model": MODEL,
             "messages": [{"role": "user", "content": "List three SOC triage steps, one short line each."}],
             "max_tokens": PROBE_TOKENS,
             "temperature": 0.0,
-            "stream": False,
+            "stream": True,
         }
     ).encode("utf-8")
     request = urllib.request.Request(
@@ -60,24 +70,48 @@ def measure_tok_per_s(timeout: int = 120) -> dict:
         headers={"Content-Type": "application/json", "Accept": "application/json"},
     )
     started = time.monotonic()
+    first_token_at: float | None = None
+    token_times: list[float] = []
     try:
         with urllib.request.urlopen(request, timeout=timeout) as resp:  # noqa: S310
-            payload = json.loads(resp.read())
-    except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
-        return {"reachable": True, "tok_per_s": 0.0, "error": f"{type(exc).__name__}: {exc}"}
-    wall_s = time.monotonic() - started
-    timings = payload.get("timings") or {}
-    tok_per_s = timings.get("predicted_per_second")
-    predicted = timings.get("predicted_n")
-    if not isinstance(tok_per_s, (int, float)):
-        # Fall back to a wall-clock estimate from usage when timings are absent.
-        predicted = (payload.get("usage") or {}).get("completion_tokens") or 0
-        tok_per_s = (predicted / wall_s) if wall_s > 0 else 0.0
+            for raw in resp:
+                line = raw.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[len("data:"):].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    delta = json.loads(data)["choices"][0].get("delta") or {}
+                except (json.JSONDecodeError, KeyError, IndexError):
+                    continue
+                if delta.get("content"):
+                    now = time.monotonic()
+                    if first_token_at is None:
+                        first_token_at = now
+                    token_times.append(now)
+                    if len(token_times) >= STREAM_SAMPLE_TOKENS:
+                        break
+    except (urllib.error.URLError, OSError) as exc:
+        # Timeout/transport during streaming: rate is UNKNOWN, not zero. Preserve any
+        # partial sample we did collect so a very slow model still reports a real rate.
+        if len(token_times) < 2:
+            return {"reachable": True, "tok_per_s": None, "status": "probe_timeout",
+                    "wall_s": round(time.monotonic() - started, 2), "error": f"{type(exc).__name__}: {exc}"}
+
+    wall_s = round(time.monotonic() - started, 2)
+    if len(token_times) < 2:
+        # Reached end-of-stream with too few tokens to time a rate.
+        return {"reachable": True, "tok_per_s": None, "status": "no_tokens", "wall_s": wall_s}
+    gen_span = token_times[-1] - token_times[0]
+    tok_per_s = round((len(token_times) - 1) / gen_span, 2) if gen_span > 0 else None
     return {
         "reachable": True,
-        "tok_per_s": round(float(tok_per_s), 2),
-        "predicted_tokens": predicted,
-        "wall_s": round(wall_s, 2),
+        "tok_per_s": tok_per_s,
+        "status": "measured",
+        "sampled_tokens": len(token_times),
+        "prompt_eval_s": round((first_token_at - started), 2) if first_token_at else None,
+        "wall_s": wall_s,
     }
 
 
@@ -98,6 +132,32 @@ def restart_service() -> dict:
     return {"restarted": False, "error": "restart_command_failed"}
 
 
+def assess_health(measure: dict, *, threshold: float, max_wall_seconds: float) -> tuple[bool, str]:
+    """Classify a measurement into (healthy, reason).
+
+    Distinguishes the states the old code collapsed into a false 0.0:
+      - ``unreachable``   — endpoint down.
+      - ``rate_unknown``  — probe timed out / no tokens; throughput UNKNOWN, not zero.
+      - ``slow``          — a real measured rate below threshold (legit degraded).
+      - ``prompt_stall``  — first token took longer than the wall budget.
+      - ``ok``            — measured rate >= threshold.
+    """
+    if not measure.get("reachable"):
+        return False, "unreachable"
+    rate = measure.get("tok_per_s")
+    if rate is None:
+        return False, measure.get("status") or "rate_unknown"
+    # Prompt-eval/queue stall is a separate signal from generation rate.
+    stall = measure.get("prompt_eval_s")
+    if stall is None:
+        stall = measure.get("wall_s")
+    if stall is not None and stall > max_wall_seconds:
+        return False, "prompt_stall"
+    if rate < threshold:
+        return False, "slow"
+    return True, "ok"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD, help="min healthy tok/s")
@@ -105,33 +165,27 @@ def main() -> int:
         "--max-wall-seconds",
         type=float,
         default=DEFAULT_MAX_WALL_SECONDS,
-        help="maximum acceptable end-to-end probe latency",
+        help="maximum acceptable prompt-eval/probe latency before first token",
     )
     parser.add_argument("--probe-timeout", type=int, default=120, help="bounded completion probe timeout")
     parser.add_argument("--restart", action="store_true", help="restart the service if degraded")
     args = parser.parse_args()
 
     before = measure_tok_per_s(timeout=args.probe_timeout)
+    healthy, reason = assess_health(before, threshold=args.threshold, max_wall_seconds=args.max_wall_seconds)
     result: dict = {
         "threshold": args.threshold,
         "max_wall_seconds": args.max_wall_seconds,
         "before": before,
+        "reason": reason,
     }
-    healthy = (
-        before.get("reachable")
-        and before.get("tok_per_s", 0.0) >= args.threshold
-        and before.get("wall_s", float("inf")) <= args.max_wall_seconds
-    )
 
     if not healthy and args.restart:
         result["restart"] = restart_service()
-        # Warm-up call is implicit in re-measure.
-        result["after"] = measure_tok_per_s(timeout=args.probe_timeout)
-        healthy = (
-            result["after"].get("reachable")
-            and result["after"].get("tok_per_s", 0.0) >= args.threshold
-            and result["after"].get("wall_s", float("inf")) <= args.max_wall_seconds
-        )
+        after = measure_tok_per_s(timeout=args.probe_timeout)  # warm-up implicit
+        result["after"] = after
+        healthy, reason = assess_health(after, threshold=args.threshold, max_wall_seconds=args.max_wall_seconds)
+        result["reason"] = reason
 
     result["healthy"] = bool(healthy)
     print(json.dumps(result, indent=2))

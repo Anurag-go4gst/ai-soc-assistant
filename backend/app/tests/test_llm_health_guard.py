@@ -72,7 +72,46 @@ def test_wall_time_over_budget_is_degraded(monkeypatch) -> None:
 
 
 def test_unreachable_is_degraded(monkeypatch) -> None:
-    before = {"reachable": False, "tok_per_s": 0.0, "error": "health_check_failed"}
+    before = {"reachable": False, "tok_per_s": None, "status": "unreachable"}
     rc, restarts = _run(monkeypatch, [], before)
     assert rc == 1
     assert restarts == []
+
+
+# --- the bug fix: a timed-out probe is UNKNOWN, not a dead 0.0 ---
+
+def test_probe_timeout_is_rate_unknown_not_dead() -> None:
+    # The old code returned tok_per_s 0.0 on timeout, indistinguishable from dead.
+    m = {"reachable": True, "tok_per_s": None, "status": "probe_timeout", "wall_s": 120.0}
+    healthy, reason = hg.assess_health(m, threshold=2.0, max_wall_seconds=20.0)
+    assert healthy is False
+    assert reason == "probe_timeout"  # distinct from "unreachable" / "slow"
+
+
+def test_slow_but_alive_reports_measured_rate_not_zero() -> None:
+    # ~1 tok/s under CPU steal: a REAL low rate, classified "slow" (not a false 0.0).
+    m = {"reachable": True, "tok_per_s": 1.02, "status": "measured", "prompt_eval_s": 4.0, "wall_s": 16.0}
+    healthy, reason = hg.assess_health(m, threshold=2.0, max_wall_seconds=20.0)
+    assert healthy is False
+    assert reason == "slow"
+
+
+def test_prompt_stall_separated_from_generation_rate() -> None:
+    # Fast generation but a long prompt-eval stall -> prompt_stall, not "slow".
+    m = {"reachable": True, "tok_per_s": 9.0, "status": "measured", "prompt_eval_s": 45.0, "wall_s": 50.0}
+    healthy, reason = hg.assess_health(m, threshold=2.0, max_wall_seconds=20.0)
+    assert healthy is False
+    assert reason == "prompt_stall"
+
+
+def test_measured_healthy_rate_passes() -> None:
+    m = {"reachable": True, "tok_per_s": 6.0, "status": "measured", "prompt_eval_s": 3.0, "wall_s": 8.0}
+    healthy, reason = hg.assess_health(m, threshold=2.0, max_wall_seconds=20.0)
+    assert healthy is True and reason == "ok"
+
+
+def test_rate_unknown_does_not_crash_threshold_compare() -> None:
+    # None >= threshold would TypeError in the old main(); assess_health must handle it.
+    m = {"reachable": True, "tok_per_s": None, "status": "no_tokens"}
+    healthy, reason = hg.assess_health(m, threshold=2.0, max_wall_seconds=20.0)
+    assert healthy is False and reason == "no_tokens"
