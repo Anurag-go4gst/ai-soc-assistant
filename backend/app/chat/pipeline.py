@@ -4736,6 +4736,11 @@ def _chat_message(
     intent_family = ""
     if isinstance(intent_classification, dict):
         intent_family = str(intent_classification.get("intent_family") or "")
+    if intent_family == "github_investigation" and user_query:
+        from app.chat.guidance_templates import build_github_investigation_guidance
+
+        return build_github_investigation_guidance(user_query)
+
     if intent_family == "alert_summary" and user_query:
         from app.chat.analyst_response_builder import build_alert_summary_message
 

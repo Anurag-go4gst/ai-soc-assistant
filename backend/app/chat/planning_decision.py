@@ -268,6 +268,7 @@ _COMPLETENESS_KNOWLEDGE_FAMILIES = frozenset(
         "clarification_required",
         "guided_investigation",
         "alert_summary",
+        "github_investigation",
     }
 )
 
@@ -338,6 +339,9 @@ def _resolve_path_type(
 
     if _advisory_blocked(advisory):
         return "unsafe_blocked"
+
+    if family == "github_investigation":
+        return "guided_investigation"
 
     if family == "guided_investigation" or plan.get("answer_mode") == "guided_investigation":
         return "guided_investigation"

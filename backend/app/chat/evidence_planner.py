@@ -116,6 +116,54 @@ def plan_evidence(
             )
         )
 
+    if family == "github_investigation":
+        return with_enrichment(
+            EvidencePlan(
+                answer_mode="guided_investigation",
+                rag_phase="rag_only",
+                needs_rag=True,
+                needs_spl=False,
+                needs_mcp=False,
+                needs_mitre=False,
+                spl_allowed=False,
+                mcp_allowed=False,
+                policy_context_required=False,
+                policy_context_recommended=True,
+                requires_hil=True,
+                needs_hil=True,
+                needs_clarification=False,
+                action_mode="recommend_only",
+                rag_no_match_behavior="general_guidance_allowed",
+                reasons=["github_investigation_review_only"],
+                limitations=[
+                    "No live GitHub API query or Splunk search was executed in this turn.",
+                    "Conclusions are candidate-only until PAT, commit, workflow, and audit evidence is collected.",
+                    "No confirmed MITRE technique or incident severity is asserted.",
+                ],
+                checklist=[
+                    "Actor / username: tie the PAT or OAuth identity to GitHub org/repo membership.",
+                    "Token type / PAT provenance: scope, creation, last use, rotation/revocation status.",
+                    "Commit SHA / timeline: commits, authors, and push times in the requested window.",
+                    "Workflow file / diff: changed .github/workflows paths, jobs, and secret references.",
+                    "Audit log events: repo.push, workflow_dispatch, oauth_access, git.push for the actor.",
+                ],
+                investigation_workflow=[
+                    "Scope repos, workflows, and identities in the observation window.",
+                    "Collect GitHub audit log and token metadata before containment decisions.",
+                    "Test leaked-PAT, compromised-maintainer, and legitimate-automation hypotheses.",
+                    "Have an analyst validate before revoking tokens or disabling workflows.",
+                ],
+                required_sources=["github_audit_log", "github_token_metadata", "workflow_history"],
+                optional_sources=["siem_auth_events", "secret_scanner", "idp_signin_logs"],
+                unsupported_claims_avoid=[
+                    "confirmed compromise",
+                    "confirmed MITRE technique",
+                    "execution_eligible",
+                ],
+                evidence_plan_reason="github_investigation_review_only",
+            )
+        )
+
     if family == "guided_investigation":
         return with_enrichment(
             EvidencePlan(

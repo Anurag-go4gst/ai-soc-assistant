@@ -174,6 +174,30 @@ def build_investigation_triage_guidance(query: str) -> str:
     return f"SOC review checklist:\n\n{items}"
 
 
+
+
+def build_github_investigation_guidance(query: str) -> str:
+    """Review-only GitHub PAT/workflow/commit investigation guidance."""
+    _ = query
+    return (
+        "GitHub investigation (review-only)\n\n"
+        "Required evidence (collect before conclusions)\n"
+        "- Actor / username: map the PAT or OAuth identity to a GitHub username and org/repo membership.\n"
+        "- Token type / PAT provenance: token scope, creation time, last use, and rotation/revocation status.\n"
+        "- Commit SHA / timeline: commit SHAs, authors, and push times in the requested window.\n"
+        "- Workflow file / diff: review changed .github/workflows paths, job definitions, and secret references.\n"
+        "- Audit log events: repo.push, workflow_dispatch, oauth_access, and git.push for the actor.\n\n"
+        "Investigation branches\n"
+        "- Leaked or over-scoped PAT used outside the owner's normal pattern.\n"
+        "- Compromised maintainer account pushing workflow or secret changes.\n"
+        "- Legitimate automation or vendor integration misread as misuse.\n\n"
+        "Containment (review-only)\n"
+        "- Revoke or rotate suspect PATs and narrow scopes; pause affected workflows until validated.\n"
+        "- Require analyst approval before re-enabling workflows or merging further changes.\n\n"
+        "Governance: candidate-only conclusions; no confirmed MITRE technique or severity; "
+        "no Splunk search or MCP execution was performed; execution_eligible=false."
+    )
+
 def build_guided_investigation_guidance(query: str, entities: dict | None = None) -> str:
     """Review-only hunt guidance for out-of-registry SOC investigation shapes."""
     from app.config import settings

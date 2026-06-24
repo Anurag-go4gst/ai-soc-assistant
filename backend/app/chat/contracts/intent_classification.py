@@ -21,6 +21,7 @@ IntentFamily = Literal[
     "sop_or_playbook",
     "guided_investigation",
     "alert_summary",
+    "github_investigation",
 ]
 QueryType = Literal[
     "ask_for_policy",

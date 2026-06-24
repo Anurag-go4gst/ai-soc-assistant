@@ -83,6 +83,39 @@ def _explicit_log_search_requested(normalized: str) -> bool:
     )
 
 
+
+
+def is_github_investigation_query(query: str) -> bool:
+    """SOC asks about GitHub PAT/workflow/commit/audit investigation (review-only)."""
+    normalized = " ".join(str(query or "").lower().split())
+    if normalized.startswith("github focus:"):
+        return True
+    github_ref = any(
+        term in normalized
+        for term in ("github", "git hub", "github.com", "github actions", "gitlab", "gitea")
+    )
+    github_artifact = any(
+        term in normalized
+        for term in (
+            "pat",
+            "personal access token",
+            "workflow",
+            "workflow_dispatch",
+            "repo.push",
+            "commit sha",
+            "commit timeline",
+            "audit log",
+            "oauth_access",
+            "oauth access",
+            "ci workflow",
+            "actions workflow",
+            "workflow file",
+            "push unauthorized",
+            "leaked pat",
+        )
+    )
+    return github_ref and github_artifact
+
 def extract_query_signals(
     query: str,
     query_understanding: QueryUnderstandingResult | None = None,
@@ -666,6 +699,8 @@ def extract_query_signals(
     # investigate" hunts stay guided; knowledge/SOP/explain/unsafe/out-of-scope keep
     # their honest outcomes. Safe because the SPL producer is governed: it validates,
     # quality-lints, and forces execution off (no raw free-form SPL reaches the analyst).
+    github_investigation_shaped = is_github_investigation_query(query)
+
     soc_detection_intent = bool(
         (
             analytics_aggregation
@@ -682,6 +717,7 @@ def extract_query_signals(
         and not block_or_contain
         and not explicit_run_spl
         and not soc_investigation_shaped
+        and not github_investigation_shaped
     )
 
     return {
@@ -756,6 +792,7 @@ def extract_query_signals(
         "exact_105_analytics": exact_105_analytics,
         "exact_105_hunt_spl": exact_105_hunt_spl,
         "soc_investigation_shaped": soc_investigation_shaped,
+        "github_investigation_shaped": github_investigation_shaped,
         "soc_actionable_hunt": soc_actionable_hunt,
         "soc_detection_intent": soc_detection_intent,
         "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),

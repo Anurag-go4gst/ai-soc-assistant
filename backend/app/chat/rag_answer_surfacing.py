@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from app.chat.analyst_response_builder import _playbook_from_rag
+from app.chat.query_signals import is_github_investigation_query
 from app.chat.answer_shape_router import (
     _regulatory_knowledge_guidance,
     is_regulatory_reporting_query,
@@ -161,6 +162,8 @@ def ensure_analyst_card_for_substantive_message(
         title = "Analyst summary"
     elif skill == "guided_investigation":
         title = "SOC investigation guidance"
+    elif is_github_investigation_query(user_query):
+        title = "GitHub investigation guidance"
     elif is_regulatory_reporting_query(user_query):
         title = "Regulatory / reporting guidance"
     else:

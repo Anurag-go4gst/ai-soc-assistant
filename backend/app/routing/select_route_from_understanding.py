@@ -11,6 +11,7 @@ from app.routing.governance import _tool_plan_for_skill
 from app.routing.routing_provenance import build_routing_provenance
 from app.routing.skills import valid_skill
 from app.use_cases.registry import get_use_case
+from app.chat.query_signals import is_github_investigation_query
 from app.query_understanding.soc_investigation_shape import prefers_guided_investigation_over_catalog
 
 # Non-enum catalog primary_skill → legacy routing skill (H1 total function).
@@ -155,6 +156,14 @@ def _route_catalog_only(
     query: str,
     keyword_would_have: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    if is_github_investigation_query(query):
+        return _route_guided_investigation_rescue(
+            understanding,
+            query,
+            keyword_would_have,
+            reason="github_investigation_domain_rescue",
+        )
+
     if prefers_guided_investigation_over_catalog(query):
         return _route_guided_investigation_rescue(
             understanding,
