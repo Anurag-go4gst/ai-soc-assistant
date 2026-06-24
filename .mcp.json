@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://ai_soc:ai_soc_dev_password@127.0.0.1:5434/ai_soc_assistant"
+      ]
+    }
+  }
+}
