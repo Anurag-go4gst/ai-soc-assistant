@@ -1753,6 +1753,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         candidate_spl,
         session_alert_context=session_alert_context,
         query_signals=_query_signals_from_state(state),
+        intent_classification=state.get("intent_classification")
+        if isinstance(state.get("intent_classification"), dict)
+        else None,
     ):
         human_review = _mitre_clarification_review()
         message = (
@@ -3040,6 +3043,7 @@ def _needs_mitre_clarification(
     *,
     session_alert_context: bool = False,
     query_signals: dict[str, Any] | None = None,
+    intent_classification: dict[str, Any] | None = None,
 ) -> bool:
     """Conservative heuristic: a MITRE mapping ask with no alert context yet.
 
@@ -3049,7 +3053,26 @@ def _needs_mitre_clarification(
     """
     if isinstance(query_signals, dict) and query_signals.get("use_case_review_guidance"):
         return False
+    if isinstance(query_signals, dict) and query_signals.get("mitre_evidence_threshold"):
+        return False
+    if isinstance(query_signals, dict) and query_signals.get("cross_skill_investigation"):
+        return False
+    if isinstance(query_signals, dict) and query_signals.get("cve_focus_investigation"):
+        return False
+    intent = intent_classification if isinstance(intent_classification, dict) else {}
+    if str(intent.get("primary_intent") or "") == "cross_skill_investigation":
+        return False
+    if str(intent.get("intent_family") or "") in {
+        "github_investigation",
+        "cve_investigation",
+        "alert_summary",
+        "hybrid_alert_review",
+        "mitre_explanation",
+    }:
+        return False
     normalized = " ".join(query.lower().split())
+    if normalized.startswith(("mitre focus:", "cve focus:", "github focus:", "cross-skill")):
+        return False
     if not any(keyword in normalized for keyword in _MITRE_INTENT_KEYWORDS):
         return False
     if candidate_spl and candidate_spl.get("candidate_spl"):
@@ -4751,10 +4774,16 @@ def _chat_message(
         from app.synthesis.deterministic_prose_stitch import build_cross_skill_investigation_message
 
         return build_cross_skill_investigation_message(user_query)
+    if intent_family == "cve_investigation" and user_query:
+        from app.chat.guidance_templates import build_cve_investigation_guidance
+
+        return build_cve_investigation_guidance(user_query)
     if intent_family == "github_investigation" and user_query:
         from app.chat.guidance_templates import build_github_investigation_guidance
 
         return build_github_investigation_guidance(user_query)
+    if user_query and is_mitre_evidence_threshold_query(user_query):
+        return build_mitre_evidence_threshold_guidance(user_query)
 
     if intent_family == "alert_summary" and user_query:
         from app.chat.analyst_response_builder import build_alert_summary_message

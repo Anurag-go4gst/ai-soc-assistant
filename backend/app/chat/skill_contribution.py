@@ -236,7 +236,7 @@ def apply_investigation_floor(
     """
     if contribution.selected_skill not in INVESTIGATION_SKILLS:
         return envelope
-    if envelope.finding_title == "GitHub investigation guidance":
+    if envelope.finding_title in {"GitHub investigation guidance", "CVE investigation guidance", "Cross-skill investigation plan", "MITRE evidence thresholds"}:
         contribution.visible_domain_section = True
         return envelope
     if contribution.visible_domain_section:

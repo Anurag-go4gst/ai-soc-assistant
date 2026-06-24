@@ -50,6 +50,17 @@ _SUMMARY_PREFIX_MARKERS = (
 
 
 
+
+def _advisory_mitre_threshold_rows(user_query: str) -> list[dict[str, str]]:
+    normalized = " ".join(str(user_query or "").lower().split())
+    technique = "ICS remote command sequence (example)"
+    if "beacon" in normalized:
+        technique = "DNS/command beaconing (example)"
+    return [
+        {"technique": technique, "status": "candidate", "notes": "Threshold review only; validate with telemetry."},
+        {"technique": "Status labels", "status": "not_claimed", "notes": "Confirmed/Candidate/Not-claimed per evidence gates."},
+    ]
+
 def alert_summary_default_actions() -> list[str]:
     return [
         "Confirm affected assets, identities, sources, and the observation window.",
@@ -209,7 +220,67 @@ def build_analyst_response_for_live(
             mitre_mappings=mitre_mappings,
             user_query=user_query,
         )
+    from app.chat.guidance_templates import (
+        build_mitre_evidence_threshold_guidance,
+        is_mitre_evidence_threshold_query,
+    )
+
+    if user_query and is_mitre_evidence_threshold_query(user_query):
+        threshold_message = build_mitre_evidence_threshold_guidance(user_query)
+        direct = str(message or "").strip() or threshold_message
+        if len(direct) < 120:
+            direct = threshold_message
+        recommended = [
+            "Apply Confirmed/Candidate/Not-claimed labels with explicit evidence thresholds.",
+            "Corroborate OT/protocol logs and engineering workstation context.",
+            "Do not declare technique-level conclusions from this question alone.",
+        ]
+        envelope = AnalystResponseEnvelope(
+            finding_title="MITRE evidence thresholds",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=recommended,
+            analyst_checklist=recommended,
+            investigation_steps=recommended,
+            response_profile="knowledge_recall",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            mitre_mappings=_advisory_mitre_threshold_rows(user_query),
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            preserved_mitre = list(envelope.mitre_mappings or [])
+            envelope = apply_final_answer_readability(envelope, contract)
+            envelope = envelope.model_copy(update={"mitre_mappings": preserved_mitre})
+        return envelope
     intent = intent_classification if isinstance(intent_classification, dict) else {}
+    if str(intent.get("intent_family") or "") == "cve_investigation":
+        from app.chat.guidance_templates import build_cve_investigation_guidance
+
+        cve_message = build_cve_investigation_guidance(user_query)
+        direct = str(message or "").strip() or cve_message
+        if not direct.startswith("CVE investigation"):
+            direct = cve_message
+        recommended = _safe_display_list(plan.get("checklist") or [])[:8] or [
+            "Map installed package/version rows for affected software.",
+            "Review exposure signals without live scanning.",
+            "Check vulnerability_source onboarding before unpatched claims.",
+            "List missing scanner/CMDB and exploit-attempt evidence.",
+        ]
+        envelope = AnalystResponseEnvelope(
+            finding_title="CVE investigation guidance",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=recommended,
+            analyst_checklist=recommended,
+            investigation_steps=recommended,
+            response_profile="hybrid_alert_review",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            mitre_mappings=mitre_rows,
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            envelope = apply_final_answer_readability(envelope, contract)
+        return envelope
     if str(intent.get("primary_intent") or "") == "cross_skill_investigation":
         from app.synthesis.deterministic_prose_stitch import build_cross_skill_investigation_message
 
@@ -231,11 +302,13 @@ def build_analyst_response_for_live(
             investigation_steps=recommended,
             response_profile="hybrid_alert_review",
             execution_status=str(execution_payload.get("status") or "skipped") or None,
-            mitre_mappings=mitre_rows,
+            mitre_mappings=_advisory_mitre_threshold_rows(user_query),
             severity_label=severity_label,
         )
         if contract is not None:
+            preserved_mitre = list(envelope.mitre_mappings or [])
             envelope = apply_final_answer_readability(envelope, contract)
+            envelope = envelope.model_copy(update={"mitre_mappings": preserved_mitre})
         return envelope
     if str(intent.get("intent_family") or "") == "github_investigation":
         from app.chat.guidance_templates import build_github_investigation_guidance

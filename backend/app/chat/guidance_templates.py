@@ -53,8 +53,9 @@ def scrub_blocked_context_text_list(values: list[str] | None) -> list[str]:
 
 
 def is_mitre_evidence_threshold_query(query: str) -> bool:
-    normalized = " ".join(query.lower().split())
-    return bool(normalized and _MITRE_EVIDENCE_THRESHOLD.search(normalized))
+    from app.chat.query_signals import extract_query_signals
+
+    return bool(extract_query_signals(query).get("mitre_evidence_threshold"))
 
 
 def is_conceptual_mitre_confirm_query(query: str) -> bool:
@@ -82,6 +83,34 @@ def is_conceptual_mitre_confirm_query(query: str) -> bool:
     return False
 
 
+
+
+def build_cve_investigation_guidance(query: str) -> str:
+    """Review-only CVE advisory investigation without live scanning."""
+    cve_ids = sorted({m.upper() for m in re.findall(r"CVE-\d{4}-\d{4,7}", query or "", flags=re.I)})
+    cve_line = ", ".join(cve_ids) if cve_ids else "the referenced CVE"
+    return (
+        f"CVE investigation (review-only) — {cve_line}\n\n"
+        "What you can confirm from current logs (no live scanning)\n"
+        "- Installed package/version rows for affected software on in-scope hosts.\n"
+        "- Exposure signals: listening services, auth success/failure, and change events near patch windows.\n"
+        "- Whether compensating controls (segmentation, WAF, disabled feature) are recorded.\n\n"
+        "Evidence still missing before impact claims\n"
+        "- Authoritative asset inventory mapping hosts to OpenSSH/package versions.\n"
+        "- Vulnerability scanner or CMDB proof of patch level for the advisory.\n"
+        "- Exploit attempt or post-exploit telemetry tied to the CVE (not assumed).\n\n"
+        "vulnerability_source: review snapshot/onboarding status before correlating unpatched findings.\n"
+        "No Splunk search or MCP execution was performed; conclusions remain candidate-only."
+    )
+
+
+_MITRE_STATUS_LABEL_BLOCK = (
+    "MITRE status labels (review-only)\n"
+    "- Confirmed: corroborated telemetry across independent sources in the alert window.\n"
+    "- Candidate: plausible technique mapping pending required evidence.\n"
+    "- Not-claimed: insufficient evidence from this question alone.\n"
+)
+
 def build_mitre_evidence_threshold_guidance(query: str) -> str:
     """Evidence preconditions for MITRE/beaconing declarations — checklist-first, no confirmation."""
     normalized = " ".join(query.lower().split())
@@ -106,9 +135,18 @@ def build_mitre_evidence_threshold_guidance(query: str) -> str:
             "Build a timeline before declaring technique-level conclusions.",
         ]
     items = "\n".join(f"- {item}" for item in checklist)
+    if "ics" in normalized or "ot " in normalized or "remote command" in normalized:
+        checklist = [
+            "Map the OT remote-command sequence to candidate ICS techniques only.",
+            "Collect protocol logs, engineering workstation context, and change tickets.",
+            "Require independent corroboration before any confirmed technique label.",
+            "Document missing telemetry before severity or containment language.",
+        ]
+        items = "\n".join(f"- {item}" for item in checklist)
     return (
         "Do not declare the activity confirmed from this question alone. "
         "Required evidence preconditions must be met first.\n\n"
+        f"{_MITRE_STATUS_LABEL_BLOCK}\n"
         f"SOC review checklist:\n\n{items}"
     )
 

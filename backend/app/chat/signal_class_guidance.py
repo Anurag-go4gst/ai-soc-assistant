@@ -56,7 +56,6 @@ _OT_PROTOCOL_TERMS: tuple[tuple[str, SignalClass], ...] = (
     ("exfil", "egress_exfil"),
     ("port 502", "recon_scan"),
     ("port scan", "recon_scan"),
-    ("scan", "recon_scan"),
     ("recon", "recon_scan"),
     ("beacon", "network_beacon"),
     ("chatter", "network_beacon"),
@@ -230,6 +229,10 @@ def extract_ot_terms(query: str) -> list[str]:
 
 def classify_signal_class(query: str, entities: dict[str, Any] | None = None) -> SignalClass:
     """Deterministic signal-class classifier over query + entities."""
+    from app.chat.query_signals import is_cve_focus_query
+
+    if is_cve_focus_query(query):
+        return "unknown"
     normalized = " ".join(query.lower().split())
     entity_text = " ".join(
         str(item)

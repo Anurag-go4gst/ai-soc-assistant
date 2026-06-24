@@ -85,6 +85,7 @@ def _explicit_log_search_requested(normalized: str) -> bool:
 
 
 
+_CVE_ID_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
 _PAT_TOKEN_RE = re.compile(r"\b(?:pat|personal access token|leaked pat)\b", re.I)
 
 
@@ -117,15 +118,36 @@ def is_github_investigation_query(query: str) -> bool:
     return github_ref and github_artifact
 
 
+
+def is_cve_focus_query(query: str) -> bool:
+    """CVE advisory review without live scanning (review-only)."""
+    normalized = " ".join(str(query or "").lower().split())
+    if normalized.startswith("cve focus:"):
+        return True
+    if _CVE_ID_RE.search(query or ""):
+        return any(
+            term in normalized
+            for term in (
+                "cisa advisory",
+                "what can we confirm",
+                "evidence is missing",
+                "without live scanning",
+                "unpatched",
+                "vulnerability",
+            )
+        )
+    return False
+
 def is_cross_skill_investigation_query(query: str) -> bool:
-    """CVE + MITRE + GitHub (or explicit cross-skill) multi-domain review plan."""
+    """Explicit cross-skill review plan (CVE + MITRE + GitHub stitch path)."""
     normalized = " ".join(str(query or "").lower().split())
     if "cross-skill" in normalized or "cross skill" in normalized:
         return True
     has_cve = "cve" in normalized
     has_mitre = "mitre" in normalized or "att&ck" in normalized
     has_github = "github" in normalized or is_github_investigation_query(query)
-    return sum((has_cve, has_mitre, has_github)) >= 2
+    # Require all three domains; alert+MITRE+CVE flagship review is not this path.
+    return has_cve and has_mitre and has_github
 
 def extract_query_signals(
     query: str,
@@ -479,7 +501,12 @@ def extract_query_signals(
         and "?" in query
     )
     mitre_evidence_threshold = bool(
-        re.search(
+        normalized.startswith("mitre focus:")
+        or (
+            ("evidence threshold" in normalized or "status labels" in normalized)
+            and ("mitre" in normalized or "att&ck" in normalized)
+        )
+        or re.search(
             r"\b(what evidence is needed|evidence (?:is )?needed|required evidence|evidence required)\b.{0,96}"
             r"\b(before|prior to|to declare|to call|to label)\b",
             normalized,
@@ -712,6 +739,7 @@ def extract_query_signals(
     # quality-lints, and forces execution off (no raw free-form SPL reaches the analyst).
     github_investigation_shaped = is_github_investigation_query(query)
     cross_skill_investigation = is_cross_skill_investigation_query(query)
+    cve_focus_investigation = is_cve_focus_query(query)
 
     soc_detection_intent = bool(
         (
@@ -730,6 +758,7 @@ def extract_query_signals(
         and not explicit_run_spl
         and not soc_investigation_shaped
         and not github_investigation_shaped
+        and not cve_focus_investigation
     )
 
     return {
@@ -806,6 +835,7 @@ def extract_query_signals(
         "soc_investigation_shaped": soc_investigation_shaped,
         "github_investigation_shaped": github_investigation_shaped,
         "cross_skill_investigation": cross_skill_investigation,
+        "cve_focus_investigation": cve_focus_investigation,
         "soc_actionable_hunt": soc_actionable_hunt,
         "soc_detection_intent": soc_detection_intent,
         "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),

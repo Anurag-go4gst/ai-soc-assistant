@@ -17,6 +17,7 @@ from app.chat.llm_intent_advisor import adjudicate_llm_intent_advisory, apply_ad
 from app.chat.query_signals import (
     extract_query_signals,
     is_cross_skill_investigation_query,
+    is_cve_focus_query,
     is_github_investigation_query,
 )
 from app.config import settings
@@ -97,6 +98,22 @@ def _is_github_investigation_request(query: str, signals: dict[str, Any]) -> boo
 
 
 
+
+
+
+def _build_cve_investigation_classification(*, reason: str, confidence: float = 0.77) -> IntentClassification:
+    return _build_classification(
+        intent_family="cve_investigation",
+        primary_intent="cve_investigation",
+        query_type="investigation_with_guidance",
+        answer_goal=["procedural_steps", "analyst_action_guidance"],
+        confidence=confidence,
+        requires_clarification=False,
+        requires_hil=True,
+        action_mode="recommend_only",
+        reason=reason,
+        requested_output_type="INVESTIGATION",
+    )
 
 def _build_cross_skill_investigation_classification(*, reason: str, confidence: float = 0.76) -> IntentClassification:
     return _build_classification(
@@ -240,6 +257,11 @@ def classify_intent(
             reason="Multi-domain CVE/MITRE/GitHub review plan; governed cross-skill stitch path.",
         )
 
+    if signals.get("cve_focus_investigation") or is_cve_focus_query(query):
+        return _build_cve_investigation_classification(
+            reason="CVE advisory review without live scanning; governed evidence checklist.",
+        )
+
     if _is_github_investigation_request(query, signals):
         return _build_github_investigation_classification(
             reason="GitHub PAT/workflow/commit investigation; governed review-only guidance.",
@@ -310,10 +332,10 @@ def classify_intent(
 
     if signals.get("mitre_evidence_threshold"):
         return _build_classification(
-            intent_family="hybrid_alert_review",
-            primary_intent="attack_discovery",
+            intent_family="mitre_explanation",
+            primary_intent="mitre_explanation",
             secondary_intents=["mitre_mapping"],
-            query_type="ask_for_mapping",
+            query_type="ask_for_explanation",
             answer_goal=["procedural_steps", "mitre_explanation", "analyst_action_guidance"],
             confidence=0.9,
             requires_clarification=False,

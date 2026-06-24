@@ -78,6 +78,17 @@ def adjudicate_route(
             reason="GitHub investigation intent preserves governed guided route with GitHub-native evidence contract.",
         )
 
+    if intent.intent_family == "cve_investigation":
+        return _result(
+            deterministic_route=deterministic_route,
+            llm_suggested_route=llm_route,
+            shadow_plan_status=shadow_status,
+            final_route="guided_investigation",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="cve_investigation_intent",
+            reason="CVE advisory review preserves governed guided route with vulnerability_source contract.",
+        )
+
     if intent.intent_family == "guided_investigation":
         return _result(
             deterministic_route=deterministic_route,

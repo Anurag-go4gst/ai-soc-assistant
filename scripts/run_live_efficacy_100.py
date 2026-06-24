@@ -349,7 +349,12 @@ def _score(question: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
         issues.append("boundary_request_not_handled")
 
     mitre = response.get("mitre_decision") or {}
-    mitre_status = str(mitre.get("status") or response.get("mitre_evidence_status") or "")
+    mitre_status = str(
+        mitre.get("status")
+        or mitre.get("mitre_status")
+        or response.get("mitre_evidence_status")
+        or ""
+    )
     if "mitre" in question["question"].lower() or "att&ck" in question["question"].lower():
         if not mitre_status and not analyst.get("mitre_mappings"):
             issues.append("mitre_requested_but_status_missing")
@@ -358,8 +363,26 @@ def _score(question: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
 
     q_lower = question["question"].lower()
     if "cve-" in q_lower:
-        vulnerability = (trace.get("evidence_loop") or {}).get("vulnerability_source") or trace.get("vulnerability_source")
-        if not vulnerability:
+        vulnerability = (
+            (trace.get("evidence_loop") or {}).get("vulnerability_source")
+            or trace.get("vulnerability_source")
+            or next(
+                (
+                    item.get("vulnerability_source")
+                    for item in (response.get("source_evidence") or [])
+                    if isinstance(item, dict) and item.get("vulnerability_source")
+                ),
+                None,
+            )
+        )
+        has_vuln_source_row = any(
+            (
+                (isinstance(item, dict) and item.get("source_name") == "vulnerability_source")
+                or (getattr(item, "source_name", None) == "vulnerability_source")
+            )
+            for item in (response.get("source_evidence") or [])
+        )
+        if not vulnerability and not has_vuln_source_row and "vulnerability_source" not in lowered:
             issues.append("cve_source_provenance_missing")
 
     resource_plan = (response.get("evidence_plan") or {}).get("resource_plan") or {}

@@ -164,6 +164,52 @@ def plan_evidence(
             )
         )
 
+    if family == "cve_investigation":
+        return with_enrichment(
+            EvidencePlan(
+                answer_mode="guided_investigation",
+                rag_phase="rag_only",
+                needs_rag=True,
+                needs_spl=False,
+                needs_mcp=False,
+                needs_mitre=False,
+                spl_allowed=False,
+                mcp_allowed=False,
+                policy_context_required=False,
+                policy_context_recommended=True,
+                requires_hil=True,
+                needs_hil=True,
+                needs_clarification=False,
+                action_mode="recommend_only",
+                rag_no_match_behavior="general_guidance_allowed",
+                reasons=["cve_investigation_review_only"],
+                limitations=[
+                    "No live vulnerability scan or Splunk search was performed in this turn.",
+                    "Conclusions are candidate-only until inventory, version, and exposure evidence is collected.",
+                ],
+                checklist=[
+                    "Installed package/version mapping for affected software on in-scope hosts.",
+                    "Exposure signals: services, auth events, and changes near the advisory window.",
+                    "vulnerability_source snapshot/onboarding status before unpatched claims.",
+                    "Missing scanner/CMDB proof and exploit-attempt telemetry explicitly listed.",
+                ],
+                investigation_workflow=[
+                    "Confirm CVE scope and affected products from the advisory.",
+                    "Correlate local inventory and logs without live scanning.",
+                    "List missing evidence before severity or patch-priority claims.",
+                ],
+                required_evidence_keys=["vulnerability_source"],
+                required_sources=["asset_inventory", "package_versions", "vulnerability_source"],
+                optional_sources=["scanner_output", "auth_logs", "change_tickets"],
+                unsupported_claims_avoid=[
+                    "confirmed exploitation",
+                    "confirmed patch gap without inventory proof",
+                    "execution_eligible",
+                ],
+                evidence_plan_reason="cve_investigation_review_only",
+            )
+        )
+
     if family == "guided_investigation":
         return with_enrichment(
             EvidencePlan(

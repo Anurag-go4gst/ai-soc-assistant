@@ -28,6 +28,10 @@ def build_cross_skill_stitch_block(user_query: str) -> str:
             "and audit_log events before containment."
         )
     lines.append(
+        "MITRE status labels (review-only): Confirmed requires corroboration; "
+        "Candidate is plausible pending evidence; Not-claimed when this question alone is insufficient."
+    )
+    lines.append(
         "No Splunk search or MCP execution was performed; conclusions remain candidate-only."
     )
     return "\n".join(lines)
