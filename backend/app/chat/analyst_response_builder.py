@@ -217,14 +217,15 @@ def build_analyst_response_for_live(
             direct = summary_message
         else:
             direct = f"{summary_message}\n\n{direct}".strip()
+        recommended = _safe_display_list(plan.get("checklist") or [])[:6]
         envelope = AnalystResponseEnvelope(
             finding_title="Analyst summary",
             one_sentence_finding=direct[:1200],
             direct_answer_summary=direct[:2000],
-            recommended_actions=_safe_display_list(plan.get("checklist") or [])[:6] or None,
+            recommended_actions=recommended,
             response_profile="hybrid_alert_review",
             execution_status=str(execution_payload.get("status") or "skipped") or None,
-            mitre_mappings=mitre_rows or None,
+            mitre_mappings=mitre_rows,
             severity_label=severity_label,
         )
         if contract is not None:

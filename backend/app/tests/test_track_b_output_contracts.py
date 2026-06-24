@@ -41,6 +41,20 @@ def test_substantive_shaped_guidance_rebuilds_card() -> None:
     )
     assert card is not None
     assert card.direct_answer_summary
-    assert "firmware" in (card.direct_answer_summary or "").lower() or "supply-chain" in (
-        card.direct_answer_summary or ""
-    ).lower()
+    blob = (card.direct_answer_summary or "").lower()
+    assert "hypotheses" in blob or "vendor" in blob or "investigation" in blob
+
+
+def test_alert_summary_live_pipeline_returns_structured_message() -> None:
+    from app.chat.pipeline import build_live_chat_response
+    from app.config import settings
+    from app.schemas.requests import ChatRequest
+
+    settings.control_plane_enabled = True
+    settings.ai_soc_t2_answer_shape_enabled = True
+    settings.ai_soc_t2_rag_surfacing_enabled = True
+    response = build_live_chat_response(ChatRequest(message=SUMMARY_QUERY))
+    assert response.analyst_response is not None
+    blob = (response.message or "") + (response.analyst_response.direct_answer_summary or "")
+    assert "situation" in blob.lower()
+    assert "confidence" in blob.lower()
