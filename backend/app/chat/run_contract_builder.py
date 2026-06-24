@@ -203,9 +203,16 @@ def build_run_contract(
         routing=route,
         candidate_artifact_refs=candidate_artifact_refs,
         source_evidence_summary=SourceEvidenceSummary(
-            status="collected" if source_evidence_available else "none",
+            status=(
+                "collected"
+                if source_evidence_available
+                else ("metadata_only" if evidence_count > 0 else "none")
+            ),
+            source_evidence_available=source_evidence_available,
             evidence_count=evidence_count,
             collected_evidence_count=collected_evidence_count,
+            review_artifact_count=max(evidence_count - collected_evidence_count, 0),
+            candidate_artifact_count=len(candidate_artifact_refs),
             produced_answer_sections=[],
         ),
     )

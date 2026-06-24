@@ -44,6 +44,7 @@ from app.routing.intent_operation_bridge_shadow import apply_intent_operation_br
 from app.coverage.question_runtime_map_shadow import apply_question_runtime_map_to_shadow
 from app.routing.precondition_evaluation_shadow import apply_precondition_evaluation_to_shadow
 from app.routing.route_authority_compare import apply_route_authority_compare_to_shadow
+from app.routing.route_authority_apply import project_compare_for_display
 from app.routing.registry_route_authority import resolve_effective_routing_skill
 from app.routing.route_adjudication import adjudicate_route as adjudicate_control_plane_route
 from app.routing.llm_plan_validator import (
@@ -957,6 +958,10 @@ def graph_node_route_resolution(state: ChatPipelineState) -> ChatPipelineState:
             "legacy_intent_authority": False,
             "route_adjudication_authority_source": adjudication.authority_source,
         }
+        # Keep the shadow copy in sync with the adjudicated authority; otherwise
+        # governance/lineage panels read a stale legacy resolution that
+        # contradicts RunContract (effective_skill / skill_resolution drift).
+        route_plan_shadow["routing_skill_resolution"] = routing_skill_resolution
     return {
         **state,
         "route_plan_shadow": route_plan_shadow,
@@ -1770,6 +1775,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     if operation_audit is not None:
         route_plan_shadow["operation_audit"] = operation_audit
+    # Raw shadow authority compare has now been consumed for routing/audit logic
+    # above; re-project the displayed compare so governance/lineage panels never
+    # claim the legacy route is authoritative once RunContract holds authority.
+    _display_compare = route_plan_shadow.get("route_authority_compare")
+    if isinstance(_display_compare, dict):
+        route_plan_shadow["route_authority_compare"] = project_compare_for_display(
+            _display_compare,
+            authority_holder=run_contract.routing.authority_holder,
+            canonical_skill=run_contract.routing.canonical_skill,
+            legacy_skill=run_contract.routing.legacy_skill,
+        )
     investigation_lineage = build_investigation_lineage(
         trace_id=trace_id,
         mode_source="live" if run_contract.execution_authorized else "review_only",

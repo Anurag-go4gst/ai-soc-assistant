@@ -67,6 +67,14 @@ def build_investigation_lineage(
             stages.append(_route_authority_compare_stage(route_plan_shadow))
         if route_plan_shadow.get("precondition_evaluation"):
             stages.append(_hard_preconditions_stage(route_plan_shadow))
+    _collected = (
+        collected_evidence_count
+        if collected_evidence_count is not None
+        else sum(1 for item in source_evidence if item.get("collection_status") == "collected")
+    )
+    # Packaged records that are not collected telemetry are review/metadata
+    # artifacts (SPL candidate, validation record) — never source evidence.
+    _review_artifacts = max(len(source_evidence) - _collected, 0)
     stages.extend(
         [
             _stage("spl_template", "complete" if spl_template else "skipped", "SPL template", "Template metadata attached when a use-case template exists.", spl_template or {}, ["spl_code"] if spl_template else [], "config" if spl_template else mode_source, "SCD/template registry"),
@@ -74,10 +82,14 @@ def build_investigation_lineage(
             _stage("mcp_tool_decision", execution.get("status", "skipped"), "MCP execution gate", execution.get("tool_selection_reason", "No MCP execution required."), execution, [], mode_source, "production MCP gate"),
             _stage(
                 "source_evidence",
-                "complete" if (collected_evidence_count if collected_evidence_count is not None else sum(1 for item in source_evidence if item.get("collection_status") == "collected")) > 0 else ("metadata_only" if source_evidence else "skipped"),
+                "complete" if _collected > 0 else ("metadata_only" if source_evidence else "skipped"),
                 "Source evidence",
-                f"{(collected_evidence_count if collected_evidence_count is not None else sum(1 for item in source_evidence if item.get("collection_status") == "collected"))} collected of {len(source_evidence)} evidence record(s) packaged.",
-                {"evidence_count": len(source_evidence), "collected_evidence_count": collected_evidence_count if collected_evidence_count is not None else sum(1 for item in source_evidence if item.get("collection_status") == "collected")},
+                f"{_collected} collected telemetry record(s). {_review_artifacts} review artifact(s) packaged.",
+                {
+                    "evidence_count": len(source_evidence),
+                    "collected_evidence_count": _collected,
+                    "review_artifact_count": _review_artifacts,
+                },
                 ["splunk_results_table"] if allow_results_table else [],
                 "live" if execution_authorized else "review_only",
                 "production SourceEvidence",

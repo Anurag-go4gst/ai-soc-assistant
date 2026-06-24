@@ -27,11 +27,20 @@ class RouteContract(BaseModel):
 
 
 class SourceEvidenceSummary(BaseModel):
-    """Wire helper for bundle tests and debug surfaces."""
+    """Wire helper for bundle tests and debug surfaces.
+
+    ``evidence_count`` is the total number of *packaged* records (collected
+    telemetry + review/metadata artifacts), retained for backward compatibility.
+    Display/lineage text must use ``collected_evidence_count`` and
+    ``review_artifact_count`` instead, never ``evidence_count``.
+    """
 
     status: str | None = None
+    source_evidence_available: bool = False
     evidence_count: int = 0
     collected_evidence_count: int = 0
+    review_artifact_count: int = 0
+    candidate_artifact_count: int = 0
     produced_answer_sections: list[str] = Field(default_factory=list)
 
 
