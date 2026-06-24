@@ -205,6 +205,28 @@ def build_analyst_response_for_live(
             user_query=user_query,
         )
     intent = intent_classification if isinstance(intent_classification, dict) else {}
+    if str(intent.get("intent_family") or "") == "github_investigation":
+        from app.chat.guidance_templates import build_github_investigation_guidance
+
+        github_message = build_github_investigation_guidance(user_query)
+        direct = str(message or "").strip() or github_message
+        if not direct.startswith("GitHub investigation"):
+            direct = github_message
+        recommended = _safe_display_list(plan.get("checklist") or [])[:8]
+        envelope = AnalystResponseEnvelope(
+            finding_title="GitHub investigation guidance",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=recommended,
+            investigation_steps=recommended,
+            response_profile="hybrid_alert_review",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            mitre_mappings=mitre_rows,
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            envelope = apply_final_answer_readability(envelope, contract)
+        return envelope
     if str(intent.get("intent_family") or "") == "alert_summary":
         summary_message = build_alert_summary_message(
             user_query=user_query,
@@ -213,8 +235,12 @@ def build_analyst_response_for_live(
             mitre_rows=mitre_rows,
         )
         direct = str(message or "").strip()
-        if not direct or _ROUTING_COMPLETE_ONLY.search(direct) or "generic soc guidance path selected" in direct.lower():
+        if direct.startswith("Analyst summary (review-only)") and "Situation" in direct:
+            pass  # _chat_message already rendered the summary body
+        elif not direct or _ROUTING_COMPLETE_ONLY.search(direct) or "generic soc guidance path selected" in direct.lower():
             direct = summary_message
+        elif direct == summary_message:
+            pass
         else:
             direct = f"{summary_message}\n\n{direct}".strip()
         recommended = _safe_display_list(plan.get("checklist") or [])[:6]
