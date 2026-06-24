@@ -136,7 +136,7 @@ def plan_evidence(
                 rag_no_match_behavior="general_guidance_allowed",
                 reasons=["github_investigation_review_only"],
                 limitations=[
-                    "No live GitHub API query or Splunk search was executed in this turn.",
+                    "No live GitHub API query or Splunk search was performed in this turn.",
                     "Conclusions are candidate-only until PAT, commit, workflow, and audit evidence is collected.",
                     "No confirmed MITRE technique or incident severity is asserted.",
                 ],
@@ -185,7 +185,7 @@ def plan_evidence(
                 reasons=["out_of_registry_guided_investigation"],
                 limitations=[
                     "This question is outside the approved 105-question and use-case registries.",
-                    "No live query was executed; validate the checklist against local telemetry and playbooks.",
+                    "No live query was performed; validate the checklist against local telemetry and playbooks.",
                     "No MITRE technique or incident severity is asserted without evidence.",
                 ],
                 checklist=[

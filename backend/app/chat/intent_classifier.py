@@ -14,7 +14,11 @@ from app.chat.contracts.intent_classification import (
 )
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.chat.llm_intent_advisor import adjudicate_llm_intent_advisory, apply_advisory_promotion
-from app.chat.query_signals import extract_query_signals, is_github_investigation_query
+from app.chat.query_signals import (
+    extract_query_signals,
+    is_cross_skill_investigation_query,
+    is_github_investigation_query,
+)
 from app.config import settings
 from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
 from app.coverage.question_runtime_map import question_runtime_entry
@@ -91,6 +95,22 @@ def _build_alert_summary_classification(*, reason: str, confidence: float = 0.78
 def _is_github_investigation_request(query: str, signals: dict[str, Any]) -> bool:
     return bool(signals.get("github_investigation_shaped") or is_github_investigation_query(query))
 
+
+
+
+def _build_cross_skill_investigation_classification(*, reason: str, confidence: float = 0.76) -> IntentClassification:
+    return _build_classification(
+        intent_family="github_investigation",
+        primary_intent="cross_skill_investigation",
+        query_type="investigation_with_guidance",
+        answer_goal=["procedural_steps", "analyst_action_guidance"],
+        confidence=confidence,
+        requires_clarification=False,
+        requires_hil=True,
+        action_mode="recommend_only",
+        reason=reason,
+        requested_output_type="INVESTIGATION",
+    )
 
 def _build_github_investigation_classification(*, reason: str, confidence: float = 0.74) -> IntentClassification:
     return _build_classification(
@@ -213,6 +233,11 @@ def classify_intent(
             requires_clarification=True,
             reason="Request is out of SOC scope; clarification recommended.",
             requested_output_type=None,
+        )
+
+    if signals.get("cross_skill_investigation"):
+        return _build_cross_skill_investigation_classification(
+            reason="Multi-domain CVE/MITRE/GitHub review plan; governed cross-skill stitch path.",
         )
 
     if _is_github_investigation_request(query, signals):
@@ -537,11 +562,6 @@ def classify_intent(
             requested_output_type="INVESTIGATION",
         )
 
-    if _is_github_investigation_request(query, signals):
-        return _build_github_investigation_classification(
-            reason="GitHub PAT/workflow/commit investigation; governed review-only guidance.",
-            confidence=0.78,
-        )
 
     if live_data_intent:
         return _build_classification(
@@ -745,14 +765,6 @@ def classify_intent(
             requires_clarification=True,
             reason="Request is out of SOC scope; clarification recommended.",
             requested_output_type=None,
-        )
-
-    if _is_github_investigation_request(query, signals):
-        return _build_github_investigation_classification(
-            reason=(
-                "GitHub PAT/workflow/commit investigation ask without a registry match; "
-                "governed review-only GitHub guidance."
-            ),
         )
 
     if _is_summary_output_request(query, signals, query_understanding):

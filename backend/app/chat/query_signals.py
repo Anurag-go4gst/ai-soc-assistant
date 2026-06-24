@@ -85,6 +85,9 @@ def _explicit_log_search_requested(normalized: str) -> bool:
 
 
 
+_PAT_TOKEN_RE = re.compile(r"\b(?:pat|personal access token|leaked pat)\b", re.I)
+
+
 def is_github_investigation_query(query: str) -> bool:
     """SOC asks about GitHub PAT/workflow/commit/audit investigation (review-only)."""
     normalized = " ".join(str(query or "").lower().split())
@@ -94,11 +97,9 @@ def is_github_investigation_query(query: str) -> bool:
         term in normalized
         for term in ("github", "git hub", "github.com", "github actions", "gitlab", "gitea")
     )
-    github_artifact = any(
+    github_artifact = bool(_PAT_TOKEN_RE.search(normalized)) or any(
         term in normalized
         for term in (
-            "pat",
-            "personal access token",
             "workflow",
             "workflow_dispatch",
             "repo.push",
@@ -111,10 +112,20 @@ def is_github_investigation_query(query: str) -> bool:
             "actions workflow",
             "workflow file",
             "push unauthorized",
-            "leaked pat",
         )
     )
     return github_ref and github_artifact
+
+
+def is_cross_skill_investigation_query(query: str) -> bool:
+    """CVE + MITRE + GitHub (or explicit cross-skill) multi-domain review plan."""
+    normalized = " ".join(str(query or "").lower().split())
+    if "cross-skill" in normalized or "cross skill" in normalized:
+        return True
+    has_cve = "cve" in normalized
+    has_mitre = "mitre" in normalized or "att&ck" in normalized
+    has_github = "github" in normalized or is_github_investigation_query(query)
+    return sum((has_cve, has_mitre, has_github)) >= 2
 
 def extract_query_signals(
     query: str,
@@ -700,6 +711,7 @@ def extract_query_signals(
     # their honest outcomes. Safe because the SPL producer is governed: it validates,
     # quality-lints, and forces execution off (no raw free-form SPL reaches the analyst).
     github_investigation_shaped = is_github_investigation_query(query)
+    cross_skill_investigation = is_cross_skill_investigation_query(query)
 
     soc_detection_intent = bool(
         (
@@ -793,6 +805,7 @@ def extract_query_signals(
         "exact_105_hunt_spl": exact_105_hunt_spl,
         "soc_investigation_shaped": soc_investigation_shaped,
         "github_investigation_shaped": github_investigation_shaped,
+        "cross_skill_investigation": cross_skill_investigation,
         "soc_actionable_hunt": soc_actionable_hunt,
         "soc_detection_intent": soc_detection_intent,
         "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),

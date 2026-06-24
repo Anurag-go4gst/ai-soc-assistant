@@ -49,6 +49,15 @@ _SUMMARY_PREFIX_MARKERS = (
 )
 
 
+
+def alert_summary_default_actions() -> list[str]:
+    return [
+        "Confirm affected assets, identities, sources, and the observation window.",
+        "Corroborate the described sequence in auth, endpoint, and network telemetry.",
+        "Decide whether the activity is sanctioned maintenance or needs escalation.",
+    ]
+
+
 def build_alert_summary_message(
     *,
     user_query: str,
@@ -82,11 +91,7 @@ def build_alert_summary_message(
     plan = evidence_plan if isinstance(evidence_plan, dict) else {}
     actions = _safe_display_list(plan.get("checklist") or [])
     if not actions:
-        actions = [
-            "Confirm affected assets, identities, sources, and the observation window.",
-            "Corroborate the described sequence in auth, endpoint, and network telemetry.",
-            "Decide whether the activity is sanctioned maintenance or needs escalation.",
-        ]
+        actions = alert_summary_default_actions()
     unknowns = _safe_display_list(plan.get("limitations") or plan.get("unsupported_claims_avoid") or [])
     if not unknowns:
         unknowns = [
@@ -205,6 +210,33 @@ def build_analyst_response_for_live(
             user_query=user_query,
         )
     intent = intent_classification if isinstance(intent_classification, dict) else {}
+    if str(intent.get("primary_intent") or "") == "cross_skill_investigation":
+        from app.synthesis.deterministic_prose_stitch import build_cross_skill_investigation_message
+
+        cross_message = build_cross_skill_investigation_message(user_query)
+        direct = str(message or "").strip() or cross_message
+        if "Cross-skill investigation plan" not in direct:
+            direct = cross_message
+        recommended = [
+            "CVE leg: confirm affected versions and missing patch evidence.",
+            "MITRE leg: apply candidate/not-claimed labels with evidence thresholds.",
+            "GitHub leg: collect actor, PAT, commit timeline, workflow diff, and audit events.",
+        ]
+        envelope = AnalystResponseEnvelope(
+            finding_title="Cross-skill investigation plan",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=recommended,
+            analyst_checklist=recommended,
+            investigation_steps=recommended,
+            response_profile="hybrid_alert_review",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            mitre_mappings=mitre_rows,
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            envelope = apply_final_answer_readability(envelope, contract)
+        return envelope
     if str(intent.get("intent_family") or "") == "github_investigation":
         from app.chat.guidance_templates import build_github_investigation_guidance
 
@@ -213,11 +245,19 @@ def build_analyst_response_for_live(
         if not direct.startswith("GitHub investigation"):
             direct = github_message
         recommended = _safe_display_list(plan.get("checklist") or [])[:8]
+        if not recommended:
+            recommended = [
+                "Actor / username: map PAT or OAuth identity to org/repo membership.",
+                "Token type / PAT provenance: scope, creation, last use, rotation status.",
+                "Commit SHA / timeline and workflow file diff in the observation window.",
+                "Audit log events: repo.push, workflow_dispatch, oauth_access for the actor.",
+            ]
         envelope = AnalystResponseEnvelope(
             finding_title="GitHub investigation guidance",
             one_sentence_finding=direct[:1200],
             direct_answer_summary=direct[:2000],
             recommended_actions=recommended,
+            analyst_checklist=recommended,
             investigation_steps=recommended,
             response_profile="hybrid_alert_review",
             execution_status=str(execution_payload.get("status") or "skipped") or None,
@@ -243,12 +283,13 @@ def build_analyst_response_for_live(
             pass
         else:
             direct = f"{summary_message}\n\n{direct}".strip()
-        recommended = _safe_display_list(plan.get("checklist") or [])[:6]
+        recommended = _safe_display_list(plan.get("checklist") or [])[:6] or alert_summary_default_actions()
         envelope = AnalystResponseEnvelope(
             finding_title="Analyst summary",
             one_sentence_finding=direct[:1200],
             direct_answer_summary=direct[:2000],
             recommended_actions=recommended,
+            analyst_checklist=recommended,
             response_profile="hybrid_alert_review",
             execution_status=str(execution_payload.get("status") or "skipped") or None,
             mitre_mappings=mitre_rows,

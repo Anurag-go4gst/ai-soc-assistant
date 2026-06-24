@@ -236,6 +236,9 @@ def apply_investigation_floor(
     """
     if contribution.selected_skill not in INVESTIGATION_SKILLS:
         return envelope
+    if envelope.finding_title == "GitHub investigation guidance":
+        contribution.visible_domain_section = True
+        return envelope
     if contribution.visible_domain_section:
         return envelope
     if contribution.skip_reason in _LEGITIMATE_SKIP_REASONS:

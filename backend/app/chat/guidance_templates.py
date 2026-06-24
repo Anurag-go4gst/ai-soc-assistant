@@ -195,7 +195,7 @@ def build_github_investigation_guidance(query: str) -> str:
         "- Revoke or rotate suspect PATs and narrow scopes; pause affected workflows until validated.\n"
         "- Require analyst approval before re-enabling workflows or merging further changes.\n\n"
         "Governance: candidate-only conclusions; no confirmed MITRE technique or severity; "
-        "no Splunk search or MCP execution was performed; execution_eligible=false."
+        "no Splunk search or MCP execution was performed; candidate conclusions only (not eligible for execution)."
     )
 
 def build_guided_investigation_guidance(query: str, entities: dict | None = None) -> str:

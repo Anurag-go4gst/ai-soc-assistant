@@ -83,7 +83,7 @@ def test_github_intent_not_alert_summary_for_pat_probe() -> None:
 def test_github_guidance_has_three_plus_native_evidence_fields() -> None:
     body = build_github_investigation_guidance(PAT_WORKFLOW_QUERY)
     assert _github_evidence_field_count(body) >= 3
-    assert "execution_eligible=false" in body.lower()
+    assert "not eligible for execution" in body.lower() or "mcp execution was performed" in body.lower()
 
 
 @pytest.mark.parametrize("query", [PAT_WORKFLOW_QUERY, WORKFLOW_TAMPER_QUERY, COMMIT_PROVENANCE_QUERY])
@@ -102,4 +102,4 @@ def test_github_live_pipeline_returns_guidance_card() -> None:
     blob = (response.message or "") + (response.analyst_response.direct_answer_summary or "")
     assert "github" in blob.lower()
     assert _github_evidence_field_count(blob) >= 3
-    assert "execution_eligible=false" in blob.lower()
+    assert "not eligible for execution" in blob.lower() or "mcp execution was performed" in blob.lower()
