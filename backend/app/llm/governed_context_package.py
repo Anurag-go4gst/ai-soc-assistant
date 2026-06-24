@@ -129,9 +129,17 @@ _CONTEXT_CACHE_MAX = 64
 
 
 def cached_context_prompt_block(package: GovernedContextPackage, *, max_chars: int = DEFAULT_MAX_CONTEXT_CHARS) -> str:
-    """Return ``package.to_prompt_block()`` with a bounded in-process cache."""
+    """Return ``package.to_prompt_block()`` with a bounded in-process cache.
+
+    The cache key must cover every input that changes the rendered block — all
+    package fields (not just query/match_path/skill) and ``max_chars`` — otherwise a
+    thin intent-node package and a finalize-stage enriched package for the same query
+    collide and the second caller gets a stale block.
+    """
+    import dataclasses
+
     key = hashlib.sha256(
-        (package.raw_query + "|" + str(package.match_path) + "|" + str(package.routed_skill)).encode()
+        (repr(dataclasses.astuple(package)) + f"|max_chars={max_chars}").encode()
     ).hexdigest()[:32]
     cached = _CONTEXT_PROMPT_CACHE.get(key)
     if cached is not None:
