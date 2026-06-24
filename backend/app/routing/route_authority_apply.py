@@ -29,9 +29,12 @@ def project_compare_for_display(
     """
     if not isinstance(compare, dict):
         return compare
+    # Idempotent: a dict that already carries raw_shadow_compare is projected.
+    if "raw_shadow_compare" in compare:
+        return compare
     if authority_holder != CANONICAL_RUN_CONTRACT_AUTHORITY:
         return compare
-    raw = {key: value for key, value in compare.items() if key != "raw_shadow_compare"}
+    raw = dict(compare)
     projected = dict(compare)
     projected["raw_shadow_compare"] = raw
     projected["authority_holder"] = CANONICAL_RUN_CONTRACT_AUTHORITY
@@ -39,6 +42,10 @@ def project_compare_for_display(
     projected["legacy_intent_authority"] = False
     projected["canonical_skill"] = canonical_skill
     projected["legacy_skill"] = legacy_skill
+    # No top-level field may read as the legacy route once canonical holds
+    # authority; the legacy wire mirror stays under raw_shadow_compare only.
+    projected["selected_skill"] = canonical_skill
+    projected.pop("legacy_selected_skill_preserved", None)
     projected["authority_trace"] = (
         "Legacy route observed for comparison only. "
         "Final authority is canonical_run_contract."

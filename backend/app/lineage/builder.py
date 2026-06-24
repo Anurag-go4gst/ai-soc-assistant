@@ -33,6 +33,7 @@ def build_investigation_lineage(
     collected_evidence_count: int | None = None,
     execution_authorized: bool = False,
     allow_results_table: bool = False,
+    candidate_artifact_count: int = 0,
 ) -> InvestigationLineage:
     use_case_id = selected_use_case.use_case_id if selected_use_case else None
     stages = [
@@ -84,11 +85,16 @@ def build_investigation_lineage(
                 "source_evidence",
                 "complete" if _collected > 0 else ("metadata_only" if source_evidence else "skipped"),
                 "Source evidence",
-                f"{_collected} collected telemetry record(s). {_review_artifacts} review artifact(s) packaged.",
+                (
+                    f"{_collected} collected telemetry record(s). "
+                    f"{_review_artifacts} review artifact(s) packaged."
+                    + (f" {candidate_artifact_count} candidate artifact(s) (SPL/validation) tracked." if candidate_artifact_count else "")
+                ),
                 {
                     "evidence_count": len(source_evidence),
                     "collected_evidence_count": _collected,
                     "review_artifact_count": _review_artifacts,
+                    "candidate_artifact_count": candidate_artifact_count,
                 },
                 ["splunk_results_table"] if allow_results_table else [],
                 "live" if execution_authorized else "review_only",
@@ -245,7 +251,7 @@ def _route_authority_compare_stage(route_plan_shadow: dict[str, Any]) -> Lineage
         "route_authority_compare",
         status,
         "Route authority compare (shadow)",
-        "Dual-run compare of legacy selected_skill vs route_plan primary_skill; no authority migration.",
+        "Dual-run compare of legacy route vs route_plan primary_skill; legacy shown for comparison only — final authority is canonical_run_contract.",
         dict(compare),
         [],
         "shadow",
@@ -260,7 +266,7 @@ def _intent_operation_bridge_stage(route_plan_shadow: dict[str, Any]) -> Lineage
         "intent_operation_bridge",
         status,
         "Intent ↔ operation bridge (shadow)",
-        "Legacy SKILL_ENUM intent compared to route_plan.primary_skill for lineage only; selected_skill unchanged.",
+        "Legacy SKILL_ENUM intent compared to route_plan.primary_skill for lineage only; final route authority is canonical_run_contract.",
         dict(bridge),
         [],
         "shadow",

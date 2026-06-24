@@ -1808,6 +1808,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         collected_evidence_count=run_contract.collected_evidence_count,
         execution_authorized=run_contract.execution_authorized,
         allow_results_table=run_contract.allow_results_table,
+        candidate_artifact_count=run_contract.source_evidence_summary.candidate_artifact_count,
     )
 
     planning_decision = state.get("planning_decision")
@@ -2782,7 +2783,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         selected_skill=run_contract.routing.canonical_skill,
         primary_operation=primary_operation,
         coverage_id=coverage_id,
-        route_authority=route_authority,
+        route_authority=_route_authority_payload(route_plan_shadow),
         legacy_intent_authority=bool(
             (routing_skill_resolution or {}).get("legacy_intent_authority", True)
         ),
