@@ -151,3 +151,30 @@ def test_knowledge_turn_without_hits_clears_execution_approval() -> None:
     assert human_review is not None
     assert human_review.get("review_type") == "none"
     assert human_review.get("reason") == "knowledge_only_no_execution"
+
+
+def test_regulatory_no_hits_rebuilds_card_after_gate_null() -> None:
+    """Regulatory surfacing must rebuild a card when finalize gate nulled analyst_response."""
+    stub = "No governed KB/SOP match was found for this request. I did not generate SPL, call MCP, or infer MITRE evidence."
+    contract = AnswerContract(
+        intent_family="policy_knowledge",
+        answer_mode="rag_only",
+        render_sections={},
+        spl_present=False,
+        spl_status="not_required",
+    )
+    message, updated_contract, updated_response, _ = apply_rag_answer_surfacing(
+        message=stub,
+        answer_contract=contract,
+        analyst_response=None,
+        source_evidence=[],
+        evidence_plan={"answer_mode": "rag_only"},
+        context_sufficiency={"status": "knowledge_only_answer"},
+        user_query=PK003_QUERY,
+        human_review={"required": False, "review_type": "execution_approval"},
+    )
+    assert is_rag_stub_message(stub)
+    assert "Regulatory" in message or "CERT-In" in message
+    assert updated_response is not None
+    summary = updated_response.direct_answer_summary or ""
+    assert "CERT-In" in summary or "reporting" in summary.lower()

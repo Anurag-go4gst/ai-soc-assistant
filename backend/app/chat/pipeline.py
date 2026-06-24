@@ -2340,14 +2340,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 or answer_contract.missing_evidence
             )
         )
-        has_shaped_message = bool(
-            message
-            and match_path_for_t2 == "out_of_registry"
-            and path_type
-            in {"guided_investigation", "hybrid_investigation", "spl_review", "spl_review_plus_rag"}
-            and not message.lower().startswith("no governed kb/sop match")
-        )
-        if not has_guidance and not has_shaped_message:
+        from app.chat.rag_answer_surfacing import is_substantive_guidance_message
+
+        if not has_guidance and not is_substantive_guidance_message(message):
             analyst_response = None
     if settings.ai_soc_t2_rag_surfacing_enabled:
         from app.chat.rag_answer_surfacing import apply_rag_answer_surfacing

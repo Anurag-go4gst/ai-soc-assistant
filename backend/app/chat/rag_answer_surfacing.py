@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.chat.analyst_response_builder import _playbook_from_rag
@@ -70,6 +71,39 @@ def build_rag_knowledge_message(
 def is_rag_stub_message(message: str | None) -> bool:
     lowered = str(message or "").lower()
     return any(phrase in lowered for phrase in _RAG_STUB_PHRASES)
+
+
+# Tolerate any punctuation/whitespace joiner between the two clauses
+# ("Routing complete. SPL ...", "Routing complete — SPL ...", "Routing complete: SPL ...").
+_ROUTING_COMPLETE_ONLY = re.compile(
+    r"^routing complete[\s.\-—:,;]*spl is not required", re.IGNORECASE
+)
+
+# Low-value / non-analyst phrases that can exceed the length floor yet carry no
+# shaped guidance. Substring match (case-insensitive). Keep additive: a new stub
+# template must be added here AND covered by a denylist regression test.
+_NON_SUBSTANTIVE_PHRASES = (
+    "generic soc guidance path selected",
+    "unable to find a specific governed answer",
+    "no governed answer was found",
+)
+
+
+def is_substantive_guidance_message(message: str | None) -> bool:
+    """True when finalize ``message`` is analyst-facing shaped guidance, not a routing stub."""
+    text = str(message or "").strip()
+    if len(text) < 80:
+        return False
+    if is_rag_stub_message(text):
+        return False
+    lowered = text.lower()
+    if _ROUTING_COMPLETE_ONLY.search(lowered):
+        return False
+    if lowered.startswith("investigation planning is complete"):
+        return False
+    if any(phrase in lowered for phrase in _NON_SUBSTANTIVE_PHRASES):
+        return False
+    return True
 
 
 def _normalize_knowledge_human_review(human_review: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -145,6 +179,15 @@ def apply_rag_answer_surfacing(
                 from app.chat.final_answer_readability import apply_final_answer_readability
 
                 updated_response = apply_final_answer_readability(updated_response, updated_contract)
+            elif analyst_response is None and is_substantive_guidance_message(surfaced_message):
+                # Gate nulls the card on the pre-surfacing stub; rebuild from surfaced body.
+                updated_response = AnalystResponseEnvelope(
+                    direct_answer_summary=surfaced_message[:2000],
+                    one_sentence_finding=surfaced_message[:1200],
+                    finding_title="Regulatory / reporting guidance",
+                    response_profile="knowledge_recall",
+                    execution_status="skipped",
+                )
             return surfaced_message, updated_contract, updated_response, updated_review
         return message, answer_contract, analyst_response, updated_review
 
