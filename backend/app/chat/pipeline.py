@@ -1713,6 +1713,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if isinstance(state.get("intent_classification"), dict)
         else None,
     )
+    _intent_payload = state.get("intent_classification") if isinstance(state.get("intent_classification"), dict) else {}
+    from app.synthesis.deterministic_prose_stitch import apply_deterministic_prose_enhancements
+
+    message = apply_deterministic_prose_enhancements(
+        message,
+        user_query=request.message,
+        intent_family=str(_intent_payload.get("intent_family") or "") or None,
+        primary_intent=str(_intent_payload.get("primary_intent") or "") or None,
+    )
     note = _chat_note(
         spl_validation,
         execution,
@@ -4734,8 +4743,14 @@ def _chat_message(
 
     path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
     intent_family = ""
+    primary_intent = ""
     if isinstance(intent_classification, dict):
         intent_family = str(intent_classification.get("intent_family") or "")
+        primary_intent = str(intent_classification.get("primary_intent") or "")
+    if primary_intent == "cross_skill_investigation" and user_query:
+        from app.synthesis.deterministic_prose_stitch import build_cross_skill_investigation_message
+
+        return build_cross_skill_investigation_message(user_query)
     if intent_family == "github_investigation" and user_query:
         from app.chat.guidance_templates import build_github_investigation_guidance
 

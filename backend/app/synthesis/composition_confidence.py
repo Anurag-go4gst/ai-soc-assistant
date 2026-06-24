@@ -32,6 +32,8 @@ def qualifies_for_weak_case_composition(
         return True
     if path_type == "guided_investigation" or mode == "guided_investigation" or family == "guided_investigation":
         return True
+    if family in {"alert_summary", "github_investigation"}:
+        return True
     if family == "knowledge_only":
         return True
     if mode == "rag_only" and family not in {
