@@ -1,14 +1,49 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Circle, Loader2, MinusCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Circle, Loader2, MinusCircle, Server } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { InvestigationProgressState, InvestigationProgressStep } from '@/lib/investigationProgress';
+import type { EcProvenance } from '@/types/api';
 
 interface InvestigationProgressPanelProps {
   state: InvestigationProgressState;
   demoMode?: boolean;
+  /** Capture provenance — gates the MCP-transport honesty badge (B6). */
+  ecProvenance?: EcProvenance | null;
   onRetryFinalSynthesis?: () => void;
+}
+
+/**
+ * MCP-transport honesty badge (B6). Gated entirely off the provenance value so the
+ * claim auto-corrects when a scenario is re-captured against a real Splunk MCP.
+ * `transport=fake` → "simulated lifecycle replay"; `transport=live` → "live".
+ */
+function McpTransportBadge({ provenance }: { provenance: EcProvenance }) {
+  const transport = provenance.transport;
+  if (transport !== 'fake' && transport !== 'live') {
+    return null;
+  }
+  const isLive = transport === 'live';
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        'flex items-center gap-1 font-mono text-[0.6rem]',
+        isLive
+          ? 'border-emerald-500/40 text-emerald-200/90'
+          : 'border-slate-600/60 text-slate-400',
+      )}
+      title={
+        isLive
+          ? 'MCP search ran against the live Splunk MCP server.'
+          : 'Captured against a simulated MCP search lifecycle (FakeTransport) — no live backend call.'
+      }
+    >
+      <Server className="h-3 w-3" />
+      {isLive ? 'MCP: live' : 'MCP: simulated lifecycle replay'}
+    </Badge>
+  );
 }
 
 function StepDescription({ step, isActive, isComplete }: { step: InvestigationProgressStep; isActive: boolean; isComplete: boolean }) {
@@ -65,7 +100,7 @@ function LiveElapsed({ className }: { className?: string }) {
   return <span className={cn('font-mono tabular-nums', className)}>{(ms / 1000).toFixed(1)}s</span>;
 }
 
-export function InvestigationProgressPanel({ state, demoMode, onRetryFinalSynthesis }: InvestigationProgressPanelProps) {
+export function InvestigationProgressPanel({ state, demoMode, ecProvenance, onRetryFinalSynthesis }: InvestigationProgressPanelProps) {
   const { steps, activeStepIndex, completedStepIds, finalization } = state;
   const completed = new Set(completedStepIds);
   const hasError = Boolean(state.error);
@@ -96,6 +131,7 @@ export function InvestigationProgressPanel({ state, demoMode, onRetryFinalSynthe
         )}
         <span className="text-sm font-semibold text-cyan-100">{headerLabel}</span>
         {demoMode ? <Badge variant="outline">Experience Center</Badge> : null}
+        {ecProvenance ? <McpTransportBadge provenance={ecProvenance} /> : null}
         {!allDone && !inFinalization && steps[activeStepIndex] ? (
           <Badge variant="secondary" className="font-mono text-[0.65rem]">
             {Math.min(activeStepIndex + 1, steps.length)}/{steps.length}

@@ -18,25 +18,24 @@ def test_demo_envelope_from_rows_fixture_origin() -> None:
     assert envelope.row_count == 3
 
 
-def test_lockout_demo_execution_carries_envelope() -> None:
-    from app.demo.scenarios import run_demo_scenario
-
-    payload = run_demo_scenario("account_lockouts_over_time_spl")
-    assert "splunk_result_envelope" in payload["execution"]
-    assert payload["execution"]["splunk_result_envelope"]["origin"] == "fixture"
-    assert payload["execution"]["splunk_result_envelope"]["schema_confirmed"] is False
-    assert len(payload["execution"]["results_preview"]) == 3
+# The mock-execution lockout demo (account_lockouts_over_time_spl) was removed in the
+# 2026-06-24 EC curation (curated set is execution-disabled). The fixture-envelope
+# mechanism it exercised is verified directly below from the same `_mock_rows_for` source.
 
 
-def test_splunk_mcp_source_evidence_normalized_via_envelope() -> None:
-    from app.demo.scenarios import run_demo_scenario
+def test_lockout_fixture_rows_carry_envelope() -> None:
+    from app.demo.mcp_result_envelope import execution_fields_from_envelope
 
-    payload = run_demo_scenario("account_lockouts_over_time_spl")
-    splunk = next(item for item in payload["source_evidence"] if item["source_type"] == "splunk_mcp")
-    assert splunk["result_count"] == 3
-    assert "_time" in splunk["fields_returned"]
-    assert "schema_unconfirmed:fixture_adapter" in splunk["warnings"]
-    assert splunk["preview_rows"][0]["action"] == "lockout"
+    rows = _mock_rows_for("fixture")
+    envelope = demo_envelope_from_rows(
+        rows, trace_id="demo-trace", normalized_spl="index=pgcil_soc action=lockout"
+    )
+    result_count, results_preview, envelope_dict = execution_fields_from_envelope(envelope)
+    assert envelope_dict["origin"] == "fixture"
+    assert envelope_dict["schema_confirmed"] is False
+    assert result_count == 3
+    assert len(results_preview) == 3
+    assert results_preview[0]["action"] == "lockout"
 
 
 def test_failed_login_visible_analyst_text_unchanged() -> None:

@@ -136,6 +136,12 @@ async def _list_trace_runs_async(
         runs = [_serialize_run(row) for row in rows]
         if runs:
             return runs
+        # Orphan-steps recovery view: steps written without a run row (older schema
+        # or a crash before the run UPSERT). It ignores filters, so only fall back
+        # to it for an unfiltered list — a filtered query that legitimately matches
+        # nothing must return empty, not unrelated synthetic rows.
+        if entrypoint is not None or status is not None or since is not None:
+            return []
         orphan_rows = await conn.fetch(
             """
             SELECT trace_id, MAX(created_at) AS last_event_at, COUNT(*)::int AS event_count
@@ -332,6 +338,10 @@ def _serialize_run(row: asyncpg.Record | None) -> dict[str, Any]:
         "answer_mode": metadata.get("answer_mode"),
         "selected_skill": metadata.get("selected_skill"),
         "turn_id": metadata.get("turn_id"),
+        "question_preview": metadata.get("question_preview"),
+        "answer_preview": metadata.get("answer_preview"),
+        "llm_used": metadata.get("llm_used"),
+        "mcp_used": metadata.get("mcp_used"),
     }
 
 
@@ -434,6 +444,10 @@ def _finalize_file_run(run: dict[str, Any]) -> None:
     run["answer_mode"] = metadata.get("answer_mode")
     run["selected_skill"] = metadata.get("selected_skill")
     run["turn_id"] = metadata.get("turn_id")
+    run["question_preview"] = metadata.get("question_preview")
+    run["answer_preview"] = metadata.get("answer_preview")
+    run["llm_used"] = metadata.get("llm_used")
+    run["mcp_used"] = metadata.get("mcp_used")
 
 
 def _file_list_trace_runs(

@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import type {
   CandidateSplEnvelope,
   ChatExecutionReviewOptions,
+  EcProvenance,
   ExecutionEnvelope,
   HumanReviewEnvelope,
   PlaceholderResponse,
@@ -29,6 +30,8 @@ export interface SocChatMessage {
   displayStage?: AssistantDisplayStage;
   investigationProgress?: InvestigationProgressState | null;
   progressDemoMode?: boolean;
+  /** Capture provenance for the MCP-transport honesty badge (B6). */
+  ecProvenance?: EcProvenance | null;
   traceId?: string;
   note?: string;
   routing?: {
@@ -95,6 +98,7 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
           <InvestigationProgressPanel
             state={message.investigationProgress}
             demoMode={message.progressDemoMode ?? message.trace?.demo_mode ?? false}
+            ecProvenance={message.ecProvenance ?? message.trace?.ec_provenance ?? null}
             onRetryFinalSynthesis={onRetryFinalSynthesis}
           />
         ) : null}

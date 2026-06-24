@@ -95,6 +95,25 @@ export interface PlaceholderResponse {
   answer_guard_status?: string | null;
   final_answer_safety_status?: string | null;
   session_context_status?: SessionContextStatusEnvelope | null;
+  /** Experience Center capture provenance (B6 honesty badge). */
+  ec_provenance?: EcProvenance | null;
+  /** Per-stage recorded/replayed latency for staged-progress replay (B4). */
+  ec_stage_latencies?: EcStageLatency[] | null;
+}
+
+/** Experience Center capture provenance — drives the MCP-transport honesty badge. */
+export interface EcProvenance {
+  model_id?: string;
+  captured_at?: string;
+  transport?: 'fake' | 'live';
+  live_mcp_called?: boolean;
+}
+
+/** One captured pipeline stage's latency: real measured + capped replay value. */
+export interface EcStageLatency {
+  stage: string;
+  recorded_ms?: number;
+  replayed_ms: number;
 }
 
 export type ChatAnswerFeedbackRating = 'up' | 'down' | 'neutral';
@@ -512,7 +531,15 @@ export interface FoundationSecGovernance {
 export interface DemoScenarioSummary {
   scenario_id: string;
   label: string;
-  category: 'Investigate' | 'Knowledge / SOP' | 'Generate SPL' | 'MITRE Mapping' | 'Air-gapped Mode' | string;
+  category:
+    | 'Alert Triage'
+    | 'Threat Hunt'
+    | 'SPL'
+    | 'MITRE'
+    | 'Knowledge & Compliance'
+    | 'OT/ICS'
+    | 'Guided (out-of-catalog)'
+    | string;
   query: string;
   environment_mode: string;
   demo_badge: string;
@@ -1517,6 +1544,10 @@ export interface DebugTraceRun {
   answer_mode?: string | null;
   selected_skill?: string | null;
   turn_id?: string | null;
+  question_preview?: string | null;
+  answer_preview?: string | null;
+  llm_used?: boolean | null;
+  mcp_used?: boolean | null;
 }
 
 export interface DebugTraceEvent {

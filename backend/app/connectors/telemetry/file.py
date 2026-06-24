@@ -73,6 +73,11 @@ class FileTelemetryConnector:
             ended_at=_now(),
         )
 
+    def reap_stale_running_runs(self, *, older_than_seconds: int = 900) -> None:
+        # Append-only NDJSON sink: runs are reassembled on read, so there is no
+        # in-place row to update. Stale-run closeout is a no-op for the file sink.
+        return None
+
     def merge_run_metadata(self, trace_id: str, metadata: dict[str, Any]) -> None:
         self._append("run_merge", trace_id, metadata=minimize(metadata))
 

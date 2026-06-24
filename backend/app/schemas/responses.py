@@ -507,3 +507,9 @@ class PlaceholderResponse(BaseModel):
     answer_guard_status: str | None = None
     final_answer_safety_status: str | None = None
     session_context_status: SessionContextStatusEnvelope | None = None
+    # Experience Center capture/provenance surfacing (plan 2026-06-24, Tracks B2/B6).
+    # Demo-time posture is always no-live-call; ec_provenance badges the captured source.
+    live_mcp_called: bool | None = None
+    ec_answer_source: str | None = None
+    ec_provenance: dict[str, object] | None = None
+    ec_stage_latencies: list[dict[str, object]] | None = None

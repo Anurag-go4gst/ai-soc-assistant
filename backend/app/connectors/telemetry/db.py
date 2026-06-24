@@ -153,6 +153,26 @@ class DbTelemetryConnector:
         )
         return test_run_id
 
+    def reap_stale_running_runs(self, *, older_than_seconds: int = 900) -> None:
+        """Mark long-orphaned ``running`` runs as ``abandoned`` (best-effort).
+
+        A turn that crashes or whose backend restarts mid-pipeline never reaches
+        ``end_trace``, leaving its admission row stuck in ``running`` forever. We
+        close those out so the debug trace list reflects reality. The threshold
+        sits well above the worst-case turn wall time (LLM timeout + overhead) so
+        a slow-but-live turn is never abandoned out from under itself.
+        """
+        self._run(
+            """
+            UPDATE ai_trace_runs
+            SET status = 'abandoned', ended_at = now()
+            WHERE status = 'running'
+              AND ended_at IS NULL
+              AND started_at < now() - ($1 || ' seconds')::interval
+            """,
+            str(int(older_than_seconds)),
+        )
+
     def end_trace(self, trace_id: str, status: str = "completed", **fields: Any) -> None:
         self._run(
             """

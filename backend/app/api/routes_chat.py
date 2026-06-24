@@ -98,7 +98,8 @@ def _persist_admission_record(trace_id: str, user: object) -> None:
     """
     try:
         session_role = user.get("role") if isinstance(user, dict) else None
-        get_telemetry_connector().start_trace(
+        connector = get_telemetry_connector()
+        connector.start_trace(
             trace_id,
             entrypoint="chat",
             status="running",
@@ -106,6 +107,9 @@ def _persist_admission_record(trace_id: str, user: object) -> None:
             user_id=session_role,
             metadata={"admission": True, "session_role": session_role},
         )
+        # Opportunistic sweep: close out runs that crashed or were interrupted
+        # mid-pipeline and never reached end_trace, so the debug list stays honest.
+        connector.reap_stale_running_runs()
     except Exception:  # noqa: BLE001 - admission telemetry must never break chat
         logger.warning("chat_admission_record_failed trace_id=%s", trace_id, exc_info=True)
 
@@ -121,7 +125,9 @@ def _chat_impl(request: ChatRequest, user: object) -> PlaceholderResponse:
         )
 
     if settings.ai_soc_live_chat_ec_parity_enabled:
-        scenario_id = resolve_demo_scenario_id_for_query(request.message)
+        scenario_id = resolve_demo_scenario_id_for_query(
+            request.message, session_id=request.session_id
+        )
         if scenario_id:
             return post_chat_response(
                 PlaceholderResponse(**run_demo_scenario(scenario_id)),

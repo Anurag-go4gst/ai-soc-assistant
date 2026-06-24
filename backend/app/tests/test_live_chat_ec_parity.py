@@ -8,11 +8,8 @@ from app.schemas.requests import ChatRequest
 
 
 def test_resolve_demo_scenario_exact_query_match() -> None:
-    query = (
-        "Generate SPL for successful login after failures and run on host APP-01 "
-        "in index pgcil_soc sourcetype pgcil:auth for the last 60 minutes"
-    )
-    assert resolve_demo_scenario_id_for_query(query) == "successful_login_after_failures_run"
+    query = "Generate SPL for successful login after failures"
+    assert resolve_demo_scenario_id_for_query(query) == "successful_login_after_failures"
 
 
 def test_resolve_demo_scenario_returns_none_for_unknown_query() -> None:

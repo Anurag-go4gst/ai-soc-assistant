@@ -80,21 +80,19 @@ def test_get_demo_scenarios_returns_all_stage3jd_scenarios() -> None:
     assert payload["demo_mode"] is True
     assert payload["evidence_origin"] == "coe_synthetic_fixture"
     assert payload["no_live_customer_data"] is True
+    # Curated v1 set (plan 2026-06-24). The clarification (fsm_step==0) turn of the
+    # MITRE require-input showcase is internal, not a pickable scenario.
     assert scenario_ids == {
         "failed_login_spike_app01",
-        "new_source_ip_logins",
         "successful_login_after_failures",
-        "successful_login_after_failures_run",
         "brute_force_sop_guidance",
-        "account_lockouts_over_time_spl",
         "mitre_mapping_auth_alert",
-        "mitre_mapping_requires_context",
-        "mcp_metadata_discovery_app01",
-        "airgapped_no_saia_success_after_failures",
         "dns_beaconing_c2_hunt",
-        "dns_beaconing_c2_hunt_run",
         "critical_alerts_mitre_cve_review",
         "guided_investigation_supply_chain",
+        "cert_in_ot_reporting_obligation",
+        "ot_modbus_scada_rtu_anomaly",
+        "ot_hmi_unauthorized_access",
     }
 
 
@@ -236,15 +234,13 @@ def test_mitre_visible_response_has_mapping_table_without_internal_labels() -> N
         assert term.lower() not in visible.lower()
 
 
-def test_airgapped_demo_has_no_saia_and_fallback_active() -> None:
-    response = _run("airgapped_no_saia_success_after_failures")
+def test_curated_spl_scenario_carries_capability_profile() -> None:
+    # The air-gapped/no-SAIA demo was removed in the 2026-06-24 curation; the
+    # capability-profile governance contract is still exercised on a retained SPL scenario.
+    response = _run("successful_login_after_failures")
 
-    assert response.saia_available is False
-    assert response.fallback_active is True
+    assert response.saia_available is True
     assert response.candidate_spl is not None
-    assert response.candidate_spl.fallback_required is True
-    assert response.structured_context is not None
-    assert response.structured_context.fallback_mode is True
     assert response.spl_validation is not None
     assert response.spl_validation.capability_profile is not None
     assert response.spl_validation.capability_profile["mcp_available"] is True
@@ -299,7 +295,7 @@ def test_stage3jj_failed_login_answer_uses_governed_foundation_sec_posture() -> 
 
 
 def test_stage3jj_spl_answers_are_template_generated_and_not_execution_eligible() -> None:
-    for scenario_id in ("successful_login_after_failures", "airgapped_no_saia_success_after_failures", "account_lockouts_over_time_spl"):
+    for scenario_id in ("successful_login_after_failures",):
         response = _run(scenario_id)
         visible = _visible_text(response)
 
@@ -311,38 +307,17 @@ def test_stage3jj_spl_answers_are_template_generated_and_not_execution_eligible(
         assert "execution_eligible=true" not in visible
 
 
-def test_success_after_failures_run_executes_mock_and_analyzes_rows() -> None:
-    response = _run("successful_login_after_failures_run")
-    visible = _visible_text(response)
-
-    assert response.foundation_sec_governance is not None
-    assert response.execution is not None
-    assert response.execution.status == "executed"
-    assert response.execution.executed_spl is not None
-    assert response.analyst_response is not None
-    assert response.analyst_response.response_profile == "spl_executed"
-    assert response.analyst_response.execution_status == "executed"
-    assert response.analyst_response.splunk_results_table
-    assert response.analyst_response.splunk_results_table[0]["User"] == "svc_grid_ops"
-    assert "T1110.001" in visible
-    assert "Supported" in visible
-    assert "T1078" in visible
-    assert "Requires validation" in visible
-    assert "t1078 confirmed" not in visible.lower()
-    assert "post-login malicious activity" not in visible.lower()
-    assert "svc_grid_ops is privileged" not in visible.lower()
+# The mock-execution "+ run" demo variants were removed in the 2026-06-24 curation
+# (curated set is intentionally execution-disabled). Mock MCP execution remains
+# covered by app/tests/test_demo_splunk_envelope_stage3m_s3.py via the envelope path.
 
 
 def test_stage3jj3_foundation_sec_governance_serializes_for_experience_center() -> None:
+    # Retained curated scenarios that carry a Foundation-sec governance fixture.
     scenario_ids = (
         "failed_login_spike_app01",
-        "new_source_ip_logins",
-        "successful_login_after_failures_run",
         "mitre_mapping_auth_alert",
         "mitre_mapping_requires_context",
-        "mcp_metadata_discovery_app01",
-        "account_lockouts_over_time_spl",
-        "airgapped_no_saia_success_after_failures",
     )
 
     for scenario_id in scenario_ids:
@@ -387,18 +362,20 @@ def test_stage3jj3_success_after_failure_generate_only_has_no_foundation_sec_gov
 
 
 def test_stage3jj3_success_after_failure_governance_keeps_t1078_validation_required() -> None:
-    response = _run("successful_login_after_failures_run")
+    # The "+ run" demo was removed in the 2026-06-24 curation; the governance property
+    # (T1078 stays validation-required / candidate, never confirmed) is exercised on the
+    # retained provided-context MITRE mapping scenario.
+    response = _run("mitre_mapping_auth_alert")
     text = _main_answer_text(response)
 
-    assert "58 failures" in text or "58 failures and 1 success" in text
-    assert "requires_validation" in text
     assert "T1078" in text
-    assert "EDR telemetry" in text
-    assert "MFA/session context" in text
-    assert "APP-01 CMDB criticality" in text
+    assert response.structured_context is not None
+    mitre = response.structured_context.mitre_candidates
+    assert any(
+        item.get("technique_id") == "T1078" and item.get("support") == "analyst_review"
+        for item in mitre
+    )
     assert "T1078 confirmed" not in text
-    assert "svc_grid_ops is privileged" not in text
-    assert "APP-01 is critical" not in text
     assert "post-login malicious activity occurred" not in text
 
 
@@ -414,20 +391,15 @@ def test_stage3jj3_mitre_clarification_overrides_model_attempt() -> None:
     assert "No MITRE technique is selected without event evidence" in text
 
 
-def test_stage3jj3_mcp_discovery_rejects_invented_locations() -> None:
-    response = _run("mcp_metadata_discovery_app01")
-    text = _main_answer_text(response)
-
-    assert response.candidate_spl is None
-    assert "splunk_get_indexes" in text
-    assert "splunk_get_metadata" in text
-    assert "invented index and sourcetype names" in text
-    assert "index=authentication" not in text
-    assert "sourcetype=app01_auth" not in text
+# test_stage3jj3_mcp_discovery_* removed with the mcp_metadata_discovery_app01 demo
+# (2026-06-24 curation). Deterministic tool-mapping/discovery governance is covered by
+# the MCP tool-plan-shadow and resource-planner tests on retained scenarios.
 
 
 def test_stage3jj3_spl_governance_forces_model_spl_candidate_only() -> None:
-    response = _run("airgapped_no_saia_success_after_failures")
+    # Retargeted from the removed air-gapped demo to a retained SPL scenario; the
+    # guarantee (candidate SPL is never executable) is identical.
+    response = _run("successful_login_after_failures")
     text = _main_answer_text(response)
 
     # Governed guarantee for SPL-only scenarios: the candidate SPL is never
@@ -466,7 +438,7 @@ def test_stage3jj3_success_after_failure_trace_uses_success_template() -> None:
 
 
 def test_stage3jj3_clarification_and_discovery_do_not_show_unrelated_sop() -> None:
-    for scenario_id in ("mitre_mapping_requires_context", "mcp_metadata_discovery_app01"):
+    for scenario_id in ("mitre_mapping_requires_context",):
         response = _run(scenario_id)
 
         assert response.analyst_response is not None
@@ -474,16 +446,8 @@ def test_stage3jj3_clarification_and_discovery_do_not_show_unrelated_sop() -> No
         assert response.analyst_response.sop_guidance is None
 
 
-def test_stage3jj3_mcp_discovery_trace_is_not_unknown_or_clarification() -> None:
-    response = _run("mcp_metadata_discovery_app01")
-
-    assert response.query_understanding is not None
-    assert response.query_understanding.primary_intent == "splunk_metadata_discovery"
-    assert response.query_understanding.requested_output_type == "spl"
-    assert response.query_understanding.output_template == "spl_response"
-    assert response.query_understanding.mapped_use_case_ids == ["soc_generate_spl"]
-    assert response.selected_use_case is not None
-    assert response.selected_use_case.use_case_id == "soc_generate_spl"
+# test_stage3jj3_mcp_discovery_trace_is_not_unknown_or_clarification removed with the
+# mcp_metadata_discovery_app01 demo (2026-06-24 curation).
 
 
 def test_stage3jj3_trace_wording_mentions_captured_foundation_sec_without_enabling_synthesis() -> None:

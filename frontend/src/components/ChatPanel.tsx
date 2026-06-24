@@ -19,6 +19,7 @@ import {
 } from '@/lib/chatProgressStream';
 import {
   applyServerProgressStage,
+  applyStageLatencies,
   buildInvestigationProgressSteps,
   delay,
   playInvestigationProgress,
@@ -448,18 +449,34 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
       if (!fetcher) {
         throw new Error('Demo investigation requires a fetcher');
       }
-      const fetchPromise = fetcher();
+      // Resolve the frozen capture first so we can replay its real (capped) per-stage
+      // latency (B4). The EC fixture resolves quickly; the staged playback below is
+      // what gives the live end-to-end execution feel.
+      const response = await fetcher();
+      if (isStaleInvestigation(epoch)) return;
+      // Surface the capture provenance (MCP-transport honesty badge) on the progress
+      // message so it shows during the staged MCP handshake replay (B6).
+      if (response.ec_provenance) {
+        const provenance = response.ec_provenance;
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === progressId ? { ...message, ecProvenance: provenance } : message,
+          ),
+        );
+      }
+      // Override step durations with the captured stage_latencies when present;
+      // otherwise the steps keep their synthetic jitter (non-captured scenarios).
+      const replaySteps = applyStageLatencies(steps, response.ec_stage_latencies);
+      let clearTimers: (() => void) | undefined;
+      clearTimers = startFinalizationTimers(progressId, epoch, () => progressSnapshot);
       await playInvestigationProgress(
-        steps,
+        replaySteps,
         (investigationProgress) => {
           progressSnapshot = investigationProgress;
           updateProgressMessage(progressId, epoch, investigationProgress);
         },
         { skipCompletion: true },
       );
-      let clearTimers: (() => void) | undefined;
-      clearTimers = startFinalizationTimers(progressId, epoch, () => progressSnapshot);
-      const response = await fetchPromise;
       clearTimers();
       await finishInvestigation(progressId, epoch, response);
     } catch (error) {

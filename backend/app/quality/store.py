@@ -69,30 +69,54 @@ def post_chat_response(
         record_chat_turn(updated, request, entrypoint=entrypoint, user=user)
     except Exception:  # noqa: BLE001 - quality ledger must never break chat
         metrics.increment("quality_ledger_write_failures")
-    _link_trace_to_turn(updated, user=user)
+    _link_trace_to_turn(updated, request, user=user)
     return updated
+
+
+def _preview(text: Any, *, limit: int = 200) -> str | None:
+    """Short redacted single-line preview for the debug trace list."""
+    if not isinstance(text, str):
+        return None
+    collapsed = " ".join(text.split()).strip()
+    if not collapsed:
+        return None
+    if len(collapsed) > limit:
+        collapsed = collapsed[: limit - 1].rstrip() + "…"
+    return collapsed
 
 
 def _link_trace_to_turn(
     response: PlaceholderResponse,
+    request: ChatRequest,
     *,
     user: dict[str, Any] | str | None,
 ) -> None:
     """Cross-link the telemetry run with the late-bound quality turn_id/user_id.
 
     ``trace_id`` and ``turn_id`` remain separate keys (telemetry vs quality
-    ledger); this merge lets the debug bundle surface both without joining.
+    ledger); this merge lets the debug bundle surface both without joining. We
+    also stamp short redacted question/answer previews and the LLM/MCP-used
+    booleans so the debug trace list reads as "what was asked → what came back"
+    without opening each timeline.
     """
     trace_id = getattr(response, "trace_id", None)
     if not trace_id:
         return
+    payload = response.model_dump(mode="json")
+    execution = payload.get("execution") or {}
+    metadata: dict[str, Any] = {
+        "turn_id": response.turn_id,
+        "user_id": _user_id(user),
+        "question_preview": _preview(request.message),
+        "answer_preview": _preview(payload.get("message")),
+        "selected_skill": payload.get("selected_skill"),
+        "llm_used": _llm_used(payload),
+        "mcp_used": bool(execution.get("selected_mcp_tool")) if isinstance(execution, dict) else False,
+    }
     try:
         from app.connectors.telemetry import get_telemetry_connector
 
-        get_telemetry_connector().merge_run_metadata(
-            str(trace_id),
-            {"turn_id": response.turn_id, "user_id": _user_id(user)},
-        )
+        get_telemetry_connector().merge_run_metadata(str(trace_id), metadata)
     except Exception:  # noqa: BLE001 - telemetry must never break chat
         metrics.increment("telemetry_write_failures")
 
