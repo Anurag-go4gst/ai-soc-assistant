@@ -1,0 +1,5188 @@
+{
+  "final_response": {
+    "action_capability": {
+      "allowed_actions": [
+        "summarize",
+        "explain",
+        "show_sop",
+        "generate_spl",
+        "draft_investigation_note"
+      ],
+      "audit_required": true,
+      "current_tier": 1,
+      "hil_required": false,
+      "reason": "Use case auth_failed_login_spike with severity P3 Medium is limited to inform/prepare actions in this stage.",
+      "tier_label": "Tier 1 - Prepare",
+      "unavailable_actions": [
+        "run_saved_search",
+        "create_ticket",
+        "block_ip",
+        "disable_user",
+        "isolate_endpoint"
+      ]
+    },
+    "analyst_response": {
+      "analyst_checklist": [
+        "Validate time window and threshold.",
+        "Compare distinct users and sources.",
+        "Check whether any successful authentication followed the failures.",
+        "Review asset or account criticality before severity claims."
+      ],
+      "closure_conditions": [],
+      "direct_answer_summary": "Objective: Investigate failed login spike on APP-01\n\nA governed SPL draft was produced and passed deterministic validation; it is review-only and was not executed (MCP execution disabled).\n\nReview steps:\n- Confirm the index/sourcetype and field mappings match your deployment before running.\n- Validate the time window and any thresholds against the asset baseline.\n- Run as review-only first; treat counts as evidence to corroborate, not a verdict.\n\nLimitations: no live results were returned; no severity or MITRE technique is claimed from the draft alone.",
+      "draft_spl_code": null,
+      "environment_hygiene": null,
+      "escalation_criteria": [],
+      "evidence_summary": null,
+      "executed_spl": null,
+      "execution_status": "requires_human_review",
+      "execution_status_label": "Blocked \u2014 approval required",
+      "finding_title": "Failed login spike",
+      "foundation_sec_analysis": null,
+      "hil_status": "required",
+      "initial_assessment": [],
+      "investigation_steps": [
+        "Scope authentication failures by user, source, host, and time window.",
+        "Confirm threshold evidence before labeling brute-force activity source-grounded.",
+        "Pivot to success-after-failure only when successful authentication evidence exists.",
+        "Keep SPL generation and execution behind existing validation and review gates."
+      ],
+      "key_fields": [],
+      "limitations": [
+        "Failed login telemetry alone does not establish credential validity.",
+        "Source IP reuse, NAT, or scanner behavior may require analyst review."
+      ],
+      "llm_spl_candidate": null,
+      "missing_evidence": [
+        "user",
+        "src",
+        "host",
+        "time_window",
+        "privileged_account_impacted",
+        "critical_asset"
+      ],
+      "mitre_mappings": [],
+      "mitre_status_summary": {
+        "candidate": [],
+        "evidence_supported": [],
+        "not_claimed": [],
+        "requires_validation": [],
+        "ruled_out": []
+      },
+      "not_claimed": [],
+      "one_sentence_finding": null,
+      "recommended_actions": [
+        "P2 \u2014 Review failed-login volume and source distribution.",
+        "P2 \u2014 Check for successful login after repeated failures.",
+        "P2 \u2014 Escalate when privileged accounts or broad source spread are involved."
+      ],
+      "render_sections": {
+        "analyst_action_guidance": true,
+        "evidence_checklist": true,
+        "investigation_guidance": true,
+        "limitations": true,
+        "live_results": true,
+        "mitre_mapping": false,
+        "not_claimed": false,
+        "policy_citation": false,
+        "procedural_steps": true,
+        "severity_assessment": true,
+        "spl_artifact": true,
+        "triage_checklist": true
+      },
+      "required_evidence": [
+        "user \u2014 User context",
+        "src \u2014 Source host/IP",
+        "host \u2014 Host context",
+        "fail_count \u2014 fail count",
+        "time_window \u2014 time window",
+        "first_failure \u2014 first failure",
+        "last_failure \u2014 last failure"
+      ],
+      "response_profile": "spl_only",
+      "retrieved_playbook": {
+        "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-001",
+        "confidence": 1.0,
+        "document_type": "sop",
+        "id": "COE Sample Auth Investigation SOP v1.0 AUTH-001",
+        "purpose": "For a failed-login spike, verify account, source IP distribution, time window, and any successful login after repeated failures before escalation.",
+        "retrieval_mode": "deterministic",
+        "source_evidence_id": "ev_c190c7dbcaa9f840",
+        "title": "COE Sample Auth Investigation SOP",
+        "version": "v1.0"
+      },
+      "review_notice": "Execution cannot safely proceed until this item is reviewed.",
+      "scenario_label": "Failed login spike",
+      "section_order": [
+        "investigation_guidance",
+        "live_results",
+        "limitations"
+      ],
+      "severity_confidence": null,
+      "severity_label": "P3 Medium \u2014 Review required",
+      "severity_rationale": null,
+      "severity_safety_note": null,
+      "sop_guidance": {
+        "triage_steps": [
+          "Review failed-login volume and source distribution.",
+          "Check for successful login after repeated failures.",
+          "Escalate when privileged accounts or broad source spread are involved."
+        ],
+        "validation_notes": [
+          "Review failed-login volume and source distribution.",
+          "Check for successful login after repeated failures.",
+          "Escalate when privileged accounts or broad source spread are involved."
+        ]
+      },
+      "spl_code": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure\n| stats\n    count as failed_logins\n    dc(user) as distinct_users\n    min(_time) as first_seen\n    max(_time) as last_seen\n    values(action) as action\n    by host, src\n| where failed_logins >= 25\n| sort -failed_logins\n| head 100",
+      "spl_draft_preview": null,
+      "spl_status": "ready_for_review",
+      "spl_status_detail": {
+        "block_reason": null,
+        "generation": "review_required",
+        "generation_status": "generated",
+        "reason": "candidate_spl_review_only",
+        "reason_display": "Governed SPL draft ready for analyst review (not executed).",
+        "required_fields": [],
+        "review_required": true,
+        "template_id": "auth_failed_login_spike",
+        "template_status": "active"
+      },
+      "splunk_results_table": [],
+      "splunk_status_line": null,
+      "status_badge": null,
+      "unsupported_claims_avoid": [
+        "account_compromise",
+        "valid_account_abuse",
+        "credential_dumping",
+        "malware"
+      ]
+    },
+    "analyst_summary": null,
+    "answer_contract": {
+      "analyst_checklist_safe": [
+        "Validate time window and threshold.",
+        "Compare distinct users and sources.",
+        "Check whether any successful authentication followed the failures.",
+        "Review asset or account criticality before severity claims."
+      ],
+      "answer_goal": [
+        "live_results"
+      ],
+      "answer_mode": "live_investigation",
+      "answer_rules_applied": [
+        "Do not claim account compromise from failed logins alone.",
+        "Mark brute force as evidence-supported only after threshold evidence exists.",
+        "SPL/execution remains review-gated."
+      ],
+      "assumptions": [
+        "Governed raw-search SPL template selected from use-case catalog: auth_failed_login_spike.",
+        "Template output remains candidate SPL and requires validation/gated execution."
+      ],
+      "candidate_mitre": [],
+      "evidence_supported_mitre": [],
+      "execution_block_reason": "spl_source_slots_unresolved",
+      "execution_status": "requires_human_review",
+      "execution_status_display": "Blocked \u2014 approval required",
+      "execution_status_label": "blocked_approval_required",
+      "hil_status": "required",
+      "human_review_required": true,
+      "intent_family": "live_investigation",
+      "investigation_steps": [
+        "Scope authentication failures by user, source, host, and time window.",
+        "Confirm threshold evidence before labeling brute-force activity evidence-supported.",
+        "Pivot to success-after-failure only when successful authentication evidence exists.",
+        "Keep SPL generation and execution behind existing validation and review gates."
+      ],
+      "limitations": [
+        "Failed login telemetry alone does not establish credential validity.",
+        "Source IP reuse, NAT, or scanner behavior may require analyst review."
+      ],
+      "mcp_allowed": true,
+      "missing_evidence": [
+        "user",
+        "src",
+        "host",
+        "time_window",
+        "privileged_account_impacted",
+        "critical_asset"
+      ],
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "nearest_questions": [],
+      "needs_mitre": false,
+      "not_claimed_mitre": [],
+      "not_claimed_technique_ids": [],
+      "out_of_catalog_notice": null,
+      "render_sections": {
+        "analyst_action_guidance": true,
+        "evidence_checklist": true,
+        "investigation_guidance": true,
+        "limitations": true,
+        "live_results": true,
+        "mitre_mapping": false,
+        "not_claimed": false,
+        "policy_citation": false,
+        "procedural_steps": true,
+        "severity_assessment": true,
+        "spl_artifact": true,
+        "triage_checklist": true
+      },
+      "required_evidence": [
+        "user",
+        "src",
+        "host",
+        "fail_count",
+        "time_window",
+        "first_failure",
+        "last_failure"
+      ],
+      "requires_validation_mitre": [],
+      "ruled_out_mitre": [],
+      "section_order": [
+        "investigation_guidance",
+        "live_results",
+        "limitations"
+      ],
+      "severity_confidence": "Medium",
+      "severity_label": "P3 Medium",
+      "spl_allowed": true,
+      "spl_approved": true,
+      "spl_present": true,
+      "spl_status": "ready_for_review",
+      "spl_status_detail": {
+        "block_reason": null,
+        "generation": "review_required",
+        "generation_status": "generated",
+        "reason": "candidate_spl_review_only",
+        "reason_display": "Governed SPL draft ready for analyst review (not executed).",
+        "required_fields": [],
+        "review_required": true,
+        "template_id": "auth_failed_login_spike",
+        "template_status": "active"
+      },
+      "success_after_failure_context": false,
+      "unsupported_claims_avoid": [
+        "account_compromise",
+        "valid_account_abuse",
+        "credential_dumping",
+        "malware"
+      ],
+      "use_case_id": "auth_failed_login_spike"
+    },
+    "answer_guard": {
+      "analyst_review_required": false,
+      "blocked_reason": null,
+      "enabled": true,
+      "failed_checks": [],
+      "guard_status": "skipped",
+      "passed_checks": [],
+      "reason": "No synthesis draft was produced; Answer Guard did not run."
+    },
+    "answer_guard_status": "skipped",
+    "answer_readiness": "blocked",
+    "answer_scorecard": {
+      "checks": {
+        "analyst_guidance_present": true,
+        "execution_status_clear": true,
+        "hil_status_clear": true,
+        "mitre_wording_safe": true,
+        "no_unsupported_claims": true,
+        "out_of_catalog_honest": true,
+        "route_honored": true,
+        "severity_state_clear": true,
+        "skill_sections_present": false,
+        "spl_status_clear": true
+      },
+      "narration": {
+        "fallback_used": false,
+        "final_answer_source": "deterministic_contract",
+        "guard_blocked": false,
+        "skip_category": null
+      },
+      "reasons": [
+        "skill_sections_present: enrichment-active answer is missing its checklist sections (or an enabled section lacks backing)"
+      ],
+      "tier_d": {
+        "actionability_priorities": true,
+        "completeness_sections": false,
+        "grounding_no_orphan_claims": true,
+        "honesty_limitations": true,
+        "no_forbidden_claims": true
+      },
+      "verdict": "review"
+    },
+    "candidate_spl": {
+      "allowed_spl_templates": [
+        "auth_failed_login_spike"
+      ],
+      "assumptions": [
+        "Governed raw-search SPL template selected from use-case catalog: auth_failed_login_spike.",
+        "Template output remains candidate SPL and requires validation/gated execution."
+      ],
+      "candidate_spl": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure | stats count as failed_logins dc(user) as distinct_users min(_time) as first_seen max(_time) as last_seen values(action) as action by host, src | where failed_logins >= 25 | sort -failed_logins | head 100",
+      "candidate_spl_generated": null,
+      "capability_profile": null,
+      "confidence": 0.93,
+      "enrichment_evidence_requirements": [
+        "user",
+        "src",
+        "host",
+        "fail_count",
+        "time_window",
+        "first_failure",
+        "last_failure"
+      ],
+      "execution_eligible": false,
+      "fallback_required": null,
+      "generation_mode": "deterministic_template_render",
+      "governed_limitation": null,
+      "llm_fallback_reason": null,
+      "llm_fallback_status": null,
+      "llm_fallback_used": null,
+      "llm_latency_ms": null,
+      "llm_model": null,
+      "llm_supported": null,
+      "reason": null,
+      "saia_available": null,
+      "saia_usable": null,
+      "selected_candidate_spl_provider": null,
+      "skill": "attack_discovery",
+      "spl_template_status": "active",
+      "template_id": "auth_failed_login_spike",
+      "template_production_executable": true,
+      "trace_id": "fd3e3294-3648-4c2b-8a85-eb3f9a4aeff3",
+      "user_query": "Investigate failed login spike on APP-01",
+      "validation_required": null,
+      "warnings": []
+    },
+    "confidence": 0.8300000000000001,
+    "context_sufficiency": {
+      "human_review": {
+        "allowed_actions": [
+          "approve_execution_after_policy_check",
+          "reject_execution"
+        ],
+        "proposed_normalized_spl": null,
+        "reason": "context_collection_blocked",
+        "required": true,
+        "review_type": "execution_approval",
+        "reviewer_role": "soc_lead",
+        "safe_message_for_user": "Context collection is blocked by policy; synthesis stays disabled until a SOC lead reviews evidence collection.",
+        "selected_mcp_server": null,
+        "selected_mcp_tool": null,
+        "sop_action_hint": null,
+        "sop_excerpt": null,
+        "sop_reference": null
+      },
+      "missing_evidence": [],
+      "reasons": [
+        "context_collection_blocked",
+        "evidence_origin:stub_rag"
+      ],
+      "status": "blocked_by_policy",
+      "synthesis_allowed": false,
+      "synthesis_readiness": false
+    },
+    "control_plane_trace": {
+      "answer_contract": {
+        "analyst_checklist_safe": [
+          "Validate time window and threshold.",
+          "Compare distinct users and sources.",
+          "Check whether any successful authentication followed the failures.",
+          "Review asset or account criticality before severity claims."
+        ],
+        "answer_goal": [
+          "live_results"
+        ],
+        "answer_mode": "live_investigation",
+        "answer_rules_applied": [
+          "Do not claim account compromise from failed logins alone.",
+          "Mark brute force as evidence-supported only after threshold evidence exists.",
+          "SPL/execution remains review-gated."
+        ],
+        "assumptions": [
+          "Governed raw-search SPL template selected from use-case catalog: auth_failed_login_spike.",
+          "Template output remains candidate SPL and requires validation/gated execution."
+        ],
+        "candidate_mitre": [],
+        "evidence_supported_mitre": [],
+        "execution_block_reason": "spl_source_slots_unresolved",
+        "execution_status": "requires_human_review",
+        "execution_status_display": "Blocked \u2014 approval required",
+        "execution_status_label": "blocked_approval_required",
+        "hil_status": "required",
+        "human_review_required": true,
+        "intent_family": "live_investigation",
+        "investigation_steps": [
+          "Scope authentication failures by user, source, host, and time window.",
+          "Confirm threshold evidence before labeling brute-force activity evidence-supported.",
+          "Pivot to success-after-failure only when successful authentication evidence exists.",
+          "Keep SPL generation and execution behind existing validation and review gates."
+        ],
+        "limitations": [
+          "Failed login telemetry alone does not establish credential validity.",
+          "Source IP reuse, NAT, or scanner behavior may require analyst review."
+        ],
+        "mcp_allowed": true,
+        "missing_evidence": [
+          "user",
+          "src",
+          "host",
+          "time_window",
+          "privileged_account_impacted",
+          "critical_asset"
+        ],
+        "mitre_answer_visible": false,
+        "mitre_technique_ids": [],
+        "nearest_questions": [],
+        "needs_mitre": false,
+        "not_claimed_mitre": [],
+        "not_claimed_technique_ids": [],
+        "out_of_catalog_notice": null,
+        "render_sections": {
+          "analyst_action_guidance": true,
+          "evidence_checklist": true,
+          "investigation_guidance": true,
+          "limitations": true,
+          "live_results": true,
+          "mitre_mapping": false,
+          "not_claimed": false,
+          "policy_citation": false,
+          "procedural_steps": true,
+          "severity_assessment": true,
+          "spl_artifact": true,
+          "triage_checklist": true
+        },
+        "required_evidence": [
+          "user",
+          "src",
+          "host",
+          "fail_count",
+          "time_window",
+          "first_failure",
+          "last_failure"
+        ],
+        "requires_validation_mitre": [],
+        "ruled_out_mitre": [],
+        "section_order": [
+          "investigation_guidance",
+          "live_results",
+          "limitations"
+        ],
+        "severity_confidence": "Medium",
+        "severity_label": "P3 Medium",
+        "spl_allowed": true,
+        "spl_approved": true,
+        "spl_present": true,
+        "spl_status": "ready_for_review",
+        "spl_status_detail": {
+          "block_reason": null,
+          "generation": "review_required",
+          "generation_status": "generated",
+          "reason": "candidate_spl_review_only",
+          "reason_display": "Governed SPL draft ready for analyst review (not executed).",
+          "required_fields": [],
+          "review_required": true,
+          "template_id": "auth_failed_login_spike",
+          "template_status": "active"
+        },
+        "success_after_failure_context": false,
+        "unsupported_claims_avoid": [
+          "account_compromise",
+          "valid_account_abuse",
+          "credential_dumping",
+          "malware"
+        ],
+        "use_case_id": "auth_failed_login_spike"
+      },
+      "answer_contract_v2": {
+        "analyst_checklist_safe": [
+          "Validate time window and threshold.",
+          "Compare distinct users and sources.",
+          "Check whether any successful authentication followed the failures.",
+          "Review asset or account criticality before severity claims."
+        ],
+        "answer_goal": [
+          "live_results"
+        ],
+        "answer_mode": "live_investigation",
+        "answer_rules_applied": [
+          "Do not claim account compromise from failed logins alone.",
+          "Mark brute force as evidence-supported only after threshold evidence exists.",
+          "SPL/execution remains review-gated."
+        ],
+        "assumptions": [
+          "Governed raw-search SPL template selected from use-case catalog: auth_failed_login_spike.",
+          "Template output remains candidate SPL and requires validation/gated execution."
+        ],
+        "candidate_mitre": [],
+        "evidence_supported_mitre": [],
+        "execution_block_reason": "spl_source_slots_unresolved",
+        "execution_status": "requires_human_review",
+        "execution_status_display": "Blocked \u2014 approval required",
+        "execution_status_label": "blocked_approval_required",
+        "hil_status": "required",
+        "human_review_required": true,
+        "intent_family": "live_investigation",
+        "investigation_steps": [
+          "Scope authentication failures by user, source, host, and time window.",
+          "Confirm threshold evidence before labeling brute-force activity evidence-supported.",
+          "Pivot to success-after-failure only when successful authentication evidence exists.",
+          "Keep SPL generation and execution behind existing validation and review gates."
+        ],
+        "limitations": [
+          "Failed login telemetry alone does not establish credential validity.",
+          "Source IP reuse, NAT, or scanner behavior may require analyst review."
+        ],
+        "mcp_allowed": true,
+        "missing_evidence": [
+          "user",
+          "src",
+          "host",
+          "time_window",
+          "privileged_account_impacted",
+          "critical_asset"
+        ],
+        "mitre_answer_visible": false,
+        "mitre_technique_ids": [],
+        "nearest_questions": [],
+        "needs_mitre": false,
+        "not_claimed_mitre": [],
+        "not_claimed_technique_ids": [],
+        "out_of_catalog_notice": null,
+        "render_sections": {
+          "analyst_action_guidance": true,
+          "evidence_checklist": true,
+          "investigation_guidance": true,
+          "limitations": true,
+          "live_results": true,
+          "mitre_mapping": false,
+          "not_claimed": false,
+          "policy_citation": false,
+          "procedural_steps": true,
+          "severity_assessment": true,
+          "spl_artifact": true,
+          "triage_checklist": true
+        },
+        "required_evidence": [
+          "user",
+          "src",
+          "host",
+          "fail_count",
+          "time_window",
+          "first_failure",
+          "last_failure"
+        ],
+        "requires_validation_mitre": [],
+        "ruled_out_mitre": [],
+        "section_order": [
+          "investigation_guidance",
+          "live_results",
+          "limitations"
+        ],
+        "severity_confidence": "Medium",
+        "severity_label": "P3 Medium",
+        "spl_allowed": true,
+        "spl_approved": true,
+        "spl_present": true,
+        "spl_status": "ready_for_review",
+        "spl_status_detail": {
+          "block_reason": null,
+          "generation": "review_required",
+          "generation_status": "generated",
+          "reason": "candidate_spl_review_only",
+          "reason_display": "Governed SPL draft ready for analyst review (not executed).",
+          "required_fields": [],
+          "review_required": true,
+          "template_id": "auth_failed_login_spike",
+          "template_status": "active"
+        },
+        "success_after_failure_context": false,
+        "unsupported_claims_avoid": [
+          "account_compromise",
+          "valid_account_abuse",
+          "credential_dumping",
+          "malware"
+        ],
+        "use_case_id": "auth_failed_login_spike"
+      },
+      "answer_guard": {
+        "analyst_review_required": false,
+        "blocked_reason": null,
+        "enabled": true,
+        "failed_checks": [],
+        "guard_status": "skipped",
+        "passed_checks": [],
+        "reason": "No synthesis draft was produced; Answer Guard did not run."
+      },
+      "candidate_spl_generation": {
+        "approved": true,
+        "candidate_spl_generated": null,
+        "execution_eligible": false,
+        "fallback_required": null,
+        "generation_mode": "deterministic_template_render",
+        "llm_fallback_reason": null,
+        "llm_fallback_status": null,
+        "llm_fallback_used": null,
+        "llm_latency_ms": null,
+        "llm_model": null,
+        "llm_supported": null,
+        "normalized_spl_available": true,
+        "selected_candidate_spl_provider": "deterministic_template_render",
+        "validation_required": null
+      },
+      "evidence_loop": {
+        "chronology": [
+          "splunk_get_info",
+          "splunk_get_indexes",
+          "splunk_get_metadata"
+        ],
+        "decision": {
+          "capability_gaps": [],
+          "missing": [],
+          "next_tool": null,
+          "proceed_with_available": false,
+          "reason": "execution did not complete (status=requires_human_review)",
+          "route": "human_review",
+          "sufficiency": "needs_more"
+        },
+        "hops": [
+          {
+            "delivered": [
+              "server_version",
+              "server_name",
+              "readiness"
+            ],
+            "outcome": "collected",
+            "payload": {
+              "preview_rows": [
+                {
+                  "server_name": "splunk-mock",
+                  "server_version": "9.1.0"
+                }
+              ],
+              "read_only": true,
+              "result_summary": {
+                "mock": true,
+                "tool": "splunk_get_info"
+              },
+              "status": "ok"
+            },
+            "tool": "splunk_get_info"
+          },
+          {
+            "delivered": [
+              "accessible_indexes"
+            ],
+            "outcome": "collected",
+            "payload": {
+              "preview_rows": [
+                {
+                  "index": "pgcil_soc",
+                  "title": "pgcil_soc"
+                }
+              ],
+              "read_only": true,
+              "result_summary": {
+                "index_count": 1,
+                "mock": true,
+                "tool": "splunk_get_indexes"
+              },
+              "status": "ok"
+            },
+            "tool": "splunk_get_indexes"
+          },
+          {
+            "delivered": [
+              "sourcetypes",
+              "hosts",
+              "sources"
+            ],
+            "outcome": "collected",
+            "payload": {
+              "preview_rows": [
+                {
+                  "sourcetype": "pgcil:auth"
+                },
+                {
+                  "sourcetype": "pgcil:dns"
+                },
+                {
+                  "sourcetype": "pgcil:edr"
+                },
+                {
+                  "sourcetype": "aws:cloudtrail"
+                }
+              ],
+              "read_only": true,
+              "result_summary": {
+                "mock": true,
+                "sourcetype_count": 4,
+                "tool": "splunk_get_metadata"
+              },
+              "status": "ok"
+            },
+            "tool": "splunk_get_metadata"
+          },
+          {
+            "delivered": [],
+            "outcome": "requires_human_review",
+            "payload": {
+              "block_reason": "spl_source_slots_unresolved",
+              "execution_status": "requires_human_review",
+              "result_count": 0
+            },
+            "tool": "splunk_run_query"
+          }
+        ],
+        "hops_done": 4,
+        "planner": {
+          "decision_source": "llm_reviewed_adjusted",
+          "dropped": [
+            {
+              "reason": "no_target_index",
+              "tool": "splunk_get_index_info"
+            },
+            {
+              "reason": "approved_normalized_spl_missing",
+              "tool": "splunk_run_query"
+            }
+          ],
+          "planner": {
+            "llm_called": true,
+            "llm_error": null,
+            "llm_label": "local_primary",
+            "llm_unservable": []
+          },
+          "warnings": []
+        }
+      },
+      "evidence_plan": {
+        "action_mode": "recommend_only",
+        "answer_mode": "live_investigation",
+        "answer_rules": [
+          "Do not claim account compromise from failed logins alone.",
+          "Mark brute force as evidence-supported only after threshold evidence exists.",
+          "SPL/execution remains review-gated."
+        ],
+        "checklist": [
+          "Validate time window and threshold.",
+          "Compare distinct users and sources.",
+          "Check whether any successful authentication followed the failures.",
+          "Review asset or account criticality before severity claims."
+        ],
+        "correlation": null,
+        "enrichment_driven": true,
+        "evidence_legs": [],
+        "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
+        "investigation_workflow": [
+          "Scope authentication failures by user, source, host, and time window.",
+          "Confirm threshold evidence before labeling brute-force activity evidence-supported.",
+          "Pivot to success-after-failure only when successful authentication evidence exists.",
+          "Keep SPL generation and execution behind existing validation and review gates."
+        ],
+        "limitations": [
+          "Failed login telemetry alone does not establish credential validity.",
+          "Source IP reuse, NAT, or scanner behavior may require analyst review."
+        ],
+        "mcp_allowed": true,
+        "missing_required_evidence": [
+          "user",
+          "src",
+          "host",
+          "time_window"
+        ],
+        "mitre_candidates_metadata_only": [
+          "T1110",
+          "T1110.001",
+          "T1110.003"
+        ],
+        "needs_clarification": true,
+        "needs_hil": true,
+        "needs_mcp": true,
+        "needs_mitre": false,
+        "needs_rag": false,
+        "needs_spl": true,
+        "optional_evidence_keys": [
+          "account_compromise",
+          "valid_account_abuse",
+          "credential_dumping",
+          "malware"
+        ],
+        "optional_sources": [
+          "rag:sop",
+          "mitre:enterprise",
+          "asset_inventory"
+        ],
+        "policy_context_recommended": false,
+        "policy_context_required": false,
+        "present_evidence_keys": [
+          "alert_type",
+          "event_id",
+          "fail_count",
+          "failed_login_pattern",
+          "first_failure",
+          "last_failure"
+        ],
+        "rag_no_match_behavior": null,
+        "rag_phase": "post_mcp",
+        "reasons": [
+          "live_investigation",
+          "curated_enrichment_evidence_requirements",
+          "missing_required_curated_evidence"
+        ],
+        "recommended_pivots": [],
+        "required_evidence_keys": [
+          "user",
+          "src",
+          "host",
+          "fail_count",
+          "time_window",
+          "first_failure",
+          "last_failure"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "requires_hil": true,
+        "resource_plan": {
+          "plan_source": "deterministic",
+          "provenance": {
+            "composer": "deterministic_v1",
+            "intent_family": "live_investigation",
+            "match_path": "use_case_catalog",
+            "resource_decisions": {
+              "hil": {
+                "reason": "Analyst confirms SPL and approves any search execution.",
+                "required": true
+              },
+              "limitations": [
+                "Failed login telemetry alone does not establish credential validity.",
+                "Source IP reuse, NAT, or scanner behavior may require analyst review."
+              ],
+              "match_path": "use_case_catalog",
+              "mcp": {
+                "allowed": false,
+                "needed": true,
+                "planned_discovery": [
+                  "splunk_get_indexes",
+                  "splunk_get_metadata",
+                  "splunk_get_knowledge_objects"
+                ],
+                "planned_discovery_calls": [
+                  {
+                    "arguments": {},
+                    "block_reason": "mcp_global_execution_disabled",
+                    "failure_mode": "execution_disabled",
+                    "kind": "planned_tool_call",
+                    "policy_checks": [
+                      "read_only_discovery",
+                      "mcp_execution_gate"
+                    ],
+                    "server": "splunk",
+                    "tool_name": "splunk_get_indexes"
+                  },
+                  {
+                    "arguments": {},
+                    "block_reason": "mcp_global_execution_disabled",
+                    "failure_mode": "execution_disabled",
+                    "kind": "planned_tool_call",
+                    "policy_checks": [
+                      "read_only_discovery",
+                      "mcp_execution_gate"
+                    ],
+                    "server": "splunk",
+                    "tool_name": "splunk_get_metadata"
+                  },
+                  {
+                    "arguments": {},
+                    "block_reason": "mcp_global_execution_disabled",
+                    "failure_mode": "execution_disabled",
+                    "kind": "planned_tool_call",
+                    "policy_checks": [
+                      "read_only_discovery",
+                      "mcp_execution_gate"
+                    ],
+                    "server": "splunk",
+                    "tool_name": "splunk_get_knowledge_objects"
+                  }
+                ],
+                "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+              },
+              "mitre": {
+                "allowed": false
+              },
+              "path_type": "spl_review",
+              "rag": {
+                "needed": false,
+                "source": "soc_kb_rag"
+              },
+              "severity": {
+                "allowed": false
+              },
+              "spl": {
+                "needed": true,
+                "review_only": true,
+                "skip_reason": null
+              }
+            },
+            "skill_id": "attack_discovery",
+            "skill_workflow": [
+              "spl_generation",
+              "spl_validation",
+              "evidence_collection",
+              "context_sufficiency"
+            ],
+            "use_case_id": "auth_failed_login_spike"
+          },
+          "steps": [
+            {
+              "args_template": {},
+              "on_unavailable": "spl_lab_draft_family:auth_failed_login_threshold",
+              "policy_checks": [
+                "spl_validator",
+                "execution_eligible_false",
+                "required_evidence:fail_count,first_failure,host,last_failure,src,time_window,user",
+                "skill_required_evidence:source_evidence"
+              ],
+              "purpose": "spl_artifact",
+              "resource_id": "spl_template_family:auth_failed_login_spike",
+              "status": "planned",
+              "status_reason": null,
+              "step_id": "spl"
+            },
+            {
+              "args_template": {},
+              "on_unavailable": null,
+              "policy_checks": [
+                "mcp_execution_gate",
+                "approved_normalized_spl_only",
+                "global_and_server_execution_flags",
+                "skill_required_evidence:source_evidence"
+              ],
+              "purpose": "mcp_execution",
+              "resource_id": "mcp_tool:splunk_run_query",
+              "status": "planned",
+              "status_reason": null,
+              "step_id": "mcp"
+            },
+            {
+              "args_template": {},
+              "on_unavailable": null,
+              "policy_checks": [
+                "answer_guard",
+                "deterministic_fallback_on_failure"
+              ],
+              "purpose": "narration",
+              "resource_id": "llm_role:narration",
+              "status": "planned",
+              "status_reason": null,
+              "step_id": "narration"
+            }
+          ]
+        },
+        "runtime_support_status": "runtime_active",
+        "spl_allowed": true,
+        "unsupported_claims_avoid": [
+          "account_compromise",
+          "valid_account_abuse",
+          "credential_dumping",
+          "malware"
+        ],
+        "use_case_id": "auth_failed_login_spike"
+      },
+      "final_answer_validation": {
+        "analyst_review_required": false,
+        "blocked_reason": null,
+        "enabled": true,
+        "failed_checks": [],
+        "guard_status": "passed",
+        "passed_checks": [
+          "final.blocked_finding_claimed",
+          "final.mitre_visible_when_suppressed",
+          "final.rag_override_mitre",
+          "final.spl_on_rag_only",
+          "final.candidate_described_as_confirmed",
+          "final.spl_only_missing_action_guidance",
+          "final.unsafe_account_compromise_claim",
+          "final.unsafe_c2_confirmed_claim",
+          "final.unsafe_ransomware_confirmed_claim",
+          "final.unsafe_malware_confirmed_claim",
+          "final.unsafe_execution_claim",
+          "final.evidence_supported_without_status",
+          "final.containment_without_hil"
+        ],
+        "reason": "Final answer is consistent with the AnswerContract and the deciders."
+      },
+      "hybrid_role_graph": {
+        "complexity_tier": "medium",
+        "deadline_seconds": 100.0,
+        "roles": [
+          {
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "enabled": false,
+            "prompt_version": "b3abcd191aebd67e",
+            "role_id": "intent_shadow_classifier",
+            "skip_reason": "deterministic_exact_match_t0",
+            "stage": "understand"
+          },
+          {
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "enabled": true,
+            "prompt_version": "6edd5273dbc3e401",
+            "role_id": "missing_evidence_reasoner",
+            "skip_reason": null,
+            "stage": "specialist"
+          },
+          {
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "enabled": false,
+            "prompt_version": "81b0785cfab60ef2",
+            "role_id": "mitre_reasoner",
+            "skip_reason": "no_mitre_context",
+            "stage": "specialist"
+          },
+          {
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "enabled": true,
+            "prompt_version": "50b62721997693b5",
+            "role_id": "risk_rationale_reasoner",
+            "skip_reason": null,
+            "stage": "specialist"
+          },
+          {
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "enabled": true,
+            "prompt_version": "f5dab447471d0605",
+            "role_id": "route_plan_candidate_generator",
+            "skip_reason": null,
+            "stage": "specialist"
+          },
+          {
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "enabled": true,
+            "prompt_version": null,
+            "role_id": "governed_composer",
+            "skip_reason": null,
+            "stage": "synthesize"
+          },
+          {
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "enabled": true,
+            "prompt_version": null,
+            "role_id": "mcp_tool_plan_shadow",
+            "skip_reason": null,
+            "stage": "critique"
+          }
+        ],
+        "stages": [
+          "specialist",
+          "synthesize",
+          "critique"
+        ]
+      },
+      "llm_advisory_trace": {
+        "llm_advisory_attempted": false,
+        "llm_advisory_used": false,
+        "llm_called": false,
+        "llm_candidate_present": false,
+        "llm_dropped_reasons": [
+          "deterministic_exact_match_t0"
+        ],
+        "llm_intent_candidate": null,
+        "llm_narration_used": false,
+        "llm_overridden_by_policy": false,
+        "llm_route_candidate": null
+      },
+      "llm_calls": [],
+      "llm_composer": {
+        "ai_soc_llm_answer_guard_enabled": true,
+        "ai_soc_llm_final_synthesis_enabled": true,
+        "ai_soc_llm_live_synthesis_enabled": true,
+        "ai_soc_llm_mode": "local",
+        "composer_attempted": false,
+        "composer_is_enabled": true,
+        "control_plane_enabled": true,
+        "expected_latency_hint": "On-prem single-slot model: live narration can take ~60s; the wait is expected. Facts stay deterministic and fall back if the model is slow.",
+        "llm_composer_enabled": true,
+        "llm_composer_skipped_reason": "insufficient_deadline_reserve",
+        "llm_composer_used": false,
+        "llm_fallback_used": false,
+        "llm_guard_status": "pending",
+        "provider_configured": true,
+        "provider_model_configured": true,
+        "provider_skip_reason": null,
+        "provider_url_configured": true
+      },
+      "llm_intent_advisory": {
+        "adapter_warnings": [],
+        "adjudication_reason": "advisor_not_available",
+        "adjudication_status": "skipped",
+        "ambiguity_reasons": [],
+        "clarification_draft": null,
+        "confidence_metadata": {},
+        "dropped_reasons": [
+          "deterministic_exact_match_t0"
+        ],
+        "evidence_need_hints": [],
+        "intent_family_candidate": null,
+        "llm_called": false,
+        "paraphrase_detected": false,
+        "path_type_candidate": null,
+        "provider_label": null,
+        "question_ref_candidate": null,
+        "use_case_id_candidate": null
+      },
+      "llm_plan_validation": {
+        "advisory_plan": null,
+        "corrected_plan": null,
+        "mcp_execution_allowed": false,
+        "policy_version": "2026-06-control-plane-v1",
+        "reasons": [
+          "no_advisory_plan_payload"
+        ],
+        "status": "skipped",
+        "warnings": []
+      },
+      "llm_turn_budget": {
+        "deadline_seconds": 100.0,
+        "elapsed_seconds": 45.76,
+        "max_narration_calls": 1,
+        "max_sidecar_calls": 2,
+        "narration_calls": 0,
+        "records": [],
+        "remaining_seconds": 54.24,
+        "sidecar_calls": 0,
+        "time_budget_exhausted": false
+      },
+      "mcp_execution": {
+        "block_reason": "spl_source_slots_unresolved",
+        "execution_intent": "spl_search",
+        "selected_mcp_server": "mock",
+        "selected_mcp_tool": "splunk_run_query",
+        "status": "requires_human_review",
+        "tool_selection_status": "selected"
+      },
+      "mcp_tool_plan_shadow": {
+        "approved_tools": [
+          "splunk_get_info",
+          "splunk_get_indexes",
+          "splunk_get_metadata",
+          "splunk_get_index_info",
+          "splunk_get_knowledge_objects",
+          "splunk_run_query"
+        ],
+        "decision_source": "deterministic_default",
+        "dropped": [],
+        "planner": {
+          "llm_called": false,
+          "llm_error": null,
+          "llm_label": null,
+          "llm_unservable": [],
+          "skipped_reason": "turn_budget_exhausted"
+        },
+        "promotion_blocked": true,
+        "rbac_role": "soc_lead",
+        "shadow_only": true,
+        "warnings": []
+      },
+      "missing_evidence_reasoning": {
+        "adapter_warnings": [],
+        "bullet_count": 0,
+        "llm_called": false,
+        "provider_label": null,
+        "skipped_reason": "insufficient_deadline_reserve",
+        "timed_out": false
+      },
+      "mitre_branch_result": {
+        "branch_authority": "planner_mitre_branch",
+        "branch_name": "mitre",
+        "candidate_mitre": [],
+        "evidence_supported_mitre": [],
+        "metadata_only_candidates": [],
+        "mitre_decision": null,
+        "not_claimed_mitre": [],
+        "question_ref": null,
+        "ran": false,
+        "reason": "planner_did_not_select_mitre_branch",
+        "requires_validation_mitre": [],
+        "ruled_out_mitre": [],
+        "status": "not_applicable",
+        "technique_statuses": [],
+        "use_case_id": "auth_failed_login_spike"
+      },
+      "mitre_decision": {
+        "answer_visible": false,
+        "evidence_status_details": {},
+        "evidence_statuses": {},
+        "mitre_status": "not_applicable",
+        "not_claimed": [],
+        "reason": "Planner did not schedule MITRE branch; analyst-visible evidence-supported mapping is suppressed.",
+        "registry_candidates": [],
+        "registry_metadata": null,
+        "rejected_techniques": [],
+        "requires_alert_context": false,
+        "requires_more_context_for_supported_mapping": false,
+        "techniques": []
+      },
+      "mitre_registry_metadata": null,
+      "mitre_risk_rationale": {
+        "adapter_warnings": [],
+        "fallback_used": true,
+        "guard_status": "skipped",
+        "llm_called": false,
+        "mitre_rationale_present": true,
+        "provider_label": null,
+        "severity_rationale_present": true,
+        "skipped_reason": "no_mitre_context"
+      },
+      "node_trace": [
+        {
+          "decision_reason": "structured_session_pins_only",
+          "guardrail_status": "not_applicable",
+          "human_review_required": false,
+          "input_summary": {
+            "follow_up_kind": null,
+            "session_id": "capture-failed_login_spike_app01"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "session_context",
+          "output_summary": {
+            "clarification_required": false,
+            "ignored_fields": [
+              "session_expired_or_missing"
+            ],
+            "staleness": "stale",
+            "used_fields": [],
+            "used_previous_context": false
+          }
+        },
+        {
+          "decision_reason": "control_plane_route_adjudication",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "query_present": true
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "routing_live_skill_selection",
+          "output_summary": {
+            "effective_skill": "attack_discovery",
+            "selected_skill": "attack_discovery",
+            "use_case_id": "auth_failed_login_spike"
+          }
+        },
+        {
+          "decision_reason": "curated_enrichment_activation_gate",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "use_case_id": "auth_failed_login_spike"
+          },
+          "limitations": [
+            "github_skill_acceptance_is_enrichment_only",
+            "catalog_crosswalk_runtime_active"
+          ],
+          "llm_call": null,
+          "node_name": "enrichment_loading",
+          "output_summary": {
+            "activation_lifecycle_stage": "runtime_active",
+            "context_loaded": true,
+            "planner_runtime_activation_allowed": true,
+            "runtime_support_status": "runtime_active",
+            "spl_template_status": "active"
+          }
+        },
+        {
+          "decision_reason": "deterministic_evidence_plan",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "intent_family": "live_investigation"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "evidence_planning",
+          "output_summary": {
+            "answer_mode": "live_investigation",
+            "mcp_allowed": true,
+            "spl_allowed": true
+          }
+        },
+        {
+          "decision_reason": "active_template_available",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "template_id": "auth_failed_login_spike",
+            "use_case_id": "auth_failed_login_spike"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "spl_template_status",
+          "output_summary": {
+            "governed_limitation": null,
+            "spl_template_status": "active"
+          }
+        },
+        {
+          "decision_reason": "validate_spl_mandatory",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "spl_template_status": "active"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "spl_validation",
+          "output_summary": {
+            "approved": true,
+            "normalized_spl_available": true,
+            "reject_reasons": []
+          }
+        },
+        {
+          "decision_reason": "spl_source_slots_unresolved",
+          "guardrail_status": "review_required",
+          "human_review_required": true,
+          "input_summary": {
+            "mcp_allowed": true,
+            "spl_approved": true
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "execution_hil_decision",
+          "output_summary": {
+            "evidence_source": "unavailable",
+            "execution_status": "requires_human_review",
+            "execution_status_label": "not_executed",
+            "human_review_required": true,
+            "review_type": "spl_revision"
+          }
+        },
+        {
+          "decision_reason": "mitre_decision_resolver",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "use_case_id": "auth_failed_login_spike"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "mitre_evidence_status",
+          "output_summary": {
+            "evidence_statuses": {},
+            "not_claimed": [],
+            "rejected_techniques": []
+          }
+        },
+        {
+          "decision_reason": "deterministic_severity_policy",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "use_case_id": "auth_failed_login_spike"
+          },
+          "limitations": [
+            "success_after_failure",
+            "privileged_account_impacted",
+            "critical_asset",
+            "confirmed_success"
+          ],
+          "llm_call": null,
+          "node_name": "severity_decision",
+          "output_summary": {
+            "severity_label": "P3 Medium"
+          }
+        },
+        {
+          "decision_reason": "answer_contract_projection",
+          "guardrail_status": "passed",
+          "human_review_required": true,
+          "input_summary": {
+            "answer_mode": "live_investigation"
+          },
+          "limitations": [
+            "user",
+            "src",
+            "host",
+            "time_window",
+            "privileged_account_impacted"
+          ],
+          "llm_call": null,
+          "node_name": "answer_contract",
+          "output_summary": {
+            "candidate_mitre_count": 0,
+            "evidence_supported_mitre_count": 0,
+            "execution_status_label": "blocked_approval_required",
+            "hil_status": "required",
+            "human_review_required": true,
+            "mitre_answer_visible": false,
+            "spl_status": "ready_for_review"
+          }
+        },
+        {
+          "decision_reason": "No synthesis draft was produced; Answer Guard did not run.",
+          "guardrail_status": "not_applicable",
+          "human_review_required": false,
+          "input_summary": {
+            "enabled": true
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "answer_guard",
+          "output_summary": {
+            "failed_checks": [],
+            "guard_status": "skipped"
+          }
+        },
+        {
+          "decision_reason": "Final answer is consistent with the AnswerContract and the deciders.",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "contract_present": true
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "final_answer_validation",
+          "output_summary": {
+            "failed_checks": [],
+            "guard_status": "passed"
+          }
+        }
+      ],
+      "planning_decision": {
+        "activation_decision": {
+          "activation_lifecycle_stage": "runtime_active",
+          "catalog_present": true,
+          "crosswalk_lookup_status": "matched_use_case",
+          "enrichment_only": false,
+          "enrichment_present": true,
+          "github_accepted_for_enrichment_only": true,
+          "github_lifecycle_status": "accepted_for_enrichment",
+          "governed_enrichment_load_allowed": true,
+          "live_execution_skill": "attack_discovery",
+          "live_execution_skill_allowed": true,
+          "planner_runtime_activation_allowed": true,
+          "proposed_github_use_case": false,
+          "reasons": [
+            "github_skill_acceptance_is_enrichment_only",
+            "catalog_crosswalk_runtime_active"
+          ],
+          "runtime_support_status": "runtime_active",
+          "spl_template_status": "active",
+          "tests_added": true,
+          "trace_metadata_allowed": false,
+          "use_case_id": "auth_failed_login_spike",
+          "validation_status": "tests_added"
+        },
+        "activation_lifecycle_stage": "runtime_active",
+        "authority_source": "deterministic_planner_path_selection",
+        "blocked_tools": [
+          "candidate_spl_execution",
+          "mcp_execution"
+        ],
+        "branches": [
+          "spl",
+          "evidence",
+          "severity"
+        ],
+        "clarification_needed": false,
+        "crosswalk_lookup_status": "matched_use_case",
+        "curated_enrichment_context": {
+          "activation_lifecycle_stage": "runtime_active",
+          "allowed_spl_templates": [
+            "auth_failed_login_spike"
+          ],
+          "mitre_candidates": [
+            "T1110",
+            "T1110.001",
+            "T1110.003"
+          ],
+          "provenance_ref_count": 2,
+          "rag_doc_ids": [
+            "auth_sop"
+          ],
+          "runtime_support_status": "runtime_active",
+          "spl_template_status": "active",
+          "use_case_id": "auth_failed_login_spike"
+        },
+        "execution_enabled": false,
+        "hil_required": false,
+        "live_execution_skill": "attack_discovery",
+        "path_type": "spl_review",
+        "planner_path_selection_enabled": true,
+        "planner_runtime_activation_allowed": true,
+        "planning_or_analytic_skill": null,
+        "precedence_applied": [
+          "unsafe_or_blocked_beats_all",
+          "clarification_beats_investigation",
+          "deterministic_registry_over_llm_advisory",
+          "crosswalk_metadata_not_runtime_activation",
+          "planner_schedules_branches_no_execution",
+          "crosswalk_runtime_support_status_read_only",
+          "runtime_activation_crosswalk_gate_passed"
+        ],
+        "question_ref": null,
+        "reason": "live_investigation; curated_enrichment_evidence_requirements; missing_required_curated_evidence",
+        "resource_plan_summary": {
+          "hil": {
+            "reason": "Analyst confirms SPL and approves any search execution.",
+            "required": true
+          },
+          "limitations": [
+            "Failed login telemetry alone does not establish credential validity.",
+            "Source IP reuse, NAT, or scanner behavior may require analyst review."
+          ],
+          "match_path": "use_case_catalog",
+          "mcp": {
+            "allowed": false,
+            "needed": true,
+            "planned_discovery": [
+              "splunk_get_indexes",
+              "splunk_get_metadata",
+              "splunk_get_knowledge_objects"
+            ],
+            "planned_discovery_calls": [
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_indexes"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_metadata"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_knowledge_objects"
+              }
+            ],
+            "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+          },
+          "mitre": {
+            "allowed": false
+          },
+          "path_type": "spl_review",
+          "rag": {
+            "needed": false,
+            "source": "soc_kb_rag"
+          },
+          "severity": {
+            "allowed": false
+          },
+          "spl": {
+            "needed": true,
+            "review_only": true,
+            "skip_reason": null
+          }
+        },
+        "runtime_support_status": "runtime_active",
+        "selected_tools": [
+          "prepare_spl_spec",
+          "require_spl_validation"
+        ],
+        "use_case_id": "auth_failed_login_spike"
+      },
+      "precondition_evaluation": {
+        "blocking_findings": [],
+        "dependency_readiness": "unknown",
+        "evaluation_skipped": true,
+        "observation_only": true,
+        "preconditions_checked": [],
+        "preconditions_failed": [],
+        "preconditions_passed": [],
+        "route_status": null,
+        "skip_reason": "insufficient_shadow_route_plan"
+      },
+      "query_to_intent": {
+        "candidate_mappings": {
+          "legacy_skill_hint": "attack_discovery",
+          "match_path": "use_case_catalog",
+          "question_ref": null,
+          "use_case_ids": [
+            "auth_failed_login_spike"
+          ]
+        },
+        "intent_classification": {
+          "action_mode": null,
+          "answer_goal": [
+            "live_results"
+          ],
+          "confidence": 0.86,
+          "confidence_band": "high",
+          "intent_family": "live_investigation",
+          "primary_intent": "attack_discovery",
+          "query_type": "ask_for_live_results",
+          "reason": "User requested live investigative results.",
+          "requested_output_type": "INVESTIGATION",
+          "requires_clarification": false,
+          "requires_hil": false,
+          "secondary_intents": []
+        },
+        "intent_conflicts": [],
+        "llm_intent_advisory": {
+          "adapter_warnings": [],
+          "adjudication_reason": "advisor_not_available",
+          "adjudication_status": "skipped",
+          "ambiguity_reasons": [],
+          "clarification_draft": null,
+          "confidence_metadata": {},
+          "dropped_reasons": [
+            "deterministic_exact_match_t0"
+          ],
+          "evidence_need_hints": [],
+          "intent_family_candidate": null,
+          "llm_called": false,
+          "paraphrase_detected": false,
+          "path_type_candidate": null,
+          "provider_label": null,
+          "question_ref_candidate": null,
+          "use_case_id_candidate": null
+        },
+        "llm_intent_assist_status": "skipped",
+        "query_signals": {
+          "action_or_containment_shaped": false,
+          "alert_context_present": false,
+          "alert_summary_shaped": false,
+          "analyst_action": false,
+          "analytics_aggregation": false,
+          "attachment_hash_verdict": false,
+          "block_or_contain": false,
+          "byte_pattern": false,
+          "conceptual_mitre_judgment": false,
+          "containment_decision_support": false,
+          "dga": false,
+          "dns_beaconing": false,
+          "download_cradle": false,
+          "email_auth_failure": false,
+          "encoded_command": false,
+          "encryption_behavior": false,
+          "endpoint_network_connection": false,
+          "escalation_without_policy_word": false,
+          "exact_105_analytics": false,
+          "exact_105_hunt_spl": false,
+          "exclude_service_accounts": false,
+          "explicit_log_search": false,
+          "explicit_mitre_context": false,
+          "explicit_run_spl": false,
+          "explicit_search_intent": true,
+          "extension_pattern": false,
+          "failed_login": true,
+          "file_rename_volume": false,
+          "has_specific_scope": false,
+          "host_association": false,
+          "host_spread": false,
+          "hybrid_alert_review": false,
+          "impacted_paths": false,
+          "investigation_hypothesis_guidance": false,
+          "investigation_triage_guidance": false,
+          "jitter_profile": false,
+          "knowledge_definition": false,
+          "live_investigation_verbs": true,
+          "mail_gateway_verdict": false,
+          "malicious_url_or_domain": false,
+          "mitre_evidence_threshold": false,
+          "mitre_explain": false,
+          "mitre_map": false,
+          "mitre_requires_alert_context": false,
+          "negative_cred_dumping": false,
+          "negative_endpoint_telemetry": false,
+          "negative_successful_login": false,
+          "non_soc_or_out_of_scope": false,
+          "normalized_query": "investigate failed login spike on app-01",
+          "periodicity": false,
+          "playbook_procedure": false,
+          "policy_terms": false,
+          "positive_successful_login": false,
+          "powershell_command_evidence": false,
+          "powershell_context": false,
+          "procedural_investigation": false,
+          "process_evidence": false,
+          "projected_action_mode": null,
+          "projected_needs_mcp": true,
+          "projected_needs_rag": false,
+          "projected_needs_spl": true,
+          "rare_domain": false,
+          "regulatory_reporting": false,
+          "repeated_destination": false,
+          "requires_hil": false,
+          "review_only_spl": false,
+          "run_execution": false,
+          "security_log_investigation": true,
+          "sender_return_path_mismatch": false,
+          "service_stop": false,
+          "severity_request": false,
+          "shadow_copy_deletion": false,
+          "soc_actionable_hunt": false,
+          "soc_detection_intent": true,
+          "soc_investigation_shaped": false,
+          "sop_or_playbook_shaped": false,
+          "sop_show_request": false,
+          "source_ip_novelty": false,
+          "spl_authoring_shaped": false,
+          "spl_generation": false,
+          "spl_suppressed": false,
+          "spray_breadth": false,
+          "success_after_failure": false,
+          "suspicious_parent_process": false,
+          "time_window_24h": false,
+          "top_n": null,
+          "use_case_review_guidance": false,
+          "valid_account_abuse": false
+        }
+      },
+      "rag_trace": {
+        "match_status": "not_run"
+      },
+      "resource_plan_shadow": {
+        "llm_called": false,
+        "skipped_reason": "insufficient_deadline_reserve"
+      },
+      "resource_planner": {
+        "resource_decisions": {
+          "hil": {
+            "reason": "Analyst confirms SPL and approves any search execution.",
+            "required": true
+          },
+          "limitations": [
+            "Failed login telemetry alone does not establish credential validity.",
+            "Source IP reuse, NAT, or scanner behavior may require analyst review."
+          ],
+          "match_path": "use_case_catalog",
+          "mcp": {
+            "allowed": false,
+            "needed": true,
+            "planned_discovery": [
+              "splunk_get_indexes",
+              "splunk_get_metadata",
+              "splunk_get_knowledge_objects"
+            ],
+            "planned_discovery_calls": [
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_indexes"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_metadata"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_knowledge_objects"
+              }
+            ],
+            "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+          },
+          "mitre": {
+            "allowed": false
+          },
+          "path_type": "spl_review",
+          "rag": {
+            "needed": false,
+            "source": "soc_kb_rag"
+          },
+          "severity": {
+            "allowed": false
+          },
+          "spl": {
+            "needed": true,
+            "review_only": true,
+            "skip_reason": null
+          }
+        },
+        "source": "evidence_plan.resource_plan.provenance.resource_decisions"
+      },
+      "route_adjudication": {
+        "authority_source": "evidence_plan_live_or_hybrid",
+        "deterministic_route": "attack_discovery",
+        "final_route": "attack_discovery",
+        "final_use_case_id": "auth_failed_login_spike",
+        "llm_suggested_route": null,
+        "reason": "Evidence plan requires live investigation and/or hybrid guidance path.",
+        "shadow_plan_status": "clarification_required"
+      },
+      "routing_provenance": {
+        "ambiguity_flags": [],
+        "authority_source": "query_understanding_catalog",
+        "catalog_bundle": {
+          "confidence": 0.8300000000000001,
+          "matched_patterns": [],
+          "primary_skill": "attack_discovery",
+          "use_case_id": "auth_failed_login_spike"
+        },
+        "clarification_needed": false,
+        "clarification_question": null,
+        "confidence": 0.8300000000000001,
+        "confidence_qu": 0.8300000000000001,
+        "coverage_id": null,
+        "degraded": false,
+        "deterministic_match_path": "use_case_catalog",
+        "entities": {
+          "alert_id": [],
+          "asset": [],
+          "cve_ids": [],
+          "destination_ip": [],
+          "event_type": [
+            "authentication_failure"
+          ],
+          "host": [],
+          "index": [],
+          "mitre_techniques": [],
+          "observation_window": null,
+          "port_numbers": [],
+          "purdue_layers": [],
+          "source_ip": [],
+          "sourcetype": [],
+          "time_window": null,
+          "user": [],
+          "zone_labels": []
+        },
+        "intent_candidate": null,
+        "keyword_router_would_have_selected": {
+          "confidence": 0.86,
+          "reasons": [
+            "failed login or brute-force investigation wording"
+          ],
+          "skill": "attack_discovery",
+          "tool_plan": [
+            "classify_auth_pattern",
+            "prepare_spl_spec",
+            "require_spl_validation"
+          ]
+        },
+        "llm_advisory_recommended": false,
+        "mapped_coverage_id": null,
+        "mapped_operation_type": null,
+        "mapped_pattern_type": null,
+        "mapped_primary_skill": null,
+        "mapped_question_number": null,
+        "mapped_question_ref": null,
+        "mapped_use_case_ids": [
+          "auth_failed_login_spike"
+        ],
+        "near_match_score": null,
+        "normalized_query": "investigate failed login spike on app-01",
+        "operation_type": null,
+        "output_template": "investigation_answer",
+        "pattern_type": null,
+        "primary_intent": "attack_discovery",
+        "provisional_route": false,
+        "qu_failed": false,
+        "question_registry_match_score": null,
+        "question_registry_match_source": null,
+        "question_registry_observation_only": true,
+        "raw_query": "Investigate failed login spike on APP-01",
+        "registry_consistency": "not_evaluated",
+        "registry_warnings": [],
+        "requested_output_type": "investigation",
+        "rescue_mode": false,
+        "route_skill_candidate": null,
+        "secondary_intents": [],
+        "selected_by": "llm_assisted_semantic_normalized",
+        "skill": "attack_discovery",
+        "soc_investigation_shaped": false,
+        "tool_plan": [
+          "classify_auth_pattern",
+          "prepare_spl_spec",
+          "require_spl_validation"
+        ],
+        "triage_signals": {
+          "block_or_contain": false,
+          "explicit_run_spl": false,
+          "soc_investigation_shaped": false
+        },
+        "use_case_catalog_size": 58,
+        "use_case_id": "auth_failed_login_spike",
+        "use_case_match_source": "expanded_catalog",
+        "why_not_knowledge_recall": null
+      },
+      "source_evidence_refs": [
+        "ev_c190c7dbcaa9f840",
+        "ev_dd688723c33c70bf",
+        "ev_0a031b397e44acdb",
+        "ev_e80d0892d43fd9e0",
+        "ev_a148ee1c122110fd"
+      ],
+      "spl_slot_binding": {
+        "approved": true,
+        "missing_bindings": [],
+        "policy_version": "spl-policy-v1+2026-06-spl-slot-binding-v1",
+        "validated": true
+      },
+      "sufficiency": {
+        "human_review": {
+          "allowed_actions": [
+            "approve_execution_after_policy_check",
+            "reject_execution"
+          ],
+          "reason": "context_collection_blocked",
+          "required": true,
+          "review_type": "execution_approval",
+          "reviewer_role": "soc_lead",
+          "safe_message_for_user": "Context collection is blocked by policy; synthesis stays disabled until a SOC lead reviews evidence collection."
+        },
+        "missing_evidence": [],
+        "reasons": [
+          "context_collection_blocked",
+          "evidence_origin:stub_rag"
+        ],
+        "status": "blocked_by_policy",
+        "synthesis_allowed": false,
+        "synthesis_readiness": false
+      },
+      "synthesis_mode": {
+        "mode": "synthesis_blocked"
+      },
+      "tool_plan": {
+        "execution_enabled": false,
+        "missing_sources": [
+          "mcp:splunk"
+        ],
+        "required_sources": [
+          "mcp:splunk"
+        ],
+        "skill": "attack_discovery",
+        "tool_plan": [
+          "classify_auth_pattern",
+          "prepare_spl_spec",
+          "require_spl_validation"
+        ]
+      }
+    },
+    "coverage_id": null,
+    "demo_badge": null,
+    "demo_mode": false,
+    "disagreement": false,
+    "disagreement_reason": null,
+    "ec_answer_source": null,
+    "ec_provenance": null,
+    "ec_stage_latencies": null,
+    "environment_hygiene": null,
+    "environment_mode": null,
+    "evidence_origin": "stub_rag",
+    "evidence_plan": {
+      "action_mode": "recommend_only",
+      "answer_mode": "live_investigation",
+      "answer_rules": [
+        "Do not claim account compromise from failed logins alone.",
+        "Mark brute force as evidence-supported only after threshold evidence exists.",
+        "SPL/execution remains review-gated."
+      ],
+      "checklist": [
+        "Validate time window and threshold.",
+        "Compare distinct users and sources.",
+        "Check whether any successful authentication followed the failures.",
+        "Review asset or account criticality before severity claims."
+      ],
+      "correlation": null,
+      "enrichment_driven": true,
+      "evidence_legs": [],
+      "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
+      "investigation_workflow": [
+        "Scope authentication failures by user, source, host, and time window.",
+        "Confirm threshold evidence before labeling brute-force activity evidence-supported.",
+        "Pivot to success-after-failure only when successful authentication evidence exists.",
+        "Keep SPL generation and execution behind existing validation and review gates."
+      ],
+      "limitations": [
+        "Failed login telemetry alone does not establish credential validity.",
+        "Source IP reuse, NAT, or scanner behavior may require analyst review."
+      ],
+      "mcp_allowed": true,
+      "missing_required_evidence": [
+        "user",
+        "src",
+        "host",
+        "time_window"
+      ],
+      "mitre_candidates_metadata_only": [
+        "T1110",
+        "T1110.001",
+        "T1110.003"
+      ],
+      "needs_clarification": true,
+      "needs_hil": true,
+      "needs_mcp": true,
+      "needs_mitre": false,
+      "needs_rag": false,
+      "needs_spl": true,
+      "optional_evidence_keys": [
+        "account_compromise",
+        "valid_account_abuse",
+        "credential_dumping",
+        "malware"
+      ],
+      "optional_sources": [
+        "rag:sop",
+        "mitre:enterprise",
+        "asset_inventory"
+      ],
+      "policy_context_recommended": false,
+      "policy_context_required": false,
+      "present_evidence_keys": [
+        "alert_type",
+        "event_id",
+        "fail_count",
+        "failed_login_pattern",
+        "first_failure",
+        "last_failure"
+      ],
+      "rag_no_match_behavior": null,
+      "rag_phase": "post_mcp",
+      "reasons": [
+        "live_investigation",
+        "curated_enrichment_evidence_requirements",
+        "missing_required_curated_evidence"
+      ],
+      "recommended_pivots": [],
+      "required_evidence_keys": [
+        "user",
+        "src",
+        "host",
+        "fail_count",
+        "time_window",
+        "first_failure",
+        "last_failure"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "requires_hil": true,
+      "resource_plan": {
+        "plan_source": "deterministic",
+        "provenance": {
+          "composer": "deterministic_v1",
+          "intent_family": "live_investigation",
+          "match_path": "use_case_catalog",
+          "resource_decisions": {
+            "hil": {
+              "reason": "Analyst confirms SPL and approves any search execution.",
+              "required": true
+            },
+            "limitations": [
+              "Failed login telemetry alone does not establish credential validity.",
+              "Source IP reuse, NAT, or scanner behavior may require analyst review."
+            ],
+            "match_path": "use_case_catalog",
+            "mcp": {
+              "allowed": false,
+              "needed": true,
+              "planned_discovery": [
+                "splunk_get_indexes",
+                "splunk_get_metadata",
+                "splunk_get_knowledge_objects"
+              ],
+              "planned_discovery_calls": [
+                {
+                  "arguments": {},
+                  "block_reason": "mcp_global_execution_disabled",
+                  "failure_mode": "execution_disabled",
+                  "kind": "planned_tool_call",
+                  "policy_checks": [
+                    "read_only_discovery",
+                    "mcp_execution_gate"
+                  ],
+                  "server": "splunk",
+                  "tool_name": "splunk_get_indexes"
+                },
+                {
+                  "arguments": {},
+                  "block_reason": "mcp_global_execution_disabled",
+                  "failure_mode": "execution_disabled",
+                  "kind": "planned_tool_call",
+                  "policy_checks": [
+                    "read_only_discovery",
+                    "mcp_execution_gate"
+                  ],
+                  "server": "splunk",
+                  "tool_name": "splunk_get_metadata"
+                },
+                {
+                  "arguments": {},
+                  "block_reason": "mcp_global_execution_disabled",
+                  "failure_mode": "execution_disabled",
+                  "kind": "planned_tool_call",
+                  "policy_checks": [
+                    "read_only_discovery",
+                    "mcp_execution_gate"
+                  ],
+                  "server": "splunk",
+                  "tool_name": "splunk_get_knowledge_objects"
+                }
+              ],
+              "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+            },
+            "mitre": {
+              "allowed": false
+            },
+            "path_type": "spl_review",
+            "rag": {
+              "needed": false,
+              "source": "soc_kb_rag"
+            },
+            "severity": {
+              "allowed": false
+            },
+            "spl": {
+              "needed": true,
+              "review_only": true,
+              "skip_reason": null
+            }
+          },
+          "skill_id": "attack_discovery",
+          "skill_workflow": [
+            "spl_generation",
+            "spl_validation",
+            "evidence_collection",
+            "context_sufficiency"
+          ],
+          "use_case_id": "auth_failed_login_spike"
+        },
+        "steps": [
+          {
+            "args_template": {},
+            "on_unavailable": "spl_lab_draft_family:auth_failed_login_threshold",
+            "policy_checks": [
+              "spl_validator",
+              "execution_eligible_false",
+              "required_evidence:fail_count,first_failure,host,last_failure,src,time_window,user",
+              "skill_required_evidence:source_evidence"
+            ],
+            "purpose": "spl_artifact",
+            "resource_id": "spl_template_family:auth_failed_login_spike",
+            "status": "executed",
+            "status_reason": null,
+            "step_id": "spl"
+          },
+          {
+            "args_template": {},
+            "on_unavailable": null,
+            "policy_checks": [
+              "mcp_execution_gate",
+              "approved_normalized_spl_only",
+              "global_and_server_execution_flags",
+              "skill_required_evidence:source_evidence"
+            ],
+            "purpose": "mcp_execution",
+            "resource_id": "mcp_tool:splunk_run_query",
+            "status": "blocked_policy",
+            "status_reason": "spl_source_slots_unresolved",
+            "step_id": "mcp"
+          },
+          {
+            "args_template": {},
+            "on_unavailable": null,
+            "policy_checks": [
+              "answer_guard",
+              "deterministic_fallback_on_failure"
+            ],
+            "purpose": "narration",
+            "resource_id": "llm_role:narration",
+            "status": "planned",
+            "status_reason": null,
+            "step_id": "narration"
+          }
+        ]
+      },
+      "runtime_support_status": "runtime_active",
+      "spl_allowed": true,
+      "unsupported_claims_avoid": [
+        "account_compromise",
+        "valid_account_abuse",
+        "credential_dumping",
+        "malware"
+      ],
+      "use_case_id": "auth_failed_login_spike"
+    },
+    "execution": {
+      "block_reason": "spl_source_slots_unresolved",
+      "duration_ms": 0,
+      "evidence_source": "unavailable",
+      "executed_spl": null,
+      "execution_intent": "spl_search",
+      "execution_status_label": "not_executed",
+      "precondition_evaluation": null,
+      "result_count": 0,
+      "results_preview": [],
+      "selected_mcp_server": "mock",
+      "selected_mcp_tool": "splunk_run_query",
+      "status": "requires_human_review",
+      "tool_selection_reason": "deterministic_safe_tool_selected",
+      "tool_selection_status": "selected"
+    },
+    "experience_center_governance": null,
+    "fallback_active": null,
+    "final_answer_safety_status": "passed",
+    "final_answer_validation": {
+      "analyst_review_required": false,
+      "blocked_reason": null,
+      "enabled": true,
+      "failed_checks": [],
+      "guard_status": "passed",
+      "passed_checks": [
+        "final.blocked_finding_claimed",
+        "final.mitre_visible_when_suppressed",
+        "final.rag_override_mitre",
+        "final.spl_on_rag_only",
+        "final.candidate_described_as_confirmed",
+        "final.spl_only_missing_action_guidance",
+        "final.unsafe_account_compromise_claim",
+        "final.unsafe_c2_confirmed_claim",
+        "final.unsafe_ransomware_confirmed_claim",
+        "final.unsafe_malware_confirmed_claim",
+        "final.unsafe_execution_claim",
+        "final.evidence_supported_without_status",
+        "final.containment_without_hil"
+      ],
+      "reason": "Final answer is consistent with the AnswerContract and the deciders."
+    },
+    "foundation_sec_governance": null,
+    "governance_trace": {
+      "answer_contract_panel": null,
+      "answer_scorecard_panel": null,
+      "completion_status": {
+        "completed": [
+          "legacy intent routing",
+          "runtime operation contracts",
+          "intent-to-operation bridge",
+          "SPL validation metadata",
+          "MCP execution gate",
+          "evidence packaging",
+          "MITRE mapping",
+          "severity decision",
+          "context sufficiency",
+          "action capability policy"
+        ],
+        "gated_wip": [
+          "live MCP/Splunk execution",
+          "first real MCP schema confirmation",
+          "final LLM synthesis",
+          "Answer Guard execution",
+          "renderer consumption of output artifacts",
+          "pattern #2 authority expansion",
+          "full production readiness for all 105 questions"
+        ]
+      },
+      "llm_sidecar_panel": null,
+      "mcp_envelope": null,
+      "mcp_fixture_result": null,
+      "mcp_tool_selection": null,
+      "mitre_panel": null,
+      "model_signal_panel": null,
+      "narration_visibility_panel": null,
+      "progress_labels": [],
+      "resource_planner": null,
+      "severity": {
+        "priority_note": null,
+        "severity_label": "P3 Medium",
+        "why_not_higher": [
+          "P1 requires: success_after_failure, privileged_account_impacted, critical_asset, confirmed_success",
+          "missing evidence for escalation: success_after_failure",
+          "missing evidence for escalation: privileged_account_impacted",
+          "missing evidence for escalation: critical_asset",
+          "missing evidence for escalation: confirmed_success"
+        ],
+        "why_not_higher_title": "Why not P1/P0?",
+        "why_severity": [
+          "default_policy"
+        ],
+        "why_severity_title": "Why P3 Medium?"
+      },
+      "skills_operations": {
+        "intent_skill": "attack_discovery",
+        "legacy_router_skill": "attack_discovery",
+        "pipeline_stages": [
+          {
+            "label": "Query understanding",
+            "stage_id": "query_understanding",
+            "status": "complete"
+          },
+          {
+            "label": "Workflow planning",
+            "stage_id": "workflow_planning",
+            "status": "complete"
+          },
+          {
+            "label": "SPL template",
+            "stage_id": "spl_template",
+            "status": "complete"
+          },
+          {
+            "label": "SPL validation",
+            "stage_id": "spl_validation",
+            "status": "complete"
+          },
+          {
+            "label": "MCP execution gate",
+            "stage_id": "mcp_execution_gate",
+            "status": "requires_human_review"
+          },
+          {
+            "label": "Source evidence",
+            "stage_id": "source_evidence",
+            "status": "complete"
+          },
+          {
+            "label": "MITRE mapping",
+            "stage_id": "mitre_mapping",
+            "status": "skipped"
+          },
+          {
+            "label": "Severity decision",
+            "stage_id": "severity_decision",
+            "status": "complete"
+          },
+          {
+            "label": "Context sufficiency",
+            "stage_id": "context_sufficiency",
+            "status": "complete"
+          },
+          {
+            "label": "Action capability",
+            "stage_id": "action_capability",
+            "status": "complete"
+          },
+          {
+            "label": "LLM narration: not live; captured advisory model signal only; deterministic governed answer used",
+            "stage_id": "llm_narration_visibility",
+            "status": "blocked"
+          },
+          {
+            "label": "Answer governance",
+            "stage_id": "answer_governance",
+            "status": "skipped"
+          }
+        ],
+        "runtime_operation": null,
+        "runtime_operation_note": "not evaluated (use case mapped: auth_failed_login_spike)"
+      },
+      "soc_kb_panel": null,
+      "source_evidence_panel": null,
+      "spl_validation_panel": null
+    },
+    "human_review": {
+      "allowed_actions": [
+        "Review failed-login volume and source distribution.",
+        "Check for successful login after repeated failures.",
+        "Escalate when privileged accounts or broad source spread are involved."
+      ],
+      "proposed_normalized_spl": null,
+      "reason": "spl_source_slots_unresolved",
+      "required": true,
+      "review_type": "spl_revision",
+      "reviewer_role": "tier2_soc_analyst",
+      "safe_message_for_user": "Execution cannot safely proceed until this item is reviewed.",
+      "selected_mcp_server": null,
+      "selected_mcp_tool": null,
+      "sop_action_hint": "Review failed-login volume and source distribution.",
+      "sop_excerpt": "For a failed-login spike, verify account, source IP distribution, time window, and any successful login after repeated failures before escalation.",
+      "sop_reference": "COE Sample Auth Investigation SOP v1.0 AUTH-001"
+    },
+    "investigation_lineage": {
+      "lineage_id": "lineage:fd3e3294-3648-4c2b-8a85-eb3f9a4aeff3",
+      "stages": [
+        {
+          "current_mode_source": "live",
+          "explanation": "Mapped query to auth_failed_login_spike.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production query parser",
+          "stage_id": "query_understanding",
+          "status": "complete",
+          "technical_output": {
+            "mapped_use_case_ids": [
+              "auth_failed_login_spike"
+            ]
+          },
+          "visible_label": "Query understanding"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Selected attack_discovery.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production skill registry",
+          "stage_id": "skill_chain",
+          "status": "complete",
+          "technical_output": {
+            "alternatives": [],
+            "chain_id": "chain:auth_failed_login_spike",
+            "pipeline_stages": [
+              "query_understanding",
+              "spl_generation",
+              "spl_validation",
+              "evidence_collection",
+              "context_sufficiency"
+            ],
+            "routable_skill": "attack_discovery",
+            "selected_skill": "attack_discovery",
+            "selection_reason": "use_case_registry_advisory_mapping",
+            "stages": [
+              "query_understanding",
+              "spl_generation",
+              "spl_validation",
+              "evidence_collection",
+              "context_sufficiency"
+            ]
+          },
+          "visible_label": "Skill chain"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Workflow plan created. No SPL/MCP/RAG execution has started.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production workflow planner",
+          "stage_id": "workflow",
+          "status": "complete",
+          "technical_output": {
+            "execution_enabled": false,
+            "status": "not_started"
+          },
+          "visible_label": "Workflow planning"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Dormant route-plan preflight and validation metadata only; execution remains unauthorized.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3K-R2 dormant route-plan validator",
+          "stage_id": "route_plan_shadow",
+          "status": "clarification_required",
+          "technical_output": {
+            "analyst_summary_dropped_reasons": [
+              "no_provider_configured"
+            ],
+            "analyst_summary_narration_llm_called": false,
+            "analyst_summary_shadow_available": true,
+            "analyst_summary_shadow_source": "deterministic_skeleton",
+            "analyst_summary_shadow_text": "Shadow route-plan observation only: preflight clarification_required, deterministic skill not_selected, route status clarification_required. Execution remains unauthorized; this path records metadata only.",
+            "analyst_summary_trace_bullets": [
+              "Preflight: clarification_required; missing slots: threshold_ref, baseline_ref.",
+              "Route-plan shadow: clarification_required; candidate reason: deterministic_preflight_blocked.",
+              "Template shadow: not_attempted; rendered SPL available: False (hash only, not shown)."
+            ],
+            "blocking_findings": [
+              "missing_threshold_or_baseline_policy"
+            ],
+            "candidate_available": false,
+            "candidate_reason": "deterministic_preflight_blocked",
+            "candidate_template_ids": [],
+            "captured_live_run": false,
+            "coe_synthetic_fixture": true,
+            "deterministic_route_plan_wins": true,
+            "disagreements": [],
+            "enabled": true,
+            "evidence_output_contract": null,
+            "execution_authorized": false,
+            "intent_operation_bridge": {
+              "allowed_primary_skills": [
+                "aggregate_and_rank",
+                "behavioral_detection_binding",
+                "entity_timeline",
+                "lookup_correlation",
+                "multi_signal_correlation",
+                "sequence_detection",
+                "threshold_anomaly"
+              ],
+              "bridge_status": "not_evaluated",
+              "compatible": true,
+              "disagreements": [],
+              "intent_modifier": null,
+              "legacy_intent": "attack_discovery",
+              "output_artifact_hint": null,
+              "output_artifacts_deferred_to_s2b": false,
+              "primary_skill_observed": null,
+              "rejection_reason": null,
+              "spl_generation_modifier_detected": false,
+              "underlying_operation": null
+            },
+            "llm_called": false,
+            "llm_candidate_dropped_reasons": [],
+            "llm_candidate_route_plan_available": false,
+            "llm_model_family": null,
+            "llm_plan_validation": {
+              "advisory_plan": null,
+              "corrected_plan": null,
+              "mcp_execution_allowed": false,
+              "policy_version": "2026-06-control-plane-v1",
+              "reasons": [
+                "no_advisory_plan_payload"
+              ],
+              "status": "skipped",
+              "warnings": []
+            },
+            "llm_role": null,
+            "matched_template_id": null,
+            "mcp_called": false,
+            "missing_slots": [
+              "threshold_ref",
+              "baseline_ref"
+            ],
+            "mode": "dormant_shadow",
+            "model_role": "instruct_candidate_only",
+            "normalized_plan_available": false,
+            "ood_llm_route_plan_lab": {
+              "enabled": false,
+              "reason": "lab_primary_mode_disabled"
+            },
+            "operation_audit": null,
+            "output_artifacts": {
+              "bridge_hint_applied": false,
+              "legacy_intent": "attack_discovery",
+              "renderer_applied": false,
+              "resolution_source": "s2b_registry",
+              "resolved_artifacts": [
+                "candidate_spl_visible"
+              ],
+              "unknown_legacy_intent": false
+            },
+            "pattern_id": null,
+            "precondition_evaluation": {
+              "blocking_findings": [],
+              "dependency_readiness": "unknown",
+              "evaluation_skipped": true,
+              "observation_only": true,
+              "preconditions_checked": [],
+              "preconditions_failed": [],
+              "preconditions_passed": [],
+              "route_status": null,
+              "skip_reason": "insufficient_shadow_route_plan"
+            },
+            "preflight_status": "clarification_required",
+            "primary_skill": null,
+            "production_execution": false,
+            "question_runtime_map": null,
+            "reasoning_model_used": false,
+            "rendered_spl_available": false,
+            "rendered_spl_execution_eligible": false,
+            "rendered_spl_sha256": null,
+            "rendered_spl_validator_approved": false,
+            "route_authority_compare": {
+              "authority_applied": false,
+              "authority_decision": "fallback",
+              "authority_eligible": false,
+              "authority_fallback_reason": "coverage_id_not_allowlisted",
+              "authority_holder": "legacy_selected_skill",
+              "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+              "candidate_primary_skill": null,
+              "compare_enabled": true,
+              "coverage_id_allowlisted": false,
+              "coverage_id_resolved": null,
+              "dual_run_active": true,
+              "global_enabled": true,
+              "intent_bridge_compatible": true,
+              "intent_bridge_disagreements": [],
+              "intent_operation_bridge_status": "not_evaluated",
+              "legacy_intent_authority": true,
+              "legacy_selected_skill_preserved": "attack_discovery",
+              "legacy_skill_router_match": true,
+              "legacy_skill_router_skill_match": true,
+              "legacy_skill_router_tool_plan_match": true,
+              "migration_phase": "S3_step_3_cov_q046_pilot",
+              "operation_authoritative_applied": false,
+              "operation_authoritative_enabled": true,
+              "planning_primary_skill": null,
+              "route_plan_primary_skill_observed": null,
+              "route_plan_shadow_disagreements": [],
+              "selected_skill": "attack_discovery",
+              "selected_skill_before": "attack_discovery",
+              "selected_skill_mirror_only": false,
+              "validator_status": "clarification_required"
+            },
+            "route_status": "clarification_required",
+            "routing_skill_resolution": {
+              "effective_skill": "attack_discovery",
+              "legacy_intent_authority": true,
+              "planning_primary_operation": null,
+              "skill_resolution": "legacy_selected_skill"
+            },
+            "spl_executed": false,
+            "spl_generated": false,
+            "supporter_trace": null,
+            "template_match_attempted": false,
+            "template_match_reasons": [],
+            "template_match_score": null,
+            "template_match_shadow_status": null,
+            "template_match_skip_reason": "no_validated_route_plan",
+            "template_mismatch_reasons": [],
+            "template_production_executable": false,
+            "template_sample_only": false,
+            "template_validator_profile": null,
+            "use_case_registry_bridge": {
+              "authority": "advisory_only",
+              "catalog_size": 58,
+              "enabled": true,
+              "matched_use_cases": [
+                {
+                  "confidence": 0.8300000000000001,
+                  "display_name": "Failed login spike",
+                  "matched_patterns": [
+                    "failed login",
+                    "Failed login spike",
+                    "Investigate failed login spike on APP-01"
+                  ],
+                  "primary_skill": "attack_discovery",
+                  "registry_operation_hint": "attack_discovery",
+                  "use_case_id": "auth_failed_login_spike"
+                }
+              ],
+              "merge_status": "catalog_rows_advisory_until_ec_rebase",
+              "top_operation_hint": "attack_discovery",
+              "top_use_case_id": "auth_failed_login_spike"
+            },
+            "validation_findings": [],
+            "validation_result": null,
+            "warnings": []
+          },
+          "visible_label": "Route-plan shadow"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Dormant shadow narration for lineage reveal only; not used as the analyst-facing answer.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3K-Q1G Instruct shadow narration",
+          "stage_id": "analyst_summary_shadow",
+          "status": "dropped",
+          "technical_output": {
+            "analyst_summary_dropped_reasons": [
+              "no_provider_configured"
+            ],
+            "analyst_summary_narration_llm_called": false,
+            "analyst_summary_shadow_source": "deterministic_skeleton",
+            "analyst_summary_shadow_text": "Shadow route-plan observation only: preflight clarification_required, deterministic skill not_selected, route status clarification_required. Execution remains unauthorized; this path records metadata only.",
+            "analyst_summary_trace_bullets": [
+              "Preflight: clarification_required; missing slots: threshold_ref, baseline_ref.",
+              "Route-plan shadow: clarification_required; candidate reason: deterministic_preflight_blocked.",
+              "Template shadow: not_attempted; rendered SPL available: False (hash only, not shown)."
+            ],
+            "captured_live_run": false,
+            "coe_synthetic_fixture": true,
+            "production_execution": false
+          },
+          "visible_label": "Analyst summary (shadow narration)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Legacy SKILL_ENUM intent compared to route_plan.primary_skill for lineage only; selected_skill unchanged.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S2A-FOLLOWUP intent-to-operation bridge",
+          "stage_id": "intent_operation_bridge",
+          "status": "not_evaluated",
+          "technical_output": {
+            "allowed_primary_skills": [
+              "aggregate_and_rank",
+              "behavioral_detection_binding",
+              "entity_timeline",
+              "lookup_correlation",
+              "multi_signal_correlation",
+              "sequence_detection",
+              "threshold_anomaly"
+            ],
+            "bridge_status": "not_evaluated",
+            "compatible": true,
+            "disagreements": [],
+            "intent_modifier": null,
+            "legacy_intent": "attack_discovery",
+            "output_artifact_hint": null,
+            "output_artifacts_deferred_to_s2b": false,
+            "primary_skill_observed": null,
+            "rejection_reason": null,
+            "spl_generation_modifier_detected": false,
+            "underlying_operation": null
+          },
+          "visible_label": "Intent \u2194 operation bridge (shadow)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Resolved output-shape artifact IDs for lineage only; renderer and analyst card unchanged.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S2B output artifacts registry",
+          "stage_id": "output_artifacts",
+          "status": "observed",
+          "technical_output": {
+            "bridge_hint_applied": false,
+            "legacy_intent": "attack_discovery",
+            "renderer_applied": false,
+            "resolution_source": "s2b_registry",
+            "resolved_artifacts": [
+              "candidate_spl_visible"
+            ],
+            "unknown_legacy_intent": false
+          },
+          "visible_label": "Output artifacts (shadow)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Dual-run compare of legacy selected_skill vs route_plan primary_skill; no authority migration.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S3 Steps 1\u20132 route authority compare",
+          "stage_id": "route_authority_compare",
+          "status": "not_evaluated",
+          "technical_output": {
+            "authority_applied": false,
+            "authority_decision": "fallback",
+            "authority_eligible": false,
+            "authority_fallback_reason": "coverage_id_not_allowlisted",
+            "authority_holder": "legacy_selected_skill",
+            "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+            "candidate_primary_skill": null,
+            "compare_enabled": true,
+            "coverage_id_allowlisted": false,
+            "coverage_id_resolved": null,
+            "dual_run_active": true,
+            "global_enabled": true,
+            "intent_bridge_compatible": true,
+            "intent_bridge_disagreements": [],
+            "intent_operation_bridge_status": "not_evaluated",
+            "legacy_intent_authority": true,
+            "legacy_selected_skill_preserved": "attack_discovery",
+            "legacy_skill_router_match": true,
+            "legacy_skill_router_skill_match": true,
+            "legacy_skill_router_tool_plan_match": true,
+            "migration_phase": "S3_step_3_cov_q046_pilot",
+            "operation_authoritative_applied": false,
+            "operation_authoritative_enabled": true,
+            "planning_primary_skill": null,
+            "route_plan_primary_skill_observed": null,
+            "route_plan_shadow_disagreements": [],
+            "selected_skill": "attack_discovery",
+            "selected_skill_before": "attack_discovery",
+            "selected_skill_mirror_only": false,
+            "validator_status": "clarification_required"
+          },
+          "visible_label": "Route authority compare (shadow)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Registry-backed S7 precondition evaluation for lineage only; routing authority unchanged.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S7.3 hard-precondition evaluator shadow",
+          "stage_id": "hard_preconditions",
+          "status": "skipped",
+          "technical_output": {
+            "blocking_findings": [],
+            "dependency_readiness": "unknown",
+            "evaluation_skipped": true,
+            "observation_only": true,
+            "preconditions_checked": [],
+            "preconditions_failed": [],
+            "preconditions_passed": [],
+            "route_status": null,
+            "skip_reason": "insufficient_shadow_route_plan"
+          },
+          "visible_label": "Hard preconditions (shadow)"
+        },
+        {
+          "current_mode_source": "config",
+          "explanation": "Template metadata attached when a use-case template exists.",
+          "produced_answer_sections": [
+            "spl_code"
+          ],
+          "production_equivalent": "SCD/template registry",
+          "stage_id": "spl_template",
+          "status": "complete",
+          "technical_output": {
+            "allowed_spl_templates": [
+              "auth_failed_login_spike"
+            ],
+            "answer_sections_supported": [
+              "splunk_results_table",
+              "mitre_mappings",
+              "recommended_actions"
+            ],
+            "datamodel": null,
+            "enabled": null,
+            "enrichment_evidence_requirements": [
+              "user",
+              "src",
+              "host",
+              "fail_count",
+              "time_window",
+              "first_failure",
+              "last_failure"
+            ],
+            "governed_limitation": null,
+            "production_executable": true,
+            "production_ready": null,
+            "query_shape": "raw_search",
+            "result_limits": {
+              "max_rows": 100
+            },
+            "returned_fields": [
+              "host",
+              "src",
+              "failed_logins",
+              "distinct_users",
+              "first_seen",
+              "last_seen",
+              "action"
+            ],
+            "sample_only": false,
+            "spl_template_status": "active",
+            "status": "active",
+            "template_id": "auth_failed_login_spike",
+            "template_production_executable": true,
+            "use_case_id": "auth_failed_login_spike",
+            "validation_rules": {
+              "allowed_commands": [
+                "search",
+                "stats",
+                "where",
+                "sort",
+                "head"
+              ],
+              "allowed_indexes": [
+                "pgcil_soc"
+              ],
+              "allowed_sourcetypes": [
+                "pgcil:auth"
+              ],
+              "required_time_bounds": true,
+              "result_limit_required": true
+            },
+            "validator_profile": null
+          },
+          "visible_label": "SPL template"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Candidate SPL is validated before any MCP gate.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production SPL validator",
+          "stage_id": "spl_validation",
+          "status": "complete",
+          "technical_output": {
+            "allowed_by_enrichment": true,
+            "allowed_spl_templates": [
+              "auth_failed_login_spike"
+            ],
+            "approved": true,
+            "candidate_provider_reason": "use_case_catalog_default_raw_template",
+            "capability_profile": {
+              "authenticated_user_available": true,
+              "available_core_tools": [
+                "splunk_run_query",
+                "splunk_get_info",
+                "splunk_get_indexes",
+                "splunk_get_index_info",
+                "splunk_get_metadata",
+                "splunk_get_user_info",
+                "splunk_get_knowledge_objects"
+              ],
+              "available_saia_tools": [],
+              "available_tools": [
+                "splunk_get_index_info",
+                "splunk_get_indexes",
+                "splunk_get_info",
+                "splunk_get_knowledge_objects",
+                "splunk_get_metadata",
+                "splunk_get_user_info",
+                "splunk_run_query"
+              ],
+              "core_splunk_tools_available": true,
+              "discovered_at": "2026-06-24T10:54:05.672747+00:00",
+              "discovery_mode": "dynamic",
+              "environment_mode": "coe",
+              "fallback_required": true,
+              "get_index_info_available": true,
+              "get_indexes_available": true,
+              "get_info_available": true,
+              "get_knowledge_objects_available": true,
+              "get_metadata_available": true,
+              "get_user_info_available": true,
+              "knowledge_object_discovery_allowed": true,
+              "mcp_available": true,
+              "metadata_discovery_allowed": true,
+              "missing_expected_core_tools": [],
+              "missing_expected_saia_tools": [
+                "saia_generate_spl",
+                "saia_explain_spl",
+                "saia_optimize_spl",
+                "saia_ask_splunk_question"
+              ],
+              "run_query_available": true,
+              "run_query_requires_validation": true,
+              "run_saved_search_allowed": false,
+              "run_saved_search_available": false,
+              "run_saved_search_requires_hil": true,
+              "saia_ask_splunk_question_available": false,
+              "saia_available": false,
+              "saia_configured_mode": "auto",
+              "saia_explain_spl_available": false,
+              "saia_generate_spl_available": false,
+              "saia_optimize_spl_available": false,
+              "saia_usable": false,
+              "server_id": "splunk_soc",
+              "warnings": [
+                "splunk_ai_assistant_unavailable_fallback_required"
+              ]
+            },
+            "enforced_limits": {
+              "default_earliest": "-24h",
+              "default_latest": "now",
+              "enforcement_mode": "out_of_band",
+              "max_result_limit": 100,
+              "result_limit_enforced": true
+            },
+            "enrichment_evidence_requirements": [
+              "user",
+              "src",
+              "host",
+              "fail_count",
+              "time_window",
+              "first_failure",
+              "last_failure"
+            ],
+            "execution_eligible": false,
+            "execution_enabled": false,
+            "fallback_required": false,
+            "governed_limitation": null,
+            "mcp_execution_enabled": false,
+            "normalized_spl": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure | stats count as failed_logins dc(user) as distinct_users min(_time) as first_seen max(_time) as last_seen values(action) as action by host, src | where failed_logins >= 25 | sort -failed_logins | head 100",
+            "optimization_applied": false,
+            "optimization_revalidation_approved": false,
+            "optimization_revalidation_status": null,
+            "policy_version": "spl-policy-v1+2026-06-spl-slot-binding-v1",
+            "reject_reasons": [],
+            "requires_mcp_identity_rbac_check": true,
+            "review_required": true,
+            "review_required_reason": "candidate_spl_review_only",
+            "saia_available": false,
+            "selected_candidate_spl_provider": "deterministic_template_render",
+            "spl_explanation_provider": "rule_based",
+            "spl_generation_safety_policy": "2026-06-spl-generation-safety-v1",
+            "spl_guidance_provider": "scd_rag",
+            "spl_optimization_provider": "rule_based",
+            "spl_template_status": "active",
+            "template_id": "auth_failed_login_spike",
+            "template_production_executable": true,
+            "validator_status": "approved",
+            "warnings": [
+              "slot_binding_validated"
+            ]
+          },
+          "visible_label": "SPL validation"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "deterministic_safe_tool_selected",
+          "produced_answer_sections": [],
+          "production_equivalent": "production MCP gate",
+          "stage_id": "mcp_tool_decision",
+          "status": "requires_human_review",
+          "technical_output": {
+            "block_reason": "spl_source_slots_unresolved",
+            "duration_ms": 0,
+            "evidence_source": "unavailable",
+            "executed_spl": null,
+            "execution_intent": "spl_search",
+            "execution_status_label": "not_executed",
+            "result_count": 0,
+            "results_preview": [],
+            "selected_mcp_server": "mock",
+            "selected_mcp_tool": "splunk_run_query",
+            "status": "requires_human_review",
+            "tool_selection_reason": "deterministic_safe_tool_selected",
+            "tool_selection_status": "selected"
+          },
+          "visible_label": "MCP execution gate"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "5 evidence records packaged.",
+          "produced_answer_sections": [
+            "splunk_results_table"
+          ],
+          "production_equivalent": "production SourceEvidence",
+          "stage_id": "source_evidence",
+          "status": "complete",
+          "technical_output": {
+            "evidence_count": 5
+          },
+          "visible_label": "Source evidence"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Local MITRE mapping statuses are advisory until fully validated.",
+          "produced_answer_sections": [
+            "mitre_mappings"
+          ],
+          "production_equivalent": "local MITRE KB",
+          "stage_id": "mitre_mapping",
+          "status": "skipped",
+          "technical_output": {
+            "mappings": []
+          },
+          "visible_label": "MITRE mapping"
+        },
+        {
+          "current_mode_source": "derived",
+          "explanation": "P3 Medium",
+          "produced_answer_sections": [
+            "severity_label"
+          ],
+          "production_equivalent": "severity matrix",
+          "stage_id": "severity",
+          "status": "complete",
+          "technical_output": {
+            "allowed_action_tier": 1,
+            "matched_rules": [
+              "default_policy"
+            ],
+            "missing_evidence": [
+              "success_after_failure",
+              "privileged_account_impacted",
+              "critical_asset",
+              "confirmed_success"
+            ],
+            "recommended_priority": "standard_triage",
+            "severity_label": "P3 Medium",
+            "source_refs": [
+              "ev_c190c7dbcaa9f840",
+              "ev_dd688723c33c70bf",
+              "ev_0a031b397e44acdb",
+              "ev_e80d0892d43fd9e0",
+              "ev_a148ee1c122110fd"
+            ],
+            "use_case_id": "auth_failed_login_spike",
+            "why_not_higher": [
+              "P1 requires: success_after_failure, privileged_account_impacted, critical_asset, confirmed_success"
+            ]
+          },
+          "visible_label": "Severity decision"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "blocked_by_policy",
+          "produced_answer_sections": [],
+          "production_equivalent": "production context gate",
+          "stage_id": "context_sufficiency",
+          "status": "complete",
+          "technical_output": {
+            "human_review": {
+              "allowed_actions": [
+                "approve_execution_after_policy_check",
+                "reject_execution"
+              ],
+              "reason": "context_collection_blocked",
+              "required": true,
+              "review_type": "execution_approval",
+              "reviewer_role": "soc_lead",
+              "safe_message_for_user": "Context collection is blocked by policy; synthesis stays disabled until a SOC lead reviews evidence collection."
+            },
+            "missing_evidence": [],
+            "reasons": [
+              "context_collection_blocked"
+            ],
+            "status": "blocked_by_policy",
+            "synthesis_allowed": false,
+            "synthesis_readiness": false
+          },
+          "visible_label": "Context sufficiency"
+        },
+        {
+          "current_mode_source": "planned",
+          "explanation": "Synthesis lab blocked: context_sufficiency:blocked_by_policy.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3K",
+          "stage_id": "synthesis",
+          "status": "blocked",
+          "technical_output": {
+            "adapter_overrides_placeholder": [],
+            "allowed_inputs": [
+              "StructuredContext",
+              "SourceEvidence summaries",
+              "approved RAG excerpts"
+            ],
+            "enabled": true,
+            "latency_ms": null,
+            "llm_raw_output_placeholder": null,
+            "model": null,
+            "note": "Reserved for Phase C guarded synthesis audit; not populated while synthesis is disabled.",
+            "provider": "deterministic_lab",
+            "reason": "Synthesis lab blocked: context_sufficiency:blocked_by_policy.",
+            "status": "blocked"
+          },
+          "visible_label": "LLM synthesis"
+        },
+        {
+          "current_mode_source": "planned",
+          "explanation": "No synthesis draft was produced; Answer Guard did not run.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L",
+          "stage_id": "answer_guard",
+          "status": "skipped",
+          "technical_output": {
+            "analyst_review_required": false,
+            "blocked_reason": null,
+            "enabled": true,
+            "failed_checks": [],
+            "guard_overrides_placeholder": [],
+            "guard_status": "skipped",
+            "note": "Reserved for Answer Guard disagreement/override log when enabled.",
+            "passed_checks": [],
+            "reason": "No synthesis draft was produced; Answer Guard did not run."
+          },
+          "visible_label": "Answer Guard"
+        },
+        {
+          "current_mode_source": "derived",
+          "explanation": "Use case auth_failed_login_spike with severity P3 Medium is limited to inform/prepare actions in this stage.",
+          "produced_answer_sections": [
+            "recommended_actions"
+          ],
+          "production_equivalent": "action tier policy",
+          "stage_id": "action_capability",
+          "status": "complete",
+          "technical_output": {
+            "allowed_actions": [
+              "summarize",
+              "explain",
+              "show_sop",
+              "generate_spl",
+              "draft_investigation_note"
+            ],
+            "audit_required": true,
+            "current_tier": 1,
+            "hil_required": false,
+            "reason": "Use case auth_failed_login_spike with severity P3 Medium is limited to inform/prepare actions in this stage.",
+            "tier_label": "Tier 1 - Prepare",
+            "unavailable_actions": [
+              "run_saved_search",
+              "create_ticket",
+              "block_ip",
+              "disable_user",
+              "isolate_endpoint"
+            ]
+          },
+          "visible_label": "Action capability"
+        }
+      ],
+      "summary": "Query understanding, skill-chain selection, captured Foundation-sec packaging, and governance status were recorded without enabling final synthesis or remediation."
+    },
+    "legacy_intent_authority": false,
+    "live_mcp_called": null,
+    "llm_intent_advisory": {
+      "adapter_warnings": [],
+      "adjudication_reason": "advisor_not_available",
+      "adjudication_status": "skipped",
+      "ambiguity_reasons": [],
+      "clarification_draft": null,
+      "confidence_metadata": {},
+      "dropped_reasons": [
+        "deterministic_exact_match_t0"
+      ],
+      "evidence_need_hints": [],
+      "intent_family_candidate": null,
+      "llm_called": false,
+      "paraphrase_detected": false,
+      "path_type_candidate": null,
+      "provider_label": null,
+      "question_ref_candidate": null,
+      "use_case_id_candidate": null
+    },
+    "llm_plan_validation": null,
+    "llm_spl_candidate": null,
+    "mcp_execution_mode": null,
+    "message": "Objective: Investigate failed login spike on APP-01\n\nA governed SPL draft was produced and passed deterministic validation; it is review-only and was not executed (MCP execution disabled).\n\nReview steps:\n- Confirm the index/sourcetype and field mappings match your deployment before running.\n- Validate the time window and any thresholds against the asset baseline.\n- Run as review-only first; treat counts as evidence to corroborate, not a verdict.\n\nLimitations: no live results were returned; no severity or MITRE technique is claimed from the draft alone.",
+    "mitre_decision": {
+      "answer_visible": false,
+      "evidence_status_details": {},
+      "evidence_statuses": {},
+      "mitre_status": "not_applicable",
+      "not_claimed": [],
+      "reason": "Planner did not schedule MITRE branch; analyst-visible evidence-supported mapping is suppressed.",
+      "registry_candidates": [],
+      "registry_metadata": null,
+      "rejected_techniques": [],
+      "requires_alert_context": false,
+      "requires_more_context_for_supported_mapping": false,
+      "techniques": []
+    },
+    "mitre_evidence_status": null,
+    "mitre_mappings": [],
+    "narration_visibility": {
+      "answer_guard_status": "skipped",
+      "composer_attempted": false,
+      "composer_eligible": true,
+      "composer_enabled": true,
+      "composer_used": false,
+      "fallback_used": false,
+      "final_answer_guard_status": "passed",
+      "final_answer_source": "deterministic_contract",
+      "guard_blocked": false,
+      "guard_status": "pending",
+      "narration_llm_called": false,
+      "provider_configured": true,
+      "skip_category": null,
+      "skip_reason": null,
+      "timeout_or_degraded": false
+    },
+    "no_live_customer_data": false,
+    "node_trace": [
+      {
+        "decision_reason": "structured_session_pins_only",
+        "guardrail_status": "not_applicable",
+        "human_review_required": false,
+        "input_summary": {
+          "follow_up_kind": null,
+          "session_id": "capture-failed_login_spike_app01"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "session_context",
+        "output_summary": {
+          "clarification_required": false,
+          "ignored_fields": [
+            "session_expired_or_missing"
+          ],
+          "staleness": "stale",
+          "used_fields": [],
+          "used_previous_context": false
+        }
+      },
+      {
+        "decision_reason": "control_plane_route_adjudication",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "query_present": true
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "routing_live_skill_selection",
+        "output_summary": {
+          "effective_skill": "attack_discovery",
+          "selected_skill": "attack_discovery",
+          "use_case_id": "auth_failed_login_spike"
+        }
+      },
+      {
+        "decision_reason": "curated_enrichment_activation_gate",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "use_case_id": "auth_failed_login_spike"
+        },
+        "limitations": [
+          "github_skill_acceptance_is_enrichment_only",
+          "catalog_crosswalk_runtime_active"
+        ],
+        "llm_call": null,
+        "node_name": "enrichment_loading",
+        "output_summary": {
+          "activation_lifecycle_stage": "runtime_active",
+          "context_loaded": true,
+          "planner_runtime_activation_allowed": true,
+          "runtime_support_status": "runtime_active",
+          "spl_template_status": "active"
+        }
+      },
+      {
+        "decision_reason": "deterministic_evidence_plan",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "intent_family": "live_investigation"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "evidence_planning",
+        "output_summary": {
+          "answer_mode": "live_investigation",
+          "mcp_allowed": true,
+          "spl_allowed": true
+        }
+      },
+      {
+        "decision_reason": "active_template_available",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "template_id": "auth_failed_login_spike",
+          "use_case_id": "auth_failed_login_spike"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "spl_template_status",
+        "output_summary": {
+          "governed_limitation": null,
+          "spl_template_status": "active"
+        }
+      },
+      {
+        "decision_reason": "validate_spl_mandatory",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "spl_template_status": "active"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "spl_validation",
+        "output_summary": {
+          "approved": true,
+          "normalized_spl_available": true,
+          "reject_reasons": []
+        }
+      },
+      {
+        "decision_reason": "spl_source_slots_unresolved",
+        "guardrail_status": "review_required",
+        "human_review_required": true,
+        "input_summary": {
+          "mcp_allowed": true,
+          "spl_approved": true
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "execution_hil_decision",
+        "output_summary": {
+          "evidence_source": "unavailable",
+          "execution_status": "requires_human_review",
+          "execution_status_label": "not_executed",
+          "human_review_required": true,
+          "review_type": "spl_revision"
+        }
+      },
+      {
+        "decision_reason": "mitre_decision_resolver",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "use_case_id": "auth_failed_login_spike"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "mitre_evidence_status",
+        "output_summary": {
+          "evidence_statuses": {},
+          "not_claimed": [],
+          "rejected_techniques": []
+        }
+      },
+      {
+        "decision_reason": "deterministic_severity_policy",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "use_case_id": "auth_failed_login_spike"
+        },
+        "limitations": [
+          "success_after_failure",
+          "privileged_account_impacted",
+          "critical_asset",
+          "confirmed_success"
+        ],
+        "llm_call": null,
+        "node_name": "severity_decision",
+        "output_summary": {
+          "severity_label": "P3 Medium"
+        }
+      },
+      {
+        "decision_reason": "answer_contract_projection",
+        "guardrail_status": "passed",
+        "human_review_required": true,
+        "input_summary": {
+          "answer_mode": "live_investigation"
+        },
+        "limitations": [
+          "user",
+          "src",
+          "host",
+          "time_window",
+          "privileged_account_impacted"
+        ],
+        "llm_call": null,
+        "node_name": "answer_contract",
+        "output_summary": {
+          "candidate_mitre_count": 0,
+          "evidence_supported_mitre_count": 0,
+          "execution_status_label": "blocked_approval_required",
+          "hil_status": "required",
+          "human_review_required": true,
+          "mitre_answer_visible": false,
+          "spl_status": "ready_for_review"
+        }
+      },
+      {
+        "decision_reason": "No synthesis draft was produced; Answer Guard did not run.",
+        "guardrail_status": "not_applicable",
+        "human_review_required": false,
+        "input_summary": {
+          "enabled": true
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "answer_guard",
+        "output_summary": {
+          "failed_checks": [],
+          "guard_status": "skipped"
+        }
+      },
+      {
+        "decision_reason": "Final answer is consistent with the AnswerContract and the deciders.",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "contract_present": true
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "final_answer_validation",
+        "output_summary": {
+          "failed_checks": [],
+          "guard_status": "passed"
+        }
+      }
+    ],
+    "note": "Candidate SPL generated and approved by deterministic validation. Governed SOC KB retrieval may contribute source evidence when enabled. No MCP execution, final synthesis, or Splunk telemetry write was run.",
+    "operation_audit": null,
+    "planning_decision": {
+      "activation_decision": {
+        "activation_lifecycle_stage": "runtime_active",
+        "catalog_present": true,
+        "crosswalk_lookup_status": "matched_use_case",
+        "enrichment_only": false,
+        "enrichment_present": true,
+        "github_accepted_for_enrichment_only": true,
+        "github_lifecycle_status": "accepted_for_enrichment",
+        "governed_enrichment_load_allowed": true,
+        "live_execution_skill": "attack_discovery",
+        "live_execution_skill_allowed": true,
+        "planner_runtime_activation_allowed": true,
+        "proposed_github_use_case": false,
+        "reasons": [
+          "github_skill_acceptance_is_enrichment_only",
+          "catalog_crosswalk_runtime_active"
+        ],
+        "runtime_support_status": "runtime_active",
+        "spl_template_status": "active",
+        "tests_added": true,
+        "trace_metadata_allowed": false,
+        "use_case_id": "auth_failed_login_spike",
+        "validation_status": "tests_added"
+      },
+      "activation_lifecycle_stage": "runtime_active",
+      "authority_source": "deterministic_planner_path_selection",
+      "blocked_tools": [
+        "candidate_spl_execution",
+        "mcp_execution"
+      ],
+      "branches": [
+        "spl",
+        "evidence",
+        "severity"
+      ],
+      "clarification_needed": false,
+      "crosswalk_lookup_status": "matched_use_case",
+      "curated_enrichment_context": {
+        "activation_lifecycle_stage": "runtime_active",
+        "allowed_spl_templates": [
+          "auth_failed_login_spike"
+        ],
+        "mitre_candidates": [
+          "T1110",
+          "T1110.001",
+          "T1110.003"
+        ],
+        "provenance_ref_count": 2,
+        "rag_doc_ids": [
+          "auth_sop"
+        ],
+        "runtime_support_status": "runtime_active",
+        "spl_template_status": "active",
+        "use_case_id": "auth_failed_login_spike"
+      },
+      "execution_enabled": false,
+      "hil_required": false,
+      "live_execution_skill": "attack_discovery",
+      "path_type": "spl_review",
+      "planner_path_selection_enabled": true,
+      "planner_runtime_activation_allowed": true,
+      "planning_or_analytic_skill": null,
+      "precedence_applied": [
+        "unsafe_or_blocked_beats_all",
+        "clarification_beats_investigation",
+        "deterministic_registry_over_llm_advisory",
+        "crosswalk_metadata_not_runtime_activation",
+        "planner_schedules_branches_no_execution",
+        "crosswalk_runtime_support_status_read_only",
+        "runtime_activation_crosswalk_gate_passed"
+      ],
+      "question_ref": null,
+      "reason": "live_investigation; curated_enrichment_evidence_requirements; missing_required_curated_evidence",
+      "resource_plan_summary": {
+        "hil": {
+          "reason": "Analyst confirms SPL and approves any search execution.",
+          "required": true
+        },
+        "limitations": [
+          "Failed login telemetry alone does not establish credential validity.",
+          "Source IP reuse, NAT, or scanner behavior may require analyst review."
+        ],
+        "match_path": "use_case_catalog",
+        "mcp": {
+          "allowed": false,
+          "needed": true,
+          "planned_discovery": [
+            "splunk_get_indexes",
+            "splunk_get_metadata",
+            "splunk_get_knowledge_objects"
+          ],
+          "planned_discovery_calls": [
+            {
+              "arguments": {},
+              "block_reason": "mcp_global_execution_disabled",
+              "failure_mode": "execution_disabled",
+              "kind": "planned_tool_call",
+              "policy_checks": [
+                "read_only_discovery",
+                "mcp_execution_gate"
+              ],
+              "server": "splunk",
+              "tool_name": "splunk_get_indexes"
+            },
+            {
+              "arguments": {},
+              "block_reason": "mcp_global_execution_disabled",
+              "failure_mode": "execution_disabled",
+              "kind": "planned_tool_call",
+              "policy_checks": [
+                "read_only_discovery",
+                "mcp_execution_gate"
+              ],
+              "server": "splunk",
+              "tool_name": "splunk_get_metadata"
+            },
+            {
+              "arguments": {},
+              "block_reason": "mcp_global_execution_disabled",
+              "failure_mode": "execution_disabled",
+              "kind": "planned_tool_call",
+              "policy_checks": [
+                "read_only_discovery",
+                "mcp_execution_gate"
+              ],
+              "server": "splunk",
+              "tool_name": "splunk_get_knowledge_objects"
+            }
+          ],
+          "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+        },
+        "mitre": {
+          "allowed": false
+        },
+        "path_type": "spl_review",
+        "rag": {
+          "needed": false,
+          "source": "soc_kb_rag"
+        },
+        "severity": {
+          "allowed": false
+        },
+        "spl": {
+          "needed": true,
+          "review_only": true,
+          "skip_reason": null
+        }
+      },
+      "runtime_support_status": "runtime_active",
+      "selected_tools": [
+        "prepare_spl_spec",
+        "require_spl_validation"
+      ],
+      "use_case_id": "auth_failed_login_spike"
+    },
+    "primary_operation": null,
+    "query_to_intent": {
+      "candidate_mappings": {
+        "legacy_skill_hint": "attack_discovery",
+        "match_path": "use_case_catalog",
+        "question_ref": null,
+        "use_case_ids": [
+          "auth_failed_login_spike"
+        ]
+      },
+      "intent_classification": {
+        "action_mode": null,
+        "answer_goal": [
+          "live_results"
+        ],
+        "confidence": 0.86,
+        "confidence_band": "high",
+        "intent_family": "live_investigation",
+        "primary_intent": "attack_discovery",
+        "query_type": "ask_for_live_results",
+        "reason": "User requested live investigative results.",
+        "requested_output_type": "INVESTIGATION",
+        "requires_clarification": false,
+        "requires_hil": false,
+        "secondary_intents": []
+      },
+      "intent_conflicts": [],
+      "llm_intent_advisory": {
+        "adapter_warnings": [],
+        "adjudication_reason": "advisor_not_available",
+        "adjudication_status": "skipped",
+        "ambiguity_reasons": [],
+        "clarification_draft": null,
+        "confidence_metadata": {},
+        "dropped_reasons": [
+          "deterministic_exact_match_t0"
+        ],
+        "evidence_need_hints": [],
+        "intent_family_candidate": null,
+        "llm_called": false,
+        "paraphrase_detected": false,
+        "path_type_candidate": null,
+        "provider_label": null,
+        "question_ref_candidate": null,
+        "use_case_id_candidate": null
+      },
+      "llm_intent_assist_status": "skipped",
+      "query_signals": {
+        "action_or_containment_shaped": false,
+        "alert_context_present": false,
+        "alert_summary_shaped": false,
+        "analyst_action": false,
+        "analytics_aggregation": false,
+        "attachment_hash_verdict": false,
+        "block_or_contain": false,
+        "byte_pattern": false,
+        "conceptual_mitre_judgment": false,
+        "containment_decision_support": false,
+        "dga": false,
+        "dns_beaconing": false,
+        "download_cradle": false,
+        "email_auth_failure": false,
+        "encoded_command": false,
+        "encryption_behavior": false,
+        "endpoint_network_connection": false,
+        "escalation_without_policy_word": false,
+        "exact_105_analytics": false,
+        "exact_105_hunt_spl": false,
+        "exclude_service_accounts": false,
+        "explicit_log_search": false,
+        "explicit_mitre_context": false,
+        "explicit_run_spl": false,
+        "explicit_search_intent": true,
+        "extension_pattern": false,
+        "failed_login": true,
+        "file_rename_volume": false,
+        "has_specific_scope": false,
+        "host_association": false,
+        "host_spread": false,
+        "hybrid_alert_review": false,
+        "impacted_paths": false,
+        "investigation_hypothesis_guidance": false,
+        "investigation_triage_guidance": false,
+        "jitter_profile": false,
+        "knowledge_definition": false,
+        "live_investigation_verbs": true,
+        "mail_gateway_verdict": false,
+        "malicious_url_or_domain": false,
+        "mitre_evidence_threshold": false,
+        "mitre_explain": false,
+        "mitre_map": false,
+        "mitre_requires_alert_context": false,
+        "negative_cred_dumping": false,
+        "negative_endpoint_telemetry": false,
+        "negative_successful_login": false,
+        "non_soc_or_out_of_scope": false,
+        "normalized_query": "investigate failed login spike on app-01",
+        "periodicity": false,
+        "playbook_procedure": false,
+        "policy_terms": false,
+        "positive_successful_login": false,
+        "powershell_command_evidence": false,
+        "powershell_context": false,
+        "procedural_investigation": false,
+        "process_evidence": false,
+        "projected_action_mode": null,
+        "projected_needs_mcp": true,
+        "projected_needs_rag": false,
+        "projected_needs_spl": true,
+        "rare_domain": false,
+        "regulatory_reporting": false,
+        "repeated_destination": false,
+        "requires_hil": false,
+        "review_only_spl": false,
+        "run_execution": false,
+        "security_log_investigation": true,
+        "sender_return_path_mismatch": false,
+        "service_stop": false,
+        "severity_request": false,
+        "shadow_copy_deletion": false,
+        "soc_actionable_hunt": false,
+        "soc_detection_intent": true,
+        "soc_investigation_shaped": false,
+        "sop_or_playbook_shaped": false,
+        "sop_show_request": false,
+        "source_ip_novelty": false,
+        "spl_authoring_shaped": false,
+        "spl_generation": false,
+        "spl_suppressed": false,
+        "spray_breadth": false,
+        "success_after_failure": false,
+        "suspicious_parent_process": false,
+        "time_window_24h": false,
+        "top_n": null,
+        "use_case_review_guidance": false,
+        "valid_account_abuse": false
+      }
+    },
+    "query_understanding": {
+      "ambiguity_flags": [],
+      "clarification_needed": false,
+      "clarification_question": null,
+      "confidence": 0.8300000000000001,
+      "deterministic_match_path": "use_case_catalog",
+      "entities": {
+        "alert_id": [],
+        "asset": [],
+        "cve_ids": [],
+        "destination_ip": [],
+        "event_type": [
+          "authentication_failure"
+        ],
+        "host": [],
+        "index": [],
+        "mitre_techniques": [],
+        "observation_window": null,
+        "port_numbers": [],
+        "purdue_layers": [],
+        "source_ip": [],
+        "sourcetype": [],
+        "time_window": null,
+        "user": [],
+        "zone_labels": []
+      },
+      "intent_candidate": null,
+      "llm_advisory_recommended": false,
+      "mapped_coverage_id": null,
+      "mapped_operation_type": null,
+      "mapped_pattern_type": null,
+      "mapped_primary_skill": null,
+      "mapped_question_number": null,
+      "mapped_question_ref": null,
+      "mapped_use_case_ids": [
+        "auth_failed_login_spike"
+      ],
+      "normalized_query": "investigate failed login spike on app-01",
+      "output_template": "investigation_answer",
+      "primary_intent": "attack_discovery",
+      "question_registry_match_score": null,
+      "question_registry_match_source": null,
+      "question_registry_observation_only": true,
+      "raw_query": "Investigate failed login spike on APP-01",
+      "registry_consistency": "not_evaluated",
+      "registry_warnings": [],
+      "requested_output_type": "investigation",
+      "route_skill_candidate": null,
+      "secondary_intents": [],
+      "soc_investigation_shaped": false,
+      "triage_signals": {
+        "block_or_contain": false,
+        "explicit_run_spl": false,
+        "soc_investigation_shaped": false
+      },
+      "use_case_catalog_size": 58,
+      "use_case_match_source": "expanded_catalog"
+    },
+    "rag_available": null,
+    "response_mode": "human_review_required",
+    "response_packaging_status": "blocked_review_required",
+    "route_adjudication": {
+      "authority_source": "evidence_plan_live_or_hybrid",
+      "deterministic_route": "attack_discovery",
+      "final_route": "attack_discovery",
+      "final_use_case_id": "auth_failed_login_spike",
+      "llm_suggested_route": null,
+      "reason": "Evidence plan requires live investigation and/or hybrid guidance path.",
+      "shadow_plan_status": "clarification_required"
+    },
+    "route_authority": {
+      "authority_applied": false,
+      "authority_decision": "fallback",
+      "authority_eligible": false,
+      "authority_fallback_reason": "coverage_id_not_allowlisted",
+      "authority_holder": "legacy_selected_skill",
+      "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+      "candidate_primary_skill": null,
+      "compare_enabled": true,
+      "coverage_id_allowlisted": false,
+      "coverage_id_resolved": null,
+      "dual_run_active": true,
+      "global_enabled": true,
+      "intent_bridge_compatible": true,
+      "intent_bridge_disagreements": [],
+      "intent_operation_bridge_status": "not_evaluated",
+      "legacy_intent_authority": true,
+      "legacy_selected_skill_preserved": "attack_discovery",
+      "legacy_skill_router_match": true,
+      "legacy_skill_router_skill_match": true,
+      "legacy_skill_router_tool_plan_match": true,
+      "migration_phase": "S3_step_3_cov_q046_pilot",
+      "operation_authoritative_applied": false,
+      "operation_authoritative_enabled": true,
+      "planning_primary_skill": null,
+      "route_plan_primary_skill_observed": null,
+      "route_plan_shadow_disagreements": [],
+      "selected_skill": "attack_discovery",
+      "selected_skill_before": "attack_discovery",
+      "selected_skill_mirror_only": false,
+      "validator_status": "clarification_required"
+    },
+    "route_plan_shadow": {
+      "analyst_summary_dropped_reasons": [
+        "no_provider_configured"
+      ],
+      "analyst_summary_narration_llm_called": false,
+      "analyst_summary_shadow_available": true,
+      "analyst_summary_shadow_source": "deterministic_skeleton",
+      "analyst_summary_shadow_text": "Shadow route-plan observation only: preflight clarification_required, deterministic skill not_selected, route status clarification_required. Execution remains unauthorized; this path records metadata only.",
+      "analyst_summary_trace_bullets": [
+        "Preflight: clarification_required; missing slots: threshold_ref, baseline_ref.",
+        "Route-plan shadow: clarification_required; candidate reason: deterministic_preflight_blocked.",
+        "Template shadow: not_attempted; rendered SPL available: False (hash only, not shown)."
+      ],
+      "blocking_findings": [
+        "missing_threshold_or_baseline_policy"
+      ],
+      "candidate_available": false,
+      "candidate_reason": "deterministic_preflight_blocked",
+      "candidate_template_ids": [],
+      "captured_live_run": false,
+      "coe_synthetic_fixture": true,
+      "deterministic_route_plan_wins": true,
+      "disagreements": [],
+      "enabled": true,
+      "evidence_output_contract": null,
+      "execution_authorized": false,
+      "intent_operation_bridge": {
+        "allowed_primary_skills": [
+          "aggregate_and_rank",
+          "behavioral_detection_binding",
+          "entity_timeline",
+          "lookup_correlation",
+          "multi_signal_correlation",
+          "sequence_detection",
+          "threshold_anomaly"
+        ],
+        "bridge_status": "not_evaluated",
+        "compatible": true,
+        "disagreements": [],
+        "intent_modifier": null,
+        "legacy_intent": "attack_discovery",
+        "output_artifact_hint": null,
+        "output_artifacts_deferred_to_s2b": false,
+        "primary_skill_observed": null,
+        "rejection_reason": null,
+        "spl_generation_modifier_detected": false,
+        "underlying_operation": null
+      },
+      "llm_called": false,
+      "llm_candidate_dropped_reasons": [],
+      "llm_candidate_route_plan_available": false,
+      "llm_model_family": null,
+      "llm_role": null,
+      "matched_template_id": null,
+      "mcp_called": false,
+      "missing_slots": [
+        "threshold_ref",
+        "baseline_ref"
+      ],
+      "mode": "dormant_shadow",
+      "model_role": "instruct_candidate_only",
+      "normalized_plan_available": false,
+      "ood_llm_route_plan_lab": {
+        "enabled": false,
+        "reason": "lab_primary_mode_disabled"
+      },
+      "operation_audit": null,
+      "output_artifacts": {
+        "bridge_hint_applied": false,
+        "legacy_intent": "attack_discovery",
+        "renderer_applied": false,
+        "resolution_source": "s2b_registry",
+        "resolved_artifacts": [
+          "candidate_spl_visible"
+        ],
+        "unknown_legacy_intent": false
+      },
+      "pattern_id": null,
+      "precondition_evaluation": {
+        "blocking_findings": [],
+        "dependency_readiness": "unknown",
+        "evaluation_skipped": true,
+        "observation_only": true,
+        "preconditions_checked": [],
+        "preconditions_failed": [],
+        "preconditions_passed": [],
+        "route_status": null,
+        "skip_reason": "insufficient_shadow_route_plan"
+      },
+      "preflight_status": "clarification_required",
+      "primary_skill": null,
+      "production_execution": false,
+      "question_runtime_map": null,
+      "reasoning_model_used": false,
+      "rendered_spl_available": false,
+      "rendered_spl_execution_eligible": false,
+      "rendered_spl_sha256": null,
+      "rendered_spl_validator_approved": false,
+      "route_authority_compare": {
+        "authority_applied": false,
+        "authority_decision": "fallback",
+        "authority_eligible": false,
+        "authority_fallback_reason": "coverage_id_not_allowlisted",
+        "authority_holder": "legacy_selected_skill",
+        "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+        "candidate_primary_skill": null,
+        "compare_enabled": true,
+        "coverage_id_allowlisted": false,
+        "coverage_id_resolved": null,
+        "dual_run_active": true,
+        "global_enabled": true,
+        "intent_bridge_compatible": true,
+        "intent_bridge_disagreements": [],
+        "intent_operation_bridge_status": "not_evaluated",
+        "legacy_intent_authority": true,
+        "legacy_selected_skill_preserved": "attack_discovery",
+        "legacy_skill_router_match": true,
+        "legacy_skill_router_skill_match": true,
+        "legacy_skill_router_tool_plan_match": true,
+        "migration_phase": "S3_step_3_cov_q046_pilot",
+        "operation_authoritative_applied": false,
+        "operation_authoritative_enabled": true,
+        "planning_primary_skill": null,
+        "route_plan_primary_skill_observed": null,
+        "route_plan_shadow_disagreements": [],
+        "selected_skill": "attack_discovery",
+        "selected_skill_before": "attack_discovery",
+        "selected_skill_mirror_only": false,
+        "validator_status": "clarification_required"
+      },
+      "route_status": "clarification_required",
+      "routing_skill_resolution": {
+        "effective_skill": "attack_discovery",
+        "legacy_intent_authority": true,
+        "planning_primary_operation": null,
+        "skill_resolution": "legacy_selected_skill"
+      },
+      "spl_executed": false,
+      "spl_generated": false,
+      "supporter_trace": null,
+      "template_match_attempted": false,
+      "template_match_reasons": [],
+      "template_match_score": null,
+      "template_match_shadow_status": null,
+      "template_match_skip_reason": "no_validated_route_plan",
+      "template_mismatch_reasons": [],
+      "template_production_executable": false,
+      "template_sample_only": false,
+      "template_validator_profile": null,
+      "use_case_registry_bridge": {
+        "authority": "advisory_only",
+        "catalog_size": 58,
+        "enabled": true,
+        "matched_use_cases": [
+          {
+            "confidence": 0.8300000000000001,
+            "display_name": "Failed login spike",
+            "matched_patterns": [
+              "failed login",
+              "Failed login spike",
+              "Investigate failed login spike on APP-01"
+            ],
+            "primary_skill": "attack_discovery",
+            "registry_operation_hint": "attack_discovery",
+            "use_case_id": "auth_failed_login_spike"
+          }
+        ],
+        "merge_status": "catalog_rows_advisory_until_ec_rebase",
+        "top_operation_hint": "attack_discovery",
+        "top_use_case_id": "auth_failed_login_spike"
+      },
+      "validation_findings": [],
+      "validation_result": null,
+      "warnings": []
+    },
+    "routing_mode": "llm_assisted_semantic",
+    "routing_skill_resolution": {
+      "effective_skill": "attack_discovery",
+      "legacy_intent_authority": false,
+      "planning_primary_operation": null,
+      "route_adjudication_authority_source": "evidence_plan_live_or_hybrid",
+      "skill_resolution": "control_plane_route_adjudication"
+    },
+    "saia_available": null,
+    "selected_skill": "attack_discovery",
+    "selected_skill_chain": {
+      "alternatives": [],
+      "chain_id": "chain:auth_failed_login_spike",
+      "pipeline_stages": [
+        "query_understanding",
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection",
+        "context_sufficiency"
+      ],
+      "routable_skill": "attack_discovery",
+      "selected_skill": "attack_discovery",
+      "selection_reason": "use_case_registry_advisory_mapping",
+      "stages": [
+        "query_understanding",
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection",
+        "context_sufficiency"
+      ]
+    },
+    "selected_use_case": {
+      "action_capability_tier": 1,
+      "category": "Authentication / Identity",
+      "confidence": 0.8300000000000001,
+      "default_spl_template": "auth_failed_login_spike",
+      "display_name": "Failed login spike",
+      "matched_patterns": [
+        "failed login",
+        "Failed login spike",
+        "Investigate failed login spike on APP-01"
+      ],
+      "optional_sources": [
+        "rag:sop",
+        "mitre:enterprise",
+        "asset_inventory"
+      ],
+      "output_template": "investigation_answer",
+      "primary_skill": "attack_discovery",
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "use_case_id": "auth_failed_login_spike"
+    },
+    "semantic_intent": {
+      "audit_record": {
+        "audit_required": true,
+        "authority_decision": "shadow_only",
+        "coverage_id": null,
+        "nearest_registry_hint": null,
+        "operation_provenance": "llm_proposed_novel",
+        "path_type": "novel_ood",
+        "promotion_candidate": true,
+        "proposed_operation": null,
+        "query": "Investigate failed login spike on APP-01",
+        "reason": "coverage_id_not_allowlisted",
+        "route_status": "hil_or_review"
+      },
+      "authority": "advisory_only",
+      "authority_decision": "shadow_only",
+      "clarification_needed": false,
+      "clarification_question": null,
+      "coverage_id_candidate": null,
+      "enabled": true,
+      "entities": {
+        "alert_id": [],
+        "asset": [],
+        "cve_ids": [],
+        "destination_ip": [],
+        "event_type": [
+          "authentication_failure"
+        ],
+        "host": [],
+        "index": [],
+        "mitre_techniques": [],
+        "observation_window": null,
+        "port_numbers": [],
+        "purdue_layers": [],
+        "source_ip": [],
+        "sourcetype": [],
+        "time_window": null,
+        "user": [],
+        "zone_labels": []
+      },
+      "evidence_need_families": [
+        "authentication"
+      ],
+      "final_route_unchanged": true,
+      "known_compatible": false,
+      "legacy_intent_hint": "attack_discovery",
+      "llm_clarification_needed": false,
+      "llm_coverage_id_candidate": null,
+      "llm_evidence_need_families": [],
+      "llm_legacy_intent_hint": null,
+      "llm_nearest_registry_ref": null,
+      "llm_path_type_candidate": null,
+      "llm_primary_operation_candidate": "attack_discovery",
+      "llm_requested_output_type_candidate": null,
+      "llm_semantic_intent_called": true,
+      "mcp_needed": true,
+      "mitre_candidate_needed": true,
+      "nearest_registry_ref": null,
+      "operation_provenance": "llm_proposed_novel",
+      "path_type": "novel_ood",
+      "primary_operation_candidate": null,
+      "rag_needed": false,
+      "requested_output_type": "investigation",
+      "selected_path_authority": "llm_advisory_normalized",
+      "semantic_intent_disagreements": [],
+      "warnings": [
+        "authority_fallback:coverage_id_not_allowlisted",
+        "novel_ood_requires_audit_hil"
+      ]
+    },
+    "session_context_status": {
+      "clarification_required": false,
+      "context_source_trace_id": null,
+      "ignored_fields": [
+        "session_expired_or_missing"
+      ],
+      "session_id": "capture-failed_login_spike_app01",
+      "staleness": "stale",
+      "used_fields": [],
+      "used_previous_context": false
+    },
+    "severity_decision": {
+      "allowed_action_tier": 1,
+      "matched_rules": [
+        "default_policy"
+      ],
+      "missing_evidence": [
+        "success_after_failure",
+        "privileged_account_impacted",
+        "critical_asset",
+        "confirmed_success"
+      ],
+      "recommended_priority": "standard_triage",
+      "severity_label": "P3 Medium",
+      "source_refs": [
+        "ev_c190c7dbcaa9f840",
+        "ev_dd688723c33c70bf",
+        "ev_0a031b397e44acdb",
+        "ev_e80d0892d43fd9e0",
+        "ev_a148ee1c122110fd"
+      ],
+      "use_case_id": "auth_failed_login_spike",
+      "why_not_higher": [
+        "P1 requires: success_after_failure, privileged_account_impacted, critical_asset, confirmed_success"
+      ]
+    },
+    "skill_contribution": {
+      "contributed_evidence_keys": [],
+      "contributed_sections": [
+        "spl_artifact",
+        "investigation_steps",
+        "recommended_actions",
+        "analyst_checklist",
+        "playbook",
+        "sop_guidance"
+      ],
+      "floor_applied": false,
+      "gap_recorded": false,
+      "provenance": {
+        "authority_source": "query_understanding_catalog",
+        "deterministic_match_path": "use_case_catalog",
+        "rescue_mode": false,
+        "selected_by": "llm_assisted_semantic_normalized"
+      },
+      "selected_skill": "attack_discovery",
+      "skip_reason": null,
+      "survived_into_card": true,
+      "visible_domain_section": true
+    },
+    "skill_selection": {
+      "alternatives": [],
+      "decision_source": "deterministic_router",
+      "llm_assisted_skill": "attack_discovery",
+      "policy_notes": [
+        "router_selection_preserved_for_phase_2"
+      ],
+      "registry_primary_skill": "attack_discovery",
+      "rule_based_skill": "attack_discovery",
+      "selected_chain": {
+        "alternatives": [],
+        "chain_id": "chain:auth_failed_login_spike",
+        "pipeline_stages": [
+          "query_understanding",
+          "spl_generation",
+          "spl_validation",
+          "evidence_collection",
+          "context_sufficiency"
+        ],
+        "routable_skill": "attack_discovery",
+        "selected_skill": "attack_discovery",
+        "selection_reason": "use_case_registry_advisory_mapping",
+        "stages": [
+          "query_understanding",
+          "spl_generation",
+          "spl_validation",
+          "evidence_collection",
+          "context_sufficiency"
+        ]
+      },
+      "selected_skill": "attack_discovery",
+      "selected_use_case_id": "auth_failed_login_spike",
+      "selection_status": "selected"
+    },
+    "source_evidence": [
+      {
+        "collection_status": "collected",
+        "created_at": "2026-06-24T10:54:05.995755+00:00",
+        "evidence_id": "ev_c190c7dbcaa9f840",
+        "executed_spl": null,
+        "fields_returned": [],
+        "output_type": null,
+        "preview_rows": [
+          {
+            "allowed_use": [
+              "hil_guidance",
+              "synthesis_context"
+            ],
+            "ambiguity_status": "candidate",
+            "answer_constraints": [
+              "Do not declare compromise from failed-login counts alone.",
+              "Require approved evidence before severity or root-cause conclusions."
+            ],
+            "approval_status": "coe_reviewed",
+            "canonical_doc_id": "coe-auth-sop",
+            "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-001",
+            "collection_id": "soc_sop",
+            "confidence": 1.0,
+            "doc_id": "coe-auth-sop-v1",
+            "doc_title": "COE Sample Auth Investigation SOP",
+            "doc_version": "1.0",
+            "document_type": "sop",
+            "entry_id": "coe-auth-bruteforce",
+            "entry_title": "Brute Force / Failed Login Spike SOP",
+            "entry_type": "procedure",
+            "environment": "coe",
+            "graph_expanded": false,
+            "import_batch_id": null,
+            "is_current_version": true,
+            "mcp_tools": [],
+            "mitre_refs": [
+              "T1110"
+            ],
+            "prohibited_conclusions": [
+              "confirmed account compromise",
+              "confirmed brute force success"
+            ],
+            "reasons": [
+              "document_metadata_match",
+              "positive_examples_match",
+              "retrieval_hint_phrase_match",
+              "retrieval_hints_match",
+              "section_title_match",
+              "source_excerpt_match",
+              "synonyms_match",
+              "tags_match",
+              "title_match"
+            ],
+            "recommended_actions": [
+              "Review failed-login volume and source distribution.",
+              "Check for successful login after repeated failures.",
+              "Escalate when privileged accounts or broad source spread are involved."
+            ],
+            "reranked": true,
+            "retrieval_mode": "deterministic",
+            "retrieval_stage_scores": {
+              "deterministic_schema_search": 1.105,
+              "final_candidate_selection": 1.0,
+              "keyword_search": 0.3,
+              "negative_example_penalty": 0.0,
+              "wrong_allowed_use_penalty": 0.0,
+              "wrong_environment_penalty": 0.0,
+              "wrong_skill_penalty": 0.0
+            },
+            "reviewer_role": "tier2_soc_analyst",
+            "source_excerpt": "For a failed-login spike, verify account, source IP distribution, time window, and any successful login after repeated failures before escalation.",
+            "source_refs": [
+              "coe_auth_sop_sample.md#AUTH-001"
+            ],
+            "status": "published",
+            "title": null,
+            "validation_status": "runtime_eligible"
+          },
+          {
+            "allowed_use": [
+              "spl_generation",
+              "validation",
+              "synthesis_context",
+              "environment_grounding"
+            ],
+            "ambiguity_status": "candidate",
+            "answer_constraints": [
+              "Only use configured allowed indexes and sourcetypes during SPL validation."
+            ],
+            "approval_status": "coe_reviewed",
+            "canonical_doc_id": "coe-splunk-auth-context",
+            "citation": "COE Sample Splunk Auth Context v1.0 SPLUNK-AUTH-001",
+            "collection_id": "splunk_context",
+            "confidence": 0.555,
+            "doc_id": "coe-splunk-auth-context-v1",
+            "doc_title": "COE Sample Splunk Auth Context",
+            "doc_version": "1.0",
+            "document_type": "splunk_context_document",
+            "entry_id": "coe-splunk-auth-context",
+            "entry_title": "Splunk Auth Context Note",
+            "entry_type": "environment_fact",
+            "environment": "coe",
+            "graph_expanded": false,
+            "import_batch_id": null,
+            "is_current_version": true,
+            "mcp_tools": [
+              "run_splunk_query"
+            ],
+            "mitre_refs": [],
+            "prohibited_conclusions": [
+              "all customer auth data is covered"
+            ],
+            "reasons": [
+              "document_metadata_match",
+              "positive_examples_match",
+              "retrieval_hints_match",
+              "section_title_match",
+              "source_excerpt_match",
+              "synonyms_match",
+              "tags_match",
+              "title_match"
+            ],
+            "recommended_actions": [
+              "Validate generated SPL against deterministic SPL policy."
+            ],
+            "reranked": true,
+            "retrieval_mode": "deterministic",
+            "retrieval_stage_scores": {
+              "deterministic_schema_search": 0.555,
+              "final_candidate_selection": 0.555,
+              "keyword_search": 0.1,
+              "negative_example_penalty": 0.0,
+              "wrong_allowed_use_penalty": 0.0,
+              "wrong_environment_penalty": 0.0,
+              "wrong_skill_penalty": 0.0
+            },
+            "reviewer_role": "detection_engineer",
+            "source_excerpt": "COE sample auth searches use index=pgcil_soc and sourcetype=pgcil:auth with user, src, action, result, and _time fields.",
+            "source_refs": [
+              "coe_splunk_auth_context_sample.md#SPLUNK-AUTH-001"
+            ],
+            "status": "active",
+            "title": null,
+            "validation_status": "runtime_eligible"
+          }
+        ],
+        "provenance": "governed_soc_kb_retrieval",
+        "provider_used": null,
+        "query_or_request_summary": "Investigate failed login spike on APP-01",
+        "raw_result_hash": null,
+        "raw_result_stored": false,
+        "result_count": 2,
+        "saved_search_name": null,
+        "sensitivity_flags": [],
+        "source_name": "COE Sample Auth Investigation SOP; COE Sample Splunk Auth Context",
+        "source_type": "rag",
+        "time_range": null,
+        "tool_category": null,
+        "tool_name": "governed_soc_kb_retrieval",
+        "trace_id": "fd3e3294-3648-4c2b-8a85-eb3f9a4aeff3",
+        "warnings": []
+      },
+      {
+        "collection_status": "blocked",
+        "created_at": "2026-06-24T10:54:06.066959+00:00",
+        "evidence_id": "ev_dd688723c33c70bf",
+        "executed_spl": null,
+        "fields_returned": [],
+        "output_type": null,
+        "preview_rows": [],
+        "provenance": "ai_soc_validated_execution_gate",
+        "provider_used": null,
+        "query_or_request_summary": "attack_discovery:spl_search:Investigate failed login spike on APP-01",
+        "raw_result_hash": null,
+        "raw_result_stored": false,
+        "result_count": 0,
+        "saved_search_name": null,
+        "sensitivity_flags": [],
+        "source_name": "mock",
+        "source_type": "splunk_mcp",
+        "time_range": "earliest=-60m latest=now",
+        "tool_category": "execution",
+        "tool_name": "splunk_run_query",
+        "trace_id": "fd3e3294-3648-4c2b-8a85-eb3f9a4aeff3",
+        "warnings": [
+          "spl_source_slots_unresolved",
+          "slot_binding_validated"
+        ]
+      },
+      {
+        "collection_status": "collected",
+        "created_at": "2026-06-24T10:54:06.067046+00:00",
+        "evidence_id": "ev_0a031b397e44acdb",
+        "executed_spl": null,
+        "fields_returned": [
+          "server_name",
+          "server_version"
+        ],
+        "output_type": null,
+        "preview_rows": [
+          {
+            "server_name": "splunk-mock",
+            "server_version": "9.1.0"
+          }
+        ],
+        "provenance": "stage_4b_evidence_loop",
+        "provider_used": null,
+        "query_or_request_summary": "discovery_hop:splunk_get_info:delivered=server_version,server_name,readiness",
+        "raw_result_hash": null,
+        "raw_result_stored": false,
+        "result_count": 3,
+        "saved_search_name": null,
+        "sensitivity_flags": [],
+        "source_name": "splunk_get_info",
+        "source_type": "mcp_discovery",
+        "time_range": null,
+        "tool_category": "discovery",
+        "tool_name": "splunk_get_info",
+        "trace_id": "fd3e3294-3648-4c2b-8a85-eb3f9a4aeff3",
+        "warnings": [
+          "read_only_discovery_hop"
+        ]
+      },
+      {
+        "collection_status": "collected",
+        "created_at": "2026-06-24T10:54:06.067086+00:00",
+        "evidence_id": "ev_e80d0892d43fd9e0",
+        "executed_spl": null,
+        "fields_returned": [
+          "index",
+          "title"
+        ],
+        "output_type": null,
+        "preview_rows": [
+          {
+            "index": "pgcil_soc",
+            "title": "pgcil_soc"
+          }
+        ],
+        "provenance": "stage_4b_evidence_loop",
+        "provider_used": null,
+        "query_or_request_summary": "discovery_hop:splunk_get_indexes:delivered=accessible_indexes",
+        "raw_result_hash": null,
+        "raw_result_stored": false,
+        "result_count": 1,
+        "saved_search_name": null,
+        "sensitivity_flags": [],
+        "source_name": "splunk_get_indexes",
+        "source_type": "mcp_discovery",
+        "time_range": null,
+        "tool_category": "discovery",
+        "tool_name": "splunk_get_indexes",
+        "trace_id": "fd3e3294-3648-4c2b-8a85-eb3f9a4aeff3",
+        "warnings": [
+          "read_only_discovery_hop"
+        ]
+      },
+      {
+        "collection_status": "collected",
+        "created_at": "2026-06-24T10:54:06.067130+00:00",
+        "evidence_id": "ev_a148ee1c122110fd",
+        "executed_spl": null,
+        "fields_returned": [
+          "sourcetype"
+        ],
+        "output_type": null,
+        "preview_rows": [
+          {
+            "sourcetype": "pgcil:auth"
+          },
+          {
+            "sourcetype": "pgcil:dns"
+          },
+          {
+            "sourcetype": "pgcil:edr"
+          },
+          {
+            "sourcetype": "aws:cloudtrail"
+          }
+        ],
+        "provenance": "stage_4b_evidence_loop",
+        "provider_used": null,
+        "query_or_request_summary": "discovery_hop:splunk_get_metadata:delivered=sourcetypes,hosts,sources",
+        "raw_result_hash": null,
+        "raw_result_stored": false,
+        "result_count": 3,
+        "saved_search_name": null,
+        "sensitivity_flags": [],
+        "source_name": "splunk_get_metadata",
+        "source_type": "mcp_discovery",
+        "time_range": null,
+        "tool_category": "discovery",
+        "tool_name": "splunk_get_metadata",
+        "trace_id": "fd3e3294-3648-4c2b-8a85-eb3f9a4aeff3",
+        "warnings": [
+          "read_only_discovery_hop"
+        ]
+      }
+    ],
+    "spl_draft_preview": null,
+    "spl_template": {
+      "allowed_spl_templates": [
+        "auth_failed_login_spike"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "mitre_mappings",
+        "recommended_actions"
+      ],
+      "datamodel": null,
+      "enabled": null,
+      "enrichment_evidence_requirements": [
+        "user",
+        "src",
+        "host",
+        "fail_count",
+        "time_window",
+        "first_failure",
+        "last_failure"
+      ],
+      "governed_limitation": null,
+      "production_executable": true,
+      "production_ready": null,
+      "query_shape": "raw_search",
+      "result_limits": {
+        "max_rows": 100
+      },
+      "returned_fields": [
+        "host",
+        "src",
+        "failed_logins",
+        "distinct_users",
+        "first_seen",
+        "last_seen",
+        "action"
+      ],
+      "sample_only": false,
+      "spl_template_status": "active",
+      "status": "active",
+      "template_id": "auth_failed_login_spike",
+      "template_production_executable": true,
+      "use_case_id": "auth_failed_login_spike",
+      "validation_rules": {
+        "allowed_commands": [
+          "search",
+          "stats",
+          "where",
+          "sort",
+          "head"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:auth"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "validator_profile": null
+    },
+    "spl_template_status": "active",
+    "spl_validation": {
+      "allowed_spl_templates": [
+        "auth_failed_login_spike"
+      ],
+      "approved": true,
+      "candidate_provider_reason": "use_case_catalog_default_raw_template",
+      "capability_profile": {
+        "authenticated_user_available": true,
+        "available_core_tools": [
+          "splunk_run_query",
+          "splunk_get_info",
+          "splunk_get_indexes",
+          "splunk_get_index_info",
+          "splunk_get_metadata",
+          "splunk_get_user_info",
+          "splunk_get_knowledge_objects"
+        ],
+        "available_saia_tools": [],
+        "available_tools": [
+          "splunk_get_index_info",
+          "splunk_get_indexes",
+          "splunk_get_info",
+          "splunk_get_knowledge_objects",
+          "splunk_get_metadata",
+          "splunk_get_user_info",
+          "splunk_run_query"
+        ],
+        "core_splunk_tools_available": true,
+        "discovered_at": "2026-06-24T10:54:05.672747+00:00",
+        "discovery_mode": "dynamic",
+        "environment_mode": "coe",
+        "fallback_required": true,
+        "get_index_info_available": true,
+        "get_indexes_available": true,
+        "get_info_available": true,
+        "get_knowledge_objects_available": true,
+        "get_metadata_available": true,
+        "get_user_info_available": true,
+        "knowledge_object_discovery_allowed": true,
+        "mcp_available": true,
+        "metadata_discovery_allowed": true,
+        "missing_expected_core_tools": [],
+        "missing_expected_saia_tools": [
+          "saia_generate_spl",
+          "saia_explain_spl",
+          "saia_optimize_spl",
+          "saia_ask_splunk_question"
+        ],
+        "run_query_available": true,
+        "run_query_requires_validation": true,
+        "run_saved_search_allowed": false,
+        "run_saved_search_available": false,
+        "run_saved_search_requires_hil": true,
+        "saia_ask_splunk_question_available": false,
+        "saia_available": false,
+        "saia_configured_mode": "auto",
+        "saia_explain_spl_available": false,
+        "saia_generate_spl_available": false,
+        "saia_optimize_spl_available": false,
+        "saia_usable": false,
+        "server_id": "splunk_soc",
+        "warnings": [
+          "splunk_ai_assistant_unavailable_fallback_required"
+        ]
+      },
+      "enforced_limits": {
+        "default_earliest": "-24h",
+        "default_latest": "now",
+        "enforcement_mode": "out_of_band",
+        "max_result_limit": 100,
+        "result_limit_enforced": true
+      },
+      "enrichment_evidence_requirements": [
+        "user",
+        "src",
+        "host",
+        "fail_count",
+        "time_window",
+        "first_failure",
+        "last_failure"
+      ],
+      "fallback_required": false,
+      "governed_limitation": null,
+      "llm_fallback": null,
+      "llm_fallback_reason": null,
+      "llm_fallback_status": null,
+      "llm_fallback_used": null,
+      "llm_latency_ms": null,
+      "llm_model": null,
+      "llm_supported": null,
+      "normalized_spl": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure | stats count as failed_logins dc(user) as distinct_users min(_time) as first_seen max(_time) as last_seen values(action) as action by host, src | where failed_logins >= 25 | sort -failed_logins | head 100",
+      "optimization_applied": false,
+      "optimization_revalidation_approved": false,
+      "optimization_revalidation_status": null,
+      "policy_version": "spl-policy-v1+2026-06-spl-slot-binding-v1",
+      "reject_reasons": [],
+      "saia_available": false,
+      "selected_candidate_spl_provider": "deterministic_template_render",
+      "spl_explanation_provider": "rule_based",
+      "spl_guidance_provider": "scd_rag",
+      "spl_optimization_provider": "rule_based",
+      "spl_template_status": "active",
+      "template_id": "auth_failed_login_spike",
+      "template_production_executable": true,
+      "warnings": [
+        "slot_binding_validated"
+      ]
+    },
+    "structured_context": {
+      "allowed_conclusions": [
+        "source_coverage_and_collection_status_only"
+      ],
+      "answer_constraints": [
+        "Do not declare compromise from failed-login counts alone.",
+        "Require approved evidence before severity or root-cause conclusions.",
+        "Only use configured allowed indexes and sourcetypes during SPL validation."
+      ],
+      "assumptions": [
+        "structured_context_is_pre_synthesis"
+      ],
+      "capability_profile_ref": "splunk_capability:splunk_soc",
+      "context_quality": "blocked",
+      "entity_summary": {
+        "sourcetype": [
+          "pgcil:auth",
+          "pgcil:dns",
+          "pgcil:edr",
+          "aws:cloudtrail"
+        ]
+      },
+      "environment_grounding_refs": [
+        "COE Sample Splunk Auth Context v1.0 SPLUNK-AUTH-001"
+      ],
+      "evidence_origin_labels": [
+        "stub_rag"
+      ],
+      "execution_provider": "splunk_run_query",
+      "fallback_mode": false,
+      "knowledge_ambiguity": [],
+      "metrics": {
+        "collected_evidence_count": 4,
+        "total_result_count": 9
+      },
+      "missing_evidence": [],
+      "mitre_candidates": [
+        {
+          "derivation": "governed_soc_kb",
+          "source_refs": [
+            "COE Sample Auth Investigation SOP v1.0 AUTH-001"
+          ],
+          "technique_id": "T1110"
+        }
+      ],
+      "mitre_grounding_refs": [],
+      "policy_context_refs": [
+        "spl-policy-v1+2026-06-spl-slot-binding-v1",
+        "COE Sample Auth Investigation SOP v1.0 AUTH-001"
+      ],
+      "prohibited_conclusions": [
+        "final_soc_answer",
+        "final_mitre_mapping",
+        "root_cause",
+        "incident_severity",
+        "confirmed account compromise",
+        "confirmed brute force success",
+        "all customer auth data is covered"
+      ],
+      "query": "Investigate failed login spike on APP-01",
+      "rag_approval_summary": {
+        "all_runtime_eligible": true,
+        "approval_statuses": [
+          "coe_reviewed"
+        ],
+        "authority": "metadata_only",
+        "direct_to_llm": false,
+        "document_types": [
+          "sop",
+          "splunk_context_document"
+        ],
+        "enabled": true,
+        "entry_count": 2,
+        "evidence_origin": "stub_rag",
+        "rag_mode": "mock",
+        "repository_backend": "json",
+        "retrieval_status": "retrieved"
+      },
+      "selected_skill": "attack_discovery",
+      "sop_action_hints": [
+        {
+          "recommended_actions": [
+            "Review failed-login volume and source distribution.",
+            "Check for successful login after repeated failures.",
+            "Escalate when privileged accounts or broad source spread are involved."
+          ],
+          "reviewer_role": "tier2_soc_analyst",
+          "sop_excerpt": "For a failed-login spike, verify account, source IP distribution, time window, and any successful login after repeated failures before escalation.",
+          "sop_reference": "COE Sample Auth Investigation SOP v1.0 AUTH-001"
+        }
+      ],
+      "source_evidence_refs": [
+        "ev_c190c7dbcaa9f840",
+        "ev_dd688723c33c70bf",
+        "ev_0a031b397e44acdb",
+        "ev_e80d0892d43fd9e0",
+        "ev_a148ee1c122110fd"
+      ],
+      "source_refs": [
+        "ev_c190c7dbcaa9f840",
+        "ev_dd688723c33c70bf",
+        "ev_0a031b397e44acdb",
+        "ev_e80d0892d43fd9e0",
+        "ev_a148ee1c122110fd"
+      ],
+      "spl_explanation_provider": "rule_based",
+      "spl_generation_provider": "deterministic_template_render",
+      "spl_guidance_provider": "scd_rag",
+      "spl_optimization_provider": "rule_based",
+      "splunk_context_refs": [
+        "COE Sample Splunk Auth Context v1.0 SPLUNK-AUTH-001"
+      ],
+      "structured_facts": [
+        {
+          "confidence": 1.0,
+          "derivation": "computed_by_ai_soc",
+          "fact_id": "fact_001",
+          "source_refs": [
+            "ev_c190c7dbcaa9f840"
+          ],
+          "statement": "COE Sample Auth Investigation SOP; COE Sample Splunk Auth Context returned 2 governed SOC KB entries through governed retrieval."
+        },
+        {
+          "confidence": 1.0,
+          "derivation": "computed_by_ai_soc",
+          "fact_id": "fact_002",
+          "source_refs": [
+            "ev_0a031b397e44acdb"
+          ],
+          "statement": "splunk_get_info returned 3 previewable rows through splunk_get_info."
+        },
+        {
+          "confidence": 1.0,
+          "derivation": "computed_by_ai_soc",
+          "fact_id": "fact_002_server_name",
+          "source_refs": [
+            "ev_0a031b397e44acdb"
+          ],
+          "statement": "Field observed in source preview: server_name."
+        },
+        {
+          "confidence": 1.0,
+          "derivation": "computed_by_ai_soc",
+          "fact_id": "fact_002_server_version",
+          "source_refs": [
+            "ev_0a031b397e44acdb"
+          ],
+          "statement": "Field observed in source preview: server_version."
+        },
+        {
+          "confidence": 1.0,
+          "derivation": "computed_by_ai_soc",
+          "fact_id": "fact_003",
+          "source_refs": [
+            "ev_e80d0892d43fd9e0"
+          ],
+          "statement": "splunk_get_indexes returned 1 previewable rows through splunk_get_indexes."
+        },
+        {
+          "confidence": 1.0,
+          "derivation": "computed_by_ai_soc",
+          "fact_id": "fact_003_index",
+          "source_refs": [
+            "ev_e80d0892d43fd9e0"
+          ],
+          "statement": "Field observed in source preview: index."
+        },
+        {
+          "confidence": 1.0,
+          "derivation": "computed_by_ai_soc",
+          "fact_id": "fact_003_title",
+          "source_refs": [
+            "ev_e80d0892d43fd9e0"
+          ],
+          "statement": "Field observed in source preview: title."
+        },
+        {
+          "confidence": 1.0,
+          "derivation": "computed_by_ai_soc",
+          "fact_id": "fact_004",
+          "source_refs": [
+            "ev_a148ee1c122110fd"
+          ],
+          "statement": "splunk_get_metadata returned 3 previewable rows through splunk_get_metadata."
+        },
+        {
+          "confidence": 1.0,
+          "derivation": "computed_by_ai_soc",
+          "fact_id": "fact_004_sourcetype",
+          "source_refs": [
+            "ev_a148ee1c122110fd"
+          ],
+          "statement": "Field observed in source preview: sourcetype."
+        }
+      ],
+      "synthesis_allowed": false,
+      "timeline_candidates": [],
+      "tool_outputs_summary": [
+        {
+          "collection_status": "collected",
+          "fields_returned": [],
+          "result_count": 2,
+          "source_name": "COE Sample Auth Investigation SOP; COE Sample Splunk Auth Context",
+          "source_ref": "ev_c190c7dbcaa9f840",
+          "source_type": "rag",
+          "tool_name": "governed_soc_kb_retrieval",
+          "warnings": []
+        },
+        {
+          "collection_status": "blocked",
+          "fields_returned": [],
+          "result_count": 0,
+          "source_name": "mock",
+          "source_ref": "ev_dd688723c33c70bf",
+          "source_type": "splunk_mcp",
+          "tool_name": "splunk_run_query",
+          "warnings": [
+            "spl_source_slots_unresolved",
+            "slot_binding_validated"
+          ]
+        },
+        {
+          "collection_status": "collected",
+          "fields_returned": [
+            "server_name",
+            "server_version"
+          ],
+          "result_count": 3,
+          "source_name": "splunk_get_info",
+          "source_ref": "ev_0a031b397e44acdb",
+          "source_type": "mcp_discovery",
+          "tool_name": "splunk_get_info",
+          "warnings": [
+            "read_only_discovery_hop"
+          ]
+        },
+        {
+          "collection_status": "collected",
+          "fields_returned": [
+            "index",
+            "title"
+          ],
+          "result_count": 1,
+          "source_name": "splunk_get_indexes",
+          "source_ref": "ev_e80d0892d43fd9e0",
+          "source_type": "mcp_discovery",
+          "tool_name": "splunk_get_indexes",
+          "warnings": [
+            "read_only_discovery_hop"
+          ]
+        },
+        {
+          "collection_status": "collected",
+          "fields_returned": [
+            "sourcetype"
+          ],
+          "result_count": 3,
+          "source_name": "splunk_get_metadata",
+          "source_ref": "ev_a148ee1c122110fd",
+          "source_type": "mcp_discovery",
+          "tool_name": "splunk_get_metadata",
+          "warnings": [
+            "read_only_discovery_hop"
+          ]
+        }
+      ],
+      "tool_policy_refs": [],
+      "trace_id": "fd3e3294-3648-4c2b-8a85-eb3f9a4aeff3",
+      "validation_warnings": [],
+      "warnings": [
+        "read_only_discovery_hop",
+        "slot_binding_validated",
+        "spl_source_slots_unresolved"
+      ]
+    },
+    "synthesis_mode": "synthesis_blocked",
+    "synthesis_status": {
+      "allowed_inputs": [
+        "StructuredContext",
+        "SourceEvidence summaries",
+        "approved RAG excerpts"
+      ],
+      "enabled": true,
+      "latency_ms": null,
+      "model": null,
+      "provider": "deterministic_lab",
+      "reason": "Synthesis lab blocked: context_sufficiency:blocked_by_policy.",
+      "status": "blocked"
+    },
+    "tool_plan": [
+      "classify_auth_pattern",
+      "prepare_spl_spec",
+      "require_spl_validation"
+    ],
+    "tool_plan_structured": null,
+    "trace_explanation": [],
+    "user_query": "Investigate failed login spike on APP-01",
+    "workflow_plan": {
+      "available_sources": [],
+      "execution_enabled": false,
+      "message": "Workflow plan created. No SPL/MCP/RAG execution has started.",
+      "missing_sources": [
+        "mcp:splunk"
+      ],
+      "required_connectors": [
+        "llm",
+        "mcp"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "safety_gates": [
+        "aggregation_required",
+        "approved_mapping_taxonomy",
+        "bounded_results_only",
+        "execution_not_enabled",
+        "grounded_evidence_only",
+        "insufficient_evidence_allowed",
+        "no_raw_event_dump",
+        "read_only_spl",
+        "spl_generation_not_enabled",
+        "time_range_required",
+        "validated_spl_only_to_mcp"
+      ],
+      "skill": "attack_discovery",
+      "status": "not_started",
+      "steps": [
+        {
+          "name": "generate candidate SPL",
+          "order": 1,
+          "required_connectors": [
+            "llm"
+          ],
+          "safety_gates": [
+            "spl_generation_not_enabled"
+          ],
+          "status": "not_started"
+        },
+        {
+          "name": "validate SPL",
+          "order": 2,
+          "required_connectors": [],
+          "safety_gates": [
+            "read_only_spl",
+            "time_range_required",
+            "aggregation_required"
+          ],
+          "status": "not_started"
+        },
+        {
+          "name": "execute validated SPL through MCP",
+          "order": 3,
+          "required_connectors": [
+            "mcp"
+          ],
+          "safety_gates": [
+            "validated_spl_only_to_mcp",
+            "execution_not_enabled"
+          ],
+          "status": "not_started"
+        },
+        {
+          "name": "minimize results",
+          "order": 4,
+          "required_connectors": [],
+          "safety_gates": [
+            "bounded_results_only",
+            "no_raw_event_dump"
+          ],
+          "status": "not_started"
+        },
+        {
+          "name": "map to MITRE",
+          "order": 5,
+          "required_connectors": [],
+          "safety_gates": [
+            "approved_mapping_taxonomy"
+          ],
+          "status": "not_started"
+        },
+        {
+          "name": "synthesize findings",
+          "order": 6,
+          "required_connectors": [
+            "llm"
+          ],
+          "safety_gates": [
+            "grounded_evidence_only",
+            "insufficient_evidence_allowed"
+          ],
+          "status": "not_started"
+        }
+      ],
+      "tool_plan": [
+        "classify_auth_pattern",
+        "prepare_spl_spec",
+        "require_spl_validation"
+      ],
+      "trace_id": "fd3e3294-3648-4c2b-8a85-eb3f9a4aeff3"
+    }
+  },
+  "provenance": {
+    "captured_at": "2026-06-24T10:54:06.472075+00:00",
+    "git_sha": "71b3c54",
+    "live_llm_called": true,
+    "live_mcp_called": false,
+    "model_id": "foundation-sec-1.1-8b-instruct-q8_0",
+    "prompt_hash": "471ae537e33cdb46",
+    "transport": "fake"
+  },
+  "scenario_id": "failed_login_spike_app01",
+  "schema_version": 1,
+  "stage_latencies": [
+    {
+      "recorded_ms": 46112,
+      "replayed_ms": 6000,
+      "stage": "end_to_end"
+    }
+  ]
+}

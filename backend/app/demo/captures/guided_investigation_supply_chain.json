@@ -1,0 +1,3967 @@
+{
+  "final_response": {
+    "action_capability": {
+      "allowed_actions": [
+        "summarize",
+        "explain",
+        "show_sop",
+        "generate_spl",
+        "draft_investigation_note"
+      ],
+      "audit_required": true,
+      "current_tier": 1,
+      "hil_required": false,
+      "reason": "Use case unknown with severity P3 Medium is limited to inform/prepare actions in this stage.",
+      "tier_label": "Tier 1 - Prepare",
+      "unavailable_actions": [
+        "run_saved_search",
+        "create_ticket",
+        "block_ip",
+        "disable_user",
+        "isolate_endpoint"
+      ]
+    },
+    "analyst_response": {
+      "analyst_checklist": [
+        "Confirm the asset owner, criticality, and expected communications.",
+        "Review firewall, DNS, proxy, and endpoint telemetry for the destination.",
+        "Compare first-seen time, periodicity, bytes, ports, and peer hosts against baseline.",
+        "Validate vendor, maintenance, and approved remote-access activity.",
+        "Document findings and escalate only after evidence is corroborated."
+      ],
+      "closure_conditions": [],
+      "direct_answer_summary": "Supply-chain firmware integrity review (review-only)\n\nNo \u2014 not enough to confirm from this question alone. Any MITRE mapping remains candidate or requires validation until source-grounded evidence is reviewed. Investigation step: corroborate logs, confirm asset context, build a timeline, and validate across independent signals. Do not claim compromise without collected, validated search results.\n\nSeparate legitimate key rotation from compromise:\n- Verify the code-signing certificate: issuer chain, validity window, and thumbprint against the vendor's known-good signing key.\n- Confirm an out-of-band vendor advisory or change ticket authorizing a key rotation for this firmware release.\n- Compare the firmware hash/version against the vendor's published release manifest.\n- Correlate the push: source host/account, delivery channel, and whether all targeted devices were updated in one window (a single mass push raises risk).\n- Hold rollout, stage to a test bench, and preserve the prior firmware image for rollback.\n\nLimitations: an unexpected signing certificate alone does NOT confirm compromise \u2014 corroborate certificate provenance, vendor authorization, and firmware hash first. Any MITRE mapping stays candidate (e.g. candidate T0857 System Firmware / supply-chain) until provenance is verified.\n\n---\n\nSecondary focus (Hunt):\n\nGuided investigation (review-only)\n\nNo specialised OT family is mapped for this signal yet \u2014 using a generic hunt skeleton.\n\nHypotheses\n- Expected operational activity or a recent approved change.\n- Telemetry drift producing an apparent anomaly.\n- Suspicious activity requiring corroboration across independent sources.\n\nEvidence to collect\n- Relevant OT/IT logs for a bounded time window.\n- Asset ownership, criticality, baseline, and recent change history.\n- Peer comparison and first-seen analysis.\n\nLimitations: no live query was run; no MITRE technique or severity is claimed.\n\nLimitations:\n- This question is outside the approved 105-question and use-case",
+      "draft_spl_code": null,
+      "environment_hygiene": null,
+      "escalation_criteria": [],
+      "evidence_summary": null,
+      "executed_spl": null,
+      "execution_status": "skipped",
+      "execution_status_label": null,
+      "finding_title": "SOC investigation guidance",
+      "foundation_sec_analysis": null,
+      "hil_status": "required",
+      "initial_assessment": [
+        "Expected operational activity or a recent approved change.",
+        "Telemetry drift producing an apparent anomaly.",
+        "Suspicious activity requiring corroboration across independent sources."
+      ],
+      "investigation_steps": [
+        "Scope the affected OT and IT assets and the observation window.",
+        "Collect network and endpoint evidence without executing candidate SPL.",
+        "Test benign, misconfiguration, compromise, and vendor-access hypotheses.",
+        "Have an analyst validate conclusions and next actions."
+      ],
+      "key_fields": [],
+      "limitations": [
+        "This question is outside the approved 105-question and use-case registries.",
+        "No live query was executed; validate the checklist against local telemetry and playbooks.",
+        "No MITRE technique or incident severity is asserted without evidence.",
+        "No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy.",
+        "LLM-assisted, out-of-catalogue, unverified \u2014 validate against local telemetry and policy."
+      ],
+      "llm_spl_candidate": null,
+      "missing_evidence": [],
+      "mitre_mappings": [],
+      "mitre_status_summary": {
+        "candidate": [],
+        "evidence_supported": [],
+        "not_claimed": [],
+        "requires_validation": [],
+        "ruled_out": []
+      },
+      "not_claimed": [],
+      "one_sentence_finding": null,
+      "recommended_actions": [
+        "P2 \u2014 Confirm the asset owner, criticality, and expected communications.",
+        "P2 \u2014 Review firewall, DNS, proxy, and endpoint telemetry for the destination.",
+        "P2 \u2014 Compare first-seen time, periodicity, bytes, ports, and peer hosts against baseline.",
+        "P2 \u2014 Validate vendor, maintenance, and approved remote-access activity.",
+        "P2 \u2014 Document findings and escalate only after evidence is corroborated.",
+        "P2 \u2014 Scope the affected OT and IT assets and the observation window.",
+        "P2 \u2014 Collect network and endpoint evidence without executing candidate SPL.",
+        "P2 \u2014 Test benign, misconfiguration, compromise, and vendor-access hypotheses.",
+        "P2 \u2014 Have an analyst validate conclusions and next actions."
+      ],
+      "render_sections": {
+        "analyst_action_guidance": true,
+        "draft_spl_preview": false,
+        "evidence_checklist": false,
+        "investigation_guidance": true,
+        "limitations": true,
+        "live_results": false,
+        "mitre_mapping": false,
+        "not_claimed": false,
+        "out_of_catalog_notice": true,
+        "policy_citation": false,
+        "procedural_steps": true,
+        "severity_assessment": false,
+        "spl_artifact": false,
+        "triage_checklist": true
+      },
+      "required_evidence": [],
+      "response_profile": "hybrid_alert_review",
+      "retrieved_playbook": null,
+      "review_notice": null,
+      "scenario_label": null,
+      "section_order": [
+        "investigation_guidance",
+        "procedural_steps",
+        "analyst_action_guidance",
+        "limitations"
+      ],
+      "severity_confidence": null,
+      "severity_label": null,
+      "severity_rationale": null,
+      "severity_safety_note": null,
+      "sop_guidance": null,
+      "spl_code": null,
+      "spl_draft_preview": null,
+      "spl_status": "not_required",
+      "spl_status_detail": null,
+      "splunk_results_table": [],
+      "splunk_status_line": null,
+      "status_badge": null,
+      "unsupported_claims_avoid": [
+        "confirmed compromise",
+        "confirmed MITRE technique",
+        "P1/P2 severity"
+      ]
+    },
+    "analyst_summary": null,
+    "answer_contract": {
+      "analyst_checklist_safe": [
+        "Confirm the asset owner, criticality, and expected communications.",
+        "Review firewall, DNS, proxy, and endpoint telemetry for the destination.",
+        "Compare first-seen time, periodicity, bytes, ports, and peer hosts against baseline.",
+        "Validate vendor, maintenance, and approved remote-access activity.",
+        "Document findings and escalate only after evidence is corroborated."
+      ],
+      "answer_goal": [
+        "procedural_steps",
+        "analyst_action_guidance"
+      ],
+      "answer_mode": "guided_investigation",
+      "answer_rules_applied": [],
+      "assumptions": [],
+      "candidate_mitre": [],
+      "evidence_supported_mitre": [],
+      "execution_block_reason": null,
+      "execution_status": "skipped",
+      "execution_status_display": null,
+      "execution_status_label": null,
+      "hil_status": "required",
+      "human_review_required": false,
+      "intent_family": "guided_investigation",
+      "investigation_steps": [
+        "Scope the affected OT and IT assets and the observation window.",
+        "Collect network and endpoint evidence without executing candidate SPL.",
+        "Test benign, misconfiguration, compromise, and vendor-access hypotheses.",
+        "Have an analyst validate conclusions and next actions."
+      ],
+      "limitations": [
+        "This question is outside the approved 105-question and use-case registries.",
+        "No live query was executed; validate the checklist against local telemetry and playbooks.",
+        "No MITRE technique or incident severity is asserted without evidence.",
+        "No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy.",
+        "LLM-assisted, out-of-catalogue, unverified \u2014 validate against local telemetry and policy."
+      ],
+      "mcp_allowed": false,
+      "missing_evidence": [],
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "nearest_questions": [],
+      "needs_mitre": false,
+      "not_claimed_mitre": [],
+      "not_claimed_technique_ids": [],
+      "out_of_catalog_notice": "This question is outside the governed question catalog. The guidance below is general, review-only, and makes no claims beyond available evidence.",
+      "render_sections": {
+        "analyst_action_guidance": true,
+        "evidence_checklist": false,
+        "investigation_guidance": true,
+        "limitations": true,
+        "live_results": false,
+        "mitre_mapping": false,
+        "not_claimed": false,
+        "out_of_catalog_notice": true,
+        "policy_citation": false,
+        "procedural_steps": true,
+        "severity_assessment": false,
+        "spl_artifact": false,
+        "triage_checklist": true
+      },
+      "required_evidence": [],
+      "requires_validation_mitre": [],
+      "ruled_out_mitre": [],
+      "section_order": [
+        "investigation_guidance",
+        "analyst_action_guidance",
+        "procedural_steps",
+        "limitations"
+      ],
+      "severity_confidence": null,
+      "severity_label": null,
+      "spl_allowed": true,
+      "spl_approved": false,
+      "spl_present": false,
+      "spl_status": "not_required",
+      "spl_status_detail": null,
+      "success_after_failure_context": false,
+      "unsupported_claims_avoid": [
+        "confirmed compromise",
+        "confirmed MITRE technique",
+        "P1/P2 severity"
+      ],
+      "use_case_id": null
+    },
+    "answer_guard": {
+      "analyst_review_required": false,
+      "blocked_reason": null,
+      "enabled": true,
+      "failed_checks": [],
+      "guard_status": "skipped",
+      "passed_checks": [],
+      "reason": "No synthesis draft was produced; Answer Guard did not run."
+    },
+    "answer_guard_status": "skipped",
+    "answer_readiness": "insufficient",
+    "answer_scorecard": {
+      "checks": {
+        "analyst_guidance_present": true,
+        "execution_status_clear": true,
+        "hil_status_clear": true,
+        "mitre_wording_safe": false,
+        "no_unsupported_claims": true,
+        "out_of_catalog_honest": true,
+        "route_honored": true,
+        "severity_state_clear": true,
+        "skill_sections_present": true,
+        "spl_status_clear": true
+      },
+      "narration": {
+        "fallback_used": false,
+        "final_answer_source": "deterministic_contract",
+        "guard_blocked": false,
+        "skip_category": null
+      },
+      "reasons": [
+        "mitre_wording_safe: MITRE/severity claims in prose do not trace to contract fields"
+      ],
+      "tier_d": {
+        "actionability_priorities": true,
+        "completeness_sections": true,
+        "grounding_no_orphan_claims": false,
+        "honesty_limitations": true,
+        "no_forbidden_claims": true
+      },
+      "verdict": "review"
+    },
+    "candidate_spl": null,
+    "confidence": 0.42,
+    "context_sufficiency": {
+      "human_review": null,
+      "missing_evidence": [
+        "approved_sop_guidance",
+        "collected_source_evidence",
+        "rag:sop"
+      ],
+      "reasons": [
+        "evidence_origin:none",
+        "no_collected_evidence"
+      ],
+      "status": "insufficient_evidence",
+      "synthesis_allowed": false,
+      "synthesis_readiness": false
+    },
+    "control_plane_trace": {
+      "answer_contract": {
+        "analyst_checklist_safe": [
+          "Confirm the asset owner, criticality, and expected communications.",
+          "Review firewall, DNS, proxy, and endpoint telemetry for the destination.",
+          "Compare first-seen time, periodicity, bytes, ports, and peer hosts against baseline.",
+          "Validate vendor, maintenance, and approved remote-access activity.",
+          "Document findings and escalate only after evidence is corroborated."
+        ],
+        "answer_goal": [
+          "procedural_steps",
+          "analyst_action_guidance"
+        ],
+        "answer_mode": "guided_investigation",
+        "answer_rules_applied": [],
+        "assumptions": [],
+        "candidate_mitre": [],
+        "evidence_supported_mitre": [],
+        "execution_block_reason": null,
+        "execution_status": "skipped",
+        "execution_status_display": null,
+        "execution_status_label": null,
+        "hil_status": "required",
+        "human_review_required": false,
+        "intent_family": "guided_investigation",
+        "investigation_steps": [
+          "Scope the affected OT and IT assets and the observation window.",
+          "Collect network and endpoint evidence without executing candidate SPL.",
+          "Test benign, misconfiguration, compromise, and vendor-access hypotheses.",
+          "Have an analyst validate conclusions and next actions."
+        ],
+        "limitations": [
+          "This question is outside the approved 105-question and use-case registries.",
+          "No live query was executed; validate the checklist against local telemetry and playbooks.",
+          "No MITRE technique or incident severity is asserted without evidence.",
+          "No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy.",
+          "LLM-assisted, out-of-catalogue, unverified \u2014 validate against local telemetry and policy."
+        ],
+        "mcp_allowed": false,
+        "missing_evidence": [],
+        "mitre_answer_visible": false,
+        "mitre_technique_ids": [],
+        "nearest_questions": [],
+        "needs_mitre": false,
+        "not_claimed_mitre": [],
+        "not_claimed_technique_ids": [],
+        "out_of_catalog_notice": "This question is outside the governed question catalog. The guidance below is general, review-only, and makes no claims beyond available evidence.",
+        "render_sections": {
+          "analyst_action_guidance": true,
+          "evidence_checklist": false,
+          "investigation_guidance": true,
+          "limitations": true,
+          "live_results": false,
+          "mitre_mapping": false,
+          "not_claimed": false,
+          "out_of_catalog_notice": true,
+          "policy_citation": false,
+          "procedural_steps": true,
+          "severity_assessment": false,
+          "spl_artifact": false,
+          "triage_checklist": true
+        },
+        "required_evidence": [],
+        "requires_validation_mitre": [],
+        "ruled_out_mitre": [],
+        "section_order": [
+          "investigation_guidance",
+          "analyst_action_guidance",
+          "procedural_steps",
+          "limitations"
+        ],
+        "severity_confidence": null,
+        "severity_label": null,
+        "spl_allowed": true,
+        "spl_approved": false,
+        "spl_present": false,
+        "spl_status": "not_required",
+        "spl_status_detail": null,
+        "success_after_failure_context": false,
+        "unsupported_claims_avoid": [
+          "confirmed compromise",
+          "confirmed MITRE technique",
+          "P1/P2 severity"
+        ],
+        "use_case_id": null
+      },
+      "answer_contract_v2": {
+        "analyst_checklist_safe": [
+          "Confirm the asset owner, criticality, and expected communications.",
+          "Review firewall, DNS, proxy, and endpoint telemetry for the destination.",
+          "Compare first-seen time, periodicity, bytes, ports, and peer hosts against baseline.",
+          "Validate vendor, maintenance, and approved remote-access activity.",
+          "Document findings and escalate only after evidence is corroborated."
+        ],
+        "answer_goal": [
+          "procedural_steps",
+          "analyst_action_guidance"
+        ],
+        "answer_mode": "guided_investigation",
+        "answer_rules_applied": [],
+        "assumptions": [],
+        "candidate_mitre": [],
+        "evidence_supported_mitre": [],
+        "execution_block_reason": null,
+        "execution_status": "skipped",
+        "execution_status_display": null,
+        "execution_status_label": null,
+        "hil_status": "required",
+        "human_review_required": false,
+        "intent_family": "guided_investigation",
+        "investigation_steps": [
+          "Scope the affected OT and IT assets and the observation window.",
+          "Collect network and endpoint evidence without executing candidate SPL.",
+          "Test benign, misconfiguration, compromise, and vendor-access hypotheses.",
+          "Have an analyst validate conclusions and next actions."
+        ],
+        "limitations": [
+          "This question is outside the approved 105-question and use-case registries.",
+          "No live query was executed; validate the checklist against local telemetry and playbooks.",
+          "No MITRE technique or incident severity is asserted without evidence.",
+          "No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy.",
+          "LLM-assisted, out-of-catalogue, unverified \u2014 validate against local telemetry and policy."
+        ],
+        "mcp_allowed": false,
+        "missing_evidence": [],
+        "mitre_answer_visible": false,
+        "mitre_technique_ids": [],
+        "nearest_questions": [],
+        "needs_mitre": false,
+        "not_claimed_mitre": [],
+        "not_claimed_technique_ids": [],
+        "out_of_catalog_notice": "This question is outside the governed question catalog. The guidance below is general, review-only, and makes no claims beyond available evidence.",
+        "render_sections": {
+          "analyst_action_guidance": true,
+          "evidence_checklist": false,
+          "investigation_guidance": true,
+          "limitations": true,
+          "live_results": false,
+          "mitre_mapping": false,
+          "not_claimed": false,
+          "out_of_catalog_notice": true,
+          "policy_citation": false,
+          "procedural_steps": true,
+          "severity_assessment": false,
+          "spl_artifact": false,
+          "triage_checklist": true
+        },
+        "required_evidence": [],
+        "requires_validation_mitre": [],
+        "ruled_out_mitre": [],
+        "section_order": [
+          "investigation_guidance",
+          "analyst_action_guidance",
+          "procedural_steps",
+          "limitations"
+        ],
+        "severity_confidence": null,
+        "severity_label": null,
+        "spl_allowed": true,
+        "spl_approved": false,
+        "spl_present": false,
+        "spl_status": "not_required",
+        "spl_status_detail": null,
+        "success_after_failure_context": false,
+        "unsupported_claims_avoid": [
+          "confirmed compromise",
+          "confirmed MITRE technique",
+          "P1/P2 severity"
+        ],
+        "use_case_id": null
+      },
+      "answer_guard": {
+        "analyst_review_required": false,
+        "blocked_reason": null,
+        "enabled": true,
+        "failed_checks": [],
+        "guard_status": "skipped",
+        "passed_checks": [],
+        "reason": "No synthesis draft was produced; Answer Guard did not run."
+      },
+      "candidate_spl_generation": null,
+      "evidence_plan": {
+        "action_mode": "recommend_only",
+        "answer_mode": "guided_investigation",
+        "answer_rules": [],
+        "checklist": [
+          "Confirm the asset owner, criticality, and expected communications.",
+          "Review firewall, DNS, proxy, and endpoint telemetry for the destination.",
+          "Compare first-seen time, periodicity, bytes, ports, and peer hosts against baseline.",
+          "Validate vendor, maintenance, and approved remote-access activity.",
+          "Document findings and escalate only after evidence is corroborated."
+        ],
+        "correlation": null,
+        "enrichment_driven": false,
+        "evidence_legs": [],
+        "evidence_plan_reason": "out_of_registry_guided_investigation",
+        "investigation_workflow": [
+          "Scope the affected OT and IT assets and the observation window.",
+          "Collect network and endpoint evidence without executing candidate SPL.",
+          "Test benign, misconfiguration, compromise, and vendor-access hypotheses.",
+          "Have an analyst validate conclusions and next actions."
+        ],
+        "limitations": [
+          "This question is outside the approved 105-question and use-case registries.",
+          "No live query was executed; validate the checklist against local telemetry and playbooks.",
+          "No MITRE technique or incident severity is asserted without evidence."
+        ],
+        "mcp_allowed": false,
+        "missing_required_evidence": [],
+        "mitre_candidates_metadata_only": [],
+        "needs_clarification": false,
+        "needs_hil": true,
+        "needs_mcp": false,
+        "needs_mitre": false,
+        "needs_rag": true,
+        "needs_spl": false,
+        "optional_evidence_keys": [],
+        "optional_sources": [
+          "asset_inventory",
+          "change_records",
+          "vendor_access_records"
+        ],
+        "policy_context_recommended": true,
+        "policy_context_required": false,
+        "present_evidence_keys": [],
+        "rag_no_match_behavior": "general_guidance_allowed",
+        "rag_phase": "rag_only",
+        "reasons": [
+          "out_of_registry_guided_investigation"
+        ],
+        "recommended_pivots": [],
+        "required_evidence_keys": [],
+        "required_sources": [
+          "firewall",
+          "dns",
+          "proxy",
+          "endpoint"
+        ],
+        "requires_hil": true,
+        "resource_plan": {
+          "plan_source": "deterministic",
+          "provenance": {
+            "composer": "deterministic_v1",
+            "intent_family": "guided_investigation",
+            "llm_bridge": "deferred_not_inline",
+            "match_path": "out_of_registry",
+            "resource_decisions": {
+              "hil": {
+                "reason": "Analyst validates hypotheses and local data scope.",
+                "required": true
+              },
+              "limitations": [
+                "This question is outside the approved 105-question and use-case registries.",
+                "No live query was executed; validate the checklist against local telemetry and playbooks.",
+                "No MITRE technique or incident severity is asserted without evidence.",
+                "No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy."
+              ],
+              "match_path": "out_of_registry",
+              "mcp": {
+                "allowed": false,
+                "needed": false,
+                "planned_discovery": [
+                  "splunk_get_indexes",
+                  "splunk_get_metadata",
+                  "splunk_get_knowledge_objects"
+                ],
+                "planned_discovery_calls": [
+                  {
+                    "arguments": {},
+                    "block_reason": "mcp_global_execution_disabled",
+                    "failure_mode": "execution_disabled",
+                    "kind": "planned_tool_call",
+                    "policy_checks": [
+                      "read_only_discovery",
+                      "mcp_execution_gate"
+                    ],
+                    "server": "splunk",
+                    "tool_name": "splunk_get_indexes"
+                  },
+                  {
+                    "arguments": {},
+                    "block_reason": "mcp_global_execution_disabled",
+                    "failure_mode": "execution_disabled",
+                    "kind": "planned_tool_call",
+                    "policy_checks": [
+                      "read_only_discovery",
+                      "mcp_execution_gate"
+                    ],
+                    "server": "splunk",
+                    "tool_name": "splunk_get_metadata"
+                  },
+                  {
+                    "arguments": {},
+                    "block_reason": "mcp_global_execution_disabled",
+                    "failure_mode": "execution_disabled",
+                    "kind": "planned_tool_call",
+                    "policy_checks": [
+                      "read_only_discovery",
+                      "mcp_execution_gate"
+                    ],
+                    "server": "splunk",
+                    "tool_name": "splunk_get_knowledge_objects"
+                  }
+                ],
+                "skip_reason": "Execution gates closed; checklist runnable manually by analyst."
+              },
+              "mitre": {
+                "allowed": false,
+                "skip_reason": "No evidence-supported technique claim is available."
+              },
+              "rag": {
+                "match_status": "no_match",
+                "needed": true,
+                "no_match_behavior": "general_guidance_allowed",
+                "source": "soc_kb_rag"
+              },
+              "severity": {
+                "allowed": false,
+                "skip_reason": "No grounded incident severity is available."
+              },
+              "spl": {
+                "needed": false,
+                "review_only": true,
+                "skip_reason": "No existing deterministic draft family matched this out-of-registry hunt.",
+                "status": "skipped_no_deterministic_family_match"
+              }
+            },
+            "skill_id": "guided_investigation",
+            "skill_workflow": [
+              "evidence_collection",
+              "context_sufficiency",
+              "synthesis",
+              "answer_guard"
+            ],
+            "use_case_id": null
+          },
+          "steps": [
+            {
+              "args_template": {},
+              "on_unavailable": null,
+              "policy_checks": [
+                "governed_rag_only"
+              ],
+              "purpose": "knowledge_retrieval",
+              "resource_id": "rag_corpus:soc_kb",
+              "status": "planned",
+              "status_reason": null,
+              "step_id": "rag"
+            },
+            {
+              "args_template": {},
+              "on_unavailable": null,
+              "policy_checks": [
+                "metadata_only",
+                "analyst_validation_required"
+              ],
+              "purpose": "evidence_collection",
+              "resource_id": "skill:evidence_collection",
+              "status": "planned",
+              "status_reason": null,
+              "step_id": "evidence"
+            },
+            {
+              "args_template": {},
+              "on_unavailable": null,
+              "policy_checks": [
+                "no_unsupported_claims",
+                "analyst_validation_required"
+              ],
+              "purpose": "context_sufficiency",
+              "resource_id": "skill:context_sufficiency",
+              "status": "planned",
+              "status_reason": null,
+              "step_id": "sufficiency"
+            },
+            {
+              "args_template": {},
+              "on_unavailable": null,
+              "policy_checks": [
+                "answer_guard",
+                "deterministic_fallback_on_failure"
+              ],
+              "purpose": "narration",
+              "resource_id": "llm_role:narration",
+              "status": "planned",
+              "status_reason": null,
+              "step_id": "narration"
+            }
+          ]
+        },
+        "runtime_support_status": null,
+        "spl_allowed": true,
+        "unsupported_claims_avoid": [
+          "confirmed compromise",
+          "confirmed MITRE technique",
+          "P1/P2 severity"
+        ],
+        "use_case_id": null
+      },
+      "final_answer_validation": {
+        "analyst_review_required": false,
+        "blocked_reason": null,
+        "enabled": true,
+        "failed_checks": [],
+        "guard_status": "passed",
+        "passed_checks": [
+          "final.blocked_finding_claimed",
+          "final.mitre_visible_when_suppressed",
+          "final.rag_override_mitre",
+          "final.spl_on_rag_only",
+          "final.candidate_described_as_confirmed",
+          "final.spl_only_missing_action_guidance",
+          "final.unsafe_account_compromise_claim",
+          "final.unsafe_c2_confirmed_claim",
+          "final.unsafe_ransomware_confirmed_claim",
+          "final.unsafe_malware_confirmed_claim",
+          "final.unsafe_execution_claim",
+          "final.evidence_supported_without_status",
+          "final.containment_without_hil"
+        ],
+        "reason": "Final answer is consistent with the AnswerContract and the deciders."
+      },
+      "guided_hunt_grounding": {
+        "advisory_only": true,
+        "grounding": {
+          "ai_threat_signal": false,
+          "asset_registry_hints": [
+            "asset_count=13",
+            "master_station_count=2",
+            "purdue_layers=0,1,2,3,3.5,4",
+            "regions=Corporate,Northern_Grid,Western_Grid"
+          ],
+          "atlas_references": [],
+          "detection_families": [],
+          "enterprise_mitre_refs": [],
+          "environment_kb_slots": [
+            "auth_index=pgcil_soc",
+            "auth_sourcetype=pgcil:auth",
+            "windows_index=pgcil_soc",
+            "windows_security_sourcetype=WinEventLog:Security",
+            "network_index=pgcil_soc",
+            "network_traffic_sourcetype=pgcil:network",
+            "dns_index=pgcil_soc",
+            "dns_sourcetype=pgcil:dns",
+            "endpoint_index=pgcil_soc",
+            "endpoint_process_sourcetype=pgcil:edr",
+            "firewall_index=pgcil_soc",
+            "firewall_sourcetype=pgcil:firewall"
+          ],
+          "limitations": [
+            "LLM-assisted, out-of-catalogue, unverified \u2014 validate against local telemetry and policy."
+          ],
+          "question": "Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+          "skill_refs": [],
+          "soc_kb_refs": [],
+          "technique_details": {}
+        },
+        "prompt_block": "GROUNDING CONTEXT (advisory only \u2014 not authority, not evidence):\n- Environment KB slot: auth_index=pgcil_soc\n- Environment KB slot: auth_sourcetype=pgcil:auth\n- Environment KB slot: windows_index=pgcil_soc\n- Environment KB slot: windows_security_sourcetype=WinEventLog:Security\n- Environment KB slot: network_index=pgcil_soc\n- Environment KB slot: network_traffic_sourcetype=pgcil:network\n- Environment KB slot: dns_index=pgcil_soc\n- Environment KB slot: dns_sourcetype=pgcil:dns\n- Environment KB slot: endpoint_index=pgcil_soc\n- Environment KB slot: endpoint_process_sourcetype=pgcil:edr\n- Environment KB slot: firewall_index=pgcil_soc\n- Environment KB slot: firewall_sourcetype=pgcil:firewall\n- Asset registry hint: asset_count=13\n- Asset registry hint: master_station_count=2\n- Asset registry hint: purdue_layers=0,1,2,3,3.5,4\n- Asset registry hint: regions=Corporate,Northern_Grid,Western_Grid\n- Limitation: LLM-assisted, out-of-catalogue, unverified \u2014 validate against local telemetry and policy.",
+        "unverified_banner": "LLM-assisted, out-of-catalogue, unverified \u2014 validate against local telemetry and policy."
+      },
+      "hybrid_role_graph": {
+        "complexity_tier": "high",
+        "deadline_seconds": 125.0,
+        "roles": [
+          {
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "enabled": true,
+            "prompt_version": "b3abcd191aebd67e",
+            "role_id": "intent_shadow_classifier",
+            "skip_reason": null,
+            "stage": "understand"
+          },
+          {
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "enabled": false,
+            "prompt_version": "6edd5273dbc3e401",
+            "role_id": "missing_evidence_reasoner",
+            "skip_reason": "no_missing_evidence_context",
+            "stage": "specialist"
+          },
+          {
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "enabled": false,
+            "prompt_version": "81b0785cfab60ef2",
+            "role_id": "mitre_reasoner",
+            "skip_reason": "no_mitre_context",
+            "stage": "specialist"
+          },
+          {
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "enabled": false,
+            "prompt_version": "50b62721997693b5",
+            "role_id": "risk_rationale_reasoner",
+            "skip_reason": "no_severity_context",
+            "stage": "specialist"
+          },
+          {
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "enabled": true,
+            "prompt_version": "f5dab447471d0605",
+            "role_id": "route_plan_candidate_generator",
+            "skip_reason": null,
+            "stage": "specialist"
+          },
+          {
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "enabled": true,
+            "prompt_version": null,
+            "role_id": "governed_composer",
+            "skip_reason": null,
+            "stage": "synthesize"
+          },
+          {
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "enabled": true,
+            "prompt_version": null,
+            "role_id": "mcp_tool_plan_shadow",
+            "skip_reason": null,
+            "stage": "critique"
+          }
+        ],
+        "stages": [
+          "understand",
+          "specialist",
+          "synthesize",
+          "critique"
+        ]
+      },
+      "llm_advisory_trace": {
+        "llm_advisory_attempted": true,
+        "llm_advisory_used": true,
+        "llm_called": true,
+        "llm_candidate_present": true,
+        "llm_dropped_reasons": [
+          "no_provider_configured"
+        ],
+        "llm_intent_candidate": "incident_detection",
+        "llm_narration_used": false,
+        "llm_overridden_by_policy": true,
+        "llm_route_candidate": null
+      },
+      "llm_calls": [
+        {
+          "deadline_remaining_seconds": 61.87,
+          "kind": "sidecar",
+          "latency_ms": 63087,
+          "model": null,
+          "outcome": "completed",
+          "provider_label": "local_primary",
+          "reserve_seconds": 120.0,
+          "role": "intent_shadow_classifier"
+        }
+      ],
+      "llm_composer": {
+        "ai_soc_llm_answer_guard_enabled": true,
+        "ai_soc_llm_final_synthesis_enabled": true,
+        "ai_soc_llm_live_synthesis_enabled": true,
+        "ai_soc_llm_mode": "local",
+        "composer_attempted": false,
+        "composer_is_enabled": true,
+        "control_plane_enabled": true,
+        "expected_latency_hint": "On-prem single-slot model: live narration can take ~60s; the wait is expected. Facts stay deterministic and fall back if the model is slow.",
+        "llm_composer_enabled": true,
+        "llm_composer_skipped_reason": "insufficient_deadline_reserve",
+        "llm_composer_used": false,
+        "llm_fallback_used": false,
+        "llm_guard_status": "pending",
+        "provider_configured": true,
+        "provider_model_configured": true,
+        "provider_skip_reason": null,
+        "provider_url_configured": true
+      },
+      "llm_intent_advisory": {
+        "adapter_warnings": [
+          "json_extracted_from_markdown_fence"
+        ],
+        "adjudication_reason": "question_ref_candidate_not_in_deterministic_registry",
+        "adjudication_status": "rejected",
+        "ambiguity_reasons": [],
+        "clarification_draft": null,
+        "confidence_metadata": {
+          "confidence": 0.9
+        },
+        "dropped_reasons": [],
+        "evidence_need_hints": [
+          "Review logs from CI/CD build servers for unauthorized changes or additions.",
+          "Check for unexpected new packages or dependencies in the build process.",
+          "Analyze build scripts and configurations for signs of tampering.",
+          "Inspect source code repositories for any unexplained commits or branches."
+        ],
+        "intent_family_candidate": "incident_detection",
+        "llm_called": true,
+        "paraphrase_detected": false,
+        "path_type_candidate": "out_of_registry",
+        "provider_label": "local_primary",
+        "question_ref_candidate": "supply_chain_compromise",
+        "use_case_id_candidate": "supply_chain_vulnerability_hunt"
+      },
+      "llm_plan_validation": {
+        "advisory_plan": null,
+        "corrected_plan": null,
+        "mcp_execution_allowed": false,
+        "policy_version": "2026-06-control-plane-v1",
+        "reasons": [
+          "no_advisory_plan_payload"
+        ],
+        "status": "skipped",
+        "warnings": []
+      },
+      "llm_turn_budget": {
+        "deadline_seconds": 125.0,
+        "elapsed_seconds": 63.59,
+        "max_narration_calls": 1,
+        "max_sidecar_calls": 2,
+        "narration_calls": 0,
+        "records": [
+          {
+            "deadline_remaining_seconds": 61.87,
+            "kind": "sidecar",
+            "latency_ms": 63087,
+            "model": null,
+            "outcome": "completed",
+            "provider_label": "local_primary",
+            "reserve_seconds": 120.0,
+            "role": "intent_shadow_classifier"
+          }
+        ],
+        "remaining_seconds": 61.41,
+        "sidecar_calls": 1,
+        "time_budget_exhausted": false
+      },
+      "mcp_execution": {
+        "block_reason": null,
+        "execution_intent": "none",
+        "selected_mcp_server": null,
+        "selected_mcp_tool": null,
+        "status": "skipped",
+        "tool_selection_status": "unavailable"
+      },
+      "missing_evidence_reasoning": {
+        "adapter_warnings": [],
+        "bullet_count": 0,
+        "llm_called": false,
+        "provider_label": null,
+        "skipped_reason": "no_missing_evidence_context",
+        "timed_out": false
+      },
+      "mitre_branch_result": {
+        "branch_authority": "planner_mitre_branch",
+        "branch_name": "mitre",
+        "candidate_mitre": [],
+        "evidence_supported_mitre": [],
+        "metadata_only_candidates": [],
+        "mitre_decision": null,
+        "not_claimed_mitre": [],
+        "question_ref": null,
+        "ran": false,
+        "reason": "planner_did_not_select_mitre_branch",
+        "requires_validation_mitre": [],
+        "ruled_out_mitre": [],
+        "status": "not_applicable",
+        "technique_statuses": [],
+        "use_case_id": null
+      },
+      "mitre_decision": {
+        "answer_visible": false,
+        "evidence_status_details": {},
+        "evidence_statuses": {},
+        "mitre_status": "not_applicable",
+        "not_claimed": [],
+        "reason": "Planner did not schedule MITRE branch; analyst-visible evidence-supported mapping is suppressed.",
+        "registry_candidates": [],
+        "registry_metadata": null,
+        "rejected_techniques": [],
+        "requires_alert_context": false,
+        "requires_more_context_for_supported_mapping": false,
+        "techniques": []
+      },
+      "mitre_registry_metadata": null,
+      "mitre_risk_rationale": {
+        "adapter_warnings": [],
+        "fallback_used": true,
+        "guard_status": "skipped",
+        "llm_called": false,
+        "mitre_rationale_present": true,
+        "provider_label": null,
+        "severity_rationale_present": true,
+        "skipped_reason": "no_mitre_context"
+      },
+      "node_trace": [
+        {
+          "decision_reason": "structured_session_pins_only",
+          "guardrail_status": "not_applicable",
+          "human_review_required": false,
+          "input_summary": {
+            "follow_up_kind": null,
+            "session_id": "capture-guided_investigation_supply_chain"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "session_context",
+          "output_summary": {
+            "clarification_required": false,
+            "ignored_fields": [
+              "session_expired_or_missing"
+            ],
+            "staleness": "stale",
+            "used_fields": [],
+            "used_previous_context": false
+          }
+        },
+        {
+          "decision_reason": "control_plane_route_adjudication",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "query_present": true
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "routing_live_skill_selection",
+          "output_summary": {
+            "effective_skill": "guided_investigation",
+            "selected_skill": "guided_investigation",
+            "use_case_id": null
+          }
+        },
+        {
+          "decision_reason": "deterministic_evidence_plan",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "intent_family": "guided_investigation"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "evidence_planning",
+          "output_summary": {
+            "answer_mode": "guided_investigation",
+            "mcp_allowed": false,
+            "spl_allowed": true
+          }
+        },
+        {
+          "decision_reason": "spl_template_status_unknown",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "template_id": null,
+            "use_case_id": null
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "spl_template_status",
+          "output_summary": {
+            "governed_limitation": null,
+            "spl_template_status": null
+          }
+        },
+        {
+          "decision_reason": "validate_spl_mandatory",
+          "guardrail_status": "not_applicable",
+          "human_review_required": false,
+          "input_summary": {
+            "spl_template_status": null
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "spl_validation",
+          "output_summary": {
+            "approved": null,
+            "normalized_spl_available": false,
+            "reject_reasons": []
+          }
+        },
+        {
+          "decision_reason": "spl_not_required_for_skill",
+          "guardrail_status": "review_required",
+          "human_review_required": false,
+          "input_summary": {
+            "mcp_allowed": false,
+            "spl_approved": false
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "execution_hil_decision",
+          "output_summary": {
+            "evidence_source": null,
+            "execution_status": "skipped",
+            "execution_status_label": null,
+            "human_review_required": false,
+            "review_type": "execution_approval"
+          }
+        },
+        {
+          "decision_reason": "mitre_decision_resolver",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "use_case_id": null
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "mitre_evidence_status",
+          "output_summary": {
+            "evidence_statuses": {},
+            "not_claimed": [],
+            "rejected_techniques": []
+          }
+        },
+        {
+          "decision_reason": "deterministic_severity_policy",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "use_case_id": null
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "severity_decision",
+          "output_summary": {
+            "severity_label": "P3 Medium"
+          }
+        },
+        {
+          "decision_reason": "answer_contract_projection",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "answer_mode": "guided_investigation"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "answer_contract",
+          "output_summary": {
+            "candidate_mitre_count": 0,
+            "evidence_supported_mitre_count": 0,
+            "execution_status_label": null,
+            "hil_status": "required",
+            "human_review_required": false,
+            "mitre_answer_visible": false,
+            "spl_status": "not_required"
+          }
+        },
+        {
+          "decision_reason": "No synthesis draft was produced; Answer Guard did not run.",
+          "guardrail_status": "not_applicable",
+          "human_review_required": false,
+          "input_summary": {
+            "enabled": true
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "answer_guard",
+          "output_summary": {
+            "failed_checks": [],
+            "guard_status": "skipped"
+          }
+        },
+        {
+          "decision_reason": "Final answer is consistent with the AnswerContract and the deciders.",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "contract_present": true
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "final_answer_validation",
+          "output_summary": {
+            "failed_checks": [],
+            "guard_status": "passed"
+          }
+        }
+      ],
+      "planning_decision": {
+        "activation_decision": {
+          "activation_lifecycle_stage": "not_cataloged",
+          "catalog_present": false,
+          "crosswalk_lookup_status": "not_found",
+          "enrichment_only": false,
+          "enrichment_present": false,
+          "github_accepted_for_enrichment_only": false,
+          "github_lifecycle_status": null,
+          "governed_enrichment_load_allowed": false,
+          "live_execution_skill": null,
+          "live_execution_skill_allowed": false,
+          "planner_runtime_activation_allowed": false,
+          "proposed_github_use_case": false,
+          "reasons": [
+            "missing_use_case_id"
+          ],
+          "runtime_support_status": null,
+          "spl_template_status": null,
+          "tests_added": false,
+          "trace_metadata_allowed": false,
+          "use_case_id": null,
+          "validation_status": null
+        },
+        "activation_lifecycle_stage": "not_cataloged",
+        "authority_source": "deterministic_planner_path_selection",
+        "blocked_tools": [
+          "spl",
+          "mcp",
+          "candidate_spl_execution",
+          "mcp_execution"
+        ],
+        "branches": [
+          "evidence",
+          "hil"
+        ],
+        "clarification_needed": false,
+        "crosswalk_lookup_status": "not_found",
+        "curated_enrichment_context": null,
+        "execution_enabled": false,
+        "hil_required": true,
+        "live_execution_skill": "guided_investigation",
+        "path_type": "guided_investigation",
+        "planner_path_selection_enabled": true,
+        "planner_runtime_activation_allowed": false,
+        "planning_or_analytic_skill": null,
+        "precedence_applied": [
+          "unsafe_or_blocked_beats_all",
+          "clarification_beats_investigation",
+          "deterministic_registry_over_llm_advisory",
+          "crosswalk_metadata_not_runtime_activation",
+          "planner_schedules_branches_no_execution",
+          "llm_advisory_normalized_non_authoritative",
+          "runtime_activation_disallowed"
+        ],
+        "question_ref": null,
+        "reason": "out_of_registry_guided_investigation",
+        "resource_plan_summary": {
+          "hil": {
+            "reason": "Analyst validates hypotheses and local data scope.",
+            "required": true
+          },
+          "limitations": [
+            "This question is outside the approved 105-question and use-case registries.",
+            "No live query was executed; validate the checklist against local telemetry and playbooks.",
+            "No MITRE technique or incident severity is asserted without evidence.",
+            "No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy."
+          ],
+          "match_path": "out_of_registry",
+          "mcp": {
+            "allowed": false,
+            "needed": false,
+            "planned_discovery": [
+              "splunk_get_indexes",
+              "splunk_get_metadata",
+              "splunk_get_knowledge_objects"
+            ],
+            "planned_discovery_calls": [
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_indexes"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_metadata"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_knowledge_objects"
+              }
+            ],
+            "skip_reason": "Execution gates closed; checklist runnable manually by analyst."
+          },
+          "mitre": {
+            "allowed": false,
+            "skip_reason": "No evidence-supported technique claim is available."
+          },
+          "rag": {
+            "match_status": "no_match",
+            "needed": true,
+            "no_match_behavior": "general_guidance_allowed",
+            "source": "soc_kb_rag"
+          },
+          "severity": {
+            "allowed": false,
+            "skip_reason": "No grounded incident severity is available."
+          },
+          "spl": {
+            "needed": false,
+            "review_only": true,
+            "skip_reason": "No existing deterministic draft family matched this out-of-registry hunt.",
+            "status": "skipped_no_deterministic_family_match"
+          }
+        },
+        "runtime_support_status": null,
+        "selected_tools": [
+          "prepare_guided_investigation",
+          "require_analyst_validation"
+        ],
+        "use_case_id": null
+      },
+      "precondition_evaluation": {
+        "blocking_findings": [],
+        "dependency_readiness": "unknown",
+        "evaluation_skipped": true,
+        "observation_only": true,
+        "preconditions_checked": [],
+        "preconditions_failed": [],
+        "preconditions_passed": [],
+        "route_status": null,
+        "skip_reason": "insufficient_shadow_route_plan"
+      },
+      "query_to_intent": {
+        "candidate_mappings": {
+          "legacy_skill_hint": "guided_investigation",
+          "match_path": "out_of_registry",
+          "question_ref": null,
+          "use_case_ids": []
+        },
+        "intent_classification": {
+          "action_mode": "recommend_only",
+          "answer_goal": [
+            "procedural_steps",
+            "analyst_action_guidance"
+          ],
+          "confidence": 0.52,
+          "confidence_band": "low",
+          "intent_family": "guided_investigation",
+          "primary_intent": "investigation_guidance",
+          "query_type": "investigation_with_guidance",
+          "reason": "Investigation-guidance request receives governed, review-only hunt guidance instead of catalog SPL.",
+          "requested_output_type": "INVESTIGATION",
+          "requires_clarification": false,
+          "requires_hil": true,
+          "secondary_intents": []
+        },
+        "intent_conflicts": [],
+        "llm_intent_advisory": {
+          "adapter_warnings": [
+            "json_extracted_from_markdown_fence"
+          ],
+          "adjudication_reason": "question_ref_candidate_not_in_deterministic_registry",
+          "adjudication_status": "rejected",
+          "ambiguity_reasons": [],
+          "clarification_draft": null,
+          "confidence_metadata": {
+            "confidence": 0.9
+          },
+          "dropped_reasons": [],
+          "evidence_need_hints": [
+            "Review logs from CI/CD build servers for unauthorized changes or additions.",
+            "Check for unexpected new packages or dependencies in the build process.",
+            "Analyze build scripts and configurations for signs of tampering.",
+            "Inspect source code repositories for any unexplained commits or branches."
+          ],
+          "intent_family_candidate": "incident_detection",
+          "llm_called": true,
+          "paraphrase_detected": false,
+          "path_type_candidate": "out_of_registry",
+          "provider_label": "local_primary",
+          "question_ref_candidate": "supply_chain_compromise",
+          "use_case_id_candidate": "supply_chain_vulnerability_hunt"
+        },
+        "llm_intent_assist_status": "rejected",
+        "query_signals": {
+          "action_or_containment_shaped": false,
+          "alert_context_present": false,
+          "alert_summary_shaped": false,
+          "analyst_action": false,
+          "analytics_aggregation": false,
+          "attachment_hash_verdict": false,
+          "block_or_contain": false,
+          "byte_pattern": false,
+          "conceptual_mitre_judgment": false,
+          "containment_decision_support": false,
+          "dga": false,
+          "dns_beaconing": false,
+          "download_cradle": false,
+          "email_auth_failure": false,
+          "encoded_command": false,
+          "encryption_behavior": false,
+          "endpoint_network_connection": false,
+          "escalation_without_policy_word": false,
+          "exact_105_analytics": false,
+          "exact_105_hunt_spl": false,
+          "exclude_service_accounts": false,
+          "explicit_log_search": false,
+          "explicit_mitre_context": false,
+          "explicit_run_spl": false,
+          "explicit_search_intent": false,
+          "extension_pattern": false,
+          "failed_login": false,
+          "file_rename_volume": false,
+          "has_specific_scope": false,
+          "host_association": false,
+          "host_spread": false,
+          "hybrid_alert_review": false,
+          "impacted_paths": false,
+          "investigation_hypothesis_guidance": false,
+          "investigation_triage_guidance": false,
+          "jitter_profile": false,
+          "knowledge_definition": false,
+          "live_investigation_verbs": false,
+          "mail_gateway_verdict": false,
+          "malicious_url_or_domain": false,
+          "mitre_evidence_threshold": false,
+          "mitre_explain": false,
+          "mitre_map": false,
+          "mitre_requires_alert_context": false,
+          "negative_cred_dumping": false,
+          "negative_endpoint_telemetry": false,
+          "negative_successful_login": false,
+          "non_soc_or_out_of_scope": false,
+          "normalized_query": "hunt for signs of a software supply-chain compromise across our ci/cd build servers",
+          "periodicity": false,
+          "playbook_procedure": false,
+          "policy_terms": false,
+          "positive_successful_login": false,
+          "powershell_command_evidence": false,
+          "powershell_context": false,
+          "procedural_investigation": false,
+          "process_evidence": false,
+          "projected_action_mode": null,
+          "projected_needs_mcp": false,
+          "projected_needs_rag": false,
+          "projected_needs_spl": false,
+          "rare_domain": false,
+          "regulatory_reporting": false,
+          "repeated_destination": false,
+          "requires_hil": false,
+          "review_only_spl": false,
+          "run_execution": false,
+          "security_log_investigation": false,
+          "sender_return_path_mismatch": false,
+          "service_stop": false,
+          "severity_request": false,
+          "shadow_copy_deletion": false,
+          "soc_actionable_hunt": true,
+          "soc_detection_intent": false,
+          "soc_investigation_shaped": true,
+          "sop_or_playbook_shaped": false,
+          "sop_show_request": false,
+          "source_ip_novelty": false,
+          "spl_authoring_shaped": false,
+          "spl_generation": false,
+          "spl_suppressed": false,
+          "spray_breadth": false,
+          "success_after_failure": false,
+          "suspicious_parent_process": false,
+          "time_window_24h": false,
+          "top_n": null,
+          "use_case_review_guidance": false,
+          "valid_account_abuse": false
+        }
+      },
+      "rag_trace": {
+        "collection_ids": null,
+        "evidence_refs": null,
+        "match_status": null,
+        "missing_sources": null,
+        "retrieval_backend": null
+      },
+      "resource_plan_shadow": {
+        "llm_called": false,
+        "skipped_reason": "insufficient_deadline_reserve"
+      },
+      "resource_planner": {
+        "resource_decisions": {
+          "hil": {
+            "reason": "Analyst validates hypotheses and local data scope.",
+            "required": true
+          },
+          "limitations": [
+            "This question is outside the approved 105-question and use-case registries.",
+            "No live query was executed; validate the checklist against local telemetry and playbooks.",
+            "No MITRE technique or incident severity is asserted without evidence.",
+            "No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy."
+          ],
+          "match_path": "out_of_registry",
+          "mcp": {
+            "allowed": false,
+            "needed": false,
+            "planned_discovery": [
+              "splunk_get_indexes",
+              "splunk_get_metadata",
+              "splunk_get_knowledge_objects"
+            ],
+            "planned_discovery_calls": [
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_indexes"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_metadata"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_knowledge_objects"
+              }
+            ],
+            "skip_reason": "Execution gates closed; checklist runnable manually by analyst."
+          },
+          "mitre": {
+            "allowed": false,
+            "skip_reason": "No evidence-supported technique claim is available."
+          },
+          "rag": {
+            "match_status": "no_match",
+            "needed": true,
+            "no_match_behavior": "general_guidance_allowed",
+            "source": "soc_kb_rag"
+          },
+          "severity": {
+            "allowed": false,
+            "skip_reason": "No grounded incident severity is available."
+          },
+          "spl": {
+            "needed": false,
+            "review_only": true,
+            "skip_reason": "No existing deterministic draft family matched this out-of-registry hunt.",
+            "status": "skipped_no_deterministic_family_match"
+          }
+        },
+        "source": "evidence_plan.resource_plan.provenance.resource_decisions"
+      },
+      "route_adjudication": {
+        "authority_source": "guided_investigation_rescue",
+        "deterministic_route": "guided_investigation",
+        "final_route": "guided_investigation",
+        "final_use_case_id": null,
+        "llm_suggested_route": null,
+        "reason": "Out-of-registry SOC investigation shape preserves the governed guided route.",
+        "shadow_plan_status": "live_llm_routing_disabled"
+      },
+      "routing_provenance": {
+        "ambiguity_flags": [],
+        "authority_source": "guided_investigation_rescue",
+        "clarification_needed": false,
+        "clarification_question": null,
+        "confidence": 0.42,
+        "confidence_qu": 0.2,
+        "coverage_id": null,
+        "degraded": false,
+        "deterministic_match_path": "out_of_registry",
+        "entities": {
+          "alert_id": [],
+          "asset": [],
+          "cve_ids": [],
+          "destination_ip": [],
+          "event_type": [],
+          "host": [],
+          "index": [],
+          "mitre_techniques": [],
+          "observation_window": null,
+          "port_numbers": [],
+          "purdue_layers": [],
+          "source_ip": [],
+          "sourcetype": [],
+          "time_window": null,
+          "user": [],
+          "zone_labels": []
+        },
+        "intent_candidate": "guided_investigation",
+        "keyword_router_would_have_selected": {
+          "confidence": 0.2,
+          "reasons": [
+            "insufficient evidence to select a specialized skill"
+          ],
+          "skill": "knowledge_recall",
+          "tool_plan": [
+            "needs_clarification"
+          ]
+        },
+        "llm_advisory_recommended": true,
+        "mapped_coverage_id": null,
+        "mapped_operation_type": null,
+        "mapped_pattern_type": null,
+        "mapped_primary_skill": null,
+        "mapped_question_number": null,
+        "mapped_question_ref": null,
+        "mapped_use_case_ids": [],
+        "near_match_score": null,
+        "normalized_query": "hunt for signs of a software supply-chain compromise across our ci/cd build servers",
+        "operation_type": null,
+        "output_template": "clarification_response",
+        "pattern_type": null,
+        "primary_intent": "unknown",
+        "provisional_route": false,
+        "qu_failed": false,
+        "question_registry_match_score": null,
+        "question_registry_match_source": null,
+        "question_registry_observation_only": true,
+        "raw_query": "Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+        "registry_consistency": "not_evaluated",
+        "registry_warnings": [],
+        "requested_output_type": "clarification",
+        "rescue_mode": true,
+        "route_skill_candidate": "guided_investigation",
+        "secondary_intents": [],
+        "selected_by": "out_of_registry_investigation_rescue",
+        "skill": "guided_investigation",
+        "soc_investigation_shaped": true,
+        "tool_plan": [
+          "prepare_guided_investigation",
+          "require_analyst_validation"
+        ],
+        "triage_signals": {
+          "block_or_contain": false,
+          "explicit_run_spl": false,
+          "soc_investigation_shaped": true
+        },
+        "use_case_catalog_size": 58,
+        "use_case_id": null,
+        "use_case_match_source": null,
+        "why_not_knowledge_recall": "Query requests investigation guidance, not a bounded catalog SPL artifact."
+      },
+      "source_evidence_refs": [
+        "ev_af1a6c794b6f60e3",
+        "ev_16923668cec205ff"
+      ],
+      "spl_slot_binding": null,
+      "sufficiency": {
+        "human_review": null,
+        "missing_evidence": [
+          "approved_sop_guidance",
+          "collected_source_evidence",
+          "rag:sop"
+        ],
+        "reasons": [
+          "evidence_origin:none",
+          "no_collected_evidence"
+        ],
+        "status": "insufficient_evidence",
+        "synthesis_allowed": false,
+        "synthesis_readiness": false
+      },
+      "synthesis_mode": {
+        "mode": "synthesis_blocked"
+      },
+      "tool_plan": {
+        "execution_enabled": false,
+        "missing_sources": [
+          "rag:sop"
+        ],
+        "required_sources": [
+          "rag:sop"
+        ],
+        "skill": "guided_investigation",
+        "tool_plan": [
+          "retrieve_approved_knowledge",
+          "optional_review_only_spl",
+          "no_mcp"
+        ]
+      }
+    },
+    "coverage_id": null,
+    "demo_badge": null,
+    "demo_mode": false,
+    "disagreement": false,
+    "disagreement_reason": null,
+    "ec_answer_source": null,
+    "ec_provenance": null,
+    "ec_stage_latencies": null,
+    "environment_hygiene": null,
+    "environment_mode": null,
+    "evidence_origin": "none",
+    "evidence_plan": {
+      "action_mode": "recommend_only",
+      "answer_mode": "guided_investigation",
+      "answer_rules": [],
+      "checklist": [
+        "Confirm the asset owner, criticality, and expected communications.",
+        "Review firewall, DNS, proxy, and endpoint telemetry for the destination.",
+        "Compare first-seen time, periodicity, bytes, ports, and peer hosts against baseline.",
+        "Validate vendor, maintenance, and approved remote-access activity.",
+        "Document findings and escalate only after evidence is corroborated."
+      ],
+      "correlation": null,
+      "enrichment_driven": false,
+      "evidence_legs": [],
+      "evidence_plan_reason": "out_of_registry_guided_investigation",
+      "investigation_workflow": [
+        "Scope the affected OT and IT assets and the observation window.",
+        "Collect network and endpoint evidence without executing candidate SPL.",
+        "Test benign, misconfiguration, compromise, and vendor-access hypotheses.",
+        "Have an analyst validate conclusions and next actions."
+      ],
+      "limitations": [
+        "This question is outside the approved 105-question and use-case registries.",
+        "No live query was executed; validate the checklist against local telemetry and playbooks.",
+        "No MITRE technique or incident severity is asserted without evidence."
+      ],
+      "mcp_allowed": false,
+      "missing_required_evidence": [],
+      "mitre_candidates_metadata_only": [],
+      "needs_clarification": false,
+      "needs_hil": true,
+      "needs_mcp": false,
+      "needs_mitre": false,
+      "needs_rag": true,
+      "needs_spl": false,
+      "optional_evidence_keys": [],
+      "optional_sources": [
+        "asset_inventory",
+        "change_records",
+        "vendor_access_records"
+      ],
+      "policy_context_recommended": true,
+      "policy_context_required": false,
+      "present_evidence_keys": [],
+      "rag_no_match_behavior": "general_guidance_allowed",
+      "rag_phase": "rag_only",
+      "reasons": [
+        "out_of_registry_guided_investigation"
+      ],
+      "recommended_pivots": [],
+      "required_evidence_keys": [],
+      "required_sources": [
+        "firewall",
+        "dns",
+        "proxy",
+        "endpoint"
+      ],
+      "requires_hil": true,
+      "resource_plan": {
+        "plan_source": "deterministic",
+        "provenance": {
+          "composer": "deterministic_v1",
+          "intent_family": "guided_investigation",
+          "llm_bridge": "deferred_not_inline",
+          "match_path": "out_of_registry",
+          "resource_decisions": {
+            "hil": {
+              "reason": "Analyst validates hypotheses and local data scope.",
+              "required": true
+            },
+            "limitations": [
+              "This question is outside the approved 105-question and use-case registries.",
+              "No live query was executed; validate the checklist against local telemetry and playbooks.",
+              "No MITRE technique or incident severity is asserted without evidence.",
+              "No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy."
+            ],
+            "match_path": "out_of_registry",
+            "mcp": {
+              "allowed": false,
+              "needed": false,
+              "planned_discovery": [
+                "splunk_get_indexes",
+                "splunk_get_metadata",
+                "splunk_get_knowledge_objects"
+              ],
+              "planned_discovery_calls": [
+                {
+                  "arguments": {},
+                  "block_reason": "mcp_global_execution_disabled",
+                  "failure_mode": "execution_disabled",
+                  "kind": "planned_tool_call",
+                  "policy_checks": [
+                    "read_only_discovery",
+                    "mcp_execution_gate"
+                  ],
+                  "server": "splunk",
+                  "tool_name": "splunk_get_indexes"
+                },
+                {
+                  "arguments": {},
+                  "block_reason": "mcp_global_execution_disabled",
+                  "failure_mode": "execution_disabled",
+                  "kind": "planned_tool_call",
+                  "policy_checks": [
+                    "read_only_discovery",
+                    "mcp_execution_gate"
+                  ],
+                  "server": "splunk",
+                  "tool_name": "splunk_get_metadata"
+                },
+                {
+                  "arguments": {},
+                  "block_reason": "mcp_global_execution_disabled",
+                  "failure_mode": "execution_disabled",
+                  "kind": "planned_tool_call",
+                  "policy_checks": [
+                    "read_only_discovery",
+                    "mcp_execution_gate"
+                  ],
+                  "server": "splunk",
+                  "tool_name": "splunk_get_knowledge_objects"
+                }
+              ],
+              "skip_reason": "Execution gates closed; checklist runnable manually by analyst."
+            },
+            "mitre": {
+              "allowed": false,
+              "skip_reason": "No evidence-supported technique claim is available."
+            },
+            "rag": {
+              "match_status": "no_match",
+              "needed": true,
+              "no_match_behavior": "general_guidance_allowed",
+              "source": "soc_kb_rag"
+            },
+            "severity": {
+              "allowed": false,
+              "skip_reason": "No grounded incident severity is available."
+            },
+            "spl": {
+              "needed": false,
+              "review_only": true,
+              "skip_reason": "No existing deterministic draft family matched this out-of-registry hunt.",
+              "status": "skipped_no_deterministic_family_match"
+            }
+          },
+          "skill_id": "guided_investigation",
+          "skill_workflow": [
+            "evidence_collection",
+            "context_sufficiency",
+            "synthesis",
+            "answer_guard"
+          ],
+          "use_case_id": null
+        },
+        "steps": [
+          {
+            "args_template": {},
+            "on_unavailable": null,
+            "policy_checks": [
+              "governed_rag_only"
+            ],
+            "purpose": "knowledge_retrieval",
+            "resource_id": "rag_corpus:soc_kb",
+            "status": "skipped_unavailable",
+            "status_reason": "retrieval_status=no_match",
+            "step_id": "rag"
+          },
+          {
+            "args_template": {},
+            "on_unavailable": null,
+            "policy_checks": [
+              "metadata_only",
+              "analyst_validation_required"
+            ],
+            "purpose": "evidence_collection",
+            "resource_id": "skill:evidence_collection",
+            "status": "planned",
+            "status_reason": null,
+            "step_id": "evidence"
+          },
+          {
+            "args_template": {},
+            "on_unavailable": null,
+            "policy_checks": [
+              "no_unsupported_claims",
+              "analyst_validation_required"
+            ],
+            "purpose": "context_sufficiency",
+            "resource_id": "skill:context_sufficiency",
+            "status": "planned",
+            "status_reason": null,
+            "step_id": "sufficiency"
+          },
+          {
+            "args_template": {},
+            "on_unavailable": null,
+            "policy_checks": [
+              "answer_guard",
+              "deterministic_fallback_on_failure"
+            ],
+            "purpose": "narration",
+            "resource_id": "llm_role:narration",
+            "status": "planned",
+            "status_reason": null,
+            "step_id": "narration"
+          }
+        ]
+      },
+      "runtime_support_status": null,
+      "spl_allowed": true,
+      "unsupported_claims_avoid": [
+        "confirmed compromise",
+        "confirmed MITRE technique",
+        "P1/P2 severity"
+      ],
+      "use_case_id": null
+    },
+    "execution": {
+      "block_reason": null,
+      "duration_ms": 0,
+      "evidence_source": null,
+      "executed_spl": null,
+      "execution_intent": "none",
+      "execution_status_label": null,
+      "precondition_evaluation": null,
+      "result_count": 0,
+      "results_preview": [],
+      "selected_mcp_server": null,
+      "selected_mcp_tool": null,
+      "status": "skipped",
+      "tool_selection_reason": "spl_not_required_for_skill",
+      "tool_selection_status": "unavailable"
+    },
+    "experience_center_governance": null,
+    "fallback_active": null,
+    "final_answer_safety_status": "passed",
+    "final_answer_validation": {
+      "analyst_review_required": false,
+      "blocked_reason": null,
+      "enabled": true,
+      "failed_checks": [],
+      "guard_status": "passed",
+      "passed_checks": [
+        "final.blocked_finding_claimed",
+        "final.mitre_visible_when_suppressed",
+        "final.rag_override_mitre",
+        "final.spl_on_rag_only",
+        "final.candidate_described_as_confirmed",
+        "final.spl_only_missing_action_guidance",
+        "final.unsafe_account_compromise_claim",
+        "final.unsafe_c2_confirmed_claim",
+        "final.unsafe_ransomware_confirmed_claim",
+        "final.unsafe_malware_confirmed_claim",
+        "final.unsafe_execution_claim",
+        "final.evidence_supported_without_status",
+        "final.containment_without_hil"
+      ],
+      "reason": "Final answer is consistent with the AnswerContract and the deciders."
+    },
+    "foundation_sec_governance": null,
+    "governance_trace": {
+      "answer_contract_panel": null,
+      "answer_scorecard_panel": null,
+      "completion_status": {
+        "completed": [
+          "legacy intent routing",
+          "runtime operation contracts",
+          "intent-to-operation bridge",
+          "SPL validation metadata",
+          "MCP execution gate",
+          "evidence packaging",
+          "MITRE mapping",
+          "severity decision",
+          "context sufficiency",
+          "action capability policy"
+        ],
+        "gated_wip": [
+          "live MCP/Splunk execution",
+          "first real MCP schema confirmation",
+          "final LLM synthesis",
+          "Answer Guard execution",
+          "renderer consumption of output artifacts",
+          "pattern #2 authority expansion",
+          "full production readiness for all 105 questions"
+        ]
+      },
+      "llm_sidecar_panel": null,
+      "mcp_envelope": null,
+      "mcp_fixture_result": null,
+      "mcp_tool_selection": null,
+      "mitre_panel": null,
+      "model_signal_panel": null,
+      "narration_visibility_panel": null,
+      "progress_labels": [],
+      "resource_planner": null,
+      "severity": {
+        "priority_note": null,
+        "severity_label": "P3 Medium",
+        "why_not_higher": [
+          "No use-case-specific severity policy is active yet."
+        ],
+        "why_not_higher_title": "Why not P1/P0?",
+        "why_severity": [
+          "default_no_policy"
+        ],
+        "why_severity_title": "Why P3 Medium?"
+      },
+      "skills_operations": {
+        "intent_skill": "guided_investigation",
+        "legacy_router_skill": "guided_investigation",
+        "pipeline_stages": [
+          {
+            "label": "Query understanding",
+            "stage_id": "query_understanding",
+            "status": "complete"
+          },
+          {
+            "label": "Workflow planning",
+            "stage_id": "workflow_planning",
+            "status": "complete"
+          },
+          {
+            "label": "SPL template",
+            "stage_id": "spl_template",
+            "status": "skipped"
+          },
+          {
+            "label": "SPL validation",
+            "stage_id": "spl_validation",
+            "status": "skipped"
+          },
+          {
+            "label": "MCP execution gate",
+            "stage_id": "mcp_execution_gate",
+            "status": "skipped"
+          },
+          {
+            "label": "Source evidence",
+            "stage_id": "source_evidence",
+            "status": "complete"
+          },
+          {
+            "label": "MITRE mapping",
+            "stage_id": "mitre_mapping",
+            "status": "skipped"
+          },
+          {
+            "label": "Severity decision",
+            "stage_id": "severity_decision",
+            "status": "complete"
+          },
+          {
+            "label": "Context sufficiency",
+            "stage_id": "context_sufficiency",
+            "status": "complete"
+          },
+          {
+            "label": "Action capability",
+            "stage_id": "action_capability",
+            "status": "complete"
+          },
+          {
+            "label": "LLM narration: not live; captured advisory model signal only; deterministic governed answer used",
+            "stage_id": "llm_narration_visibility",
+            "status": "blocked"
+          },
+          {
+            "label": "Answer governance",
+            "stage_id": "answer_governance",
+            "status": "skipped"
+          }
+        ],
+        "runtime_operation": null,
+        "runtime_operation_note": "not evaluated"
+      },
+      "soc_kb_panel": null,
+      "source_evidence_panel": null,
+      "spl_validation_panel": null
+    },
+    "human_review": {
+      "allowed_actions": [],
+      "proposed_normalized_spl": null,
+      "reason": "policy_checks_passed",
+      "required": false,
+      "review_type": "execution_approval",
+      "reviewer_role": "analyst",
+      "safe_message_for_user": "Execution policy checks passed for mock/local mode.",
+      "selected_mcp_server": null,
+      "selected_mcp_tool": null,
+      "sop_action_hint": null,
+      "sop_excerpt": null,
+      "sop_reference": null
+    },
+    "investigation_lineage": {
+      "lineage_id": "lineage:0300ddea-8cb7-437d-a49a-db9551457003",
+      "stages": [
+        {
+          "current_mode_source": "live",
+          "explanation": "Mapped query to no specific use case.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production query parser",
+          "stage_id": "query_understanding",
+          "status": "complete",
+          "technical_output": {
+            "mapped_use_case_ids": []
+          },
+          "visible_label": "Query understanding"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Selected guided_investigation.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production skill registry",
+          "stage_id": "skill_chain",
+          "status": "complete",
+          "technical_output": {
+            "alternatives": [],
+            "chain_id": "chain:guided_investigation",
+            "pipeline_stages": [
+              "query_understanding",
+              "evidence_collection",
+              "context_sufficiency",
+              "synthesis",
+              "answer_guard"
+            ],
+            "routable_skill": "guided_investigation",
+            "selected_skill": "guided_investigation",
+            "selection_reason": "router_selected_without_use_case_match",
+            "stages": [
+              "query_understanding",
+              "evidence_collection",
+              "context_sufficiency",
+              "synthesis",
+              "answer_guard"
+            ]
+          },
+          "visible_label": "Skill chain"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Workflow plan created. No SPL/MCP/RAG execution has started.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production workflow planner",
+          "stage_id": "workflow",
+          "status": "complete",
+          "technical_output": {
+            "execution_enabled": false,
+            "status": "not_started"
+          },
+          "visible_label": "Workflow planning"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Dormant route-plan preflight and validation metadata only; execution remains unauthorized.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3K-R2 dormant route-plan validator",
+          "stage_id": "route_plan_shadow",
+          "status": "passed",
+          "technical_output": {
+            "analyst_summary_dropped_reasons": [
+              "no_provider_configured"
+            ],
+            "analyst_summary_narration_llm_called": false,
+            "analyst_summary_shadow_available": true,
+            "analyst_summary_shadow_source": "deterministic_skeleton",
+            "analyst_summary_shadow_text": "Shadow route-plan observation only: preflight passed, deterministic skill not_selected, route status not_evaluated. Execution remains unauthorized; this path records metadata only.",
+            "analyst_summary_trace_bullets": [
+              "Preflight: passed; missing slots: none.",
+              "Route-plan shadow: not_evaluated; candidate reason: live_llm_routing_disabled.",
+              "Template shadow: not_attempted; rendered SPL available: False (hash only, not shown)."
+            ],
+            "blocking_findings": [],
+            "candidate_available": false,
+            "candidate_reason": "live_llm_routing_disabled",
+            "candidate_template_ids": [],
+            "captured_live_run": false,
+            "coe_synthetic_fixture": true,
+            "deterministic_route_plan_wins": true,
+            "disagreements": [],
+            "enabled": true,
+            "evidence_output_contract": null,
+            "execution_authorized": false,
+            "intent_operation_bridge": {
+              "allowed_primary_skills": [],
+              "bridge_status": "not_evaluated",
+              "compatible": true,
+              "disagreements": [],
+              "intent_modifier": null,
+              "legacy_intent": "guided_investigation",
+              "output_artifact_hint": null,
+              "output_artifacts_deferred_to_s2b": false,
+              "primary_skill_observed": null,
+              "rejection_reason": null,
+              "spl_generation_modifier_detected": false,
+              "underlying_operation": null
+            },
+            "llm_called": false,
+            "llm_candidate_dropped_reasons": [
+              "no_provider_configured"
+            ],
+            "llm_candidate_route_plan_available": false,
+            "llm_model_family": "instruct",
+            "llm_plan_validation": {
+              "advisory_plan": null,
+              "corrected_plan": null,
+              "mcp_execution_allowed": false,
+              "policy_version": "2026-06-control-plane-v1",
+              "reasons": [
+                "no_advisory_plan_payload"
+              ],
+              "status": "skipped",
+              "warnings": []
+            },
+            "llm_resolved_model": "Foundation-sec-8B-Instruct",
+            "llm_resolved_provider": "foundation_sec_instruct",
+            "llm_role": "route_plan_candidate_generator",
+            "llm_skipped_reason": "no_provider_configured",
+            "matched_template_id": null,
+            "mcp_called": false,
+            "missing_slots": [],
+            "mode": "dormant_shadow",
+            "model_role": "instruct_candidate_only",
+            "normalized_plan_available": false,
+            "ood_llm_route_plan_lab": {
+              "enabled": false,
+              "reason": "lab_primary_mode_disabled"
+            },
+            "operation_audit": null,
+            "output_artifacts": {
+              "bridge_hint_applied": false,
+              "legacy_intent": "guided_investigation",
+              "renderer_applied": false,
+              "resolution_source": "s2b_registry",
+              "resolved_artifacts": [],
+              "unknown_legacy_intent": false
+            },
+            "pattern_id": null,
+            "precondition_evaluation": {
+              "blocking_findings": [],
+              "dependency_readiness": "unknown",
+              "evaluation_skipped": true,
+              "observation_only": true,
+              "preconditions_checked": [],
+              "preconditions_failed": [],
+              "preconditions_passed": [],
+              "route_status": null,
+              "skip_reason": "insufficient_shadow_route_plan"
+            },
+            "preflight_status": "passed",
+            "primary_skill": null,
+            "production_execution": false,
+            "question_runtime_map": null,
+            "reasoning_model_used": false,
+            "rendered_spl_available": false,
+            "rendered_spl_execution_eligible": false,
+            "rendered_spl_sha256": null,
+            "rendered_spl_validator_approved": false,
+            "route_authority_compare": {
+              "authority_applied": false,
+              "authority_decision": "fallback",
+              "authority_eligible": false,
+              "authority_fallback_reason": "coverage_id_not_allowlisted",
+              "authority_holder": "legacy_selected_skill",
+              "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+              "candidate_primary_skill": null,
+              "compare_enabled": true,
+              "coverage_id_allowlisted": false,
+              "coverage_id_resolved": null,
+              "dual_run_active": true,
+              "global_enabled": true,
+              "intent_bridge_compatible": true,
+              "intent_bridge_disagreements": [],
+              "intent_operation_bridge_status": "not_evaluated",
+              "legacy_intent_authority": true,
+              "legacy_selected_skill_preserved": "guided_investigation",
+              "legacy_skill_router_match": true,
+              "legacy_skill_router_skill_match": true,
+              "legacy_skill_router_tool_plan_match": true,
+              "migration_phase": "S3_step_3_cov_q046_pilot",
+              "operation_authoritative_applied": false,
+              "operation_authoritative_enabled": true,
+              "planning_primary_skill": null,
+              "route_plan_primary_skill_observed": null,
+              "route_plan_shadow_disagreements": [],
+              "selected_skill": "guided_investigation",
+              "selected_skill_before": "guided_investigation",
+              "selected_skill_mirror_only": false,
+              "validator_status": "no_candidate"
+            },
+            "route_status": null,
+            "routing_skill_resolution": {
+              "effective_skill": "guided_investigation",
+              "legacy_intent_authority": true,
+              "planning_primary_operation": null,
+              "skill_resolution": "legacy_selected_skill"
+            },
+            "spl_executed": false,
+            "spl_generated": false,
+            "supporter_trace": {
+              "authority": "advisory_read_only",
+              "enabled": true,
+              "execution_authorized": false,
+              "mcp_called": false,
+              "runtime_invoked": false,
+              "spl_generated": false,
+              "supporters": [
+                {
+                  "side_effects": false,
+                  "status": "already_applied",
+                  "supporter_id": "route_plan_preflight"
+                },
+                {
+                  "lookup_required": false,
+                  "side_effects": false,
+                  "status": "not_required",
+                  "supporter_id": "ioc_registry_staleness_check"
+                },
+                {
+                  "detection_ref_present": false,
+                  "side_effects": false,
+                  "status": "not_required",
+                  "supporter_id": "detection_registry_ref_check"
+                },
+                {
+                  "side_effects": false,
+                  "status": "shadow_context_missing",
+                  "supporter_id": "precondition_shadow_evaluation"
+                }
+              ],
+              "warnings": []
+            },
+            "template_match_attempted": false,
+            "template_match_reasons": [],
+            "template_match_score": null,
+            "template_match_shadow_status": null,
+            "template_match_skip_reason": "no_validated_route_plan",
+            "template_mismatch_reasons": [],
+            "template_production_executable": false,
+            "template_sample_only": false,
+            "template_validator_profile": null,
+            "use_case_registry_bridge": {
+              "authority": "advisory_only",
+              "catalog_size": 58,
+              "enabled": true,
+              "matched_use_cases": [],
+              "merge_status": "catalog_rows_advisory_until_ec_rebase",
+              "top_operation_hint": null,
+              "top_use_case_id": null
+            },
+            "validation_findings": [],
+            "validation_result": null,
+            "warnings": []
+          },
+          "visible_label": "Route-plan shadow"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Dormant shadow narration for lineage reveal only; not used as the analyst-facing answer.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3K-Q1G Instruct shadow narration",
+          "stage_id": "analyst_summary_shadow",
+          "status": "dropped",
+          "technical_output": {
+            "analyst_summary_dropped_reasons": [
+              "no_provider_configured"
+            ],
+            "analyst_summary_narration_llm_called": false,
+            "analyst_summary_shadow_source": "deterministic_skeleton",
+            "analyst_summary_shadow_text": "Shadow route-plan observation only: preflight passed, deterministic skill not_selected, route status not_evaluated. Execution remains unauthorized; this path records metadata only.",
+            "analyst_summary_trace_bullets": [
+              "Preflight: passed; missing slots: none.",
+              "Route-plan shadow: not_evaluated; candidate reason: live_llm_routing_disabled.",
+              "Template shadow: not_attempted; rendered SPL available: False (hash only, not shown)."
+            ],
+            "captured_live_run": false,
+            "coe_synthetic_fixture": true,
+            "production_execution": false
+          },
+          "visible_label": "Analyst summary (shadow narration)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Legacy SKILL_ENUM intent compared to route_plan.primary_skill for lineage only; selected_skill unchanged.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S2A-FOLLOWUP intent-to-operation bridge",
+          "stage_id": "intent_operation_bridge",
+          "status": "not_evaluated",
+          "technical_output": {
+            "allowed_primary_skills": [],
+            "bridge_status": "not_evaluated",
+            "compatible": true,
+            "disagreements": [],
+            "intent_modifier": null,
+            "legacy_intent": "guided_investigation",
+            "output_artifact_hint": null,
+            "output_artifacts_deferred_to_s2b": false,
+            "primary_skill_observed": null,
+            "rejection_reason": null,
+            "spl_generation_modifier_detected": false,
+            "underlying_operation": null
+          },
+          "visible_label": "Intent \u2194 operation bridge (shadow)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Resolved output-shape artifact IDs for lineage only; renderer and analyst card unchanged.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S2B output artifacts registry",
+          "stage_id": "output_artifacts",
+          "status": "skipped",
+          "technical_output": {
+            "bridge_hint_applied": false,
+            "legacy_intent": "guided_investigation",
+            "renderer_applied": false,
+            "resolution_source": "s2b_registry",
+            "resolved_artifacts": [],
+            "unknown_legacy_intent": false
+          },
+          "visible_label": "Output artifacts (shadow)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Dual-run compare of legacy selected_skill vs route_plan primary_skill; no authority migration.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S3 Steps 1\u20132 route authority compare",
+          "stage_id": "route_authority_compare",
+          "status": "not_evaluated",
+          "technical_output": {
+            "authority_applied": false,
+            "authority_decision": "fallback",
+            "authority_eligible": false,
+            "authority_fallback_reason": "coverage_id_not_allowlisted",
+            "authority_holder": "legacy_selected_skill",
+            "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+            "candidate_primary_skill": null,
+            "compare_enabled": true,
+            "coverage_id_allowlisted": false,
+            "coverage_id_resolved": null,
+            "dual_run_active": true,
+            "global_enabled": true,
+            "intent_bridge_compatible": true,
+            "intent_bridge_disagreements": [],
+            "intent_operation_bridge_status": "not_evaluated",
+            "legacy_intent_authority": true,
+            "legacy_selected_skill_preserved": "guided_investigation",
+            "legacy_skill_router_match": true,
+            "legacy_skill_router_skill_match": true,
+            "legacy_skill_router_tool_plan_match": true,
+            "migration_phase": "S3_step_3_cov_q046_pilot",
+            "operation_authoritative_applied": false,
+            "operation_authoritative_enabled": true,
+            "planning_primary_skill": null,
+            "route_plan_primary_skill_observed": null,
+            "route_plan_shadow_disagreements": [],
+            "selected_skill": "guided_investigation",
+            "selected_skill_before": "guided_investigation",
+            "selected_skill_mirror_only": false,
+            "validator_status": "no_candidate"
+          },
+          "visible_label": "Route authority compare (shadow)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Registry-backed S7 precondition evaluation for lineage only; routing authority unchanged.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S7.3 hard-precondition evaluator shadow",
+          "stage_id": "hard_preconditions",
+          "status": "skipped",
+          "technical_output": {
+            "blocking_findings": [],
+            "dependency_readiness": "unknown",
+            "evaluation_skipped": true,
+            "observation_only": true,
+            "preconditions_checked": [],
+            "preconditions_failed": [],
+            "preconditions_passed": [],
+            "route_status": null,
+            "skip_reason": "insufficient_shadow_route_plan"
+          },
+          "visible_label": "Hard preconditions (shadow)"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Template metadata attached when a use-case template exists.",
+          "produced_answer_sections": [],
+          "production_equivalent": "SCD/template registry",
+          "stage_id": "spl_template",
+          "status": "skipped",
+          "technical_output": {},
+          "visible_label": "SPL template"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Candidate SPL is validated before any MCP gate.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production SPL validator",
+          "stage_id": "spl_validation",
+          "status": "skipped",
+          "technical_output": {},
+          "visible_label": "SPL validation"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "spl_not_required_for_skill",
+          "produced_answer_sections": [],
+          "production_equivalent": "production MCP gate",
+          "stage_id": "mcp_tool_decision",
+          "status": "skipped",
+          "technical_output": {
+            "block_reason": null,
+            "duration_ms": 0,
+            "executed_spl": null,
+            "execution_intent": "none",
+            "result_count": 0,
+            "results_preview": [],
+            "selected_mcp_server": null,
+            "selected_mcp_tool": null,
+            "status": "skipped",
+            "tool_selection_reason": "spl_not_required_for_skill",
+            "tool_selection_status": "unavailable"
+          },
+          "visible_label": "MCP execution gate"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "2 evidence records packaged.",
+          "produced_answer_sections": [
+            "splunk_results_table"
+          ],
+          "production_equivalent": "production SourceEvidence",
+          "stage_id": "source_evidence",
+          "status": "complete",
+          "technical_output": {
+            "evidence_count": 2
+          },
+          "visible_label": "Source evidence"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Local MITRE mapping statuses are advisory until fully validated.",
+          "produced_answer_sections": [
+            "mitre_mappings"
+          ],
+          "production_equivalent": "local MITRE KB",
+          "stage_id": "mitre_mapping",
+          "status": "skipped",
+          "technical_output": {
+            "mappings": []
+          },
+          "visible_label": "MITRE mapping"
+        },
+        {
+          "current_mode_source": "derived",
+          "explanation": "P3 Medium",
+          "produced_answer_sections": [
+            "severity_label"
+          ],
+          "production_equivalent": "severity matrix",
+          "stage_id": "severity",
+          "status": "complete",
+          "technical_output": {
+            "allowed_action_tier": 1,
+            "matched_rules": [
+              "default_no_policy"
+            ],
+            "missing_evidence": [],
+            "recommended_priority": "standard_triage",
+            "severity_label": "P3 Medium",
+            "source_refs": [
+              "ev_af1a6c794b6f60e3",
+              "ev_16923668cec205ff"
+            ],
+            "use_case_id": null,
+            "why_not_higher": [
+              "No use-case-specific severity policy is active yet."
+            ]
+          },
+          "visible_label": "Severity decision"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "insufficient_evidence",
+          "produced_answer_sections": [],
+          "production_equivalent": "production context gate",
+          "stage_id": "context_sufficiency",
+          "status": "complete",
+          "technical_output": {
+            "human_review": null,
+            "missing_evidence": [
+              "approved_sop_guidance",
+              "collected_source_evidence",
+              "rag:sop"
+            ],
+            "reasons": [
+              "no_collected_evidence"
+            ],
+            "status": "insufficient_evidence",
+            "synthesis_allowed": false,
+            "synthesis_readiness": false
+          },
+          "visible_label": "Context sufficiency"
+        },
+        {
+          "current_mode_source": "planned",
+          "explanation": "Synthesis lab blocked: context_sufficiency:insufficient_evidence.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3K",
+          "stage_id": "synthesis",
+          "status": "blocked",
+          "technical_output": {
+            "adapter_overrides_placeholder": [],
+            "allowed_inputs": [
+              "StructuredContext",
+              "SourceEvidence summaries",
+              "approved RAG excerpts"
+            ],
+            "enabled": true,
+            "latency_ms": null,
+            "llm_raw_output_placeholder": null,
+            "model": null,
+            "note": "Reserved for Phase C guarded synthesis audit; not populated while synthesis is disabled.",
+            "provider": "deterministic_lab",
+            "reason": "Synthesis lab blocked: context_sufficiency:insufficient_evidence.",
+            "status": "blocked"
+          },
+          "visible_label": "LLM synthesis"
+        },
+        {
+          "current_mode_source": "planned",
+          "explanation": "No synthesis draft was produced; Answer Guard did not run.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L",
+          "stage_id": "answer_guard",
+          "status": "skipped",
+          "technical_output": {
+            "analyst_review_required": false,
+            "blocked_reason": null,
+            "enabled": true,
+            "failed_checks": [],
+            "guard_overrides_placeholder": [],
+            "guard_status": "skipped",
+            "note": "Reserved for Answer Guard disagreement/override log when enabled.",
+            "passed_checks": [],
+            "reason": "No synthesis draft was produced; Answer Guard did not run."
+          },
+          "visible_label": "Answer Guard"
+        },
+        {
+          "current_mode_source": "derived",
+          "explanation": "Use case unknown with severity P3 Medium is limited to inform/prepare actions in this stage.",
+          "produced_answer_sections": [
+            "recommended_actions"
+          ],
+          "production_equivalent": "action tier policy",
+          "stage_id": "action_capability",
+          "status": "complete",
+          "technical_output": {
+            "allowed_actions": [
+              "summarize",
+              "explain",
+              "show_sop",
+              "generate_spl",
+              "draft_investigation_note"
+            ],
+            "audit_required": true,
+            "current_tier": 1,
+            "hil_required": false,
+            "reason": "Use case unknown with severity P3 Medium is limited to inform/prepare actions in this stage.",
+            "tier_label": "Tier 1 - Prepare",
+            "unavailable_actions": [
+              "run_saved_search",
+              "create_ticket",
+              "block_ip",
+              "disable_user",
+              "isolate_endpoint"
+            ]
+          },
+          "visible_label": "Action capability"
+        }
+      ],
+      "summary": "Query understanding, skill-chain selection, captured Foundation-sec packaging, and governance status were recorded without enabling final synthesis or remediation."
+    },
+    "legacy_intent_authority": false,
+    "live_mcp_called": null,
+    "llm_intent_advisory": {
+      "adapter_warnings": [
+        "json_extracted_from_markdown_fence"
+      ],
+      "adjudication_reason": "question_ref_candidate_not_in_deterministic_registry",
+      "adjudication_status": "rejected",
+      "ambiguity_reasons": [],
+      "clarification_draft": null,
+      "confidence_metadata": {
+        "confidence": 0.9
+      },
+      "dropped_reasons": [],
+      "evidence_need_hints": [
+        "Review logs from CI/CD build servers for unauthorized changes or additions.",
+        "Check for unexpected new packages or dependencies in the build process.",
+        "Analyze build scripts and configurations for signs of tampering.",
+        "Inspect source code repositories for any unexplained commits or branches."
+      ],
+      "intent_family_candidate": "incident_detection",
+      "llm_called": true,
+      "paraphrase_detected": false,
+      "path_type_candidate": "out_of_registry",
+      "provider_label": "local_primary",
+      "question_ref_candidate": "supply_chain_compromise",
+      "use_case_id_candidate": "supply_chain_vulnerability_hunt"
+    },
+    "llm_plan_validation": null,
+    "llm_spl_candidate": null,
+    "mcp_execution_mode": null,
+    "message": "Supply-chain firmware integrity review (review-only)\n\nNo \u2014 not enough to confirm from this question alone. Any MITRE mapping remains candidate or requires validation until source-grounded evidence is reviewed. Investigation step: corroborate logs, confirm asset context, build a timeline, and validate across independent signals. Do not claim compromise without collected, validated search results.\n\nSeparate legitimate key rotation from compromise:\n- Verify the code-signing certificate: issuer chain, validity window, and thumbprint against the vendor's known-good signing key.\n- Confirm an out-of-band vendor advisory or change ticket authorizing a key rotation for this firmware release.\n- Compare the firmware hash/version against the vendor's published release manifest.\n- Correlate the push: source host/account, delivery channel, and whether all targeted devices were updated in one window (a single mass push raises risk).\n- Hold rollout, stage to a test bench, and preserve the prior firmware image for rollback.\n\nLimitations: an unexpected signing certificate alone does NOT confirm compromise \u2014 corroborate certificate provenance, vendor authorization, and firmware hash first. Any MITRE mapping stays candidate (e.g. candidate T0857 System Firmware / supply-chain) until provenance is verified.\n\n---\n\nSecondary focus (Hunt):\n\nGuided investigation (review-only)\n\nNo specialised OT family is mapped for this signal yet \u2014 using a generic hunt skeleton.\n\nHypotheses\n- Expected operational activity or a recent approved change.\n- Telemetry drift producing an apparent anomaly.\n- Suspicious activity requiring corroboration across independent sources.\n\nEvidence to collect\n- Relevant OT/IT logs for a bounded time window.\n- Asset ownership, criticality, baseline, and recent change history.\n- Peer comparison and first-seen analysis.\n\nLimitations: no live query was run; no MITRE technique or severity is claimed.\n\nLimitations:\n- This question is outside the approved 105-question and use-case registries.\n- No live query was executed; validate the checklist against local telemetry and playbooks.\n- No MITRE technique or incident severity is asserted without evidence.\n- No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy.\n- LLM-assisted, out-of-catalogue, unverified \u2014 validate against local telemetry and policy.",
+    "mitre_decision": {
+      "answer_visible": false,
+      "evidence_status_details": {},
+      "evidence_statuses": {},
+      "mitre_status": "not_applicable",
+      "not_claimed": [],
+      "reason": "Planner did not schedule MITRE branch; analyst-visible evidence-supported mapping is suppressed.",
+      "registry_candidates": [],
+      "registry_metadata": null,
+      "rejected_techniques": [],
+      "requires_alert_context": false,
+      "requires_more_context_for_supported_mapping": false,
+      "techniques": []
+    },
+    "mitre_evidence_status": null,
+    "mitre_mappings": [],
+    "narration_visibility": {
+      "answer_guard_status": "skipped",
+      "composer_attempted": false,
+      "composer_eligible": true,
+      "composer_enabled": true,
+      "composer_used": false,
+      "fallback_used": false,
+      "final_answer_guard_status": "passed",
+      "final_answer_source": "deterministic_contract",
+      "guard_blocked": false,
+      "guard_status": "pending",
+      "narration_llm_called": false,
+      "provider_configured": true,
+      "skip_category": null,
+      "skip_reason": null,
+      "timeout_or_degraded": false
+    },
+    "no_live_customer_data": false,
+    "node_trace": [
+      {
+        "decision_reason": "structured_session_pins_only",
+        "guardrail_status": "not_applicable",
+        "human_review_required": false,
+        "input_summary": {
+          "follow_up_kind": null,
+          "session_id": "capture-guided_investigation_supply_chain"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "session_context",
+        "output_summary": {
+          "clarification_required": false,
+          "ignored_fields": [
+            "session_expired_or_missing"
+          ],
+          "staleness": "stale",
+          "used_fields": [],
+          "used_previous_context": false
+        }
+      },
+      {
+        "decision_reason": "control_plane_route_adjudication",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "query_present": true
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "routing_live_skill_selection",
+        "output_summary": {
+          "effective_skill": "guided_investigation",
+          "selected_skill": "guided_investigation",
+          "use_case_id": null
+        }
+      },
+      {
+        "decision_reason": "deterministic_evidence_plan",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "intent_family": "guided_investigation"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "evidence_planning",
+        "output_summary": {
+          "answer_mode": "guided_investigation",
+          "mcp_allowed": false,
+          "spl_allowed": true
+        }
+      },
+      {
+        "decision_reason": "spl_template_status_unknown",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "template_id": null,
+          "use_case_id": null
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "spl_template_status",
+        "output_summary": {
+          "governed_limitation": null,
+          "spl_template_status": null
+        }
+      },
+      {
+        "decision_reason": "validate_spl_mandatory",
+        "guardrail_status": "not_applicable",
+        "human_review_required": false,
+        "input_summary": {
+          "spl_template_status": null
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "spl_validation",
+        "output_summary": {
+          "approved": null,
+          "normalized_spl_available": false,
+          "reject_reasons": []
+        }
+      },
+      {
+        "decision_reason": "spl_not_required_for_skill",
+        "guardrail_status": "review_required",
+        "human_review_required": false,
+        "input_summary": {
+          "mcp_allowed": false,
+          "spl_approved": false
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "execution_hil_decision",
+        "output_summary": {
+          "evidence_source": null,
+          "execution_status": "skipped",
+          "execution_status_label": null,
+          "human_review_required": false,
+          "review_type": "execution_approval"
+        }
+      },
+      {
+        "decision_reason": "mitre_decision_resolver",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "use_case_id": null
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "mitre_evidence_status",
+        "output_summary": {
+          "evidence_statuses": {},
+          "not_claimed": [],
+          "rejected_techniques": []
+        }
+      },
+      {
+        "decision_reason": "deterministic_severity_policy",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "use_case_id": null
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "severity_decision",
+        "output_summary": {
+          "severity_label": "P3 Medium"
+        }
+      },
+      {
+        "decision_reason": "answer_contract_projection",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "answer_mode": "guided_investigation"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "answer_contract",
+        "output_summary": {
+          "candidate_mitre_count": 0,
+          "evidence_supported_mitre_count": 0,
+          "execution_status_label": null,
+          "hil_status": "required",
+          "human_review_required": false,
+          "mitre_answer_visible": false,
+          "spl_status": "not_required"
+        }
+      },
+      {
+        "decision_reason": "No synthesis draft was produced; Answer Guard did not run.",
+        "guardrail_status": "not_applicable",
+        "human_review_required": false,
+        "input_summary": {
+          "enabled": true
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "answer_guard",
+        "output_summary": {
+          "failed_checks": [],
+          "guard_status": "skipped"
+        }
+      },
+      {
+        "decision_reason": "Final answer is consistent with the AnswerContract and the deciders.",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "contract_present": true
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "final_answer_validation",
+        "output_summary": {
+          "failed_checks": [],
+          "guard_status": "passed"
+        }
+      }
+    ],
+    "note": "No governed KB/SOP match found. SPL and MCP were skipped; final synthesis remains disabled.",
+    "operation_audit": null,
+    "planning_decision": {
+      "activation_decision": {
+        "activation_lifecycle_stage": "not_cataloged",
+        "catalog_present": false,
+        "crosswalk_lookup_status": "not_found",
+        "enrichment_only": false,
+        "enrichment_present": false,
+        "github_accepted_for_enrichment_only": false,
+        "github_lifecycle_status": null,
+        "governed_enrichment_load_allowed": false,
+        "live_execution_skill": null,
+        "live_execution_skill_allowed": false,
+        "planner_runtime_activation_allowed": false,
+        "proposed_github_use_case": false,
+        "reasons": [
+          "missing_use_case_id"
+        ],
+        "runtime_support_status": null,
+        "spl_template_status": null,
+        "tests_added": false,
+        "trace_metadata_allowed": false,
+        "use_case_id": null,
+        "validation_status": null
+      },
+      "activation_lifecycle_stage": "not_cataloged",
+      "authority_source": "deterministic_planner_path_selection",
+      "blocked_tools": [
+        "spl",
+        "mcp",
+        "candidate_spl_execution",
+        "mcp_execution"
+      ],
+      "branches": [
+        "evidence",
+        "hil"
+      ],
+      "clarification_needed": false,
+      "crosswalk_lookup_status": "not_found",
+      "curated_enrichment_context": null,
+      "execution_enabled": false,
+      "hil_required": true,
+      "live_execution_skill": "guided_investigation",
+      "path_type": "guided_investigation",
+      "planner_path_selection_enabled": true,
+      "planner_runtime_activation_allowed": false,
+      "planning_or_analytic_skill": null,
+      "precedence_applied": [
+        "unsafe_or_blocked_beats_all",
+        "clarification_beats_investigation",
+        "deterministic_registry_over_llm_advisory",
+        "crosswalk_metadata_not_runtime_activation",
+        "planner_schedules_branches_no_execution",
+        "llm_advisory_normalized_non_authoritative",
+        "runtime_activation_disallowed"
+      ],
+      "question_ref": null,
+      "reason": "out_of_registry_guided_investigation",
+      "resource_plan_summary": {
+        "hil": {
+          "reason": "Analyst validates hypotheses and local data scope.",
+          "required": true
+        },
+        "limitations": [
+          "This question is outside the approved 105-question and use-case registries.",
+          "No live query was executed; validate the checklist against local telemetry and playbooks.",
+          "No MITRE technique or incident severity is asserted without evidence.",
+          "No governed playbook matched this hunt; the checklist is general guidance and must be validated against local telemetry and policy."
+        ],
+        "match_path": "out_of_registry",
+        "mcp": {
+          "allowed": false,
+          "needed": false,
+          "planned_discovery": [
+            "splunk_get_indexes",
+            "splunk_get_metadata",
+            "splunk_get_knowledge_objects"
+          ],
+          "planned_discovery_calls": [
+            {
+              "arguments": {},
+              "block_reason": "mcp_global_execution_disabled",
+              "failure_mode": "execution_disabled",
+              "kind": "planned_tool_call",
+              "policy_checks": [
+                "read_only_discovery",
+                "mcp_execution_gate"
+              ],
+              "server": "splunk",
+              "tool_name": "splunk_get_indexes"
+            },
+            {
+              "arguments": {},
+              "block_reason": "mcp_global_execution_disabled",
+              "failure_mode": "execution_disabled",
+              "kind": "planned_tool_call",
+              "policy_checks": [
+                "read_only_discovery",
+                "mcp_execution_gate"
+              ],
+              "server": "splunk",
+              "tool_name": "splunk_get_metadata"
+            },
+            {
+              "arguments": {},
+              "block_reason": "mcp_global_execution_disabled",
+              "failure_mode": "execution_disabled",
+              "kind": "planned_tool_call",
+              "policy_checks": [
+                "read_only_discovery",
+                "mcp_execution_gate"
+              ],
+              "server": "splunk",
+              "tool_name": "splunk_get_knowledge_objects"
+            }
+          ],
+          "skip_reason": "Execution gates closed; checklist runnable manually by analyst."
+        },
+        "mitre": {
+          "allowed": false,
+          "skip_reason": "No evidence-supported technique claim is available."
+        },
+        "rag": {
+          "match_status": "no_match",
+          "needed": true,
+          "no_match_behavior": "general_guidance_allowed",
+          "source": "soc_kb_rag"
+        },
+        "severity": {
+          "allowed": false,
+          "skip_reason": "No grounded incident severity is available."
+        },
+        "spl": {
+          "needed": false,
+          "review_only": true,
+          "skip_reason": "No existing deterministic draft family matched this out-of-registry hunt.",
+          "status": "skipped_no_deterministic_family_match"
+        }
+      },
+      "runtime_support_status": null,
+      "selected_tools": [
+        "prepare_guided_investigation",
+        "require_analyst_validation"
+      ],
+      "use_case_id": null
+    },
+    "primary_operation": null,
+    "query_to_intent": {
+      "candidate_mappings": {
+        "legacy_skill_hint": "guided_investigation",
+        "match_path": "out_of_registry",
+        "question_ref": null,
+        "use_case_ids": []
+      },
+      "intent_classification": {
+        "action_mode": "recommend_only",
+        "answer_goal": [
+          "procedural_steps",
+          "analyst_action_guidance"
+        ],
+        "confidence": 0.52,
+        "confidence_band": "low",
+        "intent_family": "guided_investigation",
+        "primary_intent": "investigation_guidance",
+        "query_type": "investigation_with_guidance",
+        "reason": "Investigation-guidance request receives governed, review-only hunt guidance instead of catalog SPL.",
+        "requested_output_type": "INVESTIGATION",
+        "requires_clarification": false,
+        "requires_hil": true,
+        "secondary_intents": []
+      },
+      "intent_conflicts": [],
+      "llm_intent_advisory": {
+        "adapter_warnings": [
+          "json_extracted_from_markdown_fence"
+        ],
+        "adjudication_reason": "question_ref_candidate_not_in_deterministic_registry",
+        "adjudication_status": "rejected",
+        "ambiguity_reasons": [],
+        "clarification_draft": null,
+        "confidence_metadata": {
+          "confidence": 0.9
+        },
+        "dropped_reasons": [],
+        "evidence_need_hints": [
+          "Review logs from CI/CD build servers for unauthorized changes or additions.",
+          "Check for unexpected new packages or dependencies in the build process.",
+          "Analyze build scripts and configurations for signs of tampering.",
+          "Inspect source code repositories for any unexplained commits or branches."
+        ],
+        "intent_family_candidate": "incident_detection",
+        "llm_called": true,
+        "paraphrase_detected": false,
+        "path_type_candidate": "out_of_registry",
+        "provider_label": "local_primary",
+        "question_ref_candidate": "supply_chain_compromise",
+        "use_case_id_candidate": "supply_chain_vulnerability_hunt"
+      },
+      "llm_intent_assist_status": "rejected",
+      "query_signals": {
+        "action_or_containment_shaped": false,
+        "alert_context_present": false,
+        "alert_summary_shaped": false,
+        "analyst_action": false,
+        "analytics_aggregation": false,
+        "attachment_hash_verdict": false,
+        "block_or_contain": false,
+        "byte_pattern": false,
+        "conceptual_mitre_judgment": false,
+        "containment_decision_support": false,
+        "dga": false,
+        "dns_beaconing": false,
+        "download_cradle": false,
+        "email_auth_failure": false,
+        "encoded_command": false,
+        "encryption_behavior": false,
+        "endpoint_network_connection": false,
+        "escalation_without_policy_word": false,
+        "exact_105_analytics": false,
+        "exact_105_hunt_spl": false,
+        "exclude_service_accounts": false,
+        "explicit_log_search": false,
+        "explicit_mitre_context": false,
+        "explicit_run_spl": false,
+        "explicit_search_intent": false,
+        "extension_pattern": false,
+        "failed_login": false,
+        "file_rename_volume": false,
+        "has_specific_scope": false,
+        "host_association": false,
+        "host_spread": false,
+        "hybrid_alert_review": false,
+        "impacted_paths": false,
+        "investigation_hypothesis_guidance": false,
+        "investigation_triage_guidance": false,
+        "jitter_profile": false,
+        "knowledge_definition": false,
+        "live_investigation_verbs": false,
+        "mail_gateway_verdict": false,
+        "malicious_url_or_domain": false,
+        "mitre_evidence_threshold": false,
+        "mitre_explain": false,
+        "mitre_map": false,
+        "mitre_requires_alert_context": false,
+        "negative_cred_dumping": false,
+        "negative_endpoint_telemetry": false,
+        "negative_successful_login": false,
+        "non_soc_or_out_of_scope": false,
+        "normalized_query": "hunt for signs of a software supply-chain compromise across our ci/cd build servers",
+        "periodicity": false,
+        "playbook_procedure": false,
+        "policy_terms": false,
+        "positive_successful_login": false,
+        "powershell_command_evidence": false,
+        "powershell_context": false,
+        "procedural_investigation": false,
+        "process_evidence": false,
+        "projected_action_mode": null,
+        "projected_needs_mcp": false,
+        "projected_needs_rag": false,
+        "projected_needs_spl": false,
+        "rare_domain": false,
+        "regulatory_reporting": false,
+        "repeated_destination": false,
+        "requires_hil": false,
+        "review_only_spl": false,
+        "run_execution": false,
+        "security_log_investigation": false,
+        "sender_return_path_mismatch": false,
+        "service_stop": false,
+        "severity_request": false,
+        "shadow_copy_deletion": false,
+        "soc_actionable_hunt": true,
+        "soc_detection_intent": false,
+        "soc_investigation_shaped": true,
+        "sop_or_playbook_shaped": false,
+        "sop_show_request": false,
+        "source_ip_novelty": false,
+        "spl_authoring_shaped": false,
+        "spl_generation": false,
+        "spl_suppressed": false,
+        "spray_breadth": false,
+        "success_after_failure": false,
+        "suspicious_parent_process": false,
+        "time_window_24h": false,
+        "top_n": null,
+        "use_case_review_guidance": false,
+        "valid_account_abuse": false
+      }
+    },
+    "query_understanding": {
+      "ambiguity_flags": [],
+      "clarification_needed": false,
+      "clarification_question": null,
+      "confidence": 0.2,
+      "deterministic_match_path": "out_of_registry",
+      "entities": {
+        "alert_id": [],
+        "asset": [],
+        "cve_ids": [],
+        "destination_ip": [],
+        "event_type": [],
+        "host": [],
+        "index": [],
+        "mitre_techniques": [],
+        "observation_window": null,
+        "port_numbers": [],
+        "purdue_layers": [],
+        "source_ip": [],
+        "sourcetype": [],
+        "time_window": null,
+        "user": [],
+        "zone_labels": []
+      },
+      "intent_candidate": "guided_investigation",
+      "llm_advisory_recommended": true,
+      "mapped_coverage_id": null,
+      "mapped_operation_type": null,
+      "mapped_pattern_type": null,
+      "mapped_primary_skill": null,
+      "mapped_question_number": null,
+      "mapped_question_ref": null,
+      "mapped_use_case_ids": [],
+      "normalized_query": "hunt for signs of a software supply-chain compromise across our ci/cd build servers",
+      "output_template": "clarification_response",
+      "primary_intent": "unknown",
+      "question_registry_match_score": null,
+      "question_registry_match_source": null,
+      "question_registry_observation_only": true,
+      "raw_query": "Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+      "registry_consistency": "not_evaluated",
+      "registry_warnings": [],
+      "requested_output_type": "clarification",
+      "route_skill_candidate": "guided_investigation",
+      "secondary_intents": [],
+      "soc_investigation_shaped": true,
+      "triage_signals": {
+        "block_or_contain": false,
+        "explicit_run_spl": false,
+        "soc_investigation_shaped": true
+      },
+      "use_case_catalog_size": 58,
+      "use_case_match_source": null
+    },
+    "rag_available": null,
+    "response_mode": "insufficient_evidence",
+    "response_packaging_status": "llm_skipped",
+    "route_adjudication": {
+      "authority_source": "guided_investigation_rescue",
+      "deterministic_route": "guided_investigation",
+      "final_route": "guided_investigation",
+      "final_use_case_id": null,
+      "llm_suggested_route": null,
+      "reason": "Out-of-registry SOC investigation shape preserves the governed guided route.",
+      "shadow_plan_status": "live_llm_routing_disabled"
+    },
+    "route_authority": {
+      "authority_applied": false,
+      "authority_decision": "fallback",
+      "authority_eligible": false,
+      "authority_fallback_reason": "coverage_id_not_allowlisted",
+      "authority_holder": "legacy_selected_skill",
+      "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+      "candidate_primary_skill": null,
+      "compare_enabled": true,
+      "coverage_id_allowlisted": false,
+      "coverage_id_resolved": null,
+      "dual_run_active": true,
+      "global_enabled": true,
+      "intent_bridge_compatible": true,
+      "intent_bridge_disagreements": [],
+      "intent_operation_bridge_status": "not_evaluated",
+      "legacy_intent_authority": true,
+      "legacy_selected_skill_preserved": "guided_investigation",
+      "legacy_skill_router_match": true,
+      "legacy_skill_router_skill_match": true,
+      "legacy_skill_router_tool_plan_match": true,
+      "migration_phase": "S3_step_3_cov_q046_pilot",
+      "operation_authoritative_applied": false,
+      "operation_authoritative_enabled": true,
+      "planning_primary_skill": null,
+      "route_plan_primary_skill_observed": null,
+      "route_plan_shadow_disagreements": [],
+      "selected_skill": "guided_investigation",
+      "selected_skill_before": "guided_investigation",
+      "selected_skill_mirror_only": false,
+      "validator_status": "no_candidate"
+    },
+    "route_plan_shadow": {
+      "analyst_summary_dropped_reasons": [
+        "no_provider_configured"
+      ],
+      "analyst_summary_narration_llm_called": false,
+      "analyst_summary_shadow_available": true,
+      "analyst_summary_shadow_source": "deterministic_skeleton",
+      "analyst_summary_shadow_text": "Shadow route-plan observation only: preflight passed, deterministic skill not_selected, route status not_evaluated. Execution remains unauthorized; this path records metadata only.",
+      "analyst_summary_trace_bullets": [
+        "Preflight: passed; missing slots: none.",
+        "Route-plan shadow: not_evaluated; candidate reason: live_llm_routing_disabled.",
+        "Template shadow: not_attempted; rendered SPL available: False (hash only, not shown)."
+      ],
+      "blocking_findings": [],
+      "candidate_available": false,
+      "candidate_reason": "live_llm_routing_disabled",
+      "candidate_template_ids": [],
+      "captured_live_run": false,
+      "coe_synthetic_fixture": true,
+      "deterministic_route_plan_wins": true,
+      "disagreements": [],
+      "enabled": true,
+      "evidence_output_contract": null,
+      "execution_authorized": false,
+      "intent_operation_bridge": {
+        "allowed_primary_skills": [],
+        "bridge_status": "not_evaluated",
+        "compatible": true,
+        "disagreements": [],
+        "intent_modifier": null,
+        "legacy_intent": "guided_investigation",
+        "output_artifact_hint": null,
+        "output_artifacts_deferred_to_s2b": false,
+        "primary_skill_observed": null,
+        "rejection_reason": null,
+        "spl_generation_modifier_detected": false,
+        "underlying_operation": null
+      },
+      "llm_called": false,
+      "llm_candidate_dropped_reasons": [
+        "no_provider_configured"
+      ],
+      "llm_candidate_route_plan_available": false,
+      "llm_model_family": "instruct",
+      "llm_role": "route_plan_candidate_generator",
+      "matched_template_id": null,
+      "mcp_called": false,
+      "missing_slots": [],
+      "mode": "dormant_shadow",
+      "model_role": "instruct_candidate_only",
+      "normalized_plan_available": false,
+      "ood_llm_route_plan_lab": {
+        "enabled": false,
+        "reason": "lab_primary_mode_disabled"
+      },
+      "operation_audit": null,
+      "output_artifacts": {
+        "bridge_hint_applied": false,
+        "legacy_intent": "guided_investigation",
+        "renderer_applied": false,
+        "resolution_source": "s2b_registry",
+        "resolved_artifacts": [],
+        "unknown_legacy_intent": false
+      },
+      "pattern_id": null,
+      "precondition_evaluation": {
+        "blocking_findings": [],
+        "dependency_readiness": "unknown",
+        "evaluation_skipped": true,
+        "observation_only": true,
+        "preconditions_checked": [],
+        "preconditions_failed": [],
+        "preconditions_passed": [],
+        "route_status": null,
+        "skip_reason": "insufficient_shadow_route_plan"
+      },
+      "preflight_status": "passed",
+      "primary_skill": null,
+      "production_execution": false,
+      "question_runtime_map": null,
+      "reasoning_model_used": false,
+      "rendered_spl_available": false,
+      "rendered_spl_execution_eligible": false,
+      "rendered_spl_sha256": null,
+      "rendered_spl_validator_approved": false,
+      "route_authority_compare": {
+        "authority_applied": false,
+        "authority_decision": "fallback",
+        "authority_eligible": false,
+        "authority_fallback_reason": "coverage_id_not_allowlisted",
+        "authority_holder": "legacy_selected_skill",
+        "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+        "candidate_primary_skill": null,
+        "compare_enabled": true,
+        "coverage_id_allowlisted": false,
+        "coverage_id_resolved": null,
+        "dual_run_active": true,
+        "global_enabled": true,
+        "intent_bridge_compatible": true,
+        "intent_bridge_disagreements": [],
+        "intent_operation_bridge_status": "not_evaluated",
+        "legacy_intent_authority": true,
+        "legacy_selected_skill_preserved": "guided_investigation",
+        "legacy_skill_router_match": true,
+        "legacy_skill_router_skill_match": true,
+        "legacy_skill_router_tool_plan_match": true,
+        "migration_phase": "S3_step_3_cov_q046_pilot",
+        "operation_authoritative_applied": false,
+        "operation_authoritative_enabled": true,
+        "planning_primary_skill": null,
+        "route_plan_primary_skill_observed": null,
+        "route_plan_shadow_disagreements": [],
+        "selected_skill": "guided_investigation",
+        "selected_skill_before": "guided_investigation",
+        "selected_skill_mirror_only": false,
+        "validator_status": "no_candidate"
+      },
+      "route_status": null,
+      "routing_skill_resolution": {
+        "effective_skill": "guided_investigation",
+        "legacy_intent_authority": true,
+        "planning_primary_operation": null,
+        "skill_resolution": "legacy_selected_skill"
+      },
+      "spl_executed": false,
+      "spl_generated": false,
+      "supporter_trace": {
+        "authority": "advisory_read_only",
+        "enabled": true,
+        "execution_authorized": false,
+        "mcp_called": false,
+        "runtime_invoked": false,
+        "spl_generated": false,
+        "supporters": [
+          {
+            "side_effects": false,
+            "status": "already_applied",
+            "supporter_id": "route_plan_preflight"
+          },
+          {
+            "lookup_required": false,
+            "side_effects": false,
+            "status": "not_required",
+            "supporter_id": "ioc_registry_staleness_check"
+          },
+          {
+            "detection_ref_present": false,
+            "side_effects": false,
+            "status": "not_required",
+            "supporter_id": "detection_registry_ref_check"
+          },
+          {
+            "side_effects": false,
+            "status": "shadow_context_missing",
+            "supporter_id": "precondition_shadow_evaluation"
+          }
+        ],
+        "warnings": []
+      },
+      "template_match_attempted": false,
+      "template_match_reasons": [],
+      "template_match_score": null,
+      "template_match_shadow_status": null,
+      "template_match_skip_reason": "no_validated_route_plan",
+      "template_mismatch_reasons": [],
+      "template_production_executable": false,
+      "template_sample_only": false,
+      "template_validator_profile": null,
+      "use_case_registry_bridge": {
+        "authority": "advisory_only",
+        "catalog_size": 58,
+        "enabled": true,
+        "matched_use_cases": [],
+        "merge_status": "catalog_rows_advisory_until_ec_rebase",
+        "top_operation_hint": null,
+        "top_use_case_id": null
+      },
+      "validation_findings": [],
+      "validation_result": null,
+      "warnings": []
+    },
+    "routing_mode": "llm_assisted_semantic",
+    "routing_skill_resolution": {
+      "effective_skill": "guided_investigation",
+      "legacy_intent_authority": false,
+      "planning_primary_operation": null,
+      "route_adjudication_authority_source": "guided_investigation_rescue",
+      "skill_resolution": "control_plane_route_adjudication"
+    },
+    "saia_available": null,
+    "selected_skill": "guided_investigation",
+    "selected_skill_chain": {
+      "alternatives": [],
+      "chain_id": "chain:guided_investigation",
+      "pipeline_stages": [
+        "query_understanding",
+        "evidence_collection",
+        "context_sufficiency",
+        "synthesis",
+        "answer_guard"
+      ],
+      "routable_skill": "guided_investigation",
+      "selected_skill": "guided_investigation",
+      "selection_reason": "router_selected_without_use_case_match",
+      "stages": [
+        "query_understanding",
+        "evidence_collection",
+        "context_sufficiency",
+        "synthesis",
+        "answer_guard"
+      ]
+    },
+    "selected_use_case": null,
+    "semantic_intent": {
+      "audit_record": {
+        "audit_required": true,
+        "authority_decision": "shadow_only",
+        "coverage_id": null,
+        "nearest_registry_hint": null,
+        "operation_provenance": "none",
+        "path_type": "novel_ood",
+        "promotion_candidate": true,
+        "proposed_operation": null,
+        "query": "Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+        "reason": "coverage_id_not_allowlisted",
+        "route_status": "hil_or_review"
+      },
+      "authority": "advisory_only",
+      "authority_decision": "shadow_only",
+      "clarification_needed": false,
+      "clarification_question": null,
+      "coverage_id_candidate": null,
+      "enabled": true,
+      "entities": {
+        "alert_id": [],
+        "asset": [],
+        "cve_ids": [],
+        "destination_ip": [],
+        "event_type": [],
+        "host": [],
+        "index": [],
+        "mitre_techniques": [],
+        "observation_window": null,
+        "port_numbers": [],
+        "purdue_layers": [],
+        "source_ip": [],
+        "sourcetype": [],
+        "time_window": null,
+        "user": [],
+        "zone_labels": []
+      },
+      "evidence_need_families": [],
+      "final_route_unchanged": true,
+      "known_compatible": false,
+      "legacy_intent_hint": "guided_investigation",
+      "llm_clarification_needed": false,
+      "llm_coverage_id_candidate": null,
+      "llm_evidence_need_families": [],
+      "llm_legacy_intent_hint": null,
+      "llm_nearest_registry_ref": null,
+      "llm_path_type_candidate": null,
+      "llm_primary_operation_candidate": null,
+      "llm_requested_output_type_candidate": null,
+      "llm_semantic_intent_called": false,
+      "mcp_needed": false,
+      "mitre_candidate_needed": false,
+      "nearest_registry_ref": null,
+      "operation_provenance": "none",
+      "path_type": "novel_ood",
+      "primary_operation_candidate": null,
+      "rag_needed": false,
+      "requested_output_type": "clarification",
+      "selected_path_authority": "shadow_only",
+      "semantic_intent_disagreements": [],
+      "warnings": [
+        "authority_fallback:coverage_id_not_allowlisted",
+        "novel_ood_requires_audit_hil"
+      ]
+    },
+    "session_context_status": {
+      "clarification_required": false,
+      "context_source_trace_id": null,
+      "ignored_fields": [
+        "session_expired_or_missing"
+      ],
+      "session_id": "capture-guided_investigation_supply_chain",
+      "staleness": "stale",
+      "used_fields": [],
+      "used_previous_context": false
+    },
+    "severity_decision": {
+      "allowed_action_tier": 1,
+      "matched_rules": [
+        "default_no_policy"
+      ],
+      "missing_evidence": [],
+      "recommended_priority": "standard_triage",
+      "severity_label": "P3 Medium",
+      "source_refs": [
+        "ev_af1a6c794b6f60e3",
+        "ev_16923668cec205ff"
+      ],
+      "use_case_id": null,
+      "why_not_higher": [
+        "No use-case-specific severity policy is active yet."
+      ]
+    },
+    "skill_contribution": {
+      "contributed_evidence_keys": [],
+      "contributed_sections": [
+        "investigation_steps",
+        "recommended_actions",
+        "analyst_checklist"
+      ],
+      "floor_applied": false,
+      "gap_recorded": false,
+      "provenance": {
+        "authority_source": "guided_investigation_rescue",
+        "deterministic_match_path": "out_of_registry",
+        "rescue_mode": true,
+        "selected_by": "out_of_registry_investigation_rescue"
+      },
+      "selected_skill": "guided_investigation",
+      "skip_reason": null,
+      "survived_into_card": true,
+      "visible_domain_section": true
+    },
+    "skill_selection": {
+      "alternatives": [],
+      "decision_source": "deterministic_router",
+      "llm_assisted_skill": null,
+      "policy_notes": [
+        "router_selection_preserved_for_phase_2"
+      ],
+      "registry_primary_skill": null,
+      "rule_based_skill": "guided_investigation",
+      "selected_chain": {
+        "alternatives": [],
+        "chain_id": "chain:guided_investigation",
+        "pipeline_stages": [
+          "query_understanding",
+          "evidence_collection",
+          "context_sufficiency",
+          "synthesis",
+          "answer_guard"
+        ],
+        "routable_skill": "guided_investigation",
+        "selected_skill": "guided_investigation",
+        "selection_reason": "router_selected_without_use_case_match",
+        "stages": [
+          "query_understanding",
+          "evidence_collection",
+          "context_sufficiency",
+          "synthesis",
+          "answer_guard"
+        ]
+      },
+      "selected_skill": "guided_investigation",
+      "selected_use_case_id": null,
+      "selection_status": "selected"
+    },
+    "source_evidence": [
+      {
+        "collection_status": "no_match",
+        "created_at": "2026-06-24T10:57:19.535340+00:00",
+        "evidence_id": "ev_af1a6c794b6f60e3",
+        "executed_spl": null,
+        "fields_returned": [],
+        "output_type": null,
+        "preview_rows": [],
+        "provenance": "governed_soc_kb_retrieval",
+        "provider_used": null,
+        "query_or_request_summary": "Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+        "raw_result_hash": null,
+        "raw_result_stored": false,
+        "result_count": 0,
+        "saved_search_name": null,
+        "sensitivity_flags": [],
+        "source_name": "governed_soc_kb",
+        "source_type": "rag",
+        "time_range": null,
+        "tool_category": null,
+        "tool_name": "governed_soc_kb_retrieval",
+        "trace_id": "0300ddea-8cb7-437d-a49a-db9551457003",
+        "warnings": [
+          "no_rag_collections_selected",
+          "no_approved_soc_kb_match"
+        ]
+      },
+      {
+        "collection_status": "skipped",
+        "created_at": "2026-06-24T10:57:19.577162+00:00",
+        "evidence_id": "ev_16923668cec205ff",
+        "executed_spl": null,
+        "fields_returned": [],
+        "output_type": null,
+        "preview_rows": [],
+        "provenance": null,
+        "provider_used": null,
+        "query_or_request_summary": "Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+        "raw_result_hash": null,
+        "raw_result_stored": false,
+        "result_count": 0,
+        "saved_search_name": null,
+        "sensitivity_flags": [],
+        "source_name": "analyst_query",
+        "source_type": "manual",
+        "time_range": null,
+        "tool_category": null,
+        "tool_name": null,
+        "trace_id": "0300ddea-8cb7-437d-a49a-db9551457003",
+        "warnings": [
+          "spl_not_required_for_skill"
+        ]
+      }
+    ],
+    "spl_draft_preview": null,
+    "spl_template": null,
+    "spl_template_status": null,
+    "spl_validation": null,
+    "structured_context": {
+      "allowed_conclusions": [
+        "source_coverage_and_collection_status_only"
+      ],
+      "answer_constraints": [],
+      "assumptions": [
+        "structured_context_is_pre_synthesis"
+      ],
+      "capability_profile_ref": null,
+      "context_quality": "insufficient",
+      "entity_summary": {},
+      "environment_grounding_refs": [],
+      "evidence_origin_labels": [
+        "none"
+      ],
+      "execution_provider": null,
+      "fallback_mode": false,
+      "knowledge_ambiguity": [],
+      "metrics": {
+        "collected_evidence_count": 0,
+        "total_result_count": 0
+      },
+      "missing_evidence": [
+        "approved_sop_guidance",
+        "collected_source_evidence",
+        "rag:sop"
+      ],
+      "mitre_candidates": [],
+      "mitre_grounding_refs": [],
+      "policy_context_refs": [],
+      "prohibited_conclusions": [
+        "final_soc_answer",
+        "final_mitre_mapping",
+        "root_cause",
+        "incident_severity"
+      ],
+      "query": "Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+      "rag_approval_summary": {
+        "all_runtime_eligible": false,
+        "approval_statuses": [],
+        "authority": "metadata_only",
+        "direct_to_llm": false,
+        "document_types": [],
+        "enabled": true,
+        "entry_count": 0,
+        "evidence_origin": "none",
+        "rag_mode": "mock",
+        "repository_backend": "json",
+        "retrieval_status": "no_match"
+      },
+      "selected_skill": "guided_investigation",
+      "sop_action_hints": [],
+      "source_evidence_refs": [
+        "ev_af1a6c794b6f60e3",
+        "ev_16923668cec205ff"
+      ],
+      "source_refs": [
+        "ev_af1a6c794b6f60e3",
+        "ev_16923668cec205ff"
+      ],
+      "spl_explanation_provider": null,
+      "spl_generation_provider": null,
+      "spl_guidance_provider": null,
+      "spl_optimization_provider": null,
+      "splunk_context_refs": [],
+      "structured_facts": [],
+      "synthesis_allowed": false,
+      "timeline_candidates": [],
+      "tool_outputs_summary": [
+        {
+          "collection_status": "no_match",
+          "fields_returned": [],
+          "result_count": 0,
+          "source_name": "governed_soc_kb",
+          "source_ref": "ev_af1a6c794b6f60e3",
+          "source_type": "rag",
+          "tool_name": "governed_soc_kb_retrieval",
+          "warnings": [
+            "no_rag_collections_selected",
+            "no_approved_soc_kb_match"
+          ]
+        },
+        {
+          "collection_status": "skipped",
+          "fields_returned": [],
+          "result_count": 0,
+          "source_name": "analyst_query",
+          "source_ref": "ev_16923668cec205ff",
+          "source_type": "manual",
+          "tool_name": null,
+          "warnings": [
+            "spl_not_required_for_skill"
+          ]
+        }
+      ],
+      "tool_policy_refs": [],
+      "trace_id": "0300ddea-8cb7-437d-a49a-db9551457003",
+      "validation_warnings": [],
+      "warnings": [
+        "no_approved_soc_kb_match",
+        "no_rag_collections_selected",
+        "spl_not_required_for_skill"
+      ]
+    },
+    "synthesis_mode": "synthesis_blocked",
+    "synthesis_status": {
+      "allowed_inputs": [
+        "StructuredContext",
+        "SourceEvidence summaries",
+        "approved RAG excerpts"
+      ],
+      "enabled": true,
+      "latency_ms": null,
+      "model": null,
+      "provider": "deterministic_lab",
+      "reason": "Synthesis lab blocked: context_sufficiency:insufficient_evidence.",
+      "status": "blocked"
+    },
+    "tool_plan": [
+      "prepare_guided_investigation",
+      "require_analyst_validation"
+    ],
+    "tool_plan_structured": null,
+    "trace_explanation": [],
+    "user_query": "Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+    "workflow_plan": {
+      "available_sources": [],
+      "execution_enabled": false,
+      "message": "Workflow plan created. No SPL/MCP/RAG execution has started.",
+      "missing_sources": [
+        "rag:sop"
+      ],
+      "required_connectors": [
+        "rag"
+      ],
+      "required_sources": [
+        "rag:sop"
+      ],
+      "safety_gates": [
+        "approved_chunks_only",
+        "general_guidance_on_no_match",
+        "human_review_required",
+        "no_execution",
+        "no_live_query",
+        "no_mitre_or_severity_without_evidence",
+        "review_only"
+      ],
+      "skill": "guided_investigation",
+      "status": "not_started",
+      "steps": [
+        {
+          "name": "retrieve approved SOC playbook context",
+          "order": 1,
+          "required_connectors": [
+            "rag"
+          ],
+          "safety_gates": [
+            "approved_chunks_only",
+            "general_guidance_on_no_match"
+          ],
+          "status": "not_started"
+        },
+        {
+          "name": "prepare investigation hypotheses and evidence checklist",
+          "order": 2,
+          "required_connectors": [],
+          "safety_gates": [
+            "review_only",
+            "no_live_query"
+          ],
+          "status": "not_started"
+        },
+        {
+          "name": "apply context sufficiency and answer guard",
+          "order": 3,
+          "required_connectors": [],
+          "safety_gates": [
+            "no_mitre_or_severity_without_evidence"
+          ],
+          "status": "not_started"
+        },
+        {
+          "name": "return guidance for analyst validation",
+          "order": 4,
+          "required_connectors": [],
+          "safety_gates": [
+            "human_review_required",
+            "no_execution"
+          ],
+          "status": "not_started"
+        }
+      ],
+      "tool_plan": [
+        "retrieve_approved_knowledge",
+        "optional_review_only_spl",
+        "no_mcp"
+      ],
+      "trace_id": "0300ddea-8cb7-437d-a49a-db9551457003"
+    }
+  },
+  "provenance": {
+    "captured_at": "2026-06-24T10:57:19.856514+00:00",
+    "git_sha": "2211e38",
+    "live_llm_called": true,
+    "live_mcp_called": false,
+    "model_id": "foundation-sec-1.1-8b-instruct-q8_0",
+    "prompt_hash": "6d4a44ed98216513",
+    "transport": "fake"
+  },
+  "scenario_id": "guided_investigation_supply_chain",
+  "schema_version": 1,
+  "stage_latencies": [
+    {
+      "recorded_ms": 63779,
+      "replayed_ms": 6000,
+      "stage": "end_to_end"
+    }
+  ]
+}
