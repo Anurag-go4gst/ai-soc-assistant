@@ -267,6 +267,7 @@ _COMPLETENESS_KNOWLEDGE_FAMILIES = frozenset(
         "knowledge_only",
         "clarification_required",
         "guided_investigation",
+        "alert_summary",
     }
 )
 
@@ -340,6 +341,9 @@ def _resolve_path_type(
 
     if family == "guided_investigation" or plan.get("answer_mode") == "guided_investigation":
         return "guided_investigation"
+
+    if family == "alert_summary":
+        return "generic_soc_guidance"
 
     if family == "mitre_mapping" and bool(intent.get("requires_clarification")):
         return "mitre_context_required"

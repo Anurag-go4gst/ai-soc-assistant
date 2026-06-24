@@ -31,12 +31,13 @@ def test_catalog_match_not_clarification(query: str) -> None:
     assert intent.confidence_band in {"medium", "high"}, query
 
 
-def test_alert_summary_shape_maps_to_hybrid_alert_review() -> None:
+def test_alert_summary_shape_maps_to_alert_summary_family() -> None:
     understanding = understand_query(
         "Summarize the failed login spike alert for user jdoe in the last hour"
     )
     result = build_query_to_intent(query="Summarize the failed login spike alert for user jdoe in the last hour", query_understanding=understanding)
-    assert result.intent_classification.intent_family == "hybrid_alert_review"
+    assert result.intent_classification.intent_family == "alert_summary"
+    assert result.intent_classification.requested_output_type == "SUMMARY"
 
 
 def test_catalog_knowledge_query_stays_knowledge_not_investigation() -> None:
@@ -50,7 +51,8 @@ def test_alert_with_mitre_context_is_alert_review_not_knowledge() -> None:
     # explicit_mitre_context on an alert query must NOT divert it to knowledge.
     q = "Summarize the failed login spike alert for user jdoe in the last hour"
     result = build_query_to_intent(query=q, query_understanding=understand_query(q))
-    assert result.intent_classification.intent_family == "hybrid_alert_review"
+    assert result.intent_classification.intent_family == "alert_summary"
+    assert result.intent_classification.requested_output_type == "SUMMARY"
 
 
 def test_truly_ambiguous_query_still_clarifies() -> None:

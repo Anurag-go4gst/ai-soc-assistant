@@ -18,11 +18,85 @@ from app.chat.query_signals import extract_query_signals
 from app.config import settings
 from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
 from app.coverage.question_runtime_map import question_runtime_entry
-from app.query_understanding.models import QueryUnderstandingResult
+from app.query_understanding.models import QueryUnderstandingResult, RequestedOutputType
+from app.query_understanding.soc_investigation_shape import detect_investigation_request
 from app.use_cases.registry import load_use_case_catalog
 
 
 _CATALOG_MATCH_PATHS = frozenset({"use_case_catalog", "exact_105_plus_use_case_catalog"})
+
+_SUMMARY_OUTPUT_MARKERS = (
+    "summarize",
+    "summarise",
+    "summary for",
+    "concise analyst summary",
+    "shift handoff",
+    "produce a soc summary",
+    "analyst handoff",
+    "soc summary from",
+)
+
+_EXPLICIT_GUIDED_MARKERS = (
+    "guided investigation",
+    "guided triage",
+    "guided path",
+    "investigation branches",
+    "investigation branch",
+    "guide investigation",
+    "build guided",
+    "provide guided",
+)
+
+
+def _is_summary_output_request(
+    query: str,
+    signals: dict[str, Any],
+    query_understanding: QueryUnderstandingResult | None,
+) -> bool:
+    """Analyst asks for a concise handoff/summary, not log search or SPL drafting."""
+    if signals.get("explicit_search_intent") or signals.get("explicit_run_spl") or signals.get("run_execution"):
+        return False
+    if query_understanding is not None and query_understanding.requested_output_type == RequestedOutputType.SUMMARY:
+        return True
+    normalized = " ".join(query.lower().split())
+    return any(marker in normalized for marker in _SUMMARY_OUTPUT_MARKERS)
+
+
+def _is_explicit_guided_investigation_request(query: str) -> bool:
+    """Explicit guided-investigation phrasing or evidence-led triage framing."""
+    normalized = " ".join(query.lower().split())
+    if any(marker in normalized for marker in _EXPLICIT_GUIDED_MARKERS):
+        return True
+    return detect_investigation_request(query)
+
+
+def _build_alert_summary_classification(*, reason: str, confidence: float = 0.78) -> IntentClassification:
+    return _build_classification(
+        intent_family="alert_summary",
+        primary_intent="alert_summary",
+        query_type="ask_for_explanation",
+        answer_goal=["severity_assessment", "analyst_action_guidance"],
+        confidence=confidence,
+        requires_clarification=False,
+        action_mode="recommend_only",
+        reason=reason,
+        requested_output_type="SUMMARY",
+    )
+
+
+def _build_guided_investigation_classification(*, reason: str, confidence: float = 0.52) -> IntentClassification:
+    return _build_classification(
+        intent_family="guided_investigation",
+        primary_intent="investigation_guidance",
+        query_type="investigation_with_guidance",
+        answer_goal=["procedural_steps", "analyst_action_guidance"],
+        confidence=confidence,
+        requires_clarification=False,
+        requires_hil=True,
+        action_mode="recommend_only",
+        reason=reason,
+        requested_output_type="INVESTIGATION",
+    )
 
 
 def _effective_match_path(
@@ -559,6 +633,16 @@ def classify_intent(
             signals.get("analytics_aggregation")
             or skill_hint in {"spl_search", "spl_generation", "aggregate_and_rank", "threshold_anomaly"}
         )
+        if _is_summary_output_request(query, signals, query_understanding) and not spl_shaped:
+            return _build_alert_summary_classification(
+                reason="Maps to a catalog use case with summary-output intent; alert-summary path (no SPL).",
+                confidence=0.8,
+            )
+        if _is_explicit_guided_investigation_request(query) and not spl_shaped:
+            return _build_guided_investigation_classification(
+                reason="Maps to a catalog use case with explicit guided-investigation intent.",
+                confidence=0.74,
+            )
         if knowledge_shaped:
             return _build_classification(
                 intent_family="knowledge_only",
@@ -581,17 +665,14 @@ def classify_intent(
                 reason="Maps to a catalog analytics/search use case; review-only SPL drafting, execution disabled.",
                 requested_output_type="SPL",
             )
-        if signals.get("alert_summary_shaped") or signals.get("alert_context_present"):
-            return _build_classification(
-                intent_family="hybrid_alert_review",
-                primary_intent="attack_discovery",
-                query_type="investigation_with_guidance",
-                answer_goal=["procedural_steps", "analyst_action_guidance"],
-                confidence=0.72,
-                requires_clarification=False,
-                action_mode="recommend_only",
-                reason="Maps to a catalog alert/review use case; route to the registry skill (review-only).",
-                requested_output_type="INVESTIGATION",
+        if (
+            _is_summary_output_request(query, signals, query_understanding)
+            or signals.get("alert_summary_shaped")
+            or signals.get("alert_context_present")
+        ):
+            return _build_alert_summary_classification(
+                reason="Maps to a catalog alert/review use case; alert-summary path (review-only).",
+                confidence=0.76,
             )
         return _build_classification(
             intent_family="live_investigation",
@@ -625,6 +706,20 @@ def classify_intent(
             requires_clarification=True,
             reason="Request is out of SOC scope; clarification recommended.",
             requested_output_type=None,
+        )
+
+    if _is_summary_output_request(query, signals, query_understanding):
+        return _build_alert_summary_classification(
+            reason="Summary-output request without a registry match; alert-summary path (no SPL).",
+            confidence=0.7,
+        )
+
+    if _is_explicit_guided_investigation_request(query):
+        return _build_guided_investigation_classification(
+            reason=(
+                "Explicit guided-investigation or evidence-led triage request without a "
+                "registry match; governed review-only guidance."
+            ),
         )
 
     if signals.get("soc_detection_intent"):

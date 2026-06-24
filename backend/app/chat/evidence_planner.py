@@ -96,6 +96,26 @@ def plan_evidence(
             )
         )
 
+    if family == "alert_summary":
+        return with_enrichment(
+            EvidencePlan(
+                answer_mode="rag_only",
+                rag_phase="rag_only",
+                needs_rag=False,
+                needs_spl=False,
+                needs_mcp=False,
+                needs_mitre=False,
+                spl_allowed=False,
+                mcp_allowed=False,
+                policy_context_required=False,
+                policy_context_recommended=False,
+                requires_hil=False,
+                action_mode="recommend_only",
+                rag_no_match_behavior="general_guidance_allowed",
+                reasons=["alert_summary_no_spl"],
+            )
+        )
+
     if family == "guided_investigation":
         return with_enrichment(
             EvidencePlan(
@@ -105,7 +125,7 @@ def plan_evidence(
                 needs_spl=False,
                 needs_mcp=False,
                 needs_mitre=False,
-                spl_allowed=True,
+                spl_allowed=False,
                 mcp_allowed=False,
                 policy_context_required=False,
                 policy_context_recommended=True,
