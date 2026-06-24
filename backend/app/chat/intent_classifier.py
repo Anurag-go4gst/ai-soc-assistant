@@ -269,6 +269,27 @@ def classify_intent(
         )
 
     if (
+        str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+        and signals.get("live_data_request")
+        and not signals.get("guidance_request")
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+    ):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.62,
+            requires_clarification=False,
+            reason=(
+                "Out-of-registry live data retrieval; review-only SPL path "
+                "(execution disabled, no live-result claims)."
+            ),
+            requested_output_type="SPL",
+        )
+
+    if (
         (
             signals.get("investigation_hypothesis_guidance")
             or (
@@ -280,6 +301,7 @@ def classify_intent(
         and not signals.get("block_or_contain")
         and not signals.get("explicit_run_spl")
         and not signals.get("spl_generation")
+        and not signals.get("live_data_request")
     ):
         return _build_classification(
             intent_family="guided_investigation",
@@ -299,6 +321,7 @@ def classify_intent(
         and str(candidate_mappings.get("match_path") or "") == "out_of_registry"
         and not signals.get("block_or_contain")
         and not signals.get("explicit_run_spl")
+        and not signals.get("live_data_request")
     ):
         return _build_classification(
             intent_family="guided_investigation",
@@ -728,11 +751,6 @@ def classify_intent(
                 reason="Maps to a catalog use case with summary-output intent; alert-summary path (no SPL).",
                 confidence=0.8,
             )
-        if _is_explicit_guided_investigation_request(query) and not spl_shaped:
-            return _build_guided_investigation_classification(
-                reason="Maps to a catalog use case with explicit guided-investigation intent.",
-                confidence=0.74,
-            )
         if knowledge_shaped:
             return _build_classification(
                 intent_family="knowledge_only",
@@ -827,7 +845,7 @@ def classify_intent(
             requested_output_type="SPL",
         )
 
-    if signals.get("soc_actionable_hunt"):
+    if signals.get("soc_actionable_hunt") and not signals.get("live_data_request"):
         return _build_classification(
             intent_family="guided_investigation",
             primary_intent="investigation_guidance",

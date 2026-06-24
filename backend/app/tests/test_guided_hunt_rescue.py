@@ -58,8 +58,8 @@ def test_build_guided_hunt_grounding_carries_unverified_banner() -> None:
     )
     trace = guided_hunt_grounding_trace(block)
     assert trace["advisory_only"] is True
-    assert "unverified" in trace["unverified_banner"].lower()
-    assert any("unverified" in item.lower() for item in block.limitations)
+    assert "review-only" in trace["unverified_banner"].lower()
+    assert any("review-only" in item.lower() for item in block.limitations)
     assert block.ai_threat_signal is True
 
 

@@ -9,6 +9,7 @@ from app.chat.answer_shape_router import is_regulatory_reporting_query
 from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
 from app.query_understanding.models import QueryUnderstandingResult
 from app.query_understanding.soc_investigation_shape import (
+    detect_hunt_hypothesis_guidance_phrasing,
     detect_investigation_hypothesis_guidance,
     detect_soc_investigation_shape,
 )
@@ -79,6 +80,9 @@ def _explicit_log_search_requested(normalized: str) -> bool:
             "find successful logins",
             "find successful vpn logins",
             "find successful established connections",
+            "check logs for",
+            "give me current",
+            "map all external",
         )
     )
 
@@ -251,6 +255,10 @@ def extract_query_signals(
             "find ",
             "show ",
             "list ",
+            "give me",
+            "map ",
+            "map all",
+            "check logs",
             "investigate",
             "search for",
             "search logs",
@@ -260,6 +268,10 @@ def extract_query_signals(
             "look for",
             "top users",
             "which users",
+            "which hosts",
+            "which accounts",
+            "which ip",
+            "current ",
         )
     ) or explicit_log_search
     negative_successful_login = any(
@@ -572,6 +584,8 @@ def extract_query_signals(
         term in normalized
         for term in (
             "how should soc",
+            "how should i investigate",
+            "how should we investigate",
             "what should soc",
             "how should we",
             "what should we",
@@ -753,6 +767,37 @@ def extract_query_signals(
     cross_skill_investigation = is_cross_skill_investigation_query(query)
     cve_focus_investigation = is_cve_focus_query(query)
 
+    guidance_request = bool(
+        procedural_investigation
+        or investigation_triage_guidance
+        or investigation_hypothesis_guidance
+        or detect_hunt_hypothesis_guidance_phrasing(query)
+        or sop_show_request
+        or (playbook_procedure and not live_investigation_verbs)
+    )
+    _projected_needs_spl = bool(
+        (spl_generation and not block_or_contain)
+        or (
+            live_investigation_verbs
+            and not policy_terms
+            and not block_or_contain
+            and not spl_suppressed
+        )
+    )
+    live_data_request = bool(
+        not block_or_contain
+        and not explicit_run_spl
+        and not guidance_request
+        and not mitre_evidence_threshold
+        and not use_case_review_guidance
+        and not conceptual_mitre_judgment
+        and (
+            explicit_search_intent
+            or soc_actionable_hunt
+            or _projected_needs_spl
+        )
+    )
+
     soc_detection_intent = bool(
         (
             analytics_aggregation
@@ -768,7 +813,7 @@ def extract_query_signals(
         and not non_soc_or_out_of_scope
         and not block_or_contain
         and not explicit_run_spl
-        and not soc_investigation_shaped
+        and not (soc_investigation_shaped and guidance_request)
         and not github_investigation_shaped
         and not cve_focus_investigation
     )
@@ -849,6 +894,8 @@ def extract_query_signals(
         "github_investigation_shaped": github_investigation_shaped,
         "cross_skill_investigation": cross_skill_investigation,
         "cve_focus_investigation": cve_focus_investigation,
+        "live_data_request": live_data_request,
+        "guidance_request": guidance_request,
         "soc_actionable_hunt": soc_actionable_hunt,
         "soc_detection_intent": soc_detection_intent,
         "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),
@@ -895,7 +942,8 @@ def extract_query_signals(
 # telemetry / OT lexicon. Both must fire (plus the negative guards in
 # extract_query_signals) for soc_actionable_hunt.
 _DETECTION_VERB_RE = re.compile(
-    r"\b(?:show|list|identify|flag|detect|find any|locate|review|correlate|audit|trace|hunt for)\b"
+    r"\b(?:show|list|identify|flag|detect|find any|locate|review|correlate|audit|trace|hunt for|"
+    r"which hosts|which users|which accounts|which ips?|give me|map|check)\b"
     r"|\balert on\b"
     r"|\b(?:are|is) there\b",
     re.IGNORECASE,
@@ -1032,3 +1080,12 @@ def _spl_generation_requested(normalized: str) -> bool:
     if normalized.startswith("draft a splunk") or normalized.startswith("draft splunk"):
         return True
     return False
+
+def is_guidance_request(signals: dict[str, Any]) -> bool:
+    """Procedural / triage / SOP asks — not live telemetry retrieval."""
+    return bool(signals.get("guidance_request"))
+
+
+def is_live_data_request(signals: dict[str, Any]) -> bool:
+    """Enumeration or search-shaped SOC ask expecting data rows or SPL, not hunt prose."""
+    return bool(signals.get("live_data_request"))

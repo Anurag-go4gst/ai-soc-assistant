@@ -719,6 +719,9 @@ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-2
             r"control\s+center",
             r"firewall\s+log",
             r"ot\s+vlan",
+            r"substation",
+            r"remote\s+access",
+            r"external\s+connection",
         ),
         draft_spl="""
 search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now (action=allowed OR action=accept OR action=permit OR action=success)
@@ -2401,6 +2404,16 @@ def match_detection_family(user_query: str) -> str | None:
     if not text:
         return None
     normalized = " ".join(text.lower().split())
+    if re.search(
+        r"\b(?:external connections?|remote access(?:\s+sessions?)?|vpn sessions?)\b",
+        normalized,
+    ) and re.search(
+        r"\b(?:substation|ot\s+network|ot\s+segment|control\s+room|electronic\s+security\s+perimeter|it[\s-]to[\s-]ot)\b",
+        normalized,
+    ):
+        return "esp_it_to_ot_connection"
+    if re.search(r"\bmapping\b", normalized) and "substation" in normalized:
+        return "esp_it_to_ot_connection"
     if re.search(r"\b(denied|blocked|drop|reject)\b", normalized) and (
         "ot" in normalized or "internet" in normalized or "egress" in normalized
     ):
@@ -2603,6 +2616,93 @@ def _governed_template_missing(spl_validation: dict[str, Any] | None) -> bool:
     return not _is_governed_spl_ready(spl_validation)
 
 
+
+GENERIC_LIVE_DATA_FAMILY_ID = "unmapped_live_data_request"
+
+_GENERIC_LIVE_DATA_SKELETON_SPL = """
+search index=<index> sourcetype=<sourcetype> earliest=-24h latest=now
+| fields _time src dest user action status src_ip dest_ip dest_port app
+| sort - _time
+| head 100
+""".strip()
+
+
+def has_strong_detection_family_match(user_query: str) -> bool:
+    """True only when the keyword matcher returns a high-confidence family."""
+    return bool(match_detection_family(user_query))
+
+
+def build_generic_live_data_spl_skeleton(user_query: str) -> dict[str, Any]:
+    """Conservative review-only SPL scaffold when no family strongly matches."""
+    normalized = " ".join((user_query or "").lower().split())
+    binding_hints: list[str] = [
+        "Confirm index and sourcetype from your Environment KB / source profile before review.",
+        "Adjust earliest/latest to match the analyst observation window.",
+    ]
+    if "vpn" in normalized or "session" in normalized:
+        binding_hints.append("Scope to VPN concentrator or remote-access auth sourcetypes.")
+    if "privileged" in normalized or "admin" in normalized:
+        binding_hints.append("Add user/privilege filters during SOC review — not pre-filled here.")
+    if any(term in normalized for term in ("dns", "domain", "beacon")):
+        binding_hints.append("Use DNS index/sourcetype placeholders from your DNS source profile.")
+    if any(term in normalized for term in ("firewall", "connection", "traffic", "ot", "substation")):
+        binding_hints.append(
+            "For IT/OT boundary asks, bind firewall index/sourcetype and zone labels explicitly — "
+            "do not assume a template family without a strong match."
+        )
+    assumptions = (
+        "Unmapped live-data request: no strong detection-family match; generic skeleton only.",
+        "Not governed, not approved, not executed. Bind index/sourcetype/time before any future execution path.",
+        *binding_hints,
+    )
+    validation = validate_spl(build_generic_live_data_spl_skeleton_spl := _GENERIC_LIVE_DATA_SKELETON_SPL)
+    return {
+        "draft_spl": build_generic_live_data_spl_skeleton_spl,
+        "draft_status": DRAFT_STATUS,
+        "draft_source": DRAFT_SOURCE,
+        "quality_standard": STANDARD_ID,
+        "detection_family": GENERIC_LIVE_DATA_FAMILY_ID,
+        "family_title": "Unmapped live-data search (review-only skeleton)",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — generic lab skeleton, bindings required, not executed",
+        "assumptions": assumptions,
+        "customization_applied": False,
+        "required_log_fields": ("_time", "src", "dest", "user", "action", "status"),
+        "required_source_profile_fields": ("index", "sourcetype"),
+        "required_source_fields": ("index", "sourcetype"),
+        "investigation_checklist": (
+            "Confirm index, sourcetype, and time window with the operator.",
+            "Validate whether a governed template or detection family should be promoted for this ask.",
+            "Do not treat this skeleton as executed telemetry or confirmed findings.",
+        ),
+        "scope_notice": (
+            "Generic scaffold only — no strong template-family match. "
+            "Analyst must bind sources before SOC review."
+        ),
+        "source_profile_missing": True,
+        "governed_template_missing": True,
+        "validator_status": "approved" if validation.get("approved") else "blocked",
+        "validator_reject_reasons": list(validation.get("reject_reasons") or []),
+        "quality_status": "advisory",
+        "hard_fail_count": 0,
+        "warning_count": 0,
+        "advisory_count": 1,
+        "quality_findings": [],
+        "draft_lint_status": "passed",
+        "draft_lint_violations": [],
+        "draft_quality": {"quality_status": "advisory", "hard_fail_count": 0, "findings": []},
+        "review_required": True,
+        "execution_enabled": False,
+        "execution_eligible": False,
+        "governed": False,
+        "catalog_approved": False,
+        "warning": DRAFT_WARNING,
+        "not_catalog_approved_notice": "Not catalog-approved / review required.",
+        "template_match_strength": "none",
+    }
+
+
+
 def build_draft_preview(
     user_query: str,
     *,
@@ -2611,6 +2711,7 @@ def build_draft_preview(
     unsafe_enforcement: bool = False,
     pattern_type: str | None = None,
     use_case_id: str | None = None,
+    live_data_request: bool = False,
 ) -> dict[str, Any] | None:
     """Build a lab-only draft preview dict when the flag is enabled and query matches.
 
@@ -2628,16 +2729,22 @@ def build_draft_preview(
     resolved_family = family_id
     if resolved_family is None:
         keyword_family = match_detection_family(user_query)
-        pattern_family = (
-            PATTERN_TYPE_FAMILY_FALLBACK.get(pattern_type) if pattern_type else None
-        )
-        if keyword_family in _PARAPHRASE_KEYWORD_FAMILY_OVERRIDES:
-            resolved_family = keyword_family
-        elif pattern_family:
-            resolved_family = pattern_family
-        elif keyword_family:
-            resolved_family = keyword_family
-    if resolved_family is None and use_case_id:
+        if live_data_request:
+            if keyword_family:
+                resolved_family = keyword_family
+            else:
+                return build_generic_live_data_spl_skeleton(user_query)
+        else:
+            pattern_family = (
+                PATTERN_TYPE_FAMILY_FALLBACK.get(pattern_type) if pattern_type else None
+            )
+            if keyword_family in _PARAPHRASE_KEYWORD_FAMILY_OVERRIDES:
+                resolved_family = keyword_family
+            elif pattern_family:
+                resolved_family = pattern_family
+            elif keyword_family:
+                resolved_family = keyword_family
+    if resolved_family is None and use_case_id and not live_data_request:
         resolved_family = CATALOGUE_USE_CASE_FAMILY.get(use_case_id)
     family = _family_by_id(resolved_family) if resolved_family else None
     if family is None:
@@ -2665,6 +2772,7 @@ def build_draft_preview(
         "draft_source": DRAFT_SOURCE,
         "quality_standard": STANDARD_ID,
         "detection_family": family.family_id,
+        "template_match_strength": "strong",
         "family_title": presentation["title"],
         "review_type": presentation["review_type"],
         "review_type_display": presentation["review_type_display"],

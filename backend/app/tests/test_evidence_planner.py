@@ -18,13 +18,13 @@ def test_policy_knowledge_is_rag_only_with_policy_context_required() -> None:
     assert plan.mcp_allowed is False
 
 
-def test_live_investigation_allows_spl_and_mcp() -> None:
+def test_out_of_registry_live_data_allows_spl_not_mcp() -> None:
     plan = _plan("Find failed-login users in the last 24 hours")
     assert plan.answer_mode == "live_investigation"
     assert plan.needs_spl is True
-    assert plan.needs_mcp is True
+    assert plan.needs_mcp is False
     assert plan.spl_allowed is True
-    assert plan.mcp_allowed is True
+    assert plan.mcp_allowed is False
 
 
 def test_spl_generation_allows_spl_but_not_mcp() -> None:

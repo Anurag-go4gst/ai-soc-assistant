@@ -22,8 +22,11 @@ if _env.exists():
         key, value = line.split("=", 1)
         os.environ.setdefault(key.strip(), value.strip())
 
-settings.control_plane_enabled = True
-settings.ai_soc_t2_answer_shape_enabled = True
+@pytest.fixture(autouse=True)
+def _enable_track_a_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_t2_answer_shape_enabled", True)
+
 
 _GUIDED_PROBE = (
     "Build a guided investigation for contractor VPN, OT bastion login, "

@@ -1,14 +1,14 @@
 {
   "name": "Out-of-catalog OT analyst asks",
   "version": "2026-06-24",
-  "purpose": "Natural-language OT/substation asks not in 105/50 catalogue; asserts signal class, guided shape, and action hygiene.",
+  "purpose": "Natural-language OT/substation asks not in 105/50 catalogue; live-data retrieval routes to spl_generation (review-only SPL); asserts hygiene, draft/SPL presence, and action bounds.",
   "probes": [
     {
       "id": "ot_oc_01",
       "category": "remote_access_substation",
       "query": "Show me all external connections or remote access sessions currently mapping to the substation networks.",
       "expect": {
-        "selected_skill": "guided_investigation",
+        "selected_skill": "spl_generation",
         "match_path": [
           "out_of_registry",
           "semantic_out_of_registry"
@@ -48,7 +48,7 @@
       "category": "remote_access_substation",
       "query": "List VPN sessions into OT substation VLAN 140 from external IPs in the last 24 hours.",
       "expect": {
-        "selected_skill": "guided_investigation",
+        "selected_skill": "spl_generation",
         "match_path": [
           "out_of_registry",
           "semantic_out_of_registry"
@@ -63,7 +63,8 @@
         "unique_action_prefixes": true,
         "require_message_markers": [
           "signal class",
-          "vpn"
+          "vpn",
+          "review"
         ],
         "forbid_execution_claim": true
       }
@@ -73,7 +74,7 @@
       "category": "remote_access_substation",
       "query": "Which bastion or jump hosts show active remote desktop sessions into substation SCADA networks?",
       "expect": {
-        "selected_skill": "guided_investigation",
+        "selected_skill": "spl_generation",
         "match_path": [
           "out_of_registry",
           "semantic_out_of_registry"
@@ -105,7 +106,7 @@
       "category": "remote_access_substation",
       "query": "Show external connections hitting our substation firewall zones right now.",
       "expect": {
-        "selected_skill": "guided_investigation",
+        "selected_skill": "spl_generation",
         "signal_class": "identity_anomaly",
         "forbid_signal_classes": [
           "network_beacon"
@@ -116,7 +117,8 @@
         "unique_action_prefixes": true,
         "require_message_markers": [
           "external",
-          "signal class"
+          "signal class",
+          "review"
         ],
         "forbid_execution_claim": true
       }
@@ -126,7 +128,7 @@
       "category": "protocol_hunt",
       "query": "Identify any cleartext Modbus writes targeting protection relays on substation 12.",
       "expect": {
-        "selected_skill": "guided_investigation",
+        "selected_skill": "spl_generation",
         "signal_class": "protocol_command",
         "forbid_signal_classes": [
           "network_beacon",
@@ -136,7 +138,8 @@
         "min_recommended_actions": 3,
         "require_message_markers": [
           "modbus",
-          "signal class"
+          "signal class",
+          "review"
         ],
         "require_hypothesis_markers": [
           "command",
@@ -152,7 +155,7 @@
       "category": "vendor_remote_access",
       "query": "List vendor remote access sessions currently active on substation OT network segments.",
       "expect": {
-        "selected_skill": "guided_investigation",
+        "selected_skill": "spl_generation",
         "signal_class": "identity_anomaly",
         "forbid_signal_classes": [
           "network_beacon"
@@ -169,7 +172,8 @@
         "forbid_execution_claim": true,
         "require_message_markers": [
           "vendor",
-          "signal class"
+          "signal class",
+          "review"
         ]
       }
     }

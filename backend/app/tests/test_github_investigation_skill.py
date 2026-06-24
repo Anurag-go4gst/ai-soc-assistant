@@ -93,10 +93,10 @@ def test_github_evidence_checklist_in_plan(query: str) -> None:
     assert _github_evidence_field_count(joined) >= 3
 
 
-def test_github_live_pipeline_returns_guidance_card() -> None:
-    settings.control_plane_enabled = True
-    settings.ai_soc_t2_answer_shape_enabled = True
-    settings.ai_soc_t2_rag_surfacing_enabled = True
+def test_github_live_pipeline_returns_guidance_card(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_t2_answer_shape_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_t2_rag_surfacing_enabled", True)
     response = build_live_chat_response(ChatRequest(message=PAT_WORKFLOW_QUERY))
     assert response.analyst_response is not None
     blob = (response.message or "") + (response.analyst_response.direct_answer_summary or "")

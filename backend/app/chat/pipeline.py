@@ -175,6 +175,7 @@ from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
 from app.chat.mitre_branch import planner_mitre_branch_suppressed_decision, run_mitre_evidence_branch
+from app.chat.hil_resolution import resolve_effective_hil_required
 from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.pipeline_visibility import build_pipeline_visibility
@@ -1055,6 +1056,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
         pattern_type=exact_105_pattern,
         use_case_id=draft_use_case_id,
+        live_data_request=_live_data_request_from_state(state),
     )
     llm_spl_candidate = _llm_spl_candidate_stage(
         skill=effective_skill,
@@ -1177,6 +1179,44 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
 
     return {**state, "execution": execution, "human_review": human_review}
 
+
+
+def _live_data_request_from_state(state: ChatPipelineState) -> bool:
+    signals = _query_signals_from_state(state) or {}
+    return bool(signals.get("live_data_request"))
+
+
+def _apply_effective_hil_to_state(
+    state: ChatPipelineState,
+    *,
+    answer_contract: Any | None,
+    execution_authorized: bool,
+) -> ChatPipelineState:
+    evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
+    intent = state.get("intent_classification") if isinstance(state.get("intent_classification"), dict) else {}
+    effective_hil = resolve_effective_hil_required(
+        evidence_plan=evidence_plan,
+        answer_contract=answer_contract,
+        human_review=state.get("human_review") if isinstance(state.get("human_review"), dict) else None,
+        execution=state.get("execution") if isinstance(state.get("execution"), dict) else None,
+        live_data_request=_live_data_request_from_state(state),
+        execution_authorized=execution_authorized,
+        intent_requires_hil=bool(intent.get("requires_hil")),
+    )
+    updated: ChatPipelineState = dict(state)
+    planning = state.get("planning_decision")
+    if isinstance(planning, dict):
+        planning_copy = {**planning, "hil_required": effective_hil, "effective_hil_required": effective_hil}
+        updated["planning_decision"] = planning_copy
+    governance = state.get("governance_trace")
+    if governance is not None:
+        if isinstance(governance, dict):
+            updated["governance_trace"] = {**governance, "effective_hil_required": effective_hil}
+        else:
+            updated["governance_trace"] = governance.model_copy(
+                update={"effective_hil_required": effective_hil}
+            )
+    return updated
 
 def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
     request = state["request"]
@@ -1592,8 +1632,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             guard_signals.get("exact_105_analytics")
             or guard_signals.get("exact_105_hunt_spl")
             or guard_signals.get("analytics_aggregation")
+            or guard_signals.get("live_data_request")
             or guard_intent.get("intent_family")
-            in ("spl_generation_only", "live_investigation", "clarification_required")
+            in (
+                "spl_generation_only",
+                "live_investigation",
+                "clarification_required",
+                "guided_investigation",
+            )
         ),
         alert_context_present=guard_alert_reference,
     )
@@ -2443,6 +2489,40 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 "synthesis_readiness": False,
             }
             response_mode = _response_mode(context_sufficiency, human_review, spl_validation)
+
+    execution_authorized = bool(
+        isinstance(execution, dict)
+        and str(execution.get("status") or "").lower()
+        in {"executed", "executed_mock_evidence", "executed_live_evidence", "success"}
+    )
+    _intent_for_hil = intent_classification if isinstance(intent_classification, dict) else {}
+    effective_hil_required = resolve_effective_hil_required(
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+        answer_contract=answer_contract,
+        human_review=human_review if isinstance(human_review, dict) else None,
+        execution=execution if isinstance(execution, dict) else None,
+        live_data_request=_live_data_request_from_state(state),
+        execution_authorized=execution_authorized,
+        intent_requires_hil=bool(_intent_for_hil.get("requires_hil")),
+    )
+    if isinstance(state.get("planning_decision"), dict):
+        state = {
+            **state,
+            "planning_decision": {
+                **state["planning_decision"],
+                "hil_required": effective_hil_required,
+                "effective_hil_required": effective_hil_required,
+            },
+        }
+    if governance_trace is not None:
+        if isinstance(governance_trace, dict):
+            governance_trace = {**governance_trace, "effective_hil_required": effective_hil_required}
+        else:
+            governance_trace = governance_trace.model_copy(
+                update={"effective_hil_required": effective_hil_required}
+            )
+    if isinstance(human_review, dict):
+        human_review = {**human_review, "effective_hil_required": effective_hil_required}
 
     # P1 steps 4–5: deterministic skill-contribution contract + investigation floor.
     # Records what the selected skill contributed to the finalized card (sections,

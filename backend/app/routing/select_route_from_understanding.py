@@ -267,7 +267,10 @@ def _route_out_of_registry(
     # The family matcher is greedy (it fires on PMU/HMI nouns), so without this an
     # "evidence-led investigation plan" was being pulled into the SPL path. Genuine
     # knowledge-explanation openers are excluded inside the detector.
-    if not action and detect_investigation_request(query):
+    live_data = bool(signals.get("live_data_request"))
+    guidance = bool(signals.get("guidance_request"))
+
+    if not action and detect_investigation_request(query) and not live_data:
         return _route_guided_investigation_rescue(
             understanding,
             query,
@@ -292,7 +295,15 @@ def _route_out_of_registry(
             reason="out_of_registry_spl_artifact_floor",
         )
 
-    if understanding.soc_investigation_shaped and not action:
+    if not action and live_data and not guidance:
+        return _route_detection_spl(
+            understanding,
+            query,
+            keyword_would_have,
+            reason="out_of_registry_unmapped_live_data_request",
+        )
+
+    if understanding.soc_investigation_shaped and not action and not live_data:
         return _route_guided_investigation_rescue(
             understanding,
             query,
@@ -380,9 +391,9 @@ def _route_detection_spl(
 def _detection_family_match(query: str) -> bool:
     """True when the deterministic keyword matcher maps the query to a draft family."""
     try:
-        from app.spl.draft_preview import match_detection_family
+        from app.spl.draft_preview import has_strong_detection_family_match
 
-        return bool(match_detection_family(query))
+        return bool(has_strong_detection_family_match(query))
     except Exception:
         return False
 

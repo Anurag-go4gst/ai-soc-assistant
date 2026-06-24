@@ -141,6 +141,7 @@ class GovernanceTrace(BaseModel):
     answer_scorecard_panel: dict[str, Any] | None = None
     narration_visibility_panel: dict[str, Any] | None = None
     progress_labels: list[str] = Field(default_factory=list)
+    effective_hil_required: bool | None = None
 
 
 def build_governance_trace(

@@ -14,6 +14,9 @@ from app.knowledge.mapping_exports import load_github_intake_register
 from app.threat.attack_data_resolver import technique_resolver_from_settings
 
 T2_UNVERIFIED_BANNER = (
+    "Out-of-catalogue, review-only — validate against local telemetry and policy."
+)
+T2_LLM_ASSISTED_BANNER = (
     "LLM-assisted, out-of-catalogue, unverified — validate against local telemetry and policy."
 )
 _T2_UNVERIFIED_BANNER = T2_UNVERIFIED_BANNER  # backwards-compatible private alias

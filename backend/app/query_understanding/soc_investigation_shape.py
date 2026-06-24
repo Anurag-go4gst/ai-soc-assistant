@@ -238,6 +238,30 @@ _DETECTION_IMPERATIVES = (
     "which accounts",
     "which endpoints",
 )
+# Enumeration asks ("show/list all connections") request a result set, not hunt prose.
+_SPL_ENUMERATION_IMPERATIVES = (
+    "show me all ",
+    "show me ",
+    "list all ",
+    "list ",
+    "give me ",
+    "map all ",
+    "check logs for ",
+)
+_SPL_ENUMERATION_OBJECTS = (
+    "connection",
+    "session",
+    "traffic",
+    "mapping",
+    "event",
+    "log",
+)
+_SHOW_ME_KNOWLEDGE_GUARDS = (
+    "show me the sop",
+    "show me the playbook",
+    "show me the runbook",
+    "show me the soc checklist",
+)
 
 # Open-ended hunt-hypothesis asks ("Anything to hunt for…", "What should I hunt
 # for…") are investigation guidance, NOT a concrete SPL artifact request. They must
@@ -248,6 +272,9 @@ _HUNT_HYPOTHESIS_GUARD = (
     "what should we hunt",
     "where should i start",
     "how should i investigate",
+    "can you help investigate",
+    "help investigate",
+    "help me investigate",
     "what should soc check",
     "what should analyst",
     "what evidence should i collect",
@@ -286,6 +313,12 @@ def detect_spl_artifact_request(query: str) -> bool:
     ):
         return True
     if any(imperative in normalized for imperative in _DETECTION_IMPERATIVES):
+        return True
+    if any(guard in normalized for guard in _SHOW_ME_KNOWLEDGE_GUARDS):
+        return False
+    if any(imperative in normalized for imperative in _SPL_ENUMERATION_IMPERATIVES) and any(
+        obj in normalized for obj in _SPL_ENUMERATION_OBJECTS
+    ):
         return True
     return False
 
@@ -378,3 +411,9 @@ def detect_soc_investigation_shape(query: str, *, exact_105_match: bool = False)
         and not knowledge_meta
         and not exact_105_match
     )
+
+
+def detect_hunt_hypothesis_guidance_phrasing(query: str) -> bool:
+    """Triage/hypothesis phrasing that must not be treated as live-data retrieval."""
+    normalized = " ".join((query or "").lower().split())
+    return any(guard in normalized for guard in _HUNT_HYPOTHESIS_GUARD)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.chat.guidance_templates import build_cve_investigation_guidance, is_mitre_evidence_threshold_query
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.pipeline import build_live_chat_response
@@ -18,6 +20,11 @@ MITRE_QUERY = (
     "MITRE focus: map suspicious OT remote command sequence to ATT&CK for ICS with status "
     "labels (confirmed/candidate/not-claimed) and explain evidence thresholds."
 )
+@pytest.fixture(autouse=True)
+def _enable_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+
+
 CROSS_SKILL_QUERY = (
     "Cross-skill check: combine CVE context, MITRE candidate mapping, and GitHub commit "
     "timeline into one review-only investigation plan."
@@ -42,7 +49,6 @@ def test_cross_skill_intent() -> None:
 
 
 def test_cve_live_pipeline_has_vulnerability_source_and_substance() -> None:
-    settings.control_plane_enabled = True
     response = build_live_chat_response(ChatRequest(message=CVE_QUERY))
     blob = (response.message or "") + (response.analyst_response.direct_answer_summary or "")
     assert "cve-2024-6387" in blob.lower()
@@ -55,7 +61,6 @@ def test_cve_live_pipeline_has_vulnerability_source_and_substance() -> None:
 
 
 def test_mitre_threshold_live_not_clarification_stub() -> None:
-    settings.control_plane_enabled = True
     response = build_live_chat_response(ChatRequest(message=MITRE_QUERY))
     msg = response.message or ""
     assert "need alert context" not in msg.lower()
@@ -67,7 +72,6 @@ def test_mitre_threshold_live_not_clarification_stub() -> None:
 
 
 def test_cross_skill_live_has_three_legs() -> None:
-    settings.control_plane_enabled = True
     response = build_live_chat_response(ChatRequest(message=CROSS_SKILL_QUERY))
     blob = (response.message or "") + (response.analyst_response.direct_answer_summary or "")
     lowered = blob.lower()

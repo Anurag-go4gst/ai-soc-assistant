@@ -556,7 +556,69 @@ def _dedupe_labels(payload: dict[str, Any], contract: AnswerContract) -> dict[st
     return payload
 
 
+
+
+_EXECUTED_EVIDENCE_STATUSES = frozenset({"executed", "executed_mock_evidence", "executed_live_evidence"})
+
+_LIVE_RESULT_PHRASES_WITHOUT_EVIDENCE = (
+    re.compile(r"\bdetected\b", re.I),
+    re.compile(r"\bobserved\b", re.I),
+    re.compile(r"\bfound\b", re.I),
+    re.compile(r"currently showing", re.I),
+    re.compile(r"\bmapped to\b", re.I),
+    re.compile(r"\bconfirmed\b", re.I),
+    re.compile(r"evidence shows", re.I),
+    re.compile(r"results indicate", re.I),
+)
+
+
+def _has_collected_live_evidence(payload: dict[str, Any], contract: AnswerContract) -> bool:
+    if contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES:
+        return False
+    table = payload.get("splunk_results_table") or []
+    return bool(table)
+
+
+def _scrub_live_result_claims_without_evidence(text: str) -> str:
+    cleaned = text
+    for pattern in _LIVE_RESULT_PHRASES_WITHOUT_EVIDENCE:
+        cleaned = pattern.sub("[requires collected telemetry]", cleaned)
+    return cleaned
+
+
+def _apply_no_collected_evidence_render_gate(
+    payload: dict[str, Any],
+    contract: AnswerContract,
+) -> dict[str, Any]:
+    if _has_collected_live_evidence(payload, contract):
+        return payload
+    if contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES:
+        payload["splunk_results_table"] = []
+        payload["splunk_status_line"] = None
+        payload["evidence_summary"] = None
+    ungrounded_severity = contract.severity_label in {None, "P3 Medium"}
+    if (
+        contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES
+        and contract.intent_family
+        in {"guided_investigation", "spl_generation_only", "knowledge_only"}
+        and ungrounded_severity
+    ):
+        payload["severity_label"] = None
+        payload["severity_confidence"] = None
+        payload["severity_rationale"] = None
+        payload["severity_safety_note"] = None
+    if contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES and contract.intent_family in {
+        "guided_investigation",
+        "spl_generation_only",
+    }:
+        for field in ("direct_answer_summary", "one_sentence_finding"):
+            value = payload.get(field)
+            if isinstance(value, str) and value.strip():
+                payload[field] = _scrub_live_result_claims_without_evidence(value)
+    return payload
+
 def _apply_section_visibility(payload: dict[str, Any], contract: AnswerContract) -> dict[str, Any]:
+    payload = _apply_no_collected_evidence_render_gate(payload, contract)
     render = contract.render_sections
     if not render.get("mitre_mapping"):
         payload["mitre_mappings"] = []

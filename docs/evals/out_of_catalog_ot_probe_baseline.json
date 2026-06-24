@@ -6,42 +6,42 @@
       "action_count": 6,
       "duplicate_actions": 0,
       "match_path": "out_of_registry",
-      "selected_skill": "guided_investigation",
+      "selected_skill": "spl_generation",
       "signal_class": "identity_anomaly"
     },
     "ot_oc_02": {
       "action_count": 6,
       "duplicate_actions": 0,
       "match_path": "out_of_registry",
-      "selected_skill": "guided_investigation",
+      "selected_skill": "spl_generation",
       "signal_class": "identity_anomaly"
     },
     "ot_oc_03": {
       "action_count": 6,
       "duplicate_actions": 0,
       "match_path": "out_of_registry",
-      "selected_skill": "guided_investigation",
+      "selected_skill": "spl_generation",
       "signal_class": "identity_anomaly"
     },
     "ot_oc_04": {
       "action_count": 6,
       "duplicate_actions": 0,
       "match_path": "out_of_registry",
-      "selected_skill": "guided_investigation",
+      "selected_skill": "spl_generation",
       "signal_class": "identity_anomaly"
     },
     "ot_oc_05": {
-      "action_count": 6,
+      "action_count": 4,
       "duplicate_actions": 0,
       "match_path": "out_of_registry",
-      "selected_skill": "guided_investigation",
+      "selected_skill": "spl_generation",
       "signal_class": "protocol_command"
     },
     "ot_oc_06": {
       "action_count": 6,
       "duplicate_actions": 0,
       "match_path": "out_of_registry",
-      "selected_skill": "guided_investigation",
+      "selected_skill": "spl_generation",
       "signal_class": "identity_anomaly"
     }
   },

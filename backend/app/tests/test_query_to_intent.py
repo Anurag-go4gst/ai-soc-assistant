@@ -23,8 +23,8 @@ def test_escalation_policy_failed_login_is_policy_knowledge_not_live_investigati
 def test_find_failed_login_users_last_24h_is_live_investigation() -> None:
     result = _result("Find failed-login users in the last 24 hours")
     intent = result.intent_classification
-    assert intent.intent_family == "live_investigation"
-    assert "live_results" in intent.answer_goal
+    assert intent.intent_family == "spl_generation_only"
+    assert "spl_artifact" in intent.answer_goal
 
 
 def test_generate_spl_for_failed_logins_is_spl_generation_only() -> None:
