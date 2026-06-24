@@ -1,5 +1,5 @@
 {
-  "probe_count": 10,
+  "probe_count": 11,
   "rows": {
     "probe.guided.modbus_cleartext": {
       "intent_family": "guided_investigation",
@@ -42,6 +42,12 @@
       "match_path": "out_of_registry",
       "requires_clarification": false,
       "requires_hil": false
+    },
+    "probe.ot.substation_remote_access": {
+      "intent_family": "guided_investigation",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": true
     },
     "probe.paraphrase.smb_talkers": {
       "intent_family": "spl_generation_only",

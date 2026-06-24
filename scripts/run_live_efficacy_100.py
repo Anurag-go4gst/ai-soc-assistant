@@ -26,6 +26,17 @@ from uuid import uuid4
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+for _path in (REPO_ROOT / "backend", REPO_ROOT):
+    _text = str(_path)
+    if _text not in sys.path:
+        sys.path.insert(0, _text)
+
+from app.evals.answer_efficacy_checks import (  # noqa: E402
+    evaluate_probe_expectations,
+    evaluate_universal_efficacy,
+    extract_response_observed,
+)
+
 DEFAULT_BANK = REPO_ROOT / "docs/evals/live_efficacy_100_bank.json"
 DEFAULT_OUT = REPO_ROOT / "docs/evals/live_efficacy_100"
 _SECRET_KEYS = ("password", "secret", "token", "api_key", "authorization", "cookie")
@@ -410,7 +421,35 @@ def _score(question: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
     final_validation = response.get("final_answer_validation") or {}
     if final_validation.get("status") in {"failed", "blocked"}:
         issues.append("final_answer_validation_failed")
-    score = max(0, 100 - 18 * len(set(issues)))
+
+    composer = trace.get("llm_composer") if isinstance(trace.get("llm_composer"), dict) else {}
+    if composer.get("composer_is_enabled") and composer.get("llm_composer_skipped_reason"):
+        issues.append(f"llm_composer_skipped:{composer.get('llm_composer_skipped_reason')}")
+
+    synthesis_enabled = bool(
+        composer.get("ai_soc_llm_final_synthesis_enabled")
+        and composer.get("ai_soc_llm_live_synthesis_enabled")
+    )
+    efficacy_violations = evaluate_universal_efficacy(
+        query=str(question.get("question") or ""),
+        payload=response,
+        category=str(question.get("category") or ""),
+        synthesis_enabled=synthesis_enabled,
+    )
+    if isinstance(question.get("expect"), dict):
+        efficacy_violations.extend(
+            evaluate_probe_expectations(
+                query=str(question.get("question") or ""),
+                payload=response,
+                expect=question.get("expect"),
+                synthesis_enabled=synthesis_enabled,
+            )
+        )
+    for violation in efficacy_violations:
+        issues.append(violation)
+
+    observed = extract_response_observed(response, query=str(question.get("question") or ""))
+    score = max(0, 100 - 15 * len(set(issues)))
     return {
         "score": score,
         "issues": sorted(set(issues)),
@@ -426,6 +465,10 @@ def _score(question: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
         "mcp_block_reason": execution.get("block_reason"),
         "llm_budget": trace.get("llm_turn_budget"),
         "llm_composer": trace.get("llm_composer"),
+        "signal_class": observed.get("signal_class"),
+        "duplicate_actions": observed.get("duplicate_actions"),
+        "action_step_overlap": observed.get("action_step_overlap"),
+        "efficacy_violations": sorted(set(efficacy_violations)),
     }
 
 

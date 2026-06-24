@@ -45,6 +45,9 @@ python3 scripts/run_power_industry_probe_v2.py --check \
 python3 scripts/run_power_industry_probe_v3.py --check \
   || echo "WARN: power-industry pk probe has quality violations (non-gating)"
 
+section "out-of-catalog OT analyst-ask probe"
+python3 scripts/eval_out_of_catalog_ot_probe.py --check || fail "out-of-catalog OT probe"
+
 section "backend pytest"
 (cd backend && python3 -m pytest -q) || fail "backend pytest"
 

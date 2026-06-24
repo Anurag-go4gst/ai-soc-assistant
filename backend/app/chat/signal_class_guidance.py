@@ -53,6 +53,10 @@ _OT_PROTOCOL_TERMS: tuple[tuple[str, SignalClass], ...] = (
     ("external connections", "identity_anomaly"),
     ("vpn session", "identity_anomaly"),
     ("substation network", "identity_anomaly"),
+    ("bastion", "identity_anomaly"),
+    ("jump host", "identity_anomaly"),
+    ("remote desktop", "identity_anomaly"),
+    ("rdp session", "identity_anomaly"),
     ("firmware", "change_management"),
     ("config push", "change_management"),
     ("relay", "change_management"),
@@ -84,7 +88,7 @@ _OT_PROTOCOL_TERMS: tuple[tuple[str, SignalClass], ...] = (
 _CLASS_DETECTORS: tuple[tuple[SignalClass, re.Pattern[str]], ...] = (
     ("protocol_command", re.compile(r"\b(dnp3|modbus(?:\s+tcp)?|iec[\s-]?61850|iec[\s-]?104|goose|mms|opc|unsolicited|function code|register write|connection churn)\b", re.I)),
     ("timing_integrity", re.compile(r"\b(ntp|irig[\s-]?b|time[\s-]?sync|clock|gps|stratum)\b", re.I)),
-    ("identity_anomaly", re.compile(r"\b(impossible travel|off[\s-]?shift|operator login|sldc|privileged user|remote access|external connections?|vpn sessions?)\b", re.I)),
+    ("identity_anomaly", re.compile(r"\b(impossible travel|off[\s-]?shift|operator login|sldc|privileged user|remote access|external connections?|vpn sessions?|bastion|jump hosts?|remote desktop|rdp sessions?)\b", re.I)),
     ("change_management", re.compile(r"\b(firmware|config push|relay|off[\s-]?window|maintenance window|change ticket)\b", re.I)),
     ("removable_media", re.compile(r"\b(usb|removable media|6416|media control)\b", re.I)),
     ("egress_exfil", re.compile(r"\b(data diode|diode|egress|exfil|bytes out)\b", re.I)),
@@ -257,6 +261,22 @@ def classify_signal_class(query: str, entities: dict[str, Any] | None = None) ->
         if pattern.search(combined):
             return signal_class
     if any(term in normalized for term in ("ot", "scada", "plc", "substation")):
+        access_markers = (
+            "remote",
+            "access",
+            "session",
+            "login",
+            "vpn",
+            "bastion",
+            "jump",
+            "rdp",
+            "desktop",
+            "vendor",
+            "credential",
+            "external",
+        )
+        if any(marker in normalized for marker in access_markers):
+            return "identity_anomaly"
         return "network_beacon"
     return "unknown"
 

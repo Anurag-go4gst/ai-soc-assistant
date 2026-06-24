@@ -82,7 +82,7 @@ def test_ot_term_extractor_maps_protocol_tokens() -> None:
 def test_legacy_guided_guidance_when_shape_flag_off() -> None:
     query = "Substation NTP / IRIG-B time-sync tamper — where should I start hunting?"
     legacy = build_guided_investigation_guidance(query)
-    assert "Firewall, DNS, proxy" in legacy or "firewall" in legacy.lower()
+    assert "timing integrity" in legacy.lower() or "ntp" in legacy.lower()
 
 
 def test_t2_surfacing_exposes_draft_spl(monkeypatch) -> None:

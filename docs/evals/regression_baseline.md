@@ -27,6 +27,8 @@ Canonical command:
 | SOC clean-answer `--emit-answers` | optional human-review JSON/MD (not in CI gate) |
 | LangGraph parity `--emit-details` | optional parity details MD (not in CI gate) |
 | SKILL_ENUM contract test | backend == harness |
+| Out-of-catalog OT probe `--check` | exit 0 (6 natural analyst asks) |
+| Live efficacy universal checks | duplicate actions, overlap, thin guided, composer skip |
 
 ## Recorded counts (2026-06-03)
 

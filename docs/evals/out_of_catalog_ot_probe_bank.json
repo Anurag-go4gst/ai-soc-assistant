@@ -1,0 +1,177 @@
+{
+  "name": "Out-of-catalog OT analyst asks",
+  "version": "2026-06-24",
+  "purpose": "Natural-language OT/substation asks not in 105/50 catalogue; asserts signal class, guided shape, and action hygiene.",
+  "probes": [
+    {
+      "id": "ot_oc_01",
+      "category": "remote_access_substation",
+      "query": "Show me all external connections or remote access sessions currently mapping to the substation networks.",
+      "expect": {
+        "selected_skill": "guided_investigation",
+        "match_path": [
+          "out_of_registry",
+          "semantic_out_of_registry"
+        ],
+        "signal_class": "identity_anomaly",
+        "forbid_signal_classes": [
+          "network_beacon"
+        ],
+        "min_message_len": 280,
+        "min_recommended_actions": 3,
+        "max_recommended_actions": 8,
+        "unique_action_prefixes": true,
+        "no_action_step_overlap": true,
+        "forbid_hypothesis_markers": [
+          "dns beacon",
+          "periodic callback",
+          "beaconing domain"
+        ],
+        "require_hypothesis_markers": [
+          "remote",
+          "session",
+          "access",
+          "identity",
+          "vpn",
+          "bastion"
+        ],
+        "require_message_markers": [
+          "signal class",
+          "review-only"
+        ],
+        "require_out_of_catalog_notice": false,
+        "forbid_execution_claim": true
+      }
+    },
+    {
+      "id": "ot_oc_02",
+      "category": "remote_access_substation",
+      "query": "List VPN sessions into OT substation VLAN 140 from external IPs in the last 24 hours.",
+      "expect": {
+        "selected_skill": "guided_investigation",
+        "match_path": [
+          "out_of_registry",
+          "semantic_out_of_registry"
+        ],
+        "signal_class": "identity_anomaly",
+        "forbid_signal_classes": [
+          "network_beacon"
+        ],
+        "min_message_len": 250,
+        "min_recommended_actions": 3,
+        "max_recommended_actions": 8,
+        "unique_action_prefixes": true,
+        "require_message_markers": [
+          "signal class",
+          "vpn"
+        ],
+        "forbid_execution_claim": true
+      }
+    },
+    {
+      "id": "ot_oc_03",
+      "category": "remote_access_substation",
+      "query": "Which bastion or jump hosts show active remote desktop sessions into substation SCADA networks?",
+      "expect": {
+        "selected_skill": "guided_investigation",
+        "match_path": [
+          "out_of_registry",
+          "semantic_out_of_registry"
+        ],
+        "signal_class": "identity_anomaly",
+        "forbid_signal_classes": [
+          "network_beacon"
+        ],
+        "min_message_len": 250,
+        "min_recommended_actions": 3,
+        "max_recommended_actions": 8,
+        "unique_action_prefixes": true,
+        "require_hypothesis_markers": [
+          "session",
+          "access",
+          "remote",
+          "bastion",
+          "jump"
+        ],
+        "forbid_hypothesis_markers": [
+          "dns beacon",
+          "beaconing"
+        ],
+        "forbid_execution_claim": true
+      }
+    },
+    {
+      "id": "ot_oc_04",
+      "category": "remote_access_substation",
+      "query": "Show external connections hitting our substation firewall zones right now.",
+      "expect": {
+        "selected_skill": "guided_investigation",
+        "signal_class": "identity_anomaly",
+        "forbid_signal_classes": [
+          "network_beacon"
+        ],
+        "min_message_len": 250,
+        "min_recommended_actions": 3,
+        "max_recommended_actions": 8,
+        "unique_action_prefixes": true,
+        "require_message_markers": [
+          "external",
+          "signal class"
+        ],
+        "forbid_execution_claim": true
+      }
+    },
+    {
+      "id": "ot_oc_05",
+      "category": "protocol_hunt",
+      "query": "Identify any cleartext Modbus writes targeting protection relays on substation 12.",
+      "expect": {
+        "selected_skill": "guided_investigation",
+        "signal_class": "protocol_command",
+        "forbid_signal_classes": [
+          "network_beacon",
+          "identity_anomaly"
+        ],
+        "min_message_len": 250,
+        "min_recommended_actions": 3,
+        "require_message_markers": [
+          "modbus",
+          "signal class"
+        ],
+        "require_hypothesis_markers": [
+          "command",
+          "relay",
+          "maintenance",
+          "protocol"
+        ],
+        "forbid_execution_claim": true
+      }
+    },
+    {
+      "id": "ot_oc_06",
+      "category": "vendor_remote_access",
+      "query": "List vendor remote access sessions currently active on substation OT network segments.",
+      "expect": {
+        "selected_skill": "guided_investigation",
+        "signal_class": "identity_anomaly",
+        "forbid_signal_classes": [
+          "network_beacon"
+        ],
+        "min_message_len": 250,
+        "min_recommended_actions": 3,
+        "unique_action_prefixes": true,
+        "require_hypothesis_markers": [
+          "vendor",
+          "remote",
+          "session",
+          "access"
+        ],
+        "forbid_execution_claim": true,
+        "require_message_markers": [
+          "vendor",
+          "signal class"
+        ]
+      }
+    }
+  ]
+}

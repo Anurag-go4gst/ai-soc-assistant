@@ -103,6 +103,16 @@
       "forbid_families": [
         "clarification_required"
       ]
+    },
+    {
+      "id": "probe.ot.substation_remote_access",
+      "kind": "novel_hunt",
+      "query": "Show me all external connections or remote access sessions currently mapping to the substation networks.",
+      "expect_family": "guided_investigation",
+      "forbid_families": [
+        "clarification_required",
+        "spl_generation_only"
+      ]
     }
   ]
 }
