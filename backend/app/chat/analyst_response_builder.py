@@ -139,6 +139,69 @@ def _alert_summary_situation(user_query: str) -> str:
     return text[0].upper() + text[1:] if len(text) > 1 else text
 
 
+
+_BINDING_CLARIFICATION = (
+    "SPL draft requires source-profile slot binding before review. "
+    "Confirm index, sourcetype, and field mappings in Settings, then re-ask."
+)
+
+
+def _resolve_spl_surfaces_from_contract(
+    *,
+    contract: Any | None,
+    candidate_spl: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+    spl_draft_preview: dict[str, Any] | None,
+    synthesis_draft: dict[str, Any],
+    source_evidence: list[dict[str, Any]],
+    execution: dict[str, Any],
+    spl_code: str | None,
+    draft_spl_code: str | None,
+) -> tuple[str | None, str | None, dict[str, Any] | None, list[dict[str, Any]]]:
+    """Single SPL surface driven by AnswerContract / RunContract mirror fields."""
+    draft_preview = spl_draft_preview if isinstance(spl_draft_preview, dict) else None
+    resolved_spl = spl_code
+    resolved_draft = draft_spl_code
+    table: list[dict[str, Any]] = []
+
+    if (
+        contract is not None
+        and getattr(contract, "run_contract_mirrored", False)
+        and (
+            getattr(contract, "spl_candidate_renderable", False)
+            or getattr(contract, "spl_normalized", False)
+            or getattr(contract, "spl_block_reason", None)
+        )
+    ):
+        if getattr(contract, "spl_normalized", False):
+            resolved_spl = _candidate_spl_text(candidate_spl, spl_validation, synthesis_draft)
+            resolved_draft = None
+            draft_preview = None
+        elif getattr(contract, "spl_candidate_renderable", False):
+            resolved_draft = str((draft_preview or {}).get("draft_spl") or "") or resolved_draft
+            if not getattr(contract, "spl_normalized", False):
+                resolved_spl = None
+        else:
+            resolved_spl = None
+            resolved_draft = None
+            draft_preview = None
+        if str(getattr(contract, "spl_block_reason", "") or "") == "missing_slot_binding":
+            resolved_spl = None
+            resolved_draft = None
+            draft_preview = None
+
+    mirrored = contract is not None and getattr(contract, "run_contract_mirrored", False)
+    if mirrored:
+        allow_results = bool(getattr(contract, "allow_results_table", False))
+    else:
+        allow_results = str(execution.get("status") or "") == "executed"
+    if allow_results and str(execution.get("status") or "") == "executed":
+        table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(
+            synthesis_draft.get("splunk_results_table")
+        )
+    return resolved_spl, resolved_draft, draft_preview, table
+
+
 def build_analyst_response_for_live(
     *,
     user_query: str,
@@ -168,29 +231,7 @@ def build_analyst_response_for_live(
     llm_candidate = llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None
     draft_spl_code = str(draft_preview.get("draft_spl") or "") or None if draft_preview else None
     spl_code = _candidate_spl_text(candidate_spl, spl_validation, draft)
-    # B15: one SPL surface for the LLM failover path. When an LLM-relevant candidate
-    # SPL is exposed, suppress the lab draft preview so the analyst never sees two
-    # parallel SPL blocks. The draft survives only as a last-resort when the LLM was
-    # attempted but produced no exposed candidate (relevance/clarification fail), and
-    # is then labelled as such. Governed template SPL keeps its existing surfaces —
-    # this precedence is scoped to the LLM lane only.
-    candidate_meta = candidate_spl if isinstance(candidate_spl, dict) else {}
-    is_llm_candidate = candidate_meta.get("generation_mode") == "llm_spl_advisory_fallback"
-    llm_exposed = is_llm_candidate and bool(str(candidate_meta.get("candidate_spl") or "").strip())
-    llm_attempted_failed = bool(candidate_meta.get("llm_fallback_used")) and not llm_exposed
-    if llm_exposed and spl_code and draft_preview is not None:
-        draft_preview = None
-        draft_spl_code = None
-    elif draft_preview is not None and llm_attempted_failed:
-        draft_preview = {
-            **draft_preview,
-            "fallback_after_llm": True,
-            "fallback_notice": "Last-resort lab draft — the LLM candidate did not "
-            "pass the relevance/validation gate for this question.",
-        }
     table: list[dict[str, Any]] = []
-    if execution_payload.get("status") == "executed":
-        table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(draft.get("splunk_results_table"))
     decision_payload = mitre_decision if isinstance(mitre_decision, dict) else None
     mitre_rows = _mitre_display_rows(mitre_mappings, user_query=user_query)
     if not mitre_rows and decision_payload and decision_payload.get("answer_visible"):
@@ -202,6 +243,14 @@ def build_analyst_response_for_live(
     not_claimed = _not_claimed_rows(decision_payload)
     playbook, sop_guidance, rag_meta = _playbook_from_rag(source_evidence)
     recommended = _recommended_actions_from_draft(draft) or _recommended_from_rag(source_evidence)
+    if not recommended and draft_preview:
+        recommended = _safe_display_list(draft_preview.get("investigation_checklist") or [])
+    if not recommended and user_query:
+        from app.chat.signal_class_guidance import _TEMPLATES, classify_signal_class
+
+        signal_class = classify_signal_class(user_query)
+        template = _TEMPLATES.get(signal_class) or {}
+        recommended = [str(item) for item in template.get("evidence") or [] if item]
     # Single AnswerContract: prefer the pipeline-built projection; build only as
     # a fallback so the builder never makes a second, divergent contract.
     contract = answer_contract
@@ -224,6 +273,25 @@ def build_analyst_response_for_live(
             mitre_mappings=mitre_mappings,
             user_query=user_query,
         )
+    spl_code, draft_spl_code, draft_preview, table = _resolve_spl_surfaces_from_contract(
+        contract=contract,
+        candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
+        spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+        spl_draft_preview=draft_preview,
+        synthesis_draft=draft,
+        source_evidence=source_evidence,
+        execution=execution_payload,
+        spl_code=spl_code,
+        draft_spl_code=draft_spl_code,
+    )
+    if not (contract is not None and getattr(contract, "run_contract_mirrored", False)):
+        cand = candidate_spl if isinstance(candidate_spl, dict) else {}
+        if spl_code and cand.get("generation_mode") == "llm_spl_advisory_fallback":
+            draft_spl_code = None
+            draft_preview = None
+        elif spl_code and isinstance(spl_validation, dict) and spl_validation.get("approved"):
+            draft_spl_code = None
+            draft_preview = None
     from app.chat.guidance_templates import (
         build_mitre_evidence_threshold_guidance,
         is_mitre_evidence_threshold_query,
@@ -468,6 +536,14 @@ def build_analyst_response_for_live(
         and "review required" not in severity_label.lower()
     ):
         display_severity = f"{severity_label} — Review required"
+
+    if (
+        isinstance(draft_preview, dict)
+        and isinstance(candidate_spl, dict)
+        and candidate_spl.get("llm_fallback_used")
+        and not str(candidate_spl.get("candidate_spl") or "").strip()
+    ):
+        draft_preview = {**draft_preview, "fallback_after_llm": True}
 
     envelope = AnalystResponseEnvelope(
         scenario_label=scrub_auth_anomaly_display_text(resolved_use_case_label, user_query=user_query),

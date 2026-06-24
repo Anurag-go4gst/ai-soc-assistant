@@ -108,11 +108,24 @@ def _link_trace_to_turn(
         "turn_id": response.turn_id,
         "user_id": _user_id(user),
         "question_preview": _preview(request.message),
-        "answer_preview": _preview(payload.get("message")),
         "selected_skill": payload.get("selected_skill"),
         "llm_used": _llm_used(payload),
         "mcp_used": bool(execution.get("selected_mcp_tool")) if isinstance(execution, dict) else False,
     }
+    run_contract = payload.get("run_contract")
+    if isinstance(run_contract, dict):
+        metadata["run_contract"] = run_contract
+        try:
+            from app.chat.contracts.run_contract import RunContract
+            from app.chat.run_contract_builder import build_answer_preview
+
+            preview = build_answer_preview(RunContract.model_validate(run_contract))
+            if preview:
+                metadata["answer_preview"] = preview
+        except Exception:  # noqa: BLE001 - telemetry must never break chat
+            pass
+    if "answer_preview" not in metadata:
+        metadata["answer_preview"] = _preview(payload.get("message"))
     try:
         from app.connectors.telemetry import get_telemetry_connector
 

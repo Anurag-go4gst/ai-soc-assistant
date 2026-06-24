@@ -30,6 +30,9 @@ def build_investigation_lineage(
     action_capability: ActionCapability,
     route_plan_shadow: dict[str, Any] | None = None,
     demo_llm_shadow: dict[str, Any] | None = None,
+    collected_evidence_count: int | None = None,
+    execution_authorized: bool = False,
+    allow_results_table: bool = False,
 ) -> InvestigationLineage:
     use_case_id = selected_use_case.use_case_id if selected_use_case else None
     stages = [
@@ -69,7 +72,16 @@ def build_investigation_lineage(
             _stage("spl_template", "complete" if spl_template else "skipped", "SPL template", "Template metadata attached when a use-case template exists.", spl_template or {}, ["spl_code"] if spl_template else [], "config" if spl_template else mode_source, "SCD/template registry"),
             _stage("spl_validation", "complete" if spl_validation else "skipped", "SPL validation", "Candidate SPL is validated before any MCP gate.", spl_validation or {}, [], mode_source, "production SPL validator"),
             _stage("mcp_tool_decision", execution.get("status", "skipped"), "MCP execution gate", execution.get("tool_selection_reason", "No MCP execution required."), execution, [], mode_source, "production MCP gate"),
-            _stage("source_evidence", "complete", "Source evidence", f"{len(source_evidence)} evidence records packaged.", {"evidence_count": len(source_evidence)}, ["splunk_results_table"], mode_source, "production SourceEvidence"),
+            _stage(
+                "source_evidence",
+                "complete" if (collected_evidence_count if collected_evidence_count is not None else sum(1 for item in source_evidence if item.get("collection_status") == "collected")) > 0 else ("metadata_only" if source_evidence else "skipped"),
+                "Source evidence",
+                f"{(collected_evidence_count if collected_evidence_count is not None else sum(1 for item in source_evidence if item.get("collection_status") == "collected"))} collected of {len(source_evidence)} evidence record(s) packaged.",
+                {"evidence_count": len(source_evidence), "collected_evidence_count": collected_evidence_count if collected_evidence_count is not None else sum(1 for item in source_evidence if item.get("collection_status") == "collected")},
+                ["splunk_results_table"] if allow_results_table else [],
+                "live" if execution_authorized else "review_only",
+                "production SourceEvidence",
+            ),
             _stage("mitre_mapping", "complete" if mitre_mappings else "skipped", "MITRE mapping", "Local MITRE mapping statuses are advisory until fully validated.", {"mappings": [_dump(item) for item in mitre_mappings]}, ["mitre_mappings"], "derived" if mitre_mappings else mode_source, "local MITRE KB"),
             _stage("severity", "complete", "Severity decision", severity_decision.severity_label, severity_decision.model_dump(), ["severity_label"], "derived", "severity matrix"),
             _stage("context_sufficiency", "complete" if context_sufficiency else "skipped", "Context sufficiency", (context_sufficiency or {}).get("status", "not evaluated"), context_sufficiency or {}, [], mode_source, "production context gate"),

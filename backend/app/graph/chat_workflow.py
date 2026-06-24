@@ -36,7 +36,10 @@ from app.chat.pipeline import (
     graph_node_prepare_rag_only,
     graph_node_query_to_intent,
     graph_node_rag_early,
+    graph_node_route_contract,
+    graph_node_route_resolution,
     graph_node_shadow_enrichment,
+    graph_node_shadow_tail,
     graph_node_spl_source_resolve,
     graph_node_workflow_spl,
 )
@@ -53,8 +56,8 @@ _CP_RECURSION_LIMIT = MAX_MCP_HOPS * 2 + 30
 
 def _add_linear_chain(graph: StateGraph) -> None:
     graph.add_conditional_edges(
-        "shadow_enrichment",
-        _after_shadow_enrichment,
+        "shadow_tail",
+        _after_shadow_tail,
         {"rag_only": "prepare_rag_only", "workflow_spl": "workflow_spl", "composed_dispatch": "composed_dispatch"},
     )
     graph.add_edge("prepare_rag_only", "rag_early")
@@ -81,6 +84,9 @@ def _core_nodes(graph: StateGraph) -> None:
     graph.add_node("init_routing", graph_node_init_routing)
     graph.add_node("query_to_intent", graph_node_query_to_intent)
     graph.add_node("evidence_planning", graph_node_evidence_planning)
+    graph.add_node("route_resolution", graph_node_route_resolution)
+    graph.add_node("route_contract", graph_node_route_contract)
+    graph.add_node("shadow_tail", graph_node_shadow_tail)
     graph.add_node("shadow_enrichment", graph_node_shadow_enrichment)
     graph.add_node("prepare_rag_only", graph_node_prepare_rag_only)
     graph.add_node("rag_early", graph_node_rag_early)
@@ -91,7 +97,9 @@ def _core_nodes(graph: StateGraph) -> None:
     graph.add_node("context_finalize", graph_node_context_finalize)
     graph.set_entry_point("init_routing")
     graph.add_edge("init_routing", "query_to_intent")
-    graph.add_edge("query_to_intent", "evidence_planning")
+    graph.add_edge("query_to_intent", "route_resolution")
+    graph.add_edge("route_resolution", "route_contract")
+    graph.add_edge("route_contract", "evidence_planning")
 
 
 @lru_cache(maxsize=1)
@@ -99,7 +107,7 @@ def _compiled_chat_graph() -> Any:
     """Linear parity graph (control plane off)."""
     graph: StateGraph = StateGraph(ChatPipelineState)
     _core_nodes(graph)
-    graph.add_edge("evidence_planning", "shadow_enrichment")
+    graph.add_edge("evidence_planning", "shadow_tail")
     graph.add_edge("execution", "context_finalize")
     _add_linear_chain(graph)
     return graph.compile()
@@ -122,7 +130,7 @@ def _compiled_chat_graph_cp() -> Any:
         _hub_route,
         {
             "mcp_call": "mcp_call",
-            "shadow_enrichment": "shadow_enrichment",
+            "shadow_tail": "shadow_tail",
             "context_finalize": "context_finalize",
         },
     )
@@ -166,10 +174,10 @@ def _hub_route(state: ChatPipelineState) -> str:
     # exhausted or the hop bound is hit.
     if loop_initialized(state) and route == ROUTE_DISCOVERY_HOP:
         return "mcp_call"
-    return "shadow_enrichment"
+    return "shadow_tail"
 
 
-def _after_shadow_enrichment(state: ChatPipelineState) -> str:
+def _after_shadow_tail(state: ChatPipelineState) -> str:
     if _evidence_plan(state).get("answer_mode") == "rag_only":
         return "rag_only"
     if has_composed_plan(state):

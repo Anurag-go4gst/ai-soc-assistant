@@ -73,6 +73,7 @@ class SplDraftPreviewEnvelope(BaseModel):
     draft_status: str
     draft_source: str
     detection_family: str
+    template_match_strength: str | None = None
     assumptions: list[str]
     required_source_fields: list[str]
     source_profile_missing: bool
@@ -486,6 +487,8 @@ class PlaceholderResponse(BaseModel):
     query_to_intent: dict[str, object] | None = None
     control_plane_trace: dict[str, object] | None = None
     answer_contract: dict[str, object] | None = None
+    run_contract: dict[str, object] | None = None
+    routing_contract: dict[str, object] | None = None
     # WS3 T3.1 — deterministic read-model scorecard (never authority).
     answer_scorecard: dict[str, object] | None = None
     # WS3 T3.2 — consolidated LLM narration usage visibility (read-model).
