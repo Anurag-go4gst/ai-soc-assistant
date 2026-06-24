@@ -4,26 +4,37 @@ overview: "Introduce RouteContract (post-adjudication) and RunContract/FinalRunS
 todos:
   - id: phase1-contract-models
     content: Add RouteContract + RunContract Pydantic models and pure builders in contracts/run_contract.py + run_contract_builder.py with unit tests
-    status: pending
+    status: completed
   - id: phase2-pipeline-reorder
     content: "Reorder pipeline: route adjudication → RouteContract → evidence_planning; build RunContract at context_finalize start; expose on PlaceholderResponse + telemetry (read-only)"
-    status: pending
+    status: completed
   - id: phase3-trust-consumers
     content: Wire answer_preview, action_capability.hil_required, source_evidence bucketing, lineage stages, and final render gates to RunContract
-    status: pending
+    status: completed
   - id: phase4-spl-lifecycle
     content: Align answer_contract + analyst_response_builder SPL lifecycle fields with RunContract; binding clarification when not renderable
-    status: pending
+    status: completed
   - id: phase5-legacy-cleanup
     content: Namespace legacy route under routing_contract; stop user-facing reads of routed.skill; contract-driven _chat_message
-    status: pending
+    status: completed
   - id: phase6-bundle-tests
     content: Add test_run_contract_bundle.py (tests A–E) and run full regression + three manual debug bundle captures
-    status: pending
+    status: completed
 isProject: false
 ---
 
 # Canonical RunContract / FinalRunState implementation plan
+
+> **Status: DONE (2026-06-24).** Shipped on `cp-final-resolution-answer-quality`:
+> `dc7c6b8` (RunContract base, phases 1–6), `1931dfd` (MITRE tier cap + analytics
+> severity sentinel fixes), `80427f6` (severity-gate tightening + dead-build
+> collapse). All six phases complete. Phase 5 authority-read sweep certified: no
+> user/contract/governance/lineage/preview surface reads a legacy routing field
+> as authority after RunContract exists; `selected_skill==canonical_skill`,
+> `action_capability.hil==governance_trace.hil==run_contract.effective_hil`,
+> source count from collected evidence, no live language without collected
+> evidence — verified on 3 live turns. Full backend suite 2898 passed; governance
+> regression PASS; clean-answer 120/120; PowerGrid 50/50.
 
 ## Problem statement
 
