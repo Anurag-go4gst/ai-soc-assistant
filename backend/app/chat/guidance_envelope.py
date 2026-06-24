@@ -77,11 +77,12 @@ def populate_envelope_from_guidance(
         update["analyst_checklist"] = merged_checklist[:10]
     if steps and not envelope.investigation_steps:
         update["investigation_steps"] = steps[:10]
-    # recommended_actions drives the analyst card's action list; prefer concrete
-    # steps, fall back to the checklist so the array is never empty when prose has one.
-    actions = steps or checklist
+    # recommended_actions: evidence checklist; workflow steps stay in investigation_steps.
+    actions = checklist or steps
     if actions and not envelope.recommended_actions:
-        update["recommended_actions"] = actions[:10]
+        update["recommended_actions"] = actions[:6]
+    if steps and not envelope.investigation_steps and checklist:
+        update["investigation_steps"] = steps[:6]
     if limitations and not envelope.limitations:
         lim = [str(item).strip() for item in limitations if str(item).strip()]
         if lim:

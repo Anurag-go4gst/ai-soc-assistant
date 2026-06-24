@@ -538,13 +538,9 @@ def build_minimal_guidance_envelope(
         checklist_block = "\n".join(f"- {item}" for item in checklist[:8])
         prefix = f"SOC review checklist:\n\n{checklist_block}"
         direct = f"{direct}\n\n{prefix}".strip() if direct else prefix
-    recommended: list[str] = []
-    for item in checklist[:6]:
-        recommended.append(str(item))
-    for item in investigation[:4]:
-        text = str(item)
-        if text not in recommended:
-            recommended.append(text)
+    recommended: list[str] = [str(item) for item in checklist[:6]]
+    if not recommended:
+        recommended = [str(item) for item in investigation[:4]]
     exec_label = str(execution.get("status") or "skipped")
     review_notice = None
     if isinstance(human_review, dict) and human_review.get("required"):

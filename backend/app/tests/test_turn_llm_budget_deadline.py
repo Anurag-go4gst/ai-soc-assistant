@@ -107,3 +107,10 @@ def test_composer_reserve_clamps_to_remaining():
     b = TurnLlmBudget(deadline_seconds=40.0)
     reserve = b.composer_reserve_seconds()
     assert 1.0 <= reserve <= 40.0
+
+def test_narration_hop_allowed_when_turn_budget_fits_capped_composer(monkeypatch):
+    """T2 governed composer must start when capped hop fits remaining turn budget."""
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_timeout_seconds", 180)
+    b = TurnLlmBudget(deadline_seconds=75.0, max_narration_calls=1)
+    assert b.capped_hop_timeout_seconds(role="governed_composer") is not None
+    assert b.narration_hop_blocked(reserve_seconds=b.composer_reserve_seconds()) is None

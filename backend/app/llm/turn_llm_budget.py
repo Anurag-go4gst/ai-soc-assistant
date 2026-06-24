@@ -68,7 +68,9 @@ class TurnLlmBudget:
 
     def can_start_call(self, *, reserve_seconds: float = 0.0) -> bool:
         remaining = self.remaining_seconds()
-        return remaining is None or remaining > max(0.0, reserve_seconds)
+        # >= so a hop may start when the capped socket window exactly fits the
+        # remaining turn budget (composer_reserve clamps to remaining).
+        return remaining is None or remaining >= max(0.0, reserve_seconds)
 
     def sidecar_hop_blocked(self, *, role: str) -> str | None:
         if self.sidecar_calls >= self.max_sidecar_calls:
@@ -81,12 +83,12 @@ class TurnLlmBudget:
         return None
 
     def narration_hop_blocked(self, *, reserve_seconds: float | None = None) -> str | None:
+        del reserve_seconds  # trace callers may pass composer_reserve; gate uses capped hop.
         if self.narration_calls >= self.max_narration_calls:
             return "turn_budget_exhausted"
         if self.time_budget_exhausted():
             return "turn_budget_exhausted"
-        reserve = reserve_seconds if reserve_seconds is not None else hop_reserve_seconds("governed_composer")
-        if not self.can_start_call(reserve_seconds=reserve):
+        if self.capped_hop_timeout_seconds(role="governed_composer") is None:
             return "insufficient_deadline_reserve"
         return None
 

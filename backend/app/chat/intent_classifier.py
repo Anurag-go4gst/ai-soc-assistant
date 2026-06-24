@@ -620,8 +620,11 @@ def classify_intent(
             requested_output_type=None,
         )
 
-    if signals.get("explicit_search_intent") and not signals.get("run_execution") and not signals.get(
-        "non_soc_or_out_of_scope"
+    if (
+        signals.get("explicit_search_intent")
+        and not signals.get("run_execution")
+        and not signals.get("non_soc_or_out_of_scope")
+        and str(candidate_mappings.get("match_path") or "") not in {"", "out_of_registry", "semantic_out_of_registry"}
     ):
         goals: list[AnswerGoal] = ["spl_artifact"]
         if signals.get("investigation_triage_guidance") or signals.get("procedural_investigation"):
