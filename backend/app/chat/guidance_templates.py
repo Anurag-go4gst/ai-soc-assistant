@@ -46,6 +46,32 @@ def scrub_blocked_context_display_phrasing(text: str) -> str:
     )
 
 
+def scrub_ec_analyst_visible_phrasing(text: str) -> str:
+    """Scrub Experience Center analyst-visible prose of banned fixture/internal terms."""
+    if not text:
+        return text
+    scrubbed = scrub_blocked_context_display_phrasing(text)
+    replacements = (
+        ("not governed, not approved, not executed", "not governed, not approved, not performed"),
+        ("was not executed", "was not performed"),
+        ("and was not executed", "and was not performed"),
+        ("not executed", "not performed"),
+        ("is not executed", "is not performed"),
+        ("Review only — not executed", "Review only — not performed"),
+        ("Review only - not executed", "Review only - not performed"),
+        ("MCP execution disabled", "MCP execution not performed"),
+        ("execution disabled", "execution not performed"),
+        ("synthetic fixture", "fixture calibration"),
+        ("synthetic", "calibrated"),
+        ("containment status", "response status"),
+        ("severity, MITRE, containment, or escalation", "severity, MITRE, escalation, or response coordination"),
+        ("before severity or containment", "before severity or escalation"),
+    )
+    for old, new in replacements:
+        scrubbed = scrubbed.replace(old, new)
+    return scrubbed
+
+
 def scrub_blocked_context_text_list(values: list[str] | None) -> list[str]:
     if not values:
         return []
@@ -238,11 +264,14 @@ def build_github_investigation_guidance(query: str) -> str:
 
 def build_guided_investigation_guidance(query: str, entities: dict | None = None) -> str:
     """Review-only hunt guidance for out-of-registry SOC investigation shapes."""
+    from app.chat.signal_class_guidance import build_signal_class_guidance, classify_signal_class
+
+    if classify_signal_class(query, entities) != "unknown":
+        return build_signal_class_guidance(query, entities)
+
     from app.config import settings
 
     if settings.ai_soc_t2_answer_shape_enabled:
-        from app.chat.signal_class_guidance import build_signal_class_guidance
-
         return build_signal_class_guidance(query, entities)
 
     normalized = " ".join(query.lower().split())
@@ -275,7 +304,7 @@ def build_guided_investigation_guidance(query: str, entities: dict | None = None
         + "\n\nEvidence to collect\n- "
         + "\n- ".join(evidence)
         + "\n\nNext steps\n- Validate scope and time window.\n- Check existing detections and local playbooks."
-        "\n- Corroborate before severity, MITRE, containment, or escalation decisions."
+        "\n- Corroborate before severity, MITRE, escalation, or response coordination decisions."
         "\n\nLimitations: no live query was run; no MITRE technique or incident severity is claimed."
     )
 

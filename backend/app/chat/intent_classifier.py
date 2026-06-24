@@ -313,23 +313,6 @@ def classify_intent(
             requested_output_type="INVESTIGATION",
         )
 
-    if signals.get("conceptual_mitre_judgment"):
-        return _build_classification(
-            intent_family="mitre_explanation",
-            primary_intent="mitre_explanation",
-            secondary_intents=["analyst_action_guidance"],
-            query_type="ask_for_mapping",
-            answer_goal=["mitre_explanation", "analyst_action_guidance"],
-            confidence=0.9,
-            requires_clarification=False,
-            action_mode="recommend_only",
-            reason=(
-                "Conceptual MITRE judgment requires a direct not-enough-to-confirm answer, "
-                "candidate-only framing, and evidence preconditions without alert logs."
-            ),
-            requested_output_type="INVESTIGATION",
-        )
-
     if signals.get("mitre_evidence_threshold"):
         return _build_classification(
             intent_family="mitre_explanation",
@@ -343,6 +326,29 @@ def classify_intent(
             reason=(
                 "MITRE evidence-threshold question requires checklist, required evidence, "
                 "and candidate-only framing without declaration."
+            ),
+            requested_output_type="INVESTIGATION",
+        )
+
+    if signals.get("ot_protocol_investigation"):
+        return _build_guided_investigation_classification(
+            reason="OT protocol investigation checklist routes to signal-class guided guidance.",
+            confidence=0.78,
+        )
+
+    if signals.get("conceptual_mitre_judgment"):
+        return _build_classification(
+            intent_family="mitre_explanation",
+            primary_intent="mitre_explanation",
+            secondary_intents=["analyst_action_guidance"],
+            query_type="ask_for_mapping",
+            answer_goal=["mitre_explanation", "analyst_action_guidance"],
+            confidence=0.9,
+            requires_clarification=False,
+            action_mode="recommend_only",
+            reason=(
+                "Conceptual MITRE judgment requires a direct not-enough-to-confirm answer, "
+                "candidate-only framing, and evidence preconditions without alert logs."
             ),
             requested_output_type="INVESTIGATION",
         )

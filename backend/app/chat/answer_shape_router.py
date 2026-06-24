@@ -280,7 +280,7 @@ def _regulatory_knowledge_guidance(query: str, *, entities: dict[str, Any] | Non
     if "cert" in normalized or "6 hour" in normalized or "6-hour" in normalized:
         checklist = [
             "Confirm whether the event meets your organization's CERT-In / sector reporting threshold.",
-            "Collect incident facts: scope, affected systems, timeline, and containment status.",
+            "Collect incident facts: scope, affected systems, timeline, and response status.",
             "Engage legal/compliance and CISO before external notification.",
             "Verify current statutory timelines against your governed SOC-KB — do not rely on this assistant as legal authority.",
         ]

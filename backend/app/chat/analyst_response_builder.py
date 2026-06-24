@@ -54,7 +54,11 @@ _SUMMARY_PREFIX_MARKERS = (
 def _advisory_mitre_threshold_rows(user_query: str) -> list[dict[str, str]]:
     normalized = " ".join(str(user_query or "").lower().split())
     technique = "ICS remote command sequence (example)"
-    if "beacon" in normalized:
+    if "dnp3" in normalized:
+        technique = "DNP3 restart/output change sequence (example)"
+    elif "modbus" in normalized:
+        technique = "Modbus write/function-code abuse (example)"
+    elif "beacon" in normalized:
         technique = "DNS/command beaconing (example)"
     return [
         {"technique": technique, "status": "candidate", "notes": "Threshold review only; validate with telemetry."},

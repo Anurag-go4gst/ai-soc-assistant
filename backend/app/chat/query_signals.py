@@ -503,8 +503,8 @@ def extract_query_signals(
     mitre_evidence_threshold = bool(
         normalized.startswith("mitre focus:")
         or (
-            ("evidence threshold" in normalized or "status labels" in normalized)
-            and ("mitre" in normalized or "att&ck" in normalized)
+            ("evidence threshold" in normalized or "status labels" in normalized or "status threshold" in normalized)
+            and ("mitre" in normalized or "att&ck" in normalized or "dnp3" in normalized)
         )
         or re.search(
             r"\b(what evidence is needed|evidence (?:is )?needed|required evidence|evidence required)\b.{0,96}"
@@ -512,6 +512,18 @@ def extract_query_signals(
             normalized,
         )
         or re.search(r"\bbefore (?:declaring|calling|labeling|confirming)\b", normalized)
+    )
+    ot_protocol_investigation = bool(
+        re.search(
+            r"\b(dnp3|modbus|iec[\s-]?61850|goose|iec[\s-]?104|rtu|pmu|plc|hmi|scada|synchrophasor)\b",
+            normalized,
+            flags=re.I,
+        )
+        and re.search(
+            r"\b(checklist|triage|hypothes|evidence should|evidence to collect|how to investigate|how to triage|investigate|investigation)\b",
+            normalized,
+            flags=re.I,
+        )
     )
     procedural_investigation = any(
         term in normalized
@@ -786,6 +798,7 @@ def extract_query_signals(
         "block_or_contain": block_or_contain,
         "conceptual_mitre_judgment": conceptual_mitre_judgment,
         "mitre_evidence_threshold": mitre_evidence_threshold,
+        "ot_protocol_investigation": ot_protocol_investigation,
         "sop_show_request": sop_show_request,
         "procedural_investigation": procedural_investigation,
         "time_window_24h": time_window_24h,

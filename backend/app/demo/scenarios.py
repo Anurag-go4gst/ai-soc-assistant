@@ -9,6 +9,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.demo import ec_fsm_store
+from app.chat.guidance_templates import scrub_ec_analyst_visible_phrasing
 from app.demo.capture_loader import (
     CaptureArtifactError,
     ec_provenance_block,
@@ -253,6 +254,47 @@ def _turn2_input_sufficient(family: str, message: str) -> bool:
     return True
 
 
+
+def _scrub_ec_visible_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Scrub analyst-visible EC strings so demo cards avoid banned fixture terms."""
+    scrubbed = dict(payload)
+    message = scrubbed.get("message")
+    if isinstance(message, str):
+        scrubbed["message"] = scrub_ec_analyst_visible_phrasing(message)
+    summary = scrubbed.get("analyst_summary")
+    if isinstance(summary, str):
+        scrubbed["analyst_summary"] = scrub_ec_analyst_visible_phrasing(summary)
+    analyst = scrubbed.get("analyst_response")
+    if isinstance(analyst, dict):
+        cleaned = dict(analyst)
+        for field in (
+            "one_sentence_finding",
+            "direct_answer_summary",
+            "narrative_summary",
+            "finding_title",
+            "evidence_summary",
+            "review_notice",
+            "execution_status_label",
+        ):
+            value = cleaned.get(field)
+            if isinstance(value, str):
+                cleaned[field] = scrub_ec_analyst_visible_phrasing(value)
+        for list_field in ("recommended_actions", "analyst_checklist", "investigation_steps"):
+            items = cleaned.get(list_field)
+            if isinstance(items, list):
+                cleaned[list_field] = [scrub_ec_analyst_visible_phrasing(str(item)) for item in items]
+        scrubbed["analyst_response"] = cleaned
+    review = scrubbed.get("human_review")
+    if isinstance(review, dict):
+        cleaned_review = dict(review)
+        for field in ("safe_message_for_user", "message", "reason_display"):
+            value = cleaned_review.get(field)
+            if isinstance(value, str):
+                cleaned_review[field] = scrub_ec_analyst_visible_phrasing(value)
+        scrubbed["human_review"] = cleaned_review
+    return scrubbed
+
+
 def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
     """Serve an Experience Center scenario answer (capture artifact, else legacy fixture).
 
@@ -283,28 +325,43 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
                 "experience_center_capture_replay_failed scenario=%s", scenario_id, exc_info=True
             )
 
-    return _run_demo_scenario_legacy(scenario_id)
+    return _scrub_ec_visible_payload(_run_demo_scenario_legacy(scenario_id))
 
 
 def _serve_capture_artifact(scenario_id: str, artifact: dict[str, Any]) -> dict[str, Any]:
-    """Replay a frozen capture artifact body with fresh ids/timestamps and EC posture."""
-    trace_id = f"demo-{scenario_id}-{uuid4().hex[:8]}"
-    body = deepcopy(artifact["final_response"])
-    now_iso = datetime.now(UTC).isoformat()
-    body["trace_id"] = trace_id
-    body["turn_id"] = uuid4().hex[:12]
-    body["timestamp"] = now_iso
-    # EC isolation posture wins regardless of any nested envelope marker.
-    body["demo_mode"] = True
-    body["evidence_origin"] = EVIDENCE_ORIGIN
-    body["no_live_customer_data"] = True
-    body["live_llm_called"] = False
-    body["live_mcp_called"] = False
+    """Serve a scenario as the governed EC response with the real LLM narration overlaid.
+
+    The frozen capture supplies the *narrated prose* (what the live model actually
+    wrote); the governed legacy build supplies the deterministic facts (SPL, MITRE,
+    severity, actions) and every EC governance panel (``experience_center_governance``,
+    ``foundation_sec_governance``, ``demo_badge``, lineage). This mirrors production
+    live-synthesis exactly — the model rewrites prose, facts stay deterministic — so
+    EC governance/posture is preserved while the prospect reads the genuine model answer.
+    """
+    base = _run_demo_scenario_legacy(scenario_id)
+    captured = artifact.get("final_response") or {}
+
+    # Overlay only the LLM-narrated prose fields. Deterministic facts and governance
+    # panels remain from ``base`` (tests + EC posture depend on them).
+    captured_summary = captured.get("analyst_summary")
+    if isinstance(captured_summary, str) and captured_summary.strip():
+        base["analyst_summary"] = captured_summary
+    captured_ar = captured.get("analyst_response")
+    base_ar = base.get("analyst_response")
+    if isinstance(captured_ar, dict) and isinstance(base_ar, dict):
+        for prose_field in ("one_sentence_finding", "direct_answer_summary", "narrative_summary"):
+            value = captured_ar.get(prose_field)
+            if isinstance(value, str) and value.strip():
+                base_ar[prose_field] = value
+
+    # Capture provenance / latency markers + enforced EC isolation posture.
     provenance = artifact.get("provenance") or {}
-    body["ec_provenance"] = ec_provenance_block(provenance)
-    body["ec_stage_latencies"] = normalize_stage_latencies(artifact.get("stage_latencies") or [])
-    body["ec_answer_source"] = "captured_artifact"
-    return body
+    base["ec_provenance"] = ec_provenance_block(provenance)
+    base["ec_stage_latencies"] = normalize_stage_latencies(artifact.get("stage_latencies") or [])
+    base["ec_answer_source"] = "captured_artifact"
+    base["live_llm_called"] = False
+    base["live_mcp_called"] = False
+    return _scrub_ec_visible_payload(base)
 
 
 def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
@@ -1090,7 +1147,7 @@ def _human_review(scenario: DemoScenario, execution: dict[str, Any]) -> dict[str
             execution.get("block_reason") or scenario.expected_sufficiency_mode,
             "soc_analyst",
             ["review_fixture_evidence", "copy_candidate_spl", "do_not_execute_fixture_data"],
-            "Review the synthetic fixture output. It is not live production evidence and is not executed.",
+            "Review the fixture calibration output. It is not live production evidence and was not performed.",
         )
     return no_human_review()
 

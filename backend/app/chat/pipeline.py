@@ -329,11 +329,11 @@ def _run_live_chat_pipeline(
     state = _timed_node(state, "evidence_planning", graph_node_evidence_planning)
     state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
     state = _timed_node(state, "shadow_enrichment", graph_node_shadow_enrichment)
-    if has_composed_plan(state):
+    if has_composed_plan(state) and not _session_spl_refine_active(state):
         # WS0 T0.4: composed-plan dispatch — same node calls, same predicates,
         # plus per-step status/degrade-chain recording.
         state = _timed_node(state, "plan_dispatch", lambda s: execute_plan_dispatch(s, _dispatch_hooks()))
-    elif _uses_rag_only_path(state):
+    elif _uses_rag_only_path(state) and not _session_spl_refine_active(state):
         state = _timed_node(state, "prepare_rag_only", graph_node_prepare_rag_only)
         state = _timed_node(state, "rag_early", graph_node_rag_early)
     else:
@@ -2759,7 +2759,20 @@ def _dispatch_hooks() -> DispatchHooks:
     )
 
 
+def _session_spl_refine_active(state: ChatPipelineState) -> bool:
+    resolution = state.get("session_context_resolution")
+    return (
+        isinstance(resolution, SessionContextResolution)
+        and resolution.spl_refine_from_session
+        and resolution.status.staleness == "fresh"
+        and resolution.pins is not None
+        and bool(resolution.pins.last_candidate_spl)
+    )
+
+
 def _uses_rag_only_path(state: ChatPipelineState) -> bool:
+    if _session_spl_refine_active(state):
+        return False
     planning = state.get("planning_decision")
     path_type = planning.get("path_type") if isinstance(planning, dict) else None
     if path_type == "guided_investigation":

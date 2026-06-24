@@ -27,7 +27,12 @@ _OT_PROTOCOL_TERMS: tuple[tuple[str, SignalClass], ...] = (
     ("iec-104", "protocol_command"),
     ("iec 104", "protocol_command"),
     ("iec-61850", "protocol_command"),
+    ("iec 61850", "protocol_command"),
     ("goose", "protocol_command"),
+    ("modbus tcp", "protocol_command"),
+    ("connection churn", "protocol_command"),
+    ("firmware push", "change_management"),
+    ("synchrophasor", "process_aware_ot"),
     ("mms", "protocol_command"),
     ("opc", "protocol_command"),
     ("unsolicited", "protocol_command"),
@@ -72,7 +77,7 @@ _OT_PROTOCOL_TERMS: tuple[tuple[str, SignalClass], ...] = (
 )
 
 _CLASS_DETECTORS: tuple[tuple[SignalClass, re.Pattern[str]], ...] = (
-    ("protocol_command", re.compile(r"\b(dnp3|modbus|iec[\s-]?104|goose|mms|opc|unsolicited|function code|register write)\b", re.I)),
+    ("protocol_command", re.compile(r"\b(dnp3|modbus(?:\s+tcp)?|iec[\s-]?61850|iec[\s-]?104|goose|mms|opc|unsolicited|function code|register write|connection churn)\b", re.I)),
     ("timing_integrity", re.compile(r"\b(ntp|irig[\s-]?b|time[\s-]?sync|clock|gps|stratum)\b", re.I)),
     ("identity_anomaly", re.compile(r"\b(impossible travel|off[\s-]?shift|operator login|sldc|privileged user)\b", re.I)),
     ("change_management", re.compile(r"\b(firmware|config push|relay|off[\s-]?window|maintenance window|change ticket)\b", re.I)),
@@ -253,11 +258,6 @@ def classify_signal_class(query: str, entities: dict[str, Any] | None = None) ->
 
 def build_signal_class_guidance(query: str, entities: dict[str, Any] | None = None) -> str:
     """Shaped hypotheses + evidence for the resolved signal class."""
-    if not settings.ai_soc_t2_answer_shape_enabled:
-        from app.chat.guidance_templates import build_guided_investigation_guidance
-
-        return build_guided_investigation_guidance(query, entities)
-
     signal_class = classify_signal_class(query, entities)
     template = _TEMPLATES.get(signal_class)
     ot_terms = extract_ot_terms(query)
@@ -288,6 +288,6 @@ def build_signal_class_guidance(query: str, entities: dict[str, Any] | None = No
         + "\n\nEvidence to collect\n- "
         + "\n- ".join(evidence)
         + "\n\nNext steps\n- Validate scope and time window.\n- Check existing detections and local playbooks."
-        "\n- Corroborate before severity, MITRE, containment, or escalation decisions."
+        "\n- Corroborate before severity, MITRE, escalation, or response coordination decisions."
         "\n\nLimitations: no live query was run; no MITRE technique or incident severity is claimed."
     )

@@ -36,6 +36,12 @@ _STATUS_ONLY = (
     "generic soc guidance path selected",
     "governed spl drafting is in review-only mode",
 )
+_SESSION_OR_KB_STUB_MARKERS = (
+    "prior investigation context is stale",
+    "session_context_stale",
+    "no governed kb/sop match was found",
+    "governed knowledge checklist path selected",
+)
 _UNSAFE_EXECUTION = re.compile(r"\b(executed|ran|returned \d+ rows|live results show)\b", re.I)
 
 
@@ -303,6 +309,8 @@ def _score(question: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
         issues.append(f"http_error:{run.get('http_status')}")
     if len(message) < 180 or any(stub in lowered for stub in _STATUS_ONLY):
         issues.append("thin_or_status_only_answer")
+    elif any(marker in lowered for marker in _SESSION_OR_KB_STUB_MARKERS):
+        issues.append("session_or_kb_stub_answer")
     else:
         strengths.append("substantive_answer")
     checklist = analyst.get("analyst_checklist") or contract.get("analyst_checklist_safe") or []
