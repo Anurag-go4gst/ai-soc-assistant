@@ -33,6 +33,19 @@ _IN_CATALOG_MATCH_PATHS = frozenset(
         "use_case_catalog",
     }
 )
+# Knowledge/guidance/clarification intents never assess severity without
+# explicit evidence or policy backing — they describe, they do not triage.
+_NON_SEVERITY_INTENT_FAMILIES = frozenset(
+    {
+        "spl_generation_only",
+        "guided_investigation",
+        "knowledge_only",
+        "policy_knowledge",
+        "sop_or_playbook",
+        "mitre_explanation",
+        "clarification_required",
+    }
+)
 _POLICY_SEVERITY_FAMILIES = frozenset(
     {
         "hybrid_alert_review",
@@ -371,7 +384,7 @@ def _allow_severity_assessment(
         return False
     if collected_evidence_count > 0 or execution_authorized:
         return True
-    return intent_family not in {"spl_generation_only", "guided_investigation", "knowledge_only"}
+    return intent_family not in _NON_SEVERITY_INTENT_FAMILIES
 
 
 def _policy_backed_in_catalog(state: ChatPipelineState, intent: dict[str, Any]) -> bool:

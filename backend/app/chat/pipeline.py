@@ -1575,8 +1575,6 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         state = {**state, "route_contract": route.model_dump(mode="json")}
     from app.chat.run_contract_builder import build_run_contract  # circular: pipeline state
 
-    run_contract = build_run_contract(state, route=route)
-    state = {**state, "run_contract": run_contract.model_dump_canonical()}
     emit_stage("checking_sufficiency")
     source_evidence, structured_context, context_sufficiency = _context_stage(
         trace_id=trace_id,
