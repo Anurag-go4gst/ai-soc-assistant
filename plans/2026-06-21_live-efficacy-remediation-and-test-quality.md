@@ -1101,3 +1101,29 @@ human-rated usefulness are the operator residual.**
   stub by design); RAG chunk→visible-sentence tracing on real retrieved content.
 - The 15 SOP/RAG + expert `must_include` labels for the labeled packs (reviewer).
 
+## 15. §4.5 live-run protocol orchestrator (2026-06-24)
+
+**Run protocol wired around the mature single-run engine; the live cohort itself is
+the operator's to trigger.**
+
+### Done
+- **`scripts/run_live_efficacy_profile.py`** wraps `run_live_efficacy_100.py` with the
+  §4.5 protocol:
+  - **Preflight P0 canaries** — backend health, auth, read-only debug-bundle read,
+    LLM reachability, and **server posture matches the requested profile** (via
+    `GET /debug/readiness`). Any failure aborts before a question is spent.
+  - **Profiles** `deterministic` / `llm` / `resilience` — the client cannot flip the
+    backend's LLM mode, so a profile *verifies* posture (operator configures the
+    server) and refuses a mismatched run; `resilience` adds restart-on-degraded +
+    20-question canary. Feeds the §4.6 profile-1/2/3 paired runs.
+  - **Abort threshold** — first-attempt HTTP **5xx** rate >2% aborts the cohort
+    (transport-0 timeouts excluded, never folded in).
+  - **Archive manifest** — profile, code revision, redacted config snapshot, scorer
+    version, model health, first-attempt reliability vs resilience.
+- **Tests**: `test_live_efficacy_profile.py` (10 — posture match/mismatch, preflight
+  abort paths, 5xx-only abort threshold, manifest).
+
+### Operator residual (live)
+- Trigger the three profile runs on the configured backend (`--profile …`); run the
+  blinded §4.6 paired comparison + L3 human review on the archived outputs.
+
