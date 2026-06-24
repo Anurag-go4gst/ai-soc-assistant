@@ -1,0 +1,11 @@
+# Sudoers drop-in for the LLM control watcher.
+# Install: copy to /etc/sudoers.d/ai-soc-llm-control, chmod 0440, validate with visudo -c.
+#   sudo install -m 0440 deploy/llm-control-watcher.sudoers /etc/sudoers.d/ai-soc-llm-control
+#   sudo visudo -c
+#
+# Grants the watcher user ONLY restart/stop/start on the single llama-server unit —
+# no password, no other commands. NOPASSWD is required because the watcher is
+# non-interactive.
+ai-soc-control ALL=(root) NOPASSWD: /usr/bin/systemctl restart llama-server.service, \
+    /usr/bin/systemctl stop llama-server.service, \
+    /usr/bin/systemctl start llama-server.service
