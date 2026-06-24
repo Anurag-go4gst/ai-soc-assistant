@@ -34,3 +34,6 @@ docs/evals/live_efficacy_28_reclassify/
 docs/evals/live_efficacy_indeterminate*/
 docs/evals/live_efficacy_last*/
 docs/evals/live_efficacy_transport*/
+
+# Shared LLM-control queue (runtime sentinels; created by docker-compose bind mount)
+.llm-control/

@@ -497,6 +497,46 @@ def llm_endpoint_health_status(force: bool = False) -> dict:
     return llm_endpoint_health(force=force)
 
 
+@router.get("/settings/llm/runtime-health")
+def llm_runtime_health() -> dict:
+    """Live generation-throughput probe (real tok/s), plus control availability.
+
+    Streams a tiny completion and measures the actual rate from inter-token timing,
+    so a slow-but-alive model reports its true low tok/s (never a false 0.0). Never
+    raises — a down/disabled model is reported, not thrown.
+    """
+    from app.llm.runtime_control import control_available, last_result
+    from app.llm.runtime_health import measure_runtime
+
+    health = measure_runtime()
+    return {
+        **health,
+        "control_available": control_available(),
+        "last_control_result": last_result(),
+    }
+
+
+@router.post("/settings/llm/control")
+def llm_runtime_control(
+    action: str = Body(..., embed=True),
+    user: dict = Depends(require_auth),
+) -> dict:
+    """Enqueue a privileged LLM service control action (restart/stop/start).
+
+    Default-off (``AI_SOC_LLM_CONTROL_ENABLED``). The backend never touches host
+    systemd: it writes a sentinel a host watcher applies. Returns the accepted record.
+    """
+    from app.llm.runtime_control import ALLOWED_ACTIONS, LlmControlError, request_control
+
+    if action not in ALLOWED_ACTIONS:
+        raise HTTPException(status_code=400, detail="invalid_action")
+    try:
+        record = request_control(action, requested_by=str(user.get("username") or "unknown"))
+    except LlmControlError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return {"accepted": True, **record}
+
+
 @router.post("/settings/llm/check")
 def check_llm_settings_draft(payload: LlmSettingsDraftCheckRequest) -> dict:
     """Validate a governed-LLM settings draft without persisting anything.

@@ -240,6 +240,42 @@ export async function getSettingsStatus(): Promise<SettingsStatus> {
   return response.json();
 }
 
+export interface LlmRuntimeHealth {
+  reachable: boolean;
+  tok_per_s: number | null;
+  status: string;
+  healthy: boolean;
+  reason: string;
+  prompt_eval_s?: number | null;
+  sampled_tokens?: number;
+  model?: string | null;
+  threshold_tok_per_s?: number;
+  control_available: boolean;
+  last_control_result?: Record<string, unknown> | null;
+}
+
+export async function getLlmRuntimeHealth(): Promise<LlmRuntimeHealth> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/runtime-health`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`LLM runtime health failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function controlLlm(action: 'restart' | 'stop' | 'start'): Promise<Record<string, unknown>> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/control`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(`LLM control (${action}) failed: ${response.status} ${(detail as { detail?: string }).detail ?? ''}`);
+  }
+  return response.json();
+}
+
 export async function getProviderSettingsStatus(): Promise<ProviderSettingsStatus> {
   const response = await fetch(`${API_BASE_URL}/settings/providers/status`, { credentials: 'include' });
   if (!response.ok) {

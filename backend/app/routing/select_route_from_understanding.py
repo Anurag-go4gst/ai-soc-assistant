@@ -239,7 +239,10 @@ def _route_out_of_registry(
 
     if _settings.ai_soc_t2_answer_shape_enabled:
         normalized = " ".join(query.lower().split())
-        if not is_unsafe_execution(normalized) and not signals.get("explicit_run_spl"):
+        # ``run_execution`` is the returned signal that captures explicit run-SPL
+        # intent (``explicit_run_spl`` is internal-only and never returned, so the
+        # old ``.get("explicit_run_spl")`` guard was always falsy / a no-op).
+        if not is_unsafe_execution(normalized) and not signals.get("run_execution"):
             from app.chat.answer_shape_router import classify_answer_shape
 
             if classify_answer_shape(query).primary_shape != "hunt":

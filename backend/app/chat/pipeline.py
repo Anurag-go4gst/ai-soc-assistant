@@ -99,6 +99,7 @@ from app.synthesis.composition_confidence import (
     should_attach_compose_hil,
 )
 from app.synthesis.governed_answer_composer import (
+    GovernedComposerResult,
     build_composer_runtime_status,
     compose_governed_answer,
 )
@@ -2226,17 +2227,33 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                     ),
                 )
             _composer_timeout = budget.capped_hop_timeout_seconds(role="governed_composer")
-            _t0 = time.monotonic()
-            composer_result = compose_governed_answer(
-                contract=answer_contract,
-                enrichment_projection=enrichment_projection,
-                fallback_envelope=analyst_response,
-                context_package=context_package,
-                path_type=path_type,
-                intent_family=intent_family or None,
-                timeout_seconds=_composer_timeout,
-            )
-            composer_trace = {**composer_trace, **composer_result.trace_payload()}
+            if _composer_timeout is None:
+                # Budget drained between the narration gate and here: keep the complete
+                # deterministic envelope rather than start an unbounded narration hop.
+                composer_result = GovernedComposerResult(
+                    envelope=analyst_response,
+                    llm_composer_enabled=True,
+                    llm_composer_used=False,
+                    llm_guard_status="skipped",
+                    llm_fallback_used=True,
+                    llm_blocked_reason="insufficient_deadline_reserve",
+                )
+                composer_trace = {
+                    **composer_trace,
+                    "llm_composer_skipped_reason": "insufficient_deadline_reserve",
+                }
+            else:
+                _t0 = time.monotonic()
+                composer_result = compose_governed_answer(
+                    contract=answer_contract,
+                    enrichment_projection=enrichment_projection,
+                    fallback_envelope=analyst_response,
+                    context_package=context_package,
+                    path_type=path_type,
+                    intent_family=intent_family or None,
+                    timeout_seconds=_composer_timeout,
+                )
+                composer_trace = {**composer_trace, **composer_result.trace_payload()}
             if composer_result.llm_composer_used:
                 budget.record_narration(
                     provider_label=composer_result.llm_provider_label,

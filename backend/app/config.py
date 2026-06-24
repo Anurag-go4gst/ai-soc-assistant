@@ -291,6 +291,13 @@ class Settings(BaseSettings):
     ai_soc_llm_local_base_url: str = ""
     ai_soc_llm_local_api_key: str = ""
     ai_soc_llm_local_model: str = ""
+    # Operator LLM service control from the UI/API. The backend runs in Docker and
+    # cannot ``systemctl`` the host llama-server directly: when enabled, a control
+    # request is written as a sentinel file into ``ai_soc_llm_control_dir`` (a shared
+    # volume) and a host watcher (``scripts/llm_control_watcher.py``) applies it.
+    # Default OFF — this is a privileged control surface.
+    ai_soc_llm_control_enabled: bool = False
+    ai_soc_llm_control_dir: str = ""
     # COE Qwen 2.5 72B — prepended to the failover chain when true and QWEN_* are set.
     # Default false: dev/staging uses LOCAL_* (Foundation-Sec) + Instruct failover only.
     ai_soc_llm_qwen_primary_enabled: bool = False
