@@ -1250,6 +1250,9 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
 
 
 def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState:
+    evidence_plan = state.get("evidence_plan")
+    if isinstance(evidence_plan, dict) and evidence_plan.get("needs_spl") is False:
+        return state
     candidate = state.get("candidate_spl")
     validation = state.get("spl_validation")
     if not isinstance(candidate, dict) or not isinstance(validation, dict):
@@ -1706,6 +1709,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         user_query=request.message,
         entities=entities_payload,
         match_path=match_path_for_t2,
+        intent_classification=state.get("intent_classification")
+        if isinstance(state.get("intent_classification"), dict)
+        else None,
     )
     note = _chat_note(
         spl_validation,
@@ -2356,6 +2362,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             context_sufficiency=context_sufficiency if isinstance(context_sufficiency, dict) else None,
             user_query=request.message,
             human_review=human_review if isinstance(human_review, dict) else None,
+            selected_skill=_effective_routing_skill(state),
         )
         if answer_contract is not None:
             answer_contract_payload = answer_contract.model_dump()
@@ -4708,6 +4715,7 @@ def _chat_message(
     user_query: str | None = None,
     entities: dict[str, Any] | None = None,
     match_path: str | None = None,
+    intent_classification: dict[str, Any] | None = None,
 ) -> str:
     from app.chat.guidance_templates import (
         build_conceptual_mitre_guidance,
@@ -4725,6 +4733,18 @@ def _chat_message(
     )
 
     path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
+    intent_family = ""
+    if isinstance(intent_classification, dict):
+        intent_family = str(intent_classification.get("intent_family") or "")
+    if intent_family == "alert_summary" and user_query:
+        from app.chat.analyst_response_builder import build_alert_summary_message
+
+        plan = evidence_plan if isinstance(evidence_plan, dict) else {}
+        return build_alert_summary_message(
+            user_query=user_query,
+            evidence_plan=plan,
+        )
+
     if is_unsafe_blocked_path(path_type) or (user_query and is_explicit_run_spl_query(user_query)):
         if user_query and is_explicit_run_spl_query(user_query):
             return build_spl_execution_refusal_guidance()

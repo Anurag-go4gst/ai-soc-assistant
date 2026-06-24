@@ -140,6 +140,59 @@ def _enhance_contract_for_rag_surfacing(contract: AnswerContract) -> AnswerContr
     )
 
 
+
+
+def ensure_analyst_card_for_substantive_message(
+    message: str,
+    analyst_response: AnalystResponseEnvelope | None,
+    *,
+    selected_skill: str | None = None,
+    user_query: str = "",
+) -> AnalystResponseEnvelope | None:
+    """Rebuild analyst card when finalize message is substantive but the builder returned None."""
+    if analyst_response is not None:
+        return analyst_response
+    if not is_substantive_guidance_message(message):
+        return analyst_response
+    from app.chat.skill_contribution import INVESTIGATION_SKILLS
+
+    skill = str(selected_skill or "")
+    if skill == "alert_summary":
+        title = "Analyst summary"
+    elif skill == "guided_investigation":
+        title = "SOC investigation guidance"
+    elif is_regulatory_reporting_query(user_query):
+        title = "Regulatory / reporting guidance"
+    else:
+        title = "SOC guidance"
+    profile = "hybrid_alert_review" if skill in INVESTIGATION_SKILLS else "knowledge_recall"
+    return AnalystResponseEnvelope(
+        direct_answer_summary=message[:2000],
+        one_sentence_finding=message[:1200],
+        finding_title=title,
+        response_profile=profile,
+        execution_status="skipped",
+    )
+
+
+def _finalize_rag_surfacing(
+    message: str,
+    answer_contract: AnswerContract | None,
+    analyst_response: AnalystResponseEnvelope | None,
+    human_review: dict[str, Any] | None,
+    *,
+    selected_skill: str | None = None,
+    user_query: str = "",
+) -> tuple[str, AnswerContract | None, AnalystResponseEnvelope | None, dict[str, Any] | None]:
+    preserved = ensure_analyst_card_for_substantive_message(
+        message,
+        analyst_response,
+        selected_skill=selected_skill,
+        user_query=user_query,
+    )
+    return message, answer_contract, preserved, human_review
+
+
 def apply_rag_answer_surfacing(
     *,
     message: str,
@@ -150,9 +203,17 @@ def apply_rag_answer_surfacing(
     context_sufficiency: dict[str, Any] | None,
     user_query: str,
     human_review: dict[str, Any] | None,
+    selected_skill: str | None = None,
 ) -> tuple[str, AnswerContract | None, AnalystResponseEnvelope | None, dict[str, Any] | None]:
     if not settings.ai_soc_t2_rag_surfacing_enabled:
-        return message, answer_contract, analyst_response, human_review
+        return _finalize_rag_surfacing(
+            message,
+            answer_contract,
+            analyst_response,
+            human_review,
+            selected_skill=selected_skill,
+            user_query=user_query,
+        )
 
     plan = evidence_plan if isinstance(evidence_plan, dict) else {}
     sufficiency = context_sufficiency if isinstance(context_sufficiency, dict) else {}
@@ -161,7 +222,14 @@ def apply_rag_answer_surfacing(
         str(sufficiency.get("status") or ""),
     )
     if not knowledge_turn:
-        return message, answer_contract, analyst_response, human_review
+        return _finalize_rag_surfacing(
+            message,
+            answer_contract,
+            analyst_response,
+            human_review,
+            selected_skill=selected_skill,
+            user_query=user_query,
+        )
 
     updated_review = _normalize_knowledge_human_review(human_review)
     regulatory = is_regulatory_reporting_query(user_query)
@@ -188,8 +256,22 @@ def apply_rag_answer_surfacing(
                     response_profile="knowledge_recall",
                     execution_status="skipped",
                 )
-            return surfaced_message, updated_contract, updated_response, updated_review
-        return message, answer_contract, analyst_response, updated_review
+            return _finalize_rag_surfacing(
+                surfaced_message,
+                updated_contract,
+                updated_response,
+                updated_review,
+                selected_skill=selected_skill,
+                user_query=user_query,
+            )
+        return _finalize_rag_surfacing(
+            message,
+            answer_contract,
+            analyst_response,
+            updated_review,
+            selected_skill=selected_skill,
+            user_query=user_query,
+        )
 
     playbook, sop_guidance, rag_meta = _playbook_from_rag(source_evidence or [])
     surfaced_message = build_rag_knowledge_message(
@@ -225,4 +307,11 @@ def apply_rag_answer_surfacing(
         if summary:
             updated_response = updated_response.model_copy(update={"direct_answer_summary": summary[:2000]})
 
-    return updated_message, updated_contract, updated_response, updated_review
+    return _finalize_rag_surfacing(
+        updated_message,
+        updated_contract,
+        updated_response,
+        updated_review,
+        selected_skill=selected_skill,
+        user_query=user_query,
+    )

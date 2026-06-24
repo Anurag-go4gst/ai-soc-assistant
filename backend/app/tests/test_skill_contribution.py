@@ -113,3 +113,13 @@ def test_derive_boundary_class_marks_destructive_and_unsafe_rows() -> None:
     assert derive_boundary_class(
         "Summarize the company leave policy and approve my vacation request."
     ) == "out_of_scope_boundary"
+
+
+def test_guided_floor_includes_branching_hypotheses():
+    env = _env()
+    contrib = build_skill_contribution(selected_skill="guided_investigation", envelope=env)
+    updated = apply_investigation_floor(envelope=env, contribution=contrib)
+    joined = " ".join(updated.investigation_steps or [])
+    assert "Hypothesis:" in joined
+    assert updated.recommended_actions
+    assert any("vendor" in item.lower() or "maintenance" in item.lower() for item in updated.recommended_actions)

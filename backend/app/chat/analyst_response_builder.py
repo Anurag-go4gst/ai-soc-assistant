@@ -38,6 +38,87 @@ _FAILED_LOGIN_NUMERIC_COLUMNS = (
 )
 
 
+
+_SUMMARY_PREFIX_MARKERS = (
+    "summarize for shift handoff:",
+    "give a concise analyst summary:",
+    "provide an analyst summary:",
+    "analyst summary:",
+    "summarize:",
+    "summary:",
+)
+
+
+def build_alert_summary_message(
+    *,
+    user_query: str,
+    evidence_plan: dict[str, Any] | None = None,
+    severity_label: str | None = None,
+    mitre_rows: list[dict[str, Any]] | None = None,
+) -> str:
+    """Deterministic shift-handoff summary: situation, confidence, actions, unknowns."""
+    situation = _alert_summary_situation(user_query)
+    confidence_lines: list[str] = []
+    if severity_label and not severity_label.startswith(ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL):
+        confidence_lines.append(
+            f"Severity posture: {severity_label} — analyst validation required before escalation."
+        )
+    else:
+        confidence_lines.append(
+            "Confidence: moderate — the narrative is taken from the analyst prompt; "
+            "no live Splunk query or MCP execution corroborated this turn."
+        )
+    if mitre_rows:
+        technique_bits = [
+            f"{row.get('Technique')} ({row.get('Status')})"
+            for row in mitre_rows[:3]
+            if row.get("Technique")
+        ]
+        if technique_bits:
+            confidence_lines.append(
+                "MITRE context (candidate/review-only): " + ", ".join(technique_bits) + "."
+            )
+
+    plan = evidence_plan if isinstance(evidence_plan, dict) else {}
+    actions = _safe_display_list(plan.get("checklist") or [])
+    if not actions:
+        actions = [
+            "Confirm affected assets, identities, sources, and the observation window.",
+            "Corroborate the described sequence in auth, endpoint, and network telemetry.",
+            "Decide whether the activity is sanctioned maintenance or needs escalation.",
+        ]
+    unknowns = _safe_display_list(plan.get("limitations") or plan.get("unsupported_claims_avoid") or [])
+    if not unknowns:
+        unknowns = [
+            "Whether the described activity is authorized or malicious.",
+            "Full scope of hosts, users, or OT assets beyond the narrative.",
+            "Whether severity assignment or containment is warranted without corroboration.",
+        ]
+
+    return "\n\n".join(
+        [
+            "Analyst summary (review-only)",
+            f"Situation\n{situation}",
+            "Confidence\n" + "\n".join(f"- {line}" for line in confidence_lines),
+            "Recommended actions\n" + "\n".join(f"- {item}" for item in actions[:5]),
+            "Unknowns / gaps\n" + "\n".join(f"- {item}" for item in unknowns[:4]),
+            "No Splunk search or MCP execution was performed for this summary turn.",
+        ]
+    )
+
+
+def _alert_summary_situation(user_query: str) -> str:
+    text = str(user_query or "").strip()
+    normalized = " ".join(text.lower().split())
+    for marker in _SUMMARY_PREFIX_MARKERS:
+        if normalized.startswith(marker):
+            text = text[len(marker) :].strip()
+            break
+    if not text:
+        return "Analyst requested a concise handoff summary; no corroborating telemetry was queried."
+    return text[0].upper() + text[1:] if len(text) > 1 else text
+
+
 def build_analyst_response_for_live(
     *,
     user_query: str,
@@ -124,6 +205,31 @@ def build_analyst_response_for_live(
             user_query=user_query,
         )
     intent = intent_classification if isinstance(intent_classification, dict) else {}
+    if str(intent.get("intent_family") or "") == "alert_summary":
+        summary_message = build_alert_summary_message(
+            user_query=user_query,
+            evidence_plan=plan,
+            severity_label=severity_label,
+            mitre_rows=mitre_rows,
+        )
+        direct = str(message or "").strip()
+        if not direct or _ROUTING_COMPLETE_ONLY.search(direct) or "generic soc guidance path selected" in direct.lower():
+            direct = summary_message
+        else:
+            direct = f"{summary_message}\n\n{direct}".strip()
+        envelope = AnalystResponseEnvelope(
+            finding_title="Analyst summary",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=_safe_display_list(plan.get("checklist") or [])[:6] or None,
+            response_profile="hybrid_alert_review",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            mitre_mappings=mitre_rows or None,
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            envelope = apply_final_answer_readability(envelope, contract)
+        return envelope
     summary = _governed_summary(
         analyst_summary,
         mitre_rows,

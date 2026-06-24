@@ -207,6 +207,12 @@ def build_skill_contribution(
 # Deterministic, domain-generic investigation steps used only when an investigation
 # skill produced no visible section and no legitimate skip reason applies. Kept
 # review-only and execution-free, consistent with the rest of the pipeline.
+_GUIDED_BRANCHING_HYPOTHESES: tuple[str, ...] = (
+    "Approved vendor, maintenance, or expected operational activity.",
+    "Configuration or telemetry drift producing an apparent anomaly.",
+    "Suspicious activity requiring corroboration before severity or containment.",
+)
+
 _GENERIC_INVESTIGATION_FLOOR: tuple[str, ...] = (
     "Confirm the alert scope: affected hosts/identities, first/last seen, and the "
     "originating data source.",
@@ -237,14 +243,25 @@ def apply_investigation_floor(
         return envelope
 
     steps = list(envelope.investigation_steps or [])
+    recommended = list(envelope.recommended_actions or [])
+    if contribution.selected_skill == "guided_investigation":
+        for hypothesis in _GUIDED_BRANCHING_HYPOTHESES:
+            label = f"Hypothesis: {hypothesis}"
+            if label not in steps:
+                steps.insert(0, label)
+            if hypothesis not in recommended:
+                recommended.insert(0, hypothesis)
     for step in _GENERIC_INVESTIGATION_FLOOR:
         if step not in steps:
             steps.append(step)
     render = dict(envelope.render_sections or {})
     render["investigation_steps"] = True
-    updated = envelope.model_copy(
-        update={"investigation_steps": steps, "render_sections": render}
-    )
+    if recommended:
+        render["recommended_actions"] = True
+    update_payload: dict[str, Any] = {"investigation_steps": steps, "render_sections": render}
+    if recommended:
+        update_payload["recommended_actions"] = recommended[:8]
+    updated = envelope.model_copy(update=update_payload)
 
     contribution.floor_applied = True
     contribution.gap_recorded = True
