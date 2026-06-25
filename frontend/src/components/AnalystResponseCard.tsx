@@ -134,7 +134,7 @@ export function AnalystResponseCard({
   if (showInvestigationSteps) {
     phases.push({
       key: 'steps',
-      label: isReviewOnlySplDraft ? 'SOC review checklist' : 'Investigation steps',
+      label: isReviewOnlySplDraft ? 'SOC review checklist before execution' : 'Investigation steps',
       icon: <ListChecks className="h-3.5 w-3.5" />,
       accent: 'amber',
       chips: [{ text: isReviewOnlySplDraft ? 'Review only' : 'Analyst workflow', variant: 'outline' }],
@@ -417,7 +417,9 @@ export function AnalystResponseCard({
   return (
     <div className="max-w-[1120px] rounded-xl border border-cyan-500/20 bg-slate-950/70 px-6 py-5 text-[15px] text-slate-100 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
-        {response.severity_label && !isKnowledgeRecall ? <SeverityBadge label={response.severity_label} /> : null}
+        {response.severity_label && !isKnowledgeRecall && !isReviewOnlySplDraft ? (
+          <SeverityBadge label={response.severity_label} />
+        ) : null}
         {response.severity_confidence ? (
           <Badge variant="outline">Confidence: {response.severity_confidence}</Badge>
         ) : null}

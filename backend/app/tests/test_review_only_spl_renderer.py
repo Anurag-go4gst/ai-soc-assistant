@@ -62,7 +62,7 @@ def test_substation_query_renders_clean_review_only_spl_answer() -> None:
 
     # 4. Review-only notice + checklist/SPL/assumptions each exactly once.
     assert "lab-only draft spl preview" in lowered
-    assert lowered.count("soc review checklist") == 1
+    assert visible.count("SOC review checklist before execution") == 1
     assert visible.count("Draft SPL preview:") == 1
     assert visible.count("search index=") == 1
     assert lowered.count("assumptions and placeholders") == 1
@@ -75,12 +75,27 @@ def test_substation_query_renders_clean_review_only_spl_answer() -> None:
 def test_substation_query_suppresses_competing_producers() -> None:
     visible = _visible(SUBSTATION_QUERY)
     lowered = visible.lower()
+    # "Not assigned from this question alone" must not appear before the title.
     assert not visible.startswith("Not assigned from this question alone")
+    assert lowered.index("review-only spl draft") < lowered.index(
+        "not assigned from this question alone"
+    )
     assert "review type: analytics/query review" not in lowered
+    assert "investigation steps" not in lowered
+    assert "analyst workflow" not in lowered
     assert "investigation plan" not in lowered
     assert "v.ai soc governed" not in lowered
     # No competing IT-to-OT title before the review-only title.
     assert lowered.index("review-only spl draft") < lowered.index("it-to-ot firewall boundary review")
+
+
+def test_substation_card_clears_competing_severity_producers() -> None:
+    # The severity rationale carries the generic "Review type" banner; the card status
+    # block states severity instead, so the rationale/safety-note are cleared.
+    card = build_live_chat_response(ChatRequest(message=SUBSTATION_QUERY)).analyst_response
+    assert card is not None
+    assert not card.severity_rationale
+    assert not card.severity_safety_note
 
 
 def test_substation_query_has_no_priority_prefixes_or_live_claims() -> None:

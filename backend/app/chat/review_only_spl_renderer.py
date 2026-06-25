@@ -27,6 +27,7 @@ _REVIEW_LINE = "Review: HIL/SOC review required before any future execution path
 _REVIEW_ONLY_NOTICE = (
     "This is a lab-only draft SPL preview. It is not governed, not approved, and not executed."
 )
+_CHECKLIST_HEADER = "SOC review checklist before execution:"
 _HOW_PRODUCED = "How this answer was produced: review-only / no live execution"
 
 _PRIORITY_PREFIX = re.compile(r"^P[1-4]\s*[—\-–:]\s*", re.IGNORECASE)
@@ -141,7 +142,7 @@ def render_review_only_spl_answer(
     lines.append(_REVIEW_ONLY_NOTICE)
     lines.append("")
 
-    lines.append("SOC review checklist:")
+    lines.append(_CHECKLIST_HEADER)
     for index, item in enumerate(_checklist_items(analyst_response, draft_preview), start=1):
         lines.append(f"{index}. {item}")
 
@@ -221,6 +222,11 @@ def apply_review_only_spl_render(
         "response_profile": "spl_only",
         "investigation_steps": [],
         "recommended_actions": [],
+        # ``severity_rationale`` carries the generic "Review type: analytics/query
+        # review." banner; the status block already states severity, so clear it (and the
+        # safety note) for this path so no competing top-level line is rendered.
+        "severity_rationale": None,
+        "severity_safety_note": None,
         "direct_answer_summary": "\n".join(header_lines),
         "analyst_checklist": _checklist_items(analyst_response, draft_preview),
     }
