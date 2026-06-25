@@ -4,6 +4,7 @@ from typing import Any
 
 from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.intent_classification import IntentClassification
+from app.chat.query_signals import is_live_data_request
 from app.config import settings
 from app.chat.planning_decision import _apply_completeness_floor
 from app.chat.multi_leg_evidence import compose_multi_leg_evidence
@@ -291,19 +292,28 @@ def plan_evidence(
         )
 
     if family == "spl_generation_only":
+        signals = (query_to_intent or {}).get("query_signals") if isinstance(query_to_intent, dict) else {}
+        live_data_request = is_live_data_request(signals if isinstance(signals, dict) else {})
         return with_enrichment(
             EvidencePlan(
                 answer_mode="live_investigation",
                 rag_phase="post_mcp",
                 needs_rag=False,
                 needs_spl=True,
-                needs_mcp=False,
+                needs_mcp=live_data_request,
                 needs_mitre=False,
                 spl_allowed=True,
                 mcp_allowed=False,
                 policy_context_required=False,
                 policy_context_recommended=False,
-                reasons=["spl_artifact_requested"],
+                reasons=[
+                    "spl_artifact_requested",
+                    *(
+                        ["live_data_request_mcp_needed_but_not_allowed"]
+                        if live_data_request
+                        else []
+                    ),
+                ],
             )
         )
 

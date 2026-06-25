@@ -53,6 +53,12 @@ _CHECK_IDS: tuple[str, ...] = (
     "final.unsafe_execution_claim",
     "final.evidence_supported_without_status",
     "final.containment_without_hil",
+    "final.direct_summary_contains_spl_query",
+    "final.direct_summary_contains_full_checklist",
+    "final.duplicate_review_only_warning",
+    "final.duplicate_soc_checklist",
+    "final.priority_prefix_without_severity",
+    "final.live_backed_without_execution",
 )
 
 _UNSAFE_POSITIVE_PATTERNS: tuple[tuple[str, str, str], ...] = (
@@ -280,6 +286,81 @@ def validate_final_answer(
             )
         )
 
+    summary_text = str(getattr(analyst_response, "direct_answer_summary", "") or "")
+    if "```" in summary_text or re.search(r"\b(search\s+index=|index=[\w<])", summary_text, flags=re.IGNORECASE):
+        findings.append(
+            _blocking(
+                "final.direct_summary_contains_spl_query",
+                "direct_answer_summary contains a draft SPL query or code block.",
+                field="direct_answer_summary",
+            )
+        )
+
+    checklist_items = [
+        str(item)
+        for item in (
+            list(getattr(analyst_response, "analyst_checklist", None) or [])
+            + list(getattr(analyst_response, "recommended_actions", None) or [])
+            + list(getattr(analyst_response, "investigation_steps", None) or [])
+        )
+        if str(item).strip()
+    ]
+    checklist_hits = [
+        item
+        for item in checklist_items
+        if item and _normalize_section_text(item) and _normalize_section_text(item) in _normalize_section_text(summary_text)
+    ]
+    if len(checklist_hits) >= 2:
+        findings.append(
+            _blocking(
+                "final.direct_summary_contains_full_checklist",
+                "direct_answer_summary repeats the SOC checklist instead of leaving it in its owned section.",
+                field="direct_answer_summary",
+            )
+        )
+
+    visible_sections = _visible_section_text(analyst_response)
+    visible_lower = visible_sections.lower()
+    if visible_lower.count("lab-only draft spl preview") > 1:
+        findings.append(
+            _blocking(
+                "final.duplicate_review_only_warning",
+                "Review-only / lab-only SPL warning appears more than once.",
+                field="analyst_response",
+            )
+        )
+    if visible_lower.count("soc review checklist") > 1:
+        findings.append(
+            _blocking(
+                "final.duplicate_soc_checklist",
+                "SOC review checklist appears more than once.",
+                field="analyst_response",
+            )
+        )
+
+    severity_label = str(getattr(analyst_response, "severity_label", "") or "")
+    if not severity_label or "not assigned" in severity_label.lower():
+        for item in getattr(analyst_response, "recommended_actions", None) or []:
+            if re.match(r"^P[1-3]\s*[—\-–:]", str(item or "")):
+                findings.append(
+                    _blocking(
+                        "final.priority_prefix_without_severity",
+                        "P1/P2/P3 action prefix shown although incident severity is not assigned.",
+                        field="recommended_actions",
+                    )
+                )
+                break
+
+    execution_status = str(contract.get("execution_status") or "")
+    if "live-backed" in visible_lower and execution_status != "executed":
+        findings.append(
+            _blocking(
+                "final.live_backed_without_execution",
+                "Visible answer says live-backed although execution was not executed.",
+                field="analyst_response",
+            )
+        )
+
     blocking = [item for item in findings if item.severity == "blocking_candidate"]
     if blocking:
         return AnswerGuardStatus(
@@ -316,6 +397,34 @@ def _visible_analyst_text(analyst_response: Any) -> str:
         if isinstance(row, str):
             parts.append(row)
     return " ".join(parts).lower()
+
+
+def _visible_section_text(analyst_response: Any) -> str:
+    parts: list[str] = [_visible_analyst_text(analyst_response)]
+    for field in (
+        "analyst_checklist",
+        "recommended_actions",
+        "investigation_steps",
+        "limitations",
+        "missing_evidence",
+        "required_evidence",
+    ):
+        for item in getattr(analyst_response, field, None) or []:
+            if isinstance(item, str):
+                parts.append(item)
+    draft = getattr(analyst_response, "spl_draft_preview", None)
+    if isinstance(draft, dict):
+        for key in ("warning", "not_catalog_approved_notice"):
+            value = draft.get(key)
+            if isinstance(value, str):
+                parts.append(value)
+    return "\n".join(parts)
+
+
+def _normalize_section_text(text: str) -> str:
+    cleaned = re.sub(r"^P[1-4]\s*[—\-–:]\s*", "", str(text or ""), flags=re.IGNORECASE)
+    cleaned = re.sub(r"^Step\s+\d+\s*:\s*", "", cleaned, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", cleaned).strip().lower()
 
 
 def _has_negated_compromise_wording(text: str) -> bool:

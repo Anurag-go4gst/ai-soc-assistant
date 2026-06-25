@@ -64,14 +64,29 @@ def test_bundle_a_substation_live_data() -> None:
     assert routing.get("live_data_request") is True
     assert contract.get("execution_needed_for_answer") is True
     assert contract.get("mcp_needed_for_live_answer") is True
+    assert contract.get("execution_authorized") is False
+    assert contract.get("allow_results_table") is False
     assert contract.get("collected_evidence_count") == 0
     assert contract.get("effective_hil_required") is True
+    assert (payload.get("evidence_plan") or {}).get("needs_mcp") is True
+    assert (payload.get("evidence_plan") or {}).get("mcp_allowed") is False
 
     action_cap = payload.get("action_capability") or {}
     assert action_cap.get("hil_required") is True
 
     analyst = payload.get("analyst_response") or {}
     assert not (analyst.get("splunk_results_table") or [])
+    assert (payload.get("route_authority") or {}).get("authority_holder") == routing.get("authority_holder")
+    assert "Review-only SPL draft - no live query was executed" in (
+        analyst.get("direct_answer_summary") or ""
+    )
+    assert analyst.get("severity_label") == "Not assigned from this question alone"
+    assert "```" not in (analyst.get("direct_answer_summary") or "")
+    assert "search index=" not in (analyst.get("direct_answer_summary") or "").lower()
+    assert not any(
+        str(item).startswith(("P1", "P2", "P3"))
+        for item in analyst.get("recommended_actions") or []
+    )
 
     from app.chat.run_contract_builder import build_answer_preview
     from app.chat.contracts.run_contract import RunContract
@@ -120,3 +135,26 @@ def test_bundle_e_no_false_evidence_claims() -> None:
 
     analyst = payload.get("analyst_response") or {}
     assert not (analyst.get("splunk_results_table") or [])
+
+
+def test_bundle_f_run_contract_gate4_required_fields_present() -> None:
+    payload = _run_chat(_SUBSTATION_QUERY)
+    contract = _run_contract(payload)
+    routing = _routing(payload)
+
+    for field in (
+        "execution_status",
+        "collected_evidence_count",
+        "source_evidence_available",
+        "allow_live_result_language",
+        "allow_results_table",
+        "effective_hil_required",
+    ):
+        assert field in contract
+    for field in (
+        "canonical_skill",
+        "legacy_skill",
+        "legacy_authoritative",
+        "authority_holder",
+    ):
+        assert field in routing

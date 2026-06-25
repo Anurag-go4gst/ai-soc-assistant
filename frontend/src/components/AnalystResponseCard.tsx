@@ -47,7 +47,6 @@ export function AnalystResponseCard({
   const title = stripSeverityPrefix(response.finding_title);
   const policyChecks = validationNotes.length ? validationNotes : triageSteps;
   const priorityActions = response.recommended_actions ?? [];
-  const hasPriorityInvestigation = hasPriorityActions(priorityActions);
   const renderSections = response.render_sections ?? {};
   const splOnly = response.response_profile === 'spl_only';
   const isKnowledgeRecall = response.response_profile === 'knowledge_recall';
@@ -66,6 +65,12 @@ export function AnalystResponseCard({
   const investigationSteps = response.investigation_steps?.length
     ? response.investigation_steps
     : response.analyst_checklist ?? [];
+  const investigationStepKeys = new Set(investigationSteps.map(normalizeSectionItem));
+  const uniquePriorityActions = priorityActions.filter((action) => {
+    const key = normalizeSectionItem(action);
+    return key && !investigationStepKeys.has(key);
+  });
+  const hasPriorityInvestigation = hasPriorityActions(uniquePriorityActions);
   const showInvestigationSteps = Boolean(!isKnowledgeRecall && investigationSteps.length);
   const showRequiredEvidence = Boolean(!isKnowledgeRecall && response.required_evidence?.length);
   const showMissingEvidence = Boolean(!isKnowledgeRecall && missingEvidence.length);
@@ -100,7 +105,7 @@ export function AnalystResponseCard({
     response.review_notice && !response.spl_code && !response.spl_status_detail && !showDraftSpl,
   );
   const showInvestigationPlan =
-    !splOnly && !isKnowledgeRecall && priorityActions.length > 0 && (hasPriorityInvestigation || !response.spl_code);
+    !splOnly && !isKnowledgeRecall && uniquePriorityActions.length > 0 && (hasPriorityInvestigation || !response.spl_code);
   const showPolicyBridge = !isKnowledgeRecall && policyChecks.length > 0 && showInvestigationPlan && hasPriorityInvestigation;
   const governedAnalysis = splOnly ? null : foundationSecGovernance?.governed_analysis ?? null;
   const hasReasoning = !splOnly && Boolean(governedAnalysis || response.foundation_sec_analysis);
@@ -383,9 +388,9 @@ export function AnalystResponseCard({
           ) : null}
           {showInvestigationPlan ? (
             hasPriorityInvestigation ? (
-              <RecommendationList items={priorityActions} />
+              <RecommendationList items={uniquePriorityActions} />
             ) : (
-              <BulletList items={priorityActions} />
+              <BulletList items={uniquePriorityActions} />
             )
           ) : null}
           {response.escalation_criteria?.length ? (
@@ -780,6 +785,15 @@ function isNumericValue(value: unknown) {
 
 function hasPriorityActions(items: string[]) {
   return items.some((item) => /^P[1-4]\s*[—-]\s*/.test(item));
+}
+
+function normalizeSectionItem(item: string) {
+  return item
+    .replace(/^P[1-4]\s*[—\-–:]\s*/i, '')
+    .replace(/^Step\s+\d+\s*:\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 }
 
 function StepList({ items }: { items: string[] }) {

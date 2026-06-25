@@ -127,6 +127,41 @@ def build_merged_t2_message(
     return merged or guidance_text
 
 
+def _summary_for_t2_section_plan(
+    *,
+    guidance_text: str,
+    spl_draft_preview: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+    user_query: str,
+    match_path: str | None,
+) -> str:
+    """Single-owner card summary for T2 review-only answers.
+
+    ``message`` may remain a merged markdown fallback for simple clients, but the
+    structured analyst card already owns SPL, checklist, and limitation sections.
+    Keep the summary short so those producers do not all render twice.
+    """
+    shape = classify_answer_shape(user_query).primary_shape
+    if shape_suppresses_spl(shape):
+        return "Knowledge-only guidance prepared for analyst review; no SPL was generated."
+    has_spl = _has_spl_artifact(
+        candidate_spl=candidate_spl,
+        spl_draft_preview=spl_draft_preview,
+        spl_validation=spl_validation,
+    )
+    if has_spl:
+        if isinstance(spl_draft_preview, dict) and str(spl_draft_preview.get("draft_spl") or "").strip():
+            return "Review-only SPL draft - no live query was executed."
+        if isinstance(spl_validation, dict) and str(spl_validation.get("normalized_spl") or "").strip():
+            return "Governed SPL draft prepared for analyst review; it has not been executed."
+        return "Candidate SPL draft prepared for analyst review; it has not been executed."
+    if str(match_path or "") in {"out_of_registry", "query_understanding_weak"}:
+        return "Guided investigation prepared for analyst review; no live query was executed."
+    first_line = next((line.strip() for line in guidance_text.splitlines() if line.strip()), "")
+    return first_line[:300] or "Analyst guidance prepared for review."
+
+
 def apply_t2_answer_surfacing(
     *,
     message: str,
@@ -167,11 +202,19 @@ def apply_t2_answer_surfacing(
         from app.chat.final_answer_readability import apply_final_answer_readability
 
         updated_response = apply_final_answer_readability(analyst_response, updated_contract)
-        if merged_message:
-            updated_response = updated_response.model_copy(update={"direct_answer_summary": merged_message[:2000]})
+        summary = _summary_for_t2_section_plan(
+            guidance_text=message,
+            spl_draft_preview=spl_draft_preview,
+            candidate_spl=candidate_spl,
+            spl_validation=spl_validation,
+            user_query=user_query,
+            match_path=match_path,
+        )
+        if summary:
+            updated_response = updated_response.model_copy(update={"direct_answer_summary": summary[:500]})
         from app.chat.guidance_envelope import populate_envelope_from_guidance
 
         updated_response = populate_envelope_from_guidance(
-            updated_response, merged_message, limitations=limitations
+            updated_response, message, limitations=limitations
         )
     return merged_message, updated_contract, updated_response

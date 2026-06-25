@@ -63,6 +63,7 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
   const showFullAnswer = !isUser && message.trace && message.displayStage !== 'progress' && message.displayStage !== 'summary';
 
   const scrollAnswerToTop = showSummaryOnly || showFullAnswer;
+  const provenanceBadge = answerProvenanceBadge(message.trace ?? null);
 
   return (
     <div className={cn('flex gap-3', isUser && 'flex-row-reverse')} data-message-id={message.id}>
@@ -131,7 +132,7 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 transition hover:text-cyan-200">
               <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
               How this answer was produced
-              {message.trace.demo_mode ? <Badge variant="warning">scenario-backed</Badge> : <Badge variant="success">live-backed</Badge>}
+              <Badge variant={provenanceBadge.variant}>{provenanceBadge.label}</Badge>
             </summary>
             <div className="border-t border-slate-800/70 p-3">
               {message.trace.route_plan_shadow ? (
@@ -267,6 +268,20 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
       </div>
     </div>
   );
+}
+
+function answerProvenanceBadge(trace: PlaceholderResponse | null): { label: string; variant: 'success' | 'warning' | 'outline' } {
+  if (!trace) return { label: 'review-only / no live execution', variant: 'outline' };
+  if (trace.demo_mode) return { label: 'scenario-backed', variant: 'warning' };
+  const runContract = trace.run_contract ?? {};
+  const executionStatus = typeof runContract.execution_status === 'string' ? runContract.execution_status : trace.execution?.status;
+  const collectedEvidenceCount =
+    typeof runContract.collected_evidence_count === 'number' ? runContract.collected_evidence_count : 0;
+  const allowLiveLanguage = runContract.allow_live_result_language === true;
+  if (executionStatus === 'executed' && collectedEvidenceCount > 0 && allowLiveLanguage) {
+    return { label: 'live-backed', variant: 'success' };
+  }
+  return { label: 'review-only / no live execution', variant: 'outline' };
 }
 
 function ShadowNarrationReveal({ shadow }: { shadow: RoutePlanShadowEnvelope }) {

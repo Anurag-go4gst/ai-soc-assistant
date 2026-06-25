@@ -48,3 +48,64 @@ def test_probe_expectation_signal_class_mismatch() -> None:
         expect={"signal_class": "identity_anomaly", "forbid_signal_classes": ["network_beacon"]},
     )
     assert any(v.startswith("signal_class_mismatch") for v in violations)
+
+
+def _base_payload_with_run_contract() -> dict:
+    return {
+        "message": "Review-only / no live execution.",
+        "route_authority": {"authority_holder": "canonical_run_contract"},
+        "run_contract": {
+            "execution_status": "skipped",
+            "collected_evidence_count": 0,
+            "source_evidence_available": False,
+            "allow_live_result_language": False,
+            "allow_results_table": False,
+            "effective_hil_required": True,
+            "routing": {
+                "canonical_skill": "spl_generation",
+                "legacy_skill": None,
+                "legacy_authoritative": False,
+                "authority_holder": "canonical_run_contract",
+            },
+        },
+        "analyst_response": {
+            "direct_answer_summary": "Review-only SPL draft - no live query was executed.",
+            "severity_label": "Not assigned from this question alone",
+            "recommended_actions": ["Confirm source profile"],
+            "splunk_results_table": [],
+        },
+    }
+
+
+def test_universal_efficacy_requires_run_contract() -> None:
+    payload = {"message": "Review-only / no live execution.", "analyst_response": {}}
+    violations = evaluate_universal_efficacy(query="show substation sessions", payload=payload)
+    assert "run_contract_missing" in violations
+
+
+def test_universal_efficacy_blocks_live_backed_without_execution() -> None:
+    payload = _base_payload_with_run_contract()
+    payload["message"] = "How this answer was produced: live-backed"
+    violations = evaluate_universal_efficacy(query="show substation sessions", payload=payload)
+    assert "live_backed_without_execution" in violations
+
+
+def test_universal_efficacy_blocks_disallowed_results_table() -> None:
+    payload = _base_payload_with_run_contract()
+    payload["analyst_response"]["splunk_results_table"] = [{"src": "10.0.0.1"}]
+    violations = evaluate_universal_efficacy(query="show substation sessions", payload=payload)
+    assert "results_table_not_allowed" in violations
+
+
+def test_universal_efficacy_blocks_route_authority_contradiction() -> None:
+    payload = _base_payload_with_run_contract()
+    payload["route_authority"] = {"authority_holder": "legacy_selected_skill"}
+    violations = evaluate_universal_efficacy(query="show substation sessions", payload=payload)
+    assert "route_authority_holder_contradiction" in violations
+
+
+def test_universal_efficacy_blocks_priority_prefix_without_severity() -> None:
+    payload = _base_payload_with_run_contract()
+    payload["analyst_response"]["recommended_actions"] = ["P2 — Confirm firewall owner"]
+    violations = evaluate_universal_efficacy(query="show substation sessions", payload=payload)
+    assert "priority_prefix_without_severity" in violations

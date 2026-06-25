@@ -26,6 +26,10 @@ def analyst_visible_text(payload: dict[str, Any]) -> str:
     msg = payload.get("message")
     if isinstance(msg, str) and msg.strip():
         parts.append(msg.strip())
+    for key in ("review_notice", "evidence_summary", "splunk_status_line"):
+        val = analyst.get(key)
+        if isinstance(val, str) and val.strip():
+            parts.append(val.strip())
     return "\n".join(parts)
 
 
@@ -230,4 +234,77 @@ def evaluate_universal_efficacy(
         if skip == "insufficient_deadline_reserve":
             violations.append("composer_budget_false_skip")
 
+    violations.extend(_coe_stop_condition_violations(payload, visible))
     return violations
+
+
+_RUN_CONTRACT_REQUIRED_FIELDS = (
+    "execution_status",
+    "collected_evidence_count",
+    "source_evidence_available",
+    "allow_live_result_language",
+    "allow_results_table",
+    "effective_hil_required",
+)
+_ROUTING_REQUIRED_FIELDS = (
+    "canonical_skill",
+    "legacy_authoritative",
+    "authority_holder",
+)
+
+
+def _coe_stop_condition_violations(payload: dict[str, Any], visible: str) -> list[str]:
+    violations: list[str] = []
+    contract = payload.get("run_contract") if isinstance(payload.get("run_contract"), dict) else None
+    if contract is None:
+        return ["run_contract_missing"]
+
+    routing = contract.get("routing") if isinstance(contract.get("routing"), dict) else {}
+    for field in _RUN_CONTRACT_REQUIRED_FIELDS:
+        if field not in contract:
+            violations.append(f"run_contract_field_missing:{field}")
+    for field in _ROUTING_REQUIRED_FIELDS:
+        if field not in routing:
+            violations.append(f"run_contract_field_missing:routing.{field}")
+    if "legacy_skill" not in routing:
+        violations.append("run_contract_field_missing:routing.legacy_skill")
+
+    execution_status = str(contract.get("execution_status") or "")
+    collected = int(contract.get("collected_evidence_count") or 0)
+    lowered = visible.lower()
+    if "live-backed" in lowered and (execution_status != "executed" or collected <= 0):
+        violations.append("live_backed_without_execution")
+
+    analyst = payload.get("analyst_response") if isinstance(payload.get("analyst_response"), dict) else {}
+    table = analyst.get("splunk_results_table") if isinstance(analyst.get("splunk_results_table"), list) else []
+    if table and contract.get("allow_results_table") is False:
+        violations.append("results_table_not_allowed")
+
+    severity = str(analyst.get("severity_label") or "")
+    if not severity or "not assigned" in severity.lower():
+        actions = analyst.get("recommended_actions") if isinstance(analyst.get("recommended_actions"), list) else []
+        for action in actions:
+            if _PRIORITY_PREFIX.match(str(action or "")):
+                violations.append("priority_prefix_without_severity")
+                break
+
+    route_authority = payload.get("route_authority") if isinstance(payload.get("route_authority"), dict) else {}
+    displayed_holder = route_authority.get("authority_holder")
+    contract_holder = routing.get("authority_holder")
+    if displayed_holder and contract_holder and displayed_holder != contract_holder:
+        violations.append("route_authority_holder_contradiction")
+    shadow = payload.get("route_plan_shadow") if isinstance(payload.get("route_plan_shadow"), dict) else {}
+    compare = shadow.get("route_authority_compare") if isinstance(shadow.get("route_authority_compare"), dict) else {}
+    compare_holder = compare.get("authority_holder")
+    if compare_holder and contract_holder and compare_holder != contract_holder:
+        violations.append("route_authority_holder_contradiction")
+
+    if _count_marker(lowered, "lab-only draft spl preview") > 1:
+        violations.append("duplicate_spl_warning")
+    if _count_marker(lowered, "soc review checklist") > 1:
+        violations.append("duplicate_soc_review_checklist")
+    return violations
+
+
+def _count_marker(text: str, marker: str) -> int:
+    return text.count(marker.lower())

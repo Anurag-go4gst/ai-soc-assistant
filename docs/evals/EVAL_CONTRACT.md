@@ -50,6 +50,23 @@ No eval may end on a fuzzy score without a threshold and a verdict.
   runner.
 - Invoke all eval scripts with `python3` (the box has no `python` alias).
 
+## COE Hard-Stop Issue Codes
+
+`app.evals.answer_efficacy_checks.evaluate_universal_efficacy` emits these
+COE-transfer stop conditions. Any occurrence should block a "ready for COE"
+claim until fixed or explicitly waived.
+
+| Code | Meaning |
+|------|---------|
+| `run_contract_missing` | A live `/chat` payload did not include the canonical `run_contract`. |
+| `run_contract_field_missing:<field>` | `run_contract` or `run_contract.routing` is missing a Gate 4 field. |
+| `live_backed_without_execution` | Visible answer says `live-backed` without `execution_status=executed` and collected evidence. |
+| `results_table_not_allowed` | `splunk_results_table` is visible while `run_contract.allow_results_table=false`. |
+| `priority_prefix_without_severity` | A P1/P2/P3 action prefix appears when severity is missing or not assigned. |
+| `route_authority_holder_contradiction` | Displayed route authority contradicts `run_contract.routing.authority_holder`. |
+| `duplicate_spl_warning` | The lab/review-only SPL warning appears more than once in visible text. |
+| `duplicate_soc_review_checklist` | The SOC review checklist heading appears more than once in visible text. |
+
 ## Inner loop vs heavy gates (plan B3/B4)
 
 Per commit: task tests → `eval_sentinel.py --check` → full backend pytest.

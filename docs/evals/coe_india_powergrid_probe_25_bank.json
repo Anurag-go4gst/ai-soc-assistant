@@ -1,0 +1,192 @@
+{
+  "name": "COE India power-grid pre-transfer probe 25",
+  "version": "2026-06-25",
+  "purpose": "Fresh analyst-realistic questions for validating AI SOC assistant behavior before transferring code to a COE environment where MCP will be available.",
+  "environment_assumption": "MCP is not live in this repo run. Expected behavior is review-only planning, deterministic governance, resource-plan trace visibility, and no live execution overclaim.",
+  "acceptance_focus": [
+    "Known/catalogue and catalogue-adjacent questions produce useful answers, not stubs.",
+    "Resource planner records selected, skipped, and unavailable resources with reasons.",
+    "T2 review-only SPL path has a single section owner and no duplicated renderer output.",
+    "Telemetry captures trace id, node timings, route/resource decisions, LLM sidecars, final-answer validation, and MCP unavailable/planned states.",
+    "Final answers are useful, honest, and grounded: no live results, compromise, MITRE confirmation, severity, or execution claim without evidence.",
+    "CVE, MITRE, and GitHub skills are used only when the question asks for them or the evidence shape requires them.",
+    "LLM use is advisory/assistive and expands novel reasoning without overriding deterministic gates."
+  ],
+  "questions": [
+    {
+      "id": "coe_in_pg_001",
+      "tier": "T1",
+      "category": "known_catalogue_alert",
+      "expected_skill": "alert_summary",
+      "question": "Alert ALT-2026-NR-014 shows failed VPN logins followed by one successful login for the same engineer account from a new ASN. Give severity, MITRE status labels, and a governed SPL draft for review only."
+    },
+    {
+      "id": "coe_in_pg_002",
+      "tier": "T1",
+      "category": "known_catalogue_spl",
+      "expected_skill": "spl_generation",
+      "question": "Draft SPL to identify top failed-login source IPs against the AD domain controllers in the last 6 hours. Do not execute it."
+    },
+    {
+      "id": "coe_in_pg_003",
+      "tier": "T1",
+      "category": "knowledge_recall",
+      "expected_skill": "knowledge_recall",
+      "question": "Show the SOC playbook steps for brute-force investigation in our power-grid environment. I do not need SPL."
+    },
+    {
+      "id": "coe_in_pg_004",
+      "tier": "T1",
+      "category": "mitre_known",
+      "expected_skill": "knowledge_recall",
+      "question": "Map a failed-login spike followed by successful login to MITRE with Candidate, Evidence-supported, Requires-validation, and Not-claimed labels."
+    },
+    {
+      "id": "coe_in_pg_005",
+      "tier": "T2",
+      "category": "review_only_spl_renderer",
+      "expected_skill": "guided_investigation",
+      "question": "Draft a review-only Splunk search for Modbus function code 16 writes to relay protection registers from non-engineering hosts in the last 24 hours."
+    },
+    {
+      "id": "coe_in_pg_006",
+      "tier": "T2",
+      "category": "review_only_spl_renderer",
+      "expected_skill": "guided_investigation",
+      "question": "Build a review-only hunt for DNP3 cold restart events followed by binary output changes on the same outstation during night shift."
+    },
+    {
+      "id": "coe_in_pg_007",
+      "tier": "T2",
+      "category": "ot_guided_investigation",
+      "expected_skill": "guided_investigation",
+      "question": "Substation HMI is green, but RTU polling gaps appear every 15 minutes on two feeders. Give hypotheses, evidence to collect, and what MCP should plan once COE Splunk is available."
+    },
+    {
+      "id": "coe_in_pg_008",
+      "tier": "T2",
+      "category": "resource_planning",
+      "expected_skill": "guided_investigation",
+      "question": "SOC needs to investigate a GOOSE message storm on an IEC 61850 protection VLAN followed by a breaker-open command. Show the resource plan and the analyst answer without executing searches."
+    },
+    {
+      "id": "coe_in_pg_009",
+      "tier": "T2",
+      "category": "resource_planning",
+      "expected_skill": "guided_investigation",
+      "question": "Engineering workstation VLAN started sending IEC 104 remote commands to a substation gateway after a firewall rule change. What logs, tools, skills, and MCP searches should be planned?"
+    },
+    {
+      "id": "coe_in_pg_010",
+      "tier": "T2",
+      "category": "timing_integrity",
+      "expected_skill": "guided_investigation",
+      "question": "GPS clock drift triggered NTP alarms on relays and PMUs in two substations. How should SOC triage timing-integrity risk without claiming impact?"
+    },
+    {
+      "id": "coe_in_pg_011",
+      "tier": "T2",
+      "category": "telemetry_trace",
+      "expected_skill": "guided_investigation",
+      "question": "For this turn, explain what the assistant planned to use: RAG, SPL, MCP, MITRE, CVE, LLM sidecars, and why each was used or skipped for a suspicious OT historian outbound spike to a vendor cloud endpoint."
+    },
+    {
+      "id": "coe_in_pg_012",
+      "tier": "T2",
+      "category": "negative_evidence",
+      "expected_skill": "guided_investigation",
+      "question": "Firewall shows repeated port 502 scans from a corporate jump host, but EDR shows no process anomaly. What conclusion is allowed, what is missing, and what should the final answer avoid claiming?"
+    },
+    {
+      "id": "coe_in_pg_013",
+      "tier": "T2",
+      "category": "mitre_threshold",
+      "expected_skill": "knowledge_recall",
+      "question": "Is a DNP3 cold restart followed by a binary output change enough to confirm ATT&CK for ICS impact? Give MITRE status thresholds and required evidence."
+    },
+    {
+      "id": "coe_in_pg_014",
+      "tier": "T2",
+      "category": "mitre_threshold",
+      "expected_skill": "knowledge_recall",
+      "question": "Before labeling Modbus write abuse as a confirmed ATT&CK for ICS technique, what source-grounded evidence must be present?"
+    },
+    {
+      "id": "coe_in_pg_015",
+      "tier": "T2",
+      "category": "cve_skill",
+      "expected_skill": "guided_investigation",
+      "question": "CVE focus: CISA advisory flags CVE-2024-6387 on OT jump hosts running OpenSSH. What can we confirm from SIEM logs without live scanning, and what evidence is missing?"
+    },
+    {
+      "id": "coe_in_pg_016",
+      "tier": "T2",
+      "category": "cve_skill",
+      "expected_skill": "guided_investigation",
+      "question": "CVE focus: unpatched VPN concentrator CVE-2024-21762 supports remote substation access. Build a review-only confirmation checklist from existing telemetry."
+    },
+    {
+      "id": "coe_in_pg_017",
+      "tier": "T2",
+      "category": "github_skill",
+      "expected_skill": "guided_investigation",
+      "question": "GitHub skill: a CI workflow for relay firmware signing changed yesterday and a new PAT was used. Build a review-only investigation plan with audit-log and workflow-diff evidence."
+    },
+    {
+      "id": "coe_in_pg_018",
+      "tier": "T2",
+      "category": "cross_skill",
+      "expected_skill": "guided_investigation",
+      "question": "Cross-skill check: combine CVE context on an OT VPN appliance, MITRE ICS candidate mapping for remote command, and GitHub workflow-change timeline into one review-only plan."
+    },
+    {
+      "id": "coe_in_pg_019",
+      "tier": "T2",
+      "category": "source_health",
+      "expected_skill": "guided_investigation",
+      "question": "Which OT log sources would you check first if relay syslog stopped arriving from one region after a WAN maintenance window? Give source-health plan, not threat confirmation."
+    },
+    {
+      "id": "coe_in_pg_020",
+      "tier": "T2",
+      "category": "baselining",
+      "expected_skill": "guided_investigation",
+      "question": "What does normal Modbus polling volume look like for a 400 kV substation over a week, and how should the assistant plan telemetry before answering?"
+    },
+    {
+      "id": "coe_in_pg_021",
+      "tier": "T2",
+      "category": "regulatory_knowledge",
+      "expected_skill": "knowledge_recall",
+      "question": "For an OT cyber incident in India power transmission, what should SOC collect for CERT-In style reporting review? Do not generate SPL and do not give legal advice."
+    },
+    {
+      "id": "coe_in_pg_022",
+      "tier": "T2",
+      "category": "wireless_physical",
+      "expected_skill": "guided_investigation",
+      "question": "A wireless RF bridge near the switching yard appeared during contractor work. Build a SOC investigation plan that separates benign contractor gear from rogue access."
+    },
+    {
+      "id": "coe_in_pg_023",
+      "tier": "T2",
+      "category": "insider_threat",
+      "expected_skill": "guided_investigation",
+      "question": "An operator account downloaded relay settings and then accessed a personal cloud domain from the OT jump host. What evidence should be planned before any insider-threat conclusion?"
+    },
+    {
+      "id": "coe_in_pg_024",
+      "tier": "T2",
+      "category": "supply_chain",
+      "expected_skill": "guided_investigation",
+      "question": "Firmware hash mismatch appears after emergency maintenance at a transmission substation. Build the review-only supply-chain investigation and say what not to claim yet."
+    },
+    {
+      "id": "coe_in_pg_025",
+      "tier": "T2",
+      "category": "llm_novel_reasoning",
+      "expected_skill": "guided_investigation",
+      "question": "Novel scenario: PMU phase-angle jumps every ten minutes, no breaker operation, and weather systems show a storm front. Use LLM-assisted reasoning if available, but keep deterministic gates and no live-result claims."
+    }
+  ]
+}

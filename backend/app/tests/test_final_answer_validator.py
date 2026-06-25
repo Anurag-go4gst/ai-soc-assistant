@@ -119,3 +119,70 @@ def test_missing_inputs_skip() -> None:
         mitre_decision=None,
     )
     assert result.guard_status == "skipped"
+
+
+def test_direct_summary_with_spl_query_blocks() -> None:
+    result = validate_final_answer(
+        analyst_response=_answer(direct_answer_summary="Draft SPL:\n```\nsearch index=ot | head 10\n```"),
+        answer_contract=_contract(mitre_answer_visible=False, execution_status="skipped"),
+        evidence_plan={"answer_mode": "live_investigation"},
+        mitre_decision={},
+    )
+    assert result.guard_status == "blocked"
+    assert "final.direct_summary_contains_spl_query" in result.failed_checks
+
+
+def test_direct_summary_with_full_checklist_blocks() -> None:
+    result = validate_final_answer(
+        analyst_response=_answer(
+            direct_answer_summary="Confirm source profile. Validate owner. Preserve evidence.",
+            analyst_checklist=["Confirm source profile.", "Validate owner.", "Preserve evidence."],
+        ),
+        answer_contract=_contract(mitre_answer_visible=False, execution_status="skipped"),
+        evidence_plan={"answer_mode": "live_investigation"},
+        mitre_decision={},
+    )
+    assert result.guard_status == "blocked"
+    assert "final.direct_summary_contains_full_checklist" in result.failed_checks
+
+
+def test_duplicate_lab_warning_blocks() -> None:
+    warning = "Lab-only draft SPL preview. Not governed, not approved, not executed."
+    result = validate_final_answer(
+        analyst_response=_answer(
+            review_notice=warning,
+            spl_draft_preview={"warning": warning},
+        ),
+        answer_contract=_contract(mitre_answer_visible=False, execution_status="skipped"),
+        evidence_plan={"answer_mode": "live_investigation"},
+        mitre_decision={},
+    )
+    assert result.guard_status == "blocked"
+    assert "final.duplicate_review_only_warning" in result.failed_checks
+
+
+def test_priority_prefix_without_severity_blocks() -> None:
+    result = validate_final_answer(
+        analyst_response=_answer(
+            severity_label="Not assigned from this question alone",
+            recommended_actions=["P2 — Confirm source profile"],
+        ),
+        answer_contract=_contract(mitre_answer_visible=False, execution_status="skipped"),
+        evidence_plan={"answer_mode": "live_investigation"},
+        mitre_decision={},
+    )
+    assert result.guard_status == "blocked"
+    assert "final.priority_prefix_without_severity" in result.failed_checks
+
+
+def test_live_backed_without_execution_blocks() -> None:
+    result = validate_final_answer(
+        analyst_response=_answer(
+            direct_answer_summary="How this answer was produced: live-backed",
+        ),
+        answer_contract=_contract(mitre_answer_visible=False, execution_status="skipped"),
+        evidence_plan={"answer_mode": "live_investigation"},
+        mitre_decision={},
+    )
+    assert result.guard_status == "blocked"
+    assert "final.live_backed_without_execution" in result.failed_checks

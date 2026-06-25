@@ -117,6 +117,7 @@ _DRAFT_GENERIC_LEAD_IN = (
     "provided for SOC review. Validate the index, sourcetype, and field placeholders "
     "against your source profile; the draft is review-only and has not been executed."
 )
+_REVIEW_ONLY_DRAFT_PREFIX = "Review-only SPL draft - no live query was executed."
 
 
 def _draft_preview_lead_in(spl_draft_preview: Any) -> str:
@@ -126,16 +127,22 @@ def _draft_preview_lead_in(spl_draft_preview: Any) -> str:
         window = str(preview.get("time_window_label") or "the requested time window")
         shape = str(preview.get("aggregation_shape") or "")
         if shape == "user_ranking":
-            return (
+            return _with_review_only_draft_prefix(
                 f"This ranks users by failed-login volume over {window}. Abnormally high "
                 "activity is surfaced by relative ranking (top-N), not a fixed count threshold. "
                 "Lab draft only — not executed."
             )
-        return (
+        return _with_review_only_draft_prefix(
             f"This ranks source/user pairs by failed-login volume over {window}. "
             "Tune any threshold after review. Lab draft only — not executed."
         )
-    return _DRAFT_FAMILY_LEAD_INS.get(family, _DRAFT_GENERIC_LEAD_IN)
+    return _with_review_only_draft_prefix(_DRAFT_FAMILY_LEAD_INS.get(family, _DRAFT_GENERIC_LEAD_IN))
+
+
+def _with_review_only_draft_prefix(text: str) -> str:
+    if text.startswith(_REVIEW_ONLY_DRAFT_PREFIX):
+        return text
+    return f"{_REVIEW_ONLY_DRAFT_PREFIX} {text}"
 
 
 def _draft_preview_presentation(spl_draft_preview: Any) -> dict[str, str]:
@@ -202,6 +209,8 @@ def apply_draft_preview_readability(envelope: AnalystResponseEnvelope) -> Analys
     payload["recommended_actions"] = _format_investigation_actions(
         payload.get("recommended_actions") or []
     )
+    if payload.get("severity_label") == ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL:
+        payload["recommended_actions"] = _strip_priority_prefixes(payload["recommended_actions"])
     return AnalystResponseEnvelope.model_validate(payload)
 
 
@@ -276,6 +285,8 @@ def apply_final_answer_readability(
         _format_investigation_actions(payload.get("recommended_actions") or []),
         contract,
     )
+    if _severity_not_assigned(contract, payload):
+        payload["recommended_actions"] = _strip_priority_prefixes(payload["recommended_actions"])
     if payload.get("investigation_steps"):
         payload["investigation_steps"] = _scrub_blocked_context_actions(
             [str(item) for item in payload.get("investigation_steps") or []],
@@ -298,6 +309,8 @@ def _apply_guided_investigation_card(
 
     preferred_order = (
         "investigation_guidance",
+        "draft_spl_preview",
+        "spl_artifact",
         "procedural_steps",
         "analyst_action_guidance",
         "limitations",
@@ -863,6 +876,20 @@ def _format_investigation_actions(actions: list[Any]) -> list[str]:
         human = text.replace("_", " ")
         formatted.append(f"P2 — {human}")
     return formatted
+
+
+def _strip_priority_prefixes(actions: list[Any]) -> list[str]:
+    stripped: list[str] = []
+    for item in actions:
+        text = str(item).strip()
+        text = re.sub(r"^P[1-4]\s*[—-]\s*", "", text).strip()
+        stripped.append(text)
+    return stripped
+
+
+def _severity_not_assigned(contract: AnswerContract, payload: dict[str, Any]) -> bool:
+    label = str(payload.get("severity_label") or contract.severity_label or "")
+    return not label or label == ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
 
 
 _AUTH_LIMITATION_KEYS = frozenset(
