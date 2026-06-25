@@ -68,6 +68,16 @@ EXPERIENCE_CENTER_PROVENANCE = {
     "hallucinated_mcp_output": False,
 }
 
+# Frontend-facing capture provenance for the MCP-transport honesty badge (plan B6).
+# Curated fixtures use a simulated MCP lifecycle, never a live backend call.
+_LEGACY_EC_PROVENANCE = {
+    "source": "curated_fixture",
+    "transport": "fake",
+    "mcp_label": "simulated MCP lifecycle replay",
+    "live_llm_called": False,
+    "live_mcp_called": False,
+}
+
 
 @dataclass(frozen=True)
 class DemoScenario:
@@ -297,36 +307,36 @@ def _scrub_ec_visible_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
-    """Serve an Experience Center scenario answer (capture artifact, else legacy fixture).
+    """Serve an Experience Center scenario answer (curated legacy fixture).
 
-    Fallback chain (plan B2.1): load the frozen capture artifact -> on missing/corrupt/
-    schema-mismatch fall back to the legacy in-code fixture -> if neither is usable,
-    fail closed with an operator-facing error. Never serves a blank/partial answer.
-    Demo-time posture is always ``live_llm_called=false``, ``live_mcp_called=false``,
-    ``coe_synthetic_fixture``.
+    The curated in-code fixtures are the EC answers — they carry the rich MITRE/CVE
+    tables, severity rationale, and P1–P4 actions that make a strong demo, and they
+    need no live LLM/MCP call. Live capture artifacts (``captures/*.json``) are kept
+    only as a deep fallback if the legacy build ever fails; they are intentionally NOT
+    served preferentially because the gate-blocked live captures are thinner than the
+    curated answers (decision 2026-06-25). Demo-time posture is always
+    ``live_llm_called=false``, ``live_mcp_called=false``, ``coe_synthetic_fixture``.
     """
     if scenario_id not in SCENARIOS:
         raise KeyError(f"Unknown Experience Center scenario '{scenario_id}'")
 
-    artifact: dict[str, Any] | None
+    try:
+        return _scrub_ec_visible_payload(_run_demo_scenario_legacy(scenario_id))
+    except Exception:  # noqa: BLE001 - never blank the demo; fall back to a capture
+        _logger.warning(
+            "experience_center_legacy_build_failed scenario=%s", scenario_id, exc_info=True
+        )
+
     try:
         artifact = load_capture_artifact(scenario_id)
     except CaptureArtifactError as exc:
-        # Corrupt/version-mismatched artifact: log and fall back to the legacy fixture.
         _logger.warning(
             "experience_center_capture_unusable scenario=%s reason=%s", scenario_id, exc
         )
         artifact = None
-
     if artifact is not None:
-        try:
-            return _serve_capture_artifact(scenario_id, artifact)
-        except Exception:  # noqa: BLE001 - artifact replay must never blank the demo
-            _logger.warning(
-                "experience_center_capture_replay_failed scenario=%s", scenario_id, exc_info=True
-            )
-
-    return _scrub_ec_visible_payload(_run_demo_scenario_legacy(scenario_id))
+        return _serve_capture_artifact(scenario_id, artifact)
+    raise RuntimeError(f"Experience Center scenario '{scenario_id}' has no usable answer source")
 
 
 def _serve_capture_artifact(scenario_id: str, artifact: dict[str, Any]) -> dict[str, Any]:
@@ -525,6 +535,11 @@ def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
         "evidence_origin": EVIDENCE_ORIGIN,
         "no_live_customer_data": True,
         "demo_badge": DEMO_BADGE,
+        # MCP-transport honesty badge (plan B6) — EC uses a simulated MCP lifecycle,
+        # never a live backend call; the frontend renders this regardless of capture.
+        "ec_provenance": dict(_LEGACY_EC_PROVENANCE),
+        "ec_answer_source": "curated_fixture",
+        "ec_stage_latencies": None,
         "environment_mode": scenario.environment_mode,
         "mcp_execution_mode": scenario.mcp_execution_mode,
         "saia_available": scenario.saia_available,
