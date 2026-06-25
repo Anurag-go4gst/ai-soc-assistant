@@ -57,7 +57,11 @@ from app.routing.use_case_registry_bridge import build_use_case_registry_bridge
 from app.routing.template_match_shadow import apply_template_match_to_shadow
 from app.synthesis.analyst_summary_llm_assist import apply_analyst_summary_shadow
 from app.governance.trace_panels import build_governance_trace
-from app.risk.severity_policy import apply_analytics_severity_guard, decide_severity
+from app.risk.severity_policy import (
+    apply_analytics_severity_guard,
+    apply_gate_severity_cap,
+    decide_severity,
+)
 from app.safeguards.spl_validator import validate_spl
 from app.safeguards.spl_slot_binding_validator import validate_spl_slot_bindings
 from app.schemas.requests import ChatRequest
@@ -1579,7 +1583,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
 
         route = build_route_contract(state)
         state = {**state, "route_contract": route.model_dump(mode="json")}
-    from app.chat.run_contract_builder import build_run_contract  # circular: pipeline state
+    from app.chat.run_contract_builder import (  # circular: pipeline state
+        build_final_evidence_gate,
+        build_run_contract,
+    )
 
     emit_stage("checking_sufficiency")
     source_evidence, structured_context, context_sufficiency = _context_stage(
@@ -1594,8 +1601,20 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         mcp_evidence=state.get("mcp_evidence"),
     )
     human_review = _attach_hil_soc_kb_guidance(state["human_review"], source_evidence)
-    run_contract = build_run_contract({**state, "source_evidence": source_evidence}, route=route)
-    state = {**state, "run_contract": run_contract.model_dump_canonical(), "source_evidence": source_evidence}
+    # FinalEvidenceGate: single cross-stream authority for evidence classification
+    # and evidence-derived permissions. Computed once here, then projected by
+    # RunContract and honored by MITRE/severity/renderer downstream.
+    gate_state_input = {**state, "source_evidence": source_evidence}
+    final_evidence_gate = build_final_evidence_gate(gate_state_input, route=route)
+    gate_payload = final_evidence_gate.to_dict()
+    structured_context["final_evidence_gate"] = gate_payload
+    run_contract = build_run_contract(gate_state_input, route=route, gate=final_evidence_gate)
+    state = {
+        **state,
+        "run_contract": run_contract.model_dump_canonical(),
+        "source_evidence": source_evidence,
+        "final_evidence_gate": gate_payload,
+    }
     source_refs = [str(item.get("evidence_id")) for item in source_evidence]
     spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
     if selected_use_case is not None:
@@ -1702,6 +1721,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             )
         ),
         alert_context_present=guard_alert_reference,
+    )
+    # FinalEvidenceGate authority: when the gate disallows a severity assessment,
+    # cap the displayed severity to "Not assigned" BEFORE it feeds action
+    # capability, lineage, governance trace, and the response payload — so every
+    # surface honors the gate, not just the analyst card via AnswerContract.
+    severity_decision = apply_gate_severity_cap(
+        severity_decision,
+        allow_severity_assessment=run_contract.allow_severity_assessment,
     )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,
@@ -2763,18 +2790,29 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     # this node) so the response's evidence_plan carries executed/fallback/
     # blocked provenance for every composed step.
     state = annotate_step_statuses({**state, "mitre_decision": mitre_decision})
-    from app.chat.run_contract_builder import build_run_contract as _build_run_contract_final  # circular
-
-    run_contract = _build_run_contract_final(
-        {
-            **state,
-            "human_review": human_review,
-            "source_evidence": source_evidence,
-            "answer_contract": answer_contract_payload,
-        },
-        route=route,
+    from app.chat.run_contract_builder import (  # circular
+        build_final_evidence_gate as _build_final_evidence_gate_final,
+        build_run_contract as _build_run_contract_final,
     )
-    state = {**state, "run_contract": run_contract.model_dump_canonical()}
+
+    # Recompute the gate against the final state (post composer / final validation
+    # / HIL changes) and pass it into the rebuild, so the exposed
+    # final_evidence_gate cannot drift from the final RunContract.
+    _final_gate_state = {
+        **state,
+        "human_review": human_review,
+        "source_evidence": source_evidence,
+        "answer_contract": answer_contract_payload,
+    }
+    final_evidence_gate = _build_final_evidence_gate_final(_final_gate_state, route=route)
+    run_contract = _build_run_contract_final(_final_gate_state, route=route, gate=final_evidence_gate)
+    gate_payload = final_evidence_gate.to_dict()
+    structured_context["final_evidence_gate"] = gate_payload
+    state = {
+        **state,
+        "run_contract": run_contract.model_dump_canonical(),
+        "final_evidence_gate": gate_payload,
+    }
     # Review-only SPL drafts: one dedicated renderer owns the visible answer (fixed
     # section order + labels) and suppresses the generic title/review-type/investigation
     # producers. Presentation only — RunContract/HIL/MCP/source-evidence are unchanged.

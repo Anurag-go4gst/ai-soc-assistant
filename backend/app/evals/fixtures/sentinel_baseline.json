@@ -105,7 +105,7 @@
       "response_mode": "deterministic_knowledge_or_routing",
       "route_final": "knowledge_recall",
       "selected_skill": "knowledge_recall",
-      "severity_label": "P3 Medium",
+      "severity_label": "Not assigned from this question alone",
       "spl_approved": null,
       "spl_template_status": null
     },
@@ -133,7 +133,7 @@
       "response_mode": "insufficient_evidence",
       "route_final": "knowledge_recall",
       "selected_skill": "knowledge_recall",
-      "severity_label": "P3 Medium",
+      "severity_label": "Not assigned from this question alone",
       "spl_approved": null,
       "spl_template_status": null
     },

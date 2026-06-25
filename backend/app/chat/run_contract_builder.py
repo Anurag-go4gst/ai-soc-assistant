@@ -12,6 +12,10 @@ from app.chat.contracts.run_contract import (
     SplContractStatus,
 )
 from app.chat.hil_resolution import resolve_effective_hil_required
+from app.evidence.final_evidence_gate import (
+    GatedEvidenceState,
+    apply_final_evidence_gate,
+)
 from app.evidence.source_evidence import build_candidate_artifact_refs
 from app.chat.pipeline import ChatPipelineState
 from app.chat.query_signals import is_guidance_request, is_live_data_request
@@ -33,28 +37,9 @@ _IN_CATALOG_MATCH_PATHS = frozenset(
         "use_case_catalog",
     }
 )
-# Knowledge/guidance/clarification intents never assess severity without
-# explicit evidence or policy backing — they describe, they do not triage.
-_NON_SEVERITY_INTENT_FAMILIES = frozenset(
-    {
-        "spl_generation_only",
-        "guided_investigation",
-        "knowledge_only",
-        "policy_knowledge",
-        "sop_or_playbook",
-        "mitre_explanation",
-        "clarification_required",
-    }
-)
-_POLICY_SEVERITY_FAMILIES = frozenset(
-    {
-        "hybrid_alert_review",
-        "alert_summary",
-        "live_investigation",
-        "mitre_mapping",
-        "spl_generation_only",
-    }
-)
+# Severity / MITRE intent-family policy now lives in the FinalEvidenceGate
+# (app/evidence/final_evidence_gate.py), the single authority that
+# build_run_contract projects from.
 
 _REVIEW_ONLY_SPL_PREVIEW = (
     "Review-only SPL draft — no live query was executed."
@@ -98,12 +83,81 @@ def build_route_contract(state: ChatPipelineState) -> RouteContract:
     )
 
 
+def build_final_evidence_gate(
+    state: ChatPipelineState,
+    *,
+    route: RouteContract,
+) -> GatedEvidenceState:
+    """Compute the single cross-stream FinalEvidenceGate from pipeline state.
+
+    This is the one authority for evidence classification + evidence-derived
+    permissions (collected count, results-table/live-language permission, MITRE
+    and severity permission, HIL). ``build_run_contract`` and the finalize node
+    project from the returned state instead of re-deriving any of it.
+    """
+    signals = _query_signals_from_state(state) or {}
+    live_data_request = is_live_data_request(signals)
+
+    execution = state.get("execution") if isinstance(state.get("execution"), dict) else {}
+    execution_status = str(execution.get("status") or "skipped")
+    execution_authorized = execution_status.lower() in _EXECUTION_AUTHORIZED_STATUSES
+
+    evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+    intent = state.get("intent_classification") if isinstance(state.get("intent_classification"), dict) else {}
+    answer_contract = state.get("answer_contract")
+    human_review = state.get("human_review") if isinstance(state.get("human_review"), dict) else None
+    source_evidence = state.get("source_evidence") if isinstance(state.get("source_evidence"), list) else []
+    spl_validation = state.get("spl_validation") if isinstance(state.get("spl_validation"), dict) else None
+    candidate_spl = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else None
+    spl_draft_preview = state.get("spl_draft_preview") if isinstance(state.get("spl_draft_preview"), dict) else None
+
+    effective_hil_required = resolve_effective_hil_required(
+        evidence_plan=evidence_plan,
+        answer_contract=answer_contract,
+        human_review=human_review,
+        execution=execution,
+        live_data_request=live_data_request,
+        execution_authorized=execution_authorized,
+        intent_requires_hil=bool(intent.get("requires_hil")),
+    )
+
+    # The gate reads intent_family from the intent dict; the canonical family
+    # lives on the RouteContract, so align them before calling the gate.
+    gate_intent = dict(intent)
+    if route.intent_family:
+        gate_intent["intent_family"] = route.intent_family
+
+    return apply_final_evidence_gate(
+        source_evidence=source_evidence,
+        execution=execution,
+        soc_kb_retrieval=state.get("soc_kb_retrieval"),
+        mcp_evidence=state.get("mcp_evidence"),
+        evidence_plan=evidence_plan,
+        intent=gate_intent,
+        spl_validation=spl_validation,
+        candidate_spl=candidate_spl,
+        spl_draft_preview=spl_draft_preview,
+        route_live_data_request=live_data_request,
+        execution_authorized=execution_authorized,
+        effective_hil_required=effective_hil_required,
+        policy_backed=_policy_backed_in_catalog(state, intent),
+    )
+
+
 def build_run_contract(
     state: ChatPipelineState,
     *,
     route: RouteContract,
+    gate: GatedEvidenceState | None = None,
 ) -> RunContract:
-    """Project final-run contract; never infer MCP need from evidence_plan.needs_mcp alone."""
+    """Project final-run contract; never infer MCP need from evidence_plan.needs_mcp alone.
+
+    ``gate`` is the FinalEvidenceGate authority. When omitted (direct unit-test
+    callers) it is computed here so behavior is identical; the finalize node
+    passes the already-computed gate to keep a single source of truth.
+    """
+    if gate is None:
+        gate = build_final_evidence_gate(state, route=route)
     signals = _query_signals_from_state(state) or {}
     live_data_request = is_live_data_request(signals)
     execution_needed = live_data_request and route.canonical_skill in _LIVE_ANSWER_SKILLS
@@ -116,7 +170,7 @@ def build_run_contract(
     evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
     mcp_allowed = _resolve_mcp_allowed(state, evidence_plan)
 
-    collected_evidence_count = _count_collected_evidence(state)
+    collected_evidence_count = gate.collected_evidence_count
     source_evidence_available = collected_evidence_count > 0
 
     spl_validation = state.get("spl_validation") if isinstance(state.get("spl_validation"), dict) else None
@@ -142,35 +196,11 @@ def build_run_contract(
         spl_candidate_present=spl_candidate_present,
     )
 
-    intent = state.get("intent_classification") if isinstance(state.get("intent_classification"), dict) else {}
-    answer_contract = state.get("answer_contract")
-    human_review = state.get("human_review") if isinstance(state.get("human_review"), dict) else None
-
-    effective_hil_required = resolve_effective_hil_required(
-        evidence_plan=evidence_plan,
-        answer_contract=answer_contract,
-        human_review=human_review,
-        execution=execution,
-        live_data_request=live_data_request,
-        execution_authorized=execution_authorized,
-        intent_requires_hil=bool(intent.get("requires_hil")),
-    )
-
-    allow_live = execution_authorized and collected_evidence_count > 0
-    allow_mitre = _allow_mitre_mapping(
-        evidence_plan=evidence_plan,
-        intent=intent,
-        state=state,
-        collected_evidence_count=collected_evidence_count,
-    )
-    allow_severity = _allow_severity_assessment(
-        route=route,
-        evidence_plan=evidence_plan,
-        intent=intent,
-        state=state,
-        execution_authorized=execution_authorized,
-        collected_evidence_count=collected_evidence_count,
-    )
+    # Evidence-derived authority is projected from the gate, not re-decided here.
+    effective_hil_required = gate.effective_hil_required
+    allow_live = gate.allow_live_result_language
+    allow_mitre = gate.allow_mitre_mapping
+    allow_severity = gate.allow_severity_assessment
 
     source_evidence = state.get("source_evidence")
     evidence_count = len(source_evidence) if isinstance(source_evidence, list) else 0
@@ -261,37 +291,6 @@ def _query_signals_from_state(state: ChatPipelineState) -> dict[str, Any] | None
     return signals if isinstance(signals, dict) else None
 
 
-def _count_collected_evidence(state: ChatPipelineState) -> int:
-    """Count collected rows from raw execution/RAG/MCP inputs, not packaged source_evidence."""
-    count = 0
-
-    soc_kb = state.get("soc_kb_retrieval")
-    if isinstance(soc_kb, dict) and str(soc_kb.get("retrieval_status") or "") == "retrieved":
-        count += 1
-
-    execution = state.get("execution") if isinstance(state.get("execution"), dict) else {}
-    exec_status = str(execution.get("status") or "")
-    if exec_status == "executed":
-        count += 1
-        orchestration = execution.get("mcp_orchestration")
-        if isinstance(orchestration, dict) and orchestration.get("recipe_id") == "broaden_scope_on_empty":
-            calls = orchestration.get("calls")
-            if isinstance(calls, list) and len(calls) >= 2:
-                primary = calls[0]
-                if isinstance(primary, dict) and primary.get("outcome") == "empty":
-                    count += 1
-
-    mcp_evidence = state.get("mcp_evidence")
-    if isinstance(mcp_evidence, list):
-        count += sum(
-            1
-            for item in mcp_evidence
-            if isinstance(item, dict) and str(item.get("collection_status") or "") == "collected"
-        )
-
-    return count
-
-
 def _spl_candidate_present(
     candidate_spl: dict[str, Any] | None,
     spl_draft_preview: dict[str, Any] | None,
@@ -356,42 +355,6 @@ def _derive_spl_status(
     if spl_candidate_present:
         return "review_required", None
     return "not_required", None
-
-
-def _allow_mitre_mapping(
-    *,
-    evidence_plan: dict[str, Any],
-    intent: dict[str, Any],
-    state: ChatPipelineState,
-    collected_evidence_count: int,
-) -> bool:
-    needs_mitre = bool(evidence_plan.get("needs_mitre"))
-    if not needs_mitre:
-        return False
-    if collected_evidence_count > 0:
-        return True
-    return _policy_backed_in_catalog(state, intent)
-
-
-def _allow_severity_assessment(
-    *,
-    route: RouteContract,
-    evidence_plan: dict[str, Any],
-    intent: dict[str, Any],
-    state: ChatPipelineState,
-    execution_authorized: bool,
-    collected_evidence_count: int,
-) -> bool:
-    intent_family = route.intent_family or ""
-    if _policy_backed_in_catalog(state, intent) and intent_family in _POLICY_SEVERITY_FAMILIES:
-        return True
-    if route.live_data_request and not execution_authorized and collected_evidence_count == 0:
-        return False
-    if intent_family == "spl_generation_only" and route.live_data_request and collected_evidence_count == 0:
-        return False
-    if collected_evidence_count > 0 or execution_authorized:
-        return True
-    return intent_family not in _NON_SEVERITY_INTENT_FAMILIES
 
 
 def _policy_backed_in_catalog(state: ChatPipelineState, intent: dict[str, Any]) -> bool:

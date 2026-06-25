@@ -9,6 +9,7 @@ Implementation specs live here (versioned in git). **Agent rules** live in [`AGE
 | Intent cascade | [`2026-06-17_1730_intent-node-cascade-hardening.md`](2026-06-17_1730_intent-node-cascade-hardening.md) | **Done** (Batch 0–0.2) |
 | Cisco Environment KB + 50-Q catalogue | `.cursor/plans/environment_kb_cisco_catalogue_1eddd12f.plan.md` (local) — copy to `plans/` when Batch 1 starts | **Next** — read Review Addendum §A–D before implementation |
 | Final resolution (routing + answer quality) | `plans/` + branch `cp-final-resolution-answer-quality` | **Done** — focused 20-probe 100/100 mean (`fdc8fac`) |
+| Cross-stream FinalEvidenceGate | [`2026-06-25_final-evidence-gate-cross-stream.md`](2026-06-25_final-evidence-gate-cross-stream.md) | **Done** — gate computed in `graph_node_context_finalize()`, not as a new router edge |
 | Master roadmap | [`AI_SOC_MASTER_PLAN.md`](AI_SOC_MASTER_PLAN.md) | Active |
 
 ## Canonical references

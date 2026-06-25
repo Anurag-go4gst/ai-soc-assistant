@@ -254,6 +254,9 @@ class StructuredContextPackage(BaseModel):
     synthesis_allowed: bool = False
     rag_approval_summary: dict[str, object] | None = None
     evidence_origin_labels: list[str] = []
+    # FinalEvidenceGate debug projection (refs/counts/permissions). Kept
+    # consistent with the final RunContract; see graph_node_context_finalize.
+    final_evidence_gate: dict[str, object] | None = None
 
 
 class ContextSufficiencyEnvelope(BaseModel):
