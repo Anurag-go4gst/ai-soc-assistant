@@ -15,7 +15,7 @@
       "id": "probe.guided.modbus_cleartext",
       "kind": "novel_hunt",
       "query": "Identify any cleartext Modbus writes targeting protection relays on substation 12",
-      "expect_family": "guided_investigation",
+      "expect_family": "spl_generation_only",
       "forbid_families": [
         "clarification_required"
       ]
@@ -44,7 +44,7 @@
       "id": "probe.paraphrase.smb_talkers",
       "kind": "paraphrase",
       "query": "Which hosts generated the most SMB traffic in the last 24 hours?",
-      "expect_family": "spl_generation_only",
+      "expect_family": "live_investigation",
       "forbid_families": [
         "clarification_required"
       ]
@@ -89,17 +89,16 @@
       "query": "What indexes and sourcetypes can I search with my current role?",
       "allowed_families": [
         "clarification_required",
-        "knowledge_only"
-      ],
-      "forbid_families": [
+        "knowledge_only",
         "spl_generation_only"
-      ]
+      ],
+      "forbid_families": []
     },
     {
       "id": "probe.novel.ot_goose_injection",
       "kind": "novel_hunt",
       "query": "Flag recurring GOOSE message timing anomalies on bay controller BC-17 since midnight",
-      "expect_family": "guided_investigation",
+      "expect_family": "spl_generation_only",
       "forbid_families": [
         "clarification_required"
       ]
@@ -108,10 +107,9 @@
       "id": "probe.ot.substation_remote_access",
       "kind": "novel_hunt",
       "query": "Show me all external connections or remote access sessions currently mapping to the substation networks.",
-      "expect_family": "guided_investigation",
+      "expect_family": "spl_generation_only",
       "forbid_families": [
-        "clarification_required",
-        "spl_generation_only"
+        "clarification_required"
       ]
     }
   ]

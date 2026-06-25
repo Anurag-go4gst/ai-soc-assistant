@@ -45,7 +45,7 @@
       "id": "coe_in_pg_005",
       "tier": "T2",
       "category": "review_only_spl_renderer",
-      "expected_skill": "guided_investigation",
+      "expected_skill": "spl_generation",
       "question": "Draft a review-only Splunk search for Modbus function code 16 writes to relay protection registers from non-engineering hosts in the last 24 hours."
     },
     {

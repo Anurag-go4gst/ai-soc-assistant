@@ -19,6 +19,12 @@ _HIL_KIND_COPY: dict[str, str] = {
     "session_context_stale": "Session context is stale — repeat alert context or start fresh.",
 }
 
+_DRAFT_PREVIEW_OWNERSHIP_MARKERS = (
+    "lab-only draft spl preview",
+    "soc review checklist",
+    "hil/soc review is required",
+)
+
 
 def human_review_kind_to_analyst_copy(kind: str | None, fallback: str | None = None) -> str:
     if not kind:
@@ -99,9 +105,13 @@ def build_merged_t2_message(
     parts: list[str] = [guidance_text.strip()] if guidance_text and guidance_text.strip() else []
     if not shape_suppresses_spl(shape):
         if isinstance(spl_draft_preview, dict) and str(spl_draft_preview.get("draft_spl") or "").strip():
-            draft_block = build_draft_preview_analyst_message(spl_draft_preview)
             draft_spl = str(spl_draft_preview.get("draft_spl") or "").strip()
-            parts.append(f"{draft_block}\n\nDraft SPL (review-only, not executed):\n```\n{draft_spl}\n```")
+            code_block = f"Draft SPL (review-only, not executed):\n```\n{draft_spl}\n```"
+            if _guidance_already_owns_draft_preview(guidance_text):
+                parts.append(code_block)
+            else:
+                draft_block = build_draft_preview_analyst_message(spl_draft_preview)
+                parts.append(f"{draft_block}\n\n{code_block}")
         elif isinstance(candidate_spl, dict) and str(candidate_spl.get("candidate_spl") or "").strip():
             parts.append(
                 "Candidate SPL draft (review-only, not executed):\n"
@@ -121,10 +131,15 @@ def build_merged_t2_message(
         kind = str(review.get("review_type") or review.get("kind") or "")
         hil_copy = human_review_kind_to_analyst_copy(kind, review.get("safe_message_for_user"))
         parts.append(f"Review package: {hil_copy}")
-    elif isinstance(spl_draft_preview, dict):
+    elif isinstance(spl_draft_preview, dict) and not _guidance_already_owns_draft_preview(guidance_text):
         parts.append(f"Review package: {DRAFT_PREVIEW_STATUS_MESSAGE}")
     merged = "\n\n".join(part for part in parts if part)
     return merged or guidance_text
+
+
+def _guidance_already_owns_draft_preview(guidance_text: str) -> bool:
+    lowered = str(guidance_text or "").lower()
+    return any(marker in lowered for marker in _DRAFT_PREVIEW_OWNERSHIP_MARKERS)
 
 
 def _summary_for_t2_section_plan(

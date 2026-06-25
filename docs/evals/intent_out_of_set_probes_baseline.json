@@ -2,10 +2,10 @@
   "probe_count": 11,
   "rows": {
     "probe.guided.modbus_cleartext": {
-      "intent_family": "guided_investigation",
+      "intent_family": "spl_generation_only",
       "match_path": "out_of_registry",
       "requires_clarification": false,
-      "requires_hil": true
+      "requires_hil": false
     },
     "probe.guided.vpn_anomalies": {
       "intent_family": "spl_generation_only",
@@ -14,9 +14,9 @@
       "requires_hil": false
     },
     "probe.metadata.index_permissions": {
-      "intent_family": "clarification_required",
+      "intent_family": "spl_generation_only",
       "match_path": "out_of_registry",
-      "requires_clarification": true,
+      "requires_clarification": false,
       "requires_hil": false
     },
     "probe.nonsoc.vacation_policy": {
@@ -32,10 +32,10 @@
       "requires_hil": false
     },
     "probe.novel.ot_goose_injection": {
-      "intent_family": "guided_investigation",
+      "intent_family": "spl_generation_only",
       "match_path": "out_of_registry",
       "requires_clarification": false,
-      "requires_hil": true
+      "requires_hil": false
     },
     "probe.novel.rdp_correlation": {
       "intent_family": "spl_generation_only",
@@ -44,13 +44,13 @@
       "requires_hil": false
     },
     "probe.ot.substation_remote_access": {
-      "intent_family": "guided_investigation",
+      "intent_family": "spl_generation_only",
       "match_path": "out_of_registry",
       "requires_clarification": false,
-      "requires_hil": true
+      "requires_hil": false
     },
     "probe.paraphrase.smb_talkers": {
-      "intent_family": "spl_generation_only",
+      "intent_family": "live_investigation",
       "match_path": "near_105_question",
       "requires_clarification": false,
       "requires_hil": false

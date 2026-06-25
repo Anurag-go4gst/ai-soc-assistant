@@ -98,6 +98,7 @@ def validate_final_answer(
     human_review: dict[str, Any] | None = None,
     planning_decision: dict[str, Any] | None = None,
     routing_provenance: dict[str, Any] | None = None,
+    visible_message: str | None = None,
 ) -> AnswerGuardStatus:
     """Validate the assembled answer against the contract; fail closed on conflict."""
     if analyst_response is None or answer_contract is None:
@@ -218,7 +219,7 @@ def validate_final_answer(
             )
         )
 
-    visible_text = _visible_analyst_text(analyst_response)
+    visible_text = _visible_analyst_text(analyst_response, visible_message=visible_message)
     negated = _has_negated_compromise_wording(visible_text)
 
     # 7–10. Unsafe positive claims without supporting evidence.
@@ -319,7 +320,7 @@ def validate_final_answer(
             )
         )
 
-    visible_sections = _visible_section_text(analyst_response)
+    visible_sections = _visible_section_text(analyst_response, visible_message=visible_message)
     visible_lower = visible_sections.lower()
     if visible_lower.count("lab-only draft spl preview") > 1:
         findings.append(
@@ -379,8 +380,10 @@ def validate_final_answer(
     )
 
 
-def _visible_analyst_text(analyst_response: Any) -> str:
+def _visible_analyst_text(analyst_response: Any, *, visible_message: str | None = None) -> str:
     parts: list[str] = []
+    if isinstance(visible_message, str) and visible_message.strip():
+        parts.append(visible_message)
     for field in (
         "direct_answer_summary",
         "one_sentence_finding",
@@ -399,8 +402,8 @@ def _visible_analyst_text(analyst_response: Any) -> str:
     return " ".join(parts).lower()
 
 
-def _visible_section_text(analyst_response: Any) -> str:
-    parts: list[str] = [_visible_analyst_text(analyst_response)]
+def _visible_section_text(analyst_response: Any, *, visible_message: str | None = None) -> str:
+    parts: list[str] = [_visible_analyst_text(analyst_response, visible_message=visible_message)]
     for field in (
         "analyst_checklist",
         "recommended_actions",

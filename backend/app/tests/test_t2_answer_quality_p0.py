@@ -122,6 +122,33 @@ def test_t2_surfacing_exposes_draft_spl(monkeypatch) -> None:
     assert "Confirm index/sourcetype" in merged
 
 
+def test_t2_merge_appends_only_code_when_guidance_owns_preview_block(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_t2_answer_surfacing_enabled", True)
+    preview = {
+        "draft_spl": "index=ot sourcetype=dnp3 | stats count",
+        "investigation_checklist": ["Confirm RTU owner"],
+    }
+    guidance = (
+        "Lab-only draft SPL preview. Not governed, not approved, not executed.\n\n"
+        "SOC review checklist\n"
+        "- Confirm RTU owner"
+    )
+    merged = build_merged_t2_message(
+        guidance_text=guidance,
+        human_review={"required": False},
+        spl_draft_preview=preview,
+        candidate_spl=None,
+        spl_validation=None,
+        limitations=[],
+        user_query="Build a review-only hunt for DNP3 cold restart events",
+        match_path="out_of_registry",
+    )
+    assert merged.lower().count("lab-only draft spl preview") == 1
+    assert merged.lower().count("soc review checklist") == 1
+    assert merged.count("```") == 2
+    assert merged.count("index=ot sourcetype=dnp3 | stats count") == 1
+
+
 def test_regulatory_shape_suppresses_spl_surfacing(monkeypatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_t2_answer_surfacing_enabled", True)
     contract = AnswerContract(render_sections={"spl_artifact": True}, spl_present=True)

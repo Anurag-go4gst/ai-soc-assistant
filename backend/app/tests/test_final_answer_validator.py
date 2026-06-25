@@ -161,6 +161,19 @@ def test_duplicate_lab_warning_blocks() -> None:
     assert "final.duplicate_review_only_warning" in result.failed_checks
 
 
+def test_duplicate_lab_warning_in_top_level_message_blocks() -> None:
+    warning = "Lab-only draft SPL preview. Not governed, not approved, not executed."
+    result = validate_final_answer(
+        analyst_response=_answer(spl_draft_preview={"warning": warning}),
+        answer_contract=_contract(mitre_answer_visible=False, execution_status="skipped"),
+        evidence_plan={"answer_mode": "live_investigation"},
+        mitre_decision={},
+        visible_message=f"{warning}\n\nDraft SPL:\n```\nindex=ot | stats count\n```",
+    )
+    assert result.guard_status == "blocked"
+    assert "final.duplicate_review_only_warning" in result.failed_checks
+
+
 def test_priority_prefix_without_severity_blocks() -> None:
     result = validate_final_answer(
         analyst_response=_answer(

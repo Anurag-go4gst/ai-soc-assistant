@@ -30,6 +30,20 @@ def analyst_visible_text(payload: dict[str, Any]) -> str:
         val = analyst.get(key)
         if isinstance(val, str) and val.strip():
             parts.append(val.strip())
+    for key in (
+        "hypotheses",
+        "recommended_actions",
+        "analyst_checklist",
+        "investigation_steps",
+        "triage_checklist",
+        "evidence_checklist",
+        "limitations",
+        "missing_evidence",
+        "required_evidence",
+    ):
+        values = analyst.get(key)
+        if isinstance(values, list):
+            parts.extend(str(item).strip() for item in values if str(item).strip())
     return "\n".join(parts)
 
 
@@ -189,9 +203,14 @@ def evaluate_probe_expectations(
 
     if expect.get("forbid_execution_claim"):
         lowered = visible.lower()
+        negated_execution = (
+            "not executed" in lowered
+            or "no live query was executed" in lowered
+            or "no mcp execution was run" in lowered
+        )
         if observed["execution_status"] == "executed":
             violations.append("unexpected_execution")
-        elif re.search(r"\b(executed|returned \d+ rows)\b", lowered) and "not executed" not in lowered:
+        elif re.search(r"\b(executed|returned \d+ rows)\b", lowered) and not negated_execution:
             violations.append("possible_execution_overclaim")
 
     return violations

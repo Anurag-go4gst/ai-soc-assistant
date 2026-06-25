@@ -2532,6 +2532,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
             user_query=request.message,
         )
+    analyst_response = _collapse_card_summary_when_sections_own_details(analyst_response)
+    message = _collapse_top_level_message_when_card_owns_sections(message, analyst_response)
     final_answer_validation = None
     guided_without_control_plane = (
         isinstance(state.get("planning_decision"), dict)
@@ -2548,6 +2550,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             routing_provenance=(state.get("routed") or {}).get("routing_provenance")
             if isinstance(state.get("routed"), dict)
             else None,
+            visible_message=message,
         )
         final_answer_validation = validation.model_dump()
         if validation.guard_status == "blocked":
@@ -2854,6 +2857,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         run_contract=state.get("run_contract"),
         routing_contract=state.get("route_contract"),
     )
+    response = _apply_coe_stop_condition_gate(response, query=request.message)
     if settings.ai_soc_session_context_enabled and state.get("session_id"):
         persist_session_pins(
             pins_from_pipeline_state(
@@ -2885,6 +2889,129 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         "mitre_decision": mitre_decision,
         "answer_contract": answer_contract_payload,
     }
+
+
+_COE_STOP_CONDITION_IDS = frozenset(
+    {
+        "run_contract_missing",
+        "live_backed_without_execution",
+        "results_table_not_allowed",
+        "priority_prefix_without_severity",
+        "route_authority_holder_contradiction",
+        "duplicate_spl_warning",
+        "duplicate_soc_review_checklist",
+    }
+)
+
+
+def _collapse_top_level_message_when_card_owns_sections(
+    message: str,
+    analyst_response: Any | None,
+) -> str:
+    if analyst_response is None:
+        return message
+    lowered = str(message or "").lower()
+    if not (
+        "lab-only draft spl preview" in lowered
+        or "soc review checklist" in lowered
+        or "draft spl (review-only" in lowered
+    ):
+        return message
+    summary = str(getattr(analyst_response, "direct_answer_summary", "") or "").strip()
+    if summary:
+        return summary
+    return "Review-only answer prepared; no live query was executed."
+
+
+def _collapse_card_summary_when_sections_own_details(analyst_response: Any | None) -> Any | None:
+    if analyst_response is None:
+        return None
+    summary = str(getattr(analyst_response, "direct_answer_summary", "") or "").strip()
+    if not summary:
+        return analyst_response
+    lowered = summary.lower()
+    owns_detail_sections = any(
+        getattr(analyst_response, field, None)
+        for field in (
+            "recommended_actions",
+            "analyst_checklist",
+            "investigation_steps",
+            "triage_checklist",
+            "evidence_checklist",
+            "spl_draft_preview",
+            "draft_spl_code",
+            "spl_code",
+        )
+    )
+    if not owns_detail_sections:
+        return analyst_response
+    if not (
+        "review steps:" in lowered
+        or "soc review checklist" in lowered
+        or "draft spl" in lowered
+        or "\n-" in summary
+    ):
+        return analyst_response
+    first_line = next((line.strip() for line in summary.splitlines() if line.strip()), "")
+    if not first_line:
+        first_line = "Review-only answer prepared; no live query was executed."
+    return analyst_response.model_copy(update={"direct_answer_summary": first_line[:500]})
+
+
+def _is_coe_stop_condition_violation(violation: str) -> bool:
+    return violation in _COE_STOP_CONDITION_IDS or violation.startswith("run_contract_field_missing:")
+
+
+def _apply_coe_stop_condition_gate(response: PlaceholderResponse, *, query: str) -> PlaceholderResponse:
+    """Fail closed on COE stop-condition violations after RunContract packaging."""
+    from app.evals.answer_efficacy_checks import evaluate_universal_efficacy
+
+    payload = response.model_dump(mode="json")
+    violations = [
+        violation
+        for violation in evaluate_universal_efficacy(query=query, payload=payload)
+        if _is_coe_stop_condition_violation(violation)
+    ]
+    if not violations:
+        return response
+
+    first = violations[0]
+    blocked_reason = f"COE stop-condition validation failed: {first}."
+    final_validation = payload.get("final_answer_validation") if isinstance(payload.get("final_answer_validation"), dict) else {}
+    prior_failed = final_validation.get("failed_checks") if isinstance(final_validation.get("failed_checks"), list) else []
+    payload["final_answer_validation"] = {
+        **final_validation,
+        "enabled": True,
+        "guard_status": "blocked",
+        "failed_checks": sorted({str(item) for item in prior_failed + violations}),
+        "blocked_reason": blocked_reason,
+        "analyst_review_required": True,
+        "reason": "COE stop-condition validation failed; routing to analyst review (fail closed).",
+    }
+
+    existing_review = payload.get("human_review") if isinstance(payload.get("human_review"), dict) else {}
+    payload["human_review"] = {
+        **existing_review,
+        "required": True,
+        "review_type": existing_review.get("review_type") or "answer_guard_blocked",
+        "reason": existing_review.get("reason") or "coe_stop_condition_violation",
+        "reviewer_role": existing_review.get("reviewer_role") or "soc_analyst",
+        "allowed_actions": existing_review.get("allowed_actions") or ["review_renderer_output", "cancel"],
+        "safe_message_for_user": blocked_reason,
+    }
+    context = payload.get("context_sufficiency") if isinstance(payload.get("context_sufficiency"), dict) else None
+    if context is not None:
+        payload["context_sufficiency"] = {
+            **context,
+            "status": "analyst_review_required",
+            "synthesis_readiness": False,
+        }
+    payload["message"] = blocked_reason
+    payload["note"] = "COE stop-condition validation failed; visible answer withheld for analyst review."
+    payload["response_mode"] = "human_review"
+    payload["analyst_response"] = None
+    payload["mitre_mappings"] = []
+    return PlaceholderResponse.model_validate(payload)
 
 
 def _route_authority_payload(route_plan_shadow: dict[str, Any] | None) -> dict[str, object] | None:

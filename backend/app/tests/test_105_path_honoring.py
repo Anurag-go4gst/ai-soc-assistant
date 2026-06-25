@@ -73,7 +73,8 @@ def test_exact_105_smb_top_hosts_sets_needs_spl_true() -> None:
     )
     assert plan.needs_spl is True
     assert plan.spl_allowed is True
-    assert plan.needs_mcp is False
+    assert plan.needs_mcp is True
+    assert plan.mcp_allowed is False
     decision = plan_path_and_tools(
         intent_classification=result.intent_classification.model_dump(),
         evidence_plan=plan.model_dump(),
