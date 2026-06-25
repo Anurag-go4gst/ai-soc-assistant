@@ -12,6 +12,7 @@ from typing import Any
 
 from app.config import settings
 from app.safeguards.spl_validator import load_spl_policy
+from app.spl.source_profile_catalog import canonical_source_profile_slot
 from app.spl.source_profile_store import load_persisted_source_profile
 
 _PLACEHOLDER_RE = re.compile(r"<([a-zA-Z0-9_]+)>")
@@ -67,15 +68,25 @@ def extract_placeholder_slots(spl: str) -> list[str]:
     return list(dict.fromkeys(_PLACEHOLDER_RE.findall(spl or "")))
 
 
+def profile_slot_value(profile: dict[str, str], slot_id: str) -> str | None:
+    value = profile.get(slot_id)
+    if value:
+        return value
+    canonical = canonical_source_profile_slot(slot_id)
+    if canonical != slot_id:
+        return profile.get(canonical)
+    return None
+
+
 def substitute_placeholders(spl: str, profile: dict[str, str]) -> tuple[str, list[str]]:
     missing: list[str] = []
 
     def _replace(match: re.Match[str]) -> str:
         key = match.group(1)
-        value = profile.get(key)
+        value = profile_slot_value(profile, key)
         if value:
             return value
-        missing.append(key)
+        missing.append(canonical_source_profile_slot(key))
         return match.group(0)
 
     resolved = _PLACEHOLDER_RE.sub(_replace, spl or "")
@@ -184,9 +195,17 @@ def resolve_static_slots(
     session_slots: dict[str, str] | None = None,
 ) -> tuple[dict[str, str], list[str]]:
     profile = load_static_source_profile(session_slots=session_slots)
-    resolved = {slot: profile[slot] for slot in required_slots if slot in profile and profile[slot]}
-    missing = [slot for slot in required_slots if slot not in resolved]
-    return resolved, missing
+    resolved = {
+        slot: value
+        for slot in required_slots
+        if (value := profile_slot_value(profile, slot))
+    }
+    missing = [
+        canonical_source_profile_slot(slot)
+        for slot in required_slots
+        if slot not in resolved
+    ]
+    return resolved, list(dict.fromkeys(missing))
 
 
 def merge_profiles(*profiles: dict[str, str] | None) -> dict[str, str]:

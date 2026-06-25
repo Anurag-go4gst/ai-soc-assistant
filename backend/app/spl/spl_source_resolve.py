@@ -20,10 +20,12 @@ from app.safeguards.spl_validator import validate_spl
 from app.environment.asset_registry_store import build_asset_registry_profile
 from app.spl.mcp_source_discovery import run_mcp_source_discovery
 from app.spl.rag_source_profile_bridge import extract_rag_source_profile
+from app.spl.source_profile_catalog import canonical_source_profile_slot
 from app.spl.source_profile_resolver import (
     build_policy_derived_profile,
     extract_placeholder_slots,
     merge_profiles,
+    profile_slot_value,
     substitute_placeholders,
 )
 from app.spl.source_profile_store import load_persisted_source_profile, load_persisted_source_profile_document
@@ -61,6 +63,7 @@ def build_spl_source_profile_review(missing_slots: list[str]) -> dict[str, Any]:
 
 def _slot_source_map(
     *,
+    required_slots: list[str],
     persisted: dict[str, str],
     persisted_sources: dict[str, str],
     rag_profile: dict[str, str],
@@ -69,9 +72,21 @@ def _slot_source_map(
     asset_profile: dict[str, str],
 ) -> dict[str, str]:
     sources: dict[str, str] = {}
-    for slot_id in set(persisted) | set(rag_profile) | set(session_slots) | set(mcp_profile) | set(asset_profile):
-        if slot_id in persisted:
-            sources[slot_id] = persisted_sources.get(slot_id, "coe_ui")
+    slot_ids = list(
+        dict.fromkeys(
+            required_slots
+            + list(persisted)
+            + list(rag_profile)
+            + list(session_slots)
+            + list(mcp_profile)
+            + list(asset_profile)
+        )
+    )
+    for slot_id in slot_ids:
+        canonical = canonical_source_profile_slot(slot_id)
+        store_key = slot_id if slot_id in persisted else canonical
+        if store_key in persisted:
+            sources[slot_id] = persisted_sources.get(store_key, "coe_ui")
         elif slot_id in asset_profile:
             sources[slot_id] = "asset_registry"
         elif slot_id in mcp_profile:
@@ -139,9 +154,14 @@ def resolve_spl_source_profile(
     # only in the effective merge and must not override analyst-entered slots.
     profile = merge_profiles(policy_profile, rag_profile, session_profile, mcp_profile, asset_profile, persisted)
 
-    resolved_slots = {slot: profile[slot] for slot in required_slots if slot in profile and profile[slot]}
+    resolved_slots = {
+        slot: value
+        for slot in required_slots
+        if (value := profile_slot_value(profile, slot))
+    }
     substituted, missing_slots = substitute_placeholders(text, profile)
     slot_sources = _slot_source_map(
+        required_slots=required_slots,
         persisted=persisted,
         persisted_sources=persisted_sources,
         rag_profile=rag_profile,
