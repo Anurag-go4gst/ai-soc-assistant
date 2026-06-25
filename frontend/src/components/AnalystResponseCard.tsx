@@ -93,6 +93,10 @@ export function AnalystResponseCard({
   );
   const draftSplCode = response.draft_spl_code?.trim() || null;
   const draftPreview = response.spl_draft_preview;
+  // Review-only SPL draft: the dedicated renderer owns the answer shape, so the
+  // investigation-steps phase is the SOC review checklist (not a competing "Analyst
+  // workflow" heading).
+  const isReviewOnlySplDraft = splOnly && Boolean(draftSplCode);
   const llmSplCandidate = response.llm_spl_candidate;
   const showLlmSplCandidate = Boolean(llmSplCandidate);
   const showSpl = Boolean(response.spl_code && (renderSections.spl_artifact ?? true));
@@ -130,10 +134,10 @@ export function AnalystResponseCard({
   if (showInvestigationSteps) {
     phases.push({
       key: 'steps',
-      label: 'Investigation steps',
+      label: isReviewOnlySplDraft ? 'SOC review checklist' : 'Investigation steps',
       icon: <ListChecks className="h-3.5 w-3.5" />,
       accent: 'amber',
-      chips: [{ text: 'Analyst workflow', variant: 'outline' }],
+      chips: [{ text: isReviewOnlySplDraft ? 'Review only' : 'Analyst workflow', variant: 'outline' }],
       content: <StepList items={investigationSteps} />,
     });
   }

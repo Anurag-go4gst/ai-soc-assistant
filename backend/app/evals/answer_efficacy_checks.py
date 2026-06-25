@@ -195,7 +195,10 @@ def evaluate_probe_expectations(
         if observed["message_len"] < max(min_len or 280, 280):
             violations.append(f"thin_guided_envelope:checklist={observed['checklist_count']}")
 
-    if min_actions and observed["action_count"] < min_actions:
+    # Review-only SPL drafts carry their actionable guidance as the SOC review
+    # checklist rather than recommended_actions, so count either surface here.
+    effective_action_count = max(observed["action_count"], observed["checklist_count"])
+    if min_actions and effective_action_count < min_actions:
         violations.append(f"too_few_actions:{observed['action_count']}<{min_actions}")
 
     max_actions = expect.get("max_recommended_actions")

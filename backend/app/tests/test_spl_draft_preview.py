@@ -454,7 +454,21 @@ def test_esp_draft_preview_review_wording_with_live_composer(monkeypatch: pytest
         return_value=type("R", (), {"text": bad_prose})(),
     ):
         response = build_live_chat_response(ChatRequest(message=ESP_QUERY))
-    _assert_draft_preview_narrative(response)
+    # With the control plane on, the dedicated review-only SPL renderer owns the visible
+    # answer, so the composer's bad prose cannot survive and HIL/SOC review messaging is
+    # guaranteed. (The lab-only warning also remains in its owned spl_draft_preview.warning.)
+    visible = (response.message or "") + "\n" + (response.analyst_response.direct_answer_summary or "")
+    lowered = visible.lower()
+    assert "does not require review" not in lowered
+    assert "no human intelligence" not in lowered
+    first_line = next(line for line in visible.splitlines() if line.strip())
+    assert first_line == "Review-only SPL draft — no live query was executed"
+    assert "hil/soc review required before any future execution path" in lowered
+    assert "lab-only draft spl preview" in lowered
+    assert lowered.count("soc review checklist") == 1
+    draft = response.spl_draft_preview
+    warning = str(getattr(draft, "warning", "") or "").lower()
+    assert "lab-only draft spl preview" in warning
 
 
 def test_substation_hmi_brute_force_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:

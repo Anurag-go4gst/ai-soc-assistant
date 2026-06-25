@@ -77,9 +77,13 @@ def test_bundle_a_substation_live_data() -> None:
     analyst = payload.get("analyst_response") or {}
     assert not (analyst.get("splunk_results_table") or [])
     assert (payload.get("route_authority") or {}).get("authority_holder") == routing.get("authority_holder")
-    assert "Review-only SPL draft - no live query was executed" in (
-        analyst.get("direct_answer_summary") or ""
-    )
+    # Dedicated review-only SPL renderer owns the answer shape: the review-only title
+    # (em-dash, matching the RunContract answer preview) is the card heading and the
+    # summary header carries the status block.
+    assert analyst.get("finding_title") == "Review-only SPL draft — no live query was executed"
+    summary = analyst.get("direct_answer_summary") or ""
+    assert "Severity: Not assigned from this question alone" in summary
+    assert "Execution: Not executed" in summary
     assert analyst.get("severity_label") == "Not assigned from this question alone"
     assert "```" not in (analyst.get("direct_answer_summary") or "")
     assert "search index=" not in (analyst.get("direct_answer_summary") or "").lower()

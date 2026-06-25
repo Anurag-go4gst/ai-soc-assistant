@@ -66,6 +66,7 @@ from app.skills.selector import select_skill_chain
 from app.spl.template_registry import QUERY_SHAPE_RAW_SEARCH, get_spl_template, template_summary
 from app.splunk.capabilities import build_splunk_capability_profile
 from app.chat.network_boundary_display import resolve_analyst_use_case_label
+from app.chat.review_only_spl_renderer import apply_review_only_spl_render
 from app.spl.draft_preview import (
     DRAFT_PREVIEW_STATUS_MESSAGE,
     build_draft_preview,
@@ -2774,6 +2775,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         route=route,
     )
     state = {**state, "run_contract": run_contract.model_dump_canonical()}
+    # Review-only SPL drafts: one dedicated renderer owns the visible answer (fixed
+    # section order + labels) and suppresses the generic title/review-type/investigation
+    # producers. Presentation only — RunContract/HIL/MCP/source-evidence are unchanged.
+    analyst_response, message = apply_review_only_spl_render(
+        run_contract=run_contract,
+        analyst_response=analyst_response,
+        message=message,
+        draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+    )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,
         severity_decision.severity_label,
