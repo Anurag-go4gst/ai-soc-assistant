@@ -64,10 +64,13 @@ def test_happy_path_authority_applied_only_with_explicit_lab_config(
     compare = response.route_plan_shadow.route_authority_compare
     assert compare["coverage_id_resolved"] == COV_Q046_PILOT_COVERAGE_ID
     assert compare["operation_authoritative_applied"] is True
-    assert compare["authority_holder"] == "route_plan_primary_skill"
+    # Top-level compare is RunContract-aligned for display; the cov.q046
+    # migration mechanics live under raw_shadow_compare.
+    assert compare["authority_holder"] == "canonical_run_contract"
+    assert compare["raw_shadow_compare"]["authority_holder"] == "route_plan_primary_skill"
     assert compare["authority_decision"] == "applied"
     assert compare["coverage_id_resolved"] == COV_Q046_PILOT_COVERAGE_ID
-    assert "Operation authority applied" in compare["authority_trace"]
+    assert "Operation authority applied" in compare["raw_shadow_compare"]["authority_trace"]
     assert compare["planning_primary_skill"] == "aggregate_and_rank"
     assert response.execution.executed_spl is None
 
@@ -92,7 +95,7 @@ def test_missing_threshold_ref_never_defaults_authority(
     assert compare["operation_authoritative_applied"] is False
     assert compare["authority_fallback_reason"] == FALLBACK_MISSING_THRESHOLD_REF
     assert compare["authority_decision"] == "fallback"
-    assert "not applied" in compare["authority_trace"].lower()
+    assert "not applied" in compare["raw_shadow_compare"]["authority_trace"].lower()
 
 
 def test_other_coverage_id_not_implicitly_upgraded(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -128,7 +131,9 @@ def test_default_mode_global_kill_switch_trace(monkeypatch: pytest.MonkeyPatch) 
     compare = response.route_plan_shadow.route_authority_compare
     assert compare["operation_authoritative_applied"] is False
     assert compare["authority_fallback_reason"] == FALLBACK_GLOBAL_KILL_SWITCH_DISABLED
-    assert compare["authority_holder"] == "legacy_selected_skill"
+    # Top-level display is RunContract-aligned; raw migration holder is preserved.
+    assert compare["authority_holder"] == "canonical_run_contract"
+    assert compare["raw_shadow_compare"]["authority_holder"] == "legacy_selected_skill"
 
 
 def test_experience_center_unchanged() -> None:

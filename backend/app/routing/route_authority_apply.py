@@ -9,6 +9,48 @@ from app.routing.route_authority_gate import RouteAuthorityEvaluation
 AUTHORITY_HOLDER_LEGACY_SELECTED_SKILL: Final[str] = "legacy_selected_skill"
 AUTHORITY_HOLDER_ROUTE_PLAN_PRIMARY_SKILL: Final[str] = "route_plan_primary_skill"
 MIGRATION_PHASE_S3_STEP_3: Final[str] = "S3_step_3_cov_q046_pilot"
+CANONICAL_RUN_CONTRACT_AUTHORITY: Final[str] = "canonical_run_contract"
+
+
+def project_compare_for_display(
+    compare: dict[str, Any],
+    *,
+    authority_holder: str | None,
+    canonical_skill: str | None,
+    legacy_skill: str | None,
+) -> dict[str, Any]:
+    """Normalize the displayed route_authority_compare once RunContract is authoritative.
+
+    The raw shadow comparison (which legitimately records that legacy
+    selected_skill was preserved on the wire during the cov.q046 migration) is
+    kept verbatim under ``raw_shadow_compare`` for internal/debug use, while the
+    top-level fields are re-projected so no governance/lineage surface claims the
+    legacy route is authoritative.
+    """
+    if not isinstance(compare, dict):
+        return compare
+    # Idempotent: a dict that already carries raw_shadow_compare is projected.
+    if "raw_shadow_compare" in compare:
+        return compare
+    if authority_holder != CANONICAL_RUN_CONTRACT_AUTHORITY:
+        return compare
+    raw = dict(compare)
+    projected = dict(compare)
+    projected["raw_shadow_compare"] = raw
+    projected["authority_holder"] = CANONICAL_RUN_CONTRACT_AUTHORITY
+    projected["legacy_authoritative"] = False
+    projected["legacy_intent_authority"] = False
+    projected["canonical_skill"] = canonical_skill
+    projected["legacy_skill"] = legacy_skill
+    # No top-level field may read as the legacy route once canonical holds
+    # authority; the legacy wire mirror stays under raw_shadow_compare only.
+    projected["selected_skill"] = canonical_skill
+    projected.pop("legacy_selected_skill_preserved", None)
+    projected["authority_trace"] = (
+        "Legacy route observed for comparison only. "
+        "Final authority is canonical_run_contract."
+    )
+    return projected
 
 
 def build_authority_trace(evaluation: RouteAuthorityEvaluation) -> str:

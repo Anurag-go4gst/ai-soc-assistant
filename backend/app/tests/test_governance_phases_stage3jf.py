@@ -64,7 +64,7 @@ def test_production_chat_exposes_remaining_phase_metadata_without_enabling_synth
     response = chat(ChatRequest(message="Show SOP for brute-force investigation"))
 
     assert response.investigation_lineage is not None
-    assert response.investigation_lineage.stages[0].current_mode_source == "live"
+    assert response.investigation_lineage.stages[0].current_mode_source == "review_only"
     assert response.synthesis_status is not None
     assert response.synthesis_status.enabled is False
     assert response.answer_guard is not None

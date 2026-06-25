@@ -34,6 +34,7 @@ from app.demo.mcp_result_envelope import (
 )
 from app.connectors.mcp.mcp_tool_plan_shadow import run_mcp_tool_plan_shadow
 from app.lineage.builder import build_investigation_lineage
+from app.evidence.source_evidence import build_candidate_artifact_refs
 from app.llm.mitre_risk_rationale import build_deterministic_severity_rationale
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.workflow_planner import plan_workflow
@@ -463,6 +464,13 @@ def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
         answer_guard_status=answer_guard,
         action_capability=action_capability,
         demo_llm_shadow=demo_llm_shadow.to_lineage_dict() if demo_llm_shadow else None,
+        candidate_artifact_count=len(
+            build_candidate_artifact_refs(
+                trace_id=trace_id,
+                spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+                candidate_spl={"candidate_spl": candidate_spl} if candidate_spl else None,
+            )
+        ),
     )
     _scrub_experience_center_stage_labels(scenario, investigation_lineage)
     llm_sidecars = _experience_center_llm_sidecars(

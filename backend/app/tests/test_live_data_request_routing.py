@@ -219,3 +219,47 @@ def test_substation_live_data_keeps_strong_family_match(monkeypatch: pytest.Monk
     assert preview["detection_family"] == "esp_it_to_ot_connection"
     assert preview.get("template_match_strength") == "strong"
 
+
+
+def test_substation_live_data_prefers_family_draft_over_llm_failover(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.chat.pipeline import build_live_chat_response
+    from app.config import settings
+    from app.schemas.requests import ChatRequest
+
+    query = _OUT_OF_REGISTRY_LIVE_DATA[-1]
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_spl_fallback_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_t2_answer_shape_enabled", True)
+
+    response = build_live_chat_response(ChatRequest(message=query))
+    candidate = (
+        response.candidate_spl.model_dump()
+        if response.candidate_spl is not None
+        else {}
+    )
+    draft = (
+        response.spl_draft_preview.model_dump()
+        if response.spl_draft_preview is not None
+        else {}
+    )
+    spl_text = str(candidate.get("candidate_spl") or draft.get("draft_spl") or "")
+    assert "esp_firewall_index" in spl_text
+    assert "endpoint_index" not in spl_text
+    assert candidate.get("detection_family") == "esp_it_to_ot_connection" or draft.get(
+        "detection_family"
+    ) == "esp_it_to_ot_connection"
+
+    analyst = response.analyst_response
+    assert analyst is not None
+    draft_code = getattr(analyst, "draft_spl_code", None) or ""
+    spl_code = getattr(analyst, "spl_code", None) or ""
+    combined_spl = f"{draft_code} {spl_code}"
+    assert "esp_firewall_index" in combined_spl
+    assert "endpoint_index" not in combined_spl
+
+    answer = _answer_text(response)
+    assert "shift roster change" not in answer
+    assert "vpn/geo anomaly" not in answer
+    assert "compromised identity" not in answer
+    assert "corporate it" in answer or "firewall" in answer or "zone" in answer

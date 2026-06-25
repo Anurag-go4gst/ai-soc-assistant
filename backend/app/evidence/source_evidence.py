@@ -16,6 +16,57 @@ VALUE_CAP = 240
 SENSITIVE_PATTERNS = re.compile(r"(password|passwd|secret|token|api[_-]?key|credential|authorization)", re.IGNORECASE)
 
 
+def build_source_evidence_refs(
+    *,
+    trace_id: str,
+    query: str,
+    selected_skill: str,
+    spl_validation: dict[str, Any] | None,
+    execution: dict[str, Any],
+    soc_kb_retrieval: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Collected live/RAG/MCP rows only — no skipped splunk_mcp placeholders."""
+    return build_source_evidence(
+        trace_id=trace_id,
+        query=query,
+        selected_skill=selected_skill,
+        spl_validation=spl_validation,
+        execution=execution,
+        soc_kb_retrieval=soc_kb_retrieval,
+        include_skipped_mcp_placeholder=False,
+    )
+
+
+def build_candidate_artifact_refs(
+    *,
+    trace_id: str,
+    spl_validation: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None = None,
+    severity_decision: Any | None = None,
+) -> list[str]:
+    """Metadata-only artifact refs (SPL validation, candidate SPL, severity)."""
+    refs: list[str] = []
+    if isinstance(spl_validation, dict):
+        template_id = spl_validation.get("template_id")
+        if template_id:
+            refs.append(f"spl_validation:{template_id}")
+        elif spl_validation.get("normalized_spl"):
+            refs.append("spl_validation:normalized")
+        elif spl_validation.get("reject_reasons"):
+            refs.append("spl_validation:rejected")
+    if isinstance(candidate_spl, dict) and str(candidate_spl.get("candidate_spl") or "").strip():
+        mode = str(candidate_spl.get("generation_mode") or "candidate")
+        refs.append(f"candidate_spl:{mode}")
+    if severity_decision is not None:
+        label = getattr(severity_decision, "severity_label", None)
+        if label:
+            refs.append(f"severity:{label}")
+    if not refs:
+        return []
+    stable = f"{trace_id}:candidate_artifacts:{':'.join(refs)}"
+    return [f"artifact_{hashlib.sha256(stable.encode('utf-8')).hexdigest()[:16]}"]
+
+
 def build_source_evidence(
     *,
     trace_id: str,
@@ -24,6 +75,7 @@ def build_source_evidence(
     spl_validation: dict[str, Any] | None,
     execution: dict[str, Any],
     soc_kb_retrieval: dict[str, Any] | None = None,
+    include_skipped_mcp_placeholder: bool = True,
 ) -> list[dict[str, Any]]:
     evidence: list[dict[str, Any]] = []
     if soc_kb_retrieval is not None and soc_kb_retrieval.get("retrieval_status") != "disabled":
@@ -62,46 +114,47 @@ def build_source_evidence(
         return evidence
 
     status = str(execution.get("status") or "skipped")
-    rows, fields, envelope_warnings = _preview_from_execution(execution)
-    rows, injection_flags, injection_warnings = scan_mcp_preview_rows(rows)
-    sensitivity_flags = sorted(set(_sensitivity_flags(rows, fields) + injection_flags))
-    if injection_warnings:
-        envelope_warnings = [*envelope_warnings, *injection_warnings]
-    raw_result_hash = _raw_hash(rows) if rows else None
     collection_status = _collection_status(status)
-    warnings: list[str] = list(envelope_warnings)
-    if execution.get("block_reason"):
-        warnings.append(str(execution["block_reason"])[:VALUE_CAP])
-    if spl_validation.get("warnings"):
-        warnings.extend(str(item)[:VALUE_CAP] for item in spl_validation.get("warnings", []))
-    result_count = int(execution.get("result_count") or 0)
-    if status == "executed" and result_count == 0:
-        warnings.append("execution_completed_zero_rows")
+    if collection_status != "skipped" or include_skipped_mcp_placeholder:
+        rows, fields, envelope_warnings = _preview_from_execution(execution)
+        rows, injection_flags, injection_warnings = scan_mcp_preview_rows(rows)
+        sensitivity_flags = sorted(set(_sensitivity_flags(rows, fields) + injection_flags))
+        if injection_warnings:
+            envelope_warnings = [*envelope_warnings, *injection_warnings]
+        raw_result_hash = _raw_hash(rows) if rows else None
+        warnings: list[str] = list(envelope_warnings)
+        if execution.get("block_reason"):
+            warnings.append(str(execution["block_reason"])[:VALUE_CAP])
+        if spl_validation.get("warnings"):
+            warnings.extend(str(item)[:VALUE_CAP] for item in spl_validation.get("warnings", []))
+        result_count = int(execution.get("result_count") or 0)
+        if status == "executed" and result_count == 0:
+            warnings.append("execution_completed_zero_rows")
 
-    evidence.append(
-        _evidence(
-            trace_id=trace_id,
-            source_type="splunk_mcp",
-            source_name=str(execution.get("selected_mcp_server") or "mcp_splunk"),
-            tool_name=execution.get("selected_mcp_tool"),
-            collection_status=collection_status,
-            query_or_request_summary=_request_summary(selected_skill, query, execution),
-            executed_spl=execution.get("executed_spl"),
-            result_count=result_count,
-            execution_outcome="negative_result" if status == "executed" and result_count == 0 else None,
-            fields_returned=fields,
-            preview_rows=rows,
-            raw_result_hash=raw_result_hash,
-            raw_result_stored=False,
-            time_range=_time_range(spl_validation.get("normalized_spl")),
-            warnings=warnings,
-            sensitivity_flags=sensitivity_flags,
-            tool_category=_tool_category(execution.get("selected_mcp_tool")),
-            provider_used="splunk_run_query" if execution.get("executed_spl") else None,
-            saved_search_name=execution.get("saved_search_name"),
-            provenance="ai_soc_validated_execution_gate",
+        evidence.append(
+            _evidence(
+                trace_id=trace_id,
+                source_type="splunk_mcp",
+                source_name=str(execution.get("selected_mcp_server") or "mcp_splunk"),
+                tool_name=execution.get("selected_mcp_tool"),
+                collection_status=collection_status,
+                query_or_request_summary=_request_summary(selected_skill, query, execution),
+                executed_spl=execution.get("executed_spl"),
+                result_count=result_count,
+                execution_outcome="negative_result" if status == "executed" and result_count == 0 else None,
+                fields_returned=fields,
+                preview_rows=rows,
+                raw_result_hash=raw_result_hash,
+                raw_result_stored=False,
+                time_range=_time_range(spl_validation.get("normalized_spl")),
+                warnings=warnings,
+                sensitivity_flags=sensitivity_flags,
+                tool_category=_tool_category(execution.get("selected_mcp_tool")),
+                provider_used="splunk_run_query" if execution.get("executed_spl") else None,
+                saved_search_name=execution.get("saved_search_name"),
+                provenance="ai_soc_validated_execution_gate",
+            )
         )
-    )
 
     # O5c Step 2: per-call evidence. On a completed broaden turn the singular
     # `execution` above is the broadened (c2) search; emit a separate honest

@@ -78,6 +78,17 @@ class AnswerContract(BaseModel):
     use_case_id: str | None = None
     required_evidence: list[str] = Field(default_factory=list)
     spl_status_detail: dict[str, Any] | None = None
+    spl_candidate_present: bool = False
+    spl_candidate_renderable: bool = False
+    spl_validated: bool = False
+    spl_normalized: bool = False
+    spl_execution_eligible: bool = False
+    spl_block_reason: str | None = None
+    allow_live_result_language: bool = False
+    allow_results_table: bool = False
+    allow_mitre_mapping: bool = False
+    allow_severity_assessment: bool = False
+    run_contract_mirrored: bool = False
 
 
 _SECTION_PRIORITY: dict[str, int] = {
@@ -112,6 +123,7 @@ def build_answer_contract(
     use_case_id: str | None = None,
     match_path: str | None = None,
     spl_draft_preview: dict[str, Any] | None = None,
+    run_contract: Any | None = None,
 ) -> AnswerContract:
     intent = intent_classification or {}
     plan = evidence_plan or {}
@@ -369,7 +381,73 @@ def build_answer_contract(
             user_query=user_query or "",
             match_path=match_path,
         )
+    if run_contract is not None:
+        contract = _apply_run_contract_mirror(contract, run_contract)
     return contract
+
+
+
+def _apply_run_contract_mirror(contract: AnswerContract, run_contract: Any) -> AnswerContract:
+    """Mirror SPL lifecycle and live-data render gates from RunContract."""
+    spl_normalized = bool(getattr(run_contract, "spl_normalized", False))
+    spl_renderable = bool(getattr(run_contract, "spl_candidate_renderable", False))
+    live_data_no_evidence = bool(
+        getattr(getattr(run_contract, "routing", None), "live_data_request", False)
+    ) and not bool(getattr(run_contract, "execution_authorized", False)) and int(
+        getattr(run_contract, "collected_evidence_count", 0) or 0
+    ) == 0
+
+    spl_updates: dict[str, Any] = {
+        "spl_candidate_present": bool(getattr(run_contract, "spl_candidate_present", False)),
+        "spl_candidate_renderable": spl_renderable,
+        "spl_validated": bool(getattr(run_contract, "spl_validated", False)),
+        "spl_normalized": spl_normalized,
+        "spl_execution_eligible": bool(getattr(run_contract, "spl_execution_eligible", False)),
+        "spl_block_reason": getattr(run_contract, "spl_block_reason", None),
+        "spl_present": spl_normalized,
+        "spl_status": getattr(run_contract, "spl_status", contract.spl_status),
+        "run_contract_mirrored": True,
+    }
+    if not live_data_no_evidence:
+        render = contract.render_sections
+        return contract.model_copy(
+            update={
+                **spl_updates,
+                "allow_severity_assessment": bool(render.get("severity_assessment")),
+                "allow_mitre_mapping": bool(render.get("mitre_mapping")),
+                "allow_results_table": bool(render.get("live_results")),
+                "allow_live_result_language": bool(render.get("live_results")),
+            }
+        )
+
+    render = dict(contract.render_sections)
+    allow_mitre = bool(getattr(run_contract, "allow_mitre_mapping", False))
+    allow_severity = bool(getattr(run_contract, "allow_severity_assessment", False))
+    allow_results = bool(getattr(run_contract, "allow_results_table", False))
+
+    if not allow_mitre:
+        render["mitre_mapping"] = False
+        render["not_claimed"] = False
+    if not allow_severity:
+        render["severity_assessment"] = False
+    if not allow_results:
+        render["live_results"] = False
+    if not spl_renderable and not spl_normalized:
+        render["spl_artifact"] = False
+        render["draft_spl_preview"] = False
+
+    updates: dict[str, Any] = {
+        **spl_updates,
+        "allow_live_result_language": bool(getattr(run_contract, "allow_live_result_language", False)),
+        "allow_results_table": allow_results,
+        "allow_mitre_mapping": allow_mitre,
+        "allow_severity_assessment": allow_severity,
+        "render_sections": render,
+    }
+    if not allow_severity:
+        updates["severity_label"] = None
+        updates["severity_confidence"] = None
+    return contract.model_copy(update=updates)
 
 
 def _branch_bucket(branch: dict[str, Any], key: str) -> list[str]:

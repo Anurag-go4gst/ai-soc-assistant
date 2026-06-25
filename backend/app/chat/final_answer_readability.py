@@ -260,7 +260,10 @@ def apply_final_answer_readability(
             "source_profile_missing": bool(draft_preview.get("source_profile_missing")),
         }
         payload["hil_status"] = "required"
-        payload["analyst_checklist"] = list(draft_preview.get("investigation_checklist") or [])
+        checklist = list(draft_preview.get("investigation_checklist") or [])
+        payload["analyst_checklist"] = checklist
+        if not payload.get("recommended_actions") and checklist:
+            payload["recommended_actions"] = list(checklist)
         payload["direct_answer_summary"] = None
         payload = _scrub_draft_preview_contradictions(payload)
         _apply_analytics_draft_severity_guard(payload, presentation)
@@ -590,27 +593,50 @@ def _apply_no_collected_evidence_render_gate(
     payload: dict[str, Any],
     contract: AnswerContract,
 ) -> dict[str, Any]:
-    if _has_collected_live_evidence(payload, contract):
+    if not getattr(contract, "run_contract_mirrored", False):
+        if _has_collected_live_evidence(payload, contract):
+            return payload
+        if contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES:
+            payload["splunk_results_table"] = []
+            payload["splunk_status_line"] = None
+            payload["evidence_summary"] = None
+        ungrounded_severity = contract.severity_label in {None, "P3 Medium"}
+        if (
+            contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES
+            and contract.intent_family
+            in {"guided_investigation", "spl_generation_only", "knowledge_only"}
+            and ungrounded_severity
+        ):
+            payload["severity_label"] = None
+            payload["severity_confidence"] = None
+            payload["severity_rationale"] = None
+            payload["severity_safety_note"] = None
+        if contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES and contract.intent_family in {
+            "guided_investigation",
+            "spl_generation_only",
+        }:
+            for field in ("direct_answer_summary", "one_sentence_finding"):
+                value = payload.get(field)
+                if isinstance(value, str) and value.strip():
+                    payload[field] = _scrub_live_result_claims_without_evidence(value)
         return payload
-    if contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES:
+    if contract.allow_results_table and _has_collected_live_evidence(payload, contract):
+        return payload
+    if not contract.allow_results_table:
         payload["splunk_results_table"] = []
         payload["splunk_status_line"] = None
         payload["evidence_summary"] = None
-    ungrounded_severity = contract.severity_label in {None, "P3 Medium"}
-    if (
-        contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES
-        and contract.intent_family
-        in {"guided_investigation", "spl_generation_only", "knowledge_only"}
-        and ungrounded_severity
-    ):
-        payload["severity_label"] = None
-        payload["severity_confidence"] = None
-        payload["severity_rationale"] = None
-        payload["severity_safety_note"] = None
-    if contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES and contract.intent_family in {
-        "guided_investigation",
-        "spl_generation_only",
-    }:
+    if not contract.allow_severity_assessment:
+        severity_label = payload.get("severity_label")
+        if severity_label != ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL:
+            payload["severity_label"] = None
+            payload["severity_confidence"] = None
+            payload["severity_rationale"] = None
+            payload["severity_safety_note"] = None
+    if not contract.allow_mitre_mapping:
+        payload["mitre_mappings"] = []
+        payload["not_claimed"] = []
+    if not contract.allow_live_result_language:
         for field in ("direct_answer_summary", "one_sentence_finding"):
             value = payload.get(field)
             if isinstance(value, str) and value.strip():
@@ -638,7 +664,9 @@ def _apply_section_visibility(payload: dict[str, Any], contract: AnswerContract)
         or render.get("investigation_guidance")
     ):
         payload["recommended_actions"] = []
-    if not render.get("live_results"):
+    if not render.get("live_results") or (
+        getattr(contract, "run_contract_mirrored", False) and not contract.allow_results_table
+    ):
         payload["splunk_results_table"] = []
         payload["splunk_status_line"] = None
         payload["evidence_summary"] = None

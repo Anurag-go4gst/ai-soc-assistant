@@ -24,7 +24,7 @@ def test_cp_off_graph_has_no_loop() -> None:
     graph = _compiled_chat_graph().get_graph()
     assert "mcp_call" not in set(graph.nodes)
     edges = {(e.source, e.target) for e in graph.edges}
-    assert ("evidence_planning", "shadow_enrichment") in edges
+    assert ("evidence_planning", "shadow_tail") in edges
     assert ("execution", "context_finalize") in edges
 
 
@@ -50,7 +50,7 @@ def test_hub_route_consumes_execution_verdict() -> None:
         == "mcp_call"
     )
     # Discovery exhausted → enter the linear chain once.
-    assert _hub_route({"mcp_chronology": [], "mcp_loop": {"route": "execute"}}) == "shadow_enrichment"
+    assert _hub_route({"mcp_chronology": [], "mcp_loop": {"route": "execute"}}) == "shadow_tail"
 
 
 def test_cp_on_run_terminates_and_surfaces_loop_trace(monkeypatch: pytest.MonkeyPatch) -> None:
