@@ -285,12 +285,20 @@ export function generateJobSid(): string {
   return `${epoch}.${suffix}`;
 }
 
+/**
+ * Global tempo for the Experience Center staged playback. The raw per-step values
+ * sum to ~11s on an MCP-heavy scenario (+ finalization → 12–18s); scaling them keeps
+ * the realistic staging while landing total time-to-answer at ~8–10s. Demo-only:
+ * the live path uses LIVE_LINEAR_STEPS and never calls step().
+ */
+const DEMO_DURATION_SCALE = 0.62;
+
 function step(
   partial: Omit<InvestigationProgressStep, 'durationMs'> & { durationMs?: number },
   durationMs: number,
 ): InvestigationProgressStep {
   const { durationMs: _ignored, ...rest } = partial as InvestigationProgressStep;
-  return { ...rest, durationMs: jitterMs(durationMs) };
+  return { ...rest, durationMs: jitterMs(Math.round(durationMs * DEMO_DURATION_SCALE)) };
 }
 
 export function buildInvestigationProgressSteps(options?: {

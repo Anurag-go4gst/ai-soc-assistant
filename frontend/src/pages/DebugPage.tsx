@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, Bug, RefreshCcw, Search } from 'lucide-react';
+import { Activity, AlertTriangle, Bug, Check, Copy, RefreshCcw, Search } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import {
   getDebugReadiness,
@@ -7,6 +7,7 @@ import {
   getDebugTraceTimeline,
   getDebugTraces,
 } from '@/api/client';
+import { CopyButton } from '@/components/CopyButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -123,21 +124,29 @@ export function DebugPage() {
     }
   };
 
+  const refreshAll = async () => {
+    const traceId = selectedTraceId.trim();
+    await loadOverview();
+    if (traceId) {
+      await loadTraceDetail(traceId);
+    }
+  };
+
   useEffect(() => {
     void loadOverview();
   }, []);
 
   useEffect(() => {
-    const fromUrl = searchParams.get('trace_id');
-    if (fromUrl && pageState === 'ready' && fromUrl !== selectedTraceId) {
-      setTraceInput(fromUrl);
-      void loadTraceDetail(fromUrl);
-    }
-  }, [pageState, searchParams, selectedTraceId]);
+    const fromUrl = searchParams.get('trace_id')?.trim();
+    if (!fromUrl || pageState !== 'ready') return;
+    setTraceInput(fromUrl);
+    if (selectedTraceId === fromUrl && bundle?.trace_id === fromUrl) return;
+    void loadTraceDetail(fromUrl);
+  }, [pageState, searchParams, selectedTraceId, bundle?.trace_id]);
 
   return (
     <ScrollArea className="h-full">
-      <div className="space-y-4 p-4 lg:p-6">
+      <div className="min-w-0 max-w-full space-y-4 p-4 lg:p-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="soc-eyebrow text-cyan-400">Debug</p>
@@ -149,7 +158,7 @@ export function DebugPage() {
               Live telemetry traces, event timelines, debug bundles, and infra readiness.
             </p>
           </div>
-          <Button size="sm" variant="secondary" disabled={pageState === 'loading'} onClick={() => void loadOverview()}>
+          <Button size="sm" variant="secondary" disabled={pageState === 'loading'} onClick={() => void refreshAll()}>
             <RefreshCcw className={pageState === 'loading' ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
             Refresh
           </Button>
@@ -213,11 +222,12 @@ function ReadinessPanel({ readiness }: { readiness: DebugReadinessResponse }) {
   const metrics = (telemetry.metrics as Record<string, number> | undefined) ?? {};
   return (
     <Card className="soc-panel">
-      <CardHeader className="py-3">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 py-3">
         <CardTitle className="flex items-center gap-2 text-sm font-semibold">
           <Activity className="h-4 w-4 text-cyan-300" />
           Readiness snapshot
         </CardTitle>
+        <CopyButton value={JSON.stringify(readiness, null, 2)} label="Copy readiness" />
       </CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-xs text-slate-300">
         <Metric label="Telemetry sink" value={String(telemetry.telemetry_sink ?? '—')} />
@@ -308,14 +318,16 @@ function TraceList({
 
 function TraceTimelinePanel({ timeline }: { timeline: DebugTraceTimeline | null }) {
   const run = timeline?.run;
+  const timelineJson = timeline ? JSON.stringify(timeline, null, 2) : '';
   const nodeNames = (timeline?.events ?? [])
     .filter((e) => e.kind === 'step')
     .map((e) => e.step_name)
     .filter((n): n is string => Boolean(n));
   return (
     <Card className="soc-panel">
-      <CardHeader className="py-3">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 py-3">
         <CardTitle className="text-sm font-semibold">Query journey</CardTitle>
+        {timeline ? <CopyButton value={timelineJson} label="Copy timeline" /> : null}
       </CardHeader>
       <CardContent>
         {!timeline ? (
@@ -386,18 +398,49 @@ function TimelineRow({ event }: { event: DebugTraceEvent }) {
 }
 
 function BundlePanel({ bundle }: { bundle: DebugTraceBundle | null }) {
+  const [copied, setCopied] = useState(false);
+  const bundleJson = bundle ? JSON.stringify(bundle, null, 2) : '';
+
+  const copyBundle = async () => {
+    if (!bundleJson) return;
+    try {
+      await navigator.clipboard.writeText(bundleJson);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const copyLabel = copied ? 'Copied' : 'Copy bundle';
+
   return (
-    <Card className="soc-panel">
-      <CardHeader className="py-3">
+    <Card className="soc-panel min-w-0 max-w-full overflow-hidden">
+      <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0 p-5 py-3">
         <CardTitle className="text-sm font-semibold">Debug bundle</CardTitle>
+        {bundle ? (
+          <Button type="button" size="sm" variant="default" className="shrink-0" onClick={() => void copyBundle()}>
+            {copied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
+            {copyLabel}
+          </Button>
+        ) : null}
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 max-w-full">
         {!bundle ? (
           <p className="text-xs text-slate-500">Bundle JSON appears here for the selected trace (COE handoff artifact).</p>
         ) : (
-          <pre className="max-h-[28rem] overflow-auto rounded-md border border-slate-800 bg-slate-950/70 p-3 text-[0.7rem] leading-relaxed text-slate-300">
-            {JSON.stringify(bundle, null, 2)}
-          </pre>
+          <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-slate-800 bg-slate-950/70">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 bg-slate-900/60 px-3 py-2">
+              <span className="min-w-0 truncate font-mono text-[0.65rem] text-slate-500">{bundle.trace_id}</span>
+              <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={() => void copyBundle()}>
+                {copied ? <Check className="mr-1.5 h-3.5 w-3.5 text-emerald-400" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
+                {copyLabel}
+              </Button>
+            </div>
+            <pre className="max-h-[28rem] overflow-auto p-3 text-[0.7rem] leading-relaxed text-slate-300">
+              {bundleJson}
+            </pre>
+          </div>
         )}
       </CardContent>
     </Card>
