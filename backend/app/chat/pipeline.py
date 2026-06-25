@@ -2533,6 +2533,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             user_query=request.message,
         )
     analyst_response = _collapse_card_summary_when_sections_own_details(analyst_response)
+    analyst_response = _strip_priority_prefixes_when_severity_unassigned(analyst_response)
     message = _collapse_top_level_message_when_card_owns_sections(message, analyst_response)
     final_answer_validation = None
     guided_without_control_plane = (
@@ -2921,6 +2922,38 @@ def _collapse_top_level_message_when_card_owns_sections(
     if summary:
         return summary
     return "Review-only answer prepared; no live query was executed."
+
+
+_PRIORITY_ACTION_PREFIX = re.compile(r"^P[1-4]\s*[—\-–:]\s*", re.IGNORECASE)
+
+
+def _strip_priority_prefixes_when_severity_unassigned(analyst_response: Any | None) -> Any | None:
+    """Drop P1/P2/P3/P4 action prefixes when incident severity is not assigned.
+
+    COE stop condition: priority prefixes must not appear unless severity is actually
+    assigned. Some answer paths emit P-prefixed actions without an assigned severity;
+    normalize them here so the final answer is self-consistent rather than nulled.
+    """
+    if analyst_response is None:
+        return None
+    label = str(getattr(analyst_response, "severity_label", "") or "")
+    severity_assigned = bool(label) and "not assigned" not in label.lower()
+    if severity_assigned:
+        return analyst_response
+    updates: dict[str, Any] = {}
+    for field in ("recommended_actions", "analyst_checklist", "investigation_steps"):
+        items = getattr(analyst_response, field, None)
+        if not isinstance(items, list) or not items:
+            continue
+        stripped = [
+            _PRIORITY_ACTION_PREFIX.sub("", str(item)).strip() if isinstance(item, str) else item
+            for item in items
+        ]
+        if stripped != list(items):
+            updates[field] = stripped
+    if not updates:
+        return analyst_response
+    return analyst_response.model_copy(update=updates)
 
 
 def _collapse_card_summary_when_sections_own_details(analyst_response: Any | None) -> Any | None:

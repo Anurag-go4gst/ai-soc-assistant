@@ -133,10 +133,13 @@ def test_direct_summary_with_spl_query_blocks() -> None:
 
 
 def test_direct_summary_with_full_checklist_blocks() -> None:
+    # Gate 3A renderer ownership is scoped to review-only SPL answers (short summary +
+    # separate checklist section), so the fixture carries a draft SPL preview.
     result = validate_final_answer(
         analyst_response=_answer(
             direct_answer_summary="Confirm source profile. Validate owner. Preserve evidence.",
             analyst_checklist=["Confirm source profile.", "Validate owner.", "Preserve evidence."],
+            spl_draft_preview={"draft_spl": "index=ot | stats count by host"},
         ),
         answer_contract=_contract(mitre_answer_visible=False, execution_status="skipped"),
         evidence_plan={"answer_mode": "live_investigation"},
@@ -144,6 +147,21 @@ def test_direct_summary_with_full_checklist_blocks() -> None:
     )
     assert result.guard_status == "blocked"
     assert "final.direct_summary_contains_full_checklist" in result.failed_checks
+
+
+def test_direct_summary_narrating_steps_passes_for_knowledge_answer() -> None:
+    # Knowledge/SOP answers (no SPL draft) legitimately narrate the steps in the summary
+    # that are also surfaced as a checklist; these must not be nulled by Gate 3A.
+    result = validate_final_answer(
+        analyst_response=_answer(
+            direct_answer_summary="Confirm source profile. Validate owner. Preserve evidence.",
+            analyst_checklist=["Confirm source profile.", "Validate owner.", "Preserve evidence."],
+        ),
+        answer_contract=_contract(mitre_answer_visible=False, execution_status="skipped"),
+        evidence_plan={"answer_mode": "rag_only"},
+        mitre_decision={},
+    )
+    assert "final.direct_summary_contains_full_checklist" not in result.failed_checks
 
 
 def test_duplicate_lab_warning_blocks() -> None:
@@ -162,6 +180,24 @@ def test_duplicate_lab_warning_blocks() -> None:
 
 
 def test_duplicate_lab_warning_in_top_level_message_blocks() -> None:
+    # The user sees one surface at a time (card when present, else the markdown message),
+    # so the warning repeated *within* the message is the duplication to block. The same
+    # warning mirrored across the card and the message is not user-visible duplication.
+    warning = "Lab-only draft SPL preview. Not governed, not approved, not executed."
+    result = validate_final_answer(
+        analyst_response=_answer(),
+        answer_contract=_contract(mitre_answer_visible=False, execution_status="skipped"),
+        evidence_plan={"answer_mode": "live_investigation"},
+        mitre_decision={},
+        visible_message=f"{warning}\n\nDraft SPL:\n```\nindex=ot | stats count\n```\n\n{warning}",
+    )
+    assert result.guard_status == "blocked"
+    assert "final.duplicate_review_only_warning" in result.failed_checks
+
+
+def test_lab_warning_across_card_and_message_does_not_block() -> None:
+    # Card and message are mutually exclusive render surfaces; the same warning in both
+    # is shown to the user only once and must not be flagged as duplication.
     warning = "Lab-only draft SPL preview. Not governed, not approved, not executed."
     result = validate_final_answer(
         analyst_response=_answer(spl_draft_preview={"warning": warning}),
@@ -170,8 +206,7 @@ def test_duplicate_lab_warning_in_top_level_message_blocks() -> None:
         mitre_decision={},
         visible_message=f"{warning}\n\nDraft SPL:\n```\nindex=ot | stats count\n```",
     )
-    assert result.guard_status == "blocked"
-    assert "final.duplicate_review_only_warning" in result.failed_checks
+    assert "final.duplicate_review_only_warning" not in result.failed_checks
 
 
 def test_priority_prefix_without_severity_blocks() -> None:

@@ -109,11 +109,18 @@ def _renderer_violations(payload: dict[str, Any]) -> list[str]:
     visible = _visible_text(payload).lower()
     analyst = payload.get("analyst_response") if isinstance(payload.get("analyst_response"), dict) else {}
     summary = str(analyst.get("direct_answer_summary") or "").lower()
+    # Card and top-level message are alternate render surfaces; count duplicate
+    # markers per surface (max), not summed, to avoid false positives on a single
+    # body mirrored into both.
+    card_lower = "\n".join(
+        _visible_text({"analyst_response": analyst}).splitlines()
+    ).lower()
+    message_lower = str(payload.get("message") or "").lower()
     if "```" in summary or "search index=" in summary or "index=<" in summary:
         violations.append("direct_answer_summary_contains_draft_spl")
-    if visible.count("soc review checklist") > 1:
+    if max(card_lower.count("soc review checklist"), message_lower.count("soc review checklist")) > 1:
         violations.append("duplicate_soc_review_checklist")
-    if visible.count("lab-only draft spl preview") > 1:
+    if max(card_lower.count("lab-only draft spl preview"), message_lower.count("lab-only draft spl preview")) > 1:
         violations.append("duplicate_spl_warning")
     if visible.count("draft spl") > 2 and visible.count("```") > 2:
         violations.append("duplicate_draft_spl_block")

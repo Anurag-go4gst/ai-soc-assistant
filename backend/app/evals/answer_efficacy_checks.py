@@ -47,6 +47,42 @@ def analyst_visible_text(payload: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
+def analyst_card_text(payload: dict[str, Any]) -> str:
+    """Analyst-visible prose from the structured card only (excludes ``message``).
+
+    Used for per-surface duplicate-marker counting, where the card and the markdown
+    ``message`` fallback are alternate render surfaces rather than additive content.
+    """
+    analyst = payload.get("analyst_response") if isinstance(payload.get("analyst_response"), dict) else {}
+    parts: list[str] = []
+    # ``one_sentence_finding`` is intentionally omitted: the frontend renders it only as
+    # a fallback for ``direct_answer_summary`` (never both), so counting it would
+    # double-count a single rendered body for duplicate-marker detection.
+    for key in ("direct_answer_summary", "summary", "headline", "analyst_summary"):
+        val = analyst.get(key)
+        if isinstance(val, str) and val.strip():
+            parts.append(val.strip())
+    for key in ("review_notice", "evidence_summary", "splunk_status_line"):
+        val = analyst.get(key)
+        if isinstance(val, str) and val.strip():
+            parts.append(val.strip())
+    for key in (
+        "hypotheses",
+        "recommended_actions",
+        "analyst_checklist",
+        "investigation_steps",
+        "triage_checklist",
+        "evidence_checklist",
+        "limitations",
+        "missing_evidence",
+        "required_evidence",
+    ):
+        values = analyst.get(key)
+        if isinstance(values, list):
+            parts.extend(str(item).strip() for item in values if str(item).strip())
+    return "\n".join(parts)
+
+
 def extract_response_observed(payload: dict[str, Any], *, query: str) -> dict[str, Any]:
     """Normalize /chat payload fields for efficacy scoring."""
     from app.chat.signal_class_guidance import classify_signal_class
@@ -318,9 +354,19 @@ def _coe_stop_condition_violations(payload: dict[str, Any], visible: str) -> lis
     if compare_holder and contract_holder and compare_holder != contract_holder:
         violations.append("route_authority_holder_contradiction")
 
-    if _count_marker(lowered, "lab-only draft spl preview") > 1:
+    # The analyst card and the markdown ``message`` are mutually exclusive render
+    # surfaces (card when present, else message). Count duplicate-section markers per
+    # surface (max) rather than summed, so a single body mirrored into both surfaces is
+    # not mistaken for a duplicate while a section repeated within one surface still is.
+    card_lower = analyst_card_text(payload).lower()
+    message_lower = str(payload.get("message") or "").lower()
+
+    def _surface_marker_count(marker: str) -> int:
+        return max(_count_marker(card_lower, marker), _count_marker(message_lower, marker))
+
+    if _surface_marker_count("lab-only draft spl preview") > 1:
         violations.append("duplicate_spl_warning")
-    if _count_marker(lowered, "soc review checklist") > 1:
+    if _surface_marker_count("soc review checklist") > 1:
         violations.append("duplicate_soc_review_checklist")
     return violations
 

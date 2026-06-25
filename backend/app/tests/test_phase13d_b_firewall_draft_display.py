@@ -52,12 +52,19 @@ def _blocked_validation() -> dict:
 
 def _analyst_blob(response) -> str:
     analyst = response.analyst_response
+    # COE renderer ownership: the lab-only / HIL warning is carried once in its owned
+    # section (spl_draft_preview.warning), so include that section in the visible blob.
+    preview = response.spl_draft_preview
+    warning = ""
+    if preview is not None:
+        warning = str(getattr(preview, "warning", "") or "")
     parts = [
         response.message or "",
         analyst.direct_answer_summary if analyst else "",
         analyst.finding_title if analyst else "",
         analyst.scenario_label if analyst else "",
         analyst.review_notice if analyst else "",
+        warning,
     ]
     return " ".join(p for p in parts if p)
 

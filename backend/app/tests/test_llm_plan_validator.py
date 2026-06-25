@@ -85,7 +85,11 @@ def test_accepts_corrected_advisory_plan_with_normalized_skill() -> None:
         intent_classification=intent,
         routing_mode="llm_assisted_semantic",
     )
-    assert result.status == "accepted"
+    # Live-data SPL generation: deterministic evidence plan marks MCP as needed (but never
+    # allowed). The advisory plan says needs_mcp=False, so it is corrected (not rejected)
+    # with an under-specification warning; MCP execution stays forbidden.
+    assert result.status == "corrected"
+    assert "advisory_under_specifies_mcp_vs_evidence_plan" in result.warnings
     assert result.mcp_execution_allowed is False
 
 

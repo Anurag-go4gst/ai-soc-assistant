@@ -205,6 +205,15 @@ def _scrub_lab_disclaimers(text: str) -> str:
         "not approved",
         "do not execute",
         "without soc review",
+        # Honest review-only / not-executed disclaimers must be scrubbed before
+        # execution-claim detection so phrases like "no live query was executed" are
+        # not misread as "was executed".
+        "no live query was executed",
+        "no mcp execution was run",
+        "has not been executed",
+        "not been executed",
+        "review-only spl draft",
+        "review-only",
     ):
         scrubbed = scrubbed.replace(safe, "")
     return scrubbed

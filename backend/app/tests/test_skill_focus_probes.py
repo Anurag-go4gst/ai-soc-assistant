@@ -64,9 +64,12 @@ def test_mitre_threshold_live_not_clarification_stub() -> None:
     response = build_live_chat_response(ChatRequest(message=MITRE_QUERY))
     msg = response.message or ""
     assert "need alert context" not in msg.lower()
-    assert len(msg) >= 180
     ar = response.analyst_response
     assert ar is not None
+    # COE renderer ownership collapses the markdown fallback once the card owns the
+    # checklist; assert substance on the combined visible answer, not the message alone.
+    blob = msg + (ar.direct_answer_summary or "")
+    assert len(blob) >= 180
     assert ar.recommended_actions
     assert ar.mitre_mappings
 

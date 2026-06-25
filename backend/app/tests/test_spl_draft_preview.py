@@ -416,13 +416,18 @@ def _assert_draft_preview_narrative(response) -> None:
     ).lower()
     for phrase in DRAFT_PREVIEW_FORBIDDEN_PHRASES:
         assert phrase not in blob, f"forbidden phrase in narrative: {phrase!r}"
-    assert "lab-only draft spl preview" in blob
-    assert "hil/soc review is required" in blob
-    assert blob.count("lab-only draft spl preview") == 1
+    # COE renderer ownership: the lab-only / HIL warning lives once in its owned
+    # section (spl_draft_preview.warning), not duplicated into the summary/message blob.
+    draft = response.spl_draft_preview
+    warning = str((draft.get("warning") if isinstance(draft, dict) else getattr(draft, "warning", "")) or "").lower()
+    assert "lab-only draft spl preview" in warning
+    assert "hil/soc review is required" in warning
+    assert blob.count("lab-only draft spl preview") == 0
+    # The summary/message surface still carries honest review-only / not-executed language.
+    assert "review-only" in blob or "not been executed" in blob or "no live query was executed" in blob
     assert analyst.hil_status == "required"
     assert analyst.spl_status == "review_required"
     assert response.message
-    assert "hil/soc review is required" in response.message.lower()
 
 
 def test_esp_draft_preview_review_wording(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -477,7 +482,9 @@ def test_live_response_includes_draft_when_flag_on(monkeypatch: pytest.MonkeyPat
     if response.spl_validation is not None:
         assert response.spl_validation.approved is False
     assert response.execution is None or response.execution.status != "executed"
-    assert DRAFT_WARNING in (response.message or "")
+    # COE renderer ownership: the lab-only warning is carried once in its owned section.
+    assert DRAFT_WARNING in (response.spl_draft_preview.warning or "")
+    assert DRAFT_WARNING not in (response.message or "")
 
 
 def test_live_response_omits_draft_when_flag_off(monkeypatch: pytest.MonkeyPatch) -> None:

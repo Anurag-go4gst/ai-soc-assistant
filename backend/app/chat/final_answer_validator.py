@@ -297,32 +297,48 @@ def validate_final_answer(
             )
         )
 
-    checklist_items = [
-        str(item)
-        for item in (
-            list(getattr(analyst_response, "analyst_checklist", None) or [])
-            + list(getattr(analyst_response, "recommended_actions", None) or [])
-            + list(getattr(analyst_response, "investigation_steps", None) or [])
-        )
-        if str(item).strip()
-    ]
-    checklist_hits = [
-        item
-        for item in checklist_items
-        if item and _normalize_section_text(item) and _normalize_section_text(item) in _normalize_section_text(summary_text)
-    ]
-    if len(checklist_hits) >= 2:
-        findings.append(
-            _blocking(
-                "final.direct_summary_contains_full_checklist",
-                "direct_answer_summary repeats the SOC checklist instead of leaving it in its owned section.",
-                field="direct_answer_summary",
+    # Gate 3A renderer ownership ("direct_answer_summary must not contain the full
+    # checklist") targets review-only SPL answers, where a short summary and a separate
+    # checklist section are the contract. Knowledge/SOP/guidance answers legitimately
+    # narrate the steps in the summary that are also surfaced as recommended_actions, so
+    # scope this check to SPL-draft answers to avoid nulling honest knowledge answers.
+    if _is_review_only_spl_answer(analyst_response):
+        checklist_items = [
+            str(item)
+            for item in (
+                list(getattr(analyst_response, "analyst_checklist", None) or [])
+                + list(getattr(analyst_response, "recommended_actions", None) or [])
+                + list(getattr(analyst_response, "investigation_steps", None) or [])
             )
-        )
+            if str(item).strip()
+        ]
+        checklist_hits = [
+            item
+            for item in checklist_items
+            if item and _normalize_section_text(item) and _normalize_section_text(item) in _normalize_section_text(summary_text)
+        ]
+        if len(checklist_hits) >= 2:
+            findings.append(
+                _blocking(
+                    "final.direct_summary_contains_full_checklist",
+                    "direct_answer_summary repeats the SOC checklist instead of leaving it in its owned section.",
+                    field="direct_answer_summary",
+                )
+            )
 
     visible_sections = _visible_section_text(analyst_response, visible_message=visible_message)
     visible_lower = visible_sections.lower()
-    if visible_lower.count("lab-only draft spl preview") > 1:
+    # The user sees one surface at a time: the analyst card when present, otherwise
+    # the markdown ``message`` fallback. Count duplicate-section markers per surface
+    # (max), not summed, so the same body mirrored into both surfaces is not flagged as
+    # a duplicate while a section genuinely repeated within one surface still is.
+    card_lower = _card_surface_text(analyst_response).lower()
+    message_lower = str(visible_message or "").lower()
+
+    def _surface_marker_count(marker: str) -> int:
+        return max(card_lower.count(marker), message_lower.count(marker))
+
+    if _surface_marker_count("lab-only draft spl preview") > 1:
         findings.append(
             _blocking(
                 "final.duplicate_review_only_warning",
@@ -330,7 +346,7 @@ def validate_final_answer(
                 field="analyst_response",
             )
         )
-    if visible_lower.count("soc review checklist") > 1:
+    if _surface_marker_count("soc review checklist") > 1:
         findings.append(
             _blocking(
                 "final.duplicate_soc_checklist",
@@ -420,6 +436,61 @@ def _visible_section_text(analyst_response: Any, *, visible_message: str | None 
         for key in ("warning", "not_catalog_approved_notice"):
             value = draft.get(key)
             if isinstance(value, str):
+                parts.append(value)
+    return "\n".join(parts)
+
+
+def _is_review_only_spl_answer(analyst_response: Any) -> bool:
+    """True when the answer carries a draft/review-only SPL artifact.
+
+    Used to scope Gate 3A renderer-ownership checks (short summary + separate
+    checklist/SPL sections) to SPL-draft answers, not knowledge/SOP/guidance answers.
+    """
+    draft = getattr(analyst_response, "spl_draft_preview", None)
+    if isinstance(draft, dict) and any(str(draft.get(k) or "").strip() for k in ("draft_spl", "warning")):
+        return True
+    for field in ("draft_spl_code", "spl_code", "candidate_spl"):
+        if str(getattr(analyst_response, field, "") or "").strip():
+            return True
+    return False
+
+
+def _card_surface_text(analyst_response: Any) -> str:
+    """Analyst-card surface text the user actually sees, for duplicate-marker counting.
+
+    Excludes ``one_sentence_finding`` because the frontend only renders it as a fallback
+    for ``direct_answer_summary`` (never both), so counting it would double-count a single
+    rendered body. Distinct rendered sections (e.g. ``review_notice`` and the draft-preview
+    warning) are kept so genuine in-surface duplication is still detected.
+    """
+    parts: list[str] = []
+    for field in (
+        "direct_answer_summary",
+        "finding_title",
+        "severity_safety_note",
+        "foundation_sec_analysis",
+        "evidence_summary",
+        "review_notice",
+    ):
+        value = getattr(analyst_response, field, None)
+        if isinstance(value, str) and value.strip():
+            parts.append(value)
+    for field in (
+        "analyst_checklist",
+        "recommended_actions",
+        "investigation_steps",
+        "limitations",
+        "missing_evidence",
+        "required_evidence",
+    ):
+        for item in getattr(analyst_response, field, None) or []:
+            if isinstance(item, str) and item.strip():
+                parts.append(item)
+    draft = getattr(analyst_response, "spl_draft_preview", None)
+    if isinstance(draft, dict):
+        for key in ("warning", "not_catalog_approved_notice"):
+            value = draft.get(key)
+            if isinstance(value, str) and value.strip():
                 parts.append(value)
     return "\n".join(parts)
 
