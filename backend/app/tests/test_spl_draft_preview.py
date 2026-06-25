@@ -78,6 +78,7 @@ def _governance_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_spl_fallback_enabled", False)
+    monkeypatch.setattr("app.spl.draft_preview.load_persisted_source_profile", lambda: {})
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
     monkeypatch.setattr(settings, "mcp_server_mock_execution_enabled", False)
 
@@ -389,8 +390,9 @@ def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'like(dest_zone_norm, "%ot%")' not in spl
     assert "values(app_norm)" in spl
     assert "cidrmatch(" in spl
-    assert "corporate_it_cidr" in preview["required_source_profile_fields"]
-    assert "corporate_it_cidr" not in preview["required_log_fields"]
+    assert "corporate_cidr" in preview["required_source_profile_fields"]
+    assert "corporate_it_cidr" not in preview["required_source_profile_fields"]
+    assert "corporate_cidr" not in preview["required_log_fields"]
     assert "session_state" in preview["required_log_fields"]
     assert preview.get("investigation_checklist")
     assert preview.get("scope_notice")
@@ -571,6 +573,36 @@ def test_vpn_new_country_draft_is_lab_only_with_source_profile_fields(
     assert "vpn_index" in preview["required_source_profile_fields"]
     assert preview["draft_status"] == DRAFT_STATUS
     assert "not executed" in " ".join(preview["assumptions"]).lower()
+
+
+def test_draft_preview_binds_approved_source_profile_without_live_claims(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from app.spl import source_profile_store as store
+
+    store_path = tmp_path / "source_profile_map.json"
+    monkeypatch.setattr(settings, "ai_soc_source_profile_store_path", str(store_path))
+    store.save_persisted_source_profile(
+        {"vpn_index": "vpn_prod", "vpn_sourcetype": "cisco:asa:vpn"},
+        updated_by="coe_ui",
+    )
+    monkeypatch.setattr(
+        "app.spl.draft_preview.load_persisted_source_profile",
+        store.load_persisted_source_profile,
+    )
+
+    preview = _preview(monkeypatch, VPN_NEW_COUNTRY_QUERY, "vpn_new_country_login")
+
+    assert "index=vpn_prod" in preview["draft_spl"]
+    assert "sourcetype=cisco:asa:vpn" in preview["draft_spl"]
+    assert "<vpn_index>" not in preview["draft_spl"]
+    assert preview["source_profile_bindings"] == [
+        {"slot": "vpn_index", "value": "vpn_prod", "source": "source_profile"},
+        {"slot": "vpn_sourcetype", "value": "cisco:asa:vpn", "source": "source_profile"},
+    ]
+    assert preview["execution_enabled"] is False
+    assert preview["review_required"] is True
 
 
 @pytest.mark.parametrize(

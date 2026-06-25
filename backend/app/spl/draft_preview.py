@@ -15,6 +15,12 @@ from app.config import settings
 from app.safeguards.spl_validator import validate_spl
 from app.spl.draft_preview_customization import customize_draft_preview_for_query
 from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
+from app.spl.source_profile_catalog import canonical_source_profile_slot
+from app.spl.source_profile_resolver import (
+    extract_placeholder_slots,
+    substitute_placeholders,
+)
+from app.spl.source_profile_store import load_persisted_source_profile
 
 _FIREWALL_LOG_FIELDS: tuple[str, ...] = (
     "index",
@@ -2702,6 +2708,9 @@ def build_generic_live_data_spl_skeleton(user_query: str) -> dict[str, Any]:
     }
 
 
+def _canonical_profile_fields(fields: tuple[str, ...] | list[str]) -> list[str]:
+    return list(dict.fromkeys(canonical_source_profile_slot(field) for field in fields))
+
 
 def build_draft_preview(
     user_query: str,
@@ -2712,6 +2721,7 @@ def build_draft_preview(
     pattern_type: str | None = None,
     use_case_id: str | None = None,
     live_data_request: bool = False,
+    llm_intent_advisory: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Build a lab-only draft preview dict when the flag is enabled and query matches.
 
@@ -2755,7 +2765,35 @@ def build_draft_preview(
         family_id=family.family_id,
         draft_spl=family.draft_spl,
         assumptions=family.assumptions,
+        llm_intent_advisory=llm_intent_advisory,
     )
+    source_profile = load_persisted_source_profile()
+    original_placeholders = extract_placeholder_slots(draft_spl)
+    draft_spl, source_profile_missing_slots = substitute_placeholders(draft_spl, source_profile)
+    source_profile_bindings: list[dict[str, str]] = []
+    for slot in original_placeholders:
+        canonical = canonical_source_profile_slot(slot)
+        value = source_profile.get(slot) or source_profile.get(canonical)
+        if value:
+            source_profile_bindings.append(
+                {"slot": canonical, "value": value, "source": "source_profile"}
+            )
+    if source_profile_bindings:
+        customization_meta["source_profile_bindings"] = source_profile_bindings
+    if source_profile_missing_slots:
+        existing_unbound = list(customization_meta.get("unbound_constraints") or [])
+        existing_keys = {
+            (str(item.get("slot")), str(item.get("reason")))
+            for item in existing_unbound
+            if isinstance(item, dict)
+        }
+        for slot in source_profile_missing_slots:
+            key = (slot, "missing_source_profile")
+            if key not in existing_keys:
+                existing_unbound.append(
+                    {"slot": slot, "reason": "missing_source_profile", "source": "source_profile"}
+                )
+        customization_meta["unbound_constraints"] = existing_unbound
     assumptions_text = " ".join(customized_assumptions)
     quality = evaluate_draft_quality(
         draft_spl,
@@ -2779,11 +2817,15 @@ def build_draft_preview(
         "assumptions": list(customized_assumptions),
         **customization_meta,
         "required_log_fields": list(family.required_log_fields),
-        "required_source_profile_fields": list(family.required_source_profile_fields),
-        "required_source_fields": list(family.required_source_fields),
+        "required_source_profile_fields": _canonical_profile_fields(
+            family.required_source_profile_fields
+        ),
+        "required_source_fields": list(family.required_log_fields)
+        + _canonical_profile_fields(family.required_source_profile_fields),
         "investigation_checklist": list(family.investigation_checklist),
         "scope_notice": family.scope_notice,
-        "source_profile_missing": _source_profile_missing(spl_validation),
+        "source_profile_missing": _source_profile_missing(spl_validation)
+        or bool(source_profile_missing_slots),
         "governed_template_missing": _governed_template_missing(spl_validation),
         "validator_status": validator_status,
         "validator_reject_reasons": list(validation.get("reject_reasons") or []),

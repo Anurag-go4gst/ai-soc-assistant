@@ -35,7 +35,16 @@ _GUIDANCE_QUERIES = (
 )
 
 
+def _assert_esp_firewall_draft_shape(spl_text: str) -> None:
+    """Family draft uses ESP firewall slots; COE store may resolve placeholders review-only."""
+    has_placeholder = "esp_firewall_index" in spl_text
+    has_resolved = "index=pgcil_soc" in spl_text and "pgcil:firewall" in spl_text
+    assert has_placeholder or has_resolved
+    assert "endpoint_index" not in spl_text
+
+
 @pytest.mark.parametrize("query", _LIVE_DATA_QUERIES)
+
 def test_live_data_queries_signal_as_live_data_not_guidance(query: str) -> None:
     signals = extract_query_signals(query)
     assert is_live_data_request(signals), f"expected live_data_request for: {query!r}"
@@ -244,8 +253,7 @@ def test_substation_live_data_prefers_family_draft_over_llm_failover(monkeypatch
         else {}
     )
     spl_text = str(candidate.get("candidate_spl") or draft.get("draft_spl") or "")
-    assert "esp_firewall_index" in spl_text
-    assert "endpoint_index" not in spl_text
+    _assert_esp_firewall_draft_shape(spl_text)
     assert candidate.get("detection_family") == "esp_it_to_ot_connection" or draft.get(
         "detection_family"
     ) == "esp_it_to_ot_connection"
@@ -255,8 +263,7 @@ def test_substation_live_data_prefers_family_draft_over_llm_failover(monkeypatch
     draft_code = getattr(analyst, "draft_spl_code", None) or ""
     spl_code = getattr(analyst, "spl_code", None) or ""
     combined_spl = f"{draft_code} {spl_code}"
-    assert "esp_firewall_index" in combined_spl
-    assert "endpoint_index" not in combined_spl
+    _assert_esp_firewall_draft_shape(combined_spl)
 
     answer = _answer_text(response)
     assert "shift roster change" not in answer

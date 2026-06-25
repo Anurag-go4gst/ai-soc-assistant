@@ -4,6 +4,10 @@ import json
 from types import SimpleNamespace
 
 from app.safeguards.spl_validator import validate_spl
+from app.spl.source_profile_catalog import (
+    canonical_source_profile_slot,
+    list_source_profile_slot_definitions,
+)
 from app.spl.source_profile_resolver import (
     _pick_sourcetype,
     build_policy_derived_profile,
@@ -40,6 +44,25 @@ def test_extract_placeholder_slots() -> None:
     assert extract_placeholder_slots(spl) == ["auth_index", "auth_sourcetype"]
 
 
+def test_source_profile_catalog_exposes_remote_access_slots() -> None:
+    slots = {item["slot_id"]: item for item in list_source_profile_slot_definitions()}
+    for slot_id in (
+        "jump_host_index",
+        "jump_host_sourcetype",
+        "pam_index",
+        "pam_sourcetype",
+        "approved_jump_host_ips",
+        "approved_external_systems",
+        "substation_mapping_lookup",
+        "external_system_registry_lookup",
+    ):
+        assert slot_id in slots
+    assert slots["approved_jump_host_ips"]["category"] == "remote_access"
+    assert slots["substation_mapping_lookup"]["category"] == "lookup"
+    assert canonical_source_profile_slot("esp_firewall_index") == "firewall_index"
+    assert canonical_source_profile_slot("vendor_vpn_zone") == "vpn_pool_zone"
+
+
 def test_substitute_placeholders_reports_missing() -> None:
     spl = "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now"
     resolved, missing = substitute_placeholders(
@@ -48,6 +71,39 @@ def test_substitute_placeholders_reports_missing() -> None:
     )
     assert "index=pgcil_soc" in resolved
     assert missing == ["auth_sourcetype"]
+
+
+def test_legacy_remote_access_placeholders_resolve_via_canonical_slots() -> None:
+    spl = (
+        "search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> "
+        "| where src_zone=\"<vendor_vpn_zone>\" AND dest_zone=\"<ot_jump_zone>\" "
+        "AND cidrmatch(\"<ot_control_center_cidr>\", dest_ip)"
+    )
+    resolved, missing = substitute_placeholders(
+        spl,
+        {
+            "firewall_index": "pgcil_soc",
+            "firewall_sourcetype": "pgcil:firewall",
+            "vpn_pool_zone": "CORP_VPN",
+            "jump_host_zone": "I-DMZ",
+            "ot_asset_cidr": "10.40.0.0/16",
+        },
+    )
+    assert missing == []
+    assert "index=pgcil_soc" in resolved
+    assert "sourcetype=pgcil:firewall" in resolved
+    assert 'src_zone="CORP_VPN"' in resolved
+    assert 'dest_zone="I-DMZ"' in resolved
+    assert 'cidrmatch("10.40.0.0/16", dest_ip)' in resolved
+
+
+def test_legacy_placeholder_missing_reports_canonical_slot() -> None:
+    resolved, missing = substitute_placeholders(
+        "search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype>",
+        {},
+    )
+    assert "<esp_firewall_index>" in resolved
+    assert missing == ["firewall_index", "firewall_sourcetype"]
 
 
 def test_rag_bridge_maps_auth_source() -> None:
@@ -209,3 +265,33 @@ def test_coe_store_fills_slots_when_mcp_disabled(monkeypatch, tmp_path) -> None:
     assert result.fully_resolved
     assert result.slot_sources["auth_index"] == "coe_ui"
     assert "coe_store" in result.tiers_used
+
+
+def test_source_resolve_reports_legacy_alias_source_from_canonical_store(monkeypatch, tmp_path) -> None:
+    from app.config import settings
+    from app.spl import source_profile_store as store
+
+    store_path = tmp_path / "source_profile_map.json"
+    monkeypatch.setattr(settings, "ai_soc_source_profile_store_path", str(store_path))
+    store.save_persisted_source_profile(
+        {
+            "firewall_index": "pgcil_soc",
+            "firewall_sourcetype": "pgcil:firewall",
+            "vpn_pool_zone": "CORP_VPN",
+            "jump_host_zone": "I-DMZ",
+        },
+        updated_by="coe_ui",
+    )
+    spl = (
+        "search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> "
+        'earliest=-24h latest=now | where src_zone="<vendor_vpn_zone>" '
+        'AND dest_zone="<ot_jump_zone>" | head 100'
+    )
+    result = resolve_spl_source_profile(spl, user_query="vpn to jump host", run_mcp_discovery=False)
+    assert "index=pgcil_soc" in result.spl
+    assert "sourcetype=pgcil:firewall" in result.spl
+    assert result.missing_slots == []
+    assert result.resolved_slots["esp_firewall_index"] == "pgcil_soc"
+    assert result.resolved_slots["vendor_vpn_zone"] == "CORP_VPN"
+    assert result.slot_sources["esp_firewall_index"] == "coe_ui"
+    assert result.slot_sources["vendor_vpn_zone"] == "coe_ui"

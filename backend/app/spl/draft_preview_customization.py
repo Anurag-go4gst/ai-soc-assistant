@@ -6,6 +6,9 @@ import re
 from typing import Any
 
 from app.query_understanding.time_window import normalize_time_window, time_window_or_default
+from app.spl.template_compatibility import check_template_compatibility
+from app.spl.template_slot_bindings import build_user_bound_skeleton, render_spl_with_bindings
+from app.spl.user_constraint_bindings import build_user_constraint_bindings
 
 _AUTH_FAILURE_FILTER = (
     "(action=failure OR action=failed OR action=denied OR result=failure)"
@@ -134,12 +137,26 @@ def customize_draft_preview_for_query(
     family_id: str,
     draft_spl: str,
     assumptions: tuple[str, ...],
+    llm_intent_advisory: dict[str, Any] | None = None,
 ) -> tuple[str, tuple[str, ...], dict[str, Any]]:
     """Apply query-aware SPL/time-window customization for a detection family."""
+    bindings = build_user_constraint_bindings(user_query, llm_intent_advisory=llm_intent_advisory)
     metadata: dict[str, Any] = {
         "time_window_bounds": time_window_or_default(user_query),
         "time_window_label": time_window_display_label(user_query),
+        "user_constraint_bindings": bindings.to_dict(),
     }
+    compatibility = check_template_compatibility(None, bindings, family_id=family_id)
+    metadata["template_compatibility"] = compatibility.to_dict()
+    if compatibility.use_user_bound_skeleton:
+        skeleton = build_user_bound_skeleton(bindings)
+        metadata["used_user_bound_skeleton"] = True
+        metadata["unbound_constraints"] = list(bindings.unbound_constraints)
+        return skeleton, assumptions, metadata
+    if family_id == "scada_dnp3_modbus_write":
+        outcome = render_spl_with_bindings(family_id, draft_spl, bindings)
+        metadata["unbound_constraints"] = list(outcome.unbound_constraints)
+        return outcome.spl, assumptions, metadata
     if family_id == "auth_failed_login_threshold":
         spl, assumption_rows, shape, window_label = customize_auth_failed_login_threshold(
             user_query,

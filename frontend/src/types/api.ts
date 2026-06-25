@@ -406,6 +406,8 @@ export interface SplDraftPreviewEnvelope {
   validator_status: string;
   review_required: boolean;
   execution_enabled: boolean;
+  unbound_constraints?: Array<Record<string, unknown>>;
+  source_profile_bindings?: Array<Record<string, unknown>>;
   warning: string;
   not_catalog_approved_notice: string;
 }
@@ -458,6 +460,7 @@ export interface AnalystResponseEnvelope {
   spl_code?: string | null;
   draft_spl_code?: string | null;
   spl_draft_preview?: SplDraftPreviewEnvelope | null;
+  spl_unbound_constraints?: Array<Record<string, unknown>>;
   llm_spl_candidate?: LlmSplCandidateEnvelope | null;
   executed_spl?: string | null;
   execution_status?: string | null;

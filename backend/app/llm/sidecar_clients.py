@@ -218,11 +218,23 @@ def build_intent_advisory_prompt(
         "ambiguity_reasons": [],
         "clarification_draft": None,
         "evidence_need_hints": [],
+        "entity_slots_candidate": {},
+        "entity_slot_confidence": {},
+        "entity_slot_reasons": {},
         "confidence_metadata": {"confidence": 0.0},
     }
+    instructions = (
+        "Extract entity_slots_candidate only for values explicitly present or strongly implied "
+        "in the analyst query. Do NOT invent indexes, sourcetypes, IPs, hosts, users, lookups, "
+        "asset names, or time windows. Supported slot keys include: index, indexes, sourcetype, "
+        "host, user, src_ip, dest_ip, cidr, port, service, protocol, event_code, function_code, "
+        "action_semantic, threshold, time_window, lookup, src_zone, dest_zone, "
+        "unexpected_ip_direction, allowlist_semantic."
+    )
     return (
         f"{context_block}\n\n"
         f"Analyst query:\n{query}\n\n"
+        f"{instructions}\n\n"
         "Return ONE JSON object matching this shape (no markdown):\n"
         f"{json.dumps(schema, indent=2)}"
     )

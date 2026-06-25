@@ -90,11 +90,13 @@ def test_firewall_draft_spl_strict_session_and_field_split(query: str, family_id
     assert preview["review_required"] is True
     log_fields = preview["required_log_fields"]
     profile_fields = preview["required_source_profile_fields"]
-    assert "corporate_it_cidr" not in log_fields
-    assert "ot_control_center_cidr" not in log_fields
+    assert "corporate_cidr" not in log_fields
+    assert "ot_asset_cidr" not in log_fields
     if family_id == "esp_it_to_ot_connection":
-        assert "corporate_it_cidr" in profile_fields
-        assert "ot_control_center_cidr" in profile_fields
+        assert "corporate_cidr" in profile_fields
+        assert "ot_asset_cidr" in profile_fields
+        assert "corporate_it_cidr" not in profile_fields
+        assert "ot_control_center_cidr" not in profile_fields
         assert 'session_state_norm IN ("established"' in spl
         assert "tcp_established" in spl
 

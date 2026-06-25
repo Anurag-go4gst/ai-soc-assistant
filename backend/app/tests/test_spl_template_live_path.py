@@ -96,6 +96,9 @@ def test_network_smb_draft_stays_lab_tier_without_auth_fallback(monkeypatch) -> 
 
 def test_q010_smb_top_talkers_keeps_clarification_contract(monkeypatch) -> None:
     _prod_spl_posture(monkeypatch)
+    # Frozen clarification contract assumes COE source-profile slots are unset.
+    # Populated network_index/network_traffic_sourcetype auto-fill is covered separately.
+    monkeypatch.setattr("app.spl.draft_preview.load_persisted_source_profile", lambda: {})
     candidate, validation, human_review = _candidate(
         "Which hosts are generating the most SMB traffic?"
     )
@@ -104,6 +107,34 @@ def test_q010_smb_top_talkers_keeps_clarification_contract(monkeypatch) -> None:
     assert candidate.get("execution_eligible") is False
     spl = candidate.get("candidate_spl") or ""
     assert "sourcetype=pgcil:auth" not in spl
+    assert "<network_index>" in spl or "<network_traffic_sourcetype>" in spl
     # Source-profile clarification must survive the execution stage.
     assert human_review.get("required") is True
     assert human_review.get("review_type") == "spl_source_profile_clarification"
+
+
+def test_q010_smb_top_talkers_resolves_network_bindings_when_source_profile_populated(
+    monkeypatch,
+) -> None:
+    """When COE network slots are configured, draft preview substitutes placeholders review-only."""
+    from app.spl.source_profile_store import load_persisted_source_profile
+
+    _prod_spl_posture(monkeypatch)
+    profile = load_persisted_source_profile()
+    network_index = profile.get("network_index")
+    network_sourcetype = profile.get("network_traffic_sourcetype")
+    if not network_index or not network_sourcetype:
+        pytest.skip("persisted source profile missing network_index/network_traffic_sourcetype")
+
+    candidate, validation, human_review = _candidate(
+        "Which hosts are generating the most SMB traffic?"
+    )
+    spl = candidate.get("candidate_spl") or ""
+    assert f"index={network_index}" in spl
+    assert f"sourcetype={network_sourcetype}" in spl
+    assert "<network_index>" not in spl
+    assert "<network_traffic_sourcetype>" not in spl
+    assert validation.get("approved") is False
+    assert candidate.get("execution_eligible") is False
+    assert human_review.get("required") is True
+    assert human_review.get("review_type") == "spl_revision"

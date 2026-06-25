@@ -17,6 +17,9 @@ class LLMIntentAdvisory(BaseModel):
     ambiguity_reasons: list[str] = Field(default_factory=list)
     clarification_draft: str | None = None
     evidence_need_hints: list[str] = Field(default_factory=list)
+    entity_slots_candidate: dict[str, Any] = Field(default_factory=dict)
+    entity_slot_confidence: dict[str, float] = Field(default_factory=dict)
+    entity_slot_reasons: dict[str, str] = Field(default_factory=dict)
     confidence_metadata: dict[str, Any] = Field(default_factory=dict)
     llm_called: bool = False
     dropped_reasons: list[str] = Field(default_factory=list)

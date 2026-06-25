@@ -93,6 +93,11 @@ export function AnalystResponseCard({
   );
   const draftSplCode = response.draft_spl_code?.trim() || null;
   const draftPreview = response.spl_draft_preview;
+  const unresolvedSplBindings = formatDraftUnboundConstraints(
+    response.spl_unbound_constraints?.length
+      ? response.spl_unbound_constraints
+      : (draftPreview?.unbound_constraints ?? []),
+  );
   // Review-only SPL draft: the dedicated renderer owns the answer shape, so the
   // investigation-steps phase is the SOC review checklist (not a competing "Analyst
   // workflow" heading).
@@ -246,6 +251,12 @@ export function AnalystResponseCard({
       content: (
         <>
           {response.spl_status_detail ? <SplStatusDetail detail={response.spl_status_detail} /> : null}
+          {unresolvedSplBindings.length && (showSpl || showDraftSpl) ? (
+            <div className={response.spl_status_detail ? 'mt-3' : ''}>
+              <SectionTitle>Unresolved source bindings</SectionTitle>
+              <BulletList items={unresolvedSplBindings} />
+            </div>
+          ) : null}
           {showDraftSpl ? (
             <>
               <p
@@ -888,6 +899,24 @@ function formatMissingEvidence(response: AnalystResponseEnvelope): string[] {
 
 function humanizeStep(value: string): string {
   return value.replace(/_/g, ' ');
+}
+
+function formatDraftUnboundConstraints(value?: Array<Record<string, unknown>>): string[] {
+  if (!Array.isArray(value)) return [];
+  const labels = value.map((item) => {
+    const slot = String(item.slot ?? 'binding').replace(/_/g, ' ');
+    const reason = String(item.reason ?? 'unresolved').replace(/_/g, ' ');
+    const source = typeof item.source === 'string'
+      ? item.source
+      : typeof item.dropped_source === 'string'
+        ? item.dropped_source
+        : null;
+    const valueLabel = item.value ?? item.dropped_value;
+    const valueText = valueLabel == null || valueLabel === '' ? '' : ` (${String(valueLabel)})`;
+    const sourceText = source ? ` from ${source.replace(/_/g, ' ')}` : '';
+    return `${slot}${valueText}: ${reason}${sourceText}`;
+  });
+  return Array.from(new Set(labels));
 }
 
 function normalizePriorityAction(item: string): { priority: string; text: string } {

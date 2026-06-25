@@ -23,15 +23,28 @@ SLOT_TYPES = frozenset(
         "src_ip",
         "dest_ip",
         "index",
+        "indexes",
         "sourcetype",
         "time_window",
         "threshold",
+        "threshold_comparison",
         "port",
         "cidr",
         "zone",
+        "src_zone",
+        "dest_zone",
         "rule_name",
         "country",
         "application_protocol",
+        "protocol",
+        "protocols",
+        "function_code",
+        "event_code",
+        "service",
+        "lookup",
+        "action_semantic",
+        "unexpected_ip_direction",
+        "allowlist_semantic",
         "alert_id",
         "result_limit",
         "earliest",
@@ -111,8 +124,15 @@ def validate_template_query_slots(
     """Validate slots extracted from a user/LLM query before template rendering."""
     resolved_template = template or get_spl_template(template_id)
     slots = extract_query_slots(user_query)
+    for key, value in extract_natural_language_slots(user_query).items():
+        if key not in slots:
+            slots[key] = value
     if extra_slots:
-        slots.update(extra_slots)
+        for key, value in extra_slots.items():
+            if key not in slots:
+                slots[key] = value
+            elif slot_source == "llm" and key in slots:
+                continue
     allowed_indexes = _template_allowed_indexes(resolved_template, policy)
     allowed_sourcetypes = _template_allowed_sourcetypes(resolved_template, policy)
     return validate_slot_map(
@@ -122,6 +142,154 @@ def validate_template_query_slots(
         policy=policy,
         slot_source=slot_source,
     )
+
+
+
+_NL_SEARCH_INDEX_RE = re.compile(
+    r"\bsearch\s+([a-z0-9_*:-]+)\s+for\b",
+    re.IGNORECASE,
+)
+_NL_INDEX_RE = re.compile(
+    r"\b(?:search|in|across|from)\s+(?:the\s+)?([a-z0-9_*:-]+)\s+index\b|\b([a-z0-9_*:-]+)\s+index\b",
+    re.IGNORECASE,
+)
+_NL_USER_RE = re.compile(
+    r"\b(?:user|account)\s+([A-Za-z0-9][A-Za-z0-9._@$-]{0,127})\b",
+    re.IGNORECASE,
+)
+_NL_HOST_RE = re.compile(
+    r"\b(?:on|server|machine)\s+([A-Za-z0-9][A-Za-z0-9._:-]{0,253})\b",
+    re.IGNORECASE,
+)
+_NL_IP_PAIR_RE = re.compile(
+    r"\bfrom\s+((?:\d{1,3}\.){3}\d{1,3})\s+to\s+((?:\d{1,3}\.){3}\d{1,3})\b",
+    re.IGNORECASE,
+)
+_NL_PORT_RE = re.compile(r"\b(?:on\s+)?port\s+(\d{1,5})\b", re.IGNORECASE)
+_NL_EVENT_CODE_RE = re.compile(r"\b(?:event\s*(?:id|code)|eventcode)\s*[=:]?\s*(\d{3,5})\b", re.IGNORECASE)
+_NL_FUNCTION_CODE_RE = re.compile(
+    r"\b(?:modbus|dnp3)?\s*function\s+code(?:s)?\s+((?:\d+\s*(?:or|/|,)\s*)*\d+)\b",
+    re.IGNORECASE,
+)
+_NL_THRESHOLD_RE = re.compile(r"\bmore\s+than\s+(\d+)\b", re.IGNORECASE)
+_NL_MULTI_INDEX_RE = re.compile(
+    r"\b(?:look\s+)?across\s+([a-z0-9_,\s*-]+?)(?:\s+for|\s+on|\s+from|\s+to|\s+over|\s+in\b|$)",
+    re.IGNORECASE,
+)
+_NL_ZONE_PAIR_RE = re.compile(
+    r"\bfrom\s+([A-Za-z0-9][A-Za-z0-9 _.-]{0,63}?)\s+to\s+([A-Za-z0-9][A-Za-z0-9 _.-]{0,63}?)(?:\s+on\s+port|\s+over|\s+in\b|$)",
+    re.IGNORECASE,
+)
+_NL_LOOKUP_RE = re.compile(r"\b([A-Za-z0-9_.-]+\.csv)\b", re.IGNORECASE)
+_NL_PROTOCOL_RE = re.compile(r"\b(modbus(?:\s+tcp)?|dnp3|smb|dns|http|https)\b", re.IGNORECASE)
+_NL_SERVICE_RE = re.compile(r"\b(smb|ssh|rdp|dns|http|https)\s+traffic\b", re.IGNORECASE)
+
+
+def extract_natural_language_slots(user_query: str) -> dict[str, Any]:
+    normalized = " ".join(user_query.split())
+    slots: dict[str, Any] = {}
+
+    search_index = _NL_SEARCH_INDEX_RE.search(normalized)
+    if search_index:
+        slots.setdefault("index", search_index.group(1).lower())
+
+    for match in _NL_INDEX_RE.finditer(normalized):
+        index = match.group(1) or match.group(2)
+        if index:
+            slots.setdefault("index", index.lower())
+
+    multi = _NL_MULTI_INDEX_RE.search(normalized)
+    if multi:
+        parts = [part.strip().lower() for part in re.split(r"\s+and\s+|,", multi.group(1)) if part.strip()]
+        if len(parts) > 1:
+            slots["indexes"] = parts
+            slots["index"] = parts[0]
+
+    user = _NL_USER_RE.search(normalized)
+    if user and "user" not in slots:
+        slots["user"] = user.group(1)
+
+    host = _NL_HOST_RE.search(normalized)
+    if host and "host" not in slots:
+        candidate = host.group(1)
+        if not candidate.lower().startswith(("port", "the", "last")):
+            slots["host"] = candidate
+
+    ip_pair = _NL_IP_PAIR_RE.search(normalized)
+    if ip_pair:
+        slots["src_ip"] = ip_pair.group(1)
+        slots["dest_ip"] = ip_pair.group(2)
+
+    port = _NL_PORT_RE.search(normalized)
+    if port and "port" not in slots:
+        slots["port"] = port.group(1)
+
+    event = _NL_EVENT_CODE_RE.search(normalized)
+    if event:
+        slots["event_code"] = event.group(1)
+
+    func = _NL_FUNCTION_CODE_RE.search(normalized)
+    if func:
+        codes = [int(part) for part in re.findall(r"\d+", func.group(1))]
+        if codes:
+            slots["function_code"] = codes if len(codes) > 1 else str(codes[0])
+            slots["protocol"] = "modbus" if "modbus" in normalized.lower() else slots.get("protocol")
+
+    threshold = _NL_THRESHOLD_RE.search(normalized)
+    if threshold:
+        slots["threshold"] = threshold.group(1)
+        slots["threshold_comparison"] = "greater_than"
+
+    zone_pair = _NL_ZONE_PAIR_RE.search(normalized)
+    if zone_pair and not ip_pair:
+        left, right = zone_pair.group(1), zone_pair.group(2)
+        if not re.match(r"(?:\d{1,3}\.){3}\d{1,3}$", left):
+            slots["src_zone"] = left
+            slots["dest_zone"] = right
+
+    lookup = _NL_LOOKUP_RE.search(normalized)
+    if lookup:
+        slots["lookup"] = lookup.group(1)
+
+    protocols_found: list[str] = []
+    if re.search(r"\bmodbus(?:\s+tcp)?\b", normalized, re.I):
+        protocols_found.append("modbus")
+    if re.search(r"\bdnp3\b", normalized, re.I):
+        protocols_found.append("dnp3")
+    if len(protocols_found) == 1:
+        slots["protocol"] = protocols_found[0]
+    elif len(protocols_found) > 1:
+        slots["protocols"] = protocols_found
+
+    service = _NL_SERVICE_RE.search(normalized)
+    if service:
+        slots["service"] = service.group(1).lower()
+
+    if "unexpected" in normalized.lower() and "ip" in normalized.lower():
+        if "destination" in normalized.lower() or "target" in normalized.lower():
+            slots["unexpected_ip_direction"] = "destination"
+        elif "source" in normalized.lower():
+            slots["unexpected_ip_direction"] = "source"
+        else:
+            slots["unexpected_ip_direction"] = "destination"
+        slots["allowlist_semantic"] = "unexpected_destination_ip"
+
+    if re.search(r"\b(permits?|allow|allowed)\b", normalized, re.I):
+        slots["action_semantic"] = "permit"
+
+    if re.search(r"\bfailed\s+login", normalized, re.I):
+        slots["action_semantic"] = slots.get("action_semantic", "failed_login")
+
+    from app.query_understanding.time_window import normalize_time_window
+
+    tw = normalize_time_window(normalized)
+    if tw and "time_window" not in slots:
+        slots["time_window"] = tw
+
+    if re.search(r"\bsubstation\b", normalized, re.I) and "cidr" not in slots:
+        slots["allowlist_semantic"] = slots.get("allowlist_semantic", "substation_subnet")
+
+    return slots
 
 
 def extract_query_slots(user_query: str) -> dict[str, Any]:
@@ -196,6 +364,12 @@ def validate_slot_map(
     for slot_type, raw_value in slots.items():
         if slot_type not in SLOT_TYPES:
             reject_reasons.append(f"unsupported_slot:{slot_type}")
+            continue
+        if slot_type == "protocols" and isinstance(raw_value, list):
+            normalized["protocols"] = ",".join(str(item).lower() for item in raw_value)
+            continue
+        if slot_type == "function_code" and isinstance(raw_value, list):
+            normalized["function_code"] = ",".join(str(item) for item in raw_value)
             continue
         value, slot_errors = validate_slot_value(
             slot_type,
@@ -323,6 +497,34 @@ def validate_slot_value(
         if not _COUNTRY_PATTERN.fullmatch(text):
             return None, ["slot_pattern_invalid:country"]
         return text.upper(), []
+
+    if slot_type in {"protocol",
+        "protocols", "service", "action_semantic", "unexpected_ip_direction", "allowlist_semantic", "threshold_comparison"}:
+        if not _RULE_APP_PATTERN.fullmatch(text.replace(" ", "_")):
+            return escape_spl_quoted_string(text), []
+        return text.lower(), []
+
+    if slot_type in {"src_zone", "dest_zone"}:
+        if not _ZONE_PATTERN.fullmatch(text):
+            return None, [f"slot_pattern_invalid:{slot_type}"]
+        return escape_spl_quoted_string(text), []
+
+    if slot_type == "event_code":
+        if not str(text).isdigit():
+            return None, ["slot_event_code_not_numeric"]
+        return str(text), []
+
+    if slot_type == "function_code":
+        return str(text), []
+
+    if slot_type == "lookup":
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+\.csv", text, re.I):
+            return None, ["slot_lookup_invalid"]
+        return text, []
+
+    if slot_type == "indexes":
+        parts = [part.strip().lower() for part in str(text).split(",") if part.strip()]
+        return ",".join(parts), []
 
     return None, [f"unsupported_slot:{slot_type}"]
 

@@ -66,6 +66,9 @@ class CandidateSplEnvelope(BaseModel):
     governed_limitation: str | None = None
     allowed_spl_templates: list[str] | None = None
     enrichment_evidence_requirements: list[str] | None = None
+    detection_family: str | None = None
+    user_constraint_bindings: dict[str, object] | None = None
+    spl_binding_trace: dict[str, object] | None = None
 
 
 class SplDraftPreviewEnvelope(BaseModel):
@@ -85,6 +88,10 @@ class SplDraftPreviewEnvelope(BaseModel):
     execution_eligible: bool = False
     governed: bool = False
     catalog_approved: bool = False
+    user_constraint_bindings: dict[str, object] | None = None
+    template_compatibility: dict[str, object] | None = None
+    unbound_constraints: list[dict[str, object]] = []
+    source_profile_bindings: list[dict[str, object]] = []
     warning: str
     not_catalog_approved_notice: str
 
@@ -353,6 +360,7 @@ class AnalystResponseEnvelope(BaseModel):
     recommended_actions: list[str] = []
     spl_code: str | None = None
     spl_draft_preview: dict[str, object] | None = None
+    spl_unbound_constraints: list[dict[str, object]] = []
     draft_spl_code: str | None = None
     llm_spl_candidate: LlmSplCandidateEnvelope | None = None
     executed_spl: str | None = None

@@ -14,7 +14,7 @@ def normalize_time_window(query: str) -> str | None:
         return explicit
     if "last hour" in normalized or "past hour" in normalized:
         return "earliest=-60m latest=now"
-    if match := re.search(r"\blast\s+(\d+)\s*(minute|minutes|min|mins|m)\b", normalized):
+    if match := re.search(r"\b(?:last|in)\s+(\d+)\s*(minute|minutes|min|mins|m)\b", normalized):
         return f"earliest=-{match.group(1)}m latest=now"
     if match := re.search(r"\blast\s+(\d+)\s*(hour|hours|hr|hrs|h)\b", normalized):
         return f"earliest=-{match.group(1)}h latest=now"

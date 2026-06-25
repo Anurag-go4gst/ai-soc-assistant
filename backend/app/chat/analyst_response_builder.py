@@ -544,6 +544,10 @@ def build_analyst_response_for_live(
         and not str(candidate_spl.get("candidate_spl") or "").strip()
     ):
         draft_preview = {**draft_preview, "fallback_after_llm": True}
+    spl_unbound_constraints = _spl_unbound_constraints(
+        candidate_spl if isinstance(candidate_spl, dict) else None,
+        draft_preview if isinstance(draft_preview, dict) else None,
+    )
 
     envelope = AnalystResponseEnvelope(
         scenario_label=scrub_auth_anomaly_display_text(resolved_use_case_label, user_query=user_query),
@@ -562,6 +566,7 @@ def build_analyst_response_for_live(
         recommended_actions=recommended,
         spl_code=spl_code,
         spl_draft_preview=draft_preview,
+        spl_unbound_constraints=spl_unbound_constraints,
         draft_spl_code=draft_spl_code,
         llm_spl_candidate=llm_candidate,
         executed_spl=executed_spl,
@@ -575,6 +580,42 @@ def build_analyst_response_for_live(
     elif draft_spl_code:
         envelope = apply_draft_preview_readability(envelope)
     return envelope
+
+
+def _spl_unbound_constraints(
+    candidate_spl: dict[str, Any] | None,
+    draft_preview: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    constraints: list[dict[str, Any]] = []
+    if isinstance(draft_preview, dict):
+        raw = draft_preview.get("unbound_constraints")
+        if isinstance(raw, list):
+            constraints.extend(item for item in raw if isinstance(item, dict))
+    if isinstance(candidate_spl, dict):
+        trace = candidate_spl.get("spl_binding_trace")
+        if isinstance(trace, dict):
+            raw = trace.get("unbound_constraints")
+            if isinstance(raw, list):
+                constraints.extend(item for item in raw if isinstance(item, dict))
+        bindings = candidate_spl.get("user_constraint_bindings")
+        if isinstance(bindings, dict):
+            raw = bindings.get("unbound_constraints")
+            if isinstance(raw, list):
+                constraints.extend(item for item in raw if isinstance(item, dict))
+    deduped: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for item in constraints:
+        key = (
+            str(item.get("slot") or ""),
+            str(item.get("value") or item.get("dropped_value") or ""),
+            str(item.get("reason") or ""),
+            str(item.get("source") or item.get("dropped_source") or ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(dict(item))
+    return deduped
 
 
 def build_minimal_guidance_envelope(

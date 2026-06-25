@@ -181,6 +181,13 @@ from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
+from app.spl.template_compatibility import check_template_compatibility
+from app.spl.template_query_bindings import customize_template_spl_with_trace
+from app.spl.user_constraint_bindings import (
+    SLOT_SOURCE_LLM,
+    UserConstraintBindings,
+    build_user_constraint_bindings,
+)
 from app.chat.mitre_branch import planner_mitre_branch_suppressed_decision, run_mitre_evidence_branch
 from app.chat.hil_resolution import resolve_effective_hil_required
 from app.chat.planning_decision import plan_path_and_tools
@@ -1094,6 +1101,8 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             ),
             slot_binding_enabled=settings.control_plane_enabled,
             mapped_pattern_type=candidate_mapped_pattern,
+            llm_intent_advisory=state.get("llm_intent_advisory"),
+            query_understanding=query_understanding,
         )
     exact_105_pattern = candidate_mapped_pattern
     mapped_use_case_ids = (
@@ -1102,6 +1111,11 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         else []
     )
     draft_use_case_id = mapped_use_case_ids[0] if mapped_use_case_ids else None
+    llm_draft_advisory = (
+        state["llm_intent_advisory"].model_dump()
+        if isinstance(state.get("llm_intent_advisory"), LLMIntentAdvisory)
+        else state.get("llm_intent_advisory")
+    )
     spl_draft_preview = build_draft_preview(
         query_text,
         spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
@@ -1109,6 +1123,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         pattern_type=exact_105_pattern,
         use_case_id=draft_use_case_id,
         live_data_request=_live_data_request_from_state(state),
+        llm_intent_advisory=llm_draft_advisory if isinstance(llm_draft_advisory, dict) else None,
     )
     llm_spl_candidate = _llm_spl_candidate_stage(
         skill=effective_skill,
@@ -1291,6 +1306,13 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
         build_draft_preview(
             state.get("effective_query") or request.message,
             unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
+            llm_intent_advisory=(
+                state["llm_intent_advisory"].model_dump()
+                if isinstance(state.get("llm_intent_advisory"), LLMIntentAdvisory)
+                else state.get("llm_intent_advisory")
+                if isinstance(state.get("llm_intent_advisory"), dict)
+                else None
+            ),
         )
         if guided
         else None
@@ -1864,6 +1886,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         spl_draft_preview=state.get("spl_draft_preview")
         if isinstance(state.get("spl_draft_preview"), dict)
         else None,
+        llm_intent_advisory=state.get("llm_intent_advisory"),
     )
     _intent_payload = state.get("intent_classification") if isinstance(state.get("intent_classification"), dict) else {}
     from app.synthesis.deterministic_prose_stitch import apply_deterministic_prose_enhancements
@@ -3964,6 +3987,33 @@ def _session_spl_refine_stage(
     return candidate_payload, validation_payload
 
 
+
+
+def _spl_user_constraint_bindings(
+    user_query: str,
+    *,
+    llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
+    query_understanding: Any | None = None,
+    template_id: str | None = None,
+) -> UserConstraintBindings:
+    template = get_spl_template(template_id) if template_id else None
+    policy_indexes = None
+    policy_sourcetypes = None
+    if template is not None and isinstance(template.validation_rules, dict):
+        raw_indexes = template.validation_rules.get("allowed_indexes")
+        raw_sourcetypes = template.validation_rules.get("allowed_sourcetypes")
+        if isinstance(raw_indexes, list) and raw_indexes:
+            policy_indexes = tuple(str(item).lower() for item in raw_indexes)
+        if isinstance(raw_sourcetypes, list) and raw_sourcetypes:
+            policy_sourcetypes = tuple(str(item).lower() for item in raw_sourcetypes)
+    return build_user_constraint_bindings(
+        user_query,
+        llm_intent_advisory=llm_intent_advisory,
+        query_understanding=query_understanding,
+        allowed_indexes=policy_indexes,
+        allowed_sourcetypes=policy_sourcetypes,
+    )
+
 def _candidate_spl_stage(
     trace_id: str,
     skill: str,
@@ -3975,6 +4025,8 @@ def _candidate_spl_stage(
     use_case_id: str | None = None,
     slot_binding_enabled: bool = False,
     mapped_pattern_type: str | None = None,
+    llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
+    query_understanding: Any | None = None,
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
@@ -3996,6 +4048,12 @@ def _candidate_spl_stage(
             reason=governance_block_reason,
             spl_governance=spl_governance,
         )
+    user_bindings = _spl_user_constraint_bindings(
+        user_query,
+        llm_intent_advisory=llm_intent_advisory,
+        query_understanding=query_understanding,
+        template_id=template_id,
+    )
     template_candidate = _candidate_from_default_template(
         trace_id=trace_id,
         skill=skill,
@@ -4004,6 +4062,12 @@ def _candidate_spl_stage(
         spl_governance=spl_governance,
         telemetry=telemetry,
         profile=profile,
+        slot_source=(
+            "llm"
+            if any(source == SLOT_SOURCE_LLM for source in user_bindings.slot_sources.values())
+            else "user"
+        ),
+        user_constraint_bindings=user_bindings,
     )
     if template_candidate is not None:
         candidate_payload, validation_payload = template_candidate
@@ -4072,6 +4136,7 @@ def _candidate_spl_stage(
             pattern_type=mapped_pattern_type,
             use_case_id=use_case_id,
             llm_fallback_reason="deterministic_draft_preferred_for_catalog_pattern",
+            llm_intent_advisory=llm_intent_advisory,
         )
         if lab_draft_candidate is not None:
             return lab_draft_candidate
@@ -4092,6 +4157,7 @@ def _candidate_spl_stage(
                 use_case_id=use_case_id,
                 live_data_request=True,
                 llm_fallback_reason="deterministic_draft_preferred_for_live_data_family",
+                llm_intent_advisory=llm_intent_advisory,
             )
             if live_data_draft is not None:
                 return live_data_draft
@@ -4222,6 +4288,7 @@ def _candidate_from_default_template(
     profile: Any | None = None,
     extra_slots: dict[str, Any] | None = None,
     slot_source: str = "user",
+    user_constraint_bindings: UserConstraintBindings | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     template = get_spl_template(template_id)
     if template is None or template.query_shape != QUERY_SHAPE_RAW_SEARCH or not template.spl_text:
@@ -4239,6 +4306,7 @@ def _candidate_from_default_template(
         user_query,
         extra_slots=extra_slots,
         slot_source=slot_source,
+        user_constraint_bindings=user_constraint_bindings,
     )
     if not slot_outcome.valid:
         if telemetry is not None and profile is not None:
@@ -4275,12 +4343,21 @@ def _candidate_from_default_template(
 
     from app.spl.spl_generation_safety import apply_spl_generation_safety
 
-    rendered_spl = customize_template_spl(
+    bindings = user_constraint_bindings or _spl_user_constraint_bindings(
+        user_query,
+        template_id=template.template_id,
+    )
+    compatibility = check_template_compatibility(template.template_id, bindings, template=template)
+    force_skeleton = compatibility.use_user_bound_skeleton
+    rendered_spl, binding_trace = customize_template_spl_with_trace(
         template.template_id,
         template.spl_text,
         user_query,
         normalized_slots=slot_outcome.normalized_slots,
+        user_constraint_bindings=bindings,
+        force_user_skeleton=force_skeleton,
     )
+    binding_trace["template_compatibility"] = compatibility.to_dict()
     validation = validate_spl(rendered_spl, template_profile=template.validation_rules)
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
     final_spl, validation, optimization = merge_post_validation_optimization(
@@ -4295,7 +4372,11 @@ def _candidate_from_default_template(
         "skill": skill,
         "user_query": user_query,
         "candidate_spl": final_spl,
-        "generation_mode": "deterministic_template_render",
+        "generation_mode": (
+            "deterministic_user_bound_skeleton"
+            if binding_trace.get("used_user_bound_skeleton")
+            else "deterministic_template_render"
+        ),
         "confidence": 0.93,
         "assumptions": [
             f"Governed raw-search SPL template selected from use-case catalog: {template.template_id}.",
@@ -4303,6 +4384,8 @@ def _candidate_from_default_template(
         ],
         "warnings": [] if validation.get("approved") else ["template_spl_validation_failed"],
         "template_id": template.template_id,
+        "user_constraint_bindings": bindings.to_dict(),
+        "spl_binding_trace": binding_trace,
     }
     validation_payload = {
         "approved": validation["approved"],
@@ -4311,7 +4394,11 @@ def _candidate_from_default_template(
         "warnings": validation["warnings"],
         "enforced_limits": validation["enforced_limits"],
         "policy_version": validation["policy_version"],
-        "selected_candidate_spl_provider": "deterministic_template_render",
+        "selected_candidate_spl_provider": (
+            "deterministic_user_bound_skeleton"
+            if binding_trace.get("used_user_bound_skeleton")
+            else "deterministic_template_render"
+        ),
         "candidate_provider_reason": "use_case_catalog_default_raw_template",
         "saia_available": False,
         "fallback_required": False,
@@ -4538,6 +4625,7 @@ def _candidate_from_lab_draft(
     use_case_id: str | None,
     llm_fallback_reason: str | None,
     live_data_request: bool = False,
+    llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     """Deterministic lab-draft last resort for the LLM-failover degrade chain.
 
@@ -4553,6 +4641,7 @@ def _candidate_from_lab_draft(
         pattern_type=pattern_type,
         use_case_id=use_case_id,
         live_data_request=live_data_request,
+        llm_intent_advisory=llm_intent_advisory,
     )
     draft_spl = (draft or {}).get("draft_spl")
     if not draft or not isinstance(draft_spl, str) or not draft_spl.strip():
@@ -4775,6 +4864,7 @@ def _candidate_from_llm_fallback(
             pattern_type=(llm_context or {}).get("pattern_type"),
             use_case_id=(llm_context or {}).get("use_case_id"),
             llm_fallback_reason=result.clarification_reason,
+            llm_intent_advisory=(llm_context or {}).get("llm_intent_advisory"),
         )
         if lab_draft_candidate is not None:
             return lab_draft_candidate
@@ -5171,6 +5261,7 @@ def _chat_message(
     match_path: str | None = None,
     intent_classification: dict[str, Any] | None = None,
     spl_draft_preview: dict[str, Any] | None = None,
+    llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
 ) -> str:
     from app.chat.guidance_templates import (
         build_conceptual_mitre_guidance,
@@ -5241,7 +5332,17 @@ def _chat_message(
                 preview = (
                     spl_draft_preview
                     if isinstance(spl_draft_preview, dict)
-                    else build_draft_preview(user_query, live_data_request=True)
+                    else build_draft_preview(
+                        user_query,
+                        live_data_request=True,
+                        llm_intent_advisory=(
+                            llm_intent_advisory.model_dump()
+                            if isinstance(llm_intent_advisory, LLMIntentAdvisory)
+                            else llm_intent_advisory
+                            if isinstance(llm_intent_advisory, dict)
+                            else None
+                        ),
+                    )
                 )
                 if preview:
                     return build_draft_preview_analyst_message(preview)
