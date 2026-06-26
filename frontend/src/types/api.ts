@@ -81,6 +81,7 @@ export interface PlaceholderResponse {
   answer_contract?: Record<string, unknown> | null;
   run_contract?: Record<string, unknown> | null;
   routing_contract?: Record<string, unknown> | null;
+  blocked_action_state?: Record<string, unknown> | null;
   final_answer_validation?: Record<string, unknown> | null;
   mitre_decision?: Record<string, unknown> | null;
   mitre_mappings?: MitreMappingDecision[] | null;

@@ -1,4 +1,4 @@
-import { Bot, ChevronRight, User } from 'lucide-react';
+import { Bot, ChevronRight, ShieldAlert, User } from 'lucide-react';
 import { AnalystResponseCard } from '@/components/AnalystResponseCard';
 import { AnalystSummaryCard } from '@/components/AnalystSummaryCard';
 import { AnswerFeedbackControls } from '@/components/AnswerFeedbackControls';
@@ -64,6 +64,7 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
 
   const scrollAnswerToTop = showSummaryOnly || showFullAnswer;
   const provenanceBadge = answerProvenanceBadge(message.trace ?? null);
+  const blockedActionState = visibleBlockedActionState(message.trace);
 
   return (
     <div className={cn('flex gap-3', isUser && 'flex-row-reverse')} data-message-id={message.id}>
@@ -109,6 +110,22 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             response={message.trace.analyst_response}
             foundationSecGovernance={message.trace.foundation_sec_governance}
           />
+        ) : null}
+        {showFullAnswer && blockedActionState ? (
+          <div className="max-w-[68ch] rounded-xl border border-amber-400/40 bg-amber-500/[0.10] px-4 py-3 text-sm text-amber-50 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2 font-semibold">
+              <ShieldAlert className="h-4 w-4 text-amber-300" />
+              <span>Containment blocked</span>
+              <Badge variant="warning">{blockedActionText(blockedActionState, 'block_class', 'blocked')}</Badge>
+            </div>
+            <p className="mt-2 leading-6">
+              {blockedActionText(
+                blockedActionState,
+                'safe_message',
+                blockedActionText(blockedActionState, 'banner', 'No action was performed.'),
+              )}
+            </p>
+          </div>
         ) : null}
         {showFullAnswer && message.trace && !message.trace.analyst_response ? <AnalystSummaryCard trace={message.trace} /> : null}
         {showFullAnswer && message.trace?.human_review?.required && !message.trace.analyst_response ? (
@@ -268,6 +285,19 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
       </div>
     </div>
   );
+}
+
+function visibleBlockedActionState(trace: PlaceholderResponse | null | undefined): Record<string, unknown> | null {
+  const state = trace?.blocked_action_state;
+  if (!state || state.visible !== true || state.status !== 'blocked') {
+    return null;
+  }
+  return state;
+}
+
+function blockedActionText(state: Record<string, unknown>, key: string, fallback: string): string {
+  const value = state[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
 }
 
 function answerProvenanceBadge(trace: PlaceholderResponse | null): { label: string; variant: 'success' | 'warning' | 'outline' } {

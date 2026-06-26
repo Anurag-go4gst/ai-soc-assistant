@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.actions.capability_policy import ActionCapability
 from app.answer_guard.models import AnswerGuardStatus
@@ -509,6 +509,7 @@ class PlaceholderResponse(BaseModel):
     answer_contract: dict[str, object] | None = None
     run_contract: dict[str, object] | None = None
     routing_contract: dict[str, object] | None = None
+    blocked_action_state: dict[str, object] | None = None
     # WS3 T3.1 — deterministic read-model scorecard (never authority).
     answer_scorecard: dict[str, object] | None = None
     # WS3 T3.2 — consolidated LLM narration usage visibility (read-model).
@@ -536,3 +537,111 @@ class PlaceholderResponse(BaseModel):
     ec_answer_source: str | None = None
     ec_provenance: dict[str, object] | None = None
     ec_stage_latencies: list[dict[str, object]] | None = None
+
+    @model_validator(mode="after")
+    def derive_blocked_action_state(self) -> "PlaceholderResponse":
+        state = self.blocked_action_state or _derive_blocked_action_state(
+            human_review=self.human_review,
+            execution=self.execution,
+            run_contract=self.run_contract,
+            query_to_intent=self.query_to_intent,
+        )
+        if state is None:
+            return self
+        self.blocked_action_state = state
+        trace = dict(self.control_plane_trace or {})
+        trace["blocked_action_state"] = state
+        self.control_plane_trace = trace
+        return self
+
+
+def _model_dump(value: object) -> dict[str, object]:
+    if isinstance(value, dict):
+        return value
+    dump = getattr(value, "model_dump", None)
+    if callable(dump):
+        payload = dump()
+        if isinstance(payload, dict):
+            return payload
+    return {}
+
+
+def _nested_dict(payload: dict[str, object], key: str) -> dict[str, object]:
+    value = payload.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def _str_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if item is not None]
+
+
+def _derive_blocked_action_state(
+    *,
+    human_review: object,
+    execution: object,
+    run_contract: dict[str, object] | None,
+    query_to_intent: dict[str, object] | None,
+) -> dict[str, object] | None:
+    review = _model_dump(human_review)
+    execution_payload = _model_dump(execution)
+    contract = run_contract if isinstance(run_contract, dict) else {}
+    intent = query_to_intent if isinstance(query_to_intent, dict) else {}
+    signals = _nested_dict(intent, "query_signals")
+
+    action_shaped = bool(
+        signals.get("action_or_containment_shaped")
+        or signals.get("block_or_contain")
+        or signals.get("disable_or_enforce")
+    )
+    review_reason = str(review.get("reason") or "")
+    if not action_shaped and review_reason != "unsafe_action_blocked":
+        return None
+
+    execution_status = str(
+        execution_payload.get("status")
+        or contract.get("execution_status")
+        or ""
+    )
+    execution_block_reason = str(execution_payload.get("block_reason") or "")
+    if review_reason == "unsafe_action_blocked":
+        block_class = "policy_governance"
+        banner = "Containment/enforcement blocked by governance. No action was performed."
+    elif bool(contract.get("mcp_needed_for_live_answer")) and not bool(contract.get("mcp_allowed")):
+        block_class = "mcp_disabled_or_unavailable"
+        banner = "Live action path unavailable. MCP execution is disabled or not allowed."
+    elif bool(contract.get("effective_hil_required")):
+        block_class = "missing_required_evidence_or_slots"
+        banner = "Action blocked pending required evidence, slots, or human review."
+    elif execution_status in {"blocked", "requires_human_review"}:
+        block_class = "execution_gate"
+        banner = "Action blocked by execution gate."
+    else:
+        return None
+
+    routing = _nested_dict(contract, "routing")
+    safe_message = str(review.get("safe_message_for_user") or banner)
+    return {
+        "visible": True,
+        "status": "blocked",
+        "action_requested": "containment_or_enforcement"
+        if signals.get("block_or_contain") or signals.get("disable_or_enforce")
+        else "execution",
+        "block_class": block_class,
+        "reason": review_reason or execution_block_reason or block_class,
+        "banner": banner,
+        "safe_message": safe_message,
+        "allowed_actions": _str_list(review.get("allowed_actions")),
+        "execution_authorized": bool(contract.get("execution_authorized")),
+        "mcp_allowed": bool(contract.get("mcp_allowed")),
+        "effective_hil_required": bool(contract.get("effective_hil_required")),
+        "route_preserved": True,
+        "canonical_skill": routing.get("canonical_skill"),
+        "canonical_sources": [
+            "run_contract",
+            "human_review",
+            "execution",
+            "query_signals",
+        ],
+    }

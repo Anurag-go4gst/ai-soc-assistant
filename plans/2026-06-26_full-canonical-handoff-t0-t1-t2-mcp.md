@@ -880,6 +880,8 @@ Acceptance:
 
 ### 2. Containment Banner Consistency
 
+Status: implemented in API response read model + frontend banner; covered by `test_containment_banner_renders_from_canonical_blocked_action_state`.
+
 Problem: containment or response-action asks can degrade/deny correctly in policy while failing to show a clear analyst-facing containment banner.
 
 Required behavior:
