@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.demo.mcp_result_envelope import demo_envelope_from_rows
+from app.governance.trace_authority import TIER_ADVISORY, TIER_DIAGNOSTIC, TIER_PLANNING, attach_authority_tier
 from app.risk.severity_policy import SeverityDecision
 
 COMPLETED_CAPABILITIES = [
@@ -521,6 +522,7 @@ def _generic_experience_center_panels(
         "narration visibility",
         "model signal advisory",
     ]
+
     if splunk_items or selected_server == "splunk":
         selected_resources.extend(["MCP fixture tool selection", "MCP fixture search result", "SourceEvidence package"])
     if rag_items:
@@ -641,6 +643,16 @@ def _generic_experience_center_panels(
             "do not claim live production impact from Experience Center fixture data",
         ],
     }
+
+    for key, tier, note in (
+        ("resource_planner", TIER_PLANNING, "Composed ResourcePlan for the scenario."),
+        ("spl_validation_panel", TIER_DIAGNOSTIC, "SPL validator diagnostics unless RunContract projects block reason."),
+        ("model_signal_panel", TIER_ADVISORY, "LLM/model signal is advisory only."),
+        ("narration_visibility_panel", TIER_ADVISORY, "Narration visibility; deterministic answer wins."),
+    ):
+        if key in panels and isinstance(panels[key], dict):
+            panels[key] = attach_authority_tier(panels[key], tier=tier, note=note)
+
     return panels
 
 

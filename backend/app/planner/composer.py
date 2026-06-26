@@ -57,6 +57,12 @@ def compose_resource_plan(
             for step in (rag_step, spl_step, mcp_step):
                 if step is not None:
                     step.policy_checks.append(check)
+    if mcp_step is not None and getattr(evidence_plan, "mcp_allowed", False) is not True:
+        if mcp_step.status != "blocked_policy":
+            mcp_step.status = "blocked_policy"
+            mcp_step.status_reason = "mcp_not_allowed_by_evidence_plan"
+        if "mcp_not_allowed_by_evidence_plan" not in mcp_step.policy_checks:
+            mcp_step.policy_checks.append("mcp_not_allowed_by_evidence_plan")
     mitre_step = (
         PlanStep(
             step_id="mitre",

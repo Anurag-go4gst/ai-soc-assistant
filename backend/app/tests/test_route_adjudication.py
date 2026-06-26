@@ -19,7 +19,11 @@ def _adjudicate_for_query(
     qu = understand_query(query)
     q2i = build_query_to_intent(query=query, query_understanding=qu)
     intent = q2i.intent_classification.model_dump()
-    evidence = plan_evidence(intent, query_to_intent=q2i.model_dump()).model_dump()
+    evidence = plan_evidence(
+        intent,
+        query_to_intent=q2i.model_dump(),
+        query_understanding=qu,
+    ).model_dump()
     result = adjudicate_route(
         deterministic_route=deterministic_route,
         route_plan_shadow=route_plan_shadow or {},
@@ -66,7 +70,11 @@ def test_exact_105_allowlisted_when_operation_authority_enabled(monkeypatch: pyt
     qu = understand_query("Which users have excessive failed logins?")
     q2i = build_query_to_intent(query="Which users have excessive failed logins?", query_understanding=qu)
     intent = q2i.intent_classification.model_dump()
-    evidence = plan_evidence(intent, query_to_intent=q2i.model_dump()).model_dump()
+    evidence = plan_evidence(
+        intent,
+        query_to_intent=q2i.model_dump(),
+        query_understanding=qu,
+    ).model_dump()
     shadow = {
         "question_runtime_map": {
             "manifest_coverage_id": COV_Q046_PILOT_COVERAGE_ID,
@@ -137,3 +145,96 @@ def test_clarification_intent_routes_to_knowledge_recall_with_hil_metadata() -> 
     result = _adjudicate_for_query("Map this to MITRE")
     assert result["final_route"] == "knowledge_recall"
     assert result["authority_source"] == "intent_clarification"
+
+def test_row_authority_trace_weak_known_q046_visibility_only() -> None:
+    query = "Which users have excessive failed logins?"
+    qu = understand_query(query)
+    q2i = build_query_to_intent(query=query, query_understanding=qu)
+    intent = q2i.intent_classification.model_dump()
+    evidence = plan_evidence(
+        intent,
+        query_to_intent=q2i.model_dump(),
+        query_understanding=qu,
+    ).model_dump()
+    assert evidence["row_authority_summary"]["row_authority_status"] == (
+        "exact_known_weak_needs_enrichment"
+    )
+    result = adjudicate_route(
+        deterministic_route="attack_discovery",
+        route_plan_shadow={},
+        evidence_plan=evidence,
+        intent_classification=intent,
+        query_understanding=qu,
+        query_to_intent=q2i.model_dump(),
+    )
+    if q2i.candidate_mappings.get("match_path") in {
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog",
+    }:
+        assert result.authority_source == "exact_105_registry"
+    assert result.row_authority_applied is False
+    assert result.row_authority_decision == "would_withhold_exact_registry"
+    assert result.row_authority_fallback_reason == "exact_known_weak_needs_enrichment"
+    assert result.row_authority_note is not None
+
+
+def test_row_authority_trace_soc_generate_spl_catalog_t1_visibility() -> None:
+    intent = {
+        "intent_family": "spl_generation_only",
+        "primary_intent": "spl_generation",
+        "secondary_intents": [],
+        "query_type": "ask_for_live_results",
+        "answer_goal": ["live_results"],
+        "requested_output_type": "INVESTIGATION",
+        "confidence": 0.9,
+        "confidence_band": "high",
+        "requires_clarification": False,
+        "requires_hil": False,
+        "action_mode": None,
+        "reason": "test",
+    }
+    evidence = plan_evidence(intent).model_dump()
+    mappings = {
+        "match_path": "use_case_catalog",
+        "use_case_ids": ["soc_generate_spl"],
+        "legacy_skill_hint": "spl_generation",
+    }
+    result = adjudicate_route(
+        deterministic_route="spl_generation",
+        route_plan_shadow={},
+        evidence_plan=evidence,
+        intent_classification=intent,
+        query_to_intent={"candidate_mappings": mappings},
+    )
+    assert result.row_authority_applied is False
+    assert result.row_authority_decision == "catalog_t1_spl_native"
+    assert result.row_authority_fallback_reason == "catalog_t1_spl_native"
+    assert "T1 SPL-native" in (result.row_authority_note or "")
+
+
+def test_row_authority_trace_out_of_registry_visibility() -> None:
+    intent = {
+        "intent_family": "guided_investigation",
+        "primary_intent": "guided_investigation",
+        "secondary_intents": [],
+        "query_type": "investigation_with_guidance",
+        "answer_goal": ["analyst_action_guidance"],
+        "requested_output_type": "INVESTIGATION",
+        "confidence": 0.8,
+        "confidence_band": "medium",
+        "requires_clarification": False,
+        "requires_hil": False,
+        "action_mode": None,
+        "reason": "test",
+    }
+    mappings = {"match_path": "out_of_registry", "use_case_ids": []}
+    result = adjudicate_route(
+        deterministic_route="guided_investigation",
+        route_plan_shadow={},
+        evidence_plan=plan_evidence(intent).model_dump(),
+        intent_classification=intent,
+        query_to_intent={"candidate_mappings": mappings},
+    )
+    assert result.final_route == "guided_investigation"
+    assert result.row_authority_decision == "out_of_registry"
+    assert result.row_authority_applied is False

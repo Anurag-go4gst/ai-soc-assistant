@@ -92,3 +92,27 @@ def test_resource_plan_emits_blocked_mcp_step_when_mcp_off_but_needed() -> None:
     assert mcp_steps[0].status == "blocked_policy"
     assert mcp_steps[0].status_reason == "skill_contract"
     assert "blocked_by_skill_contract" in mcp_steps[0].policy_checks
+    assert "mcp_not_allowed_by_evidence_plan" in mcp_steps[0].policy_checks
+
+
+def test_attack_discovery_keeps_mcp_step_blocked_when_global_mcp_off() -> None:
+    plan = EvidencePlan(
+        answer_mode="live_investigation",
+        rag_phase="post_mcp",
+        needs_rag=False,
+        needs_spl=True,
+        needs_mcp=True,
+        needs_mitre=False,
+        spl_allowed=True,
+        mcp_allowed=False,
+        policy_context_required=False,
+        policy_context_recommended=False,
+    )
+
+    composed = compose_resource_plan(plan, intent_family="live_investigation", skill_id="attack_discovery")
+    mcp = composed.step_by_id("mcp")
+
+    assert mcp is not None
+    assert mcp.status == "blocked_policy"
+    assert mcp.status_reason == "mcp_not_allowed_by_evidence_plan"
+    assert "mcp_not_allowed_by_evidence_plan" in mcp.policy_checks

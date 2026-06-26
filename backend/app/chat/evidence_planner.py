@@ -12,6 +12,7 @@ from app.chat.t2_review_checklist import query_resolves_t2_source_profile
 from app.coverage.question_runtime_map import question_runtime_entry
 from app.coverage.promotion_lifecycle import effective_promotion_status
 from app.coverage.row_authority import classify_runtime_row_authority, project_s3_authority_ready
+from app.spl.slot_constraint_projection import projection_from_bindings
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
 from app.spl.user_constraint_bindings import build_user_constraint_bindings
 from app.use_cases.answer_packs import answer_pack_summary, reviewed_answer_pack
@@ -522,12 +523,23 @@ def _attach_canonical_handoff_summaries(
                 extra_slots=source_profile.slots,
                 source_profile_trace=source_profile_trace,
             )
+            projection = projection_from_bindings(
+                bindings,
+                built_at_stage="evidence_planning",
+                source_profile_defaults=dict(source_profile.slots),
+            )
             updates["normalized_slot_summary"] = {
+                "planning_snapshot": True,
                 "normalized_slots": dict(bindings.normalized_slots),
                 "slot_sources": dict(bindings.slot_sources),
                 "validation_status": dict(bindings.validation_status),
                 "unbound_constraints": list(bindings.unbound_constraints),
             }
+            updates["slot_constraint_projection_summary"] = {
+                **projection.to_dict(),
+                "planning_snapshot": True,
+            }
+            updates["handoff_drift_from_final_spl"] = False
         except Exception:
             updates["normalized_slot_summary"] = {
                 "normalized_slots": {},

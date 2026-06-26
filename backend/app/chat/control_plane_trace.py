@@ -8,6 +8,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.governance.trace_authority import (
+    TIER_ADVISORY,
+    TIER_DIAGNOSTIC,
+    TIER_PLANNING,
+    attach_authority_tier,
+    authority_label,
+    build_control_plane_authority_index,
+)
+
 _SECRET_KEYS = (
     "secret",
     "password",
@@ -78,6 +87,39 @@ def build_control_plane_trace(
         "resource_planner": _resource_planner_trace(state),
         "llm_advisory_trace": _llm_advisory_trace(state),
     }
+    run_contract = state.get("run_contract") if isinstance(state.get("run_contract"), dict) else None
+    final_evidence_gate = (
+        state.get("final_evidence_gate") if isinstance(state.get("final_evidence_gate"), dict) else None
+    )
+    if run_contract is not None:
+        trace["run_contract"] = attach_authority_tier(
+            run_contract,
+            tier="AUTHORITATIVE",
+            note="RunContract owns final-run public posture.",
+        )
+    if final_evidence_gate is not None:
+        trace["final_evidence_gate"] = attach_authority_tier(
+            final_evidence_gate,
+            tier="AUTHORITATIVE",
+            note="FinalEvidenceGate owns evidence-derived permissions.",
+        )
+    slot_projection = None
+    if isinstance(candidate_spl, dict):
+        slot_projection = candidate_spl.get("slot_constraint_projection")
+    if isinstance(slot_projection, dict):
+        trace["slot_constraint_projection"] = attach_authority_tier(
+            slot_projection,
+            tier=TIER_PLANNING,
+            note="Final SPL slot/constraint projection for the turn.",
+        )
+    trace["trace_authority_index"] = build_control_plane_authority_index(
+        has_run_contract=run_contract is not None,
+        has_final_evidence_gate=final_evidence_gate is not None,
+    )
+    trace["route_plan_shadow_authority"] = authority_label(
+        TIER_DIAGNOSTIC,
+        "Route plan shadow is diagnostic only; not final route authority.",
+    )
     if node_trace:
         trace["node_trace"] = node_trace
     return _redact(trace)
@@ -89,18 +131,26 @@ def _resource_planner_trace(state: dict[str, Any]) -> dict[str, Any] | None:
     provenance = resource_plan.get("provenance") if isinstance(resource_plan.get("provenance"), dict) else {}
     decisions = provenance.get("resource_decisions")
     if isinstance(decisions, dict):
-        return {
-            "source": "evidence_plan.resource_plan.provenance.resource_decisions",
-            "resource_decisions": decisions,
-        }
+        return attach_authority_tier(
+            {
+                "source": "evidence_plan.resource_plan.provenance.resource_decisions",
+                "resource_decisions": decisions,
+            },
+            tier=TIER_PLANNING,
+            note="Composed ResourcePlan resource decisions.",
+        )
 
     planning = state.get("planning_decision") if isinstance(state.get("planning_decision"), dict) else {}
     summary = planning.get("resource_plan_summary")
     if isinstance(summary, dict):
-        return {
-            "source": "planning_decision.resource_plan_summary",
-            "resource_decisions": summary,
-        }
+        return attach_authority_tier(
+            {
+                "source": "planning_decision.resource_plan_summary",
+                "resource_decisions": summary,
+            },
+            tier=TIER_PLANNING,
+            note="Planning-decision ResourcePlan summary.",
+        )
     return None
 
 
@@ -157,7 +207,7 @@ def _llm_advisory_trace(state: dict[str, Any]) -> dict[str, Any]:
             or state.get("answer_guard", {}).get("guard_status") == "blocked"
         )
     )
-    return {
+    payload = {
         "llm_advisory_attempted": attempted,
         "llm_called": llm_called,
         "llm_candidate_present": candidate_present,
@@ -168,6 +218,11 @@ def _llm_advisory_trace(state: dict[str, Any]) -> dict[str, Any]:
         "llm_narration_used": narration_used,
         "llm_overridden_by_policy": overridden,
     }
+    return attach_authority_tier(
+        payload,
+        tier=TIER_ADVISORY,
+        note="LLM dropped reasons are advisory; not final routing failure.",
+    )
 
 
 def _candidate_spl_generation_trace(
@@ -234,13 +289,18 @@ def _spl_slot_binding_trace(spl_validation: dict[str, Any] | None) -> dict[str, 
         return None
     reasons = [str(item) for item in spl_validation.get("reject_reasons") or []]
     missing = [item.removeprefix("missing_binding:") for item in reasons if item.startswith("missing_binding:")]
-    return {
-        "validated": "slot_binding_validated" in (spl_validation.get("warnings") or [])
-        or bool(missing),
-        "missing_bindings": missing,
-        "approved": spl_validation.get("approved"),
-        "policy_version": spl_validation.get("policy_version"),
-    }
+    return attach_authority_tier(
+        {
+            "validated": "slot_binding_validated" in (spl_validation.get("warnings") or [])
+            or bool(missing),
+            "missing_bindings": missing,
+            "approved": spl_validation.get("approved"),
+            "policy_version": spl_validation.get("policy_version"),
+            "reject_reasons": [str(item) for item in spl_validation.get("reject_reasons") or []],
+        },
+        tier=TIER_DIAGNOSTIC,
+        note="Validator reject details are diagnostic unless projected by RunContract.",
+    )
 
 
 def _mcp_trace(execution: dict[str, Any] | None) -> dict[str, Any] | None:

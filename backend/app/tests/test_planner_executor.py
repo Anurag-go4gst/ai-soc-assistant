@@ -28,6 +28,10 @@ def _hooks(calls: list[str], *, rag_only: bool = False, pre_mcp: bool = False) -
     def node(name: str):
         def run(state: dict[str, Any]) -> dict[str, Any]:
             calls.append(name)
+            if name == "workflow_spl":
+                return {**state, "workflow_plan": {"skill": "spl_generation"}}
+            if name == "ensure_workflow_plan":
+                return {**state, "workflow_plan": {"skill": "alert_summary"}}
             return state
 
         return run
@@ -39,6 +43,7 @@ def _hooks(calls: list[str], *, rag_only: bool = False, pre_mcp: bool = False) -
         rag_early=node("rag_early"),
         spl_source_resolve=node("spl_source_resolve"),
         workflow_spl=node("workflow_spl"),
+        ensure_workflow_plan=node("ensure_workflow_plan"),
         execution=node("execution"),
     )
 
@@ -133,3 +138,36 @@ def test_full_pipeline_sentinel_row_matches_frozen_baseline() -> None:
     baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))["rows"]["q0.q010"]
     capture = capture_row("Which hosts are generating the most SMB traffic?")
     assert capture == baseline
+
+
+def test_preblocked_policy_mcp_step_still_runs_execution_gate() -> None:
+    calls: list[str] = []
+    state = _state_with_plan(
+        [
+            {
+                "step_id": "mcp",
+                "resource_id": "mcp_tool:splunk_run_query",
+                "purpose": "mcp_execution",
+                "status": "blocked_policy",
+                "status_reason": "skill_contract",
+                "policy_checks": ["blocked_by_skill_contract"],
+            }
+        ]
+    )
+    result = execute_plan_dispatch(state, _hooks(calls))
+    assert "execution" in calls
+    mcp = next(s for s in result["evidence_plan"]["resource_plan"]["steps"] if s["step_id"] == "mcp")
+    assert mcp["status"] == "blocked_policy"
+
+
+def test_mcp_step_metadata_attached_on_annotate() -> None:
+    state = _state_with_plan(
+        [{"step_id": "mcp", "resource_id": "mcp_tool:splunk_run_query", "purpose": "mcp_execution"}],
+        execution={"status": "blocked", "block_reason": "mcp_global_execution_disabled", "selected_mcp_tool": "splunk_run_query"},
+    )
+    result = annotate_step_statuses(state)
+    mcp = next(s for s in result["evidence_plan"]["resource_plan"]["steps"] if s["step_id"] == "mcp")
+    meta = mcp.get("mcp_step_metadata") or {}
+    assert meta.get("primary_reason") == "mcp_global_execution_disabled"
+    assert meta.get("selected_tool") == "splunk_run_query"
+    assert meta.get("execution_authorized") is False

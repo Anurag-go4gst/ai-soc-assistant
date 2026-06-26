@@ -197,6 +197,11 @@ from app.chat.llm_intent_advisor import generate_llm_intent_advisory
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
 from app.spl.template_compatibility import check_template_compatibility
 from app.spl.template_query_bindings import customize_template_spl_with_trace
+from app.spl.slot_constraint_projection import (
+    build_slot_constraint_projection,
+    merge_evidence_plan_spl_drift,
+    projection_from_bindings,
+)
 from app.spl.user_constraint_bindings import (
     SLOT_SOURCE_LLM,
     UserConstraintBindings,
@@ -1254,6 +1259,25 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
     return graph_node_shadow_tail(state)
 
 
+
+
+def graph_node_ensure_workflow_plan(state: ChatPipelineState) -> ChatPipelineState:
+    """Plan-only slice of workflow_spl when composed dispatch skips SPL generation."""
+    if state.get("workflow_plan"):
+        return state
+    request = state["request"]
+    routed = state["routed"]
+    trace_id = state["trace_id"]
+    effective_skill = _effective_routing_skill(state)
+    workflow_plan = _routes_chat().plan_workflow(
+        selected_skill=effective_skill,
+        tool_plan=list(routed["tool_plan"]),
+        query=request.message,
+        trace_id=trace_id,
+    )
+    return {**state, "workflow_plan": workflow_plan}
+
+
 def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("generating_spl")
     request = state["request"]
@@ -1823,6 +1847,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     from app.chat.run_contract_builder import (  # circular: pipeline state
         build_final_evidence_gate,
         build_run_contract,
+        enrich_run_contract_payload,
     )
 
     emit_stage("checking_sufficiency")
@@ -1848,7 +1873,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     run_contract = build_run_contract(gate_state_input, route=route, gate=final_evidence_gate)
     state = {
         **state,
-        "run_contract": run_contract.model_dump_canonical(),
+        "run_contract": enrich_run_contract_payload(run_contract.model_dump_canonical(), gate_state_input),
         "source_evidence": source_evidence,
         "final_evidence_gate": gate_payload,
     }
@@ -3065,13 +3090,26 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         "source_evidence": source_evidence,
         "answer_contract": answer_contract_payload,
     }
+    _candidate = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else None
+    _final_proj = _candidate.get("slot_constraint_projection") if isinstance(_candidate, dict) else None
+    _evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
+    if isinstance(_final_proj, dict) and isinstance(_evidence_plan, dict):
+        state = {
+            **state,
+            "evidence_plan": merge_evidence_plan_spl_drift(_evidence_plan, _final_proj),
+        }
+        _final_gate_state = {
+            **_final_gate_state,
+            "evidence_plan": state["evidence_plan"],
+        }
+
     final_evidence_gate = _build_final_evidence_gate_final(_final_gate_state, route=route)
     run_contract = _build_run_contract_final(_final_gate_state, route=route, gate=final_evidence_gate)
     gate_payload = final_evidence_gate.to_dict()
     structured_context["final_evidence_gate"] = gate_payload
     state = {
         **state,
-        "run_contract": run_contract.model_dump_canonical(),
+        "run_contract": enrich_run_contract_payload(run_contract.model_dump_canonical(), _final_gate_state),
         "final_evidence_gate": gate_payload,
     }
     # Review-only SPL drafts: one dedicated renderer owns the visible answer (fixed
@@ -3404,6 +3442,7 @@ def _dispatch_hooks() -> DispatchHooks:
         rag_early=graph_node_rag_early,
         spl_source_resolve=graph_node_spl_source_resolve,
         workflow_spl=graph_node_workflow_spl,
+        ensure_workflow_plan=graph_node_ensure_workflow_plan,
         execution=graph_node_execution,
     )
 
@@ -4682,6 +4721,10 @@ def _candidate_from_default_template(
         "template_id": template.template_id,
         "user_constraint_bindings": bindings.to_dict(),
         "spl_binding_trace": binding_trace,
+        "slot_constraint_projection": projection_from_bindings(
+            bindings,
+            built_at_stage="spl_generation",
+        ).to_dict(),
     }
     validation_payload = {
         "approved": validation["approved"],
@@ -4953,6 +4996,10 @@ def _candidate_from_t2_spl_native(
         return None
 
     artifact = generate_review_only_spl(user_query)
+    slot_projection = build_slot_constraint_projection(
+        user_query,
+        built_at_stage="spl_generation",
+    )
 
     # Unsafe candidate -> hard block, no renderable SPL.
     if artifact.blocked:
@@ -5048,8 +5095,10 @@ def _candidate_from_t2_spl_native(
         "detection_family": None,
         "review_only_renderable": True,
         "t2_spl_native": t2_block,
+        "slot_constraint_projection": slot_projection.to_dict(),
         **review_labels,
     }
+    t2_block["slot_constraint_projection"] = slot_projection.to_dict()
     validation_payload = {
         # Fail-closed: the analyst sees the draft, but approved/normalized_spl stay
         # false/null so the MCP execution gate can never run it.

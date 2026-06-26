@@ -8,11 +8,13 @@ from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.intent_classification import IntentClassification
 from app.chat.contracts.route_adjudication import RouteAdjudication
 from app.config import settings
+from app.coverage.row_authority import AUTHORITY_READY
 from app.routing.route_authority_allowlist import (
     ALLOWLISTABLE_COVERAGE_IDS,
     BLOCKED_AUTHORITY_COVERAGE_IDS,
     parse_route_authority_coverage_allowlist,
 )
+from app.use_cases.routing_authority import catalog_authority_row
 
 _POLICY_INTENT_FAMILIES = frozenset({"policy_knowledge", "sop_or_playbook", "knowledge_only"})
 _EXACT_105_MATCH_PATHS = frozenset(
@@ -30,6 +32,23 @@ _INTENT_COMPATIBLE_WITH_EXACT_105 = frozenset(
         "mitre_mapping",
     }
 )
+_ROW_AUTHORITY_BLOCKS_EXACT_REGISTRY = frozenset(
+    {
+        "exact_known_weak_needs_enrichment",
+        "exact_known_needs_lookup",
+        "exact_known_needs_detection_binding",
+        "exact_known_needs_context_binding",
+        "exact_known_needs_clarification",
+        "exact_known_unsupported",
+    }
+)
+_OUT_OF_REGISTRY_MATCH_PATHS = frozenset(
+    {
+        "out_of_registry",
+        "near_105_question",
+        "semantic_105_question",
+    }
+)
 
 
 def adjudicate_route(
@@ -43,8 +62,8 @@ def adjudicate_route(
     message: str = "",
     query_to_intent: dict[str, Any] | None = None,
 ) -> RouteAdjudication:
-    """Apply §3.2 tie-breaker precedence; never re-classify intent from raw keywords."""
-    _ = message  # trace-only per plan; intent/evidence carry authority
+    """Apply tie-breaker precedence; never re-classify intent from raw keywords."""
+    _ = message
     intent = (
         intent_classification
         if isinstance(intent_classification, IntentClassification)
@@ -55,12 +74,20 @@ def adjudicate_route(
     mappings = _candidate_mappings(query_to_intent, query_understanding)
     llm_route = _llm_suggested_route(llm_advisory, shadow)
     shadow_status = _shadow_plan_status(shadow)
+    match_path = str(mappings.get("match_path") or "")
+    row_trace = _row_authority_trace(plan, mappings, match_path=match_path)
 
-    if intent.requires_clarification:
+    def finish(**kwargs: Any) -> RouteAdjudication:
         return _result(
             deterministic_route=deterministic_route,
             llm_suggested_route=llm_route,
             shadow_plan_status=shadow_status,
+            **row_trace,
+            **kwargs,
+        )
+
+    if intent.requires_clarification:
+        return finish(
             final_route="knowledge_recall",
             final_use_case_id=_first_use_case_id(mappings),
             authority_source="intent_clarification",
@@ -68,10 +95,7 @@ def adjudicate_route(
         )
 
     if intent.intent_family == "github_investigation":
-        return _result(
-            deterministic_route=deterministic_route,
-            llm_suggested_route=llm_route,
-            shadow_plan_status=shadow_status,
+        return finish(
             final_route="guided_investigation",
             final_use_case_id=_first_use_case_id(mappings),
             authority_source="github_investigation_intent",
@@ -79,10 +103,7 @@ def adjudicate_route(
         )
 
     if intent.intent_family == "cve_investigation":
-        return _result(
-            deterministic_route=deterministic_route,
-            llm_suggested_route=llm_route,
-            shadow_plan_status=shadow_status,
+        return finish(
             final_route="guided_investigation",
             final_use_case_id=_first_use_case_id(mappings),
             authority_source="cve_investigation_intent",
@@ -90,10 +111,7 @@ def adjudicate_route(
         )
 
     if intent.intent_family == "guided_investigation":
-        return _result(
-            deterministic_route=deterministic_route,
-            llm_suggested_route=llm_route,
-            shadow_plan_status=shadow_status,
+        return finish(
             final_route="guided_investigation",
             final_use_case_id=_first_use_case_id(mappings),
             authority_source="guided_investigation_rescue",
@@ -101,10 +119,7 @@ def adjudicate_route(
         )
 
     if intent.intent_family == "alert_summary":
-        return _result(
-            deterministic_route=deterministic_route,
-            llm_suggested_route=llm_route,
-            shadow_plan_status=shadow_status,
+        return finish(
             final_route="alert_summary",
             final_use_case_id=_first_use_case_id(mappings),
             authority_source="alert_summary_intent",
@@ -120,10 +135,7 @@ def adjudicate_route(
             and not plan.needs_spl
         )
     ):
-        return _result(
-            deterministic_route=deterministic_route,
-            llm_suggested_route=llm_route,
-            shadow_plan_status=shadow_status,
+        return finish(
             final_route="knowledge_recall",
             final_use_case_id=_first_use_case_id(mappings),
             authority_source="evidence_plan_rag_only",
@@ -134,10 +146,7 @@ def adjudicate_route(
         intent.intent_family in _POLICY_INTENT_FAMILIES
         and intent.confidence_band == "high"
     ):
-        return _result(
-            deterministic_route=deterministic_route,
-            llm_suggested_route=llm_route,
-            shadow_plan_status=shadow_status,
+        return finish(
             final_route="knowledge_recall",
             final_use_case_id=_policy_use_case_id(mappings, query_understanding),
             authority_source="intent_over_exact_105",
@@ -147,17 +156,13 @@ def adjudicate_route(
             ),
         )
 
-    match_path = str(mappings.get("match_path") or "")
     if (
         match_path in _EXACT_105_MATCH_PATHS
         and intent.intent_family in _INTENT_COMPATIBLE_WITH_EXACT_105
         and _exact_105_authority_permitted(shadow, mappings)
     ):
         skill = _registry_skill_for_exact_105(mappings, query_understanding, deterministic_route)
-        return _result(
-            deterministic_route=deterministic_route,
-            llm_suggested_route=llm_route,
-            shadow_plan_status=shadow_status,
+        return finish(
             final_route=skill,
             final_use_case_id=_first_use_case_id(mappings),
             authority_source="exact_105_registry",
@@ -166,10 +171,7 @@ def adjudicate_route(
 
     if plan is not None and plan.answer_mode in {"hybrid", "live_investigation"}:
         skill = _skill_for_intent_family(intent.intent_family, deterministic_route)
-        return _result(
-            deterministic_route=deterministic_route,
-            llm_suggested_route=llm_route,
-            shadow_plan_status=shadow_status,
+        return finish(
             final_route=skill,
             final_use_case_id=_first_use_case_id(mappings),
             authority_source="evidence_plan_live_or_hybrid",
@@ -177,10 +179,7 @@ def adjudicate_route(
         )
 
     final_route = deterministic_route.strip() or "knowledge_recall"
-    return _result(
-        deterministic_route=deterministic_route,
-        llm_suggested_route=llm_route,
-        shadow_plan_status=shadow_status,
+    return finish(
         final_route=final_route,
         final_use_case_id=_first_use_case_id(mappings),
         authority_source="deterministic_route_default",
@@ -317,7 +316,6 @@ def _registry_skill_for_exact_105(
 
 
 def _mirror_registry_skill(registry_skill: str) -> str | None:
-    """Map registry primary skills to legacy workflow skills when needed."""
     normalized = registry_skill.strip().lower()
     if normalized in {"aggregate_and_rank", "threshold_anomaly", "threshold_check"}:
         return "attack_discovery"
@@ -346,6 +344,99 @@ def _skill_for_intent_family(intent_family: str, fallback: str) -> str:
     return "attack_discovery"
 
 
+def _row_authority_advisory_assessment(
+    plan: EvidencePlan | None,
+    mappings: dict[str, Any],
+    *,
+    match_path: str,
+) -> tuple[str, str | None, str | None]:
+    """Trace-only assessment; does not change route adjudication decisions."""
+    use_case_id = _first_use_case_id(mappings)
+
+    if match_path in _OUT_OF_REGISTRY_MATCH_PATHS:
+        return (
+            "out_of_registry",
+            None,
+            "Out-of-registry or near-match path; row authority is advisory only.",
+        )
+
+    catalog = catalog_authority_row(use_case_id)
+    if catalog is not None:
+        tier = str(catalog.get("registry_tier") or "")
+        if tier == "t1_spl_native" or use_case_id in {"soc_generate_spl", "soc_optimize_spl"}:
+            return (
+                "catalog_t1_spl_native",
+                "catalog_t1_spl_native",
+                "Catalogue row is T1 SPL-native/meta (e.g. soc_generate_spl); not T0 exact authority.",
+            )
+        if catalog.get("t0_exact_authority") is False:
+            return (
+                "catalog_advisory_not_t0",
+                "catalog_t0_exact_authority_false",
+                "Catalogue row did not opt into T0 exact authority; advisory-eligible.",
+            )
+
+    summary = plan.row_authority_summary if plan is not None else None
+    if not isinstance(summary, dict) or not summary:
+        return (
+            "no_row_authority_summary",
+            None,
+            "No runtime row authority summary on EvidencePlan for this turn.",
+        )
+
+    status = str(summary.get("row_authority_status") or "").strip()
+    if not status:
+        return (
+            "no_row_authority_status",
+            None,
+            "EvidencePlan row_authority_summary present but status is empty.",
+        )
+
+    if status == AUTHORITY_READY and summary.get("s3_authority_ready") is True:
+        return (
+            "exact_known_authority_ready",
+            None,
+            "Runtime row is authority-ready (trace only; route adjudication unchanged).",
+        )
+
+    if status in _ROW_AUTHORITY_BLOCKS_EXACT_REGISTRY:
+        return (
+            "would_withhold_exact_registry",
+            status,
+            f"Row authority status {status!r} would withhold exact-105 registry if enforced (trace only).",
+        )
+
+    return (
+        "row_authority_observed",
+        status,
+        f"Row authority status {status!r} recorded for trace (route adjudication unchanged).",
+    )
+
+
+def _row_authority_trace(
+    plan: EvidencePlan | None,
+    mappings: dict[str, Any],
+    *,
+    match_path: str,
+) -> dict[str, Any]:
+    decision, fallback, note = _row_authority_advisory_assessment(
+        plan, mappings, match_path=match_path
+    )
+    summary = plan.row_authority_summary if plan is not None else None
+    status: str | None = None
+    if isinstance(summary, dict):
+        raw = summary.get("row_authority_status")
+        if isinstance(raw, str) and raw.strip():
+            status = raw.strip()
+    return {
+        "row_authority_status": status,
+        "row_authority_decision": decision,
+        "row_authority_applied": False,
+        "row_authority_note": note,
+        "row_authority_fallback_reason": fallback,
+    }
+
+
 def _result(
     *,
     deterministic_route: str,
@@ -355,6 +446,11 @@ def _result(
     final_use_case_id: str | None,
     authority_source: str,
     reason: str,
+    row_authority_status: str | None = None,
+    row_authority_decision: str | None = None,
+    row_authority_applied: bool = False,
+    row_authority_note: str | None = None,
+    row_authority_fallback_reason: str | None = None,
 ) -> RouteAdjudication:
     return RouteAdjudication(
         deterministic_route=deterministic_route,
@@ -364,4 +460,9 @@ def _result(
         final_use_case_id=final_use_case_id,
         authority_source=authority_source,
         reason=reason,
+        row_authority_status=row_authority_status,
+        row_authority_decision=row_authority_decision,
+        row_authority_applied=row_authority_applied,
+        row_authority_note=row_authority_note,
+        row_authority_fallback_reason=row_authority_fallback_reason,
     )
