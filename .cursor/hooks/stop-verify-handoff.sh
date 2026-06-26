@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # After Cursor agent completes: write handoff artifact; verify follow-up only when
-# the user armed verify by typing "test" in the prompt AND there are meaningful
+# the user armed verify by typing "test this" in the prompt AND there are meaningful
 # uncommitted code changes (backend/frontend/scripts/tests).
 # Hard-disable all follow-ups: touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
 set -euo pipefail
@@ -27,6 +27,9 @@ if [[ -z "$changed_list" ]]; then
   changed_list="_(none under backend/, frontend/, scripts/, test_harness/)_"
 fi
 
+deploy_md="$(deploy_actions_markdown "$ROOT")"
+deploy_followup="$(deploy_actions_followup_summary "$ROOT")"
+
 verify_armed=0
 if is_verify_requested "$ROOT"; then
   verify_armed=1
@@ -38,7 +41,7 @@ if [[ "$meaningful" -eq 1 && "$verify_armed" -eq 1 ]]; then
 
 **Cursor session ended** (\`status=$status\`, \`id=$conversation_id\`).
 
-**Verify recommended** — you typed **test** in the prompt and uncommitted code changes were detected.
+**Verify recommended** — you typed **test this** and uncommitted code changes were detected.
 
 ### Touched code paths
 
@@ -61,16 +64,20 @@ Read \`AGENTS.md\` **Agent Execution Playbook** before changing anything.
    \`\`\`bash
    ./scripts/run_stage3_governance_regression.sh
    \`\`\`
-5. **Frontend** (if \`frontend/\` touched):
+5. **Frontend tests** (if \`frontend/\` touched):
    \`\`\`bash
    cd frontend && npm run build
    \`\`\`
 6. **Commit hygiene** — no \`.env\`, no accidental eval baseline drift unless task was to refresh baselines.
 7. **Report** — list commands run and pass/fail counts in the PR or reply.
 
+### Prod deploy (when required)
+
+$deploy_md
+
 ### Suggested verify prompt (paste into Claude/Codex)
 
-> Review the uncommitted diff against AGENTS.md playbook. Run targeted tests for touched paths. Report gaps, deferrals, and verification results. Do not commit unless I ask.
+> Review the uncommitted diff against AGENTS.md playbook. Run targeted tests for touched paths. Run prod deploy steps from the handoff if required. Report gaps, deferrals, and verification results. Do not commit unless I ask.
 
 EOF_HANDOFF
 elif [[ "$meaningful" -eq 1 ]]; then
@@ -79,9 +86,9 @@ elif [[ "$meaningful" -eq 1 ]]; then
 
 **Cursor session ended** (\`status=$status\`, \`id=$conversation_id\`).
 
-**Verify not armed** — code changed but your prompt did not include the word **test**, so no automatic verify loop ran.
+**Verify not armed** — code changed but your prompt did not include **test this**, so no automatic verify loop ran.
 
-Include **test** in your prompt when you want the stop hook to run targeted verification. Example: *test — review the diff and run pytest*.
+Type **test this** when you want verify + prod deploy checks. Example: *test this — review the diff and run pytest*.
 
 ### Touched code paths
 
@@ -95,7 +102,7 @@ else
 
 **Verify not required** — no uncommitted changes under \`backend/\`, \`frontend/\`, \`scripts/\`, or \`test_harness/\`.
 
-Docs-only or read-only session. Include **test** in your prompt when you want automatic verify on code changes.
+Docs-only or read-only session. Type **test this** when you want automatic verify + deploy steps on code changes.
 
 See \`AGENTS.md\` playbook when you do touch backend/frontend.
 EOF_HANDOFF
@@ -106,14 +113,13 @@ if should_verify_followup "$ROOT"; then
   followup=1
 fi
 
-# One-shot: disarm after this stop so the next turn stays quiet unless user types "test" again.
 disarm_verify_request "$ROOT"
 
 if [[ "$followup" -ne 1 ]]; then
   exit 0
 fi
 
-jq -n --arg msg "$(cat <<'PROMPT'
-Verification handoff (AGENTS.md): You typed "test" and uncommitted code changes are present. Before finishing, review the diff against the Agent Execution Playbook, run targeted pytest for touched backend files, governance regression if control-plane/routing changed, and `cd frontend && npm run build` if frontend changed. Report commands and pass/fail. Do not commit unless asked. Details: `.cursor/last-handoff.md`.
+jq -n --arg deploy "$deploy_followup" --arg msg "$(cat <<PROMPT
+Verification handoff (AGENTS.md): You typed "test this" and uncommitted code changes are present. Review the diff against the Agent Execution Playbook, run targeted pytest for touched backend files, governance regression if control-plane/routing changed, and frontend build/tests if frontend changed. Prod deploy: $deploy_followup Report commands and pass/fail. Do not commit or git push unless asked. Details: \`.cursor/last-handoff.md\`.
 PROMPT
 )" '{followup_message: $msg}'
