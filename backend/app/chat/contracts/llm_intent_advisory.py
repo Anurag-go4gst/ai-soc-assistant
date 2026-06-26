@@ -27,6 +27,7 @@ class LLMIntentAdvisory(BaseModel):
     adjudication_status: LlmIntentAdjudicationStatus = "skipped"
     adjudication_reason: str | None = None
     provider_label: str | None = None
+    scheduling_trace: dict[str, Any] = Field(default_factory=dict)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Read-only dict compatibility for legacy trace/test consumers.

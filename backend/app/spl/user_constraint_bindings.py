@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -12,6 +13,7 @@ from app.spl.spl_slot_binding_validator import (
     extract_natural_language_slots,
     extract_query_slots,
     load_slot_binding_policy,
+    normalize_slot_key_aliases,
     validate_slot_map,
 )
 
@@ -140,7 +142,9 @@ def build_user_constraint_bindings(
         base_allowed_sourcetypes,
         source_profile_slots.get("sourcetype"),
     )
+    effective_allowed_indexes = allowed_indexes or load_slot_binding_policy().allowed_indexes
 
+    merged_raw = normalize_slot_key_aliases(merged_raw)
     validated = validate_slot_map(
         merged_raw,
         allowed_indexes=allowed_indexes,
@@ -148,8 +152,20 @@ def build_user_constraint_bindings(
         slot_source="user",
     )
     bindings = _bindings_from_slots(validated.normalized_slots, slot_sources)
+    # Multi-index user-explicit slots are owned by _preserve_user_explicit_indexes
+    # (review-only preserve symmetric with single-index), so skip them here to avoid
+    # double-recording rejected/unbound rows.
+    _preserve_user_explicit_indexes(
+        bindings,
+        merged_raw,
+        slot_sources=slot_sources,
+        allowed_indexes=effective_allowed_indexes,
+        preserve=preserve_user_explicit_indexes,
+    )
 
     for slot_type, raw_value in merged_raw.items():
+        if slot_type == "indexes":
+            continue
         if slot_type in validated.normalized_slots:
             bindings.validation_status[slot_type] = "accepted"
             continue
@@ -157,9 +173,13 @@ def build_user_constraint_bindings(
         if slot_sources.get(slot_type) == SLOT_SOURCE_USER_EXPLICIT and preserve_user_explicit_indexes:
             if slot_type == "index" and raw_value:
                 text = str(raw_value).strip().lower()
-                if text and text not in bindings.explicit_indexes:
-                    bindings.explicit_indexes.append(text)
-                    bindings.normalized_slots["index"] = text
+                if text:
+                    # Fold the single-index slot into explicit_indexes; when the
+                    # multi-index slot already preserved this value (NL extraction
+                    # emits both) we must not re-record it as an unbound conflict.
+                    if text not in bindings.explicit_indexes:
+                        bindings.explicit_indexes.append(text)
+                    bindings.normalized_slots.setdefault("index", text)
                     bindings.slot_sources["index"] = SLOT_SOURCE_USER_EXPLICIT
                     bindings.validation_status["index"] = "user_explicit_preserved"
                     continue
@@ -168,6 +188,15 @@ def build_user_constraint_bindings(
                 if text and text not in bindings.explicit_sourcetypes:
                     bindings.explicit_sourcetypes.append(text)
                     bindings.validation_status["sourcetype"] = "user_explicit_rejected_preserved"
+                    bindings.unbound_constraints.append(
+                        {
+                            "slot": "sourcetype",
+                            "value": raw_value,
+                            "reason": reason,
+                            "source": slot_sources.get(slot_type),
+                        }
+                    )
+                    continue
         bindings.rejected_slots[slot_type] = [reason]
         bindings.unbound_constraints.append(
             {
@@ -197,9 +226,102 @@ def build_user_constraint_bindings(
             conflicts,
         ),
     }
+    _append_scope_unbound_constraints(bindings, merged_raw, source_profile_slots)
     if source_profile_trace:
         bindings.debug_trace.update(source_profile_trace)
     return bindings
+
+
+def _append_scope_unbound_constraints(
+    bindings: UserConstraintBindings,
+    merged_raw: dict[str, Any],
+    source_profile_slots: dict[str, Any],
+) -> None:
+    src_scope = merged_raw.get("src_scope")
+    if src_scope == "substation_subnet" and not (
+        source_profile_slots.get("substation_mapping_lookup")
+        or source_profile_slots.get("approved_source_cidr")
+    ):
+        if not any(item.get("slot") == "src_scope" for item in bindings.unbound_constraints):
+            bindings.unbound_constraints.append(
+                {
+                    "slot": "src_scope",
+                    "value": src_scope,
+                    "reason": "missing_source_profile_scope_binding",
+                    "source": bindings.slot_sources.get("src_scope"),
+                }
+            )
+
+
+def _preserve_user_explicit_indexes(
+    bindings: UserConstraintBindings,
+    merged_raw: dict[str, Any],
+    *,
+    slot_sources: dict[str, str],
+    allowed_indexes: tuple[str, ...] | None,
+    preserve: bool,
+) -> None:
+    """Bind the user-explicit multi-index slot for review-only drafts.
+
+    Symmetric with single-index preservation: every syntactically valid
+    user-specified index renders into the draft, while any index outside the
+    deployment allowlist is recorded as an unbound constraint (never silently
+    dropped). Drafts remain non-executable, so preserving a not-yet-allowlisted
+    index for analyst review does not relax governance. When ``preserve`` is
+    false the path fails closed and keeps only allowlisted indexes.
+    """
+    raw_value = merged_raw.get("indexes")
+    if raw_value in (None, "", []):
+        return
+    if slot_sources.get("indexes") != SLOT_SOURCE_USER_EXPLICIT:
+        return
+    allowed = {str(idx).strip().lower() for idx in (allowed_indexes or ())}
+    values = raw_value if isinstance(raw_value, list) else str(raw_value).split(",")
+
+    preserved: list[str] = []
+    not_allowlisted: list[str] = []
+    invalid: list[str] = []
+    for part in values:
+        text = str(part).strip()
+        if not text:
+            continue
+        lowered = text.lower()
+        if not _INDEX_PATTERN_OK(text):
+            if lowered not in invalid:
+                invalid.append(lowered)
+            continue
+        if allowed and lowered not in allowed:
+            if lowered not in not_allowlisted:
+                not_allowlisted.append(lowered)
+            if not preserve:
+                continue
+        if lowered not in preserved:
+            preserved.append(lowered)
+
+    if preserved:
+        bindings.explicit_indexes = list(dict.fromkeys([*bindings.explicit_indexes, *preserved]))
+        bindings.normalized_slots["indexes"] = ",".join(bindings.explicit_indexes)
+        bindings.slot_sources["indexes"] = SLOT_SOURCE_USER_EXPLICIT
+        bindings.validation_status["indexes"] = (
+            "user_explicit_partial_preserved" if not_allowlisted else "accepted"
+        )
+
+    for lowered in not_allowlisted:
+        _append_index_unbound(bindings, lowered, f"slot_index_not_allowlisted:{lowered}")
+    for lowered in invalid:
+        _append_index_unbound(bindings, lowered, f"slot_pattern_invalid:indexes:{lowered}")
+
+
+def _append_index_unbound(bindings: UserConstraintBindings, value: str, reason: str) -> None:
+    row = {
+        "slot": "indexes",
+        "value": value,
+        "reason": reason,
+        "source": SLOT_SOURCE_USER_EXPLICIT,
+    }
+    if row not in bindings.unbound_constraints:
+        bindings.unbound_constraints.append(row)
+
 
 
 def _with_source_profile_allowed_value(
@@ -339,15 +461,29 @@ def _llm_entity_slots(advisory: LLMIntentAdvisory | dict[str, Any] | None) -> di
     if advisory is None:
         return {}
     if isinstance(advisory, LLMIntentAdvisory):
-        return dict(advisory.entity_slots_candidate or {})
-    raw = advisory.get("entity_slots_candidate")
-    return dict(raw) if isinstance(raw, dict) else {}
+        raw = dict(advisory.entity_slots_candidate or {})
+    else:
+        raw_candidate = advisory.get("entity_slots_candidate")
+        raw = dict(raw_candidate) if isinstance(raw_candidate, dict) else {}
+    return normalize_llm_entity_slots(raw)
+
+
+def normalize_llm_entity_slots(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize LLM advisory slot aliases before precedence merge."""
+    return normalize_slot_key_aliases(raw)
+
+
+def _INDEX_PATTERN_OK(text: str) -> bool:
+    return bool(re.fullmatch(r"[a-z0-9_][a-z0-9_*-]{0,63}", text, re.IGNORECASE))
 
 
 def _entities_to_slots(entities: QueryEntities) -> dict[str, Any]:
     slots: dict[str, Any] = {}
     if entities.index:
-        slots["index"] = entities.index[0] if len(entities.index) == 1 else entities.index
+        if len(entities.index) == 1:
+            slots["index"] = entities.index[0]
+        else:
+            slots["indexes"] = list(entities.index)
     if entities.sourcetype:
         slots["sourcetype"] = entities.sourcetype[0]
     if entities.host:
@@ -363,7 +499,11 @@ def _entities_to_slots(entities: QueryEntities) -> dict[str, Any]:
     if entities.time_window:
         slots["time_window"] = entities.time_window
     if entities.zone_labels:
-        slots["zone"] = entities.zone_labels[0]
+        if len(entities.zone_labels) >= 2:
+            slots["src_zone"] = entities.zone_labels[0]
+            slots["dest_zone"] = entities.zone_labels[1]
+        else:
+            slots["zone"] = entities.zone_labels[0]
     return slots
 
 
@@ -378,12 +518,11 @@ def _bindings_from_slots(
     def is_explicit(slot: str) -> bool:
         return slot_sources.get(slot) != SLOT_SOURCE_SOURCE_PROFILE
 
-    index_val = normalized_slots.get("index")
-    if index_val and is_explicit("index"):
-        bindings.explicit_indexes = [index_val]
     indexes_val = normalized_slots.get("indexes")
     if indexes_val and is_explicit("indexes"):
         bindings.explicit_indexes = [part.strip() for part in str(indexes_val).split(",") if part.strip()]
+    elif normalized_slots.get("index") and is_explicit("index"):
+        bindings.explicit_indexes = [normalized_slots["index"]]
     for key, attr in (
         ("sourcetype", "explicit_sourcetypes"),
         ("host", "explicit_hosts"),

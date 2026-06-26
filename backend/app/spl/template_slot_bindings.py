@@ -75,6 +75,9 @@ _TEMPLATE_SLOT_SPECS: dict[str, TemplateSlotBindingSpec] = {
                 "action_semantic",
                 "unexpected_ip_direction",
                 "allowlist_semantic",
+                "src_scope",
+                "dest_scope",
+                "aggregation_subject",
                 "cidr",
                 "approved_destination_lookup",
                 "approved_destination_cidr",
@@ -287,16 +290,16 @@ def build_user_bound_skeleton(
     if bindings.explicit_dest_zones or slots.get("dest_zone"):
         zone = bindings.explicit_dest_zones[0] if bindings.explicit_dest_zones else slots["dest_zone"]
         filters.append(f'dest_zone="{zone}"')
+    action_semantic = None
     if bindings.explicit_action_semantics or slots.get("action_semantic"):
-        action = bindings.explicit_action_semantics[0] if bindings.explicit_action_semantics else slots["action_semantic"]
-        filters.append(f'like(lower(coalesce(action, status, result, "")), "%{action}%")')
-    if bindings.explicit_thresholds.get("threshold") or slots.get("threshold"):
-        threshold = bindings.explicit_thresholds.get("threshold") or slots.get("threshold")
-        comparison = bindings.explicit_thresholds.get("comparison") or slots.get("threshold_comparison") or "greater_than"
-        op = ">" if comparison in {"greater_than", "more_than", "gt"} else ">="
-        return (
-            f"{base} | stats count by user | where count {op} {threshold} | sort - count | head 100"
+        action_semantic = (
+            bindings.explicit_action_semantics[0]
+            if bindings.explicit_action_semantics
+            else slots.get("action_semantic")
         )
+        action_filter = _action_semantic_filter(action_semantic)
+        if action_filter:
+            pre_where_commands.append(action_filter)
     if bindings.explicit_lookups or slots.get("lookup"):
         lookup = bindings.explicit_lookups[0] if bindings.explicit_lookups else slots["lookup"]
         return (
@@ -333,6 +336,49 @@ def build_user_bound_skeleton(
         cidr = slots.get("approved_destination_cidr") or "<approved_ot_destination_cidr>"
         filters.append(f'NOT cidrmatch("{cidr}", dest_ip_norm)')
 
+    src_scope = slots.get("src_scope")
+    dest_scope = slots.get("dest_scope")
+    if src_scope == "substation_subnet" and slots.get("substation_mapping_lookup"):
+        lookup = slots["substation_mapping_lookup"]
+        pre_where_commands.append(
+            '| eval src_ip_norm=coalesce(src_ip, src, source, "")'
+        )
+        pre_where_commands.append(
+            f'| lookup {lookup} ip as src_ip_norm OUTPUT substation_id'
+        )
+        filters.append("isnotnull(substation_id)")
+    elif src_scope == "substation_subnet" and slots.get("approved_source_cidr"):
+        cidr = slots["approved_source_cidr"]
+        pre_where_commands.append(
+            '| eval src_ip_norm=coalesce(src_ip, src, source, "")'
+        )
+        filters.append(f'cidrmatch("{cidr}", src_ip_norm)')
+    elif src_scope and not slots.get("substation_mapping_lookup"):
+        pass  # unbound scope handled via bindings.unbound_constraints upstream
+
+    threshold = bindings.explicit_thresholds.get("threshold") or slots.get("threshold")
+    if threshold:
+        comparison = (
+            bindings.explicit_thresholds.get("comparison")
+            or slots.get("threshold_comparison")
+            or "greater_than"
+        )
+        op = ">" if comparison in {"greater_than", "more_than", "gt"} else ">="
+        subject = slots.get("aggregation_subject") or "user"
+        by_field = "user" if subject == "user" else _safe_field(subject, "user")
+        norm_filters: list[str] = []
+        if function_code_norm:
+            norm_filters.append(function_code_norm)
+        if event_code_norm:
+            norm_filters.append(event_code_norm)
+        where_parts = list(filters) + norm_filters
+        where_clause = " AND ".join(where_parts) if where_parts else "1=1"
+        pre_where = f" {' '.join(pre_where_commands)}" if pre_where_commands else ""
+        return (
+            f"{base}{pre_where} | where {where_clause} "
+            f"| stats count by {by_field} | where count {op} {threshold} | sort - count | head 100"
+        )
+
     norm_filters: list[str] = []
     if function_code_norm:
         norm_filters.append(function_code_norm)
@@ -344,6 +390,27 @@ def build_user_bound_skeleton(
     return (
         f"{base}{pre_where} | where {where_clause} "
         f"| table {_skeleton_table_clause(table_fields)} | head 100"
+    )
+
+
+
+def _action_semantic_filter(action_semantic: str | None) -> str | None:
+    if not action_semantic:
+        return None
+    action = str(action_semantic).strip().lower()
+    if action in {"failed_login", "failure", "failed", "denied"}:
+        return (
+            '| eval action_norm=lower(coalesce(action, status, result, signature, "")) '
+            '| where like(action_norm, "%fail%") OR like(action_norm, "%denied%")'
+        )
+    if action in {"permit", "allowed", "allow", "accept"}:
+        return (
+            '| where like(lower(coalesce(action, status, result, "")), "%permit%") '
+            'OR like(lower(coalesce(action, status, result, "")), "%allow%") '
+            'OR like(lower(coalesce(action, status, result, "")), "%accept%")'
+        )
+    return (
+        f'| where like(lower(coalesce(action, status, result, "")), "%{action}%")'
     )
 
 

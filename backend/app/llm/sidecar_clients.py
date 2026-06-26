@@ -229,7 +229,9 @@ def build_intent_advisory_prompt(
         "asset names, or time windows. Supported slot keys include: index, indexes, sourcetype, "
         "host, user, src_ip, dest_ip, cidr, port, service, protocol, event_code, function_code, "
         "action_semantic, threshold, time_window, lookup, src_zone, dest_zone, "
-        "unexpected_ip_direction, allowlist_semantic."
+        "src_scope, dest_scope, aggregation_subject, unexpected_ip_direction, allowlist_semantic. "
+        "Use canonical slot names: event_id/eventid -> event_code, account/username -> user, "
+        "src_subnet/source_subnet -> src_scope, dest_subnet/destination_subnet -> dest_scope."
     )
     return (
         f"{context_block}\n\n"

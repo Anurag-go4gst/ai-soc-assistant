@@ -179,6 +179,14 @@ from app.connectors.mcp.mcp_tool_plan_shadow import (
 )
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.llm.sidecar_skip_policy import should_skip_sidecar
+from app.llm.intent_advisor_scheduler import (
+    build_intent_scheduling_trace,
+    intent_advisor_hop_blocked,
+    intent_advisor_provider_configured,
+    intent_elapsed_before_call_ms,
+    should_prioritize_intent_advisor,
+)
+from app.chat.query_signals import extract_query_signals
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
@@ -603,7 +611,17 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             "question_ref": getattr(qu, "mapped_question_ref", None),
             "use_case_ids": list(getattr(qu, "mapped_use_case_ids", None) or []),
         }
-    budget = state.get("llm_turn_budget") or TurnLlmBudget()
+    prior_budget = state.get("llm_turn_budget") or TurnLlmBudget()
+    budget = TurnLlmBudget(
+        max_sidecar_calls=prior_budget.max_sidecar_calls,
+        max_narration_calls=prior_budget.max_narration_calls,
+        deadline_seconds=prior_budget.deadline_seconds,
+        sidecar_calls=prior_budget.sidecar_calls,
+        narration_calls=prior_budget.narration_calls,
+        records=list(prior_budget.records),
+    )
+    preliminary_signals = extract_query_signals(query_text, query_understanding)
+    provider_configured = intent_advisor_provider_configured()
     skip_advisory, skip_reason = should_skip_sidecar(
         match_path=candidate_mappings.get("match_path"),
         registry_warnings=list(getattr(qu, "registry_warnings", None) or []) if qu is not None else None,
@@ -611,14 +629,58 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     if not skip_advisory and _high_confidence_registry_match_t0(qu):
         skip_advisory = True
         skip_reason = "registry_backed_high_confidence_t0"
+    if skip_advisory and should_prioritize_intent_advisor(
+        query_text,
+        qu,
+        candidate_mappings,
+        preliminary_signals,
+    ):
+        skip_advisory = False
+        skip_reason = None
+    skip_policy = skip_reason
+    elapsed_before_call_ms = intent_elapsed_before_call_ms(budget)
+
+    def _scheduling_trace(
+        *,
+        fallback_reason: str | None,
+        route_after_skip: str | None = None,
+    ) -> dict[str, Any]:
+        return build_intent_scheduling_trace(
+            budget=budget,
+            skip_policy=skip_policy,
+            provider_configured=provider_configured,
+            elapsed_before_call_ms=elapsed_before_call_ms,
+            fallback_reason_if_skipped=fallback_reason,
+            route_selected_after_skip=route_after_skip,
+        )
+
     if skip_advisory:
-        llm_advisory = LLMIntentAdvisory(dropped_reasons=[skip_reason or "deterministic_exact_match_t0"])
-    elif (hop_block := budget.sidecar_hop_blocked(role="intent_shadow_classifier")):
-        llm_advisory = LLMIntentAdvisory(dropped_reasons=[hop_block])
+        fallback = skip_reason or "deterministic_exact_match_t0"
+        llm_advisory = LLMIntentAdvisory(
+            dropped_reasons=[fallback],
+            scheduling_trace=_scheduling_trace(
+                fallback_reason=fallback,
+                route_after_skip=routed_skill,
+            ),
+        )
+    elif (hop_block := intent_advisor_hop_blocked(budget)):
+        llm_advisory = LLMIntentAdvisory(
+            dropped_reasons=[hop_block],
+            scheduling_trace=_scheduling_trace(
+                fallback_reason=hop_block,
+                route_after_skip=routed_skill,
+            ),
+        )
     else:
         _intent_timeout = budget.capped_hop_timeout_seconds(role="intent_shadow_classifier")
         if _intent_timeout is None:
-            llm_advisory = LLMIntentAdvisory(dropped_reasons=["insufficient_deadline_reserve"])
+            llm_advisory = LLMIntentAdvisory(
+                dropped_reasons=["insufficient_deadline_reserve"],
+                scheduling_trace=_scheduling_trace(
+                    fallback_reason="insufficient_deadline_reserve",
+                    route_after_skip=routed_skill,
+                ),
+            )
         else:
             _t0 = time.monotonic()
             llm_advisory = generate_llm_intent_advisory(
@@ -641,6 +703,18 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
                     outcome=outcome,
                     latency_ms=int((time.monotonic() - _t0) * 1000),
                 )
+            llm_advisory = llm_advisory.model_copy(
+                update={
+                    "scheduling_trace": _scheduling_trace(
+                        fallback_reason=(
+                            llm_advisory.dropped_reasons[0]
+                            if llm_advisory.dropped_reasons
+                            else None
+                        ),
+                        route_after_skip=routed_skill,
+                    ),
+                }
+            )
     result = build_query_to_intent(
         query=query_text,
         query_understanding=query_understanding,
@@ -1125,6 +1199,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         use_case_id=draft_use_case_id,
         live_data_request=_live_data_request_from_state(state),
         llm_intent_advisory=llm_draft_advisory if isinstance(llm_draft_advisory, dict) else None,
+        query_understanding=query_understanding,
     )
     llm_spl_candidate = _llm_spl_candidate_stage(
         skill=effective_skill,
@@ -1314,6 +1389,7 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
                 if isinstance(state.get("llm_intent_advisory"), dict)
                 else None
             ),
+            query_understanding=state.get("query_understanding"),
         )
         if guided
         else None
@@ -4649,6 +4725,7 @@ def _candidate_from_lab_draft(
         use_case_id=use_case_id,
         live_data_request=live_data_request,
         llm_intent_advisory=llm_intent_advisory,
+        query_understanding=None,
     )
     draft_spl = (draft or {}).get("draft_spl")
     if not draft or not isinstance(draft_spl, str) or not draft_spl.strip():

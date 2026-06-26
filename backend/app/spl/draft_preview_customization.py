@@ -86,11 +86,30 @@ def auth_failed_login_aggregation_shape(query: str) -> str:
     return "source_user_pair"
 
 
+
+
+def _apply_auth_profile_slots(spl: str, bindings: Any | None) -> str:
+    if bindings is None:
+        return spl
+    index = bindings.normalized_slots.get("index") or (
+        bindings.explicit_indexes[0] if bindings.explicit_indexes else None
+    )
+    sourcetype = bindings.normalized_slots.get("sourcetype") or (
+        bindings.explicit_sourcetypes[0] if bindings.explicit_sourcetypes else None
+    )
+    if index:
+        spl = spl.replace("<auth_index>", index)
+    if sourcetype:
+        spl = spl.replace("<auth_sourcetype>", sourcetype)
+    return spl
+
+
 def customize_auth_failed_login_threshold(
     user_query: str,
     *,
     draft_spl: str,
     assumptions: tuple[str, ...],
+    bindings: Any | None = None,
 ) -> tuple[str, tuple[str, ...], str, str]:
     """Return customized SPL, assumptions, aggregation_shape, time_window_label."""
     time_bounds = time_window_or_default(user_query)
@@ -98,17 +117,35 @@ def customize_auth_failed_login_threshold(
     shape = auth_failed_login_aggregation_shape(user_query)
     relative_rank = bool(re.search(r"\b(abnormal|highest|most)\b", " ".join(user_query.lower().split())))
 
+    threshold_value = None
+    if bindings is not None:
+        threshold_value = (bindings.explicit_thresholds or {}).get("threshold")
+    if threshold_value is None:
+        threshold_match = re.search(r"\bmore\s+than\s+(\d+)\b", user_query, re.I)
+        if threshold_match:
+            threshold_value = threshold_match.group(1)
+
     if shape == "user_ranking":
         spl = _USER_RANKING_SPL.format(
             time_bounds=time_bounds,
             failure_filter=_AUTH_FAILURE_FILTER,
         )
+        if threshold_value and not relative_rank:
+            spl = spl.replace(
+                "| sort - fail_count",
+                f"| where fail_count > {threshold_value}\n| sort - fail_count",
+            )
+        spl = _apply_auth_profile_slots(spl, bindings)
         assumption_rows = (
             f"Ranks users by failed-login volume over {window_label}; "
             + (
                 "abnormally high is surfaced by relative ranking (top-N), not a fixed count threshold."
                 if relative_rank
-                else "Tune any post-ranking threshold per environment; lower for privileged accounts."
+                else (
+                    f"Applies an explicit failed-login count threshold of > {threshold_value} before ranking."
+                    if threshold_value
+                    else "Tune any post-ranking threshold per environment; lower for privileged accounts."
+                )
             ),
             "Field mappings use coalesce() for user, source IP, and host/dest — confirm names against your auth sourcetype during review.",
             "Replace <auth_index> and <auth_sourcetype> from your authentication source profile.",
@@ -120,6 +157,12 @@ def customize_auth_failed_login_threshold(
         time_bounds=time_bounds,
         failure_filter=_AUTH_FAILURE_FILTER,
     )
+    if threshold_value and not relative_rank:
+        spl = spl.replace(
+            "| sort - fail_count",
+            f"| where fail_count > {threshold_value}\n| sort - fail_count",
+        )
+    spl = _apply_auth_profile_slots(spl, bindings)
     if relative_rank:
         assumption_rows = tuple(
             a.replace("24 hours", window_label)
@@ -187,6 +230,7 @@ def customize_draft_preview_for_query(
             user_query,
             draft_spl=draft_spl,
             assumptions=assumptions,
+            bindings=bindings,
         )
         metadata["aggregation_shape"] = shape
         metadata["time_window_label"] = window_label

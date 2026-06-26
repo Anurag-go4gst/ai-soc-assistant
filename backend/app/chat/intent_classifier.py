@@ -238,8 +238,6 @@ def classify_intent(
             requested_output_type="ACTION_PLAN",
         )
 
-    # Non-SOC / out-of-scope must win before explicit-search and analytics branches;
-    # otherwise "Show me vacation policy…" can be misread as log-search SPL drafting.
     if signals.get("non_soc_or_out_of_scope"):
         return _build_classification(
             intent_family="clarification_required",
@@ -792,6 +790,25 @@ def classify_intent(
             action_mode="recommend_only",
             reason="Maps to a catalog SOC use case; route to the registry skill (review-only, execution disabled).",
             requested_output_type="INVESTIGATION",
+        )
+
+    if (
+        signals.get("explicit_log_search")
+        and not signals.get("guidance_request")
+        and str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+    ):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.62,
+            requires_clarification=False,
+            reason=(
+                "Explicit log-search request without registry match; review-only SPL "
+                "via governed producer (execution disabled)."
+            ),
+            requested_output_type="SPL",
         )
 
     # Terminal floor (Batch 0 — intent cascade hardening). This sits AFTER every
