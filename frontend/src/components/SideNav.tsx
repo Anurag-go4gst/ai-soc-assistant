@@ -10,6 +10,7 @@ import {
   MessageSquareText,
   Network,
   Settings as SettingsIcon,
+  Sparkles,
 } from 'lucide-react';
 import { ARCHITECTURE_QUERY_FLOW_DOC_HREF } from '@/lib/architectureDoc';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils';
 const baseNavItems = [
   { to: '/cockpit', label: 'Cockpit', icon: LayoutDashboard },
   { to: '/chat', label: 'Chat', icon: MessageSquareText },
+  { to: '/llm-lab', label: 'Ask LLM', icon: Sparkles },
   { to: '/investigations', label: 'Investigations', icon: FileSearch },
   { to: '/scenarios', label: 'Scenarios', icon: Activity },
   { to: '/knowledge', label: 'Knowledge', icon: DatabaseZap },

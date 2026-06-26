@@ -8,6 +8,7 @@ import { ChatPage } from './pages/ChatPage';
 import { DebugPage } from './pages/DebugPage';
 import { InvestigationsPage } from './pages/InvestigationsPage';
 import { KnowledgePage } from './pages/KnowledgePage';
+import { LlmLabPage } from './pages/LlmLabPage';
 import { LoginPage } from './pages/LoginPage';
 import { QualityPage } from './pages/QualityPage';
 import { ScenariosPage } from './pages/ScenariosPage';
@@ -123,6 +124,7 @@ export default function App() {
             <Route path="/" element={<Navigate to="/cockpit" replace />} />
             <Route path="/cockpit" element={<SocCockpit />} />
             <Route path="/chat" element={<ChatPage />} />
+            <Route path="/llm-lab" element={<LlmLabPage />} />
             <Route path="/investigations" element={<InvestigationsPage />} />
             <Route path="/scenarios" element={<ScenariosPage />} />
             <Route path="/knowledge" element={<KnowledgePage />} />

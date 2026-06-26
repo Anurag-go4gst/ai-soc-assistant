@@ -27,6 +27,7 @@ from app.api.routes_chat_stream import router as chat_stream_router
 from app.api.routes_health import router as health_router
 from app.api.routes_investigations import router as investigations_router
 from app.api.routes_knowledge import router as knowledge_router
+from app.api.routes_llm_lab import router as llm_lab_router
 from app.api.routes_quality import router as quality_router
 from app.api.routes_scenarios import demo_router, router as scenarios_router
 from app.api.routes_settings import router as settings_router
@@ -177,3 +178,5 @@ app.include_router(quality_router)
 app.include_router(quality_router, prefix="/api")
 app.include_router(debug_router)
 app.include_router(debug_router, prefix="/api")
+app.include_router(llm_lab_router)
+app.include_router(llm_lab_router, prefix="/api")

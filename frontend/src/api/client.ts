@@ -276,6 +276,50 @@ export async function controlLlm(action: 'restart' | 'stop' | 'start'): Promise<
   return response.json();
 }
 
+export interface LlmLabStatus {
+  available: boolean;
+  llm_enabled: boolean;
+  mode: string;
+  provider_configured: boolean;
+  disclaimer: string;
+}
+
+export interface LlmLabAnswer {
+  answer: string | null;
+  available: boolean;
+  llm_called: boolean;
+  provider: string | null;
+  timed_out: boolean;
+  latency_ms: number;
+  disclaimer: string;
+  reason: string | null;
+}
+
+export async function getLlmLabStatus(): Promise<LlmLabStatus> {
+  const response = await fetch(`${API_BASE_URL}/llm-lab/status`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`LLM lab status failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function askLlmLab(payload: {
+  prompt: string;
+  system_prompt?: string;
+  max_tokens?: number;
+}): Promise<LlmLabAnswer> {
+  const response = await fetch(`${API_BASE_URL}/llm-lab/ask`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`LLM lab ask failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getProviderSettingsStatus(): Promise<ProviderSettingsStatus> {
   const response = await fetch(`${API_BASE_URL}/settings/providers/status`, { credentials: 'include' });
   if (!response.ok) {
