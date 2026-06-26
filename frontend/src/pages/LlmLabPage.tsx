@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Activity, Check, Copy, Cpu, Send, Sparkles, Zap } from 'lucide-react';
+import {
+  Activity,
+  Check,
+  Copy,
+  Cpu,
+  Lightbulb,
+  Loader2,
+  Send,
+  Sparkles,
+  Wand2,
+  Zap,
+} from 'lucide-react';
 import { askLlmLab, getLlmLabStatus, getLlmRuntimeHealth } from '@/api/client';
 import type { LlmLabAnswer, LlmLabStatus, LlmRuntimeHealth } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +28,8 @@ export function LlmLabPage() {
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [suggestions, setSuggestions] = useState<string[] | null>(null);
 
   const loadHealth = () => {
     void getLlmRuntimeHealth().then(setHealth).catch(() => setHealth(null));
@@ -28,6 +41,16 @@ export function LlmLabPage() {
     const id = window.setInterval(loadHealth, 30_000);
     return () => window.clearInterval(id);
   }, []);
+
+  // Live elapsed ticker while a call is in flight — gives a visible heartbeat so
+  // the slow on-prem model never looks frozen.
+  useEffect(() => {
+    if (!asking) return;
+    const started = Date.now();
+    setElapsedMs(0);
+    const id = window.setInterval(() => setElapsedMs(Date.now() - started), 200);
+    return () => window.clearInterval(id);
+  }, [asking]);
 
   const onAsk = async () => {
     const trimmed = prompt.trim();
@@ -46,6 +69,13 @@ export function LlmLabPage() {
       setAsking(false);
     }
   };
+
+  const applyPreset = (text: string) => {
+    setPrompt((current) => (current.trim() ? `${text}\n\n${current.trim()}` : text));
+    setSuggestions(null);
+  };
+
+  const onAnalyse = () => setSuggestions(analysePrompt(prompt));
 
   const onCopy = () => {
     if (!result?.answer) return;
@@ -119,9 +149,31 @@ export function LlmLabPage() {
               <CardTitle className="text-sm text-cyan-200">Prompt</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <p className="text-[0.65rem] uppercase tracking-wide text-slate-500">
+                  Starter roles · optional — prepends to your prompt
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PROMPT_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      disabled={!available || asking}
+                      onClick={() => applyPreset(preset.text)}
+                      title={preset.text}
+                      className="rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-1 text-xs text-fuchsia-200 transition hover:bg-fuchsia-500/20 disabled:opacity-40"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <Textarea
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
+                onChange={(e) => {
+                  setPrompt(e.target.value);
+                  if (suggestions) setSuggestions(null);
+                }}
                 placeholder="Ask anything — e.g. explain T1110 brute-force detection logic."
                 rows={7}
                 disabled={!available || asking}
@@ -130,18 +182,63 @@ export function LlmLabPage() {
                   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') void onAsk();
                 }}
               />
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[0.65rem] text-slate-500">⌘/Ctrl + Enter to send</span>
-                <Button
-                  size="sm"
-                  disabled={!available || asking || !prompt.trim()}
-                  onClick={() => void onAsk()}
-                  className="bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-slate-950 hover:opacity-90"
-                >
-                  <Send className={asking ? 'h-3.5 w-3.5 animate-pulse' : 'h-3.5 w-3.5'} />
-                  {asking ? 'Asking…' : 'Ask'}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={asking || !prompt.trim()}
+                    onClick={onAnalyse}
+                    className="gap-1 border border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                  >
+                    <Wand2 className="h-3.5 w-3.5" />
+                    Analyse
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={!available || asking || !prompt.trim()}
+                    onClick={() => void onAsk()}
+                    className="bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-slate-950 hover:opacity-90"
+                  >
+                    <Send className={asking ? 'h-3.5 w-3.5 animate-pulse' : 'h-3.5 w-3.5'} />
+                    {asking ? 'Asking…' : 'Ask'}
+                  </Button>
+                </div>
               </div>
+
+              {asking ? (
+                <div className="flex items-center gap-2 rounded-md border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-xs">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-300" />
+                  <span className="font-mono text-cyan-200">{(elapsedMs / 1000).toFixed(1)}s</span>
+                  <span className="text-slate-400">
+                    {elapsedMs > 120_000
+                      ? 'still running — model is slow under load, hold on…'
+                      : elapsedMs > 45_000
+                        ? 'generating — on-prem 8B can take 30–120s…'
+                        : 'model is generating…'}
+                  </span>
+                </div>
+              ) : null}
+
+              {suggestions ? (
+                <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3 text-xs">
+                  <p className="mb-1.5 flex items-center gap-1.5 font-medium text-amber-200">
+                    <Lightbulb className="h-3.5 w-3.5" />
+                    Prompt analysis
+                  </p>
+                  {suggestions.length ? (
+                    <ul className="list-disc space-y-1 pl-4 text-slate-300">
+                      {suggestions.map((s) => (
+                        <li key={s}>{s}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-emerald-300">Looks well-formed — role, task, and output expectations are clear.</p>
+                  )}
+                </div>
+              ) : null}
+
               {!available && status !== null ? (
                 <p className="text-xs text-slate-500">
                   LLM not enabled on this deployment. Set <code>AI_SOC_LLM_ENABLED=true</code> and configure a local /
@@ -195,6 +292,70 @@ export function LlmLabPage() {
       </div>
     </ScrollArea>
   );
+}
+
+interface PromptPreset {
+  label: string;
+  text: string;
+}
+
+// Role/framing starters the on-prem 8B responds best to (concise role + scope +
+// explicit output expectation). Optional — prepended to whatever the user types.
+const PROMPT_PRESETS: PromptPreset[] = [
+  {
+    label: 'SOC analyst',
+    text: 'You are a senior SOC analyst. Answer concisely and flag any assumption when you lack live data.',
+  },
+  {
+    label: 'Detection engineer',
+    text: 'You are a Splunk detection engineer. Give the detection logic and a sample SPL skeleton; mark fields that need tuning.',
+  },
+  {
+    label: 'Threat hunter',
+    text: 'You are a threat hunter. Frame the answer as a hypothesis, the data sources to check, and what would confirm or refute it.',
+  },
+  {
+    label: 'MITRE mapper',
+    text: 'You are a MITRE ATT&CK specialist. Map the behaviour to technique IDs and state your confidence for each.',
+  },
+  {
+    label: 'IR responder',
+    text: 'You are an incident responder. Give prioritised containment and investigation steps (P1–P4).',
+  },
+];
+
+// Deterministic, instant prompt critique — no LLM round trip. Heuristics over
+// what the on-prem model needs to answer well: role framing, scope, output
+// shape, length, and time/context anchoring.
+function analysePrompt(raw: string): string[] {
+  const text = raw.trim();
+  const lower = text.toLowerCase();
+  const tips: string[] = [];
+
+  if (text.length < 15) {
+    tips.push('Very short — add what you actually want answered and any relevant context.');
+  }
+  const hasRole = /you are|act as|as a |role:/i.test(lower);
+  if (!hasRole) {
+    tips.push('No role framing — pick a starter (e.g. "SOC analyst") so the model answers in context.');
+  }
+  const hasOutputShape = /(list|steps|table|spl|json|bullet|summary|paragraph|example)/i.test(lower);
+  if (!hasOutputShape) {
+    tips.push('No output format — say if you want a list, steps, an SPL skeleton, or a short paragraph.');
+  }
+  const hasConstraint = /(concise|brief|short|detailed|only|do not|avoid|max|within)/i.test(lower);
+  if (!hasConstraint) {
+    tips.push('No constraint — add length/scope guidance (e.g. "concise", "3 bullets") to keep it focused.');
+  }
+  const mentionsData = /(log|splunk|index|sourcetype|event|alert|edr|firewall|dns|auth)/i.test(lower);
+  if (mentionsData && !/(no live data|assume|hypothetical|in general)/i.test(lower)) {
+    tips.push('References data sources — note this model has no live data, so ask for general logic or assumptions.');
+  }
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  if (wordCount > 200) {
+    tips.push('Long prompt — trim to the core question; the 8B handles tight prompts better.');
+  }
+  return tips;
 }
 
 type Tone = 'good' | 'warn' | 'bad' | 'idle';
