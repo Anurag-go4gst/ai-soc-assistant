@@ -55,9 +55,15 @@ function StepDescription({ step, isActive, isComplete }: { step: InvestigationPr
       setLineIndex(0);
       return undefined;
     }
-    const intervalMs = Math.max(380, Math.floor(step.durationMs / lines.length));
+    // Restart from the first line each time the step becomes active, then walk
+    // the lines forward once and hold on the last one. Never wrap back to the
+    // start — wrapping is what made two-line steps flicker A↔B and read as a hang.
+    setLineIndex(0);
+    // Keep each line on screen long enough to actually read (>= ~1.1s), even
+    // when the step's own duration is short.
+    const intervalMs = Math.max(1100, Math.floor(step.durationMs / lines.length));
     const timer = window.setInterval(() => {
-      setLineIndex((current) => (current + 1) % lines.length);
+      setLineIndex((current) => (current >= lines.length - 1 ? current : current + 1));
     }, intervalMs);
     return () => window.clearInterval(timer);
   }, [isActive, lines, step.durationMs]);
@@ -77,8 +83,9 @@ function StepDescription({ step, isActive, isComplete }: { step: InvestigationPr
       <p className="mt-0.5 text-xs leading-5 text-slate-400">{step.description}</p>
       {activityLine ? (
         <p
+          key={activityLine}
           className={cn(
-            'mt-1.5 font-mono text-[0.65rem] leading-4 transition-colors',
+            'mt-1.5 font-mono text-[0.65rem] leading-4 transition-colors duration-300 animate-in fade-in',
             isActive ? 'text-cyan-200/95' : 'text-slate-500',
           )}
         >
