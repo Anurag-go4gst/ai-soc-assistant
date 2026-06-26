@@ -45,6 +45,13 @@ try:
 except Exception:  # noqa: BLE001 - never block startup on an optional override
     logging.getLogger("ai_soc.llm").warning("llm_connection_override_apply_failed", exc_info=True)
 
+try:
+    from app.connectors.mcp.connection_store import apply_to_settings as _apply_mcp_connection_override
+
+    _apply_mcp_connection_override()
+except Exception:  # noqa: BLE001 - never block startup on an optional override
+    logging.getLogger("ai_soc.mcp").warning("mcp_connection_override_apply_failed", exc_info=True)
+
 _telemetry_logger = logging.getLogger("ai_soc.telemetry")
 
 # Stable, public-safe error code returned to clients for any unhandled exception.

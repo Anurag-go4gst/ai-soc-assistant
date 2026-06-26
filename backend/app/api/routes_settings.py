@@ -81,6 +81,21 @@ class McpVerificationRequest(BaseModel):
     timeout_seconds: int = 5
 
 
+class McpConnectionSaveRequest(BaseModel):
+    enabled: bool = False
+    deployment_mode: str = "coe"
+    discovery_policy: str = "dynamic"
+    transport: str = "streamable_http"
+    auth_method: str = "bearer"
+    url: str = ""
+    bearer_token: str = ""
+    timeout_seconds: int = 10
+    saia_tools_enabled: bool = False
+    splunk_ai_assistant_mode: str = "auto"
+    allow_saved_search: bool = False
+    execution_enabled: bool = False
+
+
 _ALLOWED_TOOLS = [
     "splunk_run_query",
     "splunk_get_indexes",
@@ -481,6 +496,57 @@ def test_mcp_connection(payload: McpVerificationRequest | None = None) -> dict:
 def discover_mcp_tools(payload: McpVerificationRequest | None = None) -> dict:
     draft = _mcp_verification_payload(payload)
     return _mcp_verification_result(draft, action="discover")
+
+
+@router.get("/settings/mcp/connection")
+def get_mcp_connection(_user: dict = Depends(require_auth)) -> dict:
+    from app.connectors.mcp.connection_store import effective_connection
+
+    return {
+        "connection": effective_connection(),
+        "supported_deployment_modes": ["coe", "customer_test", "production", "air_gapped"],
+        "supported_discovery_policies": ["dynamic", "restricted", "static_only"],
+        "supported_transports": sorted(SUPPORTED_TRANSPORTS),
+        "supported_auth_methods": sorted(SUPPORTED_MCP_AUTH_MODES),
+    }
+
+
+@router.post("/settings/mcp/connection")
+def save_mcp_connection(payload: McpConnectionSaveRequest, user: dict = Depends(require_auth)) -> dict:
+    from app.connectors.mcp.connection_store import effective_connection, save_connection
+
+    draft = McpVerificationRequest(
+        provider_kind="splunk",
+        deployment_mode=payload.deployment_mode,
+        discovery_policy=payload.discovery_policy,
+        transport=payload.transport,
+        auth_method=payload.auth_method,
+        url=payload.url,
+        bearer_token=payload.bearer_token or settings.splunk_mcp_token,
+        timeout_seconds=payload.timeout_seconds,
+    )
+    errors = _validate_mcp_draft(draft)
+    if payload.execution_enabled:
+        errors.append("execution_enablement_requires_env_change_control")
+    if errors:
+        return {"saved": False, "validation_errors": errors, "connection": effective_connection()}
+
+    save_connection(
+        enabled=payload.enabled,
+        deployment_mode=payload.deployment_mode,
+        discovery_policy=payload.discovery_policy,
+        transport=payload.transport,
+        auth_method=payload.auth_method,
+        url=payload.url,
+        bearer_token=payload.bearer_token,
+        timeout_seconds=payload.timeout_seconds,
+        saia_tools_enabled=payload.saia_tools_enabled,
+        splunk_ai_assistant_mode=payload.splunk_ai_assistant_mode,
+        allow_saved_search=payload.allow_saved_search,
+        execution_enabled=False,
+        updated_by=str(user.get("username") or "unknown"),
+    )
+    return {"saved": True, "validation_errors": [], "connection": effective_connection()}
 
 
 @router.get("/settings/llm/health")
@@ -1878,4 +1944,3 @@ def save_ioc_registry_settings(payload: IocRegistrySaveRequest) -> dict:
         "saved": True,
         **summary,
     }
-

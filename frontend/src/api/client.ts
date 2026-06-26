@@ -392,12 +392,75 @@ export async function checkProviderDraft(payload: ProviderDraftCheckRequest): Pr
   return response.json();
 }
 
+export interface McpConnectionConfig {
+  enabled: boolean;
+  server_id: string;
+  deployment_mode: string;
+  discovery_policy: string;
+  transport: string;
+  auth_method: string;
+  url: string;
+  bearer_token_configured: boolean;
+  timeout_seconds: number;
+  saia_tools_enabled: boolean;
+  splunk_ai_assistant_mode: string;
+  allow_saved_search: boolean;
+  execution_enabled: boolean;
+  source: 'override' | 'env';
+}
+
+export interface McpConnectionResponse {
+  connection: McpConnectionConfig;
+  supported_deployment_modes: string[];
+  supported_discovery_policies: string[];
+  supported_transports: string[];
+  supported_auth_methods: string[];
+}
+
+export interface McpConnectionSaveResult {
+  saved: boolean;
+  validation_errors: string[];
+  connection: McpConnectionConfig;
+}
+
+export async function getMcpConnection(): Promise<McpConnectionResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/mcp/connection`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`MCP connection load failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveMcpConnection(payload: {
+  enabled: boolean;
+  deployment_mode: string;
+  discovery_policy: string;
+  transport: string;
+  auth_method: string;
+  url: string;
+  bearer_token: string;
+  timeout_seconds: number;
+  saia_tools_enabled: boolean;
+  splunk_ai_assistant_mode: string;
+  allow_saved_search: boolean;
+  execution_enabled: boolean;
+}): Promise<McpConnectionSaveResult> {
+  const response = await fetch(`${API_BASE_URL}/settings/mcp/connection`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`MCP connection save failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function verifyMcpConnection(action: 'validate' | 'test' | 'discover'): Promise<McpConnectionVerificationResult> {
   const response = await fetch(`${API_BASE_URL}/settings/mcp/${action}`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
   });
   if (!response.ok) {
     throw new Error(`MCP ${action} failed: ${response.status}`);
