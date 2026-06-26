@@ -66,6 +66,8 @@ class SplShape:
     log_match_field: str | None = None
     assumptions: list[str] = field(default_factory=list)
     missing_fields: list[str] = field(default_factory=list)
+    constraints: list[dict[str, Any]] = field(default_factory=list)
+    missing_constraints: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -80,6 +82,8 @@ class SplShape:
             "log_match_field": self.log_match_field,
             "assumptions": self.assumptions,
             "missing_fields": self.missing_fields,
+            "constraints": self.constraints,
+            "missing_constraints": self.missing_constraints,
         }
 
 
@@ -132,6 +136,8 @@ def extract_spl_shape(
     if llm_shape:
         _merge_llm_gaps(shape, llm_shape)
 
+    shape.constraints = [dict(item) for item in tokens.semantic_constraints]
+    shape.missing_constraints = list(tokens.missing_constraint_bindings)
     shape.missing_fields = _missing_fields(shape)
     shape.assumptions = _assumptions(shape, profile)
     return shape

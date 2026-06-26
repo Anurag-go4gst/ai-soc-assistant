@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from app.spl.t2_constraints import extract_semantic_constraints, resolve_shift_config_for_query
+
 _INDEX_RE = re.compile(r"\bindex\s*=\s*([A-Za-z0-9_\-*]+)", re.IGNORECASE)
 _SOURCETYPE_RE = re.compile(r"\bsourcetype\s*=\s*([A-Za-z0-9_:\-./]+)", re.IGNORECASE)
 _LOOKUP_FILE_RE = re.compile(r"\b([A-Za-z0-9_\-]+\.csv)\b", re.IGNORECASE)
@@ -104,6 +106,8 @@ class PreParsedSplTokens:
     relative_windows: list[str] = field(default_factory=list)
     operation_hints: list[str] = field(default_factory=list)
     unsafe_commands: list[str] = field(default_factory=list)
+    semantic_constraints: list[dict[str, object]] = field(default_factory=list)
+    missing_constraint_bindings: list[str] = field(default_factory=list)
 
     def to_constraints(self) -> dict[str, object]:
         return {
@@ -116,6 +120,8 @@ class PreParsedSplTokens:
             "relative_windows": self.relative_windows,
             "operation_hints": self.operation_hints,
             "unsafe_commands": self.unsafe_commands,
+            "semantic_constraints": self.semantic_constraints,
+            "missing_constraint_bindings": self.missing_constraint_bindings,
         }
 
 
@@ -162,6 +168,8 @@ def pre_parse_spl_tokens(query: str) -> PreParsedSplTokens:
 
     unsafe_commands = sorted({cmd for cmd in UNSAFE_SPL_COMMANDS if re.search(rf"\b{cmd}\b", lowered)})
 
+    shift_config = resolve_shift_config_for_query(text)
+    constraint_result = extract_semantic_constraints(text, shift_config=shift_config)
     return PreParsedSplTokens(
         indexes=indexes,
         sourcetypes=sourcetypes,
@@ -172,4 +180,6 @@ def pre_parse_spl_tokens(query: str) -> PreParsedSplTokens:
         relative_windows=relative_windows,
         operation_hints=operation_hints,
         unsafe_commands=unsafe_commands,
+        semantic_constraints=[item.to_dict() for item in constraint_result.constraints],
+        missing_constraint_bindings=list(constraint_result.missing_bindings),
     )

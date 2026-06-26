@@ -216,6 +216,8 @@ def customize_draft_preview_for_query(
         metadata["skeleton_table_fields"] = table_fields
         metadata["used_user_bound_skeleton"] = True
         metadata["unbound_constraints"] = list(bindings.unbound_constraints)
+        metadata["semantic_constraints"] = list(bindings.semantic_constraints)
+        metadata["missing_constraints"] = list(bindings.missing_constraints)
         return skeleton, (), metadata
     if family_id == "scada_dnp3_modbus_write":
         outcome = render_spl_with_bindings(family_id, draft_spl, bindings)

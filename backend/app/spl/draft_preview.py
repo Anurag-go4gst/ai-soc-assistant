@@ -2701,6 +2701,8 @@ def build_generic_live_data_spl_skeleton(
     used_skeleton = False
     if _has_useful_bindings(bindings):
         draft_spl = build_user_bound_skeleton(bindings)
+        customization_meta["semantic_constraints"] = list(bindings.semantic_constraints)
+        customization_meta["missing_constraints"] = list(bindings.missing_constraints)
         used_skeleton = True
         customization_meta["used_user_bound_skeleton"] = True
         customization_meta["generation_mode"] = "user_bound_skeleton"

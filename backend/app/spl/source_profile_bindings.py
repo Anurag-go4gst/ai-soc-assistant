@@ -82,6 +82,9 @@ def build_source_profile_binding_slots(
     if winevent_context:
         _bind(result, profile, sources, "windows_security_sourcetype", slot="sourcetype", required=False)
         _bind(result, profile, sources, "windows_index", slot="index", required=False)
+        if _is_off_shift_context(user_query):
+            _bind(result, profile, sources, "normal_shift_start_hour", slot="normal_shift_start_hour", required=False)
+            _bind(result, profile, sources, "normal_shift_end_hour", slot="normal_shift_end_hour", required=False)
 
     if firewall_context:
         _bind(result, profile, sources, "firewall_index", slot="index", required=False)
@@ -179,6 +182,13 @@ def _is_firewall_context(user_query: str) -> bool:
     return bool(
         re.search(r"\b(syslog|cisco_asa|firewall|permit|permits)\b", text)
         and re.search(r"\b(port|zone|vlan|dmz|traffic)\b", text)
+    )
+
+
+def _is_off_shift_context(user_query: str) -> bool:
+    text = (user_query or "").lower()
+    return bool(re.search(r"\b(?:outside|after)\s+(?:normal\s+)?shift\s+hours?\b", text)) or bool(
+        re.search(r"\boff[\s-]?shift\b|\bafter[\s-]?hours\b", text)
     )
 
 

@@ -72,6 +72,8 @@ SOURCE_PROFILE_SLOT_DEFINITIONS: tuple[SourceProfileSlotDefinition, ...] = (
     SourceProfileSlotDefinition("western_grid_tag", "Western Grid tag", "ot", "Environment label for Western Grid substations", "Western_Grid"),
     SourceProfileSlotDefinition("northern_grid_tag", "Northern Grid tag", "ot", "Environment label for Northern Grid assets", "Northern_Grid"),
     SourceProfileSlotDefinition("sldc_node", "SLDC node", "ot", "State Load Despatch Center node/asset label", "SLDC"),
+    SourceProfileSlotDefinition("normal_shift_start_hour", "Normal shift start hour", "compliance", "Configured normal business/shift start hour (0-23)", "6"),
+    SourceProfileSlotDefinition("normal_shift_end_hour", "Normal shift end hour", "compliance", "Configured normal business/shift end hour (0-23)", "22"),
     SourceProfileSlotDefinition("vendor_maint_start_hour", "Vendor maintenance start hour", "compliance", "Approved OEM vendor maintenance start hour, 0-23", "22"),
     SourceProfileSlotDefinition("vendor_maint_end_hour", "Vendor maintenance end hour", "compliance", "Approved OEM vendor maintenance end hour, 0-23", "5"),
     # OT-protocol lab draft slots (ot_protocol_families.py) — review-only Google-25 hunts.

@@ -41,6 +41,7 @@ class FinalSplProjection:
     lookup_spl: str | None = None
     threshold_spl: str | None = None
     destination_lookup_spl: str | None = None
+    enriched_windows_spl: bool = False
 
 
 def _eval_target_field(line: str) -> str | None:
@@ -138,12 +139,44 @@ def build_output_projection_from_bindings(
     )
 
 
+
+
+def _assemble_windows_enriched_spl(
+    bindings: UserConstraintBindings,
+    slots: dict[str, str],
+    projection: FinalSplProjection,
+) -> str:
+    indexes = bindings.explicit_indexes or ([slots["index"]] if slots.get("index") else ["wineventlog"])
+    index_clause = indexes[0]
+    time_bounds = slots.get("time_window") or bindings.explicit_time_window or "earliest=-7d latest=now"
+    sourcetype_clause = f" sourcetype={slots['sourcetype']}" if slots.get("sourcetype") else ""
+    lines = [f"index={index_clause} {time_bounds}{sourcetype_clause}"]
+    eval_lines = list(projection.eval_lines)
+    if not any("user_norm=" in line for line in eval_lines):
+        eval_lines.append(
+            '| eval user_norm=coalesce(TargetUserName, user, Account_Name, AccountName)'
+        )
+    lines.extend(eval_lines)
+    if projection.where_clauses:
+        lines.append(f"| where {' AND '.join(projection.where_clauses)}")
+    lines.append(
+        "| stats count as event_count values(Logon_Type) as logon_types "
+        "values(dest_host_norm) as targeted_hosts by _time user_norm src_ip_norm login_hour"
+    )
+    lines.append("| sort -_time")
+    lines.append(
+        "| table _time user_norm src_ip_norm login_hour targeted_hosts logon_types event_count"
+    )
+    return "\n".join(lines)
+
 def assemble_skeleton_spl(
     bindings: UserConstraintBindings,
     slots: dict[str, str] | None,
     projection: FinalSplProjection,
 ) -> str:
     slots = dict(slots or bindings.normalized_slots)
+    if getattr(projection, "enriched_windows_spl", False):
+        return _assemble_windows_enriched_spl(bindings, slots, projection)
     indexes = bindings.explicit_indexes or ([slots["index"]] if slots.get("index") else ["*"])
     index_clause = " OR ".join(f"index={idx}" for idx in indexes)
     time_bounds = slots.get("time_window") or bindings.explicit_time_window or "earliest=-24h latest=now"
@@ -472,6 +505,15 @@ def _build_windows_projection(
     if bindings.explicit_hosts or slots.get("host"):
         host = bindings.explicit_hosts[0] if bindings.explicit_hosts else slots["host"]
         where_clauses.append(f'dest_host_norm="{_quoted_spl(host)}"')
+
+    src_scope = slots.get("src_scope")
+    if src_scope == "substation_subnet" and slots.get("approved_source_cidr"):
+        cidr = slots["approved_source_cidr"]
+        where_clauses.append(f'cidrmatch("{cidr}", src_ip_norm)')
+    elif src_scope == "substation_subnet" and slots.get("substation_mapping_lookup"):
+        lookup = slots["substation_mapping_lookup"]
+        eval_lines.append(f"| lookup {lookup} ip as src_ip_norm OUTPUT substation_id")
+        where_clauses.append("isnotnull(substation_id)")
 
     for field in ("Logon_Type", "Workstation_Name", "Authentication_Package"):
         if field not in table:

@@ -55,7 +55,9 @@
     "vpn_sourcetype": "coe_store",
     "western_grid_tag": "coe_store",
     "windows_index": "coe_store",
-    "windows_security_sourcetype": "coe_store"
+    "windows_security_sourcetype": "coe_store",
+    "normal_shift_start_hour": "coe_store",
+    "normal_shift_end_hour": "coe_store"
   },
   "updated_at": "2026-06-19T00:00:00+00:00",
   "updated_by": "coe_ui",
@@ -115,6 +117,8 @@
     "vpn_sourcetype": "pgcil:vpn",
     "western_grid_tag": "Western_Grid",
     "windows_index": "pgcil_soc",
-    "windows_security_sourcetype": "WinEventLog:Security"
+    "windows_security_sourcetype": "WinEventLog:Security",
+    "normal_shift_start_hour": "6",
+    "normal_shift_end_hour": "22"
   }
 }

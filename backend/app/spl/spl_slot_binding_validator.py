@@ -189,7 +189,7 @@ _NL_SEARCH_INDEX_RE = re.compile(
     re.IGNORECASE,
 )
 _NL_INDEX_RE = re.compile(
-    r"\b(?:search|in|across|from)\s+(?:the\s+)?([a-z0-9_*:-]+)\s+index\b|\b([a-z0-9_*:-]+)\s+index\b",
+    r"\b(?:search|in|across|from|on)\s+(?:the\s+)?([a-z0-9_*:-]+)\s+(?:index|for)\b|\b([a-z0-9_*:-]+)\s+index\b",
     re.IGNORECASE,
 )
 _NL_USER_RE = re.compile(
