@@ -51,6 +51,17 @@ class T2SplArtifact:
             "llm_warnings": self.llm_warnings,
         }
 
+def is_t2_spl_native_review(
+    spl_validation: dict[str, Any] | None = None,
+    candidate_spl: dict[str, Any] | None = None,
+) -> bool:
+    """True when the live turn owns a T1 SPL-native review-only draft."""
+    if isinstance(candidate_spl, dict) and candidate_spl.get("generation_mode") == "t2_spl_native_review":
+        return True
+    if isinstance(spl_validation, dict):
+        return str(spl_validation.get("review_required_reason") or "") == "t2_spl_native_review_only"
+    return False
+
 
 def generate_review_only_spl(
     query: str,

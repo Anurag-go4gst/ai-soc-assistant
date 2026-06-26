@@ -27,6 +27,7 @@ from app.spl.source_profile_resolver import (
 )
 from app.spl.source_profile_store import load_persisted_source_profile
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
+from app.spl.t2_generation import is_t2_spl_native_review
 from app.spl.template_compatibility import check_template_compatibility
 from app.spl.template_slot_bindings import build_user_bound_skeleton, skeleton_output_plan
 from app.spl.user_constraint_bindings import build_user_constraint_bindings
@@ -2805,6 +2806,10 @@ def build_draft_preview(
     # Unsafe enforcement intent overrides all SPL/search intent: never surface a
     # draft (investigation or otherwise) when the request is to block/contain.
     if unsafe_enforcement:
+        return None
+    # T1 SPL-native review-only draft owns the SPL surface; do not build a parallel
+    # lab skeleton (inventory miss / wrong sourcetype) that would override it.
+    if is_t2_spl_native_review(spl_validation):
         return None
     if _is_governed_spl_ready(spl_validation):
         return None

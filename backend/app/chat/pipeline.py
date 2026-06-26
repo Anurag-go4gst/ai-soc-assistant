@@ -31,6 +31,7 @@ from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS
 from app.orchestration.workflow_planner import plan_workflow
+from app.query_understanding.soc_investigation_shape import detect_spl_artifact_request
 from app.query_understanding.semantic_intent import build_semantic_intent_envelope
 from app.query_understanding.parser import understand_query
 from app.routing.routing_provenance import degraded_query_understanding_from_failover
@@ -2167,6 +2168,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         # owns the visible message (the SPL is shown).
         human_review = _t2_review_only_review()
         note = "Review-only SPL draft produced; analyst validation required before any execution. Nothing was executed."
+        if path_type == "guided_investigation" and isinstance(candidate_spl, dict):
+            spl_text = str(candidate_spl.get("candidate_spl") or "").strip()
+            if spl_text and spl_text not in message:
+                spl_block = (
+                    "Review-only SPL draft (not executed):\n"
+                    f"```\n{spl_text}\n```"
+                )
+                message = f"{message.strip()}\n\n{spl_block}".strip()
     elif _is_spl_clarification_required(spl_validation):
         human_review = _spl_clarification_review(spl_validation)
         message = human_review["safe_message_for_user"]
@@ -4290,12 +4299,26 @@ def _candidate_spl_stage(
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
-    if skill not in {"attack_discovery", "spl_generation"}:
+    guided_spl_rescue = (
+        skill == "guided_investigation"
+        and _guided_investigation_spl_rescue_eligible(user_query)
+    )
+    if skill not in {"attack_discovery", "spl_generation"} and not guided_spl_rescue:
         return None, None
 
     telemetry = _routes_chat().get_telemetry_connector()
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
     spl_governance = _runtime_spl_governance(use_case_id)
+    if guided_spl_rescue:
+        t2_native_candidate = _candidate_from_t2_spl_native(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+        )
+        return t2_native_candidate if t2_native_candidate is not None else (None, None)
     template = get_spl_template(template_id)
     governance_block_reason = _spl_governance_block_reason(template_id, template, spl_governance)
     if governance_block_reason is not None:
@@ -4308,6 +4331,19 @@ def _candidate_spl_stage(
             reason=governance_block_reason,
             spl_governance=spl_governance,
         )
+    runtime_profile = _t2_runtime_profile_for_query(user_query)
+    if runtime_profile is not None:
+        t2_early = _candidate_from_t2_spl_native(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+        )
+        if t2_early is not None:
+            return t2_early
+
     user_bindings = _spl_user_constraint_bindings(
         user_query,
         llm_intent_advisory=llm_intent_advisory,
@@ -4359,22 +4395,6 @@ def _candidate_spl_stage(
             policy_version=validation_payload["policy_version"],
         )
         return candidate_payload, validation_payload
-
-    # T1 SPL-native path: a runtime-source-profile query (scada_perf/cisco_asa)
-    # with no governed template gets a deterministic review-only draft (shape ->
-    # repair -> validate) before any clarification/LLM degrade. Narrowly gated on
-    # the runtime profile so other catalogue/105 paths are untouched. Always
-    # review-only (approved=false, normalized_spl=null, execution disabled).
-    t2_native_candidate = _candidate_from_t2_spl_native(
-        trace_id=trace_id,
-        skill=skill,
-        user_query=user_query,
-        telemetry=telemetry,
-        profile=profile,
-        spl_governance=spl_governance,
-    )
-    if t2_native_candidate is not None:
-        return t2_native_candidate
 
     llm_failover_enabled = _should_use_llm_spl_failover(skill)
     # B02: when LLM failover is enabled, do not short-circuit planned/missing
@@ -4887,6 +4907,18 @@ def _should_use_llm_spl_failover(skill: str) -> bool:
     if not settings.ai_soc_llm_spl_fallback_enabled:
         return False
     return skill in {"attack_discovery", "spl_generation"}
+
+
+def _guided_investigation_spl_rescue_eligible(user_query: str) -> bool:
+    """True when an out-of-registry guided turn still needs a review-only SPL draft.
+
+    Guided investigation is review-only guidance by default, but explicit SPL-native
+    asks (index-bound T2 profiles or SPL artifact phrasing) must still produce the
+    deterministic draft instead of prose-only baselining/hunt guidance.
+    """
+    if detect_spl_artifact_request(user_query):
+        return True
+    return _t2_runtime_profile_for_query(user_query) is not None
 
 
 def _t2_runtime_profile_for_query(user_query: str) -> Any | None:

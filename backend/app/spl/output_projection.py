@@ -89,6 +89,13 @@ def binding_initial_assessment(
             "Corroborate function codes and masters with change records before escalation.",
         ]
     if family == LOOKUP_CORRELATION_FAMILY:
+        lookup = bindings.explicit_lookups[0] if bindings.explicit_lookups else slots.get("lookup", "")
+        lookup_lower = str(lookup or "").lower()
+        if "ioc" in lookup_lower or slots.get("lookup_match_field") == "indicator_ip":
+            return [
+                "Correlate traffic or hosts against the named IOC/threat-feed lookup.",
+                "Review matched indicator hits with context before escalation.",
+            ]
         return [
             "Correlate traffic or hosts against the configured inventory lookup before declaring unmanaged assets.",
         ]

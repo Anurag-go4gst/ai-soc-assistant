@@ -585,12 +585,51 @@ def _build_protocol_command_projection(
         required_event_fields=list(dict.fromkeys(required)),
     )
 
+def _is_ioc_lookup_correlation(lookup: str, slots: dict[str, str]) -> bool:
+    lookup_lower = str(lookup or "").lower()
+    if "ioc" in lookup_lower or "indicator" in lookup_lower:
+        return True
+    if slots.get("lookup_match_field") == "indicator_ip":
+        return True
+    if re.search(r"\bindicator_ip\b", " ".join(slots.values()), re.IGNORECASE):
+        return True
+    return False
+
+
+def _ioc_lookup_correlation_spl(lookup: str, slots: dict[str, str]) -> str:
+    log_field = slots.get("log_match_field") or slots.get("dest_ip") or "dest_ip"
+    lookup_field = slots.get("lookup_match_field") or "indicator_ip"
+    return (
+        f"{{base}} | lookup {lookup} {lookup_field} as {log_field} "
+        f"OUTPUT {lookup_field} as matched_ioc\n"
+        "| where isnotnull(matched_ioc)\n"
+        "| stats count as event_count values(action) as actions by src_ip dest_ip matched_ioc\n"
+        "| table src_ip dest_ip actions event_count matched_ioc\n"
+        "| sort -event_count"
+    )
+
 
 def _build_lookup_projection(
     bindings: UserConstraintBindings,
     slots: dict[str, str],
 ) -> FinalSplProjection:
     lookup = bindings.explicit_lookups[0] if bindings.explicit_lookups else slots.get("lookup", "")
+    if lookup and _is_ioc_lookup_correlation(lookup, slots):
+        return FinalSplProjection(
+            table_fields=["src_ip", "dest_ip", "matched_ioc", "actions", "event_count"],
+            required_event_fields=["src_ip", "dest_ip", "action"],
+            lookup_spl=_ioc_lookup_correlation_spl(lookup, slots),
+            initial_assessment=[
+                "Correlate firewall or traffic logs against the named IOC/threat-feed lookup.",
+                "Review matched indicator hits with context before escalation.",
+            ],
+            checklist=[
+                "Confirm lookup CSV field mappings (indicator_ip as log match field).",
+                "Validate index/sourcetype and dest_ip/src_ip field mappings.",
+                "Tune the 24h window with operations before any execution.",
+                "Do not declare compromise from lookup hits alone.",
+            ],
+        )
     return FinalSplProjection(
         table_fields=["_time", "src_ip", "dest_ip", "asset_name"],
         required_event_fields=["_time", "src_ip", "dest_ip", "asset_name"],
