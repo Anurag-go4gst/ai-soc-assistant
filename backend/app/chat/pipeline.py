@@ -201,6 +201,7 @@ from app.chat.mitre_branch import planner_mitre_branch_suppressed_decision, run_
 from app.chat.hil_resolution import resolve_effective_hil_required
 from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
+from app.chat.debug_summary import build_debug_summary
 from app.chat.pipeline_visibility import build_pipeline_visibility
 from app.chat.session_context import (
     SessionContextResolution,
@@ -452,6 +453,7 @@ def _persist_live_chat_telemetry(
         )
         budget = state.get("llm_turn_budget")
         records = budget.records if isinstance(budget, TurnLlmBudget) else []
+        debug_summary = build_debug_summary(payload=payload, llm_budget_records=records)
         for record in records:
             telemetry.record_llm_call(
                 trace_id,
@@ -470,6 +472,8 @@ def _persist_live_chat_telemetry(
                 "answer_mode": answer_mode,
                 "selected_skill": payload.get("selected_skill"),
                 "llm_call_count": len(records),
+                "llm_live_calls": sum(1 for item in records if item.get("outcome") == "completed"),
+                "debug_summary": debug_summary,
                 "control_plane_trace": payload.get("control_plane_trace"),
                 "governance_trace": payload.get("governance_trace"),
                 "lineage_summary": payload.get("investigation_lineage"),

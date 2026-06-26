@@ -96,6 +96,7 @@ def fetch_trace_bundle(trace_id: str, *, max_events: int | None = None) -> dict[
         "run": run,
         "timeline": events,
         "explainability": {
+            "debug_summary": metadata.get("debug_summary"),
             "control_plane_trace": metadata.get("control_plane_trace"),
             "governance_trace": metadata.get("governance_trace"),
             "lineage_summary": metadata.get("lineage_summary"),
@@ -341,7 +342,13 @@ def _serialize_run(row: asyncpg.Record | None) -> dict[str, Any]:
         "question_preview": metadata.get("question_preview"),
         "answer_preview": metadata.get("answer_preview"),
         "llm_used": metadata.get("llm_used"),
+        "llm_live_calls": metadata.get("llm_live_calls"),
         "mcp_used": metadata.get("mcp_used"),
+        "match_path": metadata.get("match_path"),
+        "use_case_id": metadata.get("use_case_id"),
+        "question_ref": metadata.get("question_ref"),
+        "matched_pattern": metadata.get("matched_pattern"),
+        "spl_path": metadata.get("spl_path"),
     }
 
 
@@ -447,7 +454,13 @@ def _finalize_file_run(run: dict[str, Any]) -> None:
     run["question_preview"] = metadata.get("question_preview")
     run["answer_preview"] = metadata.get("answer_preview")
     run["llm_used"] = metadata.get("llm_used")
+    run["llm_live_calls"] = metadata.get("llm_live_calls")
     run["mcp_used"] = metadata.get("mcp_used")
+    run["match_path"] = metadata.get("match_path")
+    run["use_case_id"] = metadata.get("use_case_id")
+    run["question_ref"] = metadata.get("question_ref")
+    run["matched_pattern"] = metadata.get("matched_pattern")
+    run["spl_path"] = metadata.get("spl_path")
 
 
 def _file_list_trace_runs(

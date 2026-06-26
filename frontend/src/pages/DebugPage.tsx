@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type {
   DebugReadinessResponse,
+  DebugSummary,
   DebugTraceBundle,
   DebugTraceEvent,
   DebugTraceRun,
@@ -247,6 +248,49 @@ function ReadinessPanel({ readiness }: { readiness: DebugReadinessResponse }) {
   );
 }
 
+
+function llmLiveCalls(trace: DebugTraceRun): number {
+  if (typeof trace.llm_live_calls === 'number') return trace.llm_live_calls;
+  return 0;
+}
+
+function LlmTraceChip({ trace }: { trace: DebugTraceRun }) {
+  const live = llmLiveCalls(trace);
+  if (live > 0) {
+    return (
+      <span className="rounded bg-violet-950/40 px-1.5 py-0.5 text-[0.6rem] text-violet-300">
+        LLM×{live}
+      </span>
+    );
+  }
+  if (trace.spl_path === 'llm_spl_advisory_fallback') {
+    return (
+      <span className="rounded bg-slate-800/60 px-1.5 py-0.5 text-[0.6rem] text-slate-400" title="SPL LLM path configured; no live model call">
+        SPL-LLM
+      </span>
+    );
+  }
+  return null;
+}
+
+function RoutingTraceChips({ trace }: { trace: DebugTraceRun }) {
+  const chips: string[] = [];
+  if (trace.match_path) chips.push(trace.match_path);
+  if (trace.use_case_id) chips.push(trace.use_case_id);
+  else if (trace.question_ref) chips.push(trace.question_ref);
+  if (trace.matched_pattern) chips.push(`matched:${trace.matched_pattern}`);
+  if (!chips.length) return null;
+  return (
+    <>
+      {chips.map((chip) => (
+        <span key={chip} className="rounded bg-amber-950/30 px-1.5 py-0.5 text-[0.6rem] text-amber-200/90">
+          {chip}
+        </span>
+      ))}
+    </>
+  );
+}
+
 function TraceList({
   traces,
   selectedTraceId,
@@ -295,9 +339,8 @@ function TraceList({
                         {trace.selected_skill}
                       </span>
                     ) : null}
-                    {trace.llm_used ? (
-                      <span className="rounded bg-violet-950/40 px-1.5 py-0.5 text-[0.6rem] text-violet-300">LLM</span>
-                    ) : null}
+                    <RoutingTraceChips trace={trace} />
+                    <LlmTraceChip trace={trace} />
                     {trace.mcp_used ? (
                       <span className="rounded bg-sky-950/40 px-1.5 py-0.5 text-[0.6rem] text-sky-300">MCP</span>
                     ) : null}
@@ -344,7 +387,10 @@ function TraceTimelinePanel({ timeline }: { timeline: DebugTraceTimeline | null 
                   </span>
                   {run.selected_skill ? <MetaChip text={`skill: ${run.selected_skill}`} /> : null}
                   {run.answer_mode ? <MetaChip text={`why: ${run.answer_mode}`} /> : null}
-                  <MetaChip text={`LLM: ${run.llm_used ? 'yes' : 'no'}`} />
+                  <MetaChip text={`LLM live: ${llmLiveCalls(run)}`} />
+                  {run.spl_path === 'llm_spl_advisory_fallback' && llmLiveCalls(run) === 0 ? (
+                    <MetaChip text="SPL-LLM path (no live call)" />
+                  ) : null}
                   <MetaChip text={`MCP: ${run.mcp_used ? 'yes' : 'no'}`} />
                   {typeof run.duration_ms === 'number' ? <MetaChip text={`${(run.duration_ms / 1000).toFixed(1)}s`} /> : null}
                 </div>
@@ -397,6 +443,65 @@ function TimelineRow({ event }: { event: DebugTraceEvent }) {
   );
 }
 
+
+function TurnSummaryCard({ summary }: { summary: DebugSummary | null | undefined }) {
+  if (!summary) {
+    return (
+      <p className="text-xs text-slate-500">No turn summary on this trace (older run or early exit).</p>
+    );
+  }
+  const routing = summary.routing ?? {};
+  const llm = summary.llm ?? {};
+  const spl = summary.spl ?? {};
+  const mcp = summary.mcp ?? {};
+  const hil = summary.hil ?? {};
+  const routingLine = [
+    routing.match_path,
+    routing.use_case_id ?? routing.question_ref,
+    routing.matched_patterns?.length ? `matched "${routing.matched_patterns[0]}"` : null,
+  ]
+    .filter(Boolean)
+    .join(' → ');
+
+  return (
+    <div className="space-y-2 rounded-md border border-slate-800/80 bg-slate-950/50 p-3 text-xs">
+      <SummaryRow label="Routing" value={routingLine || undefined} emptyHint="not captured" />
+      <SummaryRow
+        label="Intent LLM"
+        value={
+          llm.skipped_roles?.find((r) => r.role.includes('intent'))
+            ? `skipped — ${llm.skipped_roles.find((r) => r.role.includes('intent'))?.reason}`
+            : llm.live_calls
+              ? `live calls: ${llm.live_calls}`
+              : 'no live intent hop'
+        }
+        emptyHint="not captured"
+      />
+      <SummaryRow
+        label="SPL"
+        value={`path ${llm.spl_path ?? 'none'}, live call: ${llm.spl_live_called ? 'yes' : 'no'}${llm.spl_outcome ? `, outcome ${llm.spl_outcome}` : ''}`}
+        emptyHint="no SPL artifact"
+      />
+      {spl.reject_reasons?.length ? (
+        <SummaryRow label="SPL rejects" value={spl.reject_reasons.join(', ')} emptyHint="none" />
+      ) : null}
+      {llm.composer_skipped_reason ? (
+        <SummaryRow label="Composer" value={`skipped — ${llm.composer_skipped_reason}`} emptyHint="not captured" />
+      ) : null}
+      <SummaryRow
+        label="MCP"
+        value={mcp.block_reason ? `blocked — ${mcp.block_reason}` : mcp.status ?? undefined}
+        emptyHint="not captured"
+      />
+      <SummaryRow
+        label="HIL"
+        value={hil.required ? `yes — ${hil.kind ?? hil.reason ?? 'required'}` : 'no'}
+        emptyHint="not captured"
+      />
+    </div>
+  );
+}
+
 function BundlePanel({ bundle }: { bundle: DebugTraceBundle | null }) {
   const [copied, setCopied] = useState(false);
   const bundleJson = bundle ? JSON.stringify(bundle, null, 2) : '';
@@ -429,6 +534,11 @@ function BundlePanel({ bundle }: { bundle: DebugTraceBundle | null }) {
         {!bundle ? (
           <p className="text-xs text-slate-500">Bundle JSON appears here for the selected trace (COE handoff artifact).</p>
         ) : (
+          <div className="space-y-3">
+            <div>
+              <p className="mb-2 text-[0.65rem] uppercase tracking-wide text-slate-500">Turn summary</p>
+              <TurnSummaryCard summary={bundle.explainability.debug_summary} />
+            </div>
           <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-slate-800 bg-slate-950/70">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 bg-slate-900/60 px-3 py-2">
               <span className="min-w-0 truncate font-mono text-[0.65rem] text-slate-500">{bundle.trace_id}</span>
@@ -440,6 +550,7 @@ function BundlePanel({ bundle }: { bundle: DebugTraceBundle | null }) {
             <pre className="max-h-[28rem] overflow-auto p-3 text-[0.7rem] leading-relaxed text-slate-300">
               {bundleJson}
             </pre>
+          </div>
           </div>
         )}
       </CardContent>

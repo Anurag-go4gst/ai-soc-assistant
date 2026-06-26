@@ -86,6 +86,9 @@ def test_live_chat_opens_and_closes_a_trace_run(capturing: CapturingTelemetry) -
     assert "control_plane_trace" in end["metadata"]
     assert "selected_skill" in end["metadata"]
     assert "llm_call_count" in end["metadata"]
+    assert "debug_summary" in end["metadata"]
+    assert isinstance(end["metadata"]["debug_summary"], dict)
+    assert "routing" in end["metadata"]["debug_summary"]
 
 
 def test_llm_call_records_persisted_from_turn_budget(capturing: CapturingTelemetry) -> None:
@@ -117,3 +120,6 @@ def test_post_chat_response_merges_turn_id_and_user(capturing: CapturingTelemetr
     assert merge["trace_id"] == response.trace_id
     assert merge["metadata"]["turn_id"] == finalized.turn_id
     assert merge["metadata"]["user_id"] == "alice"
+    assert "debug_summary" in merge["metadata"]
+    assert "llm_live_calls" in merge["metadata"]
+    assert "match_path" in merge["metadata"]

@@ -1536,6 +1536,47 @@ export interface LlmProviderStatus {
   last_error?: string | null;
 }
 
+export interface DebugSummarySkippedRole {
+  role: string;
+  reason: string;
+}
+
+export interface DebugSummary {
+  routing?: {
+    match_path?: string | null;
+    use_case_id?: string | null;
+    matched_patterns?: string[];
+    question_ref?: string | null;
+    selected_skill?: string | null;
+    intent_family?: string | null;
+  };
+  llm?: {
+    live_calls?: number;
+    live_roles?: string[];
+    skipped_roles?: DebugSummarySkippedRole[];
+    spl_path?: string | null;
+    spl_live_called?: boolean;
+    spl_outcome?: string | null;
+    composer_skipped_reason?: string | null;
+  };
+  spl?: {
+    template_id?: string | null;
+    approved?: boolean | null;
+    reject_reasons?: string[];
+    normalized_spl?: boolean;
+  };
+  mcp?: {
+    allowed?: boolean;
+    status?: string | null;
+    block_reason?: string | null;
+  };
+  hil?: {
+    required?: boolean;
+    kind?: string | null;
+    reason?: string | null;
+  };
+}
+
 export interface DebugTraceRun {
   trace_id: string;
   run_id?: string | null;
@@ -1552,7 +1593,13 @@ export interface DebugTraceRun {
   question_preview?: string | null;
   answer_preview?: string | null;
   llm_used?: boolean | null;
+  llm_live_calls?: number | null;
   mcp_used?: boolean | null;
+  match_path?: string | null;
+  use_case_id?: string | null;
+  question_ref?: string | null;
+  matched_pattern?: string | null;
+  spl_path?: string | null;
 }
 
 export interface DebugTraceEvent {
@@ -1574,6 +1621,7 @@ export interface DebugTraceBundle {
   run: DebugTraceRun;
   timeline: DebugTraceEvent[];
   explainability: {
+    debug_summary?: DebugSummary | null;
     control_plane_trace?: Record<string, unknown> | null;
     governance_trace?: Record<string, unknown> | null;
     lineage_summary?: Record<string, unknown> | null;
