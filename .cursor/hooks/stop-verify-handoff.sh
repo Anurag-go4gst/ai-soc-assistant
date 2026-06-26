@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# After Cursor agent completes: write handoff artifact + optional verify follow-up.
-# Disable follow-up loop: touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
+# After Cursor agent completes: write handoff artifact; verify follow-up only when
+# there are meaningful uncommitted code changes (backend/frontend/scripts/tests).
+# Disable all follow-ups: touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-DISABLE="$ROOT/.cursor/hooks/DISABLE_VERIFY_ON_STOP"
+# shellcheck source=lib/handoff-common.sh
+source "$(dirname "$0")/lib/handoff-common.sh"
+
 HANDOFF="$ROOT/.cursor/last-handoff.md"
 mkdir -p "$(dirname "$HANDOFF")"
 
@@ -13,10 +16,27 @@ status="$(echo "$input" | jq -r '.status // "unknown"')"
 conversation_id="$(echo "$input" | jq -r '.conversation_id // .session_id // "unknown"')"
 ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-cat >"$HANDOFF" <<EOF
+meaningful=0
+if has_meaningful_code_changes "$ROOT"; then
+  meaningful=1
+fi
+
+changed_list="$(changed_code_paths "$ROOT" | sed 's/^/- /')"
+if [[ -z "$changed_list" ]]; then
+  changed_list="_(none under backend/, frontend/, scripts/, test_harness/)_"
+fi
+
+if [[ "$meaningful" -eq 1 ]]; then
+  cat >"$HANDOFF" <<EOF_HANDOFF
 # Agent handoff — $ts
 
 **Cursor session ended** (\`status=$status\`, \`id=$conversation_id\`).
+
+**Verify recommended** — uncommitted code changes detected.
+
+### Touched code paths
+
+$changed_list
 
 ## For Claude Code / Codex / next agent
 
@@ -46,14 +66,26 @@ Read \`AGENTS.md\` **Agent Execution Playbook** before changing anything.
 
 > Review the uncommitted diff against AGENTS.md playbook. Run targeted tests for touched paths. Report gaps, deferrals, and verification results. Do not commit unless I ask.
 
-EOF
+EOF_HANDOFF
+else
+  cat >"$HANDOFF" <<EOF_HANDOFF
+# Agent handoff — $ts
 
-if [[ -f "$DISABLE" ]]; then
+**Cursor session ended** (\`status=$status\`, \`id=$conversation_id\`).
+
+**Verify not required** — no uncommitted changes under \`backend/\`, \`frontend/\`, \`scripts/\`, or \`test_harness/\`.
+
+Docs-only or read-only session. Run targeted tests only when you later change code paths.
+
+See \`AGENTS.md\` playbook when you do touch backend/frontend.
+EOF_HANDOFF
+fi
+
+if ! should_verify_followup "$ROOT"; then
   exit 0
 fi
 
-# Inject one follow-up turn so Cursor self-verifies before the user switches tools.
 jq -n --arg msg "$(cat <<'PROMPT'
-Verification handoff (AGENTS.md): Before finishing, review uncommitted changes against the Agent Execution Playbook. Run targeted pytest for touched backend files; run `./scripts/run_stage3_governance_regression.sh` if control-plane/routing changed; run `cd frontend && npm run build` if frontend changed. Report commands run and pass/fail. Do not commit unless the user asked. Handoff artifact: `.cursor/last-handoff.md`.
+Verification handoff (AGENTS.md): Uncommitted code changes are present. Before finishing, review the diff against the Agent Execution Playbook, run targeted pytest for touched backend files, governance regression if control-plane/routing changed, and `cd frontend && npm run build` if frontend changed. Report commands and pass/fail. Do not commit unless asked. Details: `.cursor/last-handoff.md`.
 PROMPT
 )" '{followup_message: $msg}'

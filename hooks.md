@@ -13,20 +13,31 @@ Cursor reloads `hooks.json` on save. If hooks do not fire, restart Cursor and ch
 
 | Event | Script | Purpose |
 |-------|--------|---------|
-| `stop` | `stop-verify-handoff.sh` | Writes [`.cursor/last-handoff.md`](.cursor/last-handoff.md) for Claude/Codex; optional one-turn verify follow-up (`loop_limit: 1`) |
-| `subagentStop` | `subagent-verify-handoff.sh` | After implementer/generalPurpose/shell subagents — nudge parent to review diff and run tests |
+| `stop` | `stop-verify-handoff.sh` | Always updates [`.cursor/last-handoff.md`](.cursor/last-handoff.md). **Verify follow-up** (`loop_limit: 1`) only when uncommitted changes exist under `backend/`, `frontend/`, `scripts/`, or `test_harness/` — not on docs-only or read-only turns |
+| `subagentStop` | `subagent-verify-handoff.sh` | Same gating: nudge parent to verify only when meaningful code changes are present |
 | `beforeShellExecution` | `before-shell-guardrails.sh` | Block force-push to main/master, `git config` changes; ask on broad `git add` / public docker publish |
 | `preToolUse` (Write/ApplyPatch/EditNotebook) | `block-secret-paths.sh` | Deny writes to `.env`, credential-like paths (`failClosed: true`) |
 
-### Disable verify follow-up (keep handoff file)
+### Verify follow-up gating (default)
 
-Verification follow-ups on `stop` / `subagentStop` add one extra agent turn. To disable only that behavior while keeping `.cursor/last-handoff.md`:
+Follow-up verify turns on `stop` / `subagentStop` run **only** when the working tree has uncommitted changes under:
+
+- `backend/`
+- `frontend/`
+- `scripts/`
+- `test_harness/`
+
+Docs-only edits (`AGENTS.md`, `plans/`, `docs/evals/`, etc.), restarts, and Q&A turns do **not** inject an extra verify loop.
+
+The handoff file still updates every stop (short “verify not required” note when no code paths changed).
+
+### Disable all verify follow-ups
 
 ```bash
 touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
 ```
 
-Remove the file to re-enable follow-ups.
+Remove the file to re-enable gated follow-ups. Shared logic: `.cursor/hooks/lib/handoff-common.sh`.
 
 ### Cross-agent handoff (Cursor → Claude Code / Codex)
 
@@ -54,6 +65,8 @@ What it does on `git commit`:
 - **Warn** on execution-boundary patterns (MCP exec flags, tool calling, etc.)
 - **Warn** (non-blocking) if fast backend smoke tests fail when `backend/` is staged
 - **Fail** if `frontend/` is staged and `npm run build` fails
+
+`npm run build` runs `postbuild` (`chmod -R a+rX dist`) so Nginx (`www-data`) can serve production static files — without it the public site returns 403.
 
 Uninstall: `rm .git/hooks/pre-commit`
 
