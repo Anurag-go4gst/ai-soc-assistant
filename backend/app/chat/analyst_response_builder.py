@@ -245,7 +245,12 @@ def build_analyst_response_for_live(
     recommended = _recommended_actions_from_draft(draft) or _recommended_from_rag(source_evidence)
     if not recommended and draft_preview:
         recommended = _safe_display_list(draft_preview.get("investigation_checklist") or [])
-    if not recommended and user_query:
+    binding_derived = bool(draft_preview and draft_preview.get("metadata_source") == "binding_derived")
+    if binding_derived and draft_preview:
+        initial_from_draft = _safe_display_list(draft_preview.get("initial_assessment") or [])
+    else:
+        initial_from_draft = []
+    if not recommended and user_query and not binding_derived:
         from app.chat.signal_class_guidance import _TEMPLATES, classify_signal_class
 
         signal_class = classify_signal_class(user_query)
@@ -551,6 +556,7 @@ def build_analyst_response_for_live(
 
     envelope = AnalystResponseEnvelope(
         scenario_label=scrub_auth_anomaly_display_text(resolved_use_case_label, user_query=user_query),
+        initial_assessment=initial_from_draft,
         severity_label=display_severity,
         severity_confidence=severity_confidence,
         severity_rationale=severity_rationale,

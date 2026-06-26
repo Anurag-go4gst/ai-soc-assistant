@@ -2722,7 +2722,15 @@ def build_generic_live_data_spl_skeleton(
     customization_meta["template_compatibility"] = compatibility.to_dict()
     customization_meta["unbound_constraints"] = list(bindings.unbound_constraints)
     validation = validate_spl(draft_spl)
-    return {
+    draft_metadata = build_draft_metadata(
+        user_query=user_query,
+        bindings=bindings,
+        family_id=GENERIC_LIVE_DATA_FAMILY_ID,
+        compatibility=compatibility,
+        customization_meta=customization_meta,
+        time_window_label=customization_meta.get("time_window_label"),
+    )
+    preview = {
         "draft_spl": draft_spl,
         "draft_status": DRAFT_STATUS,
         "draft_source": DRAFT_SOURCE,
@@ -2768,6 +2776,7 @@ def build_generic_live_data_spl_skeleton(
         "template_match_strength": "none",
         **customization_meta,
     }
+    return apply_draft_metadata_to_preview(preview, draft_metadata)
 
 
 def _canonical_profile_fields(fields: tuple[str, ...] | list[str]) -> list[str]:

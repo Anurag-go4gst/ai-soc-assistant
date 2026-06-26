@@ -458,6 +458,16 @@ def validate_slot_map(
     )
 
 
+
+
+def _normalize_scope_label(text: str) -> str | None:
+    lowered = str(text).strip().lower().replace(" ", "_")
+    if lowered in {"substation_subnet", "substation_subnets"}:
+        return "substation_subnet"
+    if not _RULE_APP_PATTERN.fullmatch(lowered):
+        return None
+    return lowered
+
 def validate_slot_value(
     slot_type: str,
     value: Any,
@@ -566,9 +576,10 @@ def validate_slot_value(
         return text.lower(), []
 
     if slot_type in {"src_scope", "dest_scope", "aggregation_subject"}:
-        if not _RULE_APP_PATTERN.fullmatch(text.replace(" ", "_")):
+        normalized_scope = _normalize_scope_label(text)
+        if normalized_scope is None:
             return escape_spl_quoted_string(text), []
-        return text.lower(), []
+        return normalized_scope, []
 
     if slot_type in {"src_zone", "dest_zone"}:
         if not _ZONE_PATTERN.fullmatch(text):

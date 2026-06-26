@@ -8,6 +8,10 @@ from typing import Any
 
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.query_understanding.models import QueryEntities, QueryUnderstandingResult
+from app.spl.slot_binding_merge import (
+    filter_slot_conflicts,
+    supplement_accepted_llm_entity_slots,
+)
 from app.spl.spl_slot_binding_validator import (
     SlotValidationOutcome,
     extract_natural_language_slots,
@@ -152,6 +156,12 @@ def build_user_constraint_bindings(
         slot_source="user",
     )
     bindings = _bindings_from_slots(validated.normalized_slots, slot_sources)
+    supplement_accepted_llm_entity_slots(
+        bindings,
+        llm_slots,
+        allowed_indexes=effective_allowed_indexes,
+        allowed_sourcetypes=allowed_sourcetypes,
+    )
     # Multi-index user-explicit slots are owned by _preserve_user_explicit_indexes
     # (review-only preserve symmetric with single-index), so skip them here to avoid
     # double-recording rejected/unbound rows.
@@ -168,6 +178,12 @@ def build_user_constraint_bindings(
             continue
         if slot_type in validated.normalized_slots:
             bindings.validation_status[slot_type] = "accepted"
+            continue
+        if (
+            bindings.slot_sources.get(slot_type) == SLOT_SOURCE_LLM
+            and bindings.validation_status.get(slot_type) == "accepted"
+            and slot_type in bindings.normalized_slots
+        ):
             continue
         reason = _rejection_reason(validated, slot_type)
         if slot_sources.get(slot_type) == SLOT_SOURCE_USER_EXPLICIT and preserve_user_explicit_indexes:
@@ -207,7 +223,7 @@ def build_user_constraint_bindings(
             }
         )
 
-    for conflict in conflicts:
+    for conflict in filter_slot_conflicts(conflicts, merged_raw):
         bindings.unbound_constraints.append(conflict)
 
     bindings.debug_trace = {
@@ -386,7 +402,7 @@ def _merge_slots_with_precedence(
                 merged[slot_type] = value
                 slot_sources[slot_type] = source_name
                 continue
-            if _slot_values_equal(merged[slot_type], value):
+            if _slot_values_equal(merged[slot_type], value, slot_type=slot_type):
                 continue
             if _precedence_rank(source_name) < _precedence_rank(slot_sources[slot_type]):
                 conflicts.append(
@@ -451,13 +467,23 @@ def _final_slot_precedence_decisions(
     return decisions
 
 
-def _slot_values_equal(left: Any, right: Any) -> bool:
+def _slot_values_equal(left: Any, right: Any, *, slot_type: str | None = None) -> bool:
     if isinstance(left, list) and isinstance(right, list):
         return [str(item).lower() for item in left] == [str(item).lower() for item in right]
+    if slot_type in {"src_scope", "dest_scope"}:
+        return _canonical_scope_value(left) == _canonical_scope_value(right)
     return str(left).lower() == str(right).lower()
 
 
+def _canonical_scope_value(value: Any) -> str:
+    text = str(value).strip().lower().replace(" ", "_")
+    if text in {"substation_subnet", "substation_subnets"}:
+        return "substation_subnet"
+    return text
+
+
 def _llm_entity_slots(advisory: LLMIntentAdvisory | dict[str, Any] | None) -> dict[str, Any]:
+    """Extract LLM entity slots regardless of route/use-case adjudication status."""
     if advisory is None:
         return {}
     if isinstance(advisory, LLMIntentAdvisory):

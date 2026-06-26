@@ -12,6 +12,7 @@ from app.spl.numeric_code_filter import (
     numeric_code_aliases,
     split_code_list,
 )
+from app.spl.output_projection import build_output_projection_from_bindings
 from app.spl.user_constraint_bindings import UserConstraintBindings
 
 _TIME_BOUNDS_RE = re.compile(r"\bearliest=[^\s|]+(?:\s+latest=[^\s|]+)?")
@@ -153,62 +154,19 @@ def skeleton_output_plan(
 ) -> tuple[list[str], list[str]]:
     """Return required event log fields and SPL table fields for a user-bound skeleton."""
     slots = dict(slots or bindings.normalized_slots)
-    required: list[str] = ["_time"]
-    table: list[str] = ["_time"]
+    required, table, _eval_lines = build_output_projection_from_bindings(bindings, slots)
+    return required, table
 
-    if bindings.explicit_protocols or slots.get("protocol"):
-        required.extend(["protocol", "proto", "protocol_name", "protocol_norm"])
-        table.append("protocol_norm")
 
-    if bindings.explicit_function_codes or slots.get("function_code"):
-        function_field = _safe_field(slots.get("function_code_field"), "function_code")
-        for alias in numeric_code_aliases("function_code", primary_field=function_field):
-            if alias not in required:
-                required.append(alias)
-        required.append("function_code_norm")
-        table.append("function_code_norm")
+def skeleton_eval_lines(
+    bindings: UserConstraintBindings,
+    slots: dict[str, str] | None = None,
+) -> list[str]:
+    slots = dict(slots or bindings.normalized_slots)
+    _required, _table, eval_lines = build_output_projection_from_bindings(bindings, slots)
+    return eval_lines
 
-    if bindings.explicit_event_codes or slots.get("event_code"):
-        required.extend(["EventCode", "EventID", "event_code", "event_code_norm"])
-        table.append("event_code_norm")
 
-    direction = bindings.explicit_directionality.get("unexpected_ip_direction") or slots.get(
-        "unexpected_ip_direction"
-    )
-    allowlist = bindings.explicit_allowlist_semantics.get("allowlist_semantic") or slots.get(
-        "allowlist_semantic"
-    )
-    uses_ip_norm = bool(
-        bindings.explicit_src_ips
-        or slots.get("src_ip")
-        or bindings.explicit_dest_ips
-        or slots.get("dest_ip")
-        or allowlist
-        or direction == "destination"
-    )
-    if uses_ip_norm:
-        required.extend(["src_ip", "src", "source", "src_ip_norm"])
-        required.extend(["dest_ip", "dest", "destination", "dest_ip_norm"])
-        table.extend(["src_ip_norm", "dest_ip_norm"])
-
-    if bindings.explicit_users or slots.get("user"):
-        required.extend(["user", "username", "account", "src_user"])
-    if bindings.explicit_hosts or slots.get("host"):
-        required.extend(["host", "dest_host", "device", "hostname"])
-    if bindings.explicit_ports or slots.get("port"):
-        required.extend(["dest_port", "port", "destination_port"])
-    if bindings.explicit_services or slots.get("service"):
-        required.extend(["service", "app", "application"])
-    if bindings.explicit_src_zones or slots.get("src_zone"):
-        required.extend(["src_zone", "src_network", "source_zone"])
-    if bindings.explicit_dest_zones or slots.get("dest_zone"):
-        required.extend(["dest_zone", "dest_network", "destination_zone"])
-    if bindings.explicit_action_semantics or slots.get("action_semantic"):
-        required.extend(["action", "status", "result"])
-
-    if "action" not in table:
-        table.append("action")
-    return list(dict.fromkeys(required)), list(dict.fromkeys(table))
 
 
 def _skeleton_table_clause(table_fields: list[str]) -> str:
@@ -231,11 +189,13 @@ def build_user_bound_skeleton(
 
     filters: list[str] = []
     pre_where_commands: list[str] = []
+    pre_where_commands.extend(skeleton_eval_lines(bindings, slots))
     if bindings.explicit_protocols or slots.get("protocol"):
         protocol = (bindings.explicit_protocols[0] if bindings.explicit_protocols else slots.get("protocol", "")).lower()
-        pre_where_commands.append(
-            '| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, ""))'
-        )
+        if not any("protocol_norm=" in line for line in pre_where_commands):
+            pre_where_commands.append(
+                '| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, ""))'
+            )
         filters.append(f'like(protocol_norm, "%{protocol}%")')
     function_code_norm: str | None = None
     if bindings.explicit_function_codes or slots.get("function_code"):
@@ -255,16 +215,28 @@ def build_user_bound_skeleton(
             if bindings.explicit_event_codes
             else slots.get("event_code")
         )
-        eval_line, where_clause = build_numeric_code_filter(
-            codes,
-            norm_field="event_code_norm",
-            aliases=numeric_code_aliases("event_code"),
-        )
-        pre_where_commands.append(eval_line)
-        event_code_norm = where_clause
+        if not any("event_code_norm=" in line for line in pre_where_commands):
+            eval_line, where_clause = build_numeric_code_filter(
+                codes,
+                norm_field="event_code_norm",
+                aliases=numeric_code_aliases("event_code"),
+            )
+            pre_where_commands.append(eval_line)
+            event_code_norm = where_clause
+        else:
+            codes_list = split_code_list(
+                bindings.explicit_event_codes
+                if bindings.explicit_event_codes
+                else slots.get("event_code")
+            )
+            event_code_norm = f"event_code_norm IN ({', '.join(codes_list)})"
+    use_norm_filters = bool(pre_where_commands)
     if bindings.explicit_users or slots.get("user"):
         user = bindings.explicit_users[0] if bindings.explicit_users else slots["user"]
-        filters.append(f'user="{user}"')
+        if use_norm_filters and any("user_norm=" in line for line in pre_where_commands):
+            filters.append(f'user_norm="{user.lower()}"')
+        else:
+            filters.append(f'user="{user}"')
     if bindings.explicit_hosts or slots.get("host"):
         host = bindings.explicit_hosts[0] if bindings.explicit_hosts else slots["host"]
         filters.append(f'host="{host}"')
@@ -349,9 +321,10 @@ def build_user_bound_skeleton(
         filters.append("isnotnull(substation_id)")
     elif src_scope == "substation_subnet" and slots.get("approved_source_cidr"):
         cidr = slots["approved_source_cidr"]
-        pre_where_commands.append(
-            '| eval src_ip_norm=coalesce(src_ip, src, source, "")'
-        )
+        if not any("src_ip_norm=" in cmd for cmd in pre_where_commands):
+            pre_where_commands.append(
+                '| eval src_ip_norm=coalesce(src_ip, Source_Network_Address, IpAddress, source_ip, src, source, "")'
+            )
         filters.append(f'cidrmatch("{cidr}", src_ip_norm)')
     elif src_scope and not slots.get("substation_mapping_lookup"):
         pass  # unbound scope handled via bindings.unbound_constraints upstream

@@ -627,7 +627,7 @@ def test_t2_winevent_probe_e2e_generic_skeleton(monkeypatch: pytest.MonkeyPatch)
     assert "index=wineventlog" in spl
     assert "earliest=-7d latest=now" in spl
     assert "event_code_norm IN (4624)" in spl
-    assert 'user="jsmith"' in spl
+    assert 'user_norm="jsmith"' in spl
     assert "approved_ot_destination" not in spl
     assert preview.get("user_bound_skeleton") is True
     assert preview.get("execution_enabled") is False
@@ -713,3 +713,173 @@ def test_winevent_substation_uses_src_scope_not_allowlist() -> None:
     slots = extract_natural_language_slots(T2_WINEVENT_PROBE)
     assert slots.get("src_scope") == "substation_subnet"
     assert slots.get("allowlist_semantic") is None
+
+
+def test_llm_route_rejected_entity_slots_still_bind(monkeypatch: pytest.MonkeyPatch) -> None:
+    advisory = LLMIntentAdvisory(
+        question_ref_candidate="q0.q999",
+        adjudication_status="rejected",
+        adjudication_reason="question_ref_candidate_not_in_deterministic_registry",
+        entity_slots_candidate={
+            "user": "jsmith",
+            "src_scope": "substation subnets",
+            "event_id": "4624",
+        },
+    )
+    bindings = build_user_constraint_bindings(
+        "Search wineventlog from substation subnets.",
+        llm_intent_advisory=advisory,
+    )
+    assert bindings.normalized_slots.get("user") == "jsmith"
+    assert bindings.normalized_slots.get("event_code") == "4624"
+    assert bindings.normalized_slots.get("src_scope") == "substation_subnet"
+
+
+def test_scope_label_and_source_profile_cidr_not_conflict(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    _use_temp_source_profile(
+        monkeypatch,
+        tmp_path,
+        {
+            "windows_security_sourcetype": "wineventlog:security",
+            "ot_asset_cidr": "10.40.0.0/16",
+        },
+    )
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(T2_WINEVENT_PROBE, live_data_request=True)
+    assert preview is not None
+    unbound = preview.get("unbound_constraints") or []
+    assert not any(
+        item.get("slot") == "src_scope" and "conflict" in str(item.get("reason"))
+        for item in unbound
+    )
+    resolved = preview.get("required_source_profile_bindings") or []
+    assert any(item.get("slot") == "src_scope" for item in resolved)
+    assert any(item.get("slot") == "approved_source_cidr" and item.get("value") == "10.40.0.0/16" for item in resolved)
+
+
+def test_winevent_output_projection_includes_bound_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(T2_WINEVENT_PROBE, live_data_request=True)
+    assert preview is not None
+    spl = preview["draft_spl"]
+    assert "user_norm=" in spl
+    assert "event_code_norm=" in spl
+    assert "src_ip_norm=" in spl
+    assert "dest_host_norm=" in spl
+    table_part = spl.split("| table ")[1].split(" | head")[0]
+    assert "user_norm" in table_part
+    assert "event_code_norm" in table_part
+    assert "Logon_Type" in table_part
+    fields = preview.get("required_event_fields") or preview.get("required_log_fields") or []
+    joined = " ".join(fields).lower()
+    assert "eventcode" in joined.replace("_", "")
+    assert "targetusername" in joined.replace("_", "") or "account_name" in joined
+
+
+def test_winevent_initial_assessment_not_ot_beaconing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(T2_WINEVENT_PROBE, live_data_request=True)
+    assert preview is not None
+    assessment = " ".join(preview.get("initial_assessment") or []).lower()
+    assert "beaconing" not in assessment
+    assert "vendor maintenance" not in assessment
+    assert "logon" in assessment or "4624" in assessment
+    checklist = " ".join(preview.get("investigation_checklist") or []).lower()
+    assert "eventcode" in checklist.replace("_", "") or "event id" in checklist
+    assert "beaconing" not in checklist
+
+
+def test_firewall_probe_projects_src_dest_port_action(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(T2_FIREWALL_PROBE, live_data_request=True)
+    assert preview is not None
+    spl = preview["draft_spl"]
+    table_part = spl.split("| table ")[1].split(" | head")[0] if "| table " in spl else ""
+    assert "src_zone" in table_part or "src_ip_norm" in spl
+    assert "dest_port" in spl or "dest_port_norm" in table_part
+
+
+def test_filter_slot_conflicts_scope_label_profile_cidr_resolution() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts
+
+    conflict = {
+        "slot": "src_scope",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "substation subnets",
+        "dropped_value": "10.40.0.0/16",
+    }
+    merged = {"approved_source_cidr": "10.40.0.0/16"}
+    assert filter_slot_conflicts([conflict], merged) == []
+
+
+def test_filter_slot_conflicts_label_vs_label_keeps_conflict_with_profile_cidr() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts
+
+    conflict = {
+        "slot": "src_scope",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "IT VLAN",
+        "dropped_value": "OT DMZ",
+    }
+    merged = {"approved_source_cidr": "10.40.0.0/16"}
+    filtered = filter_slot_conflicts([conflict], merged)
+    assert len(filtered) == 1
+    assert filtered[0]["kept_value"] == "IT VLAN"
+
+
+def test_filter_slot_conflicts_cidr_vs_cidr_keeps_conflict() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts
+
+    conflict = {
+        "slot": "src_scope",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "10.50.0.0/16",
+        "dropped_value": "10.40.0.0/16",
+    }
+    merged = {"approved_source_cidr": "10.40.0.0/16"}
+    filtered = filter_slot_conflicts([conflict], merged)
+    assert len(filtered) == 1
+
+
+def test_filter_slot_conflicts_dest_scope_label_profile_cidr_resolution() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts
+
+    conflict = {
+        "slot": "dest_scope",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "OT DMZ",
+        "dropped_value": "10.20.0.0/16",
+    }
+    merged = {"approved_destination_cidr": "10.20.0.0/16"}
+    assert filter_slot_conflicts([conflict], merged) == []
+
+
+def test_filter_slot_conflicts_src_scope_does_not_use_destination_profile_cidr() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts
+
+    conflict = {
+        "slot": "src_scope",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "substation subnets",
+        "dropped_value": "10.20.0.0/16",
+    }
+    merged = {"approved_destination_cidr": "10.20.0.0/16"}
+    filtered = filter_slot_conflicts([conflict], merged)
+    assert len(filtered) == 1
+
+
+def test_filter_slot_conflicts_dest_scope_does_not_use_source_profile_cidr() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts
+
+    conflict = {
+        "slot": "dest_scope",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "OT DMZ",
+        "dropped_value": "10.40.0.0/16",
+    }
+    merged = {"approved_source_cidr": "10.40.0.0/16"}
+    filtered = filter_slot_conflicts([conflict], merged)
+    assert len(filtered) == 1

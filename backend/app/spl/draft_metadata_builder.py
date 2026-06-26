@@ -16,6 +16,13 @@ from app.spl.binding_semantics import (
     semantic_label_for_slot,
     semantic_meaning_for_slot,
 )
+from app.spl.output_projection import (
+    binding_initial_assessment,
+    binding_investigation_checklist,
+    build_output_projection_from_bindings,
+    infer_binding_source_family,
+    resolved_scope_profile_bindings,
+)
 from app.spl.template_slot_bindings import skeleton_output_plan
 from app.spl.user_constraint_bindings import UserConstraintBindings
 
@@ -65,6 +72,8 @@ class DraftMetadata:
     required_source_profile_fields: list[str] = field(default_factory=list)
     required_source_profile_bindings: list[dict[str, str]] = field(default_factory=list)
     investigation_checklist: list[str] = field(default_factory=list)
+    initial_assessment: list[str] = field(default_factory=list)
+    binding_source_family: str = ""
     scope_notice: str = ""
     generation_mode: str | None = None
     metadata_source: str = "template_derived"
@@ -115,11 +124,19 @@ def build_draft_metadata(
         time_window_label=time_window_label,
         used_skeleton=used_skeleton,
     )
+    source_family = infer_binding_source_family(bindings, bound_slots)
     if used_skeleton:
-        required_event_fields, _skeleton_table_fields = skeleton_output_plan(bindings, bound_slots)
+        required_event_fields, _skeleton_table_fields, _eval_lines = build_output_projection_from_bindings(
+            bindings, bound_slots, source_family=source_family
+        )
     else:
-        required_event_fields = _required_event_fields_from_bindings(bindings, bound_slots)
+        required_event_fields, _, _eval_lines = build_output_projection_from_bindings(
+            bindings, bound_slots, source_family=source_family
+        )
     required_profile_fields = _required_profile_bindings(customization_meta, bound_slots, bindings)
+    required_profile_fields = _merge_resolved_scope_bindings(required_profile_fields, bindings, bound_slots)
+    checklist = binding_investigation_checklist(source_family, bindings, bound_slots)
+    initial_assessment = binding_initial_assessment(source_family, bindings, bound_slots)
     scope = _scope_notice(bindings, family_id, compat, used_skeleton=used_skeleton)
     trace = _metadata_trace(
         bindings=bindings,
@@ -139,7 +156,9 @@ def build_draft_metadata(
         ),
         required_source_profile_fields=[item['slot'] for item in required_profile_fields],
         required_source_profile_bindings=required_profile_fields,
-        investigation_checklist=list(_GENERIC_CHECKLIST),
+        investigation_checklist=list(checklist),
+        initial_assessment=list(initial_assessment),
+        binding_source_family=source_family,
         scope_notice=scope,
         generation_mode=generation_mode,
         metadata_source="binding_derived",
@@ -162,6 +181,8 @@ def apply_draft_metadata_to_preview(
     updated["required_source_profile_fields"] = list(metadata.required_source_profile_fields)
     updated["required_source_profile_bindings"] = list(metadata.required_source_profile_bindings)
     updated["investigation_checklist"] = list(metadata.investigation_checklist)
+    updated["initial_assessment"] = list(metadata.initial_assessment)
+    updated["binding_source_family"] = metadata.binding_source_family
     updated["scope_notice"] = metadata.scope_notice
     if metadata.generation_mode:
         updated["generation_mode"] = metadata.generation_mode
@@ -371,6 +392,22 @@ def _required_profile_bindings(
         )
     return rows
 
+
+
+def _merge_resolved_scope_bindings(
+    required_profile_fields: list[dict[str, str]],
+    bindings: UserConstraintBindings,
+    bound_slots: dict[str, str],
+) -> list[dict[str, str]]:
+    rows = list(required_profile_fields)
+    seen = {str(item.get("slot")) for item in rows if isinstance(item, dict) and item.get("slot")}
+    for item in resolved_scope_profile_bindings(bindings, bound_slots):
+        slot = str(item.get("slot") or "")
+        if not slot or slot in seen:
+            continue
+        rows.append(dict(item))
+        seen.add(slot)
+    return rows
 
 def _scope_notice(
     bindings: UserConstraintBindings,

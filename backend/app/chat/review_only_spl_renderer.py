@@ -216,6 +216,17 @@ def _required_profile_bindings(draft_preview: dict[str, Any] | None) -> list[str
     return rows
 
 
+
+def _resolved_scope_bindings(draft_preview: dict[str, Any] | None) -> list[str]:
+    if not isinstance(draft_preview, dict):
+        return []
+    rows: list[str] = []
+    for item in draft_preview.get("required_source_profile_bindings") or []:
+        if not isinstance(item, dict) or not item.get("resolution"):
+            continue
+        rows.append(format_profile_binding_line(item))
+    return rows
+
 def render_review_only_spl_answer(
     *,
     analyst_response: Any,
@@ -249,6 +260,12 @@ def render_review_only_spl_answer(
     if profile_bindings:
         lines.append("Required source-profile bindings:")
         lines.extend(profile_bindings)
+        lines.append("")
+
+    resolved = _resolved_scope_bindings(draft_preview)
+    if resolved:
+        lines.append("Resolved source-profile bindings:")
+        lines.extend(resolved)
         lines.append("")
 
     used = _source_profile_used(draft_preview)

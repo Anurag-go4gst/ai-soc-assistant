@@ -70,7 +70,7 @@ def populate_envelope_from_guidance(
     steps = sections["steps"]
 
     update: dict[str, Any] = {}
-    if hypotheses and not envelope.initial_assessment:
+    if hypotheses and not (envelope.initial_assessment or []):
         update["initial_assessment"] = hypotheses[:8]
     merged_checklist = checklist or hypotheses
     if merged_checklist and not envelope.analyst_checklist:
