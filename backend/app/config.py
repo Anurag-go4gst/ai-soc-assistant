@@ -210,7 +210,15 @@ class Settings(BaseSettings):
     ai_soc_llm_airgap_enforced: bool = False
     ai_soc_llm_default_provider: str = ""
     ai_soc_llm_default_model: str = ""
+    # Direct-LLM lab model selection (advisory/display only — does NOT hot-swap the
+    # llama-server, which loads the model pinned in its systemd unit). The active
+    # label and the comma-separated allowlist are surfaced by the Ask LLM page so an
+    # operator can record/see the intended target.
+    ai_soc_llm_active_model: str = "foundation-sec-1.1-8b-instruct-q8_0"
+    ai_soc_llm_available_models: str = "foundation-sec-1.1-8b-instruct-q8_0"
     ai_soc_llm_timeout_seconds: int = 30
+    # Protected wall-time reserve for the intent advisor hop (not the full sidecar timeout).
+    ai_soc_llm_intent_advisor_reserve_seconds: float = 12.0
     # Wall-clock ceiling for all blocking LLM calls on a single /chat turn. Caps the
     # stacked-sidecar latency on the slow on-prem model so a turn cannot hang 70-160s;
     # the deterministic answer always ships. 0 disables the gate.

@@ -65,6 +65,16 @@ def _llm_available() -> bool:
     return _provider_configured()
 
 
+def _available_models() -> list[str]:
+    """Operator-curated model allowlist (advisory/display only, no secrets)."""
+    raw = settings.ai_soc_llm_available_models or ""
+    models = [item.strip() for item in raw.split(",") if item.strip()]
+    active = (settings.ai_soc_llm_active_model or "").strip()
+    if active and active not in models:
+        models.insert(0, active)
+    return models or ([active] if active else [])
+
+
 @router.get("/llm-lab/status")
 def llm_lab_status(_user: dict[str, Any] = Depends(require_auth)) -> dict[str, Any]:
     """Readiness for the direct-LLM lab. Booleans only — never echoes secrets."""
@@ -73,6 +83,8 @@ def llm_lab_status(_user: dict[str, Any] = Depends(require_auth)) -> dict[str, A
         "llm_enabled": bool(settings.ai_soc_llm_enabled),
         "mode": settings.ai_soc_llm_mode,
         "provider_configured": _provider_configured(),
+        "active_model": (settings.ai_soc_llm_active_model or "").strip() or None,
+        "available_models": _available_models(),
         "disclaimer": DISCLAIMER,
     }
 

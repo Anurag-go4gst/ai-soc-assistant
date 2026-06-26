@@ -7,12 +7,14 @@ import {
   Cpu,
   Lightbulb,
   Loader2,
+  Power,
+  RotateCw,
   Send,
   Sparkles,
   Wand2,
   Zap,
 } from 'lucide-react';
-import { askLlmLab, getLlmLabStatus, getLlmRuntimeHealth } from '@/api/client';
+import { askLlmLab, controlLlm, getLlmLabStatus, getLlmRuntimeHealth } from '@/api/client';
 import type { LlmLabAnswer, LlmLabStatus, LlmRuntimeHealth } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,13 +32,21 @@ export function LlmLabPage() {
   const [copied, setCopied] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [suggestions, setSuggestions] = useState<string[] | null>(null);
+  const [restarting, setRestarting] = useState(false);
+  const [restartNote, setRestartNote] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>('');
 
   const loadHealth = () => {
     void getLlmRuntimeHealth().then(setHealth).catch(() => setHealth(null));
   };
 
   useEffect(() => {
-    void getLlmLabStatus().then(setStatus).catch(() => setStatus(null));
+    void getLlmLabStatus()
+      .then((s) => {
+        setStatus(s);
+        setSelectedModel(s.active_model ?? s.available_models[0] ?? '');
+      })
+      .catch(() => setStatus(null));
     loadHealth();
     const id = window.setInterval(loadHealth, 30_000);
     return () => window.clearInterval(id);
@@ -77,6 +87,23 @@ export function LlmLabPage() {
 
   const onAnalyse = () => setSuggestions(analysePrompt(prompt));
 
+  const onRestart = async () => {
+    if (restarting) return;
+    if (!window.confirm('Restart the on-prem LLM service? In-flight generations will be dropped.')) return;
+    setRestarting(true);
+    setRestartNote(null);
+    try {
+      await controlLlm('restart');
+      setRestartNote('Restart requested — service is coming back up, this can take ~30–60s.');
+      // Re-probe shortly so the health cards reflect the bounce.
+      window.setTimeout(loadHealth, 8_000);
+    } catch (err) {
+      setRestartNote(err instanceof Error ? err.message : 'Restart request failed');
+    } finally {
+      setRestarting(false);
+    }
+  };
+
   const onCopy = () => {
     if (!result?.answer) return;
     void navigator.clipboard.writeText(result.answer).then(() => {
@@ -105,16 +132,39 @@ export function LlmLabPage() {
                   Raw text-in / text-out probe of the on-prem model — no tools, no live data, no SOC governance.
                 </p>
               </div>
-              {status === null ? (
-                <Badge variant="secondary">checking…</Badge>
-              ) : available ? (
-                <Badge className="bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30">model ready</Badge>
-              ) : (
-                <Badge className="bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/30">
-                  unavailable · {status.mode}
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {status === null ? (
+                  <Badge variant="secondary">checking…</Badge>
+                ) : available ? (
+                  <Badge className="bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30">model ready</Badge>
+                ) : (
+                  <Badge className="bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/30">
+                    unavailable · {status.mode}
+                  </Badge>
+                )}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={restarting || !(health?.control_available ?? false)}
+                  onClick={() => void onRestart()}
+                  title={
+                    health?.control_available
+                      ? 'Gracefully restart the on-prem LLM service'
+                      : 'LLM control is disabled on this deployment'
+                  }
+                  className="gap-1 border border-rose-500/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
+                >
+                  {restarting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+                  {restarting ? 'Restarting…' : 'Restart LLM'}
+                </Button>
+              </div>
             </div>
+            {restartNote ? (
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-rose-200/90">
+                <Power className="h-3.5 w-3.5" />
+                {restartNote}
+              </p>
+            ) : null}
           </header>
 
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -136,12 +186,32 @@ export function LlmLabPage() {
               value={health?.status ?? '—'}
               tone={health?.healthy ? 'good' : health ? 'warn' : 'idle'}
             />
-            <HealthCard
-              icon={<Sparkles className="h-4 w-4" />}
-              label="Model"
-              value={health?.model ?? '—'}
-              tone="idle"
-            />
+            <div className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-3">
+              <label className="flex items-center gap-2 text-[0.7rem] uppercase tracking-wide text-slate-500">
+                <Sparkles className="h-4 w-4" />
+                Model
+              </label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={(status?.available_models?.length ?? 0) <= 1}
+                className="mt-1 w-full truncate rounded bg-slate-950/60 px-2 py-1 text-sm font-semibold text-slate-200 outline-none focus:ring-1 focus:ring-cyan-500/40 disabled:opacity-70"
+              >
+                {(status?.available_models ?? []).map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+                {(status?.available_models?.length ?? 0) === 0 ? (
+                  <option value="">{health?.model ?? '—'}</option>
+                ) : null}
+              </select>
+              {selectedModel && status?.active_model && selectedModel !== status.active_model ? (
+                <p className="mt-1 text-[0.65rem] leading-4 text-amber-300/90">
+                  Target set — not hot-swapped. Host must load this model (systemd) to take effect.
+                </p>
+              ) : null}
+            </div>
           </section>
 
           <Card className="border-slate-800/80 bg-slate-900/50">

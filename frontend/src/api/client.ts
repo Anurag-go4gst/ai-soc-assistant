@@ -281,6 +281,8 @@ export interface LlmLabStatus {
   llm_enabled: boolean;
   mode: string;
   provider_configured: boolean;
+  active_model: string | null;
+  available_models: string[];
   disclaimer: string;
 }
 
