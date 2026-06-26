@@ -216,6 +216,9 @@ class Settings(BaseSettings):
     # operator can record/see the intended target.
     ai_soc_llm_active_model: str = "foundation-sec-1.1-8b-instruct-q8_0"
     ai_soc_llm_available_models: str = "foundation-sec-1.1-8b-instruct-q8_0"
+    # Optional path for the UI-editable LLM connection override store (api key
+    # included → keep off git). Blank = backend/data/llm_connection.json.
+    ai_soc_llm_connection_store_path: str = ""
     ai_soc_llm_timeout_seconds: int = 30
     # Protected wall-time reserve for the intent advisor hop (not the full sidecar timeout).
     ai_soc_llm_intent_advisor_reserve_seconds: float = 12.0

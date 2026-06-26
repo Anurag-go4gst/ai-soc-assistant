@@ -36,6 +36,15 @@ from app.auth.routes_auth import router as auth_router
 
 app = FastAPI(title="AI SOC Assistant")
 
+# Apply any UI-persisted LLM connection override onto the live settings before
+# the first request, so the endpoint resolver / sidecars / Ask LLM honor it.
+try:
+    from app.llm.connection_store import apply_to_settings as _apply_llm_connection_override
+
+    _apply_llm_connection_override()
+except Exception:  # noqa: BLE001 - never block startup on an optional override
+    logging.getLogger("ai_soc.llm").warning("llm_connection_override_apply_failed", exc_info=True)
+
 _telemetry_logger = logging.getLogger("ai_soc.telemetry")
 
 # Stable, public-safe error code returned to clients for any unhandled exception.

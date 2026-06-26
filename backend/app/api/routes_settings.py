@@ -764,6 +764,63 @@ def smoke_llm_generation(payload: LlmVerificationRequest | None = None) -> dict:
     )
 
 
+class LlmConnectionSaveRequest(BaseModel):
+    enabled: bool = False
+    mode: str = "local"
+    base_url: str = ""
+    model: str = ""
+    api_key: str = ""
+    timeout_seconds: int = 120
+
+
+@router.get("/settings/llm/connection")
+def get_llm_connection(_user: dict = Depends(require_auth)) -> dict:
+    """Effective LLM connection config (override merged onto env). Redacted."""
+    from app.llm.connection_store import effective_connection
+
+    return {
+        "connection": effective_connection(),
+        "supported_modes": list(SUPPORTED_AI_SOC_LLM_MODES),
+    }
+
+
+@router.post("/settings/llm/connection")
+def save_llm_connection(payload: LlmConnectionSaveRequest, user: dict = Depends(require_auth)) -> dict:
+    """Persist the LLM connection from the UI and apply it live (no restart).
+
+    A blank ``api_key`` keeps the previously stored key. The api key is never
+    echoed back — only an ``api_key_configured`` boolean.
+    """
+    from app.llm.connection_store import effective_connection, save_connection
+
+    mode = payload.mode.strip().lower()
+    errors: list[str] = []
+    if mode not in SUPPORTED_AI_SOC_LLM_MODES:
+        errors.append("invalid_mode")
+    if payload.timeout_seconds <= 0:
+        errors.append("timeout_seconds_must_be_positive")
+    if payload.enabled and mode not in {"mock", "disabled"}:
+        if not payload.base_url.strip():
+            errors.append("base_url_required")
+        elif not payload.base_url.strip().rstrip("/").endswith("/v1"):
+            errors.append("base_url_should_end_with_v1")
+        if not payload.model.strip():
+            errors.append("model_required")
+    if errors:
+        return {"saved": False, "validation_errors": errors, "connection": effective_connection()}
+
+    save_connection(
+        enabled=payload.enabled,
+        mode=mode,
+        base_url=payload.base_url,
+        model=payload.model,
+        api_key=payload.api_key,
+        timeout_seconds=payload.timeout_seconds,
+        updated_by=str(user.get("username") or "unknown"),
+    )
+    return {"saved": True, "validation_errors": [], "connection": effective_connection()}
+
+
 def _mcp_verification_payload(payload: McpVerificationRequest | None) -> McpVerificationRequest:
     if payload is not None:
         return payload

@@ -322,6 +322,55 @@ export async function askLlmLab(payload: {
   return response.json();
 }
 
+export interface LlmConnectionConfig {
+  enabled: boolean;
+  mode: string;
+  base_url: string;
+  model: string;
+  api_key_configured: boolean;
+  timeout_seconds: number;
+  source: 'override' | 'env';
+}
+
+export interface LlmConnectionResponse {
+  connection: LlmConnectionConfig;
+  supported_modes: string[];
+}
+
+export interface LlmConnectionSaveResult {
+  saved: boolean;
+  validation_errors: string[];
+  connection: LlmConnectionConfig;
+}
+
+export async function getLlmConnection(): Promise<LlmConnectionResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/connection`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`LLM connection load failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveLlmConnection(payload: {
+  enabled: boolean;
+  mode: string;
+  base_url: string;
+  model: string;
+  api_key: string;
+  timeout_seconds: number;
+}): Promise<LlmConnectionSaveResult> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/connection`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`LLM connection save failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getProviderSettingsStatus(): Promise<ProviderSettingsStatus> {
   const response = await fetch(`${API_BASE_URL}/settings/providers/status`, { credentials: 'include' });
   if (!response.ok) {

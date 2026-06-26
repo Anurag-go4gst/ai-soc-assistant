@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { getProviderSettingsStatus, getSettingsStatus } from '@/api/client';
 import { SourceProfileSettingsPanel } from '@/components/settings/SourceProfileSettingsPanel';
 import { LlmSettingsPanel } from '@/components/settings/LlmSettingsPanel';
+import { LlmConnectionPanel } from '@/components/settings/LlmConnectionPanel';
 import { McpSettingsPanel } from '@/components/settings/McpSettingsPanel';
 import { ObservabilityPanel } from '@/components/settings/ObservabilityPanel';
 import { UserProfilePanel } from '@/components/settings/UserProfilePanel';
@@ -126,7 +127,8 @@ export function SettingsPage() {
             <TabsContent value="rag" className="m-0">
               <RagSettingsPanel status={status.rag} />
             </TabsContent>
-            <TabsContent value="llm" className="m-0">
+            <TabsContent value="llm" className="m-0 space-y-3">
+              <LlmConnectionPanel supportedModes={['mock', 'local', 'openai_compatible', 'cisco_foundation_sec', 'disabled']} />
               <LlmSettingsPanel status={status.llm} />
             </TabsContent>
             <TabsContent value="embeddings" className="m-0">
