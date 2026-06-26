@@ -63,18 +63,19 @@ trace, or review-only artifacts, but they must flow through the same canonical h
 
 ### WS1 Routing + Row Authority
 
-Status: partial, trace-only.
+Status: partial, flag-gated enforcement for exact-105 route authority.
 
 Done:
 
 - `RouteAdjudication` carries `row_authority_status`, `row_authority_decision`, `row_authority_note`, and fallback reason.
 - Weak exact rows such as q046 are visible as `would_withhold_exact_registry`.
 - T1 SPL-native catalogue/meta rows are visible as `catalog_t1_spl_native`.
+- When `route_authority_operation_authoritative_enabled=true`, exact-105 registry routing now also requires `row_authority_decision=exact_known_authority_ready`; weak exact rows fall through to the canonical EvidencePlan live/hybrid route.
 
 Remaining:
 
-- Do not enforce row-authority route changes until a focused PR proves exact-known weak rows still preserve row identity, Environment KB slots, and canonical route handoff.
-- If enforcement is enabled later, gate it behind an explicit flag and test CP-on and CP-off behavior.
+- Broaden CP-on / CP-off route matrix coverage beyond q046 and synthetic ready rows.
+- Prove Environment KB/source-profile details still flow through weak-exact fallback in full `/chat` tests.
 
 ### WS2 Slot Constraint Projection
 
@@ -170,13 +171,14 @@ Status: pending.
 
 Add tests distinguishing:
 
-- Healthy contradiction: catalogue says exact row, row-authority says weak, route remains canonical with trace.
+- Healthy contradiction: catalogue says exact row, row-authority says weak, route remains canonical; CP-off keeps compatibility, CP-on applies row-authority narrowing.
 - Real bug: exact row bypasses missing bindings, live-result language appears without evidence, or MCP step disappears.
 
 ## Immediate Acceptance For This PR Slice
 
 - Plan status no longer overclaims phase completion.
 - Row authority is visible in route adjudication without creating a second route architecture.
+- Flag-gated row-authority enforcement prevents weak exact rows from using `exact_105_registry` authority.
 - MCP-off live-evidence ResourcePlan keeps the same MCP step and marks it blocked.
 - SlotConstraintProjection exists as an SPL handoff read model while reusing existing binding authority.
 - T2 SPL-native tests and ResourcePlan/adjudication focused tests pass.

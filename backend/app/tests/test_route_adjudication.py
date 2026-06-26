@@ -60,7 +60,9 @@ def test_hybrid_failed_login_action_preserves_live_investigation_skill() -> None
     }
 
 
-def test_exact_105_allowlisted_when_operation_authority_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_route_adjudication_weak_exact_uses_evidence_plan_live_or_hybrid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(settings, "route_authority_operation_authoritative_enabled", True)
     monkeypatch.setattr(
         settings,
@@ -94,8 +96,64 @@ def test_exact_105_allowlisted_when_operation_authority_enabled(monkeypatch: pyt
         "exact_105_question",
         "exact_105_plus_use_case_catalog",
     }:
-        assert result.authority_source == "exact_105_registry"
+        assert result.authority_source == "evidence_plan_live_or_hybrid"
         assert result.final_route == "attack_discovery"
+        assert result.row_authority_applied is True
+        assert result.row_authority_decision == "would_withhold_exact_registry"
+
+
+def test_route_adjudication_exact_authority_ready_preserves_registry_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "route_authority_operation_authoritative_enabled", True)
+    monkeypatch.setattr(
+        settings,
+        "route_authority_operation_coverage_allowlist",
+        COV_Q046_PILOT_COVERAGE_ID,
+    )
+    intent = {
+        "intent_family": "live_investigation",
+        "primary_intent": "attack_discovery",
+        "secondary_intents": [],
+        "query_type": "ask_for_live_results",
+        "answer_goal": ["live_results"],
+        "requested_output_type": "INVESTIGATION",
+        "confidence": 0.86,
+        "confidence_band": "high",
+        "requires_clarification": False,
+        "requires_hil": False,
+        "action_mode": None,
+        "reason": "test",
+    }
+    evidence = plan_evidence(intent).model_dump()
+    evidence["row_authority_summary"] = {
+        "question_ref": "q0.synthetic_ready",
+        "row_authority_status": "exact_known_authority_ready",
+        "s3_authority_ready": True,
+    }
+    shadow = {
+        "question_runtime_map": {
+            "manifest_coverage_id": COV_Q046_PILOT_COVERAGE_ID,
+            "coverage_id": COV_Q046_PILOT_COVERAGE_ID,
+            "question_ref": "q0.synthetic_ready",
+        },
+    }
+    mappings = {
+        "match_path": "exact_105_question",
+        "use_case_ids": ["auth_failed_login_spike"],
+        "legacy_skill_hint": "attack_discovery",
+    }
+    result = adjudicate_route(
+        deterministic_route="attack_discovery",
+        route_plan_shadow=shadow,
+        evidence_plan=evidence,
+        intent_classification=intent,
+        query_to_intent={"candidate_mappings": mappings},
+    )
+    assert result.authority_source == "exact_105_registry"
+    assert result.final_route == "attack_discovery"
+    assert result.row_authority_applied is True
+    assert result.row_authority_decision == "exact_known_authority_ready"
 
 
 def test_blocked_detection_coverage_cannot_be_exact_105_authority(monkeypatch: pytest.MonkeyPatch) -> None:

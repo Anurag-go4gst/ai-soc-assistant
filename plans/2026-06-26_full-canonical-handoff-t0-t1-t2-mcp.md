@@ -58,7 +58,7 @@ Implementation progress / reality check:
 - Phase 1 has both report artifacts and runtime row-authority projection. It is no longer strictly report-only; runtime behavior must remain flag-gated where it can affect routing.
 - Phase 2/3 are partial. EvidencePlan carries optional `row_authority_summary`, `normalized_slot_summary`, and `source_profile_binding_summary`, but several plan-named end-to-end assertions are still missing.
 - Phase 4/7 are partial. ResourcePlan composition emits MCP steps, and skill-contract vetoes are represented; MCP-off live-investigation steps must be blocked on the same MCP step rather than omitted or route-replaced.
-- Phase 5 is partial. Drift tracing exists, and row-authority advisory trace now makes weak exact-105 rows visible without changing route authority. Runtime enforcement / promotion must remain a later flag-gated step; route adjudication must not permanently rely on raw exact-105 allowlists alone.
+- Phase 5 is partial. Drift tracing exists, and row-authority now narrows exact-105 registry authority when `route_authority_operation_authoritative_enabled=true`: weak exact rows fall through to the canonical EvidencePlan path, while authority-ready rows may preserve exact registry routing. Broader matrix and full `/chat` coverage remain pending.
 - Phase 6 is partial. Dependency-gap projection helpers exist, but loop coverage is mostly focused/unit level rather than broad end-to-end loop tests.
 - Phase 8 is not complete. Reviewed answer-pack projection is skeletal; there is no populated `answer_packs.json`, so the loader is empty unless tests monkeypatch data.
 - Phase 9 is trace-only. Promotion lifecycle summaries are visible, but `can_skip_llm_for_t0` is not wired into runtime synthesis/LLM scheduling authority.

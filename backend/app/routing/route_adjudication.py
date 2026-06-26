@@ -76,6 +76,8 @@ def adjudicate_route(
     shadow_status = _shadow_plan_status(shadow)
     match_path = str(mappings.get("match_path") or "")
     row_trace = _row_authority_trace(plan, mappings, match_path=match_path)
+    if match_path in _EXACT_105_MATCH_PATHS and settings.route_authority_operation_authoritative_enabled:
+        row_trace["row_authority_applied"] = True
 
     def finish(**kwargs: Any) -> RouteAdjudication:
         return _result(
@@ -160,6 +162,7 @@ def adjudicate_route(
         match_path in _EXACT_105_MATCH_PATHS
         and intent.intent_family in _INTENT_COMPATIBLE_WITH_EXACT_105
         and _exact_105_authority_permitted(shadow, mappings)
+        and _row_authority_permits_exact_registry(row_trace)
     ):
         skill = _registry_skill_for_exact_105(mappings, query_understanding, deterministic_route)
         return finish(
@@ -435,6 +438,12 @@ def _row_authority_trace(
         "row_authority_note": note,
         "row_authority_fallback_reason": fallback,
     }
+
+
+def _row_authority_permits_exact_registry(row_trace: dict[str, Any]) -> bool:
+    if not settings.route_authority_operation_authoritative_enabled:
+        return True
+    return row_trace.get("row_authority_decision") == "exact_known_authority_ready"
 
 
 def _result(
