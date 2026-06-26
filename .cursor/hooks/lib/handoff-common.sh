@@ -35,11 +35,36 @@ has_meaningful_code_changes() {
   return 1
 }
 
-# Follow-up verify turn: only when code changed and not explicitly disabled.
+verify_request_flag() {
+  echo "$1/.cursor/hooks/.verify-requested"
+}
+
+# Arm verify follow-up for the current prompt (user typed "test" in beforeSubmitPrompt).
+arm_verify_request() {
+  local root="$1"
+  local flag
+  flag="$(verify_request_flag "$root")"
+  mkdir -p "$(dirname "$flag")"
+  date -u +"%Y-%m-%dT%H:%M:%SZ" >"$flag"
+}
+
+disarm_verify_request() {
+  local root="$1"
+  rm -f "$(verify_request_flag "$root")"
+}
+
+is_verify_requested() {
+  local root="$1"
+  [[ -f "$(verify_request_flag "$root")" ]]
+}
+
+# Follow-up verify turn: only when user armed via "test" prompt and code changed.
+# Legacy hard-off: touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
 should_verify_followup() {
   local root="$1"
   local disable="$root/.cursor/hooks/DISABLE_VERIFY_ON_STOP"
   [[ -f "$disable" ]] && return 1
+  is_verify_requested "$root" || return 1
   has_meaningful_code_changes "$root"
 }
 

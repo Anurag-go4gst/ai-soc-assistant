@@ -13,31 +13,36 @@ Cursor reloads `hooks.json` on save. If hooks do not fire, restart Cursor and ch
 
 | Event | Script | Purpose |
 |-------|--------|---------|
-| `stop` | `stop-verify-handoff.sh` | Always updates [`.cursor/last-handoff.md`](.cursor/last-handoff.md). **Verify follow-up** (`loop_limit: 1`) only when uncommitted changes exist under `backend/`, `frontend/`, `scripts/`, or `test_harness/` — not on docs-only or read-only turns |
-| `subagentStop` | `subagent-verify-handoff.sh` | Same gating: nudge parent to verify only when meaningful code changes are present |
+| `beforeSubmitPrompt` | `before-submit-verify-arm.sh` | Arms verify follow-up **only** when your prompt contains the word `test` (case-insensitive) |
+| `stop` | `stop-verify-handoff.sh` | Always updates [`.cursor/last-handoff.md`](.cursor/last-handoff.md). **Verify follow-up** (`loop_limit: 1`) only when you typed `test` **and** uncommitted changes exist under `backend/`, `frontend/`, `scripts/`, or `test_harness/` |
+| `subagentStop` | `subagent-verify-handoff.sh` | Same opt-in gating as `stop` when meaningful code changes are present |
 | `beforeShellExecution` | `before-shell-guardrails.sh` | Block force-push to main/master, `git config` changes; ask on broad `git add` / public docker publish |
 | `preToolUse` (Write/ApplyPatch/EditNotebook) | `block-secret-paths.sh` | Deny writes to `.env`, credential-like paths (`failClosed: true`) |
 
-### Verify follow-up gating (default)
+### Verify follow-up gating (opt-in via `test`)
 
-Follow-up verify turns on `stop` / `subagentStop` run **only** when the working tree has uncommitted changes under:
+**Default: verify hooks are off.** No automatic verify loop after agent turns.
 
-- `backend/`
-- `frontend/`
-- `scripts/`
-- `test_harness/`
+To arm verification for one turn, include the word **`test`** in your prompt (case-insensitive), for example:
 
-Docs-only edits (`AGENTS.md`, `plans/`, `docs/evals/`, etc.), restarts, and Q&A turns do **not** inject an extra verify loop.
+> test — fix the wineventlog off-shift SPL and run pytest
 
-The handoff file still updates every stop (short “verify not required” note when no code paths changed).
+The `beforeSubmitPrompt` hook sets a one-shot flag. When the agent stops, `stop` / `subagentStop` run the verify follow-up **only if both**:
 
-### Disable all verify follow-ups
+1. You typed `test` in that prompt, and
+2. The working tree has uncommitted changes under `backend/`, `frontend/`, `scripts/`, or `test_harness/`
+
+Normal Q&A, docs-only edits, and code changes without `test` in the prompt do **not** inject an extra verify loop.
+
+The handoff file still updates every stop (notes whether verify was armed).
+
+### Hard-disable all verify follow-ups (even with `test`)
 
 ```bash
 touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
 ```
 
-Remove the file to re-enable gated follow-ups. Shared logic: `.cursor/hooks/lib/handoff-common.sh`.
+Remove the file to allow opt-in `test` arming again. Shared logic: `.cursor/hooks/lib/handoff-common.sh`.
 
 ### Cross-agent handoff (Cursor → Claude Code / Codex)
 

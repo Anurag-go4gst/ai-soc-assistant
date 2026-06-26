@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # After Cursor agent completes: write handoff artifact; verify follow-up only when
-# there are meaningful uncommitted code changes (backend/frontend/scripts/tests).
-# Disable all follow-ups: touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
+# the user armed verify by typing "test" in the prompt AND there are meaningful
+# uncommitted code changes (backend/frontend/scripts/tests).
+# Hard-disable all follow-ups: touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -26,13 +27,18 @@ if [[ -z "$changed_list" ]]; then
   changed_list="_(none under backend/, frontend/, scripts/, test_harness/)_"
 fi
 
-if [[ "$meaningful" -eq 1 ]]; then
+verify_armed=0
+if is_verify_requested "$ROOT"; then
+  verify_armed=1
+fi
+
+if [[ "$meaningful" -eq 1 && "$verify_armed" -eq 1 ]]; then
   cat >"$HANDOFF" <<EOF_HANDOFF
 # Agent handoff — $ts
 
 **Cursor session ended** (\`status=$status\`, \`id=$conversation_id\`).
 
-**Verify recommended** — uncommitted code changes detected.
+**Verify recommended** — you typed **test** in the prompt and uncommitted code changes were detected.
 
 ### Touched code paths
 
@@ -67,6 +73,20 @@ Read \`AGENTS.md\` **Agent Execution Playbook** before changing anything.
 > Review the uncommitted diff against AGENTS.md playbook. Run targeted tests for touched paths. Report gaps, deferrals, and verification results. Do not commit unless I ask.
 
 EOF_HANDOFF
+elif [[ "$meaningful" -eq 1 ]]; then
+  cat >"$HANDOFF" <<EOF_HANDOFF
+# Agent handoff — $ts
+
+**Cursor session ended** (\`status=$status\`, \`id=$conversation_id\`).
+
+**Verify not armed** — code changed but your prompt did not include the word **test**, so no automatic verify loop ran.
+
+Include **test** in your prompt when you want the stop hook to run targeted verification. Example: *test — review the diff and run pytest*.
+
+### Touched code paths
+
+$changed_list
+EOF_HANDOFF
 else
   cat >"$HANDOFF" <<EOF_HANDOFF
 # Agent handoff — $ts
@@ -75,17 +95,25 @@ else
 
 **Verify not required** — no uncommitted changes under \`backend/\`, \`frontend/\`, \`scripts/\`, or \`test_harness/\`.
 
-Docs-only or read-only session. Run targeted tests only when you later change code paths.
+Docs-only or read-only session. Include **test** in your prompt when you want automatic verify on code changes.
 
 See \`AGENTS.md\` playbook when you do touch backend/frontend.
 EOF_HANDOFF
 fi
 
-if ! should_verify_followup "$ROOT"; then
+followup=0
+if should_verify_followup "$ROOT"; then
+  followup=1
+fi
+
+# One-shot: disarm after this stop so the next turn stays quiet unless user types "test" again.
+disarm_verify_request "$ROOT"
+
+if [[ "$followup" -ne 1 ]]; then
   exit 0
 fi
 
 jq -n --arg msg "$(cat <<'PROMPT'
-Verification handoff (AGENTS.md): Uncommitted code changes are present. Before finishing, review the diff against the Agent Execution Playbook, run targeted pytest for touched backend files, governance regression if control-plane/routing changed, and `cd frontend && npm run build` if frontend changed. Report commands and pass/fail. Do not commit unless asked. Details: `.cursor/last-handoff.md`.
+Verification handoff (AGENTS.md): You typed "test" and uncommitted code changes are present. Before finishing, review the diff against the Agent Execution Playbook, run targeted pytest for touched backend files, governance regression if control-plane/routing changed, and `cd frontend && npm run build` if frontend changed. Report commands and pass/fail. Do not commit unless asked. Details: `.cursor/last-handoff.md`.
 PROMPT
 )" '{followup_message: $msg}'
