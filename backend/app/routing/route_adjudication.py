@@ -67,6 +67,28 @@ def adjudicate_route(
             reason="Intent requires clarification or human review before tool execution.",
         )
 
+    if intent.intent_family == "github_investigation":
+        return _result(
+            deterministic_route=deterministic_route,
+            llm_suggested_route=llm_route,
+            shadow_plan_status=shadow_status,
+            final_route="guided_investigation",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="github_investigation_intent",
+            reason="GitHub investigation intent preserves governed guided route with GitHub-native evidence contract.",
+        )
+
+    if intent.intent_family == "cve_investigation":
+        return _result(
+            deterministic_route=deterministic_route,
+            llm_suggested_route=llm_route,
+            shadow_plan_status=shadow_status,
+            final_route="guided_investigation",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="cve_investigation_intent",
+            reason="CVE advisory review preserves governed guided route with vulnerability_source contract.",
+        )
+
     if intent.intent_family == "guided_investigation":
         return _result(
             deterministic_route=deterministic_route,
@@ -78,8 +100,25 @@ def adjudicate_route(
             reason="Out-of-registry SOC investigation shape preserves the governed guided route.",
         )
 
+    if intent.intent_family == "alert_summary":
+        return _result(
+            deterministic_route=deterministic_route,
+            llm_suggested_route=llm_route,
+            shadow_plan_status=shadow_status,
+            final_route="alert_summary",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="alert_summary_intent",
+            reason="Summary-output intent preserves the alert-summary route without SPL.",
+        )
+
     if plan is not None and (
-        plan.answer_mode == "rag_only" or (not plan.spl_allowed and not plan.mcp_allowed)
+        plan.answer_mode == "rag_only"
+        or (
+            not plan.spl_allowed
+            and not plan.mcp_allowed
+            and not plan.needs_mitre
+            and not plan.needs_spl
+        )
     ):
         return _result(
             deterministic_route=deterministic_route,
@@ -292,6 +331,10 @@ def _mirror_registry_skill(registry_skill: str) -> str | None:
 
 
 def _skill_for_intent_family(intent_family: str, fallback: str) -> str:
+    if intent_family == "alert_summary":
+        return "alert_summary"
+    if intent_family == "github_investigation":
+        return "guided_investigation"
     if intent_family == "spl_generation_only":
         return "spl_generation"
     if intent_family in _POLICY_INTENT_FAMILIES:

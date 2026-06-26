@@ -85,7 +85,11 @@ def render_template(
         if not template.spl_text:
             errors.append(RENDER_MISSING_PATTERN)
             return _failure(template, errors, warnings, bound_params)
-        validation = validate_spl(template.spl_text, load_spl_policy())
+        validation = validate_spl(
+            template.spl_text,
+            load_spl_policy(),
+            template_profile=template.validation_rules,
+        )
         approved = bool(validation.get("approved"))
         if not approved:
             errors.append(RENDER_VALIDATION_FAILED)
@@ -143,7 +147,11 @@ def render_template(
         errors.append(RENDER_UNSUBSTITUTED_PLACEHOLDER)
         return _failure(template, errors, warnings, bindings)
 
-    validation = validate_spl(rendered, load_spl_policy())
+    validation = validate_spl(
+        rendered,
+        load_spl_policy(),
+        template_profile=template.validation_rules,
+    )
     approved = bool(validation.get("approved"))
     if not approved:
         errors.append(RENDER_VALIDATION_FAILED)

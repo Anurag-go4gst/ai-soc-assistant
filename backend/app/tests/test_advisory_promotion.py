@@ -113,9 +113,47 @@ def test_end_to_end_promotion_through_build_query_to_intent() -> None:
     assert result.candidate_mappings["match_path"] == "llm_promoted_with_registry_validation"
     assert result.candidate_mappings["question_ref"] == "q0.q010"
     assert result.llm_intent_advisory.adjudication_status == "promoted"
+    # §10.2 post-promotion intent reconcile: the promoted route must reach
+    # intent_classification, not just candidate_mappings. q0.q010 is a
+    # top_n_aggregation / aggregate_and_rank skill -> spl_generation_only.
+    assert result.intent_classification.intent_family == "spl_generation_only"
+    assert result.intent_classification.intent_family != "clarification_required"
+    assert result.intent_classification.requires_clarification is False
 
 
 def test_no_advisory_means_behavior_unchanged() -> None:
     understanding = understand_query(OUT_OF_SET_QUERY)
     result = build_query_to_intent(query=OUT_OF_SET_QUERY, query_understanding=understanding)
     assert result.candidate_mappings["match_path"] == "out_of_registry"
+
+
+# Investigation-shaped ("how should I investigate") stays guided pre-promotion;
+# concrete "Detect ..." asks now route to spl_generation via the governed T2 floor.
+GUIDED_OUT_OF_REGISTRY_QUERY = "How should I investigate unusual login activity on vpn pool segment 7"
+
+
+def test_promotion_upgrades_guided_investigation_intent(monkeypatch) -> None:
+    import app.coverage.semantic_question_index as sqi
+
+    monkeypatch.setattr(sqi, "semantic_candidates", lambda query, **kw: [])
+    understanding = understand_query(GUIDED_OUT_OF_REGISTRY_QUERY)
+    assert understanding.deterministic_match_path == "out_of_registry"
+    pre = build_query_to_intent(query=GUIDED_OUT_OF_REGISTRY_QUERY, query_understanding=understanding)
+    assert pre.intent_classification.intent_family == "guided_investigation"
+    result = build_query_to_intent(
+        query=GUIDED_OUT_OF_REGISTRY_QUERY,
+        query_understanding=understanding,
+        llm_intent_advisory=_advisory(adjudication_status="skipped"),
+    )
+    assert result.candidate_mappings["match_path"] == "llm_promoted_with_registry_validation"
+    assert result.intent_classification.intent_family == "spl_generation_only"
+    assert result.intent_classification.requires_clarification is False
+
+
+def test_promoted_cisco_hunt_pattern_maps_to_spl_generation() -> None:
+    from app.chat.intent_classifier import _family_from_promoted_skill
+
+    assert (
+        _family_from_promoted_skill("behavioral_detection_binding", "cisco_it_to_ot_crossing")
+        == "spl_generation_only"
+    )

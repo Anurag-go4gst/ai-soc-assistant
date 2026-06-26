@@ -1,0 +1,811 @@
+{
+  "note": "structural capability ablation only; blinded live quality delta is the operator residual (plan \u00a74.6)",
+  "row_count": 20,
+  "non_boundary_rows": 18,
+  "mean_delta_p2_minus_p1": 1.5,
+  "mean_delta_p3_minus_p2": 2.0,
+  "resource_leg_distribution": {
+    "github_skill": 8,
+    "spl": 15,
+    "rag": 3,
+    "cve": 1
+  },
+  "role_distribution": {
+    "route_plan_candidate_generator": 18,
+    "mcp_tool_plan_shadow": 18
+  },
+  "failures": [],
+  "rows": [
+    {
+      "id": "eff.072",
+      "category": "splunk",
+      "stratum": "unsafe_execution",
+      "skill": "knowledge_recall",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "deterministic_card"
+      ],
+      "routed_resource_legs": [],
+      "enabled_roles": [],
+      "role_ablation": {},
+      "delta_p2_p1": 0,
+      "delta_p3_p2": 0
+    },
+    {
+      "id": "eff.099",
+      "category": "boundary",
+      "stratum": "out_of_scope",
+      "skill": "knowledge_recall",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "deterministic_card"
+      ],
+      "routed_resource_legs": [],
+      "enabled_roles": [],
+      "role_ablation": {},
+      "delta_p2_p1": 0,
+      "delta_p3_p2": 0
+    },
+    {
+      "id": "eff.010",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "skill": "spl_generation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "github_skill",
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 2,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.045",
+      "category": "soc_detection",
+      "stratum": "spl_generation_only",
+      "skill": "spl_generation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 1,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.065",
+      "category": "splunk",
+      "stratum": "knowledge_only",
+      "skill": "attack_discovery",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:rag",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:rag",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "rag"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 1,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.001",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "skill": "attack_discovery",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "github_skill",
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 2,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.027",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "skill": "attack_discovery",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "github_skill",
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 2,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.034",
+      "category": "soc_detection",
+      "stratum": "spl_generation_only",
+      "skill": "spl_generation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 1,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.003",
+      "category": "power_ot",
+      "stratum": "knowledge_only",
+      "skill": "knowledge_recall",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:rag",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:rag",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "rag"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 1,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.018",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "skill": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "github_skill",
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 2,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.005",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "skill": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "github_skill",
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 2,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.050",
+      "category": "soc_detection",
+      "stratum": "guided_investigation",
+      "skill": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "github_skill",
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 2,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.020",
+      "category": "power_ot",
+      "stratum": "guided_investigation",
+      "skill": "guided_investigation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "github_skill",
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 2,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.040",
+      "category": "soc_detection",
+      "stratum": "spl_generation_only",
+      "skill": "spl_generation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 1,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.002",
+      "category": "power_ot",
+      "stratum": "spl_generation_only",
+      "skill": "spl_generation",
+      "complexity_tier": "high",
+      "deadline_seconds": 125.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 1,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.080",
+      "category": "cloud_identity",
+      "stratum": "spl_generation_only",
+      "skill": "spl_generation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 1,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.012",
+      "category": "power_ot",
+      "stratum": "spl_generation_only",
+      "skill": "spl_generation",
+      "complexity_tier": "high",
+      "deadline_seconds": 125.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 1,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.055",
+      "category": "soc_detection",
+      "stratum": "guided_investigation",
+      "skill": "attack_discovery",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:github_skill",
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "github_skill",
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 2,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.060",
+      "category": "splunk",
+      "stratum": "spl_generation_only",
+      "skill": "spl_generation",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:spl",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:spl",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "spl"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 1,
+      "delta_p3_p2": 2
+    },
+    {
+      "id": "eff.090",
+      "category": "knowledge_governance",
+      "stratum": "knowledge_only",
+      "skill": "knowledge_recall",
+      "complexity_tier": "medium",
+      "deadline_seconds": 100.0,
+      "profile_1_capability": [
+        "deterministic_card"
+      ],
+      "profile_2_capability": [
+        "asset:cve",
+        "asset:rag",
+        "deterministic_card"
+      ],
+      "profile_3_capability": [
+        "asset:cve",
+        "asset:rag",
+        "deterministic_card",
+        "role:mcp_tool_plan_shadow",
+        "role:route_plan_candidate_generator"
+      ],
+      "routed_resource_legs": [
+        "cve",
+        "rag"
+      ],
+      "enabled_roles": [
+        "route_plan_candidate_generator",
+        "mcp_tool_plan_shadow"
+      ],
+      "role_ablation": {
+        "route_plan_candidate_generator": {
+          "consumer": "control_plane_trace.resource_plan_shadow",
+          "marginal": "role:route_plan_candidate_generator"
+        },
+        "mcp_tool_plan_shadow": {
+          "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+          "marginal": "role:mcp_tool_plan_shadow"
+        }
+      },
+      "delta_p2_p1": 2,
+      "delta_p3_p2": 2
+    }
+  ]
+}

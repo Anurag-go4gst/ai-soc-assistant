@@ -14,11 +14,148 @@ from app.chat.contracts.intent_classification import (
 )
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.chat.llm_intent_advisor import adjudicate_llm_intent_advisory, apply_advisory_promotion
-from app.chat.query_signals import extract_query_signals
-from app.query_understanding.models import QueryUnderstandingResult
+from app.chat.query_signals import (
+    extract_query_signals,
+    is_cross_skill_investigation_query,
+    is_cve_focus_query,
+    is_github_investigation_query,
+)
+from app.config import settings
+from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
+from app.coverage.question_runtime_map import question_runtime_entry
+from app.query_understanding.models import QueryUnderstandingResult, RequestedOutputType
+from app.query_understanding.soc_investigation_shape import detect_investigation_request
+from app.use_cases.registry import load_use_case_catalog
 
 
 _CATALOG_MATCH_PATHS = frozenset({"use_case_catalog", "exact_105_plus_use_case_catalog"})
+
+_SUMMARY_OUTPUT_MARKERS = (
+    "summarize",
+    "summarise",
+    "summary for",
+    "concise analyst summary",
+    "shift handoff",
+    "produce a soc summary",
+    "analyst handoff",
+    "soc summary from",
+)
+
+_EXPLICIT_GUIDED_MARKERS = (
+    "guided investigation",
+    "guided triage",
+    "guided path",
+    "investigation branches",
+    "investigation branch",
+    "guide investigation",
+    "build guided",
+    "provide guided",
+)
+
+
+def _is_summary_output_request(
+    query: str,
+    signals: dict[str, Any],
+    query_understanding: QueryUnderstandingResult | None,
+) -> bool:
+    """Analyst asks for a concise handoff/summary, not log search or SPL drafting."""
+    if signals.get("explicit_search_intent") or signals.get("explicit_run_spl") or signals.get("run_execution"):
+        return False
+    if signals.get("github_investigation_shaped") or is_github_investigation_query(query):
+        return False
+    if query_understanding is not None and query_understanding.requested_output_type == RequestedOutputType.SUMMARY:
+        return True
+    normalized = " ".join(query.lower().split())
+    return any(marker in normalized for marker in _SUMMARY_OUTPUT_MARKERS)
+
+
+def _is_explicit_guided_investigation_request(query: str) -> bool:
+    """Explicit guided-investigation phrasing or evidence-led triage framing."""
+    normalized = " ".join(query.lower().split())
+    if any(marker in normalized for marker in _EXPLICIT_GUIDED_MARKERS):
+        return True
+    return detect_investigation_request(query)
+
+
+def _build_alert_summary_classification(*, reason: str, confidence: float = 0.78) -> IntentClassification:
+    return _build_classification(
+        intent_family="alert_summary",
+        primary_intent="alert_summary",
+        query_type="ask_for_explanation",
+        answer_goal=["severity_assessment", "analyst_action_guidance"],
+        confidence=confidence,
+        requires_clarification=False,
+        action_mode="recommend_only",
+        reason=reason,
+        requested_output_type="SUMMARY",
+    )
+
+
+
+
+def _is_github_investigation_request(query: str, signals: dict[str, Any]) -> bool:
+    return bool(signals.get("github_investigation_shaped") or is_github_investigation_query(query))
+
+
+
+
+
+
+def _build_cve_investigation_classification(*, reason: str, confidence: float = 0.77) -> IntentClassification:
+    return _build_classification(
+        intent_family="cve_investigation",
+        primary_intent="cve_investigation",
+        query_type="investigation_with_guidance",
+        answer_goal=["procedural_steps", "analyst_action_guidance"],
+        confidence=confidence,
+        requires_clarification=False,
+        requires_hil=True,
+        action_mode="recommend_only",
+        reason=reason,
+        requested_output_type="INVESTIGATION",
+    )
+
+def _build_cross_skill_investigation_classification(*, reason: str, confidence: float = 0.76) -> IntentClassification:
+    return _build_classification(
+        intent_family="github_investigation",
+        primary_intent="cross_skill_investigation",
+        query_type="investigation_with_guidance",
+        answer_goal=["procedural_steps", "analyst_action_guidance"],
+        confidence=confidence,
+        requires_clarification=False,
+        requires_hil=True,
+        action_mode="recommend_only",
+        reason=reason,
+        requested_output_type="INVESTIGATION",
+    )
+
+def _build_github_investigation_classification(*, reason: str, confidence: float = 0.74) -> IntentClassification:
+    return _build_classification(
+        intent_family="github_investigation",
+        primary_intent="github_investigation",
+        query_type="investigation_with_guidance",
+        answer_goal=["procedural_steps", "analyst_action_guidance"],
+        confidence=confidence,
+        requires_clarification=False,
+        requires_hil=True,
+        action_mode="recommend_only",
+        reason=reason,
+        requested_output_type="INVESTIGATION",
+    )
+
+def _build_guided_investigation_classification(*, reason: str, confidence: float = 0.52) -> IntentClassification:
+    return _build_classification(
+        intent_family="guided_investigation",
+        primary_intent="investigation_guidance",
+        query_type="investigation_with_guidance",
+        answer_goal=["procedural_steps", "analyst_action_guidance"],
+        confidence=confidence,
+        requires_clarification=False,
+        requires_hil=True,
+        action_mode="recommend_only",
+        reason=reason,
+        requested_output_type="INVESTIGATION",
+    )
 
 
 def _effective_match_path(
@@ -101,6 +238,55 @@ def classify_intent(
             requested_output_type="ACTION_PLAN",
         )
 
+    if signals.get("non_soc_or_out_of_scope"):
+        return _build_classification(
+            intent_family="clarification_required",
+            primary_intent="knowledge_recall",
+            query_type="ask_for_explanation",
+            answer_goal=["clarification"],
+            confidence=0.45,
+            requires_clarification=True,
+            reason="Request is out of SOC scope; clarification recommended.",
+            requested_output_type=None,
+        )
+
+    if signals.get("cross_skill_investigation"):
+        return _build_cross_skill_investigation_classification(
+            reason="Multi-domain CVE/MITRE/GitHub review plan; governed cross-skill stitch path.",
+        )
+
+    if signals.get("cve_focus_investigation") or is_cve_focus_query(query):
+        return _build_cve_investigation_classification(
+            reason="CVE advisory review without live scanning; governed evidence checklist.",
+        )
+
+    if _is_github_investigation_request(query, signals):
+        return _build_github_investigation_classification(
+            reason="GitHub PAT/workflow/commit investigation; governed review-only guidance.",
+            confidence=0.78,
+        )
+
+    if (
+        str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+        and signals.get("live_data_request")
+        and not signals.get("guidance_request")
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+    ):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.62,
+            requires_clarification=False,
+            reason=(
+                "Out-of-registry live data retrieval; review-only SPL path "
+                "(execution disabled, no live-result claims)."
+            ),
+            requested_output_type="SPL",
+        )
+
     if (
         (
             signals.get("investigation_hypothesis_guidance")
@@ -113,6 +299,7 @@ def classify_intent(
         and not signals.get("block_or_contain")
         and not signals.get("explicit_run_spl")
         and not signals.get("spl_generation")
+        and not signals.get("live_data_request")
     ):
         return _build_classification(
             intent_family="guided_investigation",
@@ -132,6 +319,7 @@ def classify_intent(
         and str(candidate_mappings.get("match_path") or "") == "out_of_registry"
         and not signals.get("block_or_contain")
         and not signals.get("explicit_run_spl")
+        and not signals.get("live_data_request")
     ):
         return _build_classification(
             intent_family="guided_investigation",
@@ -144,6 +332,29 @@ def classify_intent(
             action_mode="recommend_only",
             reason="Out-of-registry SOC investigation request receives governed, review-only hunt guidance.",
             requested_output_type="INVESTIGATION",
+        )
+
+    if signals.get("mitre_evidence_threshold"):
+        return _build_classification(
+            intent_family="mitre_explanation",
+            primary_intent="mitre_explanation",
+            secondary_intents=["mitre_mapping"],
+            query_type="ask_for_explanation",
+            answer_goal=["procedural_steps", "mitre_explanation", "analyst_action_guidance"],
+            confidence=0.9,
+            requires_clarification=False,
+            action_mode="recommend_only",
+            reason=(
+                "MITRE evidence-threshold question requires checklist, required evidence, "
+                "and candidate-only framing without declaration."
+            ),
+            requested_output_type="INVESTIGATION",
+        )
+
+    if signals.get("ot_protocol_investigation"):
+        return _build_guided_investigation_classification(
+            reason="OT protocol investigation checklist routes to signal-class guided guidance.",
+            confidence=0.78,
         )
 
     if signals.get("conceptual_mitre_judgment"):
@@ -159,23 +370,6 @@ def classify_intent(
             reason=(
                 "Conceptual MITRE judgment requires a direct not-enough-to-confirm answer, "
                 "candidate-only framing, and evidence preconditions without alert logs."
-            ),
-            requested_output_type="INVESTIGATION",
-        )
-
-    if signals.get("mitre_evidence_threshold"):
-        return _build_classification(
-            intent_family="hybrid_alert_review",
-            primary_intent="attack_discovery",
-            secondary_intents=["mitre_mapping"],
-            query_type="ask_for_mapping",
-            answer_goal=["procedural_steps", "mitre_explanation", "analyst_action_guidance"],
-            confidence=0.9,
-            requires_clarification=False,
-            action_mode="recommend_only",
-            reason=(
-                "MITRE evidence-threshold question requires checklist, required evidence, "
-                "and candidate-only framing without declaration."
             ),
             requested_output_type="INVESTIGATION",
         )
@@ -257,6 +451,23 @@ def classify_intent(
                 "and review-only governed SPL without execution."
             ),
             requested_output_type="INVESTIGATION",
+        )
+
+
+    if (
+        settings.ai_soc_t2_rag_surfacing_enabled
+        and signals.get("regulatory_reporting")
+        and not signals.get("live_investigation_verbs")
+    ):
+        return _build_classification(
+            intent_family="policy_knowledge",
+            primary_intent="knowledge_recall",
+            query_type="ask_for_policy",
+            answer_goal=["policy_citation", "procedural_steps"],
+            confidence=0.9,
+            requires_clarification=False,
+            reason="Regulatory reporting obligation question routed to governed knowledge recall.",
+            requested_output_type="SOP",
         )
 
     if signals.get("mitre_explain"):
@@ -400,6 +611,7 @@ def classify_intent(
             requested_output_type="INVESTIGATION",
         )
 
+
     if live_data_intent:
         return _build_classification(
             intent_family="live_investigation",
@@ -412,7 +624,29 @@ def classify_intent(
             requested_output_type="INVESTIGATION",
         )
 
-    if signals.get("explicit_search_intent") and not signals.get("run_execution"):
+    mapped_pattern = (
+        getattr(query_understanding, "mapped_pattern_type", None)
+        if query_understanding is not None
+        else None
+    )
+    if mapped_pattern == "environment_hygiene":
+        return _build_classification(
+            intent_family="knowledge_only",
+            primary_intent="knowledge_recall",
+            query_type="ask_for_explanation",
+            answer_goal=["analyst_action_guidance"],
+            confidence=0.78,
+            requires_clarification=False,
+            reason="Environment/metadata hygiene question; governed metadata path.",
+            requested_output_type=None,
+        )
+
+    if (
+        signals.get("explicit_search_intent")
+        and not signals.get("run_execution")
+        and not signals.get("non_soc_or_out_of_scope")
+        and str(candidate_mappings.get("match_path") or "") not in {"", "out_of_registry", "semantic_out_of_registry"}
+    ):
         goals: list[AnswerGoal] = ["spl_artifact"]
         if signals.get("investigation_triage_guidance") or signals.get("procedural_investigation"):
             goals.append("procedural_steps")
@@ -441,7 +675,9 @@ def classify_intent(
     registry_analytics = bool(signals.get("exact_105_analytics")) and exact_match
     registry_hunt = bool(signals.get("exact_105_hunt_spl")) and exact_match
     if (registry_analytics or registry_hunt or signals.get("analytics_aggregation")) and not (
-        signals.get("block_or_contain") or signals.get("explicit_run_spl")
+        signals.get("block_or_contain")
+        or signals.get("explicit_run_spl")
+        or signals.get("non_soc_or_out_of_scope")
     ):
         if registry_analytics:
             reason = (
@@ -503,6 +739,16 @@ def classify_intent(
             signals.get("analytics_aggregation")
             or skill_hint in {"spl_search", "spl_generation", "aggregate_and_rank", "threshold_anomaly"}
         )
+        if _is_github_investigation_request(query, signals):
+            return _build_github_investigation_classification(
+                reason="Catalog-adjacent GitHub investigation ask; governed GitHub review-only path.",
+                confidence=0.76,
+            )
+        if _is_summary_output_request(query, signals, query_understanding) and not spl_shaped:
+            return _build_alert_summary_classification(
+                reason="Maps to a catalog use case with summary-output intent; alert-summary path (no SPL).",
+                confidence=0.8,
+            )
         if knowledge_shaped:
             return _build_classification(
                 intent_family="knowledge_only",
@@ -525,17 +771,14 @@ def classify_intent(
                 reason="Maps to a catalog analytics/search use case; review-only SPL drafting, execution disabled.",
                 requested_output_type="SPL",
             )
-        if signals.get("alert_summary_shaped") or signals.get("alert_context_present"):
-            return _build_classification(
-                intent_family="hybrid_alert_review",
-                primary_intent="attack_discovery",
-                query_type="investigation_with_guidance",
-                answer_goal=["procedural_steps", "analyst_action_guidance"],
-                confidence=0.72,
-                requires_clarification=False,
-                action_mode="recommend_only",
-                reason="Maps to a catalog alert/review use case; route to the registry skill (review-only).",
-                requested_output_type="INVESTIGATION",
+        if (
+            _is_summary_output_request(query, signals, query_understanding)
+            or signals.get("alert_summary_shaped")
+            or signals.get("alert_context_present")
+        ):
+            return _build_alert_summary_classification(
+                reason="Maps to a catalog alert/review use case; alert-summary path (review-only).",
+                confidence=0.76,
             )
         return _build_classification(
             intent_family="live_investigation",
@@ -546,6 +789,93 @@ def classify_intent(
             requires_clarification=False,
             action_mode="recommend_only",
             reason="Maps to a catalog SOC use case; route to the registry skill (review-only, execution disabled).",
+            requested_output_type="INVESTIGATION",
+        )
+
+    if (
+        signals.get("explicit_log_search")
+        and not signals.get("guidance_request")
+        and str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+    ):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.62,
+            requires_clarification=False,
+            reason=(
+                "Explicit log-search request without registry match; review-only SPL "
+                "via governed producer (execution disabled)."
+            ),
+            requested_output_type="SPL",
+        )
+
+    # Terminal floor (Batch 0 — intent cascade hardening). This sits AFTER every
+    # match rung above (incl. the catalog rescue) and AFTER Engine 1/2; Engine 3
+    # advisory promotion runs later in build_query_to_intent and can still upgrade
+    # the family. The 3-way decision replaces the old generic clarification dump:
+    #   * off-topic / non-SOC                -> honest clarification (out of scope)
+    #   * SOC-shaped, actionable, unmatched  -> guided_investigation (review-only)
+    #   * everything else (genuine ambiguity) -> diagnosed clarification
+    # The genuine-ambiguity branch preserves clarification sentinels such as
+    # pg.clar.001 ("Check if this alert is serious."), which carries no
+    # security/telemetry subject and so is not an actionable hunt.
+    if signals.get("non_soc_or_out_of_scope"):
+        return _build_classification(
+            intent_family="clarification_required",
+            primary_intent="knowledge_recall",
+            query_type="ask_for_explanation",
+            answer_goal=["clarification"],
+            confidence=0.45,
+            requires_clarification=True,
+            reason="Request is out of SOC scope; clarification recommended.",
+            requested_output_type=None,
+        )
+
+    if _is_summary_output_request(query, signals, query_understanding):
+        return _build_alert_summary_classification(
+            reason="Summary-output request without a registry match; alert-summary path (no SPL).",
+            confidence=0.7,
+        )
+
+    if _is_explicit_guided_investigation_request(query):
+        return _build_guided_investigation_classification(
+            reason=(
+                "Explicit guided-investigation or evidence-led triage request without a "
+                "registry match; governed review-only guidance."
+            ),
+        )
+
+    if signals.get("soc_detection_intent"):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.6,
+            requires_clarification=False,
+            reason=(
+                "SOC detection/analytics request without a registry match; review-only "
+                "SPL via the governed LLM T2 producer (validated, execution disabled)."
+            ),
+            requested_output_type="SPL",
+        )
+
+    if signals.get("soc_actionable_hunt") and not signals.get("live_data_request"):
+        return _build_classification(
+            intent_family="guided_investigation",
+            primary_intent="investigation_guidance",
+            query_type="investigation_with_guidance",
+            answer_goal=["procedural_steps", "analyst_action_guidance"],
+            confidence=0.52,
+            requires_clarification=False,
+            requires_hil=True,
+            action_mode="recommend_only",
+            reason=(
+                "SOC-shaped, actionable hunt with no registry match; governed, "
+                "review-only guided investigation instead of a clarification dump."
+            ),
             requested_output_type="INVESTIGATION",
         )
 
@@ -581,7 +911,6 @@ def build_query_to_intent(
         candidate_mappings=candidate_mappings,
         query_understanding=query_understanding,
     )
-    conflicts = _intent_conflicts(intent, candidate_mappings, query_understanding)
     adjudicated_advisory = adjudicate_llm_intent_advisory(
         llm_intent_advisory,
         query_understanding=query_understanding,
@@ -590,9 +919,10 @@ def build_query_to_intent(
     # WS1 T1.3: out_of_registry intake may adopt a registry-validated advisory
     # candidate; deterministic rungs and unsafe/clarification outcomes always win.
     # Veto scope: explicit human-review outcomes (unsafe action, run-SPL
-    # demand) always win. The default insufficient-signals clarification does
-    # NOT veto — those queries are exactly the population promotion rescues.
-    explicit_review = bool(intent.requires_hil or intent.primary_intent == "human_review")
+    # demand) always win. The default insufficient-signals clarification and
+    # guided_investigation requires_hil do NOT veto — those populations are
+    # exactly what promotion rescues.
+    explicit_review = intent.primary_intent == "human_review"
     candidate_mappings, adjudicated_advisory = apply_advisory_promotion(
         advisory=adjudicated_advisory,
         candidate_mappings=candidate_mappings,
@@ -600,6 +930,19 @@ def build_query_to_intent(
         intent_requires_hil=explicit_review,
         query=query,
     )
+    # MANDATORY post-promotion reconcile (§10.2 gap): apply_advisory_promotion
+    # upgrades candidate_mappings.match_path only; intent_classification is still
+    # the pre-promotion (often clarification) result, so planning/evidence never
+    # see the upgrade. When promotion succeeded, re-derive intent_family from the
+    # promoted registry ref/use-case so the upgrade reaches evidence_plan/path_type.
+    # Deterministic-wins precedence is preserved: explicit human-review/unsafe
+    # outcomes (explicit_review) are never overridden.
+    intent = _reconcile_intent_after_promotion(
+        intent=intent,
+        candidate_mappings=candidate_mappings,
+        explicit_review=explicit_review,
+    )
+    conflicts = _intent_conflicts(intent, candidate_mappings, query_understanding)
     llm_status = _llm_intent_assist_status(
         query_understanding,
         candidate_mappings,
@@ -612,6 +955,113 @@ def build_query_to_intent(
         intent_conflicts=conflicts,
         llm_intent_assist_status=llm_status,
         llm_intent_advisory=adjudicated_advisory,
+    )
+
+
+def _family_from_promoted_skill(skill: str | None, pattern_type: str | None) -> str:
+    """Map a promoted registry skill / pattern_type to an actionable intent_family.
+
+    Mirrors the deterministic exact-105 / catalog-rescue mappings already used in
+    classify_intent so the promoted route lands on the same family it would have
+    if the registry had matched directly. Defaults to the review-only
+    live_investigation family for unknown SOC skills.
+    """
+    skill_norm = (skill or "").strip().lower()
+    pattern_norm = (pattern_type or "").strip().lower()
+    knowledge_skills = {"knowledge_recall", "retrieve_approved_context"}
+    spl_skills = {
+        "spl_search",
+        "spl_generation",
+        "aggregate_and_rank",
+        "threshold_anomaly",
+    }
+    if skill_norm in knowledge_skills or pattern_norm == "environment_hygiene":
+        return "knowledge_only"
+    hunt_patterns = EXACT_105_HUNT_PATTERNS | cisco_hunt_pattern_types()
+    if skill_norm in spl_skills or pattern_norm in hunt_patterns or pattern_norm in (
+        "top_n_aggregation",
+        "threshold_anomaly",
+    ):
+        return "spl_generation_only"
+    # attack_discovery and any other unmatched SOC skill -> review-only live path.
+    return "live_investigation"
+
+
+def _reconcile_intent_after_promotion(
+    *,
+    intent: IntentClassification,
+    candidate_mappings: dict[str, Any],
+    explicit_review: bool,
+) -> IntentClassification:
+    """Re-derive intent_family from a promoted registry ref/use-case (§10.2).
+
+    Only acts when (a) Engine-3 promotion actually fired
+    (match_path == "llm_promoted_with_registry_validation") and (b) the
+    pre-promotion intent was clarification or guided_investigation (not an explicit
+    human-review/unsafe outcome and not an already-actionable family). This keeps
+    deterministic-wins precedence: a query the deterministic rungs already routed
+    to a real family is left untouched.
+    """
+    if explicit_review:
+        return intent
+    if str(candidate_mappings.get("match_path") or "") != "llm_promoted_with_registry_validation":
+        return intent
+    if intent.intent_family not in {"clarification_required", "guided_investigation"}:
+        return intent
+
+    question_ref = candidate_mappings.get("question_ref")
+    use_case_ids = candidate_mappings.get("use_case_ids") or []
+    skill: str | None = None
+    pattern_type: str | None = None
+
+    if question_ref:
+        entry = question_runtime_entry(str(question_ref))
+        if entry:
+            skill = entry.get("proposed_primary_skill") or entry.get("legacy_router_intent_hint")
+            pattern_type = entry.get("pattern_type")
+    elif use_case_ids:
+        catalog = {item.use_case_id: item for item in load_use_case_catalog()}
+        item = catalog.get(str(use_case_ids[0]))
+        if item is not None:
+            skill = getattr(item, "primary_skill", None)
+
+    if skill is None and pattern_type is None:
+        # Could not resolve metadata; leave pre-promotion intent rather than guess.
+        return intent
+
+    family = _family_from_promoted_skill(skill, pattern_type)
+    requested_output = "SPL" if family == "spl_generation_only" else "INVESTIGATION"
+    if family == "knowledge_only":
+        requested_output = None
+    if family == "spl_generation_only":
+        primary_intent = "spl_generation"
+        query_type = "ask_for_query_generation"
+        answer_goal: list[AnswerGoal] = ["spl_artifact"]
+        action_mode = None
+    elif family == "knowledge_only":
+        primary_intent = "knowledge_recall"
+        query_type = "ask_for_explanation"
+        answer_goal = ["analyst_action_guidance"]
+        action_mode = None
+    else:
+        primary_intent = "attack_discovery"
+        query_type = "investigation_with_guidance"
+        answer_goal = ["procedural_steps", "analyst_action_guidance"]
+        action_mode = "recommend_only"
+    return _build_classification(
+        intent_family=family,
+        primary_intent=primary_intent,
+        query_type=query_type,
+        answer_goal=answer_goal,
+        confidence=0.7,
+        requires_clarification=False,
+        action_mode=action_mode,
+        reason=(
+            "Engine-3 LLM advisory promoted an out-of-registry query to a "
+            "registry-validated route; intent reconciled to the promoted family "
+            "(review-only, execution disabled)."
+        ),
+        requested_output_type=requested_output,
     )
 
 

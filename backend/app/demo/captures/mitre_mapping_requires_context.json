@@ -1,0 +1,3699 @@
+{
+  "final_response": {
+    "action_capability": {
+      "allowed_actions": [
+        "summarize",
+        "explain",
+        "show_sop",
+        "generate_spl",
+        "draft_investigation_note"
+      ],
+      "audit_required": true,
+      "current_tier": 1,
+      "hil_required": false,
+      "reason": "Use case soc_map_alert_mitre with severity P3 Medium is limited to inform/prepare actions in this stage.",
+      "tier_label": "Tier 1 - Prepare",
+      "unavailable_actions": [
+        "run_saved_search",
+        "create_ticket",
+        "block_ip",
+        "disable_user",
+        "isolate_endpoint"
+      ]
+    },
+    "analyst_response": {
+      "analyst_checklist": [],
+      "closure_conditions": [],
+      "direct_answer_summary": "",
+      "draft_spl_code": null,
+      "environment_hygiene": null,
+      "escalation_criteria": [],
+      "evidence_summary": null,
+      "executed_spl": null,
+      "execution_status": "skipped",
+      "execution_status_label": "Blocked — approval required",
+      "finding_title": "Alert to review",
+      "foundation_sec_analysis": null,
+      "hil_status": "clarification_required",
+      "initial_assessment": [],
+      "investigation_steps": [],
+      "key_fields": [],
+      "limitations": [],
+      "llm_spl_candidate": null,
+      "missing_evidence": [],
+      "mitre_mappings": [],
+      "mitre_status_summary": {
+        "candidate": [],
+        "evidence_supported": [],
+        "not_claimed": [
+          "T1562.001"
+        ],
+        "requires_validation": [],
+        "ruled_out": []
+      },
+      "not_claimed": [],
+      "one_sentence_finding": null,
+      "recommended_actions": [],
+      "render_sections": {
+        "analyst_action_guidance": true,
+        "evidence_checklist": false,
+        "investigation_guidance": false,
+        "limitations": false,
+        "live_results": false,
+        "mitre_mapping": false,
+        "not_claimed": false,
+        "policy_citation": false,
+        "procedural_steps": false,
+        "severity_assessment": false,
+        "spl_artifact": false,
+        "triage_checklist": false
+      },
+      "required_evidence": [],
+      "response_profile": null,
+      "retrieved_playbook": null,
+      "review_notice": null,
+      "scenario_label": "Map alert to MITRE",
+      "section_order": [
+        "mitre_mapping"
+      ],
+      "severity_confidence": null,
+      "severity_label": "P3 Medium",
+      "severity_rationale": null,
+      "severity_safety_note": null,
+      "sop_guidance": null,
+      "spl_code": null,
+      "spl_draft_preview": null,
+      "spl_status": "not_required",
+      "spl_status_detail": null,
+      "splunk_results_table": [],
+      "splunk_status_line": null,
+      "status_badge": null,
+      "unsupported_claims_avoid": []
+    },
+    "analyst_summary": null,
+    "answer_contract": {
+      "analyst_checklist_safe": [],
+      "answer_goal": [
+        "mitre_mapping"
+      ],
+      "answer_mode": "live_investigation",
+      "answer_rules_applied": [],
+      "assumptions": [],
+      "candidate_mitre": [],
+      "evidence_supported_mitre": [],
+      "execution_block_reason": null,
+      "execution_status": "skipped",
+      "execution_status_display": "Blocked — approval required",
+      "execution_status_label": "blocked_approval_required",
+      "hil_status": "clarification_required",
+      "human_review_required": true,
+      "intent_family": "mitre_mapping",
+      "investigation_steps": [],
+      "limitations": [],
+      "mcp_allowed": false,
+      "missing_evidence": [],
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "nearest_questions": [],
+      "needs_mitre": true,
+      "not_claimed_mitre": [
+        "T1562.001"
+      ],
+      "not_claimed_technique_ids": [
+        "T1562.001"
+      ],
+      "out_of_catalog_notice": null,
+      "render_sections": {
+        "analyst_action_guidance": true,
+        "evidence_checklist": false,
+        "investigation_guidance": false,
+        "limitations": false,
+        "live_results": false,
+        "mitre_mapping": false,
+        "not_claimed": false,
+        "policy_citation": false,
+        "procedural_steps": false,
+        "severity_assessment": false,
+        "spl_artifact": false,
+        "triage_checklist": false
+      },
+      "required_evidence": [],
+      "requires_validation_mitre": [],
+      "ruled_out_mitre": [],
+      "section_order": [
+        "mitre_mapping"
+      ],
+      "severity_confidence": "Medium",
+      "severity_label": "P3 Medium",
+      "spl_allowed": false,
+      "spl_approved": false,
+      "spl_present": false,
+      "spl_status": "not_required",
+      "spl_status_detail": null,
+      "success_after_failure_context": false,
+      "unsupported_claims_avoid": [],
+      "use_case_id": "soc_map_alert_mitre"
+    },
+    "answer_guard": {
+      "analyst_review_required": false,
+      "blocked_reason": null,
+      "enabled": true,
+      "failed_checks": [],
+      "guard_status": "skipped",
+      "passed_checks": [],
+      "reason": "No synthesis draft was produced; Answer Guard did not run."
+    },
+    "answer_guard_status": "skipped",
+    "answer_readiness": "insufficient",
+    "answer_scorecard": {
+      "checks": {
+        "analyst_guidance_present": true,
+        "execution_status_clear": true,
+        "hil_status_clear": true,
+        "mitre_wording_safe": true,
+        "no_unsupported_claims": true,
+        "out_of_catalog_honest": true,
+        "route_honored": true,
+        "severity_state_clear": true,
+        "skill_sections_present": false,
+        "spl_status_clear": true
+      },
+      "narration": {
+        "fallback_used": false,
+        "final_answer_source": "deterministic_contract",
+        "guard_blocked": false,
+        "skip_category": null
+      },
+      "reasons": [
+        "skill_sections_present: enrichment-active answer is missing its checklist sections (or an enabled section lacks backing)"
+      ],
+      "tier_d": {
+        "actionability_priorities": true,
+        "completeness_sections": false,
+        "grounding_no_orphan_claims": true,
+        "honesty_limitations": true,
+        "no_forbidden_claims": true
+      },
+      "verdict": "review"
+    },
+    "candidate_spl": null,
+    "confidence": 1.0,
+    "context_sufficiency": {
+      "human_review": null,
+      "missing_evidence": [
+        "approved_sop_guidance",
+        "collected_source_evidence",
+        "rag:sop"
+      ],
+      "reasons": [
+        "evidence_origin:none",
+        "no_collected_evidence"
+      ],
+      "status": "insufficient_evidence",
+      "synthesis_allowed": false,
+      "synthesis_readiness": false
+    },
+    "control_plane_trace": {
+      "answer_contract": {
+        "analyst_checklist_safe": [],
+        "answer_goal": [
+          "mitre_mapping"
+        ],
+        "answer_mode": "live_investigation",
+        "answer_rules_applied": [],
+        "assumptions": [],
+        "candidate_mitre": [],
+        "evidence_supported_mitre": [],
+        "execution_block_reason": null,
+        "execution_status": "skipped",
+        "execution_status_display": "Blocked — approval required",
+        "execution_status_label": "blocked_approval_required",
+        "hil_status": "clarification_required",
+        "human_review_required": true,
+        "intent_family": "mitre_mapping",
+        "investigation_steps": [],
+        "limitations": [],
+        "mcp_allowed": false,
+        "missing_evidence": [],
+        "mitre_answer_visible": false,
+        "mitre_technique_ids": [],
+        "nearest_questions": [],
+        "needs_mitre": true,
+        "not_claimed_mitre": [
+          "T1562.001"
+        ],
+        "not_claimed_technique_ids": [
+          "T1562.001"
+        ],
+        "out_of_catalog_notice": null,
+        "render_sections": {
+          "analyst_action_guidance": true,
+          "evidence_checklist": false,
+          "investigation_guidance": false,
+          "limitations": false,
+          "live_results": false,
+          "mitre_mapping": false,
+          "not_claimed": false,
+          "policy_citation": false,
+          "procedural_steps": false,
+          "severity_assessment": false,
+          "spl_artifact": false,
+          "triage_checklist": false
+        },
+        "required_evidence": [],
+        "requires_validation_mitre": [],
+        "ruled_out_mitre": [],
+        "section_order": [
+          "mitre_mapping"
+        ],
+        "severity_confidence": "Medium",
+        "severity_label": "P3 Medium",
+        "spl_allowed": false,
+        "spl_approved": false,
+        "spl_present": false,
+        "spl_status": "not_required",
+        "spl_status_detail": null,
+        "success_after_failure_context": false,
+        "unsupported_claims_avoid": [],
+        "use_case_id": "soc_map_alert_mitre"
+      },
+      "answer_contract_v2": {
+        "analyst_checklist_safe": [],
+        "answer_goal": [
+          "mitre_mapping"
+        ],
+        "answer_mode": "live_investigation",
+        "answer_rules_applied": [],
+        "assumptions": [],
+        "candidate_mitre": [],
+        "evidence_supported_mitre": [],
+        "execution_block_reason": null,
+        "execution_status": "skipped",
+        "execution_status_display": "Blocked — approval required",
+        "execution_status_label": "blocked_approval_required",
+        "hil_status": "clarification_required",
+        "human_review_required": true,
+        "intent_family": "mitre_mapping",
+        "investigation_steps": [],
+        "limitations": [],
+        "mcp_allowed": false,
+        "missing_evidence": [],
+        "mitre_answer_visible": false,
+        "mitre_technique_ids": [],
+        "nearest_questions": [],
+        "needs_mitre": true,
+        "not_claimed_mitre": [
+          "T1562.001"
+        ],
+        "not_claimed_technique_ids": [
+          "T1562.001"
+        ],
+        "out_of_catalog_notice": null,
+        "render_sections": {
+          "analyst_action_guidance": true,
+          "evidence_checklist": false,
+          "investigation_guidance": false,
+          "limitations": false,
+          "live_results": false,
+          "mitre_mapping": false,
+          "not_claimed": false,
+          "policy_citation": false,
+          "procedural_steps": false,
+          "severity_assessment": false,
+          "spl_artifact": false,
+          "triage_checklist": false
+        },
+        "required_evidence": [],
+        "requires_validation_mitre": [],
+        "ruled_out_mitre": [],
+        "section_order": [
+          "mitre_mapping"
+        ],
+        "severity_confidence": "Medium",
+        "severity_label": "P3 Medium",
+        "spl_allowed": false,
+        "spl_approved": false,
+        "spl_present": false,
+        "spl_status": "not_required",
+        "spl_status_detail": null,
+        "success_after_failure_context": false,
+        "unsupported_claims_avoid": [],
+        "use_case_id": "soc_map_alert_mitre"
+      },
+      "answer_guard": {
+        "analyst_review_required": false,
+        "blocked_reason": null,
+        "enabled": true,
+        "failed_checks": [],
+        "guard_status": "skipped",
+        "passed_checks": [],
+        "reason": "No synthesis draft was produced; Answer Guard did not run."
+      },
+      "candidate_spl_generation": null,
+      "evidence_plan": {
+        "action_mode": "recommend_only",
+        "answer_mode": "live_investigation",
+        "answer_rules": [],
+        "checklist": [],
+        "correlation": null,
+        "enrichment_driven": false,
+        "evidence_legs": [],
+        "evidence_plan_reason": "curated_enrichment_not_runtime_active",
+        "investigation_workflow": [],
+        "limitations": [],
+        "mcp_allowed": false,
+        "missing_required_evidence": [],
+        "mitre_candidates_metadata_only": [],
+        "needs_clarification": false,
+        "needs_hil": false,
+        "needs_mcp": false,
+        "needs_mitre": true,
+        "needs_rag": false,
+        "needs_spl": false,
+        "optional_evidence_keys": [],
+        "optional_sources": [],
+        "policy_context_recommended": false,
+        "policy_context_required": false,
+        "present_evidence_keys": [],
+        "rag_no_match_behavior": null,
+        "rag_phase": "post_mcp",
+        "reasons": [
+          "mitre_mapping_requires_grounding"
+        ],
+        "recommended_pivots": [],
+        "required_evidence_keys": [],
+        "required_sources": [],
+        "requires_hil": false,
+        "resource_plan": {
+          "plan_source": "deterministic",
+          "provenance": {
+            "composer": "deterministic_v1",
+            "intent_family": "mitre_mapping",
+            "match_path": "use_case_catalog",
+            "skill_id": "knowledge_recall",
+            "skill_workflow": [
+              "knowledge_recall",
+              "context_sufficiency"
+            ],
+            "use_case_id": "soc_map_alert_mitre"
+          },
+          "steps": [
+            {
+              "args_template": {},
+              "on_unavailable": null,
+              "policy_checks": [
+                "mitre_evidence_preconditions",
+                "mitre_visibility_policy"
+              ],
+              "purpose": "mitre_mapping",
+              "resource_id": "skill:mitre_mapping",
+              "status": "planned",
+              "status_reason": null,
+              "step_id": "mitre"
+            },
+            {
+              "args_template": {},
+              "on_unavailable": null,
+              "policy_checks": [
+                "answer_guard",
+                "deterministic_fallback_on_failure"
+              ],
+              "purpose": "narration",
+              "resource_id": "llm_role:narration",
+              "status": "planned",
+              "status_reason": null,
+              "step_id": "narration"
+            }
+          ]
+        },
+        "runtime_support_status": "planned",
+        "spl_allowed": false,
+        "unsupported_claims_avoid": [],
+        "use_case_id": "soc_map_alert_mitre"
+      },
+      "final_answer_validation": {
+        "analyst_review_required": false,
+        "blocked_reason": null,
+        "enabled": true,
+        "failed_checks": [],
+        "guard_status": "passed",
+        "passed_checks": [
+          "final.blocked_finding_claimed",
+          "final.mitre_visible_when_suppressed",
+          "final.rag_override_mitre",
+          "final.spl_on_rag_only",
+          "final.candidate_described_as_confirmed",
+          "final.spl_only_missing_action_guidance",
+          "final.unsafe_account_compromise_claim",
+          "final.unsafe_c2_confirmed_claim",
+          "final.unsafe_ransomware_confirmed_claim",
+          "final.unsafe_malware_confirmed_claim",
+          "final.unsafe_execution_claim",
+          "final.evidence_supported_without_status",
+          "final.containment_without_hil"
+        ],
+        "reason": "Final answer is consistent with the AnswerContract and the deciders."
+      },
+      "hybrid_role_graph": {
+        "complexity_tier": "low",
+        "deadline_seconds": 75.0,
+        "roles": [
+          {
+            "consumer": "build_query_to_intent",
+            "depends_on": [],
+            "enabled": false,
+            "prompt_version": "b3abcd191aebd67e",
+            "role_id": "intent_shadow_classifier",
+            "skip_reason": "deterministic_exact_match_t0",
+            "stage": "understand"
+          },
+          {
+            "consumer": "answer_contract.limitations",
+            "depends_on": [
+              "retrieve"
+            ],
+            "enabled": false,
+            "prompt_version": "6edd5273dbc3e401",
+            "role_id": "missing_evidence_reasoner",
+            "skip_reason": "no_missing_evidence_context",
+            "stage": "specialist"
+          },
+          {
+            "consumer": "analyst_response.foundation_sec_analysis",
+            "depends_on": [
+              "retrieve"
+            ],
+            "enabled": false,
+            "prompt_version": "81b0785cfab60ef2",
+            "role_id": "mitre_reasoner",
+            "skip_reason": "no_mitre_context",
+            "stage": "specialist"
+          },
+          {
+            "consumer": "analyst_response.severity_rationale",
+            "depends_on": [
+              "mitre_reasoner"
+            ],
+            "enabled": true,
+            "prompt_version": "50b62721997693b5",
+            "role_id": "risk_rationale_reasoner",
+            "skip_reason": null,
+            "stage": "specialist"
+          },
+          {
+            "consumer": "control_plane_trace.resource_plan_shadow",
+            "depends_on": [
+              "retrieve"
+            ],
+            "enabled": true,
+            "prompt_version": "f5dab447471d0605",
+            "role_id": "route_plan_candidate_generator",
+            "skip_reason": null,
+            "stage": "specialist"
+          },
+          {
+            "consumer": "analyst_response.narrative",
+            "depends_on": [
+              "specialist"
+            ],
+            "enabled": true,
+            "prompt_version": null,
+            "role_id": "governed_composer",
+            "skip_reason": null,
+            "stage": "synthesize"
+          },
+          {
+            "consumer": "control_plane_trace.mcp_tool_plan_shadow",
+            "depends_on": [
+              "synthesize"
+            ],
+            "enabled": true,
+            "prompt_version": null,
+            "role_id": "mcp_tool_plan_shadow",
+            "skip_reason": null,
+            "stage": "critique"
+          }
+        ],
+        "stages": [
+          "specialist",
+          "synthesize",
+          "critique"
+        ]
+      },
+      "llm_advisory_trace": {
+        "llm_advisory_attempted": false,
+        "llm_advisory_used": false,
+        "llm_called": false,
+        "llm_candidate_present": false,
+        "llm_dropped_reasons": [
+          "deterministic_exact_match_t0"
+        ],
+        "llm_intent_candidate": null,
+        "llm_narration_used": false,
+        "llm_overridden_by_policy": false,
+        "llm_route_candidate": null
+      },
+      "llm_calls": [],
+      "llm_composer": {
+        "ai_soc_llm_answer_guard_enabled": true,
+        "ai_soc_llm_final_synthesis_enabled": true,
+        "ai_soc_llm_live_synthesis_enabled": true,
+        "ai_soc_llm_mode": "local",
+        "composer_attempted": false,
+        "composer_is_enabled": true,
+        "control_plane_enabled": true,
+        "expected_latency_hint": "On-prem single-slot model: live narration can take ~60s; the wait is expected. Facts stay deterministic and fall back if the model is slow.",
+        "llm_composer_enabled": true,
+        "llm_composer_skipped_reason": "insufficient_deadline_reserve",
+        "llm_composer_used": false,
+        "llm_fallback_used": false,
+        "llm_guard_status": "pending",
+        "provider_configured": true,
+        "provider_model_configured": true,
+        "provider_skip_reason": null,
+        "provider_url_configured": true
+      },
+      "llm_intent_advisory": {
+        "adapter_warnings": [],
+        "adjudication_reason": "advisor_not_available",
+        "adjudication_status": "skipped",
+        "ambiguity_reasons": [],
+        "clarification_draft": null,
+        "confidence_metadata": {},
+        "dropped_reasons": [
+          "deterministic_exact_match_t0"
+        ],
+        "evidence_need_hints": [],
+        "intent_family_candidate": null,
+        "llm_called": false,
+        "paraphrase_detected": false,
+        "path_type_candidate": null,
+        "provider_label": null,
+        "question_ref_candidate": null,
+        "use_case_id_candidate": null
+      },
+      "llm_plan_validation": {
+        "advisory_plan": null,
+        "corrected_plan": null,
+        "mcp_execution_allowed": false,
+        "policy_version": "2026-06-control-plane-v1",
+        "reasons": [
+          "no_advisory_plan_payload"
+        ],
+        "status": "skipped",
+        "warnings": []
+      },
+      "llm_turn_budget": {
+        "deadline_seconds": 75.0,
+        "elapsed_seconds": 0.47,
+        "max_narration_calls": 1,
+        "max_sidecar_calls": 2,
+        "narration_calls": 0,
+        "records": [],
+        "remaining_seconds": 74.53,
+        "sidecar_calls": 0,
+        "time_budget_exhausted": false
+      },
+      "mcp_execution": {
+        "block_reason": null,
+        "execution_intent": "none",
+        "selected_mcp_server": null,
+        "selected_mcp_tool": null,
+        "status": "skipped",
+        "tool_selection_status": "unavailable"
+      },
+      "missing_evidence_reasoning": {
+        "adapter_warnings": [],
+        "bullet_count": 0,
+        "llm_called": false,
+        "provider_label": null,
+        "skipped_reason": "no_missing_evidence_context",
+        "timed_out": false
+      },
+      "mitre_branch_result": {
+        "branch_authority": "planner_mitre_branch",
+        "branch_name": "mitre",
+        "candidate_mitre": [],
+        "evidence_supported_mitre": [],
+        "metadata_only_candidates": [],
+        "mitre_decision": {
+          "answer_visible": false,
+          "evidence_status_details": {},
+          "evidence_statuses": {},
+          "mitre_status": "no_registry_mapping",
+          "not_claimed": [],
+          "reason": "No runtime MITRE registry metadata is available for this route.",
+          "registry_candidates": [],
+          "registry_metadata": {
+            "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+            "mitre_blocked": [
+              "T1562.001"
+            ],
+            "mitre_candidate": [],
+            "mitre_permitted": [],
+            "mitre_requires_alert_context": false,
+            "mitre_requires_evidence": false,
+            "mitre_visibility_policy": "trace_only",
+            "registry_role": "metadata_not_evidence",
+            "schema_version": "2026-06-control-plane-v1",
+            "source_question_ref": null,
+            "source_use_case_id": "soc_map_alert_mitre"
+          },
+          "rejected_techniques": [
+            "T1562.001"
+          ],
+          "requires_alert_context": false,
+          "requires_more_context_for_supported_mapping": false,
+          "techniques": []
+        },
+        "not_claimed_mitre": [
+          "T1562.001"
+        ],
+        "question_ref": null,
+        "ran": true,
+        "reason": "No runtime MITRE registry metadata is available for this route.",
+        "requires_validation_mitre": [],
+        "ruled_out_mitre": [],
+        "status": "completed",
+        "technique_statuses": [],
+        "use_case_id": "soc_map_alert_mitre"
+      },
+      "mitre_decision": {
+        "answer_visible": false,
+        "evidence_status_details": {},
+        "evidence_statuses": {},
+        "mitre_status": "no_registry_mapping",
+        "not_claimed": [],
+        "reason": "No runtime MITRE registry metadata is available for this route.",
+        "registry_candidates": [],
+        "registry_metadata": {
+          "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+          "mitre_blocked": [
+            "T1562.001"
+          ],
+          "mitre_candidate": [],
+          "mitre_permitted": [],
+          "mitre_requires_alert_context": false,
+          "mitre_requires_evidence": false,
+          "mitre_visibility_policy": "trace_only",
+          "registry_role": "metadata_not_evidence",
+          "schema_version": "2026-06-control-plane-v1",
+          "source_question_ref": null,
+          "source_use_case_id": "soc_map_alert_mitre"
+        },
+        "rejected_techniques": [
+          "T1562.001"
+        ],
+        "requires_alert_context": false,
+        "requires_more_context_for_supported_mapping": false,
+        "techniques": []
+      },
+      "mitre_registry_metadata": {
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "mitre_blocked": [
+          "T1562.001"
+        ],
+        "mitre_candidate": [],
+        "mitre_permitted": [],
+        "mitre_requires_alert_context": false,
+        "mitre_requires_evidence": false,
+        "mitre_visibility_policy": "trace_only",
+        "registry_role": "metadata_not_evidence",
+        "schema_version": "2026-06-control-plane-v1",
+        "source_question_ref": null,
+        "source_use_case_id": "soc_map_alert_mitre"
+      },
+      "mitre_risk_rationale": {
+        "adapter_warnings": [],
+        "fallback_used": true,
+        "guard_status": "skipped",
+        "llm_called": false,
+        "mitre_rationale_present": true,
+        "provider_label": null,
+        "severity_rationale_present": true,
+        "skipped_reason": "no_mitre_context"
+      },
+      "node_trace": [
+        {
+          "decision_reason": "structured_session_pins_only",
+          "guardrail_status": "not_applicable",
+          "human_review_required": false,
+          "input_summary": {
+            "follow_up_kind": null,
+            "session_id": "capture-mitre_mapping_requires_context"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "session_context",
+          "output_summary": {
+            "clarification_required": false,
+            "ignored_fields": [
+              "session_expired_or_missing"
+            ],
+            "staleness": "stale",
+            "used_fields": [],
+            "used_previous_context": false
+          }
+        },
+        {
+          "decision_reason": "control_plane_route_adjudication",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "query_present": true
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "routing_live_skill_selection",
+          "output_summary": {
+            "effective_skill": "knowledge_recall",
+            "selected_skill": "knowledge_recall",
+            "use_case_id": "soc_map_alert_mitre"
+          }
+        },
+        {
+          "decision_reason": "curated_enrichment_activation_gate",
+          "guardrail_status": "not_applicable",
+          "human_review_required": false,
+          "input_summary": {
+            "use_case_id": "soc_map_alert_mitre"
+          },
+          "limitations": [
+            "planned_allows_trace_metadata_only"
+          ],
+          "llm_call": null,
+          "node_name": "enrichment_loading",
+          "output_summary": {
+            "activation_lifecycle_stage": "planned_trace_metadata",
+            "context_loaded": false,
+            "planner_runtime_activation_allowed": false,
+            "runtime_support_status": "planned",
+            "spl_template_status": "unavailable"
+          }
+        },
+        {
+          "decision_reason": "deterministic_evidence_plan",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "intent_family": "mitre_mapping"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "evidence_planning",
+          "output_summary": {
+            "answer_mode": "live_investigation",
+            "mcp_allowed": false,
+            "spl_allowed": false
+          }
+        },
+        {
+          "decision_reason": "spl_template_status_unknown",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "template_id": null,
+            "use_case_id": "soc_map_alert_mitre"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "spl_template_status",
+          "output_summary": {
+            "governed_limitation": null,
+            "spl_template_status": null
+          }
+        },
+        {
+          "decision_reason": "validate_spl_mandatory",
+          "guardrail_status": "not_applicable",
+          "human_review_required": false,
+          "input_summary": {
+            "spl_template_status": null
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "spl_validation",
+          "output_summary": {
+            "approved": null,
+            "normalized_spl_available": false,
+            "reject_reasons": []
+          }
+        },
+        {
+          "decision_reason": "spl_not_required_for_skill",
+          "guardrail_status": "review_required",
+          "human_review_required": true,
+          "input_summary": {
+            "mcp_allowed": false,
+            "spl_approved": false
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "execution_hil_decision",
+          "output_summary": {
+            "evidence_source": null,
+            "execution_status": "skipped",
+            "execution_status_label": null,
+            "human_review_required": true,
+            "review_type": "intent_clarification"
+          }
+        },
+        {
+          "decision_reason": "mitre_decision_resolver",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "use_case_id": "soc_map_alert_mitre"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "mitre_evidence_status",
+          "output_summary": {
+            "evidence_statuses": {},
+            "not_claimed": [],
+            "rejected_techniques": [
+              "T1562.001"
+            ]
+          }
+        },
+        {
+          "decision_reason": "deterministic_severity_policy",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "use_case_id": "soc_map_alert_mitre"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "severity_decision",
+          "output_summary": {
+            "severity_label": "P3 Medium"
+          }
+        },
+        {
+          "decision_reason": "answer_contract_projection",
+          "guardrail_status": "passed",
+          "human_review_required": true,
+          "input_summary": {
+            "answer_mode": "live_investigation"
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "answer_contract",
+          "output_summary": {
+            "candidate_mitre_count": 0,
+            "evidence_supported_mitre_count": 0,
+            "execution_status_label": "blocked_approval_required",
+            "hil_status": "clarification_required",
+            "human_review_required": true,
+            "mitre_answer_visible": false,
+            "spl_status": "not_required"
+          }
+        },
+        {
+          "decision_reason": "No synthesis draft was produced; Answer Guard did not run.",
+          "guardrail_status": "not_applicable",
+          "human_review_required": false,
+          "input_summary": {
+            "enabled": true
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "answer_guard",
+          "output_summary": {
+            "failed_checks": [],
+            "guard_status": "skipped"
+          }
+        },
+        {
+          "decision_reason": "Final answer is consistent with the AnswerContract and the deciders.",
+          "guardrail_status": "passed",
+          "human_review_required": false,
+          "input_summary": {
+            "contract_present": true
+          },
+          "limitations": [],
+          "llm_call": null,
+          "node_name": "final_answer_validation",
+          "output_summary": {
+            "failed_checks": [],
+            "guard_status": "passed"
+          }
+        }
+      ],
+      "planning_decision": {
+        "activation_decision": {
+          "activation_lifecycle_stage": "planned_trace_metadata",
+          "catalog_present": true,
+          "crosswalk_lookup_status": "matched_use_case",
+          "enrichment_only": false,
+          "enrichment_present": false,
+          "github_accepted_for_enrichment_only": false,
+          "github_lifecycle_status": null,
+          "governed_enrichment_load_allowed": false,
+          "live_execution_skill": "knowledge_recall",
+          "live_execution_skill_allowed": true,
+          "planner_runtime_activation_allowed": false,
+          "proposed_github_use_case": false,
+          "reasons": [
+            "planned_allows_trace_metadata_only"
+          ],
+          "runtime_support_status": "planned",
+          "spl_template_status": "unavailable",
+          "tests_added": false,
+          "trace_metadata_allowed": true,
+          "use_case_id": "soc_map_alert_mitre",
+          "validation_status": "needs_soc_review"
+        },
+        "activation_lifecycle_stage": "planned_trace_metadata",
+        "authority_source": "deterministic_planner_path_selection",
+        "blocked_tools": [
+          "spl",
+          "mcp",
+          "candidate_spl_execution",
+          "mcp_execution"
+        ],
+        "branches": [
+          "spl",
+          "rag",
+          "evidence",
+          "mitre",
+          "severity",
+          "hil"
+        ],
+        "clarification_needed": false,
+        "crosswalk_lookup_status": "matched_use_case",
+        "curated_enrichment_context": null,
+        "execution_enabled": false,
+        "hil_required": false,
+        "live_execution_skill": "knowledge_recall",
+        "path_type": "hybrid_investigation",
+        "planner_path_selection_enabled": true,
+        "planner_runtime_activation_allowed": false,
+        "planning_or_analytic_skill": null,
+        "precedence_applied": [
+          "unsafe_or_blocked_beats_all",
+          "clarification_beats_investigation",
+          "deterministic_registry_over_llm_advisory",
+          "crosswalk_metadata_not_runtime_activation",
+          "planner_schedules_branches_no_execution",
+          "crosswalk_runtime_support_status_read_only",
+          "runtime_activation_disallowed"
+        ],
+        "question_ref": null,
+        "reason": "mitre_mapping_requires_grounding",
+        "resource_plan_summary": {
+          "hil": {
+            "reason": "Analyst confirms SPL and approves any search execution.",
+            "required": true
+          },
+          "limitations": [],
+          "match_path": "use_case_catalog",
+          "mcp": {
+            "allowed": false,
+            "needed": false,
+            "planned_discovery": [
+              "splunk_get_indexes",
+              "splunk_get_metadata",
+              "splunk_get_knowledge_objects"
+            ],
+            "planned_discovery_calls": [
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_indexes"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_metadata"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_knowledge_objects"
+              }
+            ],
+            "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+          },
+          "mitre": {
+            "allowed": true
+          },
+          "path_type": "hybrid_investigation",
+          "rag": {
+            "needed": false,
+            "source": "soc_kb_rag"
+          },
+          "severity": {
+            "allowed": true
+          },
+          "spl": {
+            "needed": false,
+            "review_only": false,
+            "skip_reason": "spl_not_required_for_path"
+          }
+        },
+        "runtime_support_status": "planned",
+        "selected_tools": [
+          "needs_clarification"
+        ],
+        "use_case_id": "soc_map_alert_mitre"
+      },
+      "precondition_evaluation": {
+        "blocking_findings": [],
+        "dependency_readiness": "unknown",
+        "evaluation_skipped": true,
+        "observation_only": true,
+        "preconditions_checked": [],
+        "preconditions_failed": [],
+        "preconditions_passed": [],
+        "route_status": null,
+        "skip_reason": "insufficient_shadow_route_plan"
+      },
+      "query_to_intent": {
+        "candidate_mappings": {
+          "legacy_skill_hint": "knowledge_recall",
+          "match_path": "use_case_catalog",
+          "question_ref": null,
+          "use_case_ids": [
+            "soc_map_alert_mitre"
+          ]
+        },
+        "intent_classification": {
+          "action_mode": null,
+          "answer_goal": [
+            "mitre_mapping"
+          ],
+          "confidence": 0.85,
+          "confidence_band": "high",
+          "intent_family": "mitre_mapping",
+          "primary_intent": "mitre_mapping",
+          "query_type": "ask_for_mapping",
+          "reason": "User requested MITRE mapping.",
+          "requested_output_type": "MITRE_MAPPING",
+          "requires_clarification": false,
+          "requires_hil": false,
+          "secondary_intents": []
+        },
+        "intent_conflicts": [],
+        "llm_intent_advisory": {
+          "adapter_warnings": [],
+          "adjudication_reason": "advisor_not_available",
+          "adjudication_status": "skipped",
+          "ambiguity_reasons": [],
+          "clarification_draft": null,
+          "confidence_metadata": {},
+          "dropped_reasons": [
+            "deterministic_exact_match_t0"
+          ],
+          "evidence_need_hints": [],
+          "intent_family_candidate": null,
+          "llm_called": false,
+          "paraphrase_detected": false,
+          "path_type_candidate": null,
+          "provider_label": null,
+          "question_ref_candidate": null,
+          "use_case_id_candidate": null
+        },
+        "llm_intent_assist_status": "skipped",
+        "query_signals": {
+          "action_or_containment_shaped": false,
+          "alert_context_present": true,
+          "alert_summary_shaped": true,
+          "analyst_action": false,
+          "analytics_aggregation": false,
+          "attachment_hash_verdict": false,
+          "block_or_contain": false,
+          "byte_pattern": false,
+          "conceptual_mitre_judgment": false,
+          "containment_decision_support": false,
+          "dga": false,
+          "dns_beaconing": false,
+          "download_cradle": false,
+          "email_auth_failure": false,
+          "encoded_command": false,
+          "encryption_behavior": false,
+          "endpoint_network_connection": false,
+          "escalation_without_policy_word": false,
+          "exact_105_analytics": false,
+          "exact_105_hunt_spl": false,
+          "exclude_service_accounts": false,
+          "explicit_log_search": false,
+          "explicit_mitre_context": true,
+          "explicit_run_spl": false,
+          "explicit_search_intent": false,
+          "extension_pattern": false,
+          "failed_login": false,
+          "file_rename_volume": false,
+          "has_specific_scope": false,
+          "host_association": false,
+          "host_spread": false,
+          "hybrid_alert_review": false,
+          "impacted_paths": false,
+          "investigation_hypothesis_guidance": false,
+          "investigation_triage_guidance": false,
+          "jitter_profile": false,
+          "knowledge_definition": false,
+          "live_investigation_verbs": false,
+          "mail_gateway_verdict": false,
+          "malicious_url_or_domain": false,
+          "mitre_evidence_threshold": false,
+          "mitre_explain": false,
+          "mitre_map": true,
+          "mitre_requires_alert_context": false,
+          "negative_cred_dumping": false,
+          "negative_endpoint_telemetry": false,
+          "negative_successful_login": false,
+          "non_soc_or_out_of_scope": false,
+          "normalized_query": "map this alert to mitre",
+          "periodicity": false,
+          "playbook_procedure": false,
+          "policy_terms": false,
+          "positive_successful_login": false,
+          "powershell_command_evidence": false,
+          "powershell_context": false,
+          "procedural_investigation": false,
+          "process_evidence": false,
+          "projected_action_mode": null,
+          "projected_needs_mcp": false,
+          "projected_needs_rag": false,
+          "projected_needs_spl": false,
+          "rare_domain": false,
+          "regulatory_reporting": false,
+          "repeated_destination": false,
+          "requires_hil": false,
+          "review_only_spl": false,
+          "run_execution": false,
+          "security_log_investigation": false,
+          "sender_return_path_mismatch": false,
+          "service_stop": false,
+          "severity_request": false,
+          "shadow_copy_deletion": false,
+          "soc_actionable_hunt": false,
+          "soc_detection_intent": false,
+          "soc_investigation_shaped": false,
+          "sop_or_playbook_shaped": false,
+          "sop_show_request": false,
+          "source_ip_novelty": false,
+          "spl_authoring_shaped": false,
+          "spl_generation": false,
+          "spl_suppressed": false,
+          "spray_breadth": false,
+          "success_after_failure": false,
+          "suspicious_parent_process": false,
+          "time_window_24h": false,
+          "top_n": null,
+          "use_case_review_guidance": false,
+          "valid_account_abuse": false
+        }
+      },
+      "rag_trace": {
+        "match_status": "not_run"
+      },
+      "resource_plan_shadow": {
+        "llm_called": false,
+        "skipped_reason": "insufficient_deadline_reserve"
+      },
+      "resource_planner": {
+        "resource_decisions": {
+          "hil": {
+            "reason": "Analyst confirms SPL and approves any search execution.",
+            "required": true
+          },
+          "limitations": [],
+          "match_path": "use_case_catalog",
+          "mcp": {
+            "allowed": false,
+            "needed": false,
+            "planned_discovery": [
+              "splunk_get_indexes",
+              "splunk_get_metadata",
+              "splunk_get_knowledge_objects"
+            ],
+            "planned_discovery_calls": [
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_indexes"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_metadata"
+              },
+              {
+                "arguments": {},
+                "block_reason": "mcp_global_execution_disabled",
+                "failure_mode": "execution_disabled",
+                "kind": "planned_tool_call",
+                "policy_checks": [
+                  "read_only_discovery",
+                  "mcp_execution_gate"
+                ],
+                "server": "splunk",
+                "tool_name": "splunk_get_knowledge_objects"
+              }
+            ],
+            "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+          },
+          "mitre": {
+            "allowed": true
+          },
+          "path_type": "hybrid_investigation",
+          "rag": {
+            "needed": false,
+            "source": "soc_kb_rag"
+          },
+          "severity": {
+            "allowed": true
+          },
+          "spl": {
+            "needed": false,
+            "review_only": false,
+            "skip_reason": "spl_not_required_for_path"
+          }
+        },
+        "source": "planning_decision.resource_plan_summary"
+      },
+      "route_adjudication": {
+        "authority_source": "evidence_plan_live_or_hybrid",
+        "deterministic_route": "knowledge_recall",
+        "final_route": "knowledge_recall",
+        "final_use_case_id": "soc_map_alert_mitre",
+        "llm_suggested_route": null,
+        "reason": "Evidence plan requires live investigation and/or hybrid guidance path.",
+        "shadow_plan_status": "clarification_required"
+      },
+      "routing_provenance": {
+        "ambiguity_flags": [
+          "mitre_mapping_requires_alert_context"
+        ],
+        "authority_source": "deterministic_clarification",
+        "clarification_needed": true,
+        "clarification_question": "Share the alert title, detection rule, notable/event ID, or SPL with sample fields before MITRE mapping.",
+        "confidence": 1.0,
+        "confidence_qu": 0.95,
+        "coverage_id": null,
+        "degraded": false,
+        "deterministic_match_path": "use_case_catalog",
+        "entities": {
+          "alert_id": [],
+          "asset": [],
+          "cve_ids": [],
+          "destination_ip": [],
+          "event_type": [],
+          "host": [],
+          "index": [],
+          "mitre_techniques": [],
+          "observation_window": null,
+          "port_numbers": [],
+          "purdue_layers": [],
+          "source_ip": [],
+          "sourcetype": [],
+          "time_window": null,
+          "user": [],
+          "zone_labels": []
+        },
+        "intent_candidate": null,
+        "llm_advisory_recommended": false,
+        "mapped_coverage_id": null,
+        "mapped_operation_type": null,
+        "mapped_pattern_type": null,
+        "mapped_primary_skill": null,
+        "mapped_question_number": null,
+        "mapped_question_ref": null,
+        "mapped_use_case_ids": [
+          "soc_map_alert_mitre"
+        ],
+        "near_match_score": null,
+        "normalized_query": "map this alert to mitre",
+        "operation_type": null,
+        "output_template": "mitre_mapping_response",
+        "pattern_type": null,
+        "primary_intent": "mitre_mapping",
+        "provisional_route": false,
+        "qu_failed": false,
+        "question_registry_match_score": null,
+        "question_registry_match_source": null,
+        "question_registry_observation_only": true,
+        "raw_query": "Map this alert to MITRE",
+        "registry_consistency": "not_evaluated",
+        "registry_warnings": [],
+        "requested_output_type": "mitre_mapping",
+        "rescue_mode": false,
+        "route_skill_candidate": null,
+        "secondary_intents": [],
+        "selected_by": "deterministic_clarification",
+        "skill": "knowledge_recall",
+        "soc_investigation_shaped": false,
+        "tool_plan": [
+          "needs_clarification"
+        ],
+        "triage_signals": {
+          "block_or_contain": false,
+          "explicit_run_spl": false,
+          "soc_investigation_shaped": false
+        },
+        "use_case_catalog_size": 58,
+        "use_case_id": "soc_map_alert_mitre",
+        "use_case_match_source": "expanded_catalog",
+        "why_not_knowledge_recall": null
+      },
+      "source_evidence_refs": [
+        "ev_91f06466998fff49",
+        "ev_f0d0648e6c34f589"
+      ],
+      "spl_slot_binding": null,
+      "sufficiency": {
+        "human_review": null,
+        "missing_evidence": [
+          "approved_sop_guidance",
+          "collected_source_evidence",
+          "rag:sop"
+        ],
+        "reasons": [
+          "evidence_origin:none",
+          "no_collected_evidence"
+        ],
+        "status": "insufficient_evidence",
+        "synthesis_allowed": false,
+        "synthesis_readiness": false
+      },
+      "synthesis_mode": {
+        "mode": "synthesis_blocked"
+      },
+      "tool_plan": {
+        "execution_enabled": false,
+        "missing_sources": [
+          "rag:sop"
+        ],
+        "required_sources": [
+          "rag:sop"
+        ],
+        "skill": "knowledge_recall",
+        "tool_plan": [
+          "needs_clarification"
+        ]
+      }
+    },
+    "coverage_id": null,
+    "demo_badge": null,
+    "demo_mode": false,
+    "disagreement": false,
+    "disagreement_reason": null,
+    "ec_answer_source": null,
+    "ec_provenance": null,
+    "ec_stage_latencies": null,
+    "environment_hygiene": null,
+    "environment_mode": null,
+    "evidence_origin": "none",
+    "evidence_plan": {
+      "action_mode": "recommend_only",
+      "answer_mode": "live_investigation",
+      "answer_rules": [],
+      "checklist": [],
+      "correlation": null,
+      "enrichment_driven": false,
+      "evidence_legs": [],
+      "evidence_plan_reason": "curated_enrichment_not_runtime_active",
+      "investigation_workflow": [],
+      "limitations": [],
+      "mcp_allowed": false,
+      "missing_required_evidence": [],
+      "mitre_candidates_metadata_only": [],
+      "needs_clarification": false,
+      "needs_hil": false,
+      "needs_mcp": false,
+      "needs_mitre": true,
+      "needs_rag": false,
+      "needs_spl": false,
+      "optional_evidence_keys": [],
+      "optional_sources": [],
+      "policy_context_recommended": false,
+      "policy_context_required": false,
+      "present_evidence_keys": [],
+      "rag_no_match_behavior": null,
+      "rag_phase": "post_mcp",
+      "reasons": [
+        "mitre_mapping_requires_grounding"
+      ],
+      "recommended_pivots": [],
+      "required_evidence_keys": [],
+      "required_sources": [],
+      "requires_hil": false,
+      "resource_plan": {
+        "plan_source": "deterministic",
+        "provenance": {
+          "composer": "deterministic_v1",
+          "intent_family": "mitre_mapping",
+          "match_path": "use_case_catalog",
+          "skill_id": "knowledge_recall",
+          "skill_workflow": [
+            "knowledge_recall",
+            "context_sufficiency"
+          ],
+          "use_case_id": "soc_map_alert_mitre"
+        },
+        "steps": [
+          {
+            "args_template": {},
+            "on_unavailable": null,
+            "policy_checks": [
+              "mitre_evidence_preconditions",
+              "mitre_visibility_policy"
+            ],
+            "purpose": "mitre_mapping",
+            "resource_id": "skill:mitre_mapping",
+            "status": "executed",
+            "status_reason": null,
+            "step_id": "mitre"
+          },
+          {
+            "args_template": {},
+            "on_unavailable": null,
+            "policy_checks": [
+              "answer_guard",
+              "deterministic_fallback_on_failure"
+            ],
+            "purpose": "narration",
+            "resource_id": "llm_role:narration",
+            "status": "planned",
+            "status_reason": null,
+            "step_id": "narration"
+          }
+        ]
+      },
+      "runtime_support_status": "planned",
+      "spl_allowed": false,
+      "unsupported_claims_avoid": [],
+      "use_case_id": "soc_map_alert_mitre"
+    },
+    "execution": {
+      "block_reason": null,
+      "duration_ms": 0,
+      "evidence_source": null,
+      "executed_spl": null,
+      "execution_intent": "none",
+      "execution_status_label": null,
+      "precondition_evaluation": null,
+      "result_count": 0,
+      "results_preview": [],
+      "selected_mcp_server": null,
+      "selected_mcp_tool": null,
+      "status": "skipped",
+      "tool_selection_reason": "spl_not_required_for_skill",
+      "tool_selection_status": "unavailable"
+    },
+    "experience_center_governance": null,
+    "fallback_active": null,
+    "final_answer_safety_status": "passed",
+    "final_answer_validation": {
+      "analyst_review_required": false,
+      "blocked_reason": null,
+      "enabled": true,
+      "failed_checks": [],
+      "guard_status": "passed",
+      "passed_checks": [
+        "final.blocked_finding_claimed",
+        "final.mitre_visible_when_suppressed",
+        "final.rag_override_mitre",
+        "final.spl_on_rag_only",
+        "final.candidate_described_as_confirmed",
+        "final.spl_only_missing_action_guidance",
+        "final.unsafe_account_compromise_claim",
+        "final.unsafe_c2_confirmed_claim",
+        "final.unsafe_ransomware_confirmed_claim",
+        "final.unsafe_malware_confirmed_claim",
+        "final.unsafe_execution_claim",
+        "final.evidence_supported_without_status",
+        "final.containment_without_hil"
+      ],
+      "reason": "Final answer is consistent with the AnswerContract and the deciders."
+    },
+    "foundation_sec_governance": null,
+    "governance_trace": {
+      "answer_contract_panel": null,
+      "answer_scorecard_panel": null,
+      "completion_status": {
+        "completed": [
+          "legacy intent routing",
+          "runtime operation contracts",
+          "intent-to-operation bridge",
+          "SPL validation metadata",
+          "MCP execution gate",
+          "evidence packaging",
+          "MITRE mapping",
+          "severity decision",
+          "context sufficiency",
+          "action capability policy"
+        ],
+        "gated_wip": [
+          "live MCP/Splunk execution",
+          "first real MCP schema confirmation",
+          "final LLM synthesis",
+          "Answer Guard execution",
+          "renderer consumption of output artifacts",
+          "pattern #2 authority expansion",
+          "full production readiness for all 105 questions"
+        ]
+      },
+      "llm_sidecar_panel": null,
+      "mcp_envelope": null,
+      "mcp_fixture_result": null,
+      "mcp_tool_selection": null,
+      "mitre_panel": null,
+      "model_signal_panel": null,
+      "narration_visibility_panel": null,
+      "progress_labels": [],
+      "resource_planner": null,
+      "severity": {
+        "priority_note": null,
+        "severity_label": "P3 Medium",
+        "why_not_higher": [
+          "No use-case-specific severity policy is active yet."
+        ],
+        "why_not_higher_title": "Why not P1/P0?",
+        "why_severity": [
+          "default_no_policy"
+        ],
+        "why_severity_title": "Why P3 Medium?"
+      },
+      "skills_operations": {
+        "intent_skill": "knowledge_recall",
+        "legacy_router_skill": "knowledge_recall",
+        "pipeline_stages": [
+          {
+            "label": "Query understanding",
+            "stage_id": "query_understanding",
+            "status": "complete"
+          },
+          {
+            "label": "Workflow planning",
+            "stage_id": "workflow_planning",
+            "status": "complete"
+          },
+          {
+            "label": "SPL template",
+            "stage_id": "spl_template",
+            "status": "skipped"
+          },
+          {
+            "label": "SPL validation",
+            "stage_id": "spl_validation",
+            "status": "skipped"
+          },
+          {
+            "label": "MCP execution gate",
+            "stage_id": "mcp_execution_gate",
+            "status": "skipped"
+          },
+          {
+            "label": "Source evidence",
+            "stage_id": "source_evidence",
+            "status": "complete"
+          },
+          {
+            "label": "MITRE mapping",
+            "stage_id": "mitre_mapping",
+            "status": "skipped"
+          },
+          {
+            "label": "Severity decision",
+            "stage_id": "severity_decision",
+            "status": "complete"
+          },
+          {
+            "label": "Context sufficiency",
+            "stage_id": "context_sufficiency",
+            "status": "complete"
+          },
+          {
+            "label": "Action capability",
+            "stage_id": "action_capability",
+            "status": "complete"
+          },
+          {
+            "label": "LLM narration: not live; captured advisory model signal only; deterministic governed answer used",
+            "stage_id": "llm_narration_visibility",
+            "status": "blocked"
+          },
+          {
+            "label": "Answer governance",
+            "stage_id": "answer_governance",
+            "status": "skipped"
+          }
+        ],
+        "runtime_operation": null,
+        "runtime_operation_note": "not evaluated (use case mapped: soc_map_alert_mitre)"
+      },
+      "soc_kb_panel": null,
+      "source_evidence_panel": null,
+      "spl_validation_panel": null
+    },
+    "human_review": {
+      "allowed_actions": [
+        "provide_alert_details",
+        "cancel"
+      ],
+      "proposed_normalized_spl": null,
+      "reason": "mitre_mapping_requires_alert_context",
+      "required": true,
+      "review_type": "intent_clarification",
+      "reviewer_role": "soc_analyst",
+      "safe_message_for_user": "To map to MITRE ATT&CK I need the alert context first: the alert title, detection rule, notable/event ID, or the SPL with a few sample fields. I will not generate SPL or guess techniques without grounding.",
+      "selected_mcp_server": null,
+      "selected_mcp_tool": null,
+      "sop_action_hint": null,
+      "sop_excerpt": null,
+      "sop_reference": null
+    },
+    "investigation_lineage": {
+      "lineage_id": "lineage:f7de5fa2-9d95-4869-981f-b139f03aa6f8",
+      "stages": [
+        {
+          "current_mode_source": "live",
+          "explanation": "Mapped query to soc_map_alert_mitre.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production query parser",
+          "stage_id": "query_understanding",
+          "status": "complete",
+          "technical_output": {
+            "mapped_use_case_ids": [
+              "soc_map_alert_mitre"
+            ]
+          },
+          "visible_label": "Query understanding"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Selected knowledge_recall.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production skill registry",
+          "stage_id": "skill_chain",
+          "status": "complete",
+          "technical_output": {
+            "alternatives": [
+              "mitre_mapping"
+            ],
+            "chain_id": "chain:soc_map_alert_mitre",
+            "pipeline_stages": [
+              "query_understanding",
+              "context_sufficiency"
+            ],
+            "routable_skill": "knowledge_recall",
+            "selected_skill": "knowledge_recall",
+            "selection_reason": "use_case_registry_advisory_mapping",
+            "stages": [
+              "query_understanding",
+              "knowledge_recall",
+              "context_sufficiency"
+            ]
+          },
+          "visible_label": "Skill chain"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Workflow plan created. No SPL/MCP/RAG execution has started.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production workflow planner",
+          "stage_id": "workflow",
+          "status": "complete",
+          "technical_output": {
+            "execution_enabled": false,
+            "status": "not_started"
+          },
+          "visible_label": "Workflow planning"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Dormant route-plan preflight and validation metadata only; execution remains unauthorized.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3K-R2 dormant route-plan validator",
+          "stage_id": "route_plan_shadow",
+          "status": "clarification_required",
+          "technical_output": {
+            "analyst_summary_dropped_reasons": [
+              "no_provider_configured"
+            ],
+            "analyst_summary_narration_llm_called": false,
+            "analyst_summary_shadow_available": true,
+            "analyst_summary_shadow_source": "deterministic_skeleton",
+            "analyst_summary_shadow_text": "Shadow route-plan observation only: preflight clarification_required, deterministic skill not_selected, route status clarification_required. Execution remains unauthorized; this path records metadata only.",
+            "analyst_summary_trace_bullets": [
+              "Preflight: clarification_required; missing slots: notable_id.",
+              "Route-plan shadow: clarification_required; candidate reason: deterministic_preflight_blocked.",
+              "Template shadow: not_attempted; rendered SPL available: False (hash only, not shown)."
+            ],
+            "blocking_findings": [
+              "missing_contextual_reference"
+            ],
+            "candidate_available": false,
+            "candidate_reason": "deterministic_preflight_blocked",
+            "candidate_template_ids": [],
+            "captured_live_run": false,
+            "coe_synthetic_fixture": true,
+            "deterministic_route_plan_wins": true,
+            "disagreements": [],
+            "enabled": true,
+            "evidence_output_contract": null,
+            "execution_authorized": false,
+            "intent_operation_bridge": {
+              "allowed_primary_skills": [
+                "entity_context_lookup",
+                "metadata_discovery",
+                "notable_risk_lookup"
+              ],
+              "bridge_status": "not_evaluated",
+              "compatible": true,
+              "disagreements": [],
+              "intent_modifier": null,
+              "legacy_intent": "knowledge_recall",
+              "output_artifact_hint": null,
+              "output_artifacts_deferred_to_s2b": false,
+              "primary_skill_observed": null,
+              "rejection_reason": null,
+              "spl_generation_modifier_detected": false,
+              "underlying_operation": null
+            },
+            "llm_called": false,
+            "llm_candidate_dropped_reasons": [],
+            "llm_candidate_route_plan_available": false,
+            "llm_model_family": null,
+            "llm_plan_validation": {
+              "advisory_plan": null,
+              "corrected_plan": null,
+              "mcp_execution_allowed": false,
+              "policy_version": "2026-06-control-plane-v1",
+              "reasons": [
+                "no_advisory_plan_payload"
+              ],
+              "status": "skipped",
+              "warnings": []
+            },
+            "llm_role": null,
+            "matched_template_id": null,
+            "mcp_called": false,
+            "missing_slots": [
+              "notable_id"
+            ],
+            "mode": "dormant_shadow",
+            "model_role": "instruct_candidate_only",
+            "normalized_plan_available": false,
+            "ood_llm_route_plan_lab": {
+              "enabled": false,
+              "reason": "lab_primary_mode_disabled"
+            },
+            "operation_audit": null,
+            "output_artifacts": {
+              "bridge_hint_applied": false,
+              "legacy_intent": "knowledge_recall",
+              "renderer_applied": false,
+              "resolution_source": "s2b_registry",
+              "resolved_artifacts": [
+                "knowledge_only"
+              ],
+              "unknown_legacy_intent": false
+            },
+            "pattern_id": null,
+            "precondition_evaluation": {
+              "blocking_findings": [],
+              "dependency_readiness": "unknown",
+              "evaluation_skipped": true,
+              "observation_only": true,
+              "preconditions_checked": [],
+              "preconditions_failed": [],
+              "preconditions_passed": [],
+              "route_status": null,
+              "skip_reason": "insufficient_shadow_route_plan"
+            },
+            "preflight_status": "clarification_required",
+            "primary_skill": null,
+            "production_execution": false,
+            "question_runtime_map": null,
+            "reasoning_model_used": false,
+            "rendered_spl_available": false,
+            "rendered_spl_execution_eligible": false,
+            "rendered_spl_sha256": null,
+            "rendered_spl_validator_approved": false,
+            "route_authority_compare": {
+              "authority_applied": false,
+              "authority_decision": "fallback",
+              "authority_eligible": false,
+              "authority_fallback_reason": "coverage_id_not_allowlisted",
+              "authority_holder": "canonical_run_contract",
+              "authority_trace": "Legacy route observed for comparison only. Final authority is canonical_run_contract.",
+              "candidate_primary_skill": null,
+              "compare_enabled": true,
+              "coverage_id_allowlisted": false,
+              "coverage_id_resolved": null,
+              "dual_run_active": true,
+              "global_enabled": true,
+              "intent_bridge_compatible": true,
+              "intent_bridge_disagreements": [],
+              "intent_operation_bridge_status": "not_evaluated",
+              "legacy_intent_authority": false,
+              "legacy_skill_router_match": true,
+              "legacy_skill_router_skill_match": true,
+              "legacy_skill_router_tool_plan_match": true,
+              "migration_phase": "S3_step_3_cov_q046_pilot",
+              "operation_authoritative_applied": false,
+              "operation_authoritative_enabled": true,
+              "planning_primary_skill": null,
+              "route_plan_primary_skill_observed": null,
+              "route_plan_shadow_disagreements": [],
+              "selected_skill": "knowledge_recall",
+              "selected_skill_before": "knowledge_recall",
+              "selected_skill_mirror_only": false,
+              "validator_status": "clarification_required",
+              "raw_shadow_compare": {
+                "authority_applied": false,
+                "authority_decision": "fallback",
+                "authority_eligible": false,
+                "authority_fallback_reason": "coverage_id_not_allowlisted",
+                "authority_holder": "legacy_selected_skill",
+                "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+                "candidate_primary_skill": null,
+                "compare_enabled": true,
+                "coverage_id_allowlisted": false,
+                "coverage_id_resolved": null,
+                "dual_run_active": true,
+                "global_enabled": true,
+                "intent_bridge_compatible": true,
+                "intent_bridge_disagreements": [],
+                "intent_operation_bridge_status": "not_evaluated",
+                "legacy_intent_authority": true,
+                "legacy_selected_skill_preserved": "knowledge_recall",
+                "legacy_skill_router_match": true,
+                "legacy_skill_router_skill_match": true,
+                "legacy_skill_router_tool_plan_match": true,
+                "migration_phase": "S3_step_3_cov_q046_pilot",
+                "operation_authoritative_applied": false,
+                "operation_authoritative_enabled": true,
+                "planning_primary_skill": null,
+                "route_plan_primary_skill_observed": null,
+                "route_plan_shadow_disagreements": [],
+                "selected_skill": "knowledge_recall",
+                "selected_skill_before": "knowledge_recall",
+                "selected_skill_mirror_only": false,
+                "validator_status": "clarification_required"
+              },
+              "legacy_authoritative": false,
+              "canonical_skill": "knowledge_recall",
+              "legacy_skill": "knowledge_recall"
+            },
+            "route_status": "clarification_required",
+            "routing_skill_resolution": {
+              "effective_skill": "knowledge_recall",
+              "legacy_intent_authority": true,
+              "planning_primary_operation": null,
+              "skill_resolution": "legacy_selected_skill"
+            },
+            "spl_executed": false,
+            "spl_generated": false,
+            "supporter_trace": null,
+            "template_match_attempted": false,
+            "template_match_reasons": [],
+            "template_match_score": null,
+            "template_match_shadow_status": null,
+            "template_match_skip_reason": "no_validated_route_plan",
+            "template_mismatch_reasons": [],
+            "template_production_executable": false,
+            "template_sample_only": false,
+            "template_validator_profile": null,
+            "use_case_registry_bridge": {
+              "authority": "advisory_only",
+              "catalog_size": 58,
+              "enabled": true,
+              "matched_use_cases": [
+                {
+                  "confidence": 0.95,
+                  "display_name": "Map alert to MITRE",
+                  "matched_patterns": [
+                    "mitre",
+                    "map this alert",
+                    "Map this alert to MITRE"
+                  ],
+                  "primary_skill": "mitre_mapping",
+                  "registry_operation_hint": "mitre_mapping",
+                  "use_case_id": "soc_map_alert_mitre"
+                }
+              ],
+              "merge_status": "catalog_rows_advisory_until_ec_rebase",
+              "top_operation_hint": "mitre_mapping",
+              "top_use_case_id": "soc_map_alert_mitre"
+            },
+            "validation_findings": [],
+            "validation_result": null,
+            "warnings": []
+          },
+          "visible_label": "Route-plan shadow"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Dormant shadow narration for lineage reveal only; not used as the analyst-facing answer.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3K-Q1G Instruct shadow narration",
+          "stage_id": "analyst_summary_shadow",
+          "status": "dropped",
+          "technical_output": {
+            "analyst_summary_dropped_reasons": [
+              "no_provider_configured"
+            ],
+            "analyst_summary_narration_llm_called": false,
+            "analyst_summary_shadow_source": "deterministic_skeleton",
+            "analyst_summary_shadow_text": "Shadow route-plan observation only: preflight clarification_required, deterministic skill not_selected, route status clarification_required. Execution remains unauthorized; this path records metadata only.",
+            "analyst_summary_trace_bullets": [
+              "Preflight: clarification_required; missing slots: notable_id.",
+              "Route-plan shadow: clarification_required; candidate reason: deterministic_preflight_blocked.",
+              "Template shadow: not_attempted; rendered SPL available: False (hash only, not shown)."
+            ],
+            "captured_live_run": false,
+            "coe_synthetic_fixture": true,
+            "production_execution": false
+          },
+          "visible_label": "Analyst summary (shadow narration)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Legacy SKILL_ENUM intent compared to route_plan.primary_skill for lineage only; selected_skill unchanged.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S2A-FOLLOWUP intent-to-operation bridge",
+          "stage_id": "intent_operation_bridge",
+          "status": "not_evaluated",
+          "technical_output": {
+            "allowed_primary_skills": [
+              "entity_context_lookup",
+              "metadata_discovery",
+              "notable_risk_lookup"
+            ],
+            "bridge_status": "not_evaluated",
+            "compatible": true,
+            "disagreements": [],
+            "intent_modifier": null,
+            "legacy_intent": "knowledge_recall",
+            "output_artifact_hint": null,
+            "output_artifacts_deferred_to_s2b": false,
+            "primary_skill_observed": null,
+            "rejection_reason": null,
+            "spl_generation_modifier_detected": false,
+            "underlying_operation": null
+          },
+          "visible_label": "Intent ↔ operation bridge (shadow)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Resolved output-shape artifact IDs for lineage only; renderer and analyst card unchanged.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S2B output artifacts registry",
+          "stage_id": "output_artifacts",
+          "status": "observed",
+          "technical_output": {
+            "bridge_hint_applied": false,
+            "legacy_intent": "knowledge_recall",
+            "renderer_applied": false,
+            "resolution_source": "s2b_registry",
+            "resolved_artifacts": [
+              "knowledge_only"
+            ],
+            "unknown_legacy_intent": false
+          },
+          "visible_label": "Output artifacts (shadow)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Dual-run compare of legacy selected_skill vs route_plan primary_skill; no authority migration.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S3 Steps 1–2 route authority compare",
+          "stage_id": "route_authority_compare",
+          "status": "not_evaluated",
+          "technical_output": {
+            "authority_applied": false,
+            "authority_decision": "fallback",
+            "authority_eligible": false,
+            "authority_fallback_reason": "coverage_id_not_allowlisted",
+            "authority_holder": "canonical_run_contract",
+            "authority_trace": "Legacy route observed for comparison only. Final authority is canonical_run_contract.",
+            "candidate_primary_skill": null,
+            "compare_enabled": true,
+            "coverage_id_allowlisted": false,
+            "coverage_id_resolved": null,
+            "dual_run_active": true,
+            "global_enabled": true,
+            "intent_bridge_compatible": true,
+            "intent_bridge_disagreements": [],
+            "intent_operation_bridge_status": "not_evaluated",
+            "legacy_intent_authority": false,
+            "legacy_skill_router_match": true,
+            "legacy_skill_router_skill_match": true,
+            "legacy_skill_router_tool_plan_match": true,
+            "migration_phase": "S3_step_3_cov_q046_pilot",
+            "operation_authoritative_applied": false,
+            "operation_authoritative_enabled": true,
+            "planning_primary_skill": null,
+            "route_plan_primary_skill_observed": null,
+            "route_plan_shadow_disagreements": [],
+            "selected_skill": "knowledge_recall",
+            "selected_skill_before": "knowledge_recall",
+            "selected_skill_mirror_only": false,
+            "validator_status": "clarification_required",
+            "raw_shadow_compare": {
+              "authority_applied": false,
+              "authority_decision": "fallback",
+              "authority_eligible": false,
+              "authority_fallback_reason": "coverage_id_not_allowlisted",
+              "authority_holder": "legacy_selected_skill",
+              "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+              "candidate_primary_skill": null,
+              "compare_enabled": true,
+              "coverage_id_allowlisted": false,
+              "coverage_id_resolved": null,
+              "dual_run_active": true,
+              "global_enabled": true,
+              "intent_bridge_compatible": true,
+              "intent_bridge_disagreements": [],
+              "intent_operation_bridge_status": "not_evaluated",
+              "legacy_intent_authority": true,
+              "legacy_selected_skill_preserved": "knowledge_recall",
+              "legacy_skill_router_match": true,
+              "legacy_skill_router_skill_match": true,
+              "legacy_skill_router_tool_plan_match": true,
+              "migration_phase": "S3_step_3_cov_q046_pilot",
+              "operation_authoritative_applied": false,
+              "operation_authoritative_enabled": true,
+              "planning_primary_skill": null,
+              "route_plan_primary_skill_observed": null,
+              "route_plan_shadow_disagreements": [],
+              "selected_skill": "knowledge_recall",
+              "selected_skill_before": "knowledge_recall",
+              "selected_skill_mirror_only": false,
+              "validator_status": "clarification_required"
+            },
+            "legacy_authoritative": false,
+            "canonical_skill": "knowledge_recall",
+            "legacy_skill": "knowledge_recall"
+          },
+          "visible_label": "Route authority compare (shadow)"
+        },
+        {
+          "current_mode_source": "shadow",
+          "explanation": "Registry-backed S7 precondition evaluation for lineage only; routing authority unchanged.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L-S7.3 hard-precondition evaluator shadow",
+          "stage_id": "hard_preconditions",
+          "status": "skipped",
+          "technical_output": {
+            "blocking_findings": [],
+            "dependency_readiness": "unknown",
+            "evaluation_skipped": true,
+            "observation_only": true,
+            "preconditions_checked": [],
+            "preconditions_failed": [],
+            "preconditions_passed": [],
+            "route_status": null,
+            "skip_reason": "insufficient_shadow_route_plan"
+          },
+          "visible_label": "Hard preconditions (shadow)"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Template metadata attached when a use-case template exists.",
+          "produced_answer_sections": [],
+          "production_equivalent": "SCD/template registry",
+          "stage_id": "spl_template",
+          "status": "skipped",
+          "technical_output": {},
+          "visible_label": "SPL template"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Candidate SPL is validated before any MCP gate.",
+          "produced_answer_sections": [],
+          "production_equivalent": "production SPL validator",
+          "stage_id": "spl_validation",
+          "status": "skipped",
+          "technical_output": {},
+          "visible_label": "SPL validation"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "spl_not_required_for_skill",
+          "produced_answer_sections": [],
+          "production_equivalent": "production MCP gate",
+          "stage_id": "mcp_tool_decision",
+          "status": "skipped",
+          "technical_output": {
+            "block_reason": null,
+            "duration_ms": 0,
+            "executed_spl": null,
+            "execution_intent": "none",
+            "result_count": 0,
+            "results_preview": [],
+            "selected_mcp_server": null,
+            "selected_mcp_tool": null,
+            "status": "skipped",
+            "tool_selection_reason": "spl_not_required_for_skill",
+            "tool_selection_status": "unavailable"
+          },
+          "visible_label": "MCP execution gate"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "2 evidence records packaged.",
+          "produced_answer_sections": [
+            "splunk_results_table"
+          ],
+          "production_equivalent": "production SourceEvidence",
+          "stage_id": "source_evidence",
+          "status": "complete",
+          "technical_output": {
+            "evidence_count": 2
+          },
+          "visible_label": "Source evidence"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "Local MITRE mapping statuses are advisory until fully validated.",
+          "produced_answer_sections": [
+            "mitre_mappings"
+          ],
+          "production_equivalent": "local MITRE KB",
+          "stage_id": "mitre_mapping",
+          "status": "skipped",
+          "technical_output": {
+            "mappings": []
+          },
+          "visible_label": "MITRE mapping"
+        },
+        {
+          "current_mode_source": "derived",
+          "explanation": "P3 Medium",
+          "produced_answer_sections": [
+            "severity_label"
+          ],
+          "production_equivalent": "severity matrix",
+          "stage_id": "severity",
+          "status": "complete",
+          "technical_output": {
+            "allowed_action_tier": 1,
+            "matched_rules": [
+              "default_no_policy"
+            ],
+            "missing_evidence": [],
+            "recommended_priority": "standard_triage",
+            "severity_label": "P3 Medium",
+            "source_refs": [
+              "ev_91f06466998fff49",
+              "ev_f0d0648e6c34f589"
+            ],
+            "use_case_id": "soc_map_alert_mitre",
+            "why_not_higher": [
+              "No use-case-specific severity policy is active yet."
+            ]
+          },
+          "visible_label": "Severity decision"
+        },
+        {
+          "current_mode_source": "live",
+          "explanation": "insufficient_evidence",
+          "produced_answer_sections": [],
+          "production_equivalent": "production context gate",
+          "stage_id": "context_sufficiency",
+          "status": "complete",
+          "technical_output": {
+            "human_review": null,
+            "missing_evidence": [
+              "approved_sop_guidance",
+              "collected_source_evidence",
+              "rag:sop"
+            ],
+            "reasons": [
+              "no_collected_evidence"
+            ],
+            "status": "insufficient_evidence",
+            "synthesis_allowed": false,
+            "synthesis_readiness": false
+          },
+          "visible_label": "Context sufficiency"
+        },
+        {
+          "current_mode_source": "planned",
+          "explanation": "Synthesis lab blocked: context_sufficiency:insufficient_evidence.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3K",
+          "stage_id": "synthesis",
+          "status": "blocked",
+          "technical_output": {
+            "adapter_overrides_placeholder": [],
+            "allowed_inputs": [
+              "StructuredContext",
+              "SourceEvidence summaries",
+              "approved RAG excerpts"
+            ],
+            "enabled": true,
+            "latency_ms": null,
+            "llm_raw_output_placeholder": null,
+            "model": null,
+            "note": "Reserved for Phase C guarded synthesis audit; not populated while synthesis is disabled.",
+            "provider": "deterministic_lab",
+            "reason": "Synthesis lab blocked: context_sufficiency:insufficient_evidence.",
+            "status": "blocked"
+          },
+          "visible_label": "LLM synthesis"
+        },
+        {
+          "current_mode_source": "planned",
+          "explanation": "No synthesis draft was produced; Answer Guard did not run.",
+          "produced_answer_sections": [],
+          "production_equivalent": "Stage 3L",
+          "stage_id": "answer_guard",
+          "status": "skipped",
+          "technical_output": {
+            "analyst_review_required": false,
+            "blocked_reason": null,
+            "enabled": true,
+            "failed_checks": [],
+            "guard_overrides_placeholder": [],
+            "guard_status": "skipped",
+            "note": "Reserved for Answer Guard disagreement/override log when enabled.",
+            "passed_checks": [],
+            "reason": "No synthesis draft was produced; Answer Guard did not run."
+          },
+          "visible_label": "Answer Guard"
+        },
+        {
+          "current_mode_source": "derived",
+          "explanation": "Use case soc_map_alert_mitre with severity P3 Medium is limited to inform/prepare actions in this stage.",
+          "produced_answer_sections": [
+            "recommended_actions"
+          ],
+          "production_equivalent": "action tier policy",
+          "stage_id": "action_capability",
+          "status": "complete",
+          "technical_output": {
+            "allowed_actions": [
+              "summarize",
+              "explain",
+              "show_sop",
+              "generate_spl",
+              "draft_investigation_note"
+            ],
+            "audit_required": true,
+            "current_tier": 1,
+            "hil_required": false,
+            "reason": "Use case soc_map_alert_mitre with severity P3 Medium is limited to inform/prepare actions in this stage.",
+            "tier_label": "Tier 1 - Prepare",
+            "unavailable_actions": [
+              "run_saved_search",
+              "create_ticket",
+              "block_ip",
+              "disable_user",
+              "isolate_endpoint"
+            ]
+          },
+          "visible_label": "Action capability"
+        }
+      ],
+      "summary": "Query understanding, skill-chain selection, captured Foundation-sec packaging, and governance status were recorded without enabling final synthesis or remediation."
+    },
+    "legacy_intent_authority": false,
+    "live_mcp_called": null,
+    "llm_intent_advisory": {
+      "adapter_warnings": [],
+      "adjudication_reason": "advisor_not_available",
+      "adjudication_status": "skipped",
+      "ambiguity_reasons": [],
+      "clarification_draft": null,
+      "confidence_metadata": {},
+      "dropped_reasons": [
+        "deterministic_exact_match_t0"
+      ],
+      "evidence_need_hints": [],
+      "intent_family_candidate": null,
+      "llm_called": false,
+      "paraphrase_detected": false,
+      "path_type_candidate": null,
+      "provider_label": null,
+      "question_ref_candidate": null,
+      "use_case_id_candidate": null
+    },
+    "llm_plan_validation": null,
+    "llm_spl_candidate": null,
+    "mcp_execution_mode": null,
+    "message": "I need alert context before mapping to MITRE ATT&CK. Share the alert title, detection rule, notable/event ID, or the SPL and a few sample fields.",
+    "mitre_decision": {
+      "answer_visible": false,
+      "evidence_status_details": {},
+      "evidence_statuses": {},
+      "mitre_status": "no_registry_mapping",
+      "not_claimed": [],
+      "reason": "No runtime MITRE registry metadata is available for this route.",
+      "registry_candidates": [],
+      "registry_metadata": {
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies.",
+        "mitre_blocked": [
+          "T1562.001"
+        ],
+        "mitre_candidate": [],
+        "mitre_permitted": [],
+        "mitre_requires_alert_context": false,
+        "mitre_requires_evidence": false,
+        "mitre_visibility_policy": "trace_only",
+        "registry_role": "metadata_not_evidence",
+        "schema_version": "2026-06-control-plane-v1",
+        "source_question_ref": null,
+        "source_use_case_id": "soc_map_alert_mitre"
+      },
+      "rejected_techniques": [
+        "T1562.001"
+      ],
+      "requires_alert_context": false,
+      "requires_more_context_for_supported_mapping": false,
+      "techniques": []
+    },
+    "mitre_evidence_status": null,
+    "mitre_mappings": [],
+    "narration_visibility": {
+      "answer_guard_status": "skipped",
+      "composer_attempted": false,
+      "composer_eligible": true,
+      "composer_enabled": true,
+      "composer_used": false,
+      "fallback_used": false,
+      "final_answer_guard_status": "passed",
+      "final_answer_source": "deterministic_contract",
+      "guard_blocked": false,
+      "guard_status": "pending",
+      "narration_llm_called": false,
+      "provider_configured": true,
+      "skip_category": null,
+      "skip_reason": null,
+      "timeout_or_degraded": false
+    },
+    "no_live_customer_data": false,
+    "node_trace": [
+      {
+        "decision_reason": "structured_session_pins_only",
+        "guardrail_status": "not_applicable",
+        "human_review_required": false,
+        "input_summary": {
+          "follow_up_kind": null,
+          "session_id": "capture-mitre_mapping_requires_context"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "session_context",
+        "output_summary": {
+          "clarification_required": false,
+          "ignored_fields": [
+            "session_expired_or_missing"
+          ],
+          "staleness": "stale",
+          "used_fields": [],
+          "used_previous_context": false
+        }
+      },
+      {
+        "decision_reason": "control_plane_route_adjudication",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "query_present": true
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "routing_live_skill_selection",
+        "output_summary": {
+          "effective_skill": "knowledge_recall",
+          "selected_skill": "knowledge_recall",
+          "use_case_id": "soc_map_alert_mitre"
+        }
+      },
+      {
+        "decision_reason": "curated_enrichment_activation_gate",
+        "guardrail_status": "not_applicable",
+        "human_review_required": false,
+        "input_summary": {
+          "use_case_id": "soc_map_alert_mitre"
+        },
+        "limitations": [
+          "planned_allows_trace_metadata_only"
+        ],
+        "llm_call": null,
+        "node_name": "enrichment_loading",
+        "output_summary": {
+          "activation_lifecycle_stage": "planned_trace_metadata",
+          "context_loaded": false,
+          "planner_runtime_activation_allowed": false,
+          "runtime_support_status": "planned",
+          "spl_template_status": "unavailable"
+        }
+      },
+      {
+        "decision_reason": "deterministic_evidence_plan",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "intent_family": "mitre_mapping"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "evidence_planning",
+        "output_summary": {
+          "answer_mode": "live_investigation",
+          "mcp_allowed": false,
+          "spl_allowed": false
+        }
+      },
+      {
+        "decision_reason": "spl_template_status_unknown",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "template_id": null,
+          "use_case_id": "soc_map_alert_mitre"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "spl_template_status",
+        "output_summary": {
+          "governed_limitation": null,
+          "spl_template_status": null
+        }
+      },
+      {
+        "decision_reason": "validate_spl_mandatory",
+        "guardrail_status": "not_applicable",
+        "human_review_required": false,
+        "input_summary": {
+          "spl_template_status": null
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "spl_validation",
+        "output_summary": {
+          "approved": null,
+          "normalized_spl_available": false,
+          "reject_reasons": []
+        }
+      },
+      {
+        "decision_reason": "spl_not_required_for_skill",
+        "guardrail_status": "review_required",
+        "human_review_required": true,
+        "input_summary": {
+          "mcp_allowed": false,
+          "spl_approved": false
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "execution_hil_decision",
+        "output_summary": {
+          "evidence_source": null,
+          "execution_status": "skipped",
+          "execution_status_label": null,
+          "human_review_required": true,
+          "review_type": "intent_clarification"
+        }
+      },
+      {
+        "decision_reason": "mitre_decision_resolver",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "use_case_id": "soc_map_alert_mitre"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "mitre_evidence_status",
+        "output_summary": {
+          "evidence_statuses": {},
+          "not_claimed": [],
+          "rejected_techniques": [
+            "T1562.001"
+          ]
+        }
+      },
+      {
+        "decision_reason": "deterministic_severity_policy",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "use_case_id": "soc_map_alert_mitre"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "severity_decision",
+        "output_summary": {
+          "severity_label": "P3 Medium"
+        }
+      },
+      {
+        "decision_reason": "answer_contract_projection",
+        "guardrail_status": "passed",
+        "human_review_required": true,
+        "input_summary": {
+          "answer_mode": "live_investigation"
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "answer_contract",
+        "output_summary": {
+          "candidate_mitre_count": 0,
+          "evidence_supported_mitre_count": 0,
+          "execution_status_label": "blocked_approval_required",
+          "hil_status": "clarification_required",
+          "human_review_required": true,
+          "mitre_answer_visible": false,
+          "spl_status": "not_required"
+        }
+      },
+      {
+        "decision_reason": "No synthesis draft was produced; Answer Guard did not run.",
+        "guardrail_status": "not_applicable",
+        "human_review_required": false,
+        "input_summary": {
+          "enabled": true
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "answer_guard",
+        "output_summary": {
+          "failed_checks": [],
+          "guard_status": "skipped"
+        }
+      },
+      {
+        "decision_reason": "Final answer is consistent with the AnswerContract and the deciders.",
+        "guardrail_status": "passed",
+        "human_review_required": false,
+        "input_summary": {
+          "contract_present": true
+        },
+        "limitations": [],
+        "llm_call": null,
+        "node_name": "final_answer_validation",
+        "output_summary": {
+          "failed_checks": [],
+          "guard_status": "passed"
+        }
+      }
+    ],
+    "note": "MITRE mapping requires grounded alert context; no SPL was generated.",
+    "operation_audit": null,
+    "planning_decision": {
+      "activation_decision": {
+        "activation_lifecycle_stage": "planned_trace_metadata",
+        "catalog_present": true,
+        "crosswalk_lookup_status": "matched_use_case",
+        "enrichment_only": false,
+        "enrichment_present": false,
+        "github_accepted_for_enrichment_only": false,
+        "github_lifecycle_status": null,
+        "governed_enrichment_load_allowed": false,
+        "live_execution_skill": "knowledge_recall",
+        "live_execution_skill_allowed": true,
+        "planner_runtime_activation_allowed": false,
+        "proposed_github_use_case": false,
+        "reasons": [
+          "planned_allows_trace_metadata_only"
+        ],
+        "runtime_support_status": "planned",
+        "spl_template_status": "unavailable",
+        "tests_added": false,
+        "trace_metadata_allowed": true,
+        "use_case_id": "soc_map_alert_mitre",
+        "validation_status": "needs_soc_review"
+      },
+      "activation_lifecycle_stage": "planned_trace_metadata",
+      "authority_source": "deterministic_planner_path_selection",
+      "blocked_tools": [
+        "spl",
+        "mcp",
+        "candidate_spl_execution",
+        "mcp_execution"
+      ],
+      "branches": [
+        "spl",
+        "rag",
+        "evidence",
+        "mitre",
+        "severity",
+        "hil"
+      ],
+      "clarification_needed": false,
+      "crosswalk_lookup_status": "matched_use_case",
+      "curated_enrichment_context": null,
+      "execution_enabled": false,
+      "hil_required": false,
+      "live_execution_skill": "knowledge_recall",
+      "path_type": "hybrid_investigation",
+      "planner_path_selection_enabled": true,
+      "planner_runtime_activation_allowed": false,
+      "planning_or_analytic_skill": null,
+      "precedence_applied": [
+        "unsafe_or_blocked_beats_all",
+        "clarification_beats_investigation",
+        "deterministic_registry_over_llm_advisory",
+        "crosswalk_metadata_not_runtime_activation",
+        "planner_schedules_branches_no_execution",
+        "crosswalk_runtime_support_status_read_only",
+        "runtime_activation_disallowed"
+      ],
+      "question_ref": null,
+      "reason": "mitre_mapping_requires_grounding",
+      "resource_plan_summary": {
+        "hil": {
+          "reason": "Analyst confirms SPL and approves any search execution.",
+          "required": true
+        },
+        "limitations": [],
+        "match_path": "use_case_catalog",
+        "mcp": {
+          "allowed": false,
+          "needed": false,
+          "planned_discovery": [
+            "splunk_get_indexes",
+            "splunk_get_metadata",
+            "splunk_get_knowledge_objects"
+          ],
+          "planned_discovery_calls": [
+            {
+              "arguments": {},
+              "block_reason": "mcp_global_execution_disabled",
+              "failure_mode": "execution_disabled",
+              "kind": "planned_tool_call",
+              "policy_checks": [
+                "read_only_discovery",
+                "mcp_execution_gate"
+              ],
+              "server": "splunk",
+              "tool_name": "splunk_get_indexes"
+            },
+            {
+              "arguments": {},
+              "block_reason": "mcp_global_execution_disabled",
+              "failure_mode": "execution_disabled",
+              "kind": "planned_tool_call",
+              "policy_checks": [
+                "read_only_discovery",
+                "mcp_execution_gate"
+              ],
+              "server": "splunk",
+              "tool_name": "splunk_get_metadata"
+            },
+            {
+              "arguments": {},
+              "block_reason": "mcp_global_execution_disabled",
+              "failure_mode": "execution_disabled",
+              "kind": "planned_tool_call",
+              "policy_checks": [
+                "read_only_discovery",
+                "mcp_execution_gate"
+              ],
+              "server": "splunk",
+              "tool_name": "splunk_get_knowledge_objects"
+            }
+          ],
+          "skip_reason": "Search execution gated; discovery checklist is planned-only until COE enables."
+        },
+        "mitre": {
+          "allowed": true
+        },
+        "path_type": "hybrid_investigation",
+        "rag": {
+          "needed": false,
+          "source": "soc_kb_rag"
+        },
+        "severity": {
+          "allowed": true
+        },
+        "spl": {
+          "needed": false,
+          "review_only": false,
+          "skip_reason": "spl_not_required_for_path"
+        }
+      },
+      "runtime_support_status": "planned",
+      "selected_tools": [
+        "needs_clarification"
+      ],
+      "use_case_id": "soc_map_alert_mitre"
+    },
+    "primary_operation": null,
+    "query_to_intent": {
+      "candidate_mappings": {
+        "legacy_skill_hint": "knowledge_recall",
+        "match_path": "use_case_catalog",
+        "question_ref": null,
+        "use_case_ids": [
+          "soc_map_alert_mitre"
+        ]
+      },
+      "intent_classification": {
+        "action_mode": null,
+        "answer_goal": [
+          "mitre_mapping"
+        ],
+        "confidence": 0.85,
+        "confidence_band": "high",
+        "intent_family": "mitre_mapping",
+        "primary_intent": "mitre_mapping",
+        "query_type": "ask_for_mapping",
+        "reason": "User requested MITRE mapping.",
+        "requested_output_type": "MITRE_MAPPING",
+        "requires_clarification": false,
+        "requires_hil": false,
+        "secondary_intents": []
+      },
+      "intent_conflicts": [],
+      "llm_intent_advisory": {
+        "adapter_warnings": [],
+        "adjudication_reason": "advisor_not_available",
+        "adjudication_status": "skipped",
+        "ambiguity_reasons": [],
+        "clarification_draft": null,
+        "confidence_metadata": {},
+        "dropped_reasons": [
+          "deterministic_exact_match_t0"
+        ],
+        "evidence_need_hints": [],
+        "intent_family_candidate": null,
+        "llm_called": false,
+        "paraphrase_detected": false,
+        "path_type_candidate": null,
+        "provider_label": null,
+        "question_ref_candidate": null,
+        "use_case_id_candidate": null
+      },
+      "llm_intent_assist_status": "skipped",
+      "query_signals": {
+        "action_or_containment_shaped": false,
+        "alert_context_present": true,
+        "alert_summary_shaped": true,
+        "analyst_action": false,
+        "analytics_aggregation": false,
+        "attachment_hash_verdict": false,
+        "block_or_contain": false,
+        "byte_pattern": false,
+        "conceptual_mitre_judgment": false,
+        "containment_decision_support": false,
+        "dga": false,
+        "dns_beaconing": false,
+        "download_cradle": false,
+        "email_auth_failure": false,
+        "encoded_command": false,
+        "encryption_behavior": false,
+        "endpoint_network_connection": false,
+        "escalation_without_policy_word": false,
+        "exact_105_analytics": false,
+        "exact_105_hunt_spl": false,
+        "exclude_service_accounts": false,
+        "explicit_log_search": false,
+        "explicit_mitre_context": true,
+        "explicit_run_spl": false,
+        "explicit_search_intent": false,
+        "extension_pattern": false,
+        "failed_login": false,
+        "file_rename_volume": false,
+        "has_specific_scope": false,
+        "host_association": false,
+        "host_spread": false,
+        "hybrid_alert_review": false,
+        "impacted_paths": false,
+        "investigation_hypothesis_guidance": false,
+        "investigation_triage_guidance": false,
+        "jitter_profile": false,
+        "knowledge_definition": false,
+        "live_investigation_verbs": false,
+        "mail_gateway_verdict": false,
+        "malicious_url_or_domain": false,
+        "mitre_evidence_threshold": false,
+        "mitre_explain": false,
+        "mitre_map": true,
+        "mitre_requires_alert_context": false,
+        "negative_cred_dumping": false,
+        "negative_endpoint_telemetry": false,
+        "negative_successful_login": false,
+        "non_soc_or_out_of_scope": false,
+        "normalized_query": "map this alert to mitre",
+        "periodicity": false,
+        "playbook_procedure": false,
+        "policy_terms": false,
+        "positive_successful_login": false,
+        "powershell_command_evidence": false,
+        "powershell_context": false,
+        "procedural_investigation": false,
+        "process_evidence": false,
+        "projected_action_mode": null,
+        "projected_needs_mcp": false,
+        "projected_needs_rag": false,
+        "projected_needs_spl": false,
+        "rare_domain": false,
+        "regulatory_reporting": false,
+        "repeated_destination": false,
+        "requires_hil": false,
+        "review_only_spl": false,
+        "run_execution": false,
+        "security_log_investigation": false,
+        "sender_return_path_mismatch": false,
+        "service_stop": false,
+        "severity_request": false,
+        "shadow_copy_deletion": false,
+        "soc_actionable_hunt": false,
+        "soc_detection_intent": false,
+        "soc_investigation_shaped": false,
+        "sop_or_playbook_shaped": false,
+        "sop_show_request": false,
+        "source_ip_novelty": false,
+        "spl_authoring_shaped": false,
+        "spl_generation": false,
+        "spl_suppressed": false,
+        "spray_breadth": false,
+        "success_after_failure": false,
+        "suspicious_parent_process": false,
+        "time_window_24h": false,
+        "top_n": null,
+        "use_case_review_guidance": false,
+        "valid_account_abuse": false
+      }
+    },
+    "query_understanding": {
+      "ambiguity_flags": [
+        "mitre_mapping_requires_alert_context"
+      ],
+      "clarification_needed": true,
+      "clarification_question": "Share the alert title, detection rule, notable/event ID, or SPL with sample fields before MITRE mapping.",
+      "confidence": 0.95,
+      "deterministic_match_path": "use_case_catalog",
+      "entities": {
+        "alert_id": [],
+        "asset": [],
+        "cve_ids": [],
+        "destination_ip": [],
+        "event_type": [],
+        "host": [],
+        "index": [],
+        "mitre_techniques": [],
+        "observation_window": null,
+        "port_numbers": [],
+        "purdue_layers": [],
+        "source_ip": [],
+        "sourcetype": [],
+        "time_window": null,
+        "user": [],
+        "zone_labels": []
+      },
+      "intent_candidate": null,
+      "llm_advisory_recommended": false,
+      "mapped_coverage_id": null,
+      "mapped_operation_type": null,
+      "mapped_pattern_type": null,
+      "mapped_primary_skill": null,
+      "mapped_question_number": null,
+      "mapped_question_ref": null,
+      "mapped_use_case_ids": [
+        "soc_map_alert_mitre"
+      ],
+      "normalized_query": "map this alert to mitre",
+      "output_template": "mitre_mapping_response",
+      "primary_intent": "mitre_mapping",
+      "question_registry_match_score": null,
+      "question_registry_match_source": null,
+      "question_registry_observation_only": true,
+      "raw_query": "Map this alert to MITRE",
+      "registry_consistency": "not_evaluated",
+      "registry_warnings": [],
+      "requested_output_type": "mitre_mapping",
+      "route_skill_candidate": null,
+      "secondary_intents": [],
+      "soc_investigation_shaped": false,
+      "triage_signals": {
+        "block_or_contain": false,
+        "explicit_run_spl": false,
+        "soc_investigation_shaped": false
+      },
+      "use_case_catalog_size": 58,
+      "use_case_match_source": "expanded_catalog"
+    },
+    "rag_available": null,
+    "response_mode": "clarification_required",
+    "response_packaging_status": "blocked_review_required",
+    "route_adjudication": {
+      "authority_source": "evidence_plan_live_or_hybrid",
+      "deterministic_route": "knowledge_recall",
+      "final_route": "knowledge_recall",
+      "final_use_case_id": "soc_map_alert_mitre",
+      "llm_suggested_route": null,
+      "reason": "Evidence plan requires live investigation and/or hybrid guidance path.",
+      "shadow_plan_status": "clarification_required"
+    },
+    "route_authority": {
+      "authority_applied": false,
+      "authority_decision": "fallback",
+      "authority_eligible": false,
+      "authority_fallback_reason": "coverage_id_not_allowlisted",
+      "authority_holder": "canonical_run_contract",
+      "authority_trace": "Legacy route observed for comparison only. Final authority is canonical_run_contract.",
+      "candidate_primary_skill": null,
+      "compare_enabled": true,
+      "coverage_id_allowlisted": false,
+      "coverage_id_resolved": null,
+      "dual_run_active": true,
+      "global_enabled": true,
+      "intent_bridge_compatible": true,
+      "intent_bridge_disagreements": [],
+      "intent_operation_bridge_status": "not_evaluated",
+      "legacy_intent_authority": false,
+      "legacy_skill_router_match": true,
+      "legacy_skill_router_skill_match": true,
+      "legacy_skill_router_tool_plan_match": true,
+      "migration_phase": "S3_step_3_cov_q046_pilot",
+      "operation_authoritative_applied": false,
+      "operation_authoritative_enabled": true,
+      "planning_primary_skill": null,
+      "route_plan_primary_skill_observed": null,
+      "route_plan_shadow_disagreements": [],
+      "selected_skill": "knowledge_recall",
+      "selected_skill_before": "knowledge_recall",
+      "selected_skill_mirror_only": false,
+      "validator_status": "clarification_required",
+      "raw_shadow_compare": {
+        "authority_applied": false,
+        "authority_decision": "fallback",
+        "authority_eligible": false,
+        "authority_fallback_reason": "coverage_id_not_allowlisted",
+        "authority_holder": "legacy_selected_skill",
+        "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+        "candidate_primary_skill": null,
+        "compare_enabled": true,
+        "coverage_id_allowlisted": false,
+        "coverage_id_resolved": null,
+        "dual_run_active": true,
+        "global_enabled": true,
+        "intent_bridge_compatible": true,
+        "intent_bridge_disagreements": [],
+        "intent_operation_bridge_status": "not_evaluated",
+        "legacy_intent_authority": true,
+        "legacy_selected_skill_preserved": "knowledge_recall",
+        "legacy_skill_router_match": true,
+        "legacy_skill_router_skill_match": true,
+        "legacy_skill_router_tool_plan_match": true,
+        "migration_phase": "S3_step_3_cov_q046_pilot",
+        "operation_authoritative_applied": false,
+        "operation_authoritative_enabled": true,
+        "planning_primary_skill": null,
+        "route_plan_primary_skill_observed": null,
+        "route_plan_shadow_disagreements": [],
+        "selected_skill": "knowledge_recall",
+        "selected_skill_before": "knowledge_recall",
+        "selected_skill_mirror_only": false,
+        "validator_status": "clarification_required"
+      },
+      "legacy_authoritative": false,
+      "canonical_skill": "knowledge_recall",
+      "legacy_skill": "knowledge_recall"
+    },
+    "route_plan_shadow": {
+      "analyst_summary_dropped_reasons": [
+        "no_provider_configured"
+      ],
+      "analyst_summary_narration_llm_called": false,
+      "analyst_summary_shadow_available": true,
+      "analyst_summary_shadow_source": "deterministic_skeleton",
+      "analyst_summary_shadow_text": "Shadow route-plan observation only: preflight clarification_required, deterministic skill not_selected, route status clarification_required. Execution remains unauthorized; this path records metadata only.",
+      "analyst_summary_trace_bullets": [
+        "Preflight: clarification_required; missing slots: notable_id.",
+        "Route-plan shadow: clarification_required; candidate reason: deterministic_preflight_blocked.",
+        "Template shadow: not_attempted; rendered SPL available: False (hash only, not shown)."
+      ],
+      "blocking_findings": [
+        "missing_contextual_reference"
+      ],
+      "candidate_available": false,
+      "candidate_reason": "deterministic_preflight_blocked",
+      "candidate_template_ids": [],
+      "captured_live_run": false,
+      "coe_synthetic_fixture": true,
+      "deterministic_route_plan_wins": true,
+      "disagreements": [],
+      "enabled": true,
+      "evidence_output_contract": null,
+      "execution_authorized": false,
+      "intent_operation_bridge": {
+        "allowed_primary_skills": [
+          "entity_context_lookup",
+          "metadata_discovery",
+          "notable_risk_lookup"
+        ],
+        "bridge_status": "not_evaluated",
+        "compatible": true,
+        "disagreements": [],
+        "intent_modifier": null,
+        "legacy_intent": "knowledge_recall",
+        "output_artifact_hint": null,
+        "output_artifacts_deferred_to_s2b": false,
+        "primary_skill_observed": null,
+        "rejection_reason": null,
+        "spl_generation_modifier_detected": false,
+        "underlying_operation": null
+      },
+      "llm_called": false,
+      "llm_candidate_dropped_reasons": [],
+      "llm_candidate_route_plan_available": false,
+      "llm_model_family": null,
+      "llm_role": null,
+      "matched_template_id": null,
+      "mcp_called": false,
+      "missing_slots": [
+        "notable_id"
+      ],
+      "mode": "dormant_shadow",
+      "model_role": "instruct_candidate_only",
+      "normalized_plan_available": false,
+      "ood_llm_route_plan_lab": {
+        "enabled": false,
+        "reason": "lab_primary_mode_disabled"
+      },
+      "operation_audit": null,
+      "output_artifacts": {
+        "bridge_hint_applied": false,
+        "legacy_intent": "knowledge_recall",
+        "renderer_applied": false,
+        "resolution_source": "s2b_registry",
+        "resolved_artifacts": [
+          "knowledge_only"
+        ],
+        "unknown_legacy_intent": false
+      },
+      "pattern_id": null,
+      "precondition_evaluation": {
+        "blocking_findings": [],
+        "dependency_readiness": "unknown",
+        "evaluation_skipped": true,
+        "observation_only": true,
+        "preconditions_checked": [],
+        "preconditions_failed": [],
+        "preconditions_passed": [],
+        "route_status": null,
+        "skip_reason": "insufficient_shadow_route_plan"
+      },
+      "preflight_status": "clarification_required",
+      "primary_skill": null,
+      "production_execution": false,
+      "question_runtime_map": null,
+      "reasoning_model_used": false,
+      "rendered_spl_available": false,
+      "rendered_spl_execution_eligible": false,
+      "rendered_spl_sha256": null,
+      "rendered_spl_validator_approved": false,
+      "route_authority_compare": {
+        "authority_applied": false,
+        "authority_decision": "fallback",
+        "authority_eligible": false,
+        "authority_fallback_reason": "coverage_id_not_allowlisted",
+        "authority_holder": "canonical_run_contract",
+        "authority_trace": "Legacy route observed for comparison only. Final authority is canonical_run_contract.",
+        "candidate_primary_skill": null,
+        "compare_enabled": true,
+        "coverage_id_allowlisted": false,
+        "coverage_id_resolved": null,
+        "dual_run_active": true,
+        "global_enabled": true,
+        "intent_bridge_compatible": true,
+        "intent_bridge_disagreements": [],
+        "intent_operation_bridge_status": "not_evaluated",
+        "legacy_intent_authority": false,
+        "legacy_skill_router_match": true,
+        "legacy_skill_router_skill_match": true,
+        "legacy_skill_router_tool_plan_match": true,
+        "migration_phase": "S3_step_3_cov_q046_pilot",
+        "operation_authoritative_applied": false,
+        "operation_authoritative_enabled": true,
+        "planning_primary_skill": null,
+        "route_plan_primary_skill_observed": null,
+        "route_plan_shadow_disagreements": [],
+        "selected_skill": "knowledge_recall",
+        "selected_skill_before": "knowledge_recall",
+        "selected_skill_mirror_only": false,
+        "validator_status": "clarification_required",
+        "raw_shadow_compare": {
+          "authority_applied": false,
+          "authority_decision": "fallback",
+          "authority_eligible": false,
+          "authority_fallback_reason": "coverage_id_not_allowlisted",
+          "authority_holder": "legacy_selected_skill",
+          "authority_trace": "Operation authority not applied; legacy selected_skill remains authoritative. fallback_reason='coverage_id_not_allowlisted'.",
+          "candidate_primary_skill": null,
+          "compare_enabled": true,
+          "coverage_id_allowlisted": false,
+          "coverage_id_resolved": null,
+          "dual_run_active": true,
+          "global_enabled": true,
+          "intent_bridge_compatible": true,
+          "intent_bridge_disagreements": [],
+          "intent_operation_bridge_status": "not_evaluated",
+          "legacy_intent_authority": true,
+          "legacy_selected_skill_preserved": "knowledge_recall",
+          "legacy_skill_router_match": true,
+          "legacy_skill_router_skill_match": true,
+          "legacy_skill_router_tool_plan_match": true,
+          "migration_phase": "S3_step_3_cov_q046_pilot",
+          "operation_authoritative_applied": false,
+          "operation_authoritative_enabled": true,
+          "planning_primary_skill": null,
+          "route_plan_primary_skill_observed": null,
+          "route_plan_shadow_disagreements": [],
+          "selected_skill": "knowledge_recall",
+          "selected_skill_before": "knowledge_recall",
+          "selected_skill_mirror_only": false,
+          "validator_status": "clarification_required"
+        },
+        "legacy_authoritative": false,
+        "canonical_skill": "knowledge_recall",
+        "legacy_skill": "knowledge_recall"
+      },
+      "route_status": "clarification_required",
+      "routing_skill_resolution": {
+        "effective_skill": "knowledge_recall",
+        "legacy_intent_authority": true,
+        "planning_primary_operation": null,
+        "skill_resolution": "legacy_selected_skill"
+      },
+      "spl_executed": false,
+      "spl_generated": false,
+      "supporter_trace": null,
+      "template_match_attempted": false,
+      "template_match_reasons": [],
+      "template_match_score": null,
+      "template_match_shadow_status": null,
+      "template_match_skip_reason": "no_validated_route_plan",
+      "template_mismatch_reasons": [],
+      "template_production_executable": false,
+      "template_sample_only": false,
+      "template_validator_profile": null,
+      "use_case_registry_bridge": {
+        "authority": "advisory_only",
+        "catalog_size": 58,
+        "enabled": true,
+        "matched_use_cases": [
+          {
+            "confidence": 0.95,
+            "display_name": "Map alert to MITRE",
+            "matched_patterns": [
+              "mitre",
+              "map this alert",
+              "Map this alert to MITRE"
+            ],
+            "primary_skill": "mitre_mapping",
+            "registry_operation_hint": "mitre_mapping",
+            "use_case_id": "soc_map_alert_mitre"
+          }
+        ],
+        "merge_status": "catalog_rows_advisory_until_ec_rebase",
+        "top_operation_hint": "mitre_mapping",
+        "top_use_case_id": "soc_map_alert_mitre"
+      },
+      "validation_findings": [],
+      "validation_result": null,
+      "warnings": []
+    },
+    "routing_mode": "llm_assisted_semantic",
+    "routing_skill_resolution": {
+      "effective_skill": "knowledge_recall",
+      "legacy_intent_authority": false,
+      "planning_primary_operation": null,
+      "route_adjudication_authority_source": "evidence_plan_live_or_hybrid",
+      "skill_resolution": "control_plane_route_adjudication"
+    },
+    "saia_available": null,
+    "selected_skill": "knowledge_recall",
+    "selected_skill_chain": {
+      "alternatives": [
+        "mitre_mapping"
+      ],
+      "chain_id": "chain:soc_map_alert_mitre",
+      "pipeline_stages": [
+        "query_understanding",
+        "context_sufficiency"
+      ],
+      "routable_skill": "knowledge_recall",
+      "selected_skill": "knowledge_recall",
+      "selection_reason": "use_case_registry_advisory_mapping",
+      "stages": [
+        "query_understanding",
+        "knowledge_recall",
+        "context_sufficiency"
+      ]
+    },
+    "selected_use_case": {
+      "action_capability_tier": 0,
+      "category": "SOC / Knowledge / Analyst workflow",
+      "confidence": 0.95,
+      "default_spl_template": null,
+      "display_name": "Map alert to MITRE",
+      "matched_patterns": [
+        "mitre",
+        "map this alert",
+        "Map this alert to MITRE"
+      ],
+      "optional_sources": [
+        "mcp:splunk"
+      ],
+      "output_template": "mitre_mapping_response",
+      "primary_skill": "mitre_mapping",
+      "required_sources": [
+        "mitre:enterprise"
+      ],
+      "use_case_id": "soc_map_alert_mitre"
+    },
+    "semantic_intent": {
+      "audit_record": null,
+      "authority": "advisory_only",
+      "authority_decision": "shadow_only",
+      "clarification_needed": true,
+      "clarification_question": "Share the alert title, detection rule, notable/event ID, or SPL with sample fields before MITRE mapping.",
+      "coverage_id_candidate": null,
+      "enabled": true,
+      "entities": {
+        "alert_id": [],
+        "asset": [],
+        "cve_ids": [],
+        "destination_ip": [],
+        "event_type": [],
+        "host": [],
+        "index": [],
+        "mitre_techniques": [],
+        "observation_window": null,
+        "port_numbers": [],
+        "purdue_layers": [],
+        "source_ip": [],
+        "sourcetype": [],
+        "time_window": null,
+        "user": [],
+        "zone_labels": []
+      },
+      "evidence_need_families": [
+        "kb",
+        "mitre",
+        "notable"
+      ],
+      "final_route_unchanged": true,
+      "known_compatible": false,
+      "legacy_intent_hint": "knowledge_recall",
+      "llm_clarification_needed": false,
+      "llm_coverage_id_candidate": null,
+      "llm_evidence_need_families": [],
+      "llm_legacy_intent_hint": null,
+      "llm_nearest_registry_ref": null,
+      "llm_path_type_candidate": null,
+      "llm_primary_operation_candidate": null,
+      "llm_requested_output_type_candidate": null,
+      "llm_semantic_intent_called": false,
+      "mcp_needed": false,
+      "mitre_candidate_needed": true,
+      "nearest_registry_ref": null,
+      "operation_provenance": "none",
+      "path_type": "clarification",
+      "primary_operation_candidate": null,
+      "rag_needed": true,
+      "requested_output_type": "mitre_mapping",
+      "selected_path_authority": "deterministic_clarification",
+      "semantic_intent_disagreements": [],
+      "warnings": [
+        "authority_fallback:coverage_id_not_allowlisted"
+      ]
+    },
+    "session_context_status": {
+      "clarification_required": false,
+      "context_source_trace_id": null,
+      "ignored_fields": [
+        "session_expired_or_missing"
+      ],
+      "session_id": "capture-mitre_mapping_requires_context",
+      "staleness": "stale",
+      "used_fields": [],
+      "used_previous_context": false
+    },
+    "severity_decision": {
+      "allowed_action_tier": 1,
+      "matched_rules": [
+        "default_no_policy"
+      ],
+      "missing_evidence": [],
+      "recommended_priority": "standard_triage",
+      "severity_label": "P3 Medium",
+      "source_refs": [
+        "ev_91f06466998fff49",
+        "ev_f0d0648e6c34f589"
+      ],
+      "use_case_id": "soc_map_alert_mitre",
+      "why_not_higher": [
+        "No use-case-specific severity policy is active yet."
+      ]
+    },
+    "skill_contribution": {
+      "contributed_evidence_keys": [],
+      "contributed_sections": [],
+      "floor_applied": false,
+      "gap_recorded": false,
+      "provenance": {
+        "authority_source": "deterministic_clarification",
+        "deterministic_match_path": "use_case_catalog",
+        "rescue_mode": false,
+        "selected_by": "deterministic_clarification"
+      },
+      "selected_skill": "knowledge_recall",
+      "skip_reason": "human_review_required",
+      "survived_into_card": false,
+      "visible_domain_section": false
+    },
+    "skill_selection": {
+      "alternatives": [
+        "mitre_mapping"
+      ],
+      "decision_source": "deterministic_router",
+      "llm_assisted_skill": null,
+      "policy_notes": [
+        "router_selection_preserved_for_phase_2",
+        "registry_primary_skill_recorded_as_advisory_alternative"
+      ],
+      "registry_primary_skill": "mitre_mapping",
+      "rule_based_skill": "knowledge_recall",
+      "selected_chain": {
+        "alternatives": [
+          "mitre_mapping"
+        ],
+        "chain_id": "chain:soc_map_alert_mitre",
+        "pipeline_stages": [
+          "query_understanding",
+          "context_sufficiency"
+        ],
+        "routable_skill": "knowledge_recall",
+        "selected_skill": "knowledge_recall",
+        "selection_reason": "use_case_registry_advisory_mapping",
+        "stages": [
+          "query_understanding",
+          "knowledge_recall",
+          "context_sufficiency"
+        ]
+      },
+      "selected_skill": "knowledge_recall",
+      "selected_use_case_id": "soc_map_alert_mitre",
+      "selection_status": "selected"
+    },
+    "source_evidence": [
+      {
+        "collection_status": "no_match",
+        "created_at": "2026-06-24T10:54:52.035303+00:00",
+        "evidence_id": "ev_91f06466998fff49",
+        "executed_spl": null,
+        "fields_returned": [],
+        "output_type": null,
+        "preview_rows": [],
+        "provenance": "governed_soc_kb_retrieval",
+        "provider_used": null,
+        "query_or_request_summary": "Map this alert to MITRE",
+        "raw_result_hash": null,
+        "raw_result_stored": false,
+        "result_count": 0,
+        "saved_search_name": null,
+        "sensitivity_flags": [],
+        "source_name": "governed_soc_kb",
+        "source_type": "rag",
+        "time_range": null,
+        "tool_category": null,
+        "tool_name": "governed_soc_kb_retrieval",
+        "trace_id": "f7de5fa2-9d95-4869-981f-b139f03aa6f8",
+        "warnings": [
+          "no_approved_soc_kb_match"
+        ]
+      },
+      {
+        "collection_status": "skipped",
+        "created_at": "2026-06-24T10:54:52.088699+00:00",
+        "evidence_id": "ev_f0d0648e6c34f589",
+        "executed_spl": null,
+        "fields_returned": [],
+        "output_type": null,
+        "preview_rows": [],
+        "provenance": null,
+        "provider_used": null,
+        "query_or_request_summary": "Map this alert to MITRE",
+        "raw_result_hash": null,
+        "raw_result_stored": false,
+        "result_count": 0,
+        "saved_search_name": null,
+        "sensitivity_flags": [],
+        "source_name": "analyst_query",
+        "source_type": "manual",
+        "time_range": null,
+        "tool_category": null,
+        "tool_name": null,
+        "trace_id": "f7de5fa2-9d95-4869-981f-b139f03aa6f8",
+        "warnings": [
+          "spl_not_required_for_skill"
+        ]
+      }
+    ],
+    "spl_draft_preview": null,
+    "spl_template": null,
+    "spl_template_status": null,
+    "spl_validation": null,
+    "structured_context": {
+      "allowed_conclusions": [
+        "source_coverage_and_collection_status_only"
+      ],
+      "answer_constraints": [],
+      "assumptions": [
+        "structured_context_is_pre_synthesis"
+      ],
+      "capability_profile_ref": null,
+      "context_quality": "insufficient",
+      "entity_summary": {},
+      "environment_grounding_refs": [],
+      "evidence_origin_labels": [
+        "none"
+      ],
+      "execution_provider": null,
+      "fallback_mode": false,
+      "knowledge_ambiguity": [],
+      "metrics": {
+        "collected_evidence_count": 0,
+        "total_result_count": 0
+      },
+      "missing_evidence": [
+        "approved_sop_guidance",
+        "collected_source_evidence",
+        "rag:sop"
+      ],
+      "mitre_candidates": [],
+      "mitre_grounding_refs": [],
+      "policy_context_refs": [],
+      "prohibited_conclusions": [
+        "final_soc_answer",
+        "final_mitre_mapping",
+        "root_cause",
+        "incident_severity"
+      ],
+      "query": "Map this alert to MITRE",
+      "rag_approval_summary": {
+        "all_runtime_eligible": false,
+        "approval_statuses": [],
+        "authority": "metadata_only",
+        "direct_to_llm": false,
+        "document_types": [],
+        "enabled": true,
+        "entry_count": 0,
+        "evidence_origin": "none",
+        "rag_mode": "mock",
+        "repository_backend": "json",
+        "retrieval_status": "no_match"
+      },
+      "selected_skill": "knowledge_recall",
+      "sop_action_hints": [],
+      "source_evidence_refs": [
+        "ev_91f06466998fff49",
+        "ev_f0d0648e6c34f589"
+      ],
+      "source_refs": [
+        "ev_91f06466998fff49",
+        "ev_f0d0648e6c34f589"
+      ],
+      "spl_explanation_provider": null,
+      "spl_generation_provider": null,
+      "spl_guidance_provider": null,
+      "spl_optimization_provider": null,
+      "splunk_context_refs": [],
+      "structured_facts": [],
+      "synthesis_allowed": false,
+      "timeline_candidates": [],
+      "tool_outputs_summary": [
+        {
+          "collection_status": "no_match",
+          "fields_returned": [],
+          "result_count": 0,
+          "source_name": "governed_soc_kb",
+          "source_ref": "ev_91f06466998fff49",
+          "source_type": "rag",
+          "tool_name": "governed_soc_kb_retrieval",
+          "warnings": [
+            "no_approved_soc_kb_match"
+          ]
+        },
+        {
+          "collection_status": "skipped",
+          "fields_returned": [],
+          "result_count": 0,
+          "source_name": "analyst_query",
+          "source_ref": "ev_f0d0648e6c34f589",
+          "source_type": "manual",
+          "tool_name": null,
+          "warnings": [
+            "spl_not_required_for_skill"
+          ]
+        }
+      ],
+      "tool_policy_refs": [],
+      "trace_id": "f7de5fa2-9d95-4869-981f-b139f03aa6f8",
+      "validation_warnings": [],
+      "warnings": [
+        "no_approved_soc_kb_match",
+        "spl_not_required_for_skill"
+      ]
+    },
+    "synthesis_mode": "synthesis_blocked",
+    "synthesis_status": {
+      "allowed_inputs": [
+        "StructuredContext",
+        "SourceEvidence summaries",
+        "approved RAG excerpts"
+      ],
+      "enabled": true,
+      "latency_ms": null,
+      "model": null,
+      "provider": "deterministic_lab",
+      "reason": "Synthesis lab blocked: context_sufficiency:insufficient_evidence.",
+      "status": "blocked"
+    },
+    "tool_plan": [
+      "needs_clarification"
+    ],
+    "tool_plan_structured": null,
+    "trace_explanation": [],
+    "user_query": "Map this alert to MITRE",
+    "workflow_plan": {
+      "available_sources": [],
+      "execution_enabled": false,
+      "message": "Workflow plan created. No SPL/MCP/RAG execution has started.",
+      "missing_sources": [
+        "rag:sop"
+      ],
+      "required_connectors": [
+        "llm",
+        "rag"
+      ],
+      "required_sources": [
+        "rag:sop"
+      ],
+      "safety_gates": [
+        "approved_chunks_only",
+        "grounded_evidence_only",
+        "insufficient_evidence_allowed",
+        "source_metadata_required"
+      ],
+      "skill": "knowledge_recall",
+      "status": "not_started",
+      "steps": [
+        {
+          "name": "retrieve approved documents",
+          "order": 1,
+          "required_connectors": [
+            "rag"
+          ],
+          "safety_gates": [
+            "approved_chunks_only"
+          ],
+          "status": "not_started"
+        },
+        {
+          "name": "rank chunks",
+          "order": 2,
+          "required_connectors": [],
+          "safety_gates": [
+            "source_metadata_required"
+          ],
+          "status": "not_started"
+        },
+        {
+          "name": "synthesize grounded answer",
+          "order": 3,
+          "required_connectors": [
+            "llm"
+          ],
+          "safety_gates": [
+            "grounded_evidence_only",
+            "insufficient_evidence_allowed"
+          ],
+          "status": "not_started"
+        }
+      ],
+      "tool_plan": [
+        "needs_clarification"
+      ],
+      "trace_id": "f7de5fa2-9d95-4869-981f-b139f03aa6f8"
+    }
+  },
+  "provenance": {
+    "captured_at": "2026-06-24T10:54:52.405778+00:00",
+    "git_sha": "2211e38",
+    "live_llm_called": true,
+    "live_mcp_called": false,
+    "model_id": "foundation-sec-1.1-8b-instruct-q8_0",
+    "prompt_hash": "92ce4ce33271de72",
+    "transport": "fake"
+  },
+  "scenario_id": "mitre_mapping_requires_context",
+  "schema_version": 1,
+  "stage_latencies": [
+    {
+      "recorded_ms": 739,
+      "replayed_ms": 739,
+      "stage": "end_to_end"
+    }
+  ]
+}

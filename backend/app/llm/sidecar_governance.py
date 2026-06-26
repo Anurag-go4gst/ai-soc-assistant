@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -29,6 +30,7 @@ REASONING_REJECTION_ROUTING = "reasoning_model_not_allowed_for_routing"
 REASONING_REJECTION_NARRATION = "reasoning_model_not_allowed_for_narration"
 
 NOTE_LLM_ASSIST_TIMED_OUT = "llm_assist_timed_out"
+NOTE_LLM_SLOT_BUSY = "llm_model_slot_busy"
 NOTE_CONFIDENCE_ADVISORY_ONLY = "confidence_advisory_only"
 
 # Persistent pool — never use ``with ThreadPoolExecutor()`` here: __exit__ joins workers
@@ -38,6 +40,17 @@ _SIDECAR_EXECUTOR = ThreadPoolExecutor(
     max_workers=int(os.getenv("AI_SOC_SIDECAR_MAX_WORKERS", "8")),
     thread_name_prefix="sidecar-llm",
 )
+
+# Single-flight guard for the physical model slot (P2-A gate: "no abandoned request
+# keeps occupying the single model slot"). On a single-slot 8B, future.cancel() cannot
+# stop a running urlopen, so a timed-out hop stays orphaned on the socket and keeps the
+# slot busy until it actually returns. The semaphore models real slot occupancy, not
+# caller liveness: the worker releases it in ``finally`` when the call truly completes,
+# so a caller timeout does NOT free the slot. A new hop try-acquires non-blocking; if the
+# slot is still held by an orphan it skips (``NOTE_LLM_SLOT_BUSY``) → deterministic
+# fallback, instead of piling a second concurrent request onto the slot and thrashing.
+_MODEL_SLOTS = max(1, int(os.getenv("AI_SOC_LLM_MODEL_SLOTS", "1")))
+_MODEL_SLOT_SEMAPHORE = threading.BoundedSemaphore(_MODEL_SLOTS)
 
 
 @dataclass(frozen=True)
@@ -141,17 +154,52 @@ def run_sidecar_llm_with_timeout(
     llm_raw_output_provider: Callable[[], str],
     *,
     timeout_seconds: float = SIDECAR_ASSIST_TIMEOUT_SECONDS,
+    slot_wait_seconds: float = 0.0,
 ) -> SidecarLlmCallResult:
-    """Invoke sidecar LLM provider with a wall-clock timeout (default 1.5s)."""
-    future = _SIDECAR_EXECUTOR.submit(llm_raw_output_provider)
+    """Invoke sidecar LLM provider with a wall-clock timeout (default 1.5s).
+
+    Acquires the single-flight model-slot guard first. ``slot_wait_seconds`` is the
+    bounded time to wait for the slot before giving up; the default (0.0) is a
+    non-blocking try-acquire so a busy slot skips the hop instead of stacking a second
+    concurrent request onto a single-slot model. A skipped hop returns
+    ``timed_out=False`` with no output and a ``NOTE_LLM_SLOT_BUSY`` note (distinct from
+    a real timeout, so callers do not trigger failover pile-on).
+    """
+    # Bind the live semaphore once so the worker releases the exact object it acquired,
+    # even if the module global is later rebound (e.g. per-test isolation fixtures).
+    slot = _MODEL_SLOT_SEMAPHORE
+    if slot_wait_seconds and slot_wait_seconds > 0:
+        acquired = slot.acquire(timeout=slot_wait_seconds)
+    else:
+        acquired = slot.acquire(blocking=False)
+    if not acquired:
+        return SidecarLlmCallResult(raw_output=None, timed_out=False, notes=[NOTE_LLM_SLOT_BUSY])
+
+    # The worker owns slot release so the slot is freed only when the call truly
+    # finishes — even after the caller below has timed out and walked away.
+    def _slot_guarded() -> str:
+        try:
+            return llm_raw_output_provider()
+        finally:
+            slot.release()
+
+    try:
+        future = _SIDECAR_EXECUTOR.submit(_slot_guarded)
+    except Exception:  # noqa: BLE001 — pool rejected the work; release and skip
+        slot.release()
+        return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
+
     try:
         raw_output = future.result(timeout=timeout_seconds)
         return SidecarLlmCallResult(raw_output=raw_output, timed_out=False, notes=[])
     except (FuturesTimeoutError, TimeoutError):
-        # Do not join the worker — cancel is best-effort for a running urlopen.
+        # Do not join the worker — cancel is best-effort for a running urlopen. The
+        # orphan keeps the slot held until _slot_guarded's finally runs, so the next
+        # hop sees the slot busy and skips instead of thrashing the single model slot.
         future.cancel()
         return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
     except Exception:  # noqa: BLE001 — never propagate provider errors to /chat
+        # _slot_guarded's finally already released the slot on a provider error.
         return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
 
 

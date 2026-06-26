@@ -462,6 +462,7 @@ def compose_governed_answer(
     context_package: GovernedContextPackage | None = None,
     path_type: str | None = None,
     intent_family: str | None = None,
+    timeout_seconds: float | None = None,
 ) -> GovernedComposerResult:
     """Compose governed prose or return the Phase 8 deterministic envelope."""
     if fallback_envelope.draft_spl_code:
@@ -513,13 +514,24 @@ def compose_governed_answer(
             llm_blocked_reason="Live LLM client is not configured.",
         )
 
-    try:
-        result = llm_client.generate(
+    def _generate() -> Any:
+        return llm_client.generate(
             system_prompt=_SYSTEM_PROMPT,
             user_prompt=prompt,
             max_tokens=min(settings.ai_soc_llm_max_output_tokens, 320),
             temperature=settings.ai_soc_llm_temperature,
         )
+
+    try:
+        if timeout_seconds is not None and timeout_seconds > 0:
+            from app.llm.sidecar_governance import run_sidecar_llm_with_timeout
+
+            bounded = run_sidecar_llm_with_timeout(_generate, timeout_seconds=timeout_seconds)
+            if bounded.timed_out or bounded.raw_output is None:
+                raise LocalChatError("url_error:timeout")
+            result = bounded.raw_output
+        else:
+            result = _generate()
     except LocalChatError as exc:
         return GovernedComposerResult(
             envelope=fallback_envelope,

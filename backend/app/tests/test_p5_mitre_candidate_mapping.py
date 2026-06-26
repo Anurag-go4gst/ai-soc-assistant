@@ -462,14 +462,17 @@ def test_captured_payload_parses_despite_trailing_prose() -> None:
     assert ids == {"T1110", "T1110.002", "T1110.003"}
 
 
-def test_captured_payload_hallucinated_subtechnique_downgraded() -> None:
-    """T1110.002 is not in the local bundle → unknown_id, needs_review (caught)."""
+def test_captured_payload_t1110_002_in_bundle_post_g5_promotion() -> None:
+    """T1110.002 (Brute Force: Password Cracking) was promoted into the local bundle
+    by G5, so it is now an in-bundle candidate, not an unknown_id downgrade.
+
+    The unknown-id catch path stays covered by ``test_unknown_id_not_in_bundle`` (T9999)
+    and ``test_mapper_unknown_id_downgraded_to_needs_review``.
+    """
     result = _run_captured_payload()
-    bad = next(e for e in result.llm_candidate_entries if e["technique_id"] == "T1110.002")
-    assert bad["in_local_bundle"] is False
-    assert bad["status"] == STATUS_NEEDS_REVIEW
-    assert bad["llm_validation_note"] == "unknown_id"
-    assert result.llm_mitre_candidate_validation == "unknown_id"
+    entry = next(e for e in result.llm_candidate_entries if e["technique_id"] == "T1110.002")
+    assert entry["in_local_bundle"] is True
+    assert entry["status"] == STATUS_CANDIDATE  # in-bundle LLM candidate, never supported
 
 
 def test_captured_payload_valid_ids_capped_at_candidate() -> None:

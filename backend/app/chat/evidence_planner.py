@@ -4,13 +4,18 @@ from typing import Any
 
 from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.intent_classification import IntentClassification
+from app.chat.query_signals import is_live_data_request
 from app.config import settings
+from app.chat.planning_decision import _apply_completeness_floor
+from app.chat.multi_leg_evidence import compose_multi_leg_evidence
 from app.use_cases.content_enrichment import (
     CuratedEnrichmentContext,
     get_content_enrichment,
     get_runtime_curated_enrichment,
     resolve_use_case_activation,
 )
+
+_COMPLETENESS_FLOOR_REASON = "completeness_floor_escalated_thin_in_catalog_under_route"
 
 _CATALOG_PROJECTION_WHEN_INACTIVE = frozenset(
     {
@@ -50,12 +55,21 @@ def plan_evidence(
     selected_use_case_id = _use_case_id(selected_use_case, query_understanding, query_to_intent, routed)
 
     def with_enrichment(plan: EvidencePlan) -> EvidencePlan:
+        plan = _maybe_apply_completeness_floor_to_plan(
+            plan,
+            intent=intent,
+            use_case_id=selected_use_case_id,
+            query_understanding=query_understanding,
+        )
         enriched = _apply_curated_enrichment(
             plan,
             use_case_id=selected_use_case_id,
             query_to_intent=query_to_intent,
             query_understanding=query_understanding,
         )
+        multi_leg = compose_multi_leg_evidence(str(getattr(query_understanding, "raw_query", "") or ""))
+        if multi_leg:
+            enriched = enriched.model_copy(update=multi_leg)
         return _attach_resource_plan(
             enriched,
             intent=intent,
@@ -83,6 +97,120 @@ def plan_evidence(
             )
         )
 
+    if family == "alert_summary":
+        return with_enrichment(
+            EvidencePlan(
+                answer_mode="rag_only",
+                rag_phase="rag_only",
+                needs_rag=False,
+                needs_spl=False,
+                needs_mcp=False,
+                needs_mitre=False,
+                spl_allowed=False,
+                mcp_allowed=False,
+                policy_context_required=False,
+                policy_context_recommended=False,
+                requires_hil=False,
+                action_mode="recommend_only",
+                rag_no_match_behavior="general_guidance_allowed",
+                reasons=["alert_summary_no_spl"],
+            )
+        )
+
+    if family == "github_investigation":
+        return with_enrichment(
+            EvidencePlan(
+                answer_mode="guided_investigation",
+                rag_phase="rag_only",
+                needs_rag=True,
+                needs_spl=False,
+                needs_mcp=False,
+                needs_mitre=False,
+                spl_allowed=False,
+                mcp_allowed=False,
+                policy_context_required=False,
+                policy_context_recommended=True,
+                requires_hil=True,
+                needs_hil=True,
+                needs_clarification=False,
+                action_mode="recommend_only",
+                rag_no_match_behavior="general_guidance_allowed",
+                reasons=["github_investigation_review_only"],
+                limitations=[
+                    "No live GitHub API query or Splunk search was performed in this turn.",
+                    "Conclusions are candidate-only until PAT, commit, workflow, and audit evidence is collected.",
+                    "No confirmed MITRE technique or incident severity is asserted.",
+                ],
+                checklist=[
+                    "Actor / username: tie the PAT or OAuth identity to GitHub org/repo membership.",
+                    "Token type / PAT provenance: scope, creation, last use, rotation/revocation status.",
+                    "Commit SHA / timeline: commits, authors, and push times in the requested window.",
+                    "Workflow file / diff: changed .github/workflows paths, jobs, and secret references.",
+                    "Audit log events: repo.push, workflow_dispatch, oauth_access, git.push for the actor.",
+                ],
+                investigation_workflow=[
+                    "Scope repos, workflows, and identities in the observation window.",
+                    "Collect GitHub audit log and token metadata before containment decisions.",
+                    "Test leaked-PAT, compromised-maintainer, and legitimate-automation hypotheses.",
+                    "Have an analyst validate before revoking tokens or disabling workflows.",
+                ],
+                required_sources=["github_audit_log", "github_token_metadata", "workflow_history"],
+                optional_sources=["siem_auth_events", "secret_scanner", "idp_signin_logs"],
+                unsupported_claims_avoid=[
+                    "confirmed compromise",
+                    "confirmed MITRE technique",
+                    "execution_eligible",
+                ],
+                evidence_plan_reason="github_investigation_review_only",
+            )
+        )
+
+    if family == "cve_investigation":
+        return with_enrichment(
+            EvidencePlan(
+                answer_mode="guided_investigation",
+                rag_phase="rag_only",
+                needs_rag=True,
+                needs_spl=False,
+                needs_mcp=False,
+                needs_mitre=False,
+                spl_allowed=False,
+                mcp_allowed=False,
+                policy_context_required=False,
+                policy_context_recommended=True,
+                requires_hil=True,
+                needs_hil=True,
+                needs_clarification=False,
+                action_mode="recommend_only",
+                rag_no_match_behavior="general_guidance_allowed",
+                reasons=["cve_investigation_review_only"],
+                limitations=[
+                    "No live vulnerability scan or Splunk search was performed in this turn.",
+                    "Conclusions are candidate-only until inventory, version, and exposure evidence is collected.",
+                ],
+                checklist=[
+                    "Installed package/version mapping for affected software on in-scope hosts.",
+                    "Exposure signals: services, auth events, and changes near the advisory window.",
+                    "vulnerability_source snapshot/onboarding status before unpatched claims.",
+                    "Missing scanner/CMDB proof and exploit-attempt telemetry explicitly listed.",
+                ],
+                investigation_workflow=[
+                    "Confirm CVE scope and affected products from the advisory.",
+                    "Correlate local inventory and logs without live scanning.",
+                    "List missing evidence before severity or patch-priority claims.",
+                ],
+                required_evidence_keys=["vulnerability_source"],
+                required_sources=["asset_inventory", "package_versions", "vulnerability_source"],
+                optional_sources=["scanner_output", "auth_logs", "change_tickets"],
+                unsupported_claims_avoid=[
+                    "confirmed exploitation",
+                    "confirmed patch gap without inventory proof",
+                    "execution_eligible",
+                ],
+                evidence_plan_reason="cve_investigation_review_only",
+            )
+        )
+
     if family == "guided_investigation":
         return with_enrichment(
             EvidencePlan(
@@ -92,7 +220,7 @@ def plan_evidence(
                 needs_spl=False,
                 needs_mcp=False,
                 needs_mitre=False,
-                spl_allowed=True,
+                spl_allowed=False,
                 mcp_allowed=False,
                 policy_context_required=False,
                 policy_context_recommended=True,
@@ -104,7 +232,7 @@ def plan_evidence(
                 reasons=["out_of_registry_guided_investigation"],
                 limitations=[
                     "This question is outside the approved 105-question and use-case registries.",
-                    "No live query was executed; validate the checklist against local telemetry and playbooks.",
+                    "No live query was performed; validate the checklist against local telemetry and playbooks.",
                     "No MITRE technique or incident severity is asserted without evidence.",
                 ],
                 checklist=[
@@ -164,19 +292,28 @@ def plan_evidence(
         )
 
     if family == "spl_generation_only":
+        signals = (query_to_intent or {}).get("query_signals") if isinstance(query_to_intent, dict) else {}
+        live_data_request = is_live_data_request(signals if isinstance(signals, dict) else {})
         return with_enrichment(
             EvidencePlan(
                 answer_mode="live_investigation",
                 rag_phase="post_mcp",
                 needs_rag=False,
                 needs_spl=True,
-                needs_mcp=False,
+                needs_mcp=live_data_request,
                 needs_mitre=False,
                 spl_allowed=True,
                 mcp_allowed=False,
                 policy_context_required=False,
                 policy_context_recommended=False,
-                reasons=["spl_artifact_requested"],
+                reasons=[
+                    "spl_artifact_requested",
+                    *(
+                        ["live_data_request_mcp_needed_but_not_allowed"]
+                        if live_data_request
+                        else []
+                    ),
+                ],
             )
         )
 
@@ -293,6 +430,54 @@ def plan_evidence(
     )
 
 
+def _evidence_plan_path_type_for_completeness(plan: EvidencePlan) -> str | None:
+    """Map an evidence plan to a planning path_type for completeness-floor checks."""
+    if plan.answer_mode == "rag_only":
+        return "rag_only"
+    if plan.answer_mode == "live_investigation" and not plan.needs_spl and not plan.needs_mcp:
+        return "generic_soc_guidance"
+    return None
+
+
+def _maybe_apply_completeness_floor_to_plan(
+    plan: EvidencePlan,
+    *,
+    intent: IntentClassification,
+    use_case_id: str | None,
+    query_understanding: Any,
+) -> EvidencePlan:
+    """Escalate thin in-catalog under-routes so route_adjudication sees SPL/hybrid."""
+    path_type = _evidence_plan_path_type_for_completeness(plan)
+    if path_type is None:
+        return plan
+    curated = get_runtime_curated_enrichment(use_case_id) if use_case_id else None
+    escalated_path, applied = _apply_completeness_floor(
+        path_type,
+        intent.model_dump(),
+        curated,
+        query_understanding,
+    )
+    if not applied or escalated_path != "hybrid_investigation":
+        return plan
+    reasons = list(plan.reasons or [])
+    if _COMPLETENESS_FLOOR_REASON not in reasons:
+        reasons.append(_COMPLETENESS_FLOOR_REASON)
+    return plan.model_copy(
+        update={
+            "answer_mode": "hybrid",
+            "rag_phase": "pre_mcp",
+            "needs_rag": True,
+            "needs_spl": True,
+            "needs_mcp": False,
+            "needs_mitre": True,
+            "spl_allowed": True,
+            "mcp_allowed": False,
+            "policy_context_recommended": True,
+            "reasons": reasons,
+        }
+    )
+
+
 def _attach_resource_plan(
     plan: EvidencePlan,
     *,
@@ -323,7 +508,17 @@ def _attach_resource_plan(
             composed.provenance["llm_bridge"] = "deferred_not_inline"
     except Exception:
         return plan
-    return plan.model_copy(update={"resource_plan": composed.model_dump()})
+    composed_payload = composed.model_dump()
+    if plan.evidence_legs:
+        provenance = dict(composed_payload.get("provenance") or {})
+        provenance.update(
+            {
+                "evidence_legs": list(plan.evidence_legs),
+                "correlation": dict(plan.correlation or {}),
+            }
+        )
+        composed_payload["provenance"] = provenance
+    return plan.model_copy(update={"resource_plan": composed_payload})
 
 
 def _apply_curated_enrichment(

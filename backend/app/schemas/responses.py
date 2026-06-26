@@ -66,6 +66,12 @@ class CandidateSplEnvelope(BaseModel):
     governed_limitation: str | None = None
     allowed_spl_templates: list[str] | None = None
     enrichment_evidence_requirements: list[str] | None = None
+    detection_family: str | None = None
+    user_constraint_bindings: dict[str, object] | None = None
+    spl_binding_trace: dict[str, object] | None = None
+    # T1 SPL-native (T2 shape) review-only artifact.  Present only for the
+    # runtime-source-profile SPL-native path; review-only and never executable.
+    t2_spl_native: dict[str, object] | None = None
 
 
 class SplDraftPreviewEnvelope(BaseModel):
@@ -73,6 +79,7 @@ class SplDraftPreviewEnvelope(BaseModel):
     draft_status: str
     draft_source: str
     detection_family: str
+    template_match_strength: str | None = None
     assumptions: list[str]
     required_source_fields: list[str]
     source_profile_missing: bool
@@ -84,6 +91,16 @@ class SplDraftPreviewEnvelope(BaseModel):
     execution_eligible: bool = False
     governed: bool = False
     catalog_approved: bool = False
+    user_constraint_bindings: dict[str, object] | None = None
+    template_compatibility: dict[str, object] | None = None
+    unbound_constraints: list[dict[str, object]] = []
+    source_profile_bindings: list[dict[str, object]] = []
+    source_profile_lookup_attempted: bool | None = None
+    environment_knowledge_lookup_attempted: bool | None = None
+    source_profile_bindings_found: list[dict[str, object]] = []
+    source_profile_bindings_applied: list[dict[str, object]] = []
+    source_profile_bindings_missing: list[dict[str, object]] = []
+    source_family_draft_sections: list[dict[str, object]] = []
     warning: str
     not_catalog_approved_notice: str
 
@@ -253,6 +270,9 @@ class StructuredContextPackage(BaseModel):
     synthesis_allowed: bool = False
     rag_approval_summary: dict[str, object] | None = None
     evidence_origin_labels: list[str] = []
+    # FinalEvidenceGate debug projection (refs/counts/permissions). Kept
+    # consistent with the final RunContract; see graph_node_context_finalize.
+    final_evidence_gate: dict[str, object] | None = None
 
 
 class ContextSufficiencyEnvelope(BaseModel):
@@ -349,6 +369,7 @@ class AnalystResponseEnvelope(BaseModel):
     recommended_actions: list[str] = []
     spl_code: str | None = None
     spl_draft_preview: dict[str, object] | None = None
+    spl_unbound_constraints: list[dict[str, object]] = []
     draft_spl_code: str | None = None
     llm_spl_candidate: LlmSplCandidateEnvelope | None = None
     executed_spl: str | None = None
@@ -371,6 +392,7 @@ class AnalystResponseEnvelope(BaseModel):
     limitations: list[str] = []
     required_evidence: list[str] = []
     spl_status_detail: dict[str, object] | None = None
+    environment_hygiene: dict[str, object] | None = None
     section_order: list[str] = []
     render_sections: dict[str, bool] = {}
 
@@ -460,6 +482,7 @@ class PlaceholderResponse(BaseModel):
     selected_use_case: UseCaseSelection | None = None
     selected_skill_chain: SkillChain | None = None
     skill_selection: SkillSelectionResult | None = None
+    skill_contribution: dict[str, object] | None = None
     workflow_plan: WorkflowPlan | None = None
     candidate_spl: CandidateSplEnvelope | None = None
     spl_validation: SplValidationEnvelope | None = None
@@ -472,6 +495,7 @@ class PlaceholderResponse(BaseModel):
     context_sufficiency: ContextSufficiencyEnvelope | None = None
     route_plan_shadow: RoutePlanShadowEnvelope | None = None
     analyst_response: AnalystResponseEnvelope | None = None
+    environment_hygiene: dict[str, object] | None = None
     foundation_sec_governance: FoundationSecGovernance | None = None
     spl_template: dict[str, object] | None = None
     evidence_plan: dict[str, object] | None = None
@@ -483,6 +507,8 @@ class PlaceholderResponse(BaseModel):
     query_to_intent: dict[str, object] | None = None
     control_plane_trace: dict[str, object] | None = None
     answer_contract: dict[str, object] | None = None
+    run_contract: dict[str, object] | None = None
+    routing_contract: dict[str, object] | None = None
     # WS3 T3.1 — deterministic read-model scorecard (never authority).
     answer_scorecard: dict[str, object] | None = None
     # WS3 T3.2 — consolidated LLM narration usage visibility (read-model).
@@ -504,3 +530,9 @@ class PlaceholderResponse(BaseModel):
     answer_guard_status: str | None = None
     final_answer_safety_status: str | None = None
     session_context_status: SessionContextStatusEnvelope | None = None
+    # Experience Center capture/provenance surfacing (plan 2026-06-24, Tracks B2/B6).
+    # Demo-time posture is always no-live-call; ec_provenance badges the captured source.
+    live_mcp_called: bool | None = None
+    ec_answer_source: str | None = None
+    ec_provenance: dict[str, object] | None = None
+    ec_stage_latencies: list[dict[str, object]] | None = None

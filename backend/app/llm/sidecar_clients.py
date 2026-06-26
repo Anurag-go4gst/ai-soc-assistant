@@ -29,8 +29,10 @@ _ROLE_TIMEOUT_SECONDS: dict[str, float] = {
     "route_plan_candidate_generator": 120.0,
     "spl_advisory_generator": 120.0,
     "mitre_candidate_mapper": 120.0,
+    "mitre_reasoner": 120.0,
     "template_match_semantic_assist": 90.0,
     "template_render_parameter_assist": 90.0,
+    "governed_composer": 120.0,
 }
 
 # Failover hop (Instruct retry after primary timeout) — give it enough to complete
@@ -145,6 +147,7 @@ def invoke_sidecar_role(
     max_tokens: int = 800,
     timeout_seconds: float | None = None,
     temperature: float | None = None,
+    allow_failover: bool = True,
 ) -> tuple[str | None, bool, str | None]:
     """Invoke a sidecar role; returns (raw_output, timed_out, answered_label)."""
     if settings.ai_soc_llm_mode.strip().lower() in {"mock", "disabled", ""}:
@@ -171,13 +174,15 @@ def invoke_sidecar_role(
     if not call.timed_out:
         return call.raw_output, False, answered_label_holder[0]
 
-    if len(client.chain) > 1:
+    if allow_failover and len(client.chain) > 1:
         fallback_client = _instruct_failover_client(client)
         if fallback_client is None:
             return None, True, None
         hop_timeout = min(timeout, _FAILOVER_HOP_TIMEOUT_SECONDS)
         # Fresh holder: the primary call was orphaned on timeout and may still
-        # be running; it must not clobber the fallback's answered_label.
+        # be running; it must not clobber the fallback's answered_label. The
+        # model-slot guard in run_sidecar_llm_with_timeout keeps the fallback from
+        # piling onto the slot while that orphan still holds it (skips instead).
         fallback_label_holder: list[str | None] = [None]
         fallback_provider = _build_callable_for_client(
             client=fallback_client,
@@ -213,11 +218,25 @@ def build_intent_advisory_prompt(
         "ambiguity_reasons": [],
         "clarification_draft": None,
         "evidence_need_hints": [],
+        "entity_slots_candidate": {},
+        "entity_slot_confidence": {},
+        "entity_slot_reasons": {},
         "confidence_metadata": {"confidence": 0.0},
     }
+    instructions = (
+        "Extract entity_slots_candidate only for values explicitly present or strongly implied "
+        "in the analyst query. Do NOT invent indexes, sourcetypes, IPs, hosts, users, lookups, "
+        "asset names, or time windows. Supported slot keys include: index, indexes, sourcetype, "
+        "host, user, src_ip, dest_ip, cidr, port, service, protocol, event_code, function_code, "
+        "action_semantic, threshold, time_window, lookup, src_zone, dest_zone, "
+        "src_scope, dest_scope, aggregation_subject, unexpected_ip_direction, allowlist_semantic. "
+        "Use canonical slot names: event_id/eventid -> event_code, account/username -> user, "
+        "src_subnet/source_subnet -> src_scope, dest_subnet/destination_subnet -> dest_scope."
+    )
     return (
         f"{context_block}\n\n"
         f"Analyst query:\n{query}\n\n"
+        f"{instructions}\n\n"
         "Return ONE JSON object matching this shape (no markdown):\n"
         f"{json.dumps(schema, indent=2)}"
     )

@@ -1,0 +1,79 @@
+{
+  "name": "Power Industry Probe Bank v3 (10)",
+  "purpose": "Third disjoint OT/grid corpus, deliberately pushed BEYOND the v2 plan's 8 signal classes to stress-test plan coverage. Probes TI/advisory, regulatory reporting, containment-action, baselining, timeline reconstruction, wireless/physical, insider, supply-chain shapes. Not a governance gate.",
+  "date": "2026-06-19",
+  "total": 10,
+  "disjoint_from": "power_industry_probe_bank.json (pi.*) + power_industry_probe_v2_bank.json (pj.*)",
+  "entries": [
+    {
+      "question_id": "pk.001",
+      "topic": "Ransomware on IT, isolate OT decision",
+      "tier": "T2",
+      "stress_axis": "containment_action_request + safety_critical",
+      "question": "Ransomware just hit our corporate IT domain controller. Should we isolate the OT network from IT right now, and what exact steps should the SOC take to protect the SCADA environment without tripping the grid?"
+    },
+    {
+      "question_id": "pk.002",
+      "topic": "CISA/threat-intel advisory exposure",
+      "tier": "T2",
+      "stress_axis": "ti_advisory_to_detection_mapping",
+      "question": "A new advisory says the VOLTZITE actor is targeting electric utilities with living-off-the-land techniques on grid OT. Based on what we log today, are we exposed and what should we hunt for?"
+    },
+    {
+      "question_id": "pk.003",
+      "topic": "CEA / CERT-In incident reporting obligation",
+      "tier": "T2",
+      "stress_axis": "regulatory_reporting + non_technical",
+      "question": "We confirmed unauthorized access to a substation HMI. Do we have to report this to CERT-In or under the CEA cyber security guidelines, and within what timeline?"
+    },
+    {
+      "question_id": "pk.004",
+      "topic": "OT log-source silence / visibility gap",
+      "tier": "T1/T2",
+      "stress_axis": "log_source_health + coverage_gap",
+      "question": "Which of our OT assets and substation log sources have stopped sending events to Splunk in the last 7 days, so I know my blind spots before the audit?"
+    },
+    {
+      "question_id": "pk.005",
+      "topic": "Baseline request for threshold tuning",
+      "tier": "T1/T2",
+      "stress_axis": "baselining_request + not_a_hunt",
+      "question": "What does normal Modbus polling volume look like for our boiler PLCs over a typical week, so I can set a sensible alert threshold for abnormal control traffic?"
+    },
+    {
+      "question_id": "pk.006",
+      "topic": "Multi-stage timeline reconstruction",
+      "tier": "T2",
+      "stress_axis": "incident_timeline + cross_event_chronology",
+      "question": "Reconstruct a timeline from the vendor VPN login at 02:14, the OT jump-host RDP session, and the relay configuration change, and tell me if these three events are causally linked."
+    },
+    {
+      "question_id": "pk.007",
+      "topic": "Rogue wireless AP near control building",
+      "tier": "T2",
+      "stress_axis": "wireless_physical + out_of_splunk_comfort_zone",
+      "question": "Our wireless IDS flagged a rogue Wi-Fi access point broadcasting near the substation control building. How does the SOC determine if this is a bridge into the OT network?"
+    },
+    {
+      "question_id": "pk.008",
+      "topic": "Insider relay-config exfil before resignation",
+      "tier": "T2",
+      "stress_axis": "insider_threat + identity_plus_egress",
+      "question": "A protection engineer who just resigned downloaded the entire relay configuration repository to a personal device last week. How do we investigate potential insider data theft of grid protection settings?"
+    },
+    {
+      "question_id": "pk.009",
+      "topic": "Firmware supply-chain cert anomaly at scale",
+      "tier": "T2",
+      "stress_axis": "supply_chain_integrity + scale",
+      "question": "A vendor pushed a firmware update signed with an unexpected code-signing certificate to 40 RTUs overnight. How do we determine whether this is a legitimate vendor key rotation or a supply-chain compromise?"
+    },
+    {
+      "question_id": "pk.010",
+      "topic": "Frequency-control command anomaly (AGC)",
+      "tier": "T2",
+      "stress_axis": "process_aware_anomaly + grid_physics",
+      "question": "We saw automatic generation control setpoint commands that would have pushed grid frequency outside the 49.9-50.1 Hz band. Hunt for whether these AGC commands were legitimate dispatch or injected, and what evidence separates the two."
+    }
+  ]
+}

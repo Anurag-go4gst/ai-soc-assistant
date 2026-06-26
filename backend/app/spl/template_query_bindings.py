@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from app.spl.spl_slot_binding_validator import (
     SlotValidationOutcome,
     escape_spl_quoted_string,
     validate_template_query_slots,
 )
+from app.spl.template_slot_bindings import customize_template_spl_with_bindings, render_spl_with_bindings
+from app.spl.user_constraint_bindings import UserConstraintBindings, build_user_constraint_bindings
 
+_TIME_BOUNDS_RE = re.compile(r"\bearliest=[^\s|]+(?:\s+latest=[^\s|]+)?")
 _ALERT_ID_RE = re.compile(
     r"\b(?:alert_id|alert|alt)[\s:=]+([A-Za-z0-9][\w.-]*)",
     re.IGNORECASE,
 )
-_TIME_BOUNDS_RE = re.compile(r"\bearliest=[^\s|]+(?:\s+latest=[^\s|]+)?")
 
 
 def customize_template_spl(
@@ -23,20 +26,44 @@ def customize_template_spl(
     user_query: str,
     *,
     normalized_slots: dict[str, str] | None = None,
+    user_constraint_bindings: UserConstraintBindings | None = None,
 ) -> str:
-    if template_id == "auth_success_after_failure":
-        slots = normalized_slots
-        if slots is None:
-            outcome = validate_template_query_slots(template_id, user_query)
-            if not outcome.valid:
-                return spl_text
-            slots = outcome.normalized_slots
-        return _auth_success_after_failure_spl(spl_text, user_query, slots)
+    bindings = user_constraint_bindings or build_user_constraint_bindings(user_query)
+    slots = normalized_slots or bindings.normalized_slots
+    outcome = customize_template_spl_with_bindings(
+        template_id,
+        spl_text,
+        bindings,
+        normalized_slots=slots,
+    )
+    return outcome.spl
 
-    time_bounds = _resolve_time_bounds(normalized_slots, template_id, user_query, spl_text)
-    if time_bounds:
-        return _apply_time_window(spl_text, time_bounds)
-    return spl_text
+
+def customize_template_spl_with_trace(
+    template_id: str,
+    spl_text: str,
+    user_query: str,
+    *,
+    normalized_slots: dict[str, str] | None = None,
+    user_constraint_bindings: UserConstraintBindings | None = None,
+    force_user_skeleton: bool = False,
+) -> tuple[str, dict[str, Any]]:
+    bindings = user_constraint_bindings or build_user_constraint_bindings(user_query)
+    slots = normalized_slots or bindings.normalized_slots
+    outcome = render_spl_with_bindings(
+        template_id,
+        spl_text,
+        bindings,
+        normalized_slots=slots,
+        force_user_skeleton=force_user_skeleton,
+    )
+    trace = {
+        "bound_slots": dict(outcome.bound_slots),
+        "unbound_constraints": list(outcome.unbound_constraints),
+        "used_user_bound_skeleton": outcome.used_user_bound_skeleton,
+        "user_constraint_bindings": bindings.to_dict(),
+    }
+    return outcome.spl, trace
 
 
 def _resolve_time_bounds(
@@ -53,56 +80,33 @@ def _resolve_time_bounds(
     return _extract_time_bounds(spl_text)
 
 
-def _apply_time_window(spl_text: str, time_bounds: str) -> str:
-    if _TIME_BOUNDS_RE.search(spl_text):
-        return _TIME_BOUNDS_RE.sub(time_bounds, spl_text, count=1)
-    match = re.search(
-        r"^(search\s+index=\S+(?:\s+sourcetype=\S+)?)",
-        spl_text,
-        flags=re.IGNORECASE,
-    )
-    if match:
-        prefix = match.group(1)
-        remainder = spl_text[match.end() :].lstrip()
-        return f"{prefix} {time_bounds} {remainder}".strip()
-    return spl_text
-
-
 def validate_template_slots_for_render(
     template_id: str,
     user_query: str,
     *,
     extra_slots: dict[str, object] | None = None,
     slot_source: str = "user",
+    user_constraint_bindings: UserConstraintBindings | None = None,
 ) -> SlotValidationOutcome:
+    bindings = user_constraint_bindings
+    if bindings is None:
+        bindings = build_user_constraint_bindings(
+            user_query,
+            extra_slots=extra_slots,
+        )
+    merged_slots = bindings_to_extra_slots(bindings)
     return validate_template_query_slots(
         template_id,
         user_query,
-        extra_slots=extra_slots,
+        extra_slots=merged_slots,
         slot_source=slot_source,
     )
 
 
-def _auth_success_after_failure_spl(
-    base_spl: str,
-    user_query: str,
-    normalized_slots: dict[str, str],
-) -> str:
-    alert_id = normalized_slots.get("alert_id") or _extract_alert_id(user_query)
-    host = normalized_slots.get("host")
-    time_bounds = normalized_slots.get("time_window") or _extract_time_bounds(base_spl) or "earliest=-60m latest=now"
+def bindings_to_extra_slots(bindings: UserConstraintBindings) -> dict[str, Any]:
+    from app.spl.user_constraint_bindings import bindings_to_extra_slots as _bindings_to_extra_slots
 
-    search_prefix = "search index=pgcil_soc sourcetype=pgcil:auth"
-    if alert_id:
-        safe_alert = escape_spl_quoted_string(alert_id) if alert_id not in normalized_slots else alert_id
-        search_prefix = f'{search_prefix} alert_id="{safe_alert}"'
-    if host:
-        search_prefix = f'{search_prefix} host="{host}"'
-    search_prefix = f"{search_prefix} {time_bounds}"
-
-    remainder = re.sub(r"^search\s+index=pgcil_soc\s+sourcetype=pgcil:auth(?:\s+\S+)*?\s+", "", base_spl, count=1)
-    remainder = re.sub(r"^earliest=[^\s|]+(?:\s+latest=[^\s|]+)?\s+", "", remainder, count=1)
-    return f"{search_prefix} {remainder}".strip()
+    return _bindings_to_extra_slots(bindings)
 
 
 def _extract_time_bounds(spl_text: str) -> str | None:

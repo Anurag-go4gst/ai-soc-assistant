@@ -12,6 +12,7 @@ from app.query_understanding.soc_investigation_shape import (
 )
 from app.query_understanding.time_window import normalize_time_window
 from app.use_cases.registry import load_use_case_catalog, match_use_cases
+from app.use_cases.routing_authority import catalog_authority_row, llm_advisory_recommended
 
 IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 INDEX_RE = re.compile(r"\bindex=([^\s|]+)", re.IGNORECASE)
@@ -19,6 +20,17 @@ SOURCETYPE_RE = re.compile(r"\bsourcetype=([^\s|]+)", re.IGNORECASE)
 ALERT_RE = re.compile(r"\b(?:alert_id|alert|notable|event_id|eventid)[:=]\s*([A-Za-z0-9_.:-]+)", re.IGNORECASE)
 HOST_RE = re.compile(r"\b(?:host|asset)[:=]\s*([A-Za-z0-9_.:-]+)", re.IGNORECASE)
 USER_RE = re.compile(r"\buser[:=]\s*([A-Za-z0-9_.@-]+)", re.IGNORECASE)
+CVE_RE = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.IGNORECASE)
+MITRE_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
+PORT_RE = re.compile(r"\b(?:port|on port)\s+(\d{1,5})\b", re.IGNORECASE)
+PURDUE_LAYER_RE = re.compile(r"\b(?:purdue\s+)?layer\s+(?:L)?([0-5])\b", re.IGNORECASE)
+PURDUE_L_RE = re.compile(r"\bL([0-5])\b")
+ZONE_RE = re.compile(r"\b(?:zone|vlan)\s+([A-Za-z0-9_.-]{2,40})\b", re.IGNORECASE)
+OBSERVATION_WINDOW_RE = re.compile(
+    r"\b(?:observation window(?:\s+of)?|over the (?:past|last)|during the (?:past|last))\s+"
+    r"(\d+\s*(?:minute|minutes|min|mins|hour|hours|hr|hrs|day|days|h|m|d)s?)\b",
+    re.IGNORECASE,
+)
 
 _MITRE_KEYWORDS = ("mitre", "att&ck", "attack technique", "map this alert", "map the alert")
 _ALERT_CONTEXT_MARKERS = ("index=", "sourcetype=", "rule:", "rule ", "alert:", "notable", "signature=", "event id", "eventid")
@@ -80,7 +92,11 @@ def understand_query(query: str) -> QueryUnderstandingResult:
         deterministic_match_path=deterministic_match_path,
         registry_consistency=_registry_consistency(primary_use_case, question_registry_entry),
         registry_warnings=registry_warnings,
-        llm_advisory_recommended=_llm_advisory_recommended(deterministic_match_path, registry_warnings),
+        llm_advisory_recommended=_llm_advisory_recommended(
+            deterministic_match_path,
+            registry_warnings,
+            catalog_row=catalog_authority_row(primary_use_case.use_case_id if primary_use_case else None),
+        ),
     )
     shaped = (
         detect_investigation_hypothesis_guidance(query)
@@ -156,11 +172,49 @@ def _entities(query: str) -> QueryEntities:
         source_ip=ips,
         destination_ip=[],
         time_window=normalize_time_window(query),
+        observation_window=_observation_window_phrase(query),
         index=INDEX_RE.findall(query),
         sourcetype=SOURCE_TYPE_CLEANUP(SOURCETYPE_RE.findall(query)),
         alert_id=ALERT_RE.findall(query),
         event_type=_event_types(query),
+        cve_ids=_unique_preserve_order(CVE_RE.findall(query)),
+        mitre_techniques=_unique_preserve_order(MITRE_RE.findall(query)),
+        port_numbers=_extract_port_numbers(query),
+        purdue_layers=_extract_purdue_layers(query),
+        zone_labels=_unique_preserve_order(ZONE_RE.findall(query)),
     )
+
+
+def _unique_preserve_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        normalized = value.strip()
+        if not normalized:
+            continue
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(normalized)
+    return ordered
+
+
+def _observation_window_phrase(query: str) -> str | None:
+    match = OBSERVATION_WINDOW_RE.search(query)
+    if not match:
+        return None
+    return match.group(0).strip()
+
+
+def _extract_port_numbers(query: str) -> list[str]:
+    ports = _unique_preserve_order(PORT_RE.findall(query))
+    return [port for port in ports if 0 < int(port) <= 65535]
+
+
+def _extract_purdue_layers(query: str) -> list[str]:
+    layers = _unique_preserve_order(PURDUE_LAYER_RE.findall(query) + PURDUE_L_RE.findall(query))
+    return [f"L{layer}" if layer.isdigit() else layer.upper() for layer in layers]
 
 
 def SOURCE_TYPE_CLEANUP(values: list[str]) -> list[str]:
@@ -296,5 +350,14 @@ def _registry_warnings(primary_use_case: object | None, registry_entry: dict | N
     return []
 
 
-def _llm_advisory_recommended(deterministic_match_path: str, registry_warnings: list[str]) -> bool:
-    return deterministic_match_path in {"near_105_question", "semantic_105_question", "out_of_registry"} or bool(registry_warnings)
+def _llm_advisory_recommended(
+    deterministic_match_path: str,
+    registry_warnings: list[str],
+    *,
+    catalog_row: dict | None = None,
+) -> bool:
+    return llm_advisory_recommended(
+        deterministic_match_path,
+        catalog_row=catalog_row,
+        registry_warnings=registry_warnings,
+    )

@@ -2,7 +2,7 @@
 
 Date: 2026-06-15
 Branch: spl-generation-audit
-Status: In Progress (§3 EC flagship **built**; §4A **shipped** incl. RBAC + `/chat` shadow + EC sidecar parity; §4B pending approval)
+Status: In Progress (§3 EC flagship **built**; §4A **shipped**; §4B **core + deferred slices shipped** on `cp-cyclic-evidence-loop`)
 Source reviewed: `https://github.com/Sbharadwaj05/sb-siem-mcp` (third-party Wazuh MCP **server**, MIT, 28 tools, 9 domains)
 
 ---
@@ -67,10 +67,10 @@ rows) and #2 (deterministic rollup shapes) ourselves — §3.3 below.
 
 | Item | Source file | Why | Confidence |
 |------|-------------|-----|-----------|
-| **A1. Result-row output sanitizer** | `sanitizer.py` | Recursive redaction of secrets (AWS/JWT/SSH/Bearer/password fields) from data **before it reaches the LLM**. We *assert* "no creds to prompt"; this *enforces* it on evidence rows. Closes a real gap on the live synthesis path. | 0.8 |
-| **A2. `risk_score` heatmap formula** | `analysis.py` (`crit*10+high*5+med*2+low`) | Drop-in deterministic answer-section for vuln/host prioritization when a vuln source is onboarded. | 0.8 |
-| **A3. `rules_coverage_map` inverted-index pattern** | `analysis.py` | framework-id → rule-ids matrix = a clean "detection gap / coverage" answer card (MITRE/NIST/PCI/GDPR/HIPAA). | 0.75 |
-| **A4. `alert_summary` aggregate shape** | `alerts.py` | severity dist + top rules/MITRE/IPs/agents = strong shift-handoff card; matches our AnswerContract section model. | 0.7 |
+| **A1. Result-row output sanitizer** | `evidence_sanitizer.py` | Recursive redaction wired at `source_evidence._safe_text` + `GovernedContextPackage.to_prompt_block`. | **Shipped** |
+| **A2. `risk_score` heatmap formula** | `analysis/soc_aggregates.py` | Urgency-weighted host heatmap; EC uses `top_risky_hosts()`. | **Shipped** |
+| **A3. `rules_coverage_map` inverted-index pattern** | `analysis/soc_aggregates.py` | framework-id → rule-ids matrix for detection-gap cards. | **Shipped** |
+| **A4. `alert_summary` aggregate shape** | `analysis/soc_aggregates.py` | severity dist + top rules/MITRE/IPs/agents rollup. | **Shipped** |
 
 ### Note for COE — future Wazuh-extension (do **not** build now)
 
@@ -203,8 +203,10 @@ must carry a small policy → **P2** for a critical-alert review (or an explicit
 critical-alert triage / CVE-correlation SOP, so `rag_available=True` is backed by
 evidence (parity with `dns`'s `ev-rag-c2-ti`).
 
-**(Follow-up, not this PR) detection-gap card** — A3 `rules_coverage_map`
-inverted index: MITRE techniques with no detection rule. High value, separate PR.
+**Detection-gap card — SHIPPED.** A3 `rules_coverage_map` over the governed MITRE
+subset (`related_use_cases` = covering detection rules). Backend
+`build_detection_coverage()` + `/knowledge/detection-coverage`; Knowledge page
+"MITRE detection coverage & gaps" card. Deterministic, read-only.
 
 ### 3.4 Files touched
 
@@ -346,11 +348,22 @@ WS-MCP is a **separate PR** from the flagship EC scenario (§3). The EC
 scenario ships first (no dependency); WS-MCP playbook/RBAC/plan-review lands
 after. Listed here so the corrected posture is canonical.
 
-## 4B. Cyclic governed evidence-collection loop (CP-gated) — PROPOSED, pending build approval
+## 4B. Cyclic governed evidence-collection loop (CP-gated) — SHIPPED
 
-> Status 2026-06-15: design approved in discussion; **written here for build
-> approval**. No code yet. Gated by `CONTROL_PLANE_ENABLED` (CP). CP off = today's
-> linear path unchanged. No new flag.
+> Status 2026-06-15: **shipped (default-off)**, branch `cp-cyclic-evidence-loop`.
+> Gated by `CONTROL_PLANE_ENABLED` (CP). CP off = linear path unchanged.
+>
+> **Shipped:** loop controller, HUB idempotency, live gated discovery hops
+> (`mcp_loop_discovery.py` + `execute_loop_discovery_hop`), LLM-reviewed
+> chronology via `plan_tool_chronology` → `initialize_loop`, imperative-twin
+> discovery drain (`_run_discovery_loop_imperative`), execution re-entry hop
+> counting (`record_execution_hop`), phase-6 `mcp_evidence` → `source_evidence`,
+> LangGraph `composed_dispatch` node, loop eligibility gate (`mcp_allowed` +
+> non-rag-only), trace `evidence_loop.planner`.
+>
+> **Entrypoints:** default `/chat` stays imperative (session-context parity);
+> `LANGGRAPH_ORCHESTRATION_ENABLED` switches to the cyclic graph. Both share the
+> same `graph_node_*` implementations.
 
 ### 4B.1 Problem
 Today `graph_node_execution → context_finalize → synthesis`, blind. A multi-tool
@@ -417,11 +430,11 @@ sufficiency: str              # sufficient | needs_more | exhausted | capability
 | LLM prompt for tool call | BUILT — `build_planner_prompts` (calibrated closed-set + `response_format=json_object`); live-verified Instruct returns a valid plan + `unservable` |
 | LLM response parse | BUILT — `_extract_proposed_tools` (tolerant JSON) |
 | Plan + deterministic review | BUILT — `review_proposed_tool_chronology` (drops blocked/unknown/rbac, reorders, fallback) |
-| Declare per-hop requirement | TO BUILD — map plan → required `produces` |
-| Execute one MCP hop | TO BUILD — `mcp_call` node (read-only discovery hops); `run_query` stays in `graph_node_execution`, gated |
-| Verify result vs requirement | TO BUILD — requirement↔deliverable assessor in HUB (reuse Stage-3J sufficiency) |
-| Accumulate results | TO BUILD — `mcp_evidence[]` → merged into `source_evidence`/`structured_context` |
-| Pass to followup nodes → answer | PARTIAL — `context_finalize`/answer_contract already read `source_evidence`; must read the accumulated multi-hop set |
+| Declare per-hop requirement | SHIPPED — `declare_hop_requirements` + `initialize_loop` |
+| Execute one MCP hop | SHIPPED (planned-only) — `graph_node_mcp_call`; `run_query` stays in `graph_node_execution`, gated |
+| Verify result vs requirement | SHIPPED — `assess_loop` in HUB (`graph_node_evidence_planning` re-entry) |
+| Accumulate results | SHIPPED — `append_mcp_loop_source_evidence` in `_context_stage` |
+| Pass to followup nodes → answer | SHIPPED — multi-hop set in `source_evidence` + `tool_outputs_summary`; planned hops stay out of sufficiency `collected` |
 
 ### 4B.6 Bugs / shortcomings found in review (must address in build)
 1. **Parity twin. DECISION (2026-06-15): UNIFY.** Live runs via the compiled
@@ -539,5 +552,5 @@ beyond the single flagship case. Lock the template + decode config only after gr
 - No live CVE/vuln data source onboarding.
 - No active-response / confirmation-token gate (N2).
 - No LLM-drives-MCP loop (forbidden).
-- Sanitizer (A1) and heatmap/coverage shapes (A2–A4) are **planned follow-ups**,
-  tracked here, not built in this PR unless requested.
+- Detection-gap card **shipped on the Knowledge page** (`build_detection_coverage()` + `GET /knowledge/detection-coverage` + KnowledgePage "MITRE detection coverage & gaps"). The **Experience Center** detection-gap card (A3 consumer UI in an EC scenario) remains a follow-up; shared builders live in `analysis/soc_aggregates.py`.
+- **A1 sanitizer shipped** (`evidence_sanitizer.py` → `source_evidence._safe_text` + `to_prompt_block`).

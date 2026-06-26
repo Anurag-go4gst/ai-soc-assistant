@@ -13,7 +13,23 @@ from app.chat.network_boundary_display import (
 )
 from app.config import settings
 from app.safeguards.spl_validator import validate_spl
+from app.spl.draft_metadata_builder import (
+    apply_draft_metadata_to_preview,
+    bindings_from_dict,
+    build_draft_metadata,
+)
+from app.spl.draft_preview_customization import customize_draft_preview_for_query
 from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
+from app.spl.source_profile_catalog import canonical_source_profile_slot
+from app.spl.source_profile_resolver import (
+    extract_placeholder_slots,
+    substitute_placeholders,
+)
+from app.spl.source_profile_store import load_persisted_source_profile
+from app.spl.source_profile_bindings import build_source_profile_binding_slots
+from app.spl.template_compatibility import check_template_compatibility
+from app.spl.template_slot_bindings import build_user_bound_skeleton, skeleton_output_plan
+from app.spl.user_constraint_bindings import build_user_constraint_bindings
 
 _FIREWALL_LOG_FIELDS: tuple[str, ...] = (
     "index",
@@ -31,9 +47,13 @@ _FIREWALL_LOG_FIELDS: tuple[str, ...] = (
     "_time",
 )
 _FIREWALL_PROFILE_FIELDS: tuple[str, ...] = (
+    "esp_firewall_index",
+    "esp_firewall_sourcetype",
+    "cisco_firewall_index",
+    "cisco_firewall_sourcetype",
     "corporate_it_zone",
-    "ot_control_center_zone",
     "corporate_it_cidr",
+    "ot_control_center_zone",
     "ot_control_center_cidr",
 )
 
@@ -219,7 +239,7 @@ def _family(
     )
 
 
-DETECTION_FAMILIES: tuple[DetectionFamily, ...] = (
+_CORE_DETECTION_FAMILIES: tuple[DetectionFamily, ...] = (
     _family(
         "windows_privileged_group_changes",
         pattern_texts=(
@@ -714,6 +734,9 @@ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-2
             r"control\s+center",
             r"firewall\s+log",
             r"ot\s+vlan",
+            r"substation",
+            r"remote\s+access",
+            r"external\s+connection",
         ),
         draft_spl="""
 search index=<esp_firewall_index> sourcetype=<esp_firewall_sourcetype> earliest=-24h latest=now (action=allowed OR action=accept OR action=permit OR action=success)
@@ -2232,8 +2255,53 @@ search index=<network_index> (sourcetype=<dns_sourcetype> OR sourcetype=<firewal
             "Do not declare correlation-based compromise from co-presence alone.",
         ),
     ),
+    _family(
+        "cisco_catalogue_review",
+        pattern_texts=(
+            r"\bcisco\b",
+            r"\bsubstation\b",
+            r"\bscada\b",
+            r"\bot\b",
+            r"\bgrid\b",
+        ),
+        draft_spl="""
+search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now
+| eval src_norm=coalesce(src_ip, src, source, "unknown")
+| eval dest_norm=coalesce(dest_ip, dest, destination, "unknown")
+| eval action_norm=lower(coalesce(action, event_action, disposition, "unknown"))
+| eval signature_norm=coalesce(signature, event_name, rule, message, "unspecified")
+| stats count as event_count values(action_norm) as actions values(signature_norm) as signatures earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_norm dest_norm
+| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| eval last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - first_seen_epoch last_seen_epoch
+| table src_norm dest_norm event_count actions signatures first_seen last_seen
+| sort - event_count
+| head 100
+""",
+        assumptions=(
+            "Generic Cisco/OT catalogue review used only when no narrower governed template or lab family exists.",
+            "This draft summarizes candidate network/security events; it does not assert product-specific field semantics.",
+            "Replace network index/sourcetype placeholders with the correct Cisco product source profile before review.",
+            "This draft is lab-only; not governed, not approved, and not executed.",
+        ),
+        required_log_fields=("index", "sourcetype", "src_ip", "dest_ip", "action", "signature", "_time"),
+        required_source_profile_fields=("network_index", "network_traffic_sourcetype"),
+        investigation_checklist=(
+            "Confirm the Cisco product source and normalize source/destination/action fields before using this draft.",
+            "Narrow to the row's Cisco product family when the Environment KB has product-specific indexes.",
+            "Use this as triage scaffolding only; promote repeated rows to a governed template after COE review.",
+        ),
+    ),
 )
 
+
+
+from app.spl.cisco_draft_families import cisco_detection_families
+from app.spl.ot_protocol_families import ot_protocol_detection_families
+
+DETECTION_FAMILIES: tuple[DetectionFamily, ...] = (
+    _CORE_DETECTION_FAMILIES + cisco_detection_families() + ot_protocol_detection_families()
+)
 
 # Registry-first fallback: exact-105 pattern_type → detection family, used only
 # when the keyword matcher finds nothing (keyword matches keep priority so
@@ -2258,6 +2326,61 @@ PATTERN_TYPE_FAMILY_FALLBACK: dict[str, str] = {
     # (asset criticality / business owner) has no SPL answer; the listable
     # identity rows are caught by explicit keyword rules instead.
 }
+
+_PARAPHRASE_KEYWORD_FAMILY_OVERRIDES = frozenset({
+    "dns_query_window_review",
+})
+
+PATTERN_TYPE_FAMILY_FALLBACK.update(
+    {
+        "cisco_it_to_ot_crossing": "esp_it_to_ot_connection",
+        "cisco_firewall_geo_egress": "cisco_firewall_geo_egress",
+        "cisco_firewall_dns_bypass": "cisco_firewall_dns_bypass",
+        "dns_query_window_review": "dns_query_window_review",
+        "cisco_vpn_after_hours_login": "auth_after_hours_login",
+        "cisco_ise_failed_login_spike": "auth_failed_login_threshold",
+        "auth_failed_login_spike": "auth_failed_login_threshold",
+        "scada_log_cleared": "windows_account_lockout",
+        "cisco_hmi_terminal_spawn": "endpoint_suspicious_process",
+        "endpoint_unsigned_driver": "endpoint_persistence_schtask_service",
+        "endpoint_hosts_file_change": "endpoint_hosts_file_change",
+        "cisco_amp_process_injection": "cisco_amp_process_injection",
+        "ssh_weak_cipher": "ssh_weak_cipher",
+        "cert_in_hash_match": "ioc_destination_match",
+        "cisco_routing_protocol_anomaly": "cisco_routing_protocol_anomaly",
+        "cisco_cleartext_to_rtu": "cisco_cleartext_to_rtu",
+        "cisco_ios_port_security": "cisco_ios_port_security",
+        "cisco_stealthwatch_scan": "cisco_stealthwatch_scan",
+        "cisco_sgt_classification_failure": "cisco_sgt_classification_failure",
+        "cisco_icmp_anomaly": "cisco_icmp_anomaly",
+        "cisco_ios_config_change": "cisco_ios_config_change",
+        "cisco_tacacs_privilege": "cisco_tacacs_privilege",
+        "cisco_ise_mab": "cisco_ise_mab",
+        "cisco_ise_posture": "cisco_ise_posture",
+        "cisco_ise_quarantine": "cisco_ise_quarantine",
+        "cisco_wlc_rogue_ap": "cisco_wlc_rogue_ap",
+        "cisco_duo_mfa_fatigue": "cisco_duo_mfa_fatigue",
+        "cisco_ise_profile_shift": "cisco_ise_profile_shift",
+        "cisco_tacacs_stale_session": "cisco_tacacs_stale_session",
+        "ot_goose_burst": "ot_goose_burst",
+        "ot_mms_write": "ot_mms_write",
+        "iccp_disconnect": "iccp_disconnect",
+        "ot_modbus_exception": "ot_modbus_exception",
+        "ot_firmware_drift": "ot_firmware_drift",
+        "ot_master_spoof": "ot_master_spoof",
+        "ot_ems_db_change": "ot_ems_db_change",
+        "ot_dpi_malformed": "ot_dpi_malformed",
+        "ot_solar_setpoint_change": "ot_solar_setpoint_change",
+        "ot_tftp_hmi": "ot_tftp_hmi",
+        "physical_access_impossible": "physical_access_impossible",
+        "cii_scan_detection": "cii_scan_detection",
+        "ot_dual_master_conflict": "ot_dual_master_conflict",
+        "ntp_stratum_change": "ntp_stratum_change",
+        "loto_breaker_correlation": "loto_breaker_correlation",
+        "agc_frequency_anomaly": "agc_frequency_anomaly",
+        "endpoint_tooling_install": "endpoint_tooling_install",
+    }
+)
 
 
 # Phase D coverage close: catalogue use cases whose detection is genuinely answered
@@ -2296,6 +2419,16 @@ def match_detection_family(user_query: str) -> str | None:
     if not text:
         return None
     normalized = " ".join(text.lower().split())
+    if re.search(
+        r"\b(?:external connections?|remote access(?:\s+sessions?)?|vpn sessions?)\b",
+        normalized,
+    ) and re.search(
+        r"\b(?:substation|ot\s+network|ot\s+segment|control\s+room|electronic\s+security\s+perimeter|it[\s-]to[\s-]ot)\b",
+        normalized,
+    ):
+        return "esp_it_to_ot_connection"
+    if re.search(r"\bmapping\b", normalized) and "substation" in normalized:
+        return "esp_it_to_ot_connection"
     if re.search(r"\b(denied|blocked|drop|reject)\b", normalized) and (
         "ot" in normalized or "internet" in normalized or "egress" in normalized
     ):
@@ -2356,6 +2489,11 @@ def match_detection_family(user_query: str) -> str | None:
     dns_context = bool(re.search(r"\bdns\b", normalized)) or (
         "domain" in normalized and re.search(r"\bquer(?:y|ies|ied)\b", normalized)
     )
+    if dns_context and re.search(
+        r"list\s+all|observation\s+window|during\s+the\s+(?:observation\s+)?window",
+        normalized,
+    ):
+        return "dns_query_window_review"
     if dns_context:
         if re.search(r"domains?\b", normalized) and re.search(
             r"\b(?:multiple|many|several)\b.*\bhosts?\b|\bhosts?\b.*\b(?:multiple|many|several)\b",
@@ -2364,6 +2502,41 @@ def match_detection_family(user_query: str) -> str | None:
             return "dns_domain_spread"
         if re.search(r"\b(?:most|top|largest|highest|unusual|volume|spike|busiest)\b", normalized):
             return "dns_query_volume"
+    # OT-protocol + identity hunt families (Google-25 testing ground). Each upgrades
+    # an out-of-registry hunt from guided hypotheses to a review-only SPL draft.
+    # Reached only after a registry/use-case miss, so Cisco-50 / 105 rows are unaffected.
+    if "modbus" in normalized and re.search(r"non[-\s]?standard|other\s+than|\b502\b", normalized):
+        return "ot_modbus_nonstandard_port"
+    if re.search(r"\bdnp\s?3\b", normalized) and re.search(r"function\s+code", normalized):
+        return "ot_dnp3_function_code"
+    if re.search(r"\bpmu\b|phasor|synchrophasor", normalized):
+        return "ot_pmu_stream_gap"
+    if re.search(r"\bplc", normalized) and re.search(r"\bmode\b|program\s+mode|stop\s+mode|run\s+mode|stop\s+or\s+program", normalized):
+        return "ot_plc_mode_change"
+    if "firmware" in normalized and re.search(r"meter|\bami\b|outdated|unauthorized", normalized):
+        return "ot_ami_firmware_anomaly"
+    if re.search(r"\brtu\b", normalized) and re.search(r"drop|disconnect", normalized):
+        return "ot_rtu_connection_drops"
+    if re.search(r"\busb\b", normalized) and re.search(r"mass\s+storage|removable|storage\s+device|mounted", normalized):
+        return "ot_usb_removable_media"
+    if (
+        re.search(r"\bscada\b", normalized)
+        and re.search(r"default|vendor", normalized)
+        and re.search(r"credential|login|logon", normalized)
+    ):
+        return "ot_scada_default_credentials"
+    if re.search(r"firewall", normalized) and re.search(r"polic|rule", normalized) and re.search(r"chang|modif", normalized):
+        return "ot_dmz_firewall_policy_change"
+    if re.search(r"\b4720\b", normalized) or (
+        re.search(r"account", normalized)
+        and re.search(r"creat", normalized)
+        and re.search(r"active\s+directory|\bad\b|domain", normalized)
+    ):
+        return "windows_account_creation_4720"
+    if re.search(r"concurrent", normalized) and (
+        re.search(r"\bvpn\b", normalized) or re.search(r"two\s+(?:different|separate)\s+locations?", normalized)
+    ):
+        return "auth_impossible_travel"
     best_id: str | None = None
     best_score = 0
     for family in DETECTION_FAMILIES:
@@ -2458,6 +2631,158 @@ def _governed_template_missing(spl_validation: dict[str, Any] | None) -> bool:
     return not _is_governed_spl_ready(spl_validation)
 
 
+
+GENERIC_LIVE_DATA_FAMILY_ID = "unmapped_live_data_request"
+
+_GENERIC_LIVE_DATA_SKELETON_SPL = """
+search index=<index> sourcetype=<sourcetype> earliest=-24h latest=now
+| fields _time src dest user action status src_ip dest_ip dest_port app
+| sort - _time
+| head 100
+""".strip()
+
+
+def has_strong_detection_family_match(user_query: str) -> bool:
+    """True only when the keyword matcher returns a high-confidence family."""
+    return bool(match_detection_family(user_query))
+
+
+def _has_useful_bindings(bindings) -> bool:
+    return bool(
+        bindings.normalized_slots
+        or bindings.explicit_indexes
+        or bindings.explicit_event_codes
+        or bindings.explicit_users
+        or bindings.explicit_thresholds
+        or bindings.explicit_ports
+        or bindings.explicit_src_zones
+        or bindings.explicit_dest_zones
+        or bindings.explicit_action_semantics
+    )
+
+
+def build_generic_live_data_spl_skeleton(
+    user_query: str,
+    *,
+    llm_intent_advisory: dict[str, Any] | None = None,
+    query_understanding: Any | None = None,
+) -> dict[str, Any]:
+    """Conservative review-only SPL scaffold when no family strongly matches."""
+    normalized = " ".join((user_query or "").lower().split())
+    source_profile_result = build_source_profile_binding_slots(user_query)
+    bindings = build_user_constraint_bindings(
+        user_query,
+        llm_intent_advisory=llm_intent_advisory,
+        query_understanding=query_understanding,
+        extra_slots=source_profile_result.slots,
+        source_profile_trace=source_profile_result.trace(),
+    )
+    customization_meta: dict[str, Any] = {
+        "user_constraint_bindings": bindings.to_dict(),
+        **source_profile_result.trace(),
+    }
+    binding_hints: list[str] = [
+        "Confirm index and sourcetype from your Environment KB / source profile before review.",
+        "Adjust earliest/latest to match the analyst observation window.",
+    ]
+    if "vpn" in normalized or "session" in normalized:
+        binding_hints.append("Scope to VPN concentrator or remote-access auth sourcetypes.")
+    if "privileged" in normalized or "admin" in normalized:
+        binding_hints.append("Add user/privilege filters during SOC review — not pre-filled here.")
+    if any(term in normalized for term in ("dns", "domain", "beacon")):
+        binding_hints.append("Use DNS index/sourcetype placeholders from your DNS source profile.")
+    if any(term in normalized for term in ("firewall", "connection", "traffic", "ot", "substation")):
+        binding_hints.append(
+            "For IT/OT boundary asks, bind firewall index/sourcetype and zone labels explicitly — "
+            "do not assume a template family without a strong match."
+        )
+
+    used_skeleton = False
+    if _has_useful_bindings(bindings):
+        draft_spl = build_user_bound_skeleton(bindings)
+        used_skeleton = True
+        customization_meta["used_user_bound_skeleton"] = True
+        customization_meta["generation_mode"] = "user_bound_skeleton"
+        _required, table_fields = skeleton_output_plan(bindings)
+        customization_meta["skeleton_table_fields"] = table_fields
+        assumptions = (
+            "Unmapped live-data request rendered from validated user constraints (review-only).",
+            "Not governed, not approved, not executed.",
+            *binding_hints,
+        )
+    else:
+        draft_spl = _GENERIC_LIVE_DATA_SKELETON_SPL
+        assumptions = (
+            "Unmapped live-data request: no strong detection-family match; generic skeleton only.",
+            "Not governed, not approved, not executed. Bind index/sourcetype/time before any future execution path.",
+            *binding_hints,
+        )
+
+    compatibility = check_template_compatibility(None, bindings)
+    customization_meta["template_compatibility"] = compatibility.to_dict()
+    customization_meta["unbound_constraints"] = list(bindings.unbound_constraints)
+    validation = validate_spl(draft_spl)
+    draft_metadata = build_draft_metadata(
+        user_query=user_query,
+        bindings=bindings,
+        family_id=GENERIC_LIVE_DATA_FAMILY_ID,
+        compatibility=compatibility,
+        customization_meta=customization_meta,
+        time_window_label=customization_meta.get("time_window_label"),
+    )
+    preview = {
+        "draft_spl": draft_spl,
+        "draft_status": DRAFT_STATUS,
+        "draft_source": DRAFT_SOURCE,
+        "quality_standard": STANDARD_ID,
+        "detection_family": GENERIC_LIVE_DATA_FAMILY_ID,
+        "family_title": "Unmapped live-data search (review-only skeleton)",
+        "review_type": "investigation_review",
+        "review_type_display": "Investigation review — generic lab skeleton, bindings required, not executed",
+        "assumptions": assumptions,
+        "customization_applied": used_skeleton,
+        "user_bound_skeleton": used_skeleton,
+        "required_log_fields": ("_time", "src", "dest", "user", "action", "status"),
+        "required_source_profile_fields": ("index", "sourcetype"),
+        "required_source_fields": ("index", "sourcetype"),
+        "investigation_checklist": (
+            "Confirm index, sourcetype, and time window with the operator.",
+            "Validate whether a governed template or detection family should be promoted for this ask.",
+            "Do not treat this skeleton as executed telemetry or confirmed findings.",
+        ),
+        "scope_notice": (
+            "Generic scaffold only — no strong template-family match. "
+            "Analyst must bind sources before SOC review."
+        ),
+        "source_profile_missing": True,
+        "governed_template_missing": True,
+        "validator_status": "approved" if validation.get("approved") else "blocked",
+        "validator_reject_reasons": list(validation.get("reject_reasons") or []),
+        "quality_status": "advisory",
+        "hard_fail_count": 0,
+        "warning_count": 0,
+        "advisory_count": 1,
+        "quality_findings": [],
+        "draft_lint_status": "passed",
+        "draft_lint_violations": [],
+        "draft_quality": {"quality_status": "advisory", "hard_fail_count": 0, "findings": []},
+        "review_required": True,
+        "execution_enabled": False,
+        "execution_eligible": False,
+        "governed": False,
+        "catalog_approved": False,
+        "warning": DRAFT_WARNING,
+        "not_catalog_approved_notice": "Not catalog-approved / review required.",
+        "template_match_strength": "none",
+        **customization_meta,
+    }
+    return apply_draft_metadata_to_preview(preview, draft_metadata)
+
+
+def _canonical_profile_fields(fields: tuple[str, ...] | list[str]) -> list[str]:
+    return list(dict.fromkeys(canonical_source_profile_slot(field) for field in fields))
+
+
 def build_draft_preview(
     user_query: str,
     *,
@@ -2466,12 +2791,14 @@ def build_draft_preview(
     unsafe_enforcement: bool = False,
     pattern_type: str | None = None,
     use_case_id: str | None = None,
+    live_data_request: bool = False,
+    llm_intent_advisory: dict[str, Any] | None = None,
+    query_understanding: Any | None = None,
 ) -> dict[str, Any] | None:
     """Build a lab-only draft preview dict when the flag is enabled and query matches.
 
-    Family resolution order: explicit family_id, then the keyword matcher, then the
-    exact-105 registry pattern_type fallback, then the catalogue use_case fallback
-    (Phase D — catalogue rows whose detection an existing lab family covers).
+    Family resolution order: explicit family_id, then registry pattern_type fallback,
+    then the keyword matcher, then the catalogue use_case fallback (Phase D).
     """
     if not settings.ai_soc_spl_draft_preview_enabled:
         return None
@@ -2481,17 +2808,101 @@ def build_draft_preview(
         return None
     if _is_governed_spl_ready(spl_validation):
         return None
-    resolved_family = family_id or match_detection_family(user_query)
-    if resolved_family is None and pattern_type:
-        resolved_family = PATTERN_TYPE_FAMILY_FALLBACK.get(pattern_type)
-    if resolved_family is None and use_case_id:
+    resolved_family = family_id
+    if resolved_family is None:
+        keyword_family = match_detection_family(user_query)
+        if live_data_request:
+            if keyword_family:
+                resolved_family = keyword_family
+            else:
+                return build_generic_live_data_spl_skeleton(
+                    user_query,
+                    llm_intent_advisory=llm_intent_advisory,
+                    query_understanding=query_understanding,
+                )
+        else:
+            pattern_family = (
+                PATTERN_TYPE_FAMILY_FALLBACK.get(pattern_type) if pattern_type else None
+            )
+            if keyword_family in _PARAPHRASE_KEYWORD_FAMILY_OVERRIDES:
+                resolved_family = keyword_family
+            elif pattern_family:
+                resolved_family = pattern_family
+            elif keyword_family:
+                resolved_family = keyword_family
+    if resolved_family is None and use_case_id and not live_data_request:
         resolved_family = CATALOGUE_USE_CASE_FAMILY.get(use_case_id)
     family = _family_by_id(resolved_family) if resolved_family else None
     if family is None:
         return None
 
-    draft_spl = family.draft_spl
-    assumptions_text = " ".join(family.assumptions)
+    draft_spl, customized_assumptions, customization_meta = customize_draft_preview_for_query(
+        user_query,
+        family_id=family.family_id,
+        draft_spl=family.draft_spl,
+        assumptions=family.assumptions,
+        llm_intent_advisory=llm_intent_advisory,
+    )
+    source_profile = load_persisted_source_profile()
+    original_placeholders = extract_placeholder_slots(draft_spl)
+    draft_spl, source_profile_missing_slots = substitute_placeholders(draft_spl, source_profile)
+    source_profile_bindings: list[dict[str, str]] = []
+    for slot in original_placeholders:
+        canonical = canonical_source_profile_slot(slot)
+        value = source_profile.get(slot) or source_profile.get(canonical)
+        if value:
+            source_profile_bindings.append(
+                {"slot": canonical, "value": value, "source": "source_profile"}
+            )
+    if source_profile_bindings:
+        existing_bindings = [
+            item
+            for item in (customization_meta.get("source_profile_bindings") or [])
+            if isinstance(item, dict)
+        ]
+        seen_bindings = {
+            (str(item.get("slot")), str(item.get("value")), str(item.get("source")))
+            for item in existing_bindings
+        }
+        for binding in source_profile_bindings:
+            key = (
+                str(binding.get("slot")),
+                str(binding.get("value")),
+                str(binding.get("source")),
+            )
+            if key not in seen_bindings:
+                existing_bindings.append(binding)
+                seen_bindings.add(key)
+        customization_meta["source_profile_bindings"] = existing_bindings
+    if source_profile_missing_slots:
+        existing_unbound = list(customization_meta.get("unbound_constraints") or [])
+        existing_keys = {
+            (str(item.get("slot")), str(item.get("reason")))
+            for item in existing_unbound
+            if isinstance(item, dict)
+        }
+        for slot in source_profile_missing_slots:
+            key = (slot, "missing_source_profile")
+            if key not in existing_keys:
+                existing_unbound.append(
+                    {"slot": slot, "reason": "missing_source_profile", "source": "source_profile"}
+                )
+        customization_meta["unbound_constraints"] = existing_unbound
+    bindings = bindings_from_dict(customization_meta.get("user_constraint_bindings") or {})
+    draft_metadata = build_draft_metadata(
+        user_query=user_query,
+        bindings=bindings,
+        family_id=family.family_id,
+        compatibility=customization_meta.get("template_compatibility"),
+        customization_meta=customization_meta,
+        time_window_label=customization_meta.get("time_window_label"),
+    )
+    visible_assumptions = (
+        tuple(draft_metadata.assumptions)
+        if draft_metadata.metadata_source == "binding_derived"
+        else customized_assumptions
+    )
+    assumptions_text = " ".join(visible_assumptions)
     quality = evaluate_draft_quality(
         draft_spl,
         extra_text=assumptions_text,
@@ -2501,22 +2912,28 @@ def build_draft_preview(
     validation = validate_spl(draft_spl)
     validator_status = "approved" if validation.get("approved") else "blocked"
     presentation = family_presentation(family.family_id)
-    return {
+    preview = {
         "draft_spl": draft_spl,
         "draft_status": DRAFT_STATUS,
         "draft_source": DRAFT_SOURCE,
         "quality_standard": STANDARD_ID,
         "detection_family": family.family_id,
+        "template_match_strength": "strong",
         "family_title": presentation["title"],
         "review_type": presentation["review_type"],
         "review_type_display": presentation["review_type_display"],
-        "assumptions": list(family.assumptions),
+        "assumptions": list(visible_assumptions),
+        **customization_meta,
         "required_log_fields": list(family.required_log_fields),
-        "required_source_profile_fields": list(family.required_source_profile_fields),
-        "required_source_fields": list(family.required_source_fields),
+        "required_source_profile_fields": _canonical_profile_fields(
+            family.required_source_profile_fields
+        ),
+        "required_source_fields": list(family.required_log_fields)
+        + _canonical_profile_fields(family.required_source_profile_fields),
         "investigation_checklist": list(family.investigation_checklist),
         "scope_notice": family.scope_notice,
-        "source_profile_missing": _source_profile_missing(spl_validation),
+        "source_profile_missing": _source_profile_missing(spl_validation)
+        or bool(source_profile_missing_slots),
         "governed_template_missing": _governed_template_missing(spl_validation),
         "validator_status": validator_status,
         "validator_reject_reasons": list(validation.get("reject_reasons") or []),
@@ -2536,6 +2953,7 @@ def build_draft_preview(
         "warning": DRAFT_WARNING,
         "not_catalog_approved_notice": "Not catalog-approved / review required.",
     }
+    return apply_draft_metadata_to_preview(preview, draft_metadata)
 
 
 def maybe_attach_draft_preview_message(

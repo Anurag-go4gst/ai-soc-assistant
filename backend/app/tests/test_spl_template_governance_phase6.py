@@ -125,7 +125,7 @@ def test_sop_only_does_not_claim_active_spl_investigation_support() -> None:
 
 
 def test_spl_validator_failure_blocks_candidate(monkeypatch: pytest.MonkeyPatch) -> None:
-    def _failed_validate(_spl: str) -> dict:
+    def _failed_validate(_spl: str, **kwargs) -> dict:
         return {
             "approved": False,
             "normalized_spl": None,

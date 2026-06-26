@@ -16,6 +16,7 @@ produced by `chat.negative_evidence_extractor`.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 # Evidence tiers — MITRE `evidence_supported` requires source-grounded tier only.
@@ -25,6 +26,7 @@ EVIDENCE_TIER_STUB_OR_METADATA = "stub_or_metadata"
 
 _SOURCE_GROUNDED_SOURCE_TYPES = frozenset({"splunk_mcp"})
 _STUB_SOURCE_TYPES = frozenset({"manual", "splunk_mcp_saia", "rag", "soc_kb"})
+_NON_EXECUTED_STATUSES = frozenset({"skipped", "blocked", "denied", "pending"})
 
 
 @dataclass(frozen=True)
@@ -78,11 +80,92 @@ PRECONDITIONS: tuple[TechniquePrecondition, ...] = (
         ("lateral_movement_evidence",),
         "No lateral movement or remote-service authentication observed.",
     ),
+    TechniquePrecondition(
+        "T1048",
+        "Exfiltration Over Alternative Protocol",
+        ("outbound_transfer",),
+        "No outbound data transfer observed; large volume alone does not prove "
+        "exfiltration over an alternative protocol.",
+    ),
+    TechniquePrecondition(
+        "T1071.004",
+        "Application Layer Protocol: DNS",
+        ("network_telemetry",),
+        "No supporting DNS command-and-control/tunneling telemetry observed; DNS "
+        "volume alone is not proof of DNS-based C2.",
+    ),
 )
 
 PRECONDITION_BY_ID: dict[str, TechniquePrecondition] = {
     item.technique_id: item for item in PRECONDITIONS
 }
+
+# Tactic-level positive-evidence keys for techniques promoted from the MITRE-audit
+# (G5). Each is the conservative signal a finding must carry before the technique
+# can leave Not-Claimed. Most keys are inert until their extractor signal lands —
+# so a promoted candidate stays Not-Claimed by default (candidate-tier discipline).
+# ATT&CK v19.1 tactic display names (incl. renames "Stealth", "Defense Impairment").
+TACTIC_EVIDENCE: dict[str, tuple[str, str]] = {
+    "Reconnaissance": ("recon_evidence", "No reconnaissance activity evidence observed."),
+    "Resource Development": ("resource_development_evidence", "No adversary resource-development evidence observed."),
+    "Initial Access": ("initial_access_evidence", "No initial-access evidence observed."),
+    "Execution": ("process_execution_evidence", "No process/command execution evidence observed."),
+    "Persistence": ("persistence_evidence", "No persistence-mechanism evidence observed."),
+    "Privilege Escalation": ("privilege_escalation_evidence", "No privilege-escalation evidence observed."),
+    "Defense Evasion": ("defense_evasion_evidence", "No defense-evasion evidence observed."),
+    "Defense Impairment": ("defense_evasion_evidence", "No defense-impairment evidence observed."),
+    "Stealth": ("defense_evasion_evidence", "No stealth/defense-evasion evidence observed."),
+    "Credential Access": ("credential_access_evidence", "No credential-access evidence observed."),
+    "Discovery": ("discovery_evidence", "No discovery-activity evidence observed."),
+    "Lateral Movement": ("lateral_movement_evidence", "No lateral-movement evidence observed."),
+    "Collection": ("collection_evidence", "No data-collection evidence observed."),
+    "Command and Control": ("network_telemetry", "No supporting command-and-control network telemetry observed."),
+    "Exfiltration": ("outbound_transfer", "No outbound data-transfer evidence observed."),
+    "Impact": ("impact_evidence", "No system/data impact evidence observed."),
+}
+
+
+_G5_PROVENANCE = "mitre_audit_v19.1_promote_g5"
+
+
+@lru_cache(maxsize=1)
+def _promoted_tactic_index() -> dict[str, str]:
+    """{technique_id: tactic} for ONLY the G5 audit-promoted techniques.
+
+    Derived preconditions apply solely to bulk-promoted candidates; the original
+    curated subset keeps its explicit-or-none behavior. Reads the raw subset JSON
+    because the ``candidate_provenance`` stamp is dropped by the MitreTechnique
+    model. Lazy + cached to avoid a circular import (mitre_kb imports this module).
+    """
+    import json
+    from pathlib import Path
+
+    try:
+        path = Path(__file__).with_name("mitre_attack_subset.json")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return {
+            str(t.get("technique_id")): str(t.get("tactic") or "")
+            for t in payload.get("techniques", [])
+            if isinstance(t, dict) and t.get("candidate_provenance") == _G5_PROVENANCE
+        }
+    except Exception:  # noqa: BLE001 - precondition derivation is best-effort
+        return {}
+
+
+def get_precondition(technique_id: str) -> TechniquePrecondition | None:
+    """Explicit curated precondition first; else derive one from the technique's
+    tactic (for audit-promoted subset techniques). None when neither applies."""
+    explicit = PRECONDITION_BY_ID.get(technique_id)
+    if explicit is not None:
+        return explicit
+    tactic = _promoted_tactic_index().get(technique_id)
+    if not tactic:
+        return None
+    mapped = TACTIC_EVIDENCE.get(tactic)
+    if mapped is None:
+        return None
+    key, reason = mapped
+    return TechniquePrecondition(technique_id, technique_id, (key,), reason)
 
 
 def precondition_negated(technique_id: str, present_evidence: set[str]) -> bool:
@@ -90,7 +173,7 @@ def precondition_negated(technique_id: str, present_evidence: set[str]) -> bool:
 
     Techniques with no precondition entry are never demoted by this rule.
     """
-    precondition = PRECONDITION_BY_ID.get(technique_id)
+    precondition = get_precondition(technique_id)
     if precondition is None:
         return False
     return any(key not in present_evidence for key in precondition.required_evidence)
@@ -98,7 +181,7 @@ def precondition_negated(technique_id: str, present_evidence: set[str]) -> bool:
 
 def not_claimed_reason(technique_id: str) -> str:
     """Stable, technique-general Not-Claimed reason for trace and analyst card."""
-    precondition = PRECONDITION_BY_ID.get(technique_id)
+    precondition = get_precondition(technique_id)
     if precondition is None:
         return "Required supporting evidence was not present in the supplied scenario."
     return precondition.not_claimed_reason
@@ -118,6 +201,8 @@ def resolve_evidence_tier(
         return EVIDENCE_TIER_SIGNAL_ONLY
 
     exec_status = str((execution or {}).get("status") or "")
+    if exec_status in _NON_EXECUTED_STATUSES:
+        return EVIDENCE_TIER_STUB_OR_METADATA
     if exec_status == "executed":
         for item in source_evidence or []:
             if not isinstance(item, dict):

@@ -69,10 +69,10 @@ def test_all_expected_artifacts_exist() -> None:
         assert (VALIDATION_DIR / name).is_file(), name
 
 
-def test_use_case_sheet_has_all_50_rows() -> None:
+def test_use_case_sheet_has_all_catalog_rows() -> None:
     sheet = _sheet("use_case_validation_sheet.json")
-    assert sheet["row_counts"]["use_cases"] == 50
-    assert len(sheet["rows"]) == 50
+    assert sheet["row_counts"]["use_cases"] == 61
+    assert len(sheet["rows"]) == 61
 
 
 def test_question_sheet_has_all_105_rows() -> None:
@@ -161,7 +161,7 @@ def test_knowledge_exports_are_artifact_backed(artifact: str) -> None:
 def test_knowledge_export_csv_for_flat_sheet() -> None:
     response = export_mapping_artifact("soc_validation_use_cases", file_format="csv")
     rows = list(csv.DictReader(io.StringIO(response.body.decode("utf-8"))))
-    assert len(rows) == 50
+    assert len(rows) == 61
     assert "use_case_id" in rows[0]
     assert "runtime_support_status" in rows[0]
 

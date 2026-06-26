@@ -57,6 +57,37 @@ def test_hybrid_alert_review_shows_mitre_spl_not_policy() -> None:
     assert contract.render_sections["policy_citation"] is False
 
 
+def test_lab_draft_contract_status_is_draft_preview() -> None:
+    contract = build_answer_contract(
+        intent_classification={
+            "intent_family": "spl_generation_only",
+            "answer_goal": ["spl_artifact"],
+        },
+        evidence_plan={
+            "answer_mode": "live_investigation",
+            "mcp_allowed": False,
+            "spl_allowed": True,
+        },
+        mitre_decision={"answer_visible": False, "not_claimed": []},
+        severity_decision=None,
+        spl_validation={
+            "approved": False,
+            "normalized_spl": None,
+            "review_required": True,
+            "review_required_reason": "spl_validation_failed",
+            "selected_candidate_spl_provider": "deterministic_lab_draft",
+            "llm_fallback_status": "lab_draft_fallback",
+        },
+        execution={"status": "skipped"},
+        human_review={"required": True},
+        candidate_spl={"generation_mode": "deterministic_lab_draft"},
+    )
+    assert contract.spl_status_detail is not None
+    assert contract.spl_status_detail["generation_status"] == "draft_preview"
+    assert contract.spl_status_detail["reason"] == "draft_preview_lab"
+    assert contract.spl_status_detail["reason_display"] == "Review-only draft preview"
+
+
 def test_execution_label_mock_vs_live() -> None:
     mock = build_answer_contract(
         intent_classification={"answer_goal": ["spl_artifact"]},

@@ -1,0 +1,27 @@
+{
+  "version": "mcp_execution_contract_v1",
+  "note": "P4 execution-contract matrix (plan §490). Mock execution only; both exec flags set in test env. Prod posture stays off. Asserts gate decisions + cross-cutting invariants: candidate SPL never executed, all executed SPL fully resolved/revalidated/bounded/confirmed, honest empty/error.",
+  "row_count": 20,
+  "rows": [
+    {"id": "mcp.01", "scenario": "normalized_ready_mock_executed", "lever": "approved+mock_flags+demo", "expected_status": "executed", "expected_label": "mock_executed", "expects_executed_spl": true},
+    {"id": "mcp.02", "scenario": "missing_source_slots", "lever": "approved_with_unresolved_slots", "expected_status": "requires_human_review", "expected_reason": "spl_source_slots_unresolved", "expects_executed_spl": false},
+    {"id": "mcp.03", "scenario": "failed_validation", "lever": "failed_validation", "expected_status": "requires_human_review", "expected_reason": "spl_validation_failed", "expects_executed_spl": false},
+    {"id": "mcp.04", "scenario": "global_execution_disabled", "lever": "flags_off", "expected_status": "requires_human_review", "expected_reason": "mcp_global_execution_disabled", "expects_executed_spl": false},
+    {"id": "mcp.05", "scenario": "per_server_execution_disabled", "lever": "global_on_server_off", "expected_status": "requires_human_review", "expected_reason": "mcp_server_execution_disabled", "expects_executed_spl": false},
+    {"id": "mcp.06", "scenario": "confirmation_required", "lever": "require_confirmation_no_pending", "expected_status": "requires_human_review", "expected_reason": "analyst_confirmation_required", "expects_executed_spl": false},
+    {"id": "mcp.07", "scenario": "confirm_execution", "lever": "action_confirm", "expected_status": "executed", "expected_label": "mock_executed", "expects_executed_spl": true},
+    {"id": "mcp.08", "scenario": "update_spl_invalid", "lever": "action_update_spl_invalid", "expected_status": "requires_human_review", "expected_reason": "analyst_updated_spl_validation_failed", "expects_executed_spl": false},
+    {"id": "mcp.09", "scenario": "reject_execution", "lever": "action_reject", "expected_status": "requires_human_review", "expected_reason": "analyst_rejected_execution", "expects_executed_spl": false},
+    {"id": "mcp.10", "scenario": "empty_result", "lever": "connector_ok_zero_rows", "expected_status": "executed", "expected_label": "mock_executed", "expects_executed_spl": true, "expected_result_count": 0},
+    {"id": "mcp.11", "scenario": "search_timeout", "lever": "connector_timeout", "expected_status": "failed", "expected_reason": "mcp_search_timed_out", "expects_executed_spl": false},
+    {"id": "mcp.12", "scenario": "permission_denied", "lever": "connector_denied", "expected_status": "blocked", "expected_reason": "permission_denied", "expects_executed_spl": false},
+    {"id": "mcp.13", "scenario": "malformed_result", "lever": "connector_schema_invalid", "expected_status": "failed", "expected_reason": "mcp_result_schema_invalid", "expects_executed_spl": false},
+    {"id": "mcp.14", "scenario": "row_truncation", "lever": "connector_truncated", "expected_status": "executed", "expected_label": "mock_executed", "expects_executed_spl": true, "expected_warning": "rows_truncated"},
+    {"id": "mcp.15", "scenario": "unsafe_tool_requested", "lever": "requested_saved_search", "expected_status": "requires_human_review", "expects_executed_spl": false},
+    {"id": "mcp.16", "scenario": "viewer_rbac_blocked", "lever": "rbac_viewer", "expected_status": "requires_human_review", "expects_executed_spl": false},
+    {"id": "mcp.17", "scenario": "connector_raises", "lever": "connector_exception", "expected_status": "failed", "expects_executed_spl": false},
+    {"id": "mcp.18", "scenario": "precondition_not_ready", "lever": "precondition_blocked", "expected_status": "requires_human_review", "expects_executed_spl": false},
+    {"id": "mcp.19", "scenario": "llm_recommendation_cannot_override", "lever": "llm_rec_unsafe_tool", "expected_status": "executed", "expected_label": "mock_executed", "expects_executed_spl": true, "note": "deterministic policy ignores the LLM tool rec and selects the safe tool"},
+    {"id": "mcp.20", "scenario": "candidate_spl_never_executed", "lever": "candidate_only_no_normalized", "expected_status": "requires_human_review", "expects_executed_spl": false, "note": "candidate_spl present, normalized_spl null -> must not execute"}
+  ]
+}

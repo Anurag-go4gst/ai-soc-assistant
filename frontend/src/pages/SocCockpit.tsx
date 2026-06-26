@@ -132,7 +132,7 @@ function TraceSummaryStrip({ trace }: { trace: PlaceholderResponse | null }) {
           </span>
         </div>
         <Link
-          to="/debug"
+          to={trace?.trace_id ? `/debug?trace_id=${encodeURIComponent(trace.trace_id)}` : '/debug'}
           className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-900/70 px-2.5 py-1 font-medium text-slate-200 hover:border-cyan-500/50 hover:text-cyan-100"
         >
           <Bug className="h-3.5 w-3.5" />

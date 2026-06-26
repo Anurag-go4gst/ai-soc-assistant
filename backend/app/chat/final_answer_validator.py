@@ -53,6 +53,12 @@ _CHECK_IDS: tuple[str, ...] = (
     "final.unsafe_execution_claim",
     "final.evidence_supported_without_status",
     "final.containment_without_hil",
+    "final.direct_summary_contains_spl_query",
+    "final.direct_summary_contains_full_checklist",
+    "final.duplicate_review_only_warning",
+    "final.duplicate_soc_checklist",
+    "final.priority_prefix_without_severity",
+    "final.live_backed_without_execution",
 )
 
 _UNSAFE_POSITIVE_PATTERNS: tuple[tuple[str, str, str], ...] = (
@@ -92,6 +98,7 @@ def validate_final_answer(
     human_review: dict[str, Any] | None = None,
     planning_decision: dict[str, Any] | None = None,
     routing_provenance: dict[str, Any] | None = None,
+    visible_message: str | None = None,
 ) -> AnswerGuardStatus:
     """Validate the assembled answer against the contract; fail closed on conflict."""
     if analyst_response is None or answer_contract is None:
@@ -212,7 +219,7 @@ def validate_final_answer(
             )
         )
 
-    visible_text = _visible_analyst_text(analyst_response)
+    visible_text = _visible_analyst_text(analyst_response, visible_message=visible_message)
     negated = _has_negated_compromise_wording(visible_text)
 
     # 7–10. Unsafe positive claims without supporting evidence.
@@ -280,6 +287,97 @@ def validate_final_answer(
             )
         )
 
+    summary_text = str(getattr(analyst_response, "direct_answer_summary", "") or "")
+    if "```" in summary_text or re.search(r"\b(search\s+index=|index=[\w<])", summary_text, flags=re.IGNORECASE):
+        findings.append(
+            _blocking(
+                "final.direct_summary_contains_spl_query",
+                "direct_answer_summary contains a draft SPL query or code block.",
+                field="direct_answer_summary",
+            )
+        )
+
+    # Gate 3A renderer ownership ("direct_answer_summary must not contain the full
+    # checklist") targets review-only SPL answers, where a short summary and a separate
+    # checklist section are the contract. Knowledge/SOP/guidance answers legitimately
+    # narrate the steps in the summary that are also surfaced as recommended_actions, so
+    # scope this check to SPL-draft answers to avoid nulling honest knowledge answers.
+    if _is_review_only_spl_answer(analyst_response):
+        checklist_items = [
+            str(item)
+            for item in (
+                list(getattr(analyst_response, "analyst_checklist", None) or [])
+                + list(getattr(analyst_response, "recommended_actions", None) or [])
+                + list(getattr(analyst_response, "investigation_steps", None) or [])
+            )
+            if str(item).strip()
+        ]
+        checklist_hits = [
+            item
+            for item in checklist_items
+            if item and _normalize_section_text(item) and _normalize_section_text(item) in _normalize_section_text(summary_text)
+        ]
+        if len(checklist_hits) >= 2:
+            findings.append(
+                _blocking(
+                    "final.direct_summary_contains_full_checklist",
+                    "direct_answer_summary repeats the SOC checklist instead of leaving it in its owned section.",
+                    field="direct_answer_summary",
+                )
+            )
+
+    visible_sections = _visible_section_text(analyst_response, visible_message=visible_message)
+    visible_lower = visible_sections.lower()
+    # The user sees one surface at a time: the analyst card when present, otherwise
+    # the markdown ``message`` fallback. Count duplicate-section markers per surface
+    # (max), not summed, so the same body mirrored into both surfaces is not flagged as
+    # a duplicate while a section genuinely repeated within one surface still is.
+    card_lower = _card_surface_text(analyst_response).lower()
+    message_lower = str(visible_message or "").lower()
+
+    def _surface_marker_count(marker: str) -> int:
+        return max(card_lower.count(marker), message_lower.count(marker))
+
+    if _surface_marker_count("lab-only draft spl preview") > 1:
+        findings.append(
+            _blocking(
+                "final.duplicate_review_only_warning",
+                "Review-only / lab-only SPL warning appears more than once.",
+                field="analyst_response",
+            )
+        )
+    if _surface_marker_count("soc review checklist") > 1:
+        findings.append(
+            _blocking(
+                "final.duplicate_soc_checklist",
+                "SOC review checklist appears more than once.",
+                field="analyst_response",
+            )
+        )
+
+    severity_label = str(getattr(analyst_response, "severity_label", "") or "")
+    if not severity_label or "not assigned" in severity_label.lower():
+        for item in getattr(analyst_response, "recommended_actions", None) or []:
+            if re.match(r"^P[1-3]\s*[—\-–:]", str(item or "")):
+                findings.append(
+                    _blocking(
+                        "final.priority_prefix_without_severity",
+                        "P1/P2/P3 action prefix shown although incident severity is not assigned.",
+                        field="recommended_actions",
+                    )
+                )
+                break
+
+    execution_status = str(contract.get("execution_status") or "")
+    if "live-backed" in visible_lower and execution_status != "executed":
+        findings.append(
+            _blocking(
+                "final.live_backed_without_execution",
+                "Visible answer says live-backed although execution was not executed.",
+                field="analyst_response",
+            )
+        )
+
     blocking = [item for item in findings if item.severity == "blocking_candidate"]
     if blocking:
         return AnswerGuardStatus(
@@ -298,8 +396,10 @@ def validate_final_answer(
     )
 
 
-def _visible_analyst_text(analyst_response: Any) -> str:
+def _visible_analyst_text(analyst_response: Any, *, visible_message: str | None = None) -> str:
     parts: list[str] = []
+    if isinstance(visible_message, str) and visible_message.strip():
+        parts.append(visible_message)
     for field in (
         "direct_answer_summary",
         "one_sentence_finding",
@@ -316,6 +416,89 @@ def _visible_analyst_text(analyst_response: Any) -> str:
         if isinstance(row, str):
             parts.append(row)
     return " ".join(parts).lower()
+
+
+def _visible_section_text(analyst_response: Any, *, visible_message: str | None = None) -> str:
+    parts: list[str] = [_visible_analyst_text(analyst_response, visible_message=visible_message)]
+    for field in (
+        "analyst_checklist",
+        "recommended_actions",
+        "investigation_steps",
+        "limitations",
+        "missing_evidence",
+        "required_evidence",
+    ):
+        for item in getattr(analyst_response, field, None) or []:
+            if isinstance(item, str):
+                parts.append(item)
+    draft = getattr(analyst_response, "spl_draft_preview", None)
+    if isinstance(draft, dict):
+        for key in ("warning", "not_catalog_approved_notice"):
+            value = draft.get(key)
+            if isinstance(value, str):
+                parts.append(value)
+    return "\n".join(parts)
+
+
+def _is_review_only_spl_answer(analyst_response: Any) -> bool:
+    """True when the answer carries a draft/review-only SPL artifact.
+
+    Used to scope Gate 3A renderer-ownership checks (short summary + separate
+    checklist/SPL sections) to SPL-draft answers, not knowledge/SOP/guidance answers.
+    """
+    draft = getattr(analyst_response, "spl_draft_preview", None)
+    if isinstance(draft, dict) and any(str(draft.get(k) or "").strip() for k in ("draft_spl", "warning")):
+        return True
+    for field in ("draft_spl_code", "spl_code", "candidate_spl"):
+        if str(getattr(analyst_response, field, "") or "").strip():
+            return True
+    return False
+
+
+def _card_surface_text(analyst_response: Any) -> str:
+    """Analyst-card surface text the user actually sees, for duplicate-marker counting.
+
+    Excludes ``one_sentence_finding`` because the frontend only renders it as a fallback
+    for ``direct_answer_summary`` (never both), so counting it would double-count a single
+    rendered body. Distinct rendered sections (e.g. ``review_notice`` and the draft-preview
+    warning) are kept so genuine in-surface duplication is still detected.
+    """
+    parts: list[str] = []
+    for field in (
+        "direct_answer_summary",
+        "finding_title",
+        "severity_safety_note",
+        "foundation_sec_analysis",
+        "evidence_summary",
+        "review_notice",
+    ):
+        value = getattr(analyst_response, field, None)
+        if isinstance(value, str) and value.strip():
+            parts.append(value)
+    for field in (
+        "analyst_checklist",
+        "recommended_actions",
+        "investigation_steps",
+        "limitations",
+        "missing_evidence",
+        "required_evidence",
+    ):
+        for item in getattr(analyst_response, field, None) or []:
+            if isinstance(item, str) and item.strip():
+                parts.append(item)
+    draft = getattr(analyst_response, "spl_draft_preview", None)
+    if isinstance(draft, dict):
+        for key in ("warning", "not_catalog_approved_notice"):
+            value = draft.get(key)
+            if isinstance(value, str) and value.strip():
+                parts.append(value)
+    return "\n".join(parts)
+
+
+def _normalize_section_text(text: str) -> str:
+    cleaned = re.sub(r"^P[1-4]\s*[—\-–:]\s*", "", str(text or ""), flags=re.IGNORECASE)
+    cleaned = re.sub(r"^Step\s+\d+\s*:\s*", "", cleaned, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", cleaned).strip().lower()
 
 
 def _has_negated_compromise_wording(text: str) -> bool:

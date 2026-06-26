@@ -66,9 +66,15 @@ def merge_post_validation_optimization(
     *,
     profile: SplunkCapabilityProfile | None = None,
     user_query: str | None = None,
+    template_profile: dict[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any], dict[str, Any]]:
     """Apply Phase E simplifier when revalidation passes; otherwise keep original SPL."""
-    optimization = optimize_spl(candidate_spl, profile=profile, user_query=user_query)
+    optimization = optimize_spl(
+        candidate_spl,
+        profile=profile,
+        user_query=user_query,
+        template_profile=template_profile,
+    )
     final_spl = candidate_spl
     final_validation = validation
     if optimization["optimization_applied"] and optimization["revalidation_approved"]:
@@ -84,12 +90,13 @@ def optimize_spl(
     profile: SplunkCapabilityProfile | None = None,
     *,
     user_query: str | None = None,
+    template_profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     profile = profile or build_splunk_capability_profile(required_saia_tool="saia_optimize_spl")
     provider = "saia_optimize_spl" if profile.saia_usable and profile.saia_optimize_spl_available and settings.splunk_use_saia_optimize_spl else "rule_based"
     simplification = simplify_spl_safe(spl, user_query=user_query)
     optimized = simplification.simplified_spl
-    revalidation = validate_spl(optimized) if simplification.applied else None
+    revalidation = validate_spl(optimized, template_profile=template_profile) if simplification.applied else None
     return {
         "provider": provider,
         "optimization_applied": simplification.applied,

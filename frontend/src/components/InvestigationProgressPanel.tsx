@@ -1,14 +1,49 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Circle, Loader2, MinusCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Circle, Loader2, MinusCircle, Server } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { InvestigationProgressState, InvestigationProgressStep } from '@/lib/investigationProgress';
+import type { EcProvenance } from '@/types/api';
 
 interface InvestigationProgressPanelProps {
   state: InvestigationProgressState;
   demoMode?: boolean;
+  /** Capture provenance — gates the MCP-transport honesty badge (B6). */
+  ecProvenance?: EcProvenance | null;
   onRetryFinalSynthesis?: () => void;
+}
+
+/**
+ * MCP-transport honesty badge (B6). Gated entirely off the provenance value so the
+ * claim auto-corrects when a scenario is re-captured against a real Splunk MCP.
+ * `transport=fake` → "simulated lifecycle replay"; `transport=live` → "live".
+ */
+function McpTransportBadge({ provenance }: { provenance: EcProvenance }) {
+  const transport = provenance.transport;
+  if (transport !== 'fake' && transport !== 'live') {
+    return null;
+  }
+  const isLive = transport === 'live';
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        'flex items-center gap-1 font-mono text-[0.6rem]',
+        isLive
+          ? 'border-emerald-500/40 text-emerald-200/90'
+          : 'border-slate-600/60 text-slate-400',
+      )}
+      title={
+        isLive
+          ? 'MCP search ran against the live Splunk MCP server.'
+          : 'Captured against a simulated MCP search lifecycle (FakeTransport) — no live backend call.'
+      }
+    >
+      <Server className="h-3 w-3" />
+      {isLive ? 'MCP: live' : 'MCP: simulated lifecycle replay'}
+    </Badge>
+  );
 }
 
 function StepDescription({ step, isActive, isComplete }: { step: InvestigationProgressStep; isActive: boolean; isComplete: boolean }) {
@@ -20,9 +55,15 @@ function StepDescription({ step, isActive, isComplete }: { step: InvestigationPr
       setLineIndex(0);
       return undefined;
     }
-    const intervalMs = Math.max(380, Math.floor(step.durationMs / lines.length));
+    // Restart from the first line each time the step becomes active, then walk
+    // the lines forward once and hold on the last one. Never wrap back to the
+    // start — wrapping is what made two-line steps flicker A↔B and read as a hang.
+    setLineIndex(0);
+    // Keep each line on screen long enough to actually read (>= ~1.1s), even
+    // when the step's own duration is short.
+    const intervalMs = Math.max(1100, Math.floor(step.durationMs / lines.length));
     const timer = window.setInterval(() => {
-      setLineIndex((current) => (current + 1) % lines.length);
+      setLineIndex((current) => (current >= lines.length - 1 ? current : current + 1));
     }, intervalMs);
     return () => window.clearInterval(timer);
   }, [isActive, lines, step.durationMs]);
@@ -42,8 +83,9 @@ function StepDescription({ step, isActive, isComplete }: { step: InvestigationPr
       <p className="mt-0.5 text-xs leading-5 text-slate-400">{step.description}</p>
       {activityLine ? (
         <p
+          key={activityLine}
           className={cn(
-            'mt-1.5 font-mono text-[0.65rem] leading-4 transition-colors',
+            'mt-1.5 font-mono text-[0.65rem] leading-4 transition-colors duration-300 animate-in fade-in',
             isActive ? 'text-cyan-200/95' : 'text-slate-500',
           )}
         >
@@ -65,7 +107,7 @@ function LiveElapsed({ className }: { className?: string }) {
   return <span className={cn('font-mono tabular-nums', className)}>{(ms / 1000).toFixed(1)}s</span>;
 }
 
-export function InvestigationProgressPanel({ state, demoMode, onRetryFinalSynthesis }: InvestigationProgressPanelProps) {
+export function InvestigationProgressPanel({ state, demoMode, ecProvenance, onRetryFinalSynthesis }: InvestigationProgressPanelProps) {
   const { steps, activeStepIndex, completedStepIds, finalization } = state;
   const completed = new Set(completedStepIds);
   const hasError = Boolean(state.error);
@@ -96,6 +138,7 @@ export function InvestigationProgressPanel({ state, demoMode, onRetryFinalSynthe
         )}
         <span className="text-sm font-semibold text-cyan-100">{headerLabel}</span>
         {demoMode ? <Badge variant="outline">Experience Center</Badge> : null}
+        {ecProvenance ? <McpTransportBadge provenance={ecProvenance} /> : null}
         {!allDone && !inFinalization && steps[activeStepIndex] ? (
           <Badge variant="secondary" className="font-mono text-[0.65rem]">
             {Math.min(activeStepIndex + 1, steps.length)}/{steps.length}

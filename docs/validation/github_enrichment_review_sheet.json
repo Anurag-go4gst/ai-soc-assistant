@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_github_enrichment",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-15T15:58:02+00:00",
+  "generated_at": "2026-06-18T04:50:08+00:00",
   "row_counts": {
     "github_skills": 12
   },

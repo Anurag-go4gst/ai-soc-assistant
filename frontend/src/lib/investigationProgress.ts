@@ -173,6 +173,99 @@ function isLiveLinearProgress(steps: InvestigationProgressStep[]): boolean {
 }
 
 /**
+ * Captured per-stage latency for replay (B4). `replayed_ms` is the recorded latency
+ * already capped (5–6 s/stage) by the capture harness; replay advances on it.
+ */
+export interface StageLatency {
+  stage: string;
+  recorded_ms?: number;
+  replayed_ms: number;
+}
+
+/**
+ * Maps captured `stage_latencies[].stage` names onto the loader step ids. Covers the
+ * full demo journey: query understanding → routing → SPL validate → MCP lifecycle
+ * (registry resolve → TLS/bearer → tools/list → submit sid → poll 1/3..3/3 → DONE) →
+ * LLM synthesis → final. Multiple stage names can fold into one visible step (their
+ * replayed_ms is summed) — e.g. all MCP sub-hops roll up into `mcp_connect`.
+ */
+const STAGE_NAME_TO_STEP_ID: Record<string, string> = {
+  // Query understanding
+  query: 'query',
+  query_understanding: 'query',
+  understanding_query: 'query',
+  // Routing / resource plan
+  route: 'route',
+  routing: 'route',
+  route_adjudication: 'route',
+  resource_plan: 'route',
+  workflow: 'workflow',
+  tool_selection: 'workflow',
+  // SPL validate
+  spl: 'spl_validation',
+  spl_validate: 'spl_validation',
+  spl_validation: 'spl_validation',
+  generating_spl: 'spl_validation',
+  // MCP lifecycle (folds into the connect step)
+  mcp: 'mcp_connect',
+  mcp_connect: 'mcp_connect',
+  mcp_registry_resolve: 'mcp_connect',
+  mcp_tls_bearer: 'mcp_connect',
+  mcp_tools_list: 'mcp_connect',
+  mcp_submit: 'mcp_connect',
+  mcp_poll: 'mcp_connect',
+  mcp_done: 'mcp_connect',
+  mcp_fetch: 'mcp_evidence',
+  mcp_evidence: 'mcp_evidence',
+  // Knowledge / RAG
+  rag: 'rag',
+  retrieving_knowledge: 'rag',
+  // MITRE / severity
+  mitre: 'mitre',
+  mitre_severity: 'mitre',
+  severity: 'severity',
+  // LLM synthesis
+  llm: 'llm_governance',
+  llm_synthesis: 'llm_governance',
+  llm_governance: 'llm_governance',
+  generating_answer: 'llm_governance',
+  // Final packaging
+  final: 'package',
+  package: 'package',
+  validating_answer: 'package',
+};
+
+/**
+ * Overrides step durations from a captured `stage_latencies` array (B4). Stage names
+ * are mapped to step ids; replayed_ms for stages folding into the same step are summed.
+ * Steps with no captured latency keep their existing (jittered) duration. Returns a new
+ * array; does not mutate the input. When `stageLatencies` is empty/absent, returns the
+ * steps unchanged so non-captured scenarios fall back to jitter behavior.
+ */
+export function applyStageLatencies(
+  steps: InvestigationProgressStep[],
+  stageLatencies?: StageLatency[] | null,
+): InvestigationProgressStep[] {
+  if (!stageLatencies || stageLatencies.length === 0) {
+    return steps;
+  }
+  const replayByStepId = new Map<string, number>();
+  for (const entry of stageLatencies) {
+    if (!entry || typeof entry.replayed_ms !== 'number' || entry.replayed_ms < 0) continue;
+    const stepId = STAGE_NAME_TO_STEP_ID[entry.stage];
+    if (!stepId) continue;
+    replayByStepId.set(stepId, (replayByStepId.get(stepId) ?? 0) + entry.replayed_ms);
+  }
+  if (replayByStepId.size === 0) {
+    return steps;
+  }
+  return steps.map((item) => {
+    const replayed = replayByStepId.get(item.id);
+    return typeof replayed === 'number' ? { ...item, durationMs: replayed } : { ...item };
+  });
+}
+
+/**
  * Demo step durations are jittered (±30%, with an occasional slow stage) so the
  * Experience Center never plays an identical, obviously-staged timeline twice.
  */
@@ -192,12 +285,20 @@ export function generateJobSid(): string {
   return `${epoch}.${suffix}`;
 }
 
+/**
+ * Global tempo for the Experience Center staged playback. The raw per-step values
+ * sum to ~11s on an MCP-heavy scenario (+ finalization → 12–18s); scaling them keeps
+ * the realistic staging while landing total time-to-answer at ~8–10s. Demo-only:
+ * the live path uses LIVE_LINEAR_STEPS and never calls step().
+ */
+const DEMO_DURATION_SCALE = 0.62;
+
 function step(
   partial: Omit<InvestigationProgressStep, 'durationMs'> & { durationMs?: number },
   durationMs: number,
 ): InvestigationProgressStep {
   const { durationMs: _ignored, ...rest } = partial as InvestigationProgressStep;
-  return { ...rest, durationMs: jitterMs(durationMs) };
+  return { ...rest, durationMs: jitterMs(Math.round(durationMs * DEMO_DURATION_SCALE)) };
 }
 
 export function buildInvestigationProgressSteps(options?: {

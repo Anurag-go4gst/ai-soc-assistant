@@ -6,7 +6,9 @@ from app.config import settings
 from app.connectors.mcp.base import ConnectorStatus, KnowledgeObjectRequest
 from app.connectors.mcp.discovery import McpToolDescriptor, mock_discovered_tools
 
-_MOCK_DISCOVERY_TOOLS = frozenset({"splunk_get_indexes", "splunk_get_metadata"})
+_MOCK_DISCOVERY_TOOLS = frozenset(
+    {"splunk_get_info", "splunk_get_indexes", "splunk_get_metadata", "splunk_get_knowledge_objects"}
+)
 _RUN_QUERY_ALIASES = frozenset({"splunk_run_query", "run_splunk_query"})
 
 
@@ -28,6 +30,14 @@ class MockMcpConnector:
         elif tool_name in _RUN_QUERY_ALIASES:
             if not settings.mcp_global_execution_enabled or not settings.mcp_server_mock_execution_enabled:
                 return {"status": "blocked", "error": "mcp_execution_disabled", "rows": []}
+        if tool_name == "splunk_get_info":
+            return {
+                "status": "ok",
+                "mock": True,
+                "server_name": "splunk-mock",
+                "server_version": "9.1.0",
+                "rows": [{"server_name": "splunk-mock", "server_version": "9.1.0"}],
+            }
         if tool_name == "splunk_get_indexes":
             return {
                 "status": "ok",
@@ -46,6 +56,12 @@ class MockMcpConnector:
                     {"sourcetype": "pgcil:edr"},
                     {"sourcetype": "aws:cloudtrail"},
                 ],
+            }
+        if tool_name == "splunk_get_knowledge_objects":
+            return {
+                "status": "ok",
+                "mock": True,
+                "objects": [{"name": "pgcil_auth_summary", "object_type": "savedsearch"}],
             }
         if tool_name not in _RUN_QUERY_ALIASES:
             return {"status": "blocked", "error": "mock_tool_not_allowlisted", "rows": []}

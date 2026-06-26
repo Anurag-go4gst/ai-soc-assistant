@@ -5,8 +5,11 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.chat.answer_shape_router import is_regulatory_reporting_query
+from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
 from app.query_understanding.models import QueryUnderstandingResult
 from app.query_understanding.soc_investigation_shape import (
+    detect_hunt_hypothesis_guidance_phrasing,
     detect_investigation_hypothesis_guidance,
     detect_soc_investigation_shape,
 )
@@ -18,13 +21,91 @@ _LOG_SEARCH_RE = re.compile(
     r"\b(?:search|find|look for)\b.{0,80}\b(?:logs?|firewall|proxy|endpoint|vpn|dns|powershell)\b",
     re.IGNORECASE,
 )
+
+_LOG_SEARCH_VERB_RE = re.compile(
+    r"\b(?:search|find|show|check|look\s+for|look\s+in|look\s+across|run\s+query)\b",
+    re.IGNORECASE,
+)
+_TELEMETRY_ANCHOR_RE = re.compile(
+    r"\b(?:wineventlog|win:eventlog|syslog|cisco_asa|ot_logs|"
+    r"firewall\s+logs?|vpn\s+logs?|index\s*=|sourcetype\s*=|"
+    r"event\s+id|eventcode|function\s+code)\b",
+    re.IGNORECASE,
+)
+_ENTITY_ANCHOR_RE = re.compile(
+    r"\b(?:user\s+\w+|host\s+\w+|\b\d{1,3}(?:\.\d{1,3}){3}\b|cidr|subnet)\b",
+    re.IGNORECASE,
+)
+_T2_SCOPE_ANCHOR_RE = re.compile(
+    r"\b(?:src|source|dest|destination|from|to|between|vlan|dmz|zone|substation|"
+    r"port\s+\d{1,5}|failed\s+login(?:s)?|event\s+id\s+\d+|eventcode\s*[=:]?\s*\d+)\b",
+    re.IGNORECASE,
+)
+_T2_THRESHOLD_OR_WINDOW_RE = re.compile(
+    r"\b(?:more\s+than|over|greater\s+than|at\s+least|>\s*\d+|\d+\+?)\b.{0,40}"
+    r"\b(?:failed\s+login(?:s)?|minutes?|hours?|days?)\b",
+    re.IGNORECASE,
+)
+_ANALYTICS_ENUM_RE = re.compile(
+    r"\b(?:top|list|which|highest|count)\b.{0,40}\b(?:users?|hosts?|failed\s+login(?:s)?|logon(?:s)?)\b",
+    re.IGNORECASE,
+)
+
+
+def _generic_explicit_log_search_floor(normalized: str) -> bool:
+    """Broad log-retrieval floor: imperative verb + bounded telemetry/entity anchor."""
+    if not _LOG_SEARCH_VERB_RE.search(normalized):
+        return False
+    if _TELEMETRY_ANCHOR_RE.search(normalized):
+        return True
+    if _ENTITY_ANCHOR_RE.search(normalized):
+        return True
+    return bool(_ANALYTICS_ENUM_RE.search(normalized))
+
+
+def _t2_data_source_count(normalized: str) -> int:
+    sources = (
+        "wineventlog",
+        "win:eventlog",
+        "syslog",
+        "cisco_asa",
+        "ot_logs",
+        "firewall",
+        "vpn",
+        "proxy",
+        "endpoint",
+        "dns",
+        "powershell",
+    )
+    return sum(1 for source in sources if source in normalized)
+
+
+def _meaningful_t2_entity_signal(normalized: str) -> bool:
+    """Concrete log/query constraints that make LLM slot binding worth the hop."""
+    anchors = 0
+    anchors += int(bool(_TELEMETRY_ANCHOR_RE.search(normalized)))
+    anchors += int(bool(_ENTITY_ANCHOR_RE.search(normalized)))
+    anchors += int(bool(_T2_SCOPE_ANCHOR_RE.search(normalized)))
+    anchors += int(bool(_T2_THRESHOLD_OR_WINDOW_RE.search(normalized)))
+    anchors += int(_t2_data_source_count(normalized) >= 2)
+    return anchors >= 2
+
 _ANALYTICS_SUBJECT_RE = re.compile(
     r"\b(?:which|what)\s+(?:hosts?|users?|accounts?|devices?|machines?|systems?|endpoints?|"
     r"domains?|rules?|assets?|source\s+ips?|destination\s+ips?|ips?)\b",
     re.IGNORECASE,
 )
 _ANALYTICS_RANK_RE = re.compile(
-    r"\b(?:most|top|highest|largest|busiest)\b",
+    r"\b(?:most|top|highest|largest|busiest|noisiest|rank|ranked|ranking)\b",
+    re.IGNORECASE,
+)
+# Named detection behaviours / SOC hunt nouns — result-seeking even without a
+# ranking word or registry match (e.g. "kerberoasting", "credential dumping").
+_DETECTION_TECHNIQUE_RE = re.compile(
+    r"\b(?:kerberoast\w*|credential\s+dump\w*|lateral\s+movement|brute[\s-]?force|"
+    r"exfil\w*|beacon\w*|c2|command[\s-]and[\s-]control|dga|tunnel\w*|"
+    r"privilege\s+escalation|persistence|port\s+scan\w*|scanning|"
+    r"shadow\s+cop\w*|log\s+clear\w*|impossible\s+travel|spray\w*)\b",
     re.IGNORECASE,
 )
 _ANALYTICS_PHRASES = (
@@ -45,27 +126,6 @@ _ANALYTICS_PHRASES = (
     "open and unresolved",
 )
 _EXACT_105_MATCH_PATHS = ("exact_105_question", "exact_105_plus_use_case_catalog")
-# Exact-105 hunt/detection/lookup pattern classes that map to a review-only SPL
-# path. case_state_lookup stays excluded: its rows reference a specific notable
-# or entity the user has not supplied, so clarification is the correct answer
-# (the listable "open alerts" phrasing is caught by the analytics phrases).
-_EXACT_105_HUNT_PATTERNS = (
-    "ioc_correlation",
-    "dns_beaconing_dga_behavior",
-    "multi_signal_correlation",
-    "new_or_unusual_source",
-    "threshold_anomaly",
-    "lateral_movement",
-    "suspicious_process_powershell",
-    "dlp_exfiltration",
-    "persistence_scheduled_task_service",
-    "success_after_failure",
-    "other_or_unclear",
-    "notable_risk_lookup",
-    "data_source_health",
-    "threat_intel_enrichment",
-    "asset_identity_context",
-)
 
 
 def _explicit_log_search_requested(normalized: str) -> bool:
@@ -89,15 +149,85 @@ def _explicit_log_search_requested(normalized: str) -> bool:
             "find successful logins",
             "find successful vpn logins",
             "find successful established connections",
+            "check logs for",
+            "give me current",
+            "map all external",
         )
     )
 
+
+
+
+_CVE_ID_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
+_PAT_TOKEN_RE = re.compile(r"\b(?:pat|personal access token|leaked pat)\b", re.I)
+
+
+def is_github_investigation_query(query: str) -> bool:
+    """SOC asks about GitHub PAT/workflow/commit/audit investigation (review-only)."""
+    normalized = " ".join(str(query or "").lower().split())
+    if normalized.startswith("github focus:"):
+        return True
+    github_ref = any(
+        term in normalized
+        for term in ("github", "git hub", "github.com", "github actions", "gitlab", "gitea")
+    )
+    github_artifact = bool(_PAT_TOKEN_RE.search(normalized)) or any(
+        term in normalized
+        for term in (
+            "workflow",
+            "workflow_dispatch",
+            "repo.push",
+            "commit sha",
+            "commit timeline",
+            "audit log",
+            "oauth_access",
+            "oauth access",
+            "ci workflow",
+            "actions workflow",
+            "workflow file",
+            "push unauthorized",
+        )
+    )
+    return github_ref and github_artifact
+
+
+
+def is_cve_focus_query(query: str) -> bool:
+    """CVE advisory review without live scanning (review-only)."""
+    normalized = " ".join(str(query or "").lower().split())
+    if normalized.startswith("cve focus:"):
+        return True
+    if _CVE_ID_RE.search(query or ""):
+        return any(
+            term in normalized
+            for term in (
+                "cisa advisory",
+                "what can we confirm",
+                "evidence is missing",
+                "without live scanning",
+                "unpatched",
+                "vulnerability",
+            )
+        )
+    return False
+
+def is_cross_skill_investigation_query(query: str) -> bool:
+    """Explicit cross-skill review plan (CVE + MITRE + GitHub stitch path)."""
+    normalized = " ".join(str(query or "").lower().split())
+    if "cross-skill" in normalized or "cross skill" in normalized:
+        return True
+    has_cve = "cve" in normalized
+    has_mitre = "mitre" in normalized or "att&ck" in normalized
+    has_github = "github" in normalized or is_github_investigation_query(query)
+    # Require all three domains; alert+MITRE+CVE flagship review is not this path.
+    return has_cve and has_mitre and has_github
 
 def extract_query_signals(
     query: str,
     query_understanding: QueryUnderstandingResult | None = None,
 ) -> dict[str, Any]:
     normalized = " ".join(query.lower().split())
+    regulatory_reporting = is_regulatory_reporting_query(query)
     qu = query_understanding
 
     policy_terms = any(
@@ -194,6 +324,10 @@ def extract_query_signals(
             "find ",
             "show ",
             "list ",
+            "give me",
+            "map ",
+            "map all",
+            "check logs",
             "investigate",
             "search for",
             "search logs",
@@ -203,6 +337,10 @@ def extract_query_signals(
             "look for",
             "top users",
             "which users",
+            "which hosts",
+            "which accounts",
+            "which ip",
+            "current ",
         )
     ) or explicit_log_search
     negative_successful_login = any(
@@ -322,7 +460,14 @@ def extract_query_signals(
         term in normalized
         for term in ("playbook", "runbook", "sop", "standard operating procedure", "procedure steps", "checklist")
     )
-    knowledge_definition = normalized.startswith("what is ") or normalized.startswith("what are ")
+    # A definition asks "what is/are <concept>" wanting an explanation. A ranked or
+    # aggregated data ask ("what are the top 5 source IPs by DNS volume") is analytics,
+    # not a definition — don't let the knowledge branch swallow it into knowledge_recall.
+    knowledge_definition = (
+        (normalized.startswith("what is ") or normalized.startswith("what are "))
+        and not _ANALYTICS_RANK_RE.search(normalized)
+        and not _ANALYTICS_SUBJECT_RE.search(normalized)
+    )
     dga = "dga" in normalized or "domain generation" in normalized
     block_or_contain = any(
         term in normalized
@@ -332,11 +477,24 @@ def extract_query_signals(
             "block this ip",
             "block the ip",
             "block ip ",
+            "block user ",
+            "block the user",
+            "block this user",
+            "block account",
+            "block the account",
+            "block this account",
             "block on the firewall",
             "push a firewall",
             "push firewall",
             "firewall rule to deny",
             "deny rule",
+            # destructive admin / policy-wipe asks (eff.098 class)
+            "delete all firewall",
+            "delete firewall",
+            "remove all firewall",
+            "remove firewall rule",
+            "wipe firewall",
+            "purge firewall",
             "contain ",
             "isolate ",
             "quarantine ",
@@ -370,6 +528,56 @@ def extract_query_signals(
         # disable/lock/suspend targeting any account, with words between
         # ("disable the CEO's account") — containment regardless of phrasing.
         re.search(r"\b(disable|lock|suspend)\b[^.?!]{0,40}\baccount\b", normalized)
+    ) or bool(
+        # network-segmentation containment phrasings: "cut the link", "sever the
+        # connection", "air-gap / segment off the OT network".
+        re.search(r"\b(cut|sever)\b[^.?!]{0,24}\b(link|connection|network)\b", normalized)
+        or "air-gap" in normalized
+        or "air gap" in normalized
+        or "segment off" in normalized
+    ) or bool(
+        # destructive firewall/policy deletion without an explicit "block" verb
+        re.search(r"\b(delete|remove|wipe|purge)\b[^.?!]{0,40}\bfirewall\b", normalized)
+    )
+    # Containment DECISION-SUPPORT (not an enforcement command): the analyst is
+    # asking whether/how to contain, not ordering an action. These must reach the
+    # IR/containment advisory shape (review-only staged guidance) instead of the
+    # bare unsafe refusal. Conservative: requires interrogative/advisory framing
+    # AND must not be an explicit "run it / do it now" enforcement imperative.
+    _advisory_framing = any(
+        phrase in normalized
+        for phrase in (
+            "should we",
+            "should i",
+            "what step",
+            "what exact step",
+            "how should",
+            "how do we",
+            "how can we",
+            "is it safe to",
+            "do we need to",
+            "what is the right",
+            "what do you recommend",
+            "without tripping",
+            "without disrupting",
+        )
+    )
+    _enforcement_imperative = any(
+        phrase in normalized
+        for phrase in (
+            "isolate it now",
+            "isolate now",
+            "right now isolate",
+            "do it now",
+            "block it now",
+            "go ahead and",
+            "just isolate",
+            "just block",
+            "just disable",
+        )
+    )
+    containment_decision_support = bool(
+        block_or_contain and _advisory_framing and not _enforcement_imperative and not explicit_run_spl
     )
     conceptual_mitre_judgment = bool(
         re.search(
@@ -380,12 +588,29 @@ def extract_query_signals(
         and "?" in query
     )
     mitre_evidence_threshold = bool(
-        re.search(
+        normalized.startswith("mitre focus:")
+        or (
+            ("evidence threshold" in normalized or "status labels" in normalized or "status threshold" in normalized)
+            and ("mitre" in normalized or "att&ck" in normalized or "dnp3" in normalized)
+        )
+        or re.search(
             r"\b(what evidence is needed|evidence (?:is )?needed|required evidence|evidence required)\b.{0,96}"
             r"\b(before|prior to|to declare|to call|to label)\b",
             normalized,
         )
         or re.search(r"\bbefore (?:declaring|calling|labeling|confirming)\b", normalized)
+    )
+    ot_protocol_investigation = bool(
+        re.search(
+            r"\b(dnp3|modbus|iec[\s-]?61850|goose|iec[\s-]?104|rtu|pmu|plc|hmi|scada|synchrophasor)\b",
+            normalized,
+            flags=re.I,
+        )
+        and re.search(
+            r"\b(checklist|triage|hypothes|evidence should|evidence to collect|how to investigate|how to triage|investigate|investigation)\b",
+            normalized,
+            flags=re.I,
+        )
     )
     procedural_investigation = any(
         term in normalized
@@ -434,6 +659,8 @@ def extract_query_signals(
         term in normalized
         for term in (
             "how should soc",
+            "how should i investigate",
+            "how should we investigate",
             "what should soc",
             "how should we",
             "what should we",
@@ -513,12 +740,37 @@ def extract_query_signals(
             and alert_context_present
         )
     )
-    hybrid_alert_review = (
+    # Generic critical/notable alert investigation that asks for MITRE and/or CVE
+    # context. Without this, such a query matches no investigation signal and falls
+    # to pure `mitre_map` -> knowledge_only (no SPL/MITRE investigation), which made
+    # the flagship "review critical alert + cross-reference MITRE + check CVEs" query
+    # answer hollow. Scoped tightly (review/investigate verb + alert context +
+    # MITRE-or-CVE ask + critical/notable/CVE subject) so pure "explain/map" asks stay
+    # knowledge.
+    _cve_or_vuln = any(term in normalized for term in ("cve", "unpatched", "vulnerab"))
+    _review_verb = any(
+        term in normalized
+        for term in ("review", "investigate", "triage", "cross-reference", "cross reference", "look into")
+    )
+    _critical_subject = any(
+        term in normalized for term in ("critical alert", "notable", "incident", "affected host")
+    )
+    critical_alert_review = bool(
         alert_context_present
-        and (success_after_failure or failed_login)
-        and mitre_map
-        and (severity_request or review_only_spl)
         and not run_execution
+        and _review_verb
+        and (mitre_map or _cve_or_vuln)
+        and (_critical_subject or _cve_or_vuln)
+    )
+    hybrid_alert_review = (
+        (
+            alert_context_present
+            and (success_after_failure or failed_login)
+            and mitre_map
+            and (severity_request or review_only_spl)
+            and not run_execution
+        )
+        or critical_alert_review
     )
 
     mitre_requires_alert_context = bool(
@@ -543,11 +795,20 @@ def extract_query_signals(
         or getattr(qu, "mapped_operation_type", None) in ("top_n", "aggregate_and_rank")
     )
     exact_105_hunt_spl = exact_105_match and (
-        getattr(qu, "mapped_pattern_type", None) in _EXACT_105_HUNT_PATTERNS
+        getattr(qu, "mapped_pattern_type", None) in EXACT_105_HUNT_PATTERNS
+        or getattr(qu, "mapped_pattern_type", None) in cisco_hunt_pattern_types()
     )
 
     non_soc_or_out_of_scope = any(
-        term in normalized for term in ("hr policy", "vacation policy", "payroll", "expense policy")
+        term in normalized
+        for term in (
+            "hr policy",
+            "leave policy",
+            "vacation policy",
+            "vacation request",
+            "payroll",
+            "expense policy",
+        )
     )
     soc_investigation_shaped = bool(
         detect_soc_investigation_shape(query, exact_105_match=exact_105_match)
@@ -555,6 +816,140 @@ def extract_query_signals(
         and not explicit_run_spl
         and not sop_show_request
         and not non_soc_or_out_of_scope
+    )
+
+    # Engine-3-safe floor shape signal (intent cascade hardening, Batch 0).
+    # CLASS PATTERN, not per-question keywords: an imperative detection verb +
+    # a broad security/telemetry subject identifies a SOC-shaped, actionable
+    # hunt that should land on the guided floor instead of a hollow
+    # clarification dump. Guarded against out-of-scope / containment / explicit
+    # run-SPL so those keep their existing honest outcomes.
+    soc_actionable_hunt = bool(
+        _has_detection_verb(normalized)
+        and _has_security_telemetry_subject(normalized)
+        and not non_soc_or_out_of_scope
+        and not block_or_contain
+        and not explicit_run_spl
+    )
+
+    # Broad detection/analytics floor (anti-dead-end). Routes result-seeking SOC asks
+    # to the governed SPL path (template -> family -> validated LLM T2 producer ->
+    # honest scaffold), never a knowledge_recall dead-end. Genuine "how should I
+    # investigate" hunts stay guided; knowledge/SOP/explain/unsafe/out-of-scope keep
+    # their honest outcomes. Safe because the SPL producer is governed: it validates,
+    # quality-lints, and forces execution off (no raw free-form SPL reaches the analyst).
+    github_investigation_shaped = is_github_investigation_query(query)
+    cross_skill_investigation = is_cross_skill_investigation_query(query)
+    cve_focus_investigation = is_cve_focus_query(query)
+
+    guidance_request = bool(
+        procedural_investigation
+        or investigation_triage_guidance
+        or investigation_hypothesis_guidance
+        or detect_hunt_hypothesis_guidance_phrasing(query)
+        or sop_show_request
+        or (playbook_procedure and not live_investigation_verbs)
+    )
+    _projected_needs_spl = bool(
+        (spl_generation and not block_or_contain)
+        or (
+            live_investigation_verbs
+            and not policy_terms
+            and not block_or_contain
+            and not spl_suppressed
+        )
+    )
+    if (
+        not guidance_request
+        and not sop_show_request
+        and not playbook_procedure
+        and not use_case_review_guidance
+        and _generic_explicit_log_search_floor(normalized)
+    ):
+        explicit_log_search = True
+        if not spl_suppressed and (
+            _TELEMETRY_ANCHOR_RE.search(normalized)
+            or _ENTITY_ANCHOR_RE.search(normalized)
+        ):
+            spl_generation = True
+        live_investigation_verbs = live_investigation_verbs or explicit_log_search
+        explicit_search_intent = bool(
+            spl_generation
+            or explicit_log_search
+            or use_case_review_guidance
+            or (
+                live_investigation_verbs
+                and not policy_terms
+                and not block_or_contain
+                and not spl_suppressed
+                and not sop_show_request
+            )
+        )
+        _projected_needs_spl = bool(
+            (spl_generation and not block_or_contain)
+            or (
+                live_investigation_verbs
+                and not policy_terms
+                and not block_or_contain
+                and not spl_suppressed
+            )
+        )
+
+    meaningful_t2_entities = bool(
+        not guidance_request
+        and not sop_show_request
+        and not playbook_procedure
+        and not use_case_review_guidance
+        and not policy_terms
+        and not non_soc_or_out_of_scope
+        and not block_or_contain
+        and not explicit_run_spl
+        and _meaningful_t2_entity_signal(normalized)
+    )
+    ambiguous_t2_query = bool(
+        meaningful_t2_entities
+        and (
+            "look across" in normalized
+            or "across " in normalized
+            or _t2_data_source_count(normalized) >= 2
+            or bool(re.search(r"\b(?:from|source|src)\b.{0,80}\b(?:to|dest|destination)\b", normalized))
+            or bool(re.search(r"\b(?:vlan|zone|dmz|substation)\b.{0,80}\b(?:port|permit|allow|deny)\b", normalized))
+        )
+    )
+
+    live_data_request = bool(
+        not block_or_contain
+        and not explicit_run_spl
+        and not guidance_request
+        and not mitre_evidence_threshold
+        and not use_case_review_guidance
+        and not conceptual_mitre_judgment
+        and not success_after_failure
+        and (
+            explicit_search_intent
+            or soc_actionable_hunt
+            or _projected_needs_spl
+        )
+    )
+
+    soc_detection_intent = bool(
+        (
+            analytics_aggregation
+            or _ANALYTICS_RANK_RE.search(normalized)
+            or soc_actionable_hunt
+            or explicit_search_intent
+            or _DETECTION_TECHNIQUE_RE.search(normalized)
+        )
+        and not knowledge_definition
+        and not playbook_procedure
+        and not sop_show_request
+        and not mitre_explain
+        and not non_soc_or_out_of_scope
+        and not block_or_contain
+        and not explicit_run_spl
+        and not (soc_investigation_shaped and guidance_request)
+        and not github_investigation_shaped
+        and not cve_focus_investigation
     )
 
     return {
@@ -582,6 +977,7 @@ def extract_query_signals(
         "block_or_contain": block_or_contain,
         "conceptual_mitre_judgment": conceptual_mitre_judgment,
         "mitre_evidence_threshold": mitre_evidence_threshold,
+        "ot_protocol_investigation": ot_protocol_investigation,
         "sop_show_request": sop_show_request,
         "procedural_investigation": procedural_investigation,
         "time_window_24h": time_window_24h,
@@ -629,6 +1025,15 @@ def extract_query_signals(
         "exact_105_analytics": exact_105_analytics,
         "exact_105_hunt_spl": exact_105_hunt_spl,
         "soc_investigation_shaped": soc_investigation_shaped,
+        "github_investigation_shaped": github_investigation_shaped,
+        "cross_skill_investigation": cross_skill_investigation,
+        "cve_focus_investigation": cve_focus_investigation,
+        "live_data_request": live_data_request,
+        "ambiguous_t2_query": ambiguous_t2_query,
+        "meaningful_t2_entities": meaningful_t2_entities,
+        "guidance_request": guidance_request,
+        "soc_actionable_hunt": soc_actionable_hunt,
+        "soc_detection_intent": soc_detection_intent,
         "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),
         "spl_authoring_shaped": bool(spl_generation and not run_execution),
         "alert_summary_shaped": bool(alert_context_present and not spl_generation),
@@ -636,6 +1041,8 @@ def extract_query_signals(
         "non_soc_or_out_of_scope": non_soc_or_out_of_scope,
         "alert_context_present": alert_context_present,
         "hybrid_alert_review": hybrid_alert_review,
+        "regulatory_reporting": regulatory_reporting,
+        "containment_decision_support": containment_decision_support,
         "projected_needs_rag": policy_terms
         or escalation_without_policy_word
         or playbook_procedure
@@ -663,6 +1070,113 @@ def extract_query_signals(
         "explicit_run_spl": explicit_run_spl,
         "projected_action_mode": "recommend_only" if block_or_contain else None,
     }
+
+
+# Class patterns for the Engine-3-safe guided floor (Batch 0). These are
+# intentionally broad and grouped, not per-question. The verb pattern is an
+# imperative detection intent; the subject pattern is a broad security /
+# telemetry / OT lexicon. Both must fire (plus the negative guards in
+# extract_query_signals) for soc_actionable_hunt.
+_DETECTION_VERB_RE = re.compile(
+    r"\b(?:show|list|identify|flag|detect|find any|locate|review|correlate|audit|trace|hunt for|"
+    r"which hosts|which users|which accounts|which ips?|give me|map|check)\b"
+    r"|\balert on\b"
+    r"|\b(?:are|is) there\b",
+    re.IGNORECASE,
+)
+_SECURITY_SUBJECT_TERMS = (
+    "connection",
+    "login",
+    "auth",
+    "authentication",
+    "session",
+    "traffic",
+    "scan",
+    "scanning",
+    "packet",
+    "icmp",
+    "dns",
+    "firewall",
+    "vlan",
+    "vpn",
+    "tacacs",
+    "ise",
+    "duo",
+    "mab",
+    "goose",
+    "mms",
+    "modbus",
+    "iccp",
+    "plc",
+    "rtu",
+    "hmi",
+    "scada",
+    "ssh",
+    "tls",
+    "cipher",
+    "driver",
+    "process",
+    "endpoint",
+    "host",
+    " ip ",
+    "ip address",
+    "source ip",
+    "port",
+    "certificate",
+    "config change",
+    "configuration change",
+    "ios configuration",
+    "privilege",
+    "privileged",
+    "route",
+    "routing",
+    "ospf",
+    "bgp",
+    "sgt",
+    "umbrella",
+    "stealthwatch",
+    "firepower",
+    "catalyst",
+    "setpoint",
+    "breaker",
+    "relay",
+    " ot ",
+    "substation",
+    "wireless",
+    "rogue",
+    "malware",
+    "kernel",
+    "tftp",
+    "banner",
+    "inverter",
+    "transformer",
+    "control logic",
+    "audit trail",
+    "audit log",
+    "log process",
+    "anyconnect",
+    "secure endpoint",
+    "secure email",
+    "workstation",
+    "device profile",
+    "broadcast polling",
+    "data link",
+    "exception code",
+    "protocol",
+    "gps clock",
+    "agc",
+    "master station",
+    "energy management",
+)
+
+
+def _has_detection_verb(normalized: str) -> bool:
+    return bool(_DETECTION_VERB_RE.search(normalized))
+
+
+def _has_security_telemetry_subject(normalized: str) -> bool:
+    padded = f" {normalized} "
+    return any(term in padded for term in _SECURITY_SUBJECT_TERMS)
 
 
 def _spl_generation_suppressed(normalized: str) -> bool:
@@ -702,3 +1216,12 @@ def _spl_generation_requested(normalized: str) -> bool:
     if normalized.startswith("draft a splunk") or normalized.startswith("draft splunk"):
         return True
     return False
+
+def is_guidance_request(signals: dict[str, Any]) -> bool:
+    """Procedural / triage / SOP asks — not live telemetry retrieval."""
+    return bool(signals.get("guidance_request"))
+
+
+def is_live_data_request(signals: dict[str, Any]) -> bool:
+    """Enumeration or search-shaped SOC ask expecting data rows or SPL, not hunt prose."""
+    return bool(signals.get("live_data_request"))

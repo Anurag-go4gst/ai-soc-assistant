@@ -1,8 +1,8 @@
 {
   "metadata": {
     "domain": "enterprise",
-    "version": "curated-subset-v2",
-    "release_date": "2026-06-01",
+    "version": "curated-subset-v4",
+    "release_date": "2026-06-17",
     "checksum": "local-curated-subset",
     "curated_use_case_mappings": [
       "auth_failed_login_spike",
@@ -21,195 +21,2785 @@
       "name": "Brute Force",
       "tactic": "Credential Access",
       "description": "Adversaries may use brute force techniques to gain access to accounts when passwords are unknown or when password hashes are obtained.",
-      "detection_patterns": ["repeated_authentication_failures", "high_volume_login_attempts"],
-      "evidence_requirements": ["authentication_failure_count", "time_window", "source_distribution"],
+      "detection_patterns": [
+        "repeated_authentication_failures",
+        "high_volume_login_attempts"
+      ],
+      "evidence_requirements": [
+        "authentication_failure_count",
+        "time_window",
+        "source_distribution"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["authentication_failures_present"],
-        "supported": ["threshold_exceeded", "repeated_pattern"],
-        "confirmed": ["benign_sources_cleared", "automation_cleared"]
+        "candidate": [
+          "authentication_failures_present"
+        ],
+        "supported": [
+          "threshold_exceeded",
+          "repeated_pattern"
+        ],
+        "confirmed": [
+          "benign_sources_cleared",
+          "automation_cleared"
+        ]
       },
       "related_use_cases": [],
-      "recommended_pivots": ["check_sub_techniques", "review_source_reputation", "check_account_lockouts"]
+      "recommended_pivots": [
+        "check_sub_techniques",
+        "review_source_reputation",
+        "check_account_lockouts"
+      ]
     },
     {
       "technique_id": "T1110.001",
       "name": "Password Guessing",
       "tactic": "Credential Access",
       "description": "Adversaries may use password guessing to attempt authentication with known or guessed usernames.",
-      "detection_patterns": ["repeated_failed_authentication", "multiple_users_or_sources"],
-      "evidence_requirements": ["failed_authentication_count", "time_window", "source_or_user_distribution"],
+      "detection_patterns": [
+        "repeated_failed_authentication",
+        "multiple_users_or_sources"
+      ],
+      "evidence_requirements": [
+        "failed_authentication_count",
+        "time_window",
+        "source_or_user_distribution"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["failed_authentication_present"],
-        "supported": ["threshold_exceeded", "repeated_pattern"],
-        "confirmed": ["benign_sources_cleared", "misconfiguration_cleared", "automation_cleared"]
+        "candidate": [
+          "failed_authentication_present"
+        ],
+        "supported": [
+          "threshold_exceeded",
+          "repeated_pattern"
+        ],
+        "confirmed": [
+          "benign_sources_cleared",
+          "misconfiguration_cleared",
+          "automation_cleared"
+        ]
       },
-      "related_use_cases": ["auth_failed_login_spike", "auth_success_after_failure", "critical_notable_mitre_review"],
-      "recommended_pivots": ["check_success_after_failure", "review_source_reputation", "check_privileged_users"]
+      "related_use_cases": [
+        "auth_failed_login_spike",
+        "auth_success_after_failure",
+        "critical_notable_mitre_review"
+      ],
+      "recommended_pivots": [
+        "check_success_after_failure",
+        "review_source_reputation",
+        "check_privileged_users"
+      ]
     },
     {
       "technique_id": "T1110.003",
       "name": "Password Spraying",
       "tactic": "Credential Access",
       "description": "Adversaries may use a single or small list of commonly used passwords against many different accounts to attempt to acquire valid account credentials.",
-      "detection_patterns": ["many_users_few_failures_each", "distributed_source_pattern"],
-      "evidence_requirements": ["distinct_user_count", "failure_distribution", "time_window"],
+      "detection_patterns": [
+        "many_users_few_failures_each",
+        "distributed_source_pattern"
+      ],
+      "evidence_requirements": [
+        "distinct_user_count",
+        "failure_distribution",
+        "time_window"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["multiple_users_with_failures"],
-        "supported": ["spray_pattern_confirmed", "low_per_user_threshold"],
-        "confirmed": ["benign_sources_cleared", "automation_cleared"]
+        "candidate": [
+          "multiple_users_with_failures"
+        ],
+        "supported": [
+          "spray_pattern_confirmed",
+          "low_per_user_threshold"
+        ],
+        "confirmed": [
+          "benign_sources_cleared",
+          "automation_cleared"
+        ]
       },
       "related_use_cases": [],
-      "recommended_pivots": ["check_user_distribution", "compare_per_user_failure_count", "review_source_ip"]
+      "recommended_pivots": [
+        "check_user_distribution",
+        "compare_per_user_failure_count",
+        "review_source_ip"
+      ]
     },
     {
       "technique_id": "T1078",
       "name": "Valid Accounts",
       "tactic": "Initial Access / Persistence / Privilege Escalation / Defense Evasion",
       "description": "Adversaries may obtain and abuse credentials of existing accounts.",
-      "detection_patterns": ["success_after_failures", "new_source_success", "privileged_account_anomaly"],
-      "evidence_requirements": ["successful_authentication", "account_context", "source_context"],
+      "detection_patterns": [
+        "success_after_failures",
+        "new_source_success",
+        "privileged_account_anomaly"
+      ],
+      "evidence_requirements": [
+        "successful_authentication",
+        "account_context",
+        "source_context"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["new_source_success_or_success_after_failure"],
-        "supported": ["successful_authentication_after_failures"],
-        "confirmed": ["account_legitimacy_reviewed", "benign_use_cleared"]
+        "candidate": [
+          "new_source_success_or_success_after_failure"
+        ],
+        "supported": [
+          "successful_authentication_after_failures"
+        ],
+        "confirmed": [
+          "account_legitimacy_reviewed",
+          "benign_use_cleared"
+        ]
       },
-      "related_use_cases": ["auth_success_after_failure", "auth_new_source_ip_login", "critical_notable_mitre_review"],
-      "recommended_pivots": ["identity_context", "mfa_status", "session_activity"]
+      "related_use_cases": [
+        "auth_success_after_failure",
+        "auth_new_source_ip_login",
+        "critical_notable_mitre_review"
+      ],
+      "recommended_pivots": [
+        "identity_context",
+        "mfa_status",
+        "session_activity"
+      ]
     },
     {
       "technique_id": "T1059",
       "name": "Command and Scripting Interpreter",
       "tactic": "Execution",
       "description": "Adversaries may abuse command and script interpreters to execute commands, scripts, or binaries.",
-      "detection_patterns": ["suspicious_process_command_line", "script_interpreter_execution"],
-      "evidence_requirements": ["process_name", "command_line", "parent_process", "user", "host"],
+      "detection_patterns": [
+        "suspicious_process_command_line",
+        "script_interpreter_execution"
+      ],
+      "evidence_requirements": [
+        "process_name",
+        "command_line",
+        "parent_process",
+        "user",
+        "host"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["interpreter_alert_context"],
-        "supported": ["command_or_script_evidence_present"],
-        "confirmed": ["benign_admin_activity_cleared"]
+        "candidate": [
+          "interpreter_alert_context"
+        ],
+        "supported": [
+          "command_or_script_evidence_present"
+        ],
+        "confirmed": [
+          "benign_admin_activity_cleared"
+        ]
       },
-      "related_use_cases": ["edr_powershell_suspicious_command"],
-      "recommended_pivots": ["review_parent_process", "check_script_block_logging", "check_network_connections"]
+      "related_use_cases": [
+        "edr_powershell_suspicious_command"
+      ],
+      "recommended_pivots": [
+        "review_parent_process",
+        "check_script_block_logging",
+        "check_network_connections"
+      ]
     },
     {
       "technique_id": "T1059.001",
       "name": "PowerShell",
       "tactic": "Execution",
       "description": "Adversaries may abuse PowerShell commands and scripts for execution.",
-      "detection_patterns": ["powershell_command_line", "encoded_command", "script_block_event"],
-      "evidence_requirements": ["command_line", "script_block_text", "event_id", "parent_process", "encoded_command_flag"],
+      "detection_patterns": [
+        "powershell_command_line",
+        "encoded_command",
+        "script_block_event"
+      ],
+      "evidence_requirements": [
+        "command_line",
+        "script_block_text",
+        "event_id",
+        "parent_process",
+        "encoded_command_flag"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["powershell_alert_context"],
-        "supported": ["command_or_script_block_evidence_present"],
-        "confirmed": ["benign_admin_activity_cleared"]
+        "candidate": [
+          "powershell_alert_context"
+        ],
+        "supported": [
+          "command_or_script_block_evidence_present"
+        ],
+        "confirmed": [
+          "benign_admin_activity_cleared"
+        ]
       },
-      "related_use_cases": ["edr_powershell_suspicious_command", "critical_notable_mitre_review"],
-      "recommended_pivots": ["decode_command_if_available", "review_parent_process", "check_child_processes"]
+      "related_use_cases": [
+        "edr_powershell_suspicious_command",
+        "critical_notable_mitre_review"
+      ],
+      "recommended_pivots": [
+        "decode_command_if_available",
+        "review_parent_process",
+        "check_child_processes"
+      ]
     },
     {
       "technique_id": "T1566",
       "name": "Phishing",
       "tactic": "Initial Access",
       "description": "Adversaries may send phishing messages to gain access or deliver payloads.",
-      "detection_patterns": ["phishing_alert_context", "mail_gateway_verdict", "malicious_url_or_attachment"],
-      "evidence_requirements": ["sender", "return_path", "reply_to", "email_authentication_results", "urls_or_attachments", "gateway_verdict"],
+      "detection_patterns": [
+        "phishing_alert_context",
+        "mail_gateway_verdict",
+        "malicious_url_or_attachment"
+      ],
+      "evidence_requirements": [
+        "sender",
+        "return_path",
+        "reply_to",
+        "email_authentication_results",
+        "urls_or_attachments",
+        "gateway_verdict"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["phishing_alert_context"],
-        "supported": ["multiple_email_indicators_or_gateway_verdict"],
-        "confirmed": ["malicious_verdict_and_scope_validated"]
+        "candidate": [
+          "phishing_alert_context"
+        ],
+        "supported": [
+          "multiple_email_indicators_or_gateway_verdict"
+        ],
+        "confirmed": [
+          "malicious_verdict_and_scope_validated"
+        ]
       },
-      "related_use_cases": ["email_phishing_header_review"],
-      "recommended_pivots": ["review_spf_dkim_dmarc", "collect_urls_domains", "check_attachment_hashes"]
+      "related_use_cases": [
+        "email_phishing_header_review"
+      ],
+      "recommended_pivots": [
+        "review_spf_dkim_dmarc",
+        "collect_urls_domains",
+        "check_attachment_hashes"
+      ]
     },
     {
       "technique_id": "T1566.001",
       "name": "Spearphishing Attachment",
       "tactic": "Initial Access",
       "description": "Adversaries may send spearphishing emails with malicious attachments.",
-      "detection_patterns": ["attachment_hash_verdict", "mail_gateway_attachment_verdict"],
-      "evidence_requirements": ["attachment_name", "attachment_hash", "gateway_verdict", "recipient_scope"],
+      "detection_patterns": [
+        "attachment_hash_verdict",
+        "mail_gateway_attachment_verdict"
+      ],
+      "evidence_requirements": [
+        "attachment_name",
+        "attachment_hash",
+        "gateway_verdict",
+        "recipient_scope"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["phishing_attachment_context"],
-        "supported": ["attachment_hash_or_gateway_verdict_present"],
-        "confirmed": ["malicious_attachment_verdict_validated"]
+        "candidate": [
+          "phishing_attachment_context"
+        ],
+        "supported": [
+          "attachment_hash_or_gateway_verdict_present"
+        ],
+        "confirmed": [
+          "malicious_attachment_verdict_validated"
+        ]
       },
-      "related_use_cases": ["email_phishing_header_review"],
-      "recommended_pivots": ["hash_reputation", "recipient_scope", "sandbox_verdict_if_available"]
+      "related_use_cases": [
+        "email_phishing_header_review"
+      ],
+      "recommended_pivots": [
+        "hash_reputation",
+        "recipient_scope",
+        "sandbox_verdict_if_available"
+      ]
     },
     {
       "technique_id": "T1566.002",
       "name": "Spearphishing Link",
       "tactic": "Initial Access",
       "description": "Adversaries may send spearphishing emails containing links.",
-      "detection_patterns": ["malicious_url", "suspicious_domain", "mail_gateway_url_verdict"],
-      "evidence_requirements": ["url", "domain", "gateway_verdict", "recipient_scope"],
+      "detection_patterns": [
+        "malicious_url",
+        "suspicious_domain",
+        "mail_gateway_url_verdict"
+      ],
+      "evidence_requirements": [
+        "url",
+        "domain",
+        "gateway_verdict",
+        "recipient_scope"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["phishing_link_context"],
-        "supported": ["malicious_url_or_gateway_verdict_present"],
-        "confirmed": ["malicious_url_verdict_validated"]
+        "candidate": [
+          "phishing_link_context"
+        ],
+        "supported": [
+          "malicious_url_or_gateway_verdict_present"
+        ],
+        "confirmed": [
+          "malicious_url_verdict_validated"
+        ]
       },
-      "related_use_cases": ["email_phishing_header_review"],
-      "recommended_pivots": ["url_reputation", "domain_age", "recipient_clicks_if_available"]
+      "related_use_cases": [
+        "email_phishing_header_review"
+      ],
+      "recommended_pivots": [
+        "url_reputation",
+        "domain_age",
+        "recipient_clicks_if_available"
+      ]
     },
     {
       "technique_id": "T1071",
       "name": "Application Layer Protocol",
       "tactic": "Command and Control",
       "description": "Adversaries may communicate using application layer protocols to avoid detection.",
-      "detection_patterns": ["periodic_network_traffic", "rare_domain", "jitter_profile"],
-      "evidence_requirements": ["src", "dest", "domain", "periodicity", "jitter", "bytes_out", "host_association"],
+      "detection_patterns": [
+        "periodic_network_traffic",
+        "rare_domain",
+        "jitter_profile"
+      ],
+      "evidence_requirements": [
+        "src",
+        "dest",
+        "domain",
+        "periodicity",
+        "jitter",
+        "bytes_out",
+        "host_association"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["beaconing_alert_context"],
-        "supported": ["multiple_beaconing_signals_present"],
-        "confirmed": ["benign_polling_cleared_and_c2_indicators_validated"]
+        "candidate": [
+          "beaconing_alert_context"
+        ],
+        "supported": [
+          "multiple_beaconing_signals_present"
+        ],
+        "confirmed": [
+          "benign_polling_cleared_and_c2_indicators_validated"
+        ]
       },
-      "related_use_cases": ["dns_beaconing_candidate"],
-      "recommended_pivots": ["measure_periodicity", "review_domain_rarity", "check_host_process_context"]
+      "related_use_cases": [
+        "dns_beaconing_candidate"
+      ],
+      "recommended_pivots": [
+        "measure_periodicity",
+        "review_domain_rarity",
+        "check_host_process_context"
+      ]
+    },
+    {
+      "technique_id": "T1071.004",
+      "name": "Application Layer Protocol: DNS",
+      "tactic": "Command and Control",
+      "description": "Adversaries may communicate using DNS to avoid detection by blending with existing traffic. Candidate-tier anchor: DNS volume or large responses alone do not confirm DNS-based C2/tunneling — confirmation requires adversary commands/results embedded in DNS.",
+      "detection_patterns": [
+        "high_dns_query_volume",
+        "large_dns_response_volume",
+        "rare_domain"
+      ],
+      "evidence_requirements": [
+        "src",
+        "domain",
+        "dns_query_count",
+        "response_size",
+        "c2_or_tunneling_indicator"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "dns_anomaly_present"
+        ],
+        "supported": [
+          "dns_periodicity_and_rarity_present"
+        ],
+        "confirmed": [
+          "dns_tunneling_or_embedded_c2_validated"
+        ]
+      },
+      "related_use_cases": [
+        "dns_beaconing_candidate"
+      ],
+      "recommended_pivots": [
+        "inspect_dns_payload_entropy",
+        "review_domain_rarity",
+        "check_tunneling_indicators"
+      ]
+    },
+    {
+      "technique_id": "T1048",
+      "name": "Exfiltration Over Alternative Protocol",
+      "tactic": "Exfiltration",
+      "description": "Adversaries may steal data by exfiltrating it over a different protocol than the existing command-and-control channel. Candidate-tier anchor: a large outbound transfer is suspicious, not proof of exfiltration over an alternative protocol.",
+      "detection_patterns": [
+        "large_outbound_transfer",
+        "unusual_destination_protocol"
+      ],
+      "evidence_requirements": [
+        "src",
+        "dest",
+        "bytes_out",
+        "protocol",
+        "destination_reputation"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "large_outbound_volume_present"
+        ],
+        "supported": [
+          "unusual_protocol_and_destination_present"
+        ],
+        "confirmed": [
+          "data_staging_and_alt_protocol_exfil_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "identify_destination_reputation",
+        "correlate_data_staging",
+        "review_protocol_anomaly"
+      ]
     },
     {
       "technique_id": "T1486",
       "name": "Data Encrypted for Impact",
       "tactic": "Impact",
       "description": "Adversaries may encrypt data on target systems to interrupt availability.",
-      "detection_patterns": ["file_rename_volume", "extension_pattern", "encryption_behavior"],
-      "evidence_requirements": ["file_rename_count", "extension_pattern", "affected_paths", "process_name", "encryption_behavior"],
+      "detection_patterns": [
+        "file_rename_volume",
+        "extension_pattern",
+        "encryption_behavior"
+      ],
+      "evidence_requirements": [
+        "file_rename_count",
+        "extension_pattern",
+        "affected_paths",
+        "process_name",
+        "encryption_behavior"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["ransomware_or_impact_context"],
-        "supported": ["multiple_encryption_or_impact_signals_present"],
-        "confirmed": ["malware_or_ransom_note_and_scope_validated"]
+        "candidate": [
+          "ransomware_or_impact_context"
+        ],
+        "supported": [
+          "multiple_encryption_or_impact_signals_present"
+        ],
+        "confirmed": [
+          "malware_or_ransom_note_and_scope_validated"
+        ]
       },
-      "related_use_cases": ["endpoint_ransomware_impact_review"],
-      "recommended_pivots": ["review_process_context", "check_shadow_copy_activity", "assess_host_spread"]
+      "related_use_cases": [
+        "endpoint_ransomware_impact_review"
+      ],
+      "recommended_pivots": [
+        "review_process_context",
+        "check_shadow_copy_activity",
+        "assess_host_spread"
+      ]
     },
     {
       "technique_id": "T1490",
       "name": "Inhibit System Recovery",
       "tactic": "Impact",
       "description": "Adversaries may delete or remove recovery artifacts to prevent restoration.",
-      "detection_patterns": ["shadow_copy_deletion", "recovery_artifact_removal"],
-      "evidence_requirements": ["shadow_copy_deletion_indicator", "process_name", "command_line"],
+      "detection_patterns": [
+        "shadow_copy_deletion",
+        "recovery_artifact_removal"
+      ],
+      "evidence_requirements": [
+        "shadow_copy_deletion_indicator",
+        "process_name",
+        "command_line"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["recovery_inhibition_context"],
-        "supported": ["shadow_copy_or_recovery_deletion_evidence_present"],
-        "confirmed": ["recovery_inhibition_scope_validated"]
+        "candidate": [
+          "recovery_inhibition_context"
+        ],
+        "supported": [
+          "shadow_copy_or_recovery_deletion_evidence_present"
+        ],
+        "confirmed": [
+          "recovery_inhibition_scope_validated"
+        ]
       },
-      "related_use_cases": ["endpoint_ransomware_impact_review"],
-      "recommended_pivots": ["review_vssadmin_or_wbadmin_activity", "check_parent_process", "review_backup_alerts"]
+      "related_use_cases": [
+        "endpoint_ransomware_impact_review"
+      ],
+      "recommended_pivots": [
+        "review_vssadmin_or_wbadmin_activity",
+        "check_parent_process",
+        "review_backup_alerts"
+      ]
     },
     {
       "technique_id": "T1489",
       "name": "Service Stop",
       "tactic": "Impact",
       "description": "Adversaries may stop services to inhibit response or maximize impact.",
-      "detection_patterns": ["service_stop_event", "security_service_stopped"],
-      "evidence_requirements": ["service_stop_event", "service_name", "process_name", "user"],
+      "detection_patterns": [
+        "service_stop_event",
+        "security_service_stopped"
+      ],
+      "evidence_requirements": [
+        "service_stop_event",
+        "service_name",
+        "process_name",
+        "user"
+      ],
       "candidate_vs_confirmed_rules": {
-        "candidate": ["service_stop_context"],
-        "supported": ["service_stop_evidence_present"],
-        "confirmed": ["service_stop_scope_validated"]
+        "candidate": [
+          "service_stop_context"
+        ],
+        "supported": [
+          "service_stop_evidence_present"
+        ],
+        "confirmed": [
+          "service_stop_scope_validated"
+        ]
       },
-      "related_use_cases": ["endpoint_ransomware_impact_review"],
-      "recommended_pivots": ["review_service_name", "check_user_context", "correlate_with_file_impact"]
+      "related_use_cases": [
+        "endpoint_ransomware_impact_review"
+      ],
+      "recommended_pivots": [
+        "review_service_name",
+        "check_user_context",
+        "correlate_with_file_impact"
+      ]
+    },
+    {
+      "technique_id": "T1001",
+      "name": "Data Obfuscation",
+      "tactic": "Command and Control",
+      "description": "Adversaries may obfuscate command and control traffic to make it more difficult to detect.(Citation: Bitdefender FunnyDream Campaign November 2020) Command and control (C2) communications are hidden (but not necessarily encrypted) in an attempt to make the content more difficult to discover or decipher and to make the communication less conspicuous and hide commands from being seen. This encompass",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1003",
+      "name": "OS Credential Dumping",
+      "tactic": "Credential Access",
+      "description": "Adversaries may attempt to dump credentials to obtain account login and credential material, normally in the form of a hash or a clear text password. Credentials can be obtained from OS caches, memory, or structures.(Citation: Brining MimiKatz to Unix) Credentials can then be used to perform [Lateral Movement](https://attack.mitre.org/tactics/TA0008) and access restricted information. Several of t",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "credential_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "credential_access_evidence_present"
+        ],
+        "supported": [
+          "credential_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "credential_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1003.001",
+      "name": "OS Credential Dumping: LSASS Memory",
+      "tactic": "Credential Access",
+      "description": "Adversaries may attempt to access credential material stored in the process memory of the Local Security Authority Subsystem Service (LSASS). After a user logs on, the system generates and stores a variety of credential materials in LSASS process memory. These credential materials can be harvested by an administrative user or SYSTEM and used to conduct [Lateral Movement](https://attack.mitre.org/t",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "credential_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "credential_access_evidence_present"
+        ],
+        "supported": [
+          "credential_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "credential_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1003.002",
+      "name": "OS Credential Dumping: Security Account Manager",
+      "tactic": "Credential Access",
+      "description": "Adversaries may attempt to extract credential material from the Security Account Manager (SAM) database either through in-memory techniques or through the Windows Registry where the SAM database is stored. The SAM is a database file that contains local accounts for the host, typically those found with the <code>net user</code> command. Enumerating the SAM database requires SYSTEM level access. A n",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "credential_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "credential_access_evidence_present"
+        ],
+        "supported": [
+          "credential_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "credential_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1003.003",
+      "name": "OS Credential Dumping: NTDS",
+      "tactic": "Credential Access",
+      "description": "Adversaries may attempt to access or create a copy of the Active Directory domain database in order to steal credential information, as well as obtain other information about domain members such as devices, users, and access rights. By default, the NTDS file (NTDS.dit) is located in <code>%SystemRoot%\\NTDS\\Ntds.dit</code> of a domain controller.(Citation: Wikipedia Active Directory) In addition to",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "credential_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "credential_access_evidence_present"
+        ],
+        "supported": [
+          "credential_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "credential_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1016",
+      "name": "System Network Configuration Discovery",
+      "tactic": "Discovery",
+      "description": "Adversaries may look for details about the network configuration and settings, such as IP and/or MAC addresses, of systems they access or through information discovery of remote systems. Several operating system administration utilities exist that can be used to gather this information. Examples include [Arp](https://attack.mitre.org/software/S0099), [ipconfig](https://attack.mitre.org/software/S0",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "discovery_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "discovery_evidence_present"
+        ],
+        "supported": [
+          "discovery_evidence_corroborated"
+        ],
+        "confirmed": [
+          "discovery_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1020",
+      "name": "Automated Exfiltration",
+      "tactic": "Exfiltration",
+      "description": "Adversaries may exfiltrate data, such as sensitive documents, through the use of automated processing after being gathered during Collection.(Citation: ESET Gamaredon June 2020) When automated exfiltration is used, other exfiltration techniques likely apply as well to transfer the information out of the network, such as [Exfiltration Over C2 Channel](https://attack.mitre.org/techniques/T1041) and ",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "outbound_transfer"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "outbound_transfer_present"
+        ],
+        "supported": [
+          "outbound_transfer_corroborated"
+        ],
+        "confirmed": [
+          "outbound_transfer_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1021",
+      "name": "Remote Services",
+      "tactic": "Lateral Movement",
+      "description": "Adversaries may use [Valid Accounts](https://attack.mitre.org/techniques/T1078) to log into a service that accepts remote connections, such as telnet, SSH, and VNC. The adversary may then perform actions as the logged-on user. In an enterprise environment, servers and workstations can be organized into domains. Domains provide centralized identity management, allowing users to login using one set ",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "lateral_movement_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "lateral_movement_evidence_present"
+        ],
+        "supported": [
+          "lateral_movement_evidence_corroborated"
+        ],
+        "confirmed": [
+          "lateral_movement_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1021.001",
+      "name": "Remote Services: Remote Desktop Protocol",
+      "tactic": "Lateral Movement",
+      "description": "Adversaries may use [Valid Accounts](https://attack.mitre.org/techniques/T1078) to log into a computer using the Remote Desktop Protocol (RDP). The adversary may then perform actions as the logged-on user. Remote desktop is a common feature in operating systems. It allows a user to log into an interactive session with a system desktop graphical user interface on a remote system. Microsoft refers t",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "lateral_movement_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "lateral_movement_evidence_present"
+        ],
+        "supported": [
+          "lateral_movement_evidence_corroborated"
+        ],
+        "confirmed": [
+          "lateral_movement_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1021.002",
+      "name": "Remote Services: SMB/Windows Admin Shares",
+      "tactic": "Lateral Movement",
+      "description": "Adversaries may use [Valid Accounts](https://attack.mitre.org/techniques/T1078) to interact with a remote network share using Server Message Block (SMB). The adversary may then perform actions as the logged-on user. SMB is a file, printer, and serial port sharing protocol for Windows machines on the same network or domain. Adversaries may use SMB to interact with file shares, allowing them to move",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "lateral_movement_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "lateral_movement_evidence_present"
+        ],
+        "supported": [
+          "lateral_movement_evidence_corroborated"
+        ],
+        "confirmed": [
+          "lateral_movement_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1021.003",
+      "name": "Remote Services: Distributed Component Object Model",
+      "tactic": "Lateral Movement",
+      "description": "Adversaries may use [Valid Accounts](https://attack.mitre.org/techniques/T1078) to interact with remote machines by taking advantage of Distributed Component Object Model (DCOM). The adversary may then perform actions as the logged-on user. The Windows Component Object Model (COM) is a component of the native Windows application programming interface (API) that enables interaction between software",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "lateral_movement_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "lateral_movement_evidence_present"
+        ],
+        "supported": [
+          "lateral_movement_evidence_corroborated"
+        ],
+        "confirmed": [
+          "lateral_movement_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1021.004",
+      "name": "Remote Services: SSH",
+      "tactic": "Lateral Movement",
+      "description": "Adversaries may use [Valid Accounts](https://attack.mitre.org/techniques/T1078) to log into remote machines using Secure Shell (SSH). The adversary may then perform actions as the logged-on user. SSH is a protocol that allows authorized users to open remote shells on other computers. Many Linux and macOS versions come with SSH installed by default, although typically disabled until the user enable",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "lateral_movement_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "lateral_movement_evidence_present"
+        ],
+        "supported": [
+          "lateral_movement_evidence_corroborated"
+        ],
+        "confirmed": [
+          "lateral_movement_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1027",
+      "name": "Obfuscated Files or Information",
+      "tactic": "Stealth",
+      "description": "Adversaries may attempt to make an executable or file difficult to discover or analyze by encrypting, encoding, or otherwise obfuscating its contents on the system or in transit. This is common behavior that can be used across different platforms and the network to evade defenses. Payloads may be compressed, archived, or encrypted in order to avoid detection. These payloads may be used during Init",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "defense_evasion_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "defense_evasion_evidence_present"
+        ],
+        "supported": [
+          "defense_evasion_evidence_corroborated"
+        ],
+        "confirmed": [
+          "defense_evasion_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1036",
+      "name": "Masquerading",
+      "tactic": "Stealth",
+      "description": "Adversaries may attempt to manipulate features of their artifacts to make them appear legitimate or benign to users and/or security tools. Masquerading occurs when the name or location of an object, legitimate or malicious, is manipulated or abused for the sake of evading defenses and observation. This may include manipulating file metadata, tricking users into misidentifying the file type, and gi",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "defense_evasion_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "defense_evasion_evidence_present"
+        ],
+        "supported": [
+          "defense_evasion_evidence_corroborated"
+        ],
+        "confirmed": [
+          "defense_evasion_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1036.004",
+      "name": "Masquerading: Masquerade Task or Service",
+      "tactic": "Stealth",
+      "description": "Adversaries may attempt to manipulate the name of a task or service to make it appear legitimate or benign. Tasks/services executed by the Task Scheduler or systemd will typically be given a name and/or description.(Citation: TechNet Schtasks)(Citation: Systemd Service Units) Windows services will have a service name as well as a display name. Many benign tasks and services exist that have commonl",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "defense_evasion_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "defense_evasion_evidence_present"
+        ],
+        "supported": [
+          "defense_evasion_evidence_corroborated"
+        ],
+        "confirmed": [
+          "defense_evasion_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1036.005",
+      "name": "Masquerading: Match Legitimate Resource Name or Location",
+      "tactic": "Stealth",
+      "description": "Adversaries may match or approximate the name or location of legitimate files, Registry keys, or other resources when naming/placing them. This is done for the sake of evading defenses and observation. This may be done by placing an executable in a commonly trusted directory (ex: under System32) or giving it the name of a legitimate, trusted program (ex: `svchost.exe`). Alternatively, a Windows Re",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "defense_evasion_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "defense_evasion_evidence_present"
+        ],
+        "supported": [
+          "defense_evasion_evidence_corroborated"
+        ],
+        "confirmed": [
+          "defense_evasion_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1037",
+      "name": "Boot or Logon Initialization Scripts",
+      "tactic": "Persistence",
+      "description": "Adversaries may use scripts automatically executed at boot or logon initialization to establish persistence.(Citation: Mandiant APT29 Eye Spy Email Nov 22)(Citation: Anomali Rocke March 2019) Initialization scripts can be used to perform administrative functions, which may often execute other programs or send information to an internal logging server. These scripts can vary based on operating syst",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "persistence_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "persistence_evidence_present"
+        ],
+        "supported": [
+          "persistence_evidence_corroborated"
+        ],
+        "confirmed": [
+          "persistence_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1040",
+      "name": "Network Sniffing",
+      "tactic": "Credential Access",
+      "description": "Adversaries may passively sniff network traffic to capture information about an environment, including authentication material passed over the network. Network sniffing refers to using the network interface on a system to monitor or capture information sent over a wired or wireless connection. An adversary may place a network interface into promiscuous mode to passively access data in transit over",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "credential_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "credential_access_evidence_present"
+        ],
+        "supported": [
+          "credential_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "credential_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1041",
+      "name": "Exfiltration Over C2 Channel",
+      "tactic": "Exfiltration",
+      "description": "Adversaries may steal data by exfiltrating it over an existing command and control channel. Stolen data is encoded into the normal communications channel using the same protocol as command and control communications.",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "outbound_transfer"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "outbound_transfer_present"
+        ],
+        "supported": [
+          "outbound_transfer_corroborated"
+        ],
+        "confirmed": [
+          "outbound_transfer_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1046",
+      "name": "Network Service Discovery",
+      "tactic": "Discovery",
+      "description": "Adversaries may attempt to get a listing of services running on remote hosts and local network infrastructure devices, including those that may be vulnerable to remote software exploitation. Common methods to acquire this information include port, vulnerability, and/or wordlist scans using tools that are brought onto a system.(Citation: CISA AR21-126A FIVEHANDS May 2021) Within cloud environments,",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "discovery_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "discovery_evidence_present"
+        ],
+        "supported": [
+          "discovery_evidence_corroborated"
+        ],
+        "confirmed": [
+          "discovery_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1047",
+      "name": "Windows Management Instrumentation",
+      "tactic": "Execution",
+      "description": "Adversaries may abuse Windows Management Instrumentation (WMI) to execute malicious commands and payloads. WMI is designed for programmers and is the infrastructure for management data and operations on Windows systems.(Citation: WMI 1-3) WMI is an administration feature that provides a uniform environment to access Windows system components. The WMI service enables both local and remote access, t",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "process_execution_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "process_execution_evidence_present"
+        ],
+        "supported": [
+          "process_execution_evidence_corroborated"
+        ],
+        "confirmed": [
+          "process_execution_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1049",
+      "name": "System Network Connections Discovery",
+      "tactic": "Discovery",
+      "description": "Adversaries may attempt to get a listing of network connections to or from the compromised system they are currently accessing or from remote systems by querying for information over the network. An adversary who gains access to a system that is part of a cloud-based environment may map out Virtual Private Clouds or Virtual Networks in order to determine what systems and services are connected. Th",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "discovery_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "discovery_evidence_present"
+        ],
+        "supported": [
+          "discovery_evidence_corroborated"
+        ],
+        "confirmed": [
+          "discovery_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1053.003",
+      "name": "Scheduled Task/Job: Cron",
+      "tactic": "Execution",
+      "description": "Adversaries may abuse the <code>cron</code> utility to perform task scheduling for initial or recurring execution of malicious code.(Citation: 20 macOS Common Tools and Techniques) The <code>cron</code> utility is a time-based job scheduler for Unix-like operating systems. The <code> crontab</code> file contains the schedule of cron entries to be run and the specified times for execution. Any <cod",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "process_execution_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "process_execution_evidence_present"
+        ],
+        "supported": [
+          "process_execution_evidence_corroborated"
+        ],
+        "confirmed": [
+          "process_execution_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1053.005",
+      "name": "Scheduled Task/Job: Scheduled Task",
+      "tactic": "Execution",
+      "description": "Adversaries may abuse the Windows Task Scheduler to perform task scheduling for initial or recurring execution of malicious code. There are multiple ways to access the Task Scheduler in Windows. The [schtasks](https://attack.mitre.org/software/S0111) utility can be run directly on the command line, or the Task Scheduler can be opened through the GUI within the Administrator Tools section of the Co",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "process_execution_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "process_execution_evidence_present"
+        ],
+        "supported": [
+          "process_execution_evidence_corroborated"
+        ],
+        "confirmed": [
+          "process_execution_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1055",
+      "name": "Process Injection",
+      "tactic": "Privilege Escalation",
+      "description": "Adversaries may inject code into processes in order to evade process-based defenses as well as possibly elevate privileges. Process injection is a method of executing arbitrary code in the address space of a separate live process. Running code in the context of another process may allow access to the process's memory, system/network resources, and possibly elevated privileges. Execution via proces",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "privilege_escalation_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "privilege_escalation_evidence_present"
+        ],
+        "supported": [
+          "privilege_escalation_evidence_corroborated"
+        ],
+        "confirmed": [
+          "privilege_escalation_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1055.002",
+      "name": "Process Injection: Portable Executable Injection",
+      "tactic": "Privilege Escalation",
+      "description": "Adversaries may inject portable executables (PE) into processes in order to evade process-based defenses as well as possibly elevate privileges. PE injection is a method of executing arbitrary code in the address space of a separate live process. PE injection is commonly performed by copying code (perhaps without a file on disk) into the virtual address space of the target process before invoking ",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "privilege_escalation_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "privilege_escalation_evidence_present"
+        ],
+        "supported": [
+          "privilege_escalation_evidence_corroborated"
+        ],
+        "confirmed": [
+          "privilege_escalation_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1055.003",
+      "name": "Process Injection: Thread Execution Hijacking",
+      "tactic": "Privilege Escalation",
+      "description": "Adversaries may inject malicious code into hijacked processes in order to evade process-based defenses as well as possibly elevate privileges. Thread Execution Hijacking is a method of executing arbitrary code in the address space of a separate live process. Thread Execution Hijacking is commonly performed by suspending an existing process then unmapping/hollowing its memory, which can then be rep",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "privilege_escalation_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "privilege_escalation_evidence_present"
+        ],
+        "supported": [
+          "privilege_escalation_evidence_corroborated"
+        ],
+        "confirmed": [
+          "privilege_escalation_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1056",
+      "name": "Input Capture",
+      "tactic": "Collection",
+      "description": "Adversaries may use methods of capturing user input to obtain credentials or collect information. During normal system usage, users often provide credentials to various different locations, such as login pages/portals or system dialog boxes. Input capture mechanisms may be transparent to the user (e.g. [Credential API Hooking](https://attack.mitre.org/techniques/T1056/004)) or rely on deceiving th",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "collection_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "collection_evidence_present"
+        ],
+        "supported": [
+          "collection_evidence_corroborated"
+        ],
+        "confirmed": [
+          "collection_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1057",
+      "name": "Process Discovery",
+      "tactic": "Discovery",
+      "description": "Adversaries may attempt to get information about running processes on a system. Information obtained could be used to gain an understanding of common software/applications running on systems within the network. Administrator or otherwise elevated access may provide better process details. Adversaries may use the information from [Process Discovery](https://attack.mitre.org/techniques/T1057) during",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "discovery_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "discovery_evidence_present"
+        ],
+        "supported": [
+          "discovery_evidence_corroborated"
+        ],
+        "confirmed": [
+          "discovery_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1059.003",
+      "name": "Command and Scripting Interpreter: Windows Command Shell",
+      "tactic": "Execution",
+      "description": "Adversaries may abuse the Windows command shell for execution. The Windows command shell ([cmd](https://attack.mitre.org/software/S0106)) is the primary command prompt on Windows systems. The Windows command prompt can be used to control almost any aspect of a system, with various permission levels required for different subsets of commands. The command prompt can be invoked remotely via [Remote S",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "process_execution_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "process_execution_evidence_present"
+        ],
+        "supported": [
+          "process_execution_evidence_corroborated"
+        ],
+        "confirmed": [
+          "process_execution_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1059.007",
+      "name": "Command and Scripting Interpreter: JavaScript",
+      "tactic": "Execution",
+      "description": "Adversaries may abuse various implementations of JavaScript for execution. JavaScript (JS) is a platform-independent scripting language (compiled just-in-time at runtime) commonly associated with scripts in webpages, though JS can be executed in runtime environments outside the browser.(Citation: NodeJS) JScript is the Microsoft implementation of the same scripting standard. JScript is interpreted",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "process_execution_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "process_execution_evidence_present"
+        ],
+        "supported": [
+          "process_execution_evidence_corroborated"
+        ],
+        "confirmed": [
+          "process_execution_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1070.003",
+      "name": "Indicator Removal: Clear Command History",
+      "tactic": "Stealth",
+      "description": "In addition to clearing system logs, an adversary may clear the command history of a compromised account to conceal the actions undertaken during an intrusion. Various command interpreters keep track of the commands users type in their terminal so that users can retrace what they've done. On Linux and macOS, these command histories can be accessed in a few different ways. While logged in, this com",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "defense_evasion_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "defense_evasion_evidence_present"
+        ],
+        "supported": [
+          "defense_evasion_evidence_corroborated"
+        ],
+        "confirmed": [
+          "defense_evasion_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1070.004",
+      "name": "Indicator Removal: File Deletion",
+      "tactic": "Stealth",
+      "description": "Adversaries may delete files left behind by the actions of their intrusion activity. Malware, tools, or other non-native files dropped or created on a system by an adversary (ex: [Ingress Tool Transfer](https://attack.mitre.org/techniques/T1105)) may leave traces to indicate to what was done within a network and how. Removal of these files can occur during an intrusion, or as part of a post-intrus",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "defense_evasion_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "defense_evasion_evidence_present"
+        ],
+        "supported": [
+          "defense_evasion_evidence_corroborated"
+        ],
+        "confirmed": [
+          "defense_evasion_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1071.001",
+      "name": "Application Layer Protocol: Web Protocols",
+      "tactic": "Command and Control",
+      "description": "Adversaries may communicate using application layer protocols associated with web traffic to avoid detection/network filtering by blending in with existing traffic. Commands to the remote system, and often the results of those commands, will be embedded within the protocol traffic between the client and server. Protocols such as HTTP/S(Citation: CrowdStrike Putter Panda) and WebSocket(Citation: Br",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1071.002",
+      "name": "Application Layer Protocol: File Transfer Protocols",
+      "tactic": "Command and Control",
+      "description": "Adversaries may communicate using application layer protocols associated with transferring files to avoid detection/network filtering by blending in with existing traffic. Commands to the remote system, and often the results of those commands, will be embedded within the protocol traffic between the client and server. Protocols such as SMB(Citation: US-CERT TA18-074A), FTP(Citation: ESET Machete J",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1074",
+      "name": "Data Staged",
+      "tactic": "Collection",
+      "description": "Adversaries may stage collected data in a central location or directory prior to Exfiltration. Data may be kept in separate files or combined into one file through techniques such as [Archive Collected Data](https://attack.mitre.org/techniques/T1560). Interactive command shells may be used, and common functionality within [cmd](https://attack.mitre.org/software/S0106) and bash may be used to copy ",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "collection_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "collection_evidence_present"
+        ],
+        "supported": [
+          "collection_evidence_corroborated"
+        ],
+        "confirmed": [
+          "collection_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1078.002",
+      "name": "Valid Accounts: Domain Accounts",
+      "tactic": "Initial Access",
+      "description": "Adversaries may obtain and abuse credentials of a domain account as a means of gaining Initial Access, Persistence, Privilege Escalation, or Defense Evasion.(Citation: TechNet Credential Theft) Domain accounts are those managed by Active Directory Domain Services where access and permissions are configured across systems and services that are part of that domain. Domain accounts can cover users, a",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "initial_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "initial_access_evidence_present"
+        ],
+        "supported": [
+          "initial_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "initial_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1078.004",
+      "name": "Valid Accounts: Cloud Accounts",
+      "tactic": "Initial Access",
+      "description": "Valid accounts in cloud environments may allow adversaries to perform actions to achieve Initial Access, Persistence, Privilege Escalation, or Defense Evasion. Cloud accounts are those created and configured by an organization for use by users, remote support, services, or for administration of resources within a cloud service provider or SaaS application. Cloud Accounts can exist solely in the cl",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "initial_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "initial_access_evidence_present"
+        ],
+        "supported": [
+          "initial_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "initial_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1082",
+      "name": "System Information Discovery",
+      "tactic": "Discovery",
+      "description": "An adversary may attempt to get detailed information about the operating system and hardware, including version, patches, hotfixes, service packs, and architecture. Adversaries may use this information to shape follow-on behaviors, including whether or not the adversary fully infects the target and/or attempts specific actions. This behavior is distinct from [Local Storage Discovery](https://attac",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "discovery_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "discovery_evidence_present"
+        ],
+        "supported": [
+          "discovery_evidence_corroborated"
+        ],
+        "confirmed": [
+          "discovery_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1083",
+      "name": "File and Directory Discovery",
+      "tactic": "Discovery",
+      "description": "Adversaries may enumerate files and directories or may search in specific locations of a host or network share for certain information within a file system. Adversaries may use the information from [File and Directory Discovery](https://attack.mitre.org/techniques/T1083) during automated discovery to shape follow-on behaviors, including whether or not the adversary fully infects the target and/or ",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "discovery_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "discovery_evidence_present"
+        ],
+        "supported": [
+          "discovery_evidence_corroborated"
+        ],
+        "confirmed": [
+          "discovery_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1090",
+      "name": "Proxy",
+      "tactic": "Command and Control",
+      "description": "Adversaries may use a connection proxy to direct network traffic between systems or act as an intermediary for network communications to a command and control server to avoid direct connections to their infrastructure. Many tools exist that enable traffic redirection through proxies or port redirection, including [HTRAN](https://attack.mitre.org/software/S0040), ZXProxy, and ZXPortMap. (Citation: ",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1090.002",
+      "name": "Proxy: External Proxy",
+      "tactic": "Command and Control",
+      "description": "Adversaries may use an external proxy to act as an intermediary for network communications to a command and control server to avoid direct connections to their infrastructure. Many tools exist that enable traffic redirection through proxies or port redirection, including [HTRAN](https://attack.mitre.org/software/S0040), ZXProxy, and ZXPortMap. (Citation: Trend Micro APT Attack Tools) Adversaries u",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1090.003",
+      "name": "Proxy: Multi-hop Proxy",
+      "tactic": "Command and Control",
+      "description": "Adversaries may chain together multiple proxies to disguise the source of malicious traffic. Typically, a defender will be able to identify the last proxy traffic traversed before it enters their network; the defender may or may not be able to identify any previous proxies before the last-hop proxy. This technique makes identifying the original source of the malicious traffic even more difficult b",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1095",
+      "name": "Non-Application Layer Protocol",
+      "tactic": "Command and Control",
+      "description": "Adversaries may use an OSI non-application layer protocol for communication between host and C2 server or among infected hosts within a network. The list of possible protocols is extensive.(Citation: Wikipedia OSI) Specific examples include use of network layer protocols, such as the Internet Control Message Protocol (ICMP), transport layer protocols, such as the User Datagram Protocol (UDP), sess",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1098",
+      "name": "Account Manipulation",
+      "tactic": "Persistence",
+      "description": "Adversaries may manipulate accounts to maintain and/or elevate access to victim systems. Account manipulation may consist of any action that preserves or modifies adversary access to a compromised account, such as modifying credentials or permission groups.(Citation: FireEye SMOKEDHAM June 2021) These actions could also include account activity designed to subvert security policies, such as perfor",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "persistence_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "persistence_evidence_present"
+        ],
+        "supported": [
+          "persistence_evidence_corroborated"
+        ],
+        "confirmed": [
+          "persistence_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1098.001",
+      "name": "Account Manipulation: Additional Cloud Credentials",
+      "tactic": "Persistence",
+      "description": "Adversaries may add adversary-controlled credentials to a cloud account to maintain persistent access to victim accounts and instances within the environment. For example, adversaries may add credentials for Service Principals and Applications in addition to existing legitimate credentials in Azure / Entra ID.(Citation: Microsoft SolarWinds Customer Guidance)(Citation: Blue Cloud of Death)(Citatio",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "persistence_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "persistence_evidence_present"
+        ],
+        "supported": [
+          "persistence_evidence_corroborated"
+        ],
+        "confirmed": [
+          "persistence_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1098.002",
+      "name": "Account Manipulation: Additional Email Delegate Permissions",
+      "tactic": "Persistence",
+      "description": "Adversaries may grant additional permission levels to maintain persistent access to an adversary-controlled email account. For example, the <code>Add-MailboxPermission</code> [PowerShell](https://attack.mitre.org/techniques/T1059/001) cmdlet, available in on-premises Exchange and in the cloud-based service Office 365, adds permissions to a mailbox.(Citation: Microsoft - Add-MailboxPermission)(Cita",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "persistence_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "persistence_evidence_present"
+        ],
+        "supported": [
+          "persistence_evidence_corroborated"
+        ],
+        "confirmed": [
+          "persistence_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1105",
+      "name": "Ingress Tool Transfer",
+      "tactic": "Command and Control",
+      "description": "Adversaries may transfer tools or other files from an external system into a compromised environment. Tools or files may be copied from an external adversary-controlled system to the victim network through the command and control channel or through alternate protocols such as [ftp](https://attack.mitre.org/software/S0095). Once present, adversaries may also transfer/spread tools between victim dev",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1110.002",
+      "name": "Brute Force: Password Cracking",
+      "tactic": "Credential Access",
+      "description": "Adversaries may use password cracking to attempt to recover usable credentials, such as plaintext passwords, when credential material such as password hashes are obtained. [OS Credential Dumping](https://attack.mitre.org/techniques/T1003) can be used to obtain password hashes, this may only get an adversary so far when [Pass the Hash](https://attack.mitre.org/techniques/T1550/002) is not an option",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "credential_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "credential_access_evidence_present"
+        ],
+        "supported": [
+          "credential_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "credential_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1110.004",
+      "name": "Brute Force: Credential Stuffing",
+      "tactic": "Credential Access",
+      "description": "Adversaries may use credentials obtained from breach dumps of unrelated accounts to gain access to target accounts through credential overlap. Occasionally, large numbers of username and password pairs are dumped online when a website or service is compromised and the user account credentials accessed. The information may be useful to an adversary attempting to compromise accounts by taking advant",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "credential_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "credential_access_evidence_present"
+        ],
+        "supported": [
+          "credential_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "credential_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1112",
+      "name": "Modify Registry",
+      "tactic": "Defense Impairment",
+      "description": "Adversaries may interact with the Windows Registry as part of a variety of other techniques to aid in defense evasion, persistence, and execution. Access to specific areas of the Registry depends on account permissions, with some keys requiring administrator-level access. The built-in Windows command-line utility [Reg](https://attack.mitre.org/software/S0075) may be used for local or remote Regist",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "defense_evasion_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "defense_evasion_evidence_present"
+        ],
+        "supported": [
+          "defense_evasion_evidence_corroborated"
+        ],
+        "confirmed": [
+          "defense_evasion_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1132",
+      "name": "Data Encoding",
+      "tactic": "Command and Control",
+      "description": "Adversaries may encode data to make the content of command and control traffic more difficult to detect. Command and control (C2) information can be encoded using a standard data encoding system. Use of data encoding may adhere to existing protocol specifications and includes use of ASCII, Unicode, Base64, MIME, or other binary-to-text and character encoding systems.(Citation: Wikipedia Binary-to-",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1133",
+      "name": "External Remote Services",
+      "tactic": "Initial Access",
+      "description": "Adversaries may leverage external-facing remote services to initially access and/or persist within a network. Remote services such as VPNs, Citrix, and other access mechanisms allow users to connect to internal enterprise network resources from external locations. There are often remote service gateways that manage connections and credential authentication for these services. Services such as [Win",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "initial_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "initial_access_evidence_present"
+        ],
+        "supported": [
+          "initial_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "initial_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1190",
+      "name": "Exploit Public-Facing Application",
+      "tactic": "Initial Access",
+      "description": "Adversaries may attempt to exploit a weakness in an Internet-facing host or system to initially access a network. The weakness in the system can be a software bug, a temporary glitch, or a misconfiguration. Exploited applications are often websites/web servers, but can also include databases (like SQL), standard services (like SMB or SSH), network device administration and management protocols (li",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "initial_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "initial_access_evidence_present"
+        ],
+        "supported": [
+          "initial_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "initial_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1204.002",
+      "name": "User Execution: Malicious File",
+      "tactic": "Execution",
+      "description": "An adversary may rely upon a user opening a malicious file in order to gain execution. Users may be subjected to social engineering to get them to open a file that will lead to code execution. This user action will typically be observed as follow-on behavior from [Spearphishing Attachment](https://attack.mitre.org/techniques/T1566/001). Adversaries may use several types of files that require a use",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "process_execution_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "process_execution_evidence_present"
+        ],
+        "supported": [
+          "process_execution_evidence_corroborated"
+        ],
+        "confirmed": [
+          "process_execution_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1210",
+      "name": "Exploitation of Remote Services",
+      "tactic": "Lateral Movement",
+      "description": "Adversaries may exploit remote services to gain unauthorized access to internal systems once inside of a network. Exploitation of a software vulnerability occurs when an adversary takes advantage of a programming error in a program, service, or within the operating system software or kernel itself to execute adversary-controlled code. A common goal for post-compromise exploitation of remote servic",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "lateral_movement_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "lateral_movement_evidence_present"
+        ],
+        "supported": [
+          "lateral_movement_evidence_corroborated"
+        ],
+        "confirmed": [
+          "lateral_movement_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1222",
+      "name": "File and Directory Permissions Modification",
+      "tactic": "Defense Impairment",
+      "description": "Adversaries may modify file or directory permissions/attributes to evade access control lists (ACLs) and access protected files.(Citation: Hybrid Analysis Icacls1 June 2018)(Citation: Hybrid Analysis Icacls2 May 2018) File and directory permissions are commonly managed by ACLs configured by the file or directory owner, or users with the appropriate permissions. File and directory ACL implementatio",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "defense_evasion_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "defense_evasion_evidence_present"
+        ],
+        "supported": [
+          "defense_evasion_evidence_corroborated"
+        ],
+        "confirmed": [
+          "defense_evasion_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1498",
+      "name": "Network Denial of Service",
+      "tactic": "Impact",
+      "description": "Adversaries may perform Network Denial of Service (DoS) attacks to degrade or block the availability of targeted resources to users. Network DoS can be performed by exhausting the network bandwidth services rely on. Example resources include specific websites, email services, DNS, and web-based applications. Adversaries have been observed conducting network DoS attacks for political purposes(Citat",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "impact_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "impact_evidence_present"
+        ],
+        "supported": [
+          "impact_evidence_corroborated"
+        ],
+        "confirmed": [
+          "impact_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1498.001",
+      "name": "Network Denial of Service: Direct Network Flood",
+      "tactic": "Impact",
+      "description": "Adversaries may attempt to cause a denial of service (DoS) by directly sending a high-volume of network traffic to a target. This DoS attack may also reduce the availability and functionality of the targeted system(s) and network. [Direct Network Flood](https://attack.mitre.org/techniques/T1498/001)s are when one or more systems are used to send a high-volume of network packets towards the targete",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "impact_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "impact_evidence_present"
+        ],
+        "supported": [
+          "impact_evidence_corroborated"
+        ],
+        "confirmed": [
+          "impact_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1499",
+      "name": "Endpoint Denial of Service",
+      "tactic": "Impact",
+      "description": "Adversaries may perform Endpoint Denial of Service (DoS) attacks to degrade or block the availability of services to users. Endpoint DoS can be performed by exhausting the system resources those services are hosted on or exploiting the system to cause a persistent crash condition. Example services include websites, email services, DNS, and web-based applications. Adversaries have been observed con",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "impact_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "impact_evidence_present"
+        ],
+        "supported": [
+          "impact_evidence_corroborated"
+        ],
+        "confirmed": [
+          "impact_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1505.003",
+      "name": "Server Software Component: Web Shell",
+      "tactic": "Persistence",
+      "description": "Adversaries may backdoor web servers with web shells to establish persistent access to systems. A Web shell is a Web script that is placed on an openly accessible Web server to allow an adversary to access the Web server as a gateway into a network. A Web shell may provide a set of functions to execute or a command-line interface on the system that hosts the Web server.(Citation: volexity_0day_sop",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "persistence_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "persistence_evidence_present"
+        ],
+        "supported": [
+          "persistence_evidence_corroborated"
+        ],
+        "confirmed": [
+          "persistence_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1539",
+      "name": "Steal Web Session Cookie",
+      "tactic": "Credential Access",
+      "description": "An adversary may steal web application or service session cookies and use them to gain access to web applications or Internet services as an authenticated user without needing credentials. Web applications and services often use session cookies as an authentication token after a user has authenticated to a website. Cookies are often valid for an extended period of time, even if the web application",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "credential_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "credential_access_evidence_present"
+        ],
+        "supported": [
+          "credential_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "credential_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1543",
+      "name": "Create or Modify System Process",
+      "tactic": "Persistence",
+      "description": "Adversaries may create or modify system-level processes to repeatedly execute malicious payloads as part of persistence. When operating systems boot up, they can start processes that perform background system functions. On Windows and Linux, these system processes are referred to as services.(Citation: TechNet Services) On macOS, launchd processes known as [Launch Daemon](https://attack.mitre.org/",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "persistence_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "persistence_evidence_present"
+        ],
+        "supported": [
+          "persistence_evidence_corroborated"
+        ],
+        "confirmed": [
+          "persistence_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1543.001",
+      "name": "Create or Modify System Process: Launch Agent",
+      "tactic": "Persistence",
+      "description": "Adversaries may create or modify launch agents to repeatedly execute malicious payloads as part of persistence. When a user logs in, a per-user launchd process is started which loads the parameters for each launch-on-demand user agent from the property list (.plist) file found in <code>/System/Library/LaunchAgents</code>, <code>/Library/LaunchAgents</code>, and <code>~/Library/LaunchAgents</code>.",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "persistence_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "persistence_evidence_present"
+        ],
+        "supported": [
+          "persistence_evidence_corroborated"
+        ],
+        "confirmed": [
+          "persistence_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1543.002",
+      "name": "Create or Modify System Process: Systemd Service",
+      "tactic": "Persistence",
+      "description": "Adversaries may create or modify systemd services to repeatedly execute malicious payloads as part of persistence. Systemd is a system and service manager commonly used for managing background daemon processes (also known as services) and other system resources.(Citation: Linux man-pages: systemd January 2014) Systemd is the default initialization (init) system on many Linux distributions replacin",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "persistence_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "persistence_evidence_present"
+        ],
+        "supported": [
+          "persistence_evidence_corroborated"
+        ],
+        "confirmed": [
+          "persistence_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1543.003",
+      "name": "Create or Modify System Process: Windows Service",
+      "tactic": "Persistence",
+      "description": "Adversaries may create or modify Windows services to repeatedly execute malicious payloads as part of persistence. When Windows boots up, it starts programs or applications called services that perform background system functions.(Citation: TechNet Services) Windows service configuration information, including the file path to the service's executable or recovery programs/commands, is stored in th",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "persistence_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "persistence_evidence_present"
+        ],
+        "supported": [
+          "persistence_evidence_corroborated"
+        ],
+        "confirmed": [
+          "persistence_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1547.001",
+      "name": "Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder",
+      "tactic": "Persistence",
+      "description": "Adversaries may achieve persistence by adding a program to a startup folder or referencing it with a Registry run key. Adding an entry to the \"run keys\" in the Registry or startup folder will cause the program referenced to be executed when a user logs in.(Citation: Microsoft Run Key) These programs will be executed under the context of the user and will have the account's associated permissions l",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "persistence_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "persistence_evidence_present"
+        ],
+        "supported": [
+          "persistence_evidence_corroborated"
+        ],
+        "confirmed": [
+          "persistence_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1556",
+      "name": "Modify Authentication Process",
+      "tactic": "Credential Access",
+      "description": "Adversaries may modify authentication mechanisms and processes to access user credentials or enable otherwise unwarranted access to accounts. The authentication process is handled by mechanisms, such as the Local Security Authentication Server (LSASS) process and the Security Accounts Manager (SAM) on Windows, pluggable authentication modules (PAM) on Unix-based systems, and authorization plugins ",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "credential_access_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "credential_access_evidence_present"
+        ],
+        "supported": [
+          "credential_access_evidence_corroborated"
+        ],
+        "confirmed": [
+          "credential_access_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1560.001",
+      "name": "Archive Collected Data: Archive via Utility",
+      "tactic": "Collection",
+      "description": "Adversaries may use utilities to compress and/or encrypt collected data prior to exfiltration. Many utilities include functionalities to compress, encrypt, or otherwise package data into a format that is easier/more secure to transport. Adversaries may abuse various utilities to compress or encrypt data before exfiltration. Some third party utilities may be preinstalled, such as <code>tar</code> o",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "collection_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "collection_evidence_present"
+        ],
+        "supported": [
+          "collection_evidence_corroborated"
+        ],
+        "confirmed": [
+          "collection_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1564.001",
+      "name": "Hide Artifacts: Hidden Files and Directories",
+      "tactic": "Stealth",
+      "description": "Adversaries may set files and directories to be hidden to evade detection mechanisms. To prevent normal users from accidentally changing special files on a system, most operating systems have the concept of a ‘hidden’ file. These files don’t show up when a user browses the file system with a GUI or when using normal commands on the command line. Users must explicitly ask to show the hidden files e",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "defense_evasion_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "defense_evasion_evidence_present"
+        ],
+        "supported": [
+          "defense_evasion_evidence_corroborated"
+        ],
+        "confirmed": [
+          "defense_evasion_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1565.001",
+      "name": "Data Manipulation: Stored Data Manipulation",
+      "tactic": "Impact",
+      "description": "Adversaries may insert, delete, or manipulate data at rest in order to influence external outcomes or hide activity, thus threatening the integrity of the data.(Citation: FireEye APT38 Oct 2018)(Citation: DOJ Lazarus Sony 2018) By manipulating stored data, adversaries may attempt to affect a business process, organizational understanding, and decision making. Stored data could include a variety of",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "impact_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "impact_evidence_present"
+        ],
+        "supported": [
+          "impact_evidence_corroborated"
+        ],
+        "confirmed": [
+          "impact_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1567",
+      "name": "Exfiltration Over Web Service",
+      "tactic": "Exfiltration",
+      "description": "Adversaries may use an existing, legitimate external Web service to exfiltrate data rather than their primary command and control channel. Popular Web services acting as an exfiltration mechanism may give a significant amount of cover due to the likelihood that hosts within a network are already communicating with them prior to compromise. Firewall rules may also already exist to permit traffic to",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "outbound_transfer"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "outbound_transfer_present"
+        ],
+        "supported": [
+          "outbound_transfer_corroborated"
+        ],
+        "confirmed": [
+          "outbound_transfer_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1567.002",
+      "name": "Exfiltration Over Web Service: Exfiltration to Cloud Storage",
+      "tactic": "Exfiltration",
+      "description": "Adversaries may exfiltrate data to a cloud storage service rather than over their primary command and control channel. Cloud storage services allow for the storage, edit, and retrieval of data from a remote cloud storage server over the Internet. Examples of cloud storage services include Dropbox and Google Docs. Exfiltration to these cloud storage services can provide a significant amount of cove",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "outbound_transfer"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "outbound_transfer_present"
+        ],
+        "supported": [
+          "outbound_transfer_corroborated"
+        ],
+        "confirmed": [
+          "outbound_transfer_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1568",
+      "name": "Dynamic Resolution",
+      "tactic": "Command and Control",
+      "description": "Adversaries may dynamically establish connections to command and control infrastructure to evade common detections and remediations. This may be achieved by using malware that shares a common algorithm with the infrastructure the adversary uses to receive the malware's communications. These calculations can be used to dynamically adjust parameters such as the domain name, IP address, or port numbe",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1568.002",
+      "name": "Dynamic Resolution: Domain Generation Algorithms",
+      "tactic": "Command and Control",
+      "description": "Adversaries may make use of Domain Generation Algorithms (DGAs) to dynamically identify a destination domain for command and control traffic rather than relying on a list of static IP addresses or domains. This has the advantage of making it much harder for defenders to block, track, or take over the command and control channel, as there potentially could be thousands of domains that malware can c",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1569.002",
+      "name": "System Services: Service Execution",
+      "tactic": "Execution",
+      "description": "Adversaries may abuse the Windows service control manager to execute malicious commands or payloads. The Windows service control manager (<code>services.exe</code>) is an interface to manage and manipulate services.(Citation: Microsoft Service Control Manager) The service control manager is accessible to users via GUI components as well as system utilities such as <code>sc.exe</code> and [Net](htt",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "process_execution_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "process_execution_evidence_present"
+        ],
+        "supported": [
+          "process_execution_evidence_corroborated"
+        ],
+        "confirmed": [
+          "process_execution_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1570",
+      "name": "Lateral Tool Transfer",
+      "tactic": "Lateral Movement",
+      "description": "Adversaries may transfer tools or other files between systems in a compromised environment. Once brought into the victim environment (i.e., [Ingress Tool Transfer](https://attack.mitre.org/techniques/T1105)) files may then be copied from one system to another to stage adversary tools or other files over the course of an operation. Adversaries may copy files between internal victim systems to suppo",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "lateral_movement_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "lateral_movement_evidence_present"
+        ],
+        "supported": [
+          "lateral_movement_evidence_corroborated"
+        ],
+        "confirmed": [
+          "lateral_movement_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1571",
+      "name": "Non-Standard Port",
+      "tactic": "Command and Control",
+      "description": "Adversaries may communicate using a protocol and port pairing that are typically not associated. For example, HTTPS over port 8088(Citation: Symantec Elfin Mar 2019) or port 587(Citation: Fortinet Agent Tesla April 2018) as opposed to the traditional port 443. Adversaries may make changes to the standard port used by a protocol to bypass filtering or muddle analysis/parsing of network data. Advers",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1572",
+      "name": "Protocol Tunneling",
+      "tactic": "Command and Control",
+      "description": "Adversaries may tunnel network communications to and from a victim system within a separate protocol to avoid detection/network filtering and/or enable access to otherwise unreachable systems. Tunneling involves explicitly encapsulating a protocol within another. This behavior may conceal malicious traffic by blending in with existing traffic and/or provide an outer layer of encryption (similar to",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1573",
+      "name": "Encrypted Channel",
+      "tactic": "Command and Control",
+      "description": "Adversaries may employ an encryption algorithm to conceal command and control traffic rather than relying on any inherent protections provided by a communication protocol. Despite the use of a secure algorithm, these implementations may be vulnerable to reverse engineering if secret keys are encoded and/or generated within malware samples/configuration files.",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "network_telemetry"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "network_telemetry_present"
+        ],
+        "supported": [
+          "network_telemetry_corroborated"
+        ],
+        "confirmed": [
+          "network_telemetry_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1583.001",
+      "name": "Acquire Infrastructure: Domains",
+      "tactic": "Resource Development",
+      "description": "Adversaries may acquire domains that can be used during targeting. Domain names are the human readable names used to represent one or more IP addresses. They can be purchased or, in some cases, acquired for free. Adversaries may use acquired domains for a variety of purposes, including for [Phishing](https://attack.mitre.org/techniques/T1566), [Drive-by Compromise](https://attack.mitre.org/techniq",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "resource_development_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "resource_development_evidence_present"
+        ],
+        "supported": [
+          "resource_development_evidence_corroborated"
+        ],
+        "confirmed": [
+          "resource_development_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1583.003",
+      "name": "Acquire Infrastructure: Virtual Private Server",
+      "tactic": "Resource Development",
+      "description": "Adversaries may rent Virtual Private Servers (VPSs) that can be used during targeting. There exist a variety of cloud service providers that will sell virtual machines/containers as a service. By utilizing a VPS, adversaries can make it difficult to physically tie back operations to them. The use of cloud infrastructure can also make it easier for adversaries to rapidly provision, modify, and shut",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "resource_development_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "resource_development_evidence_present"
+        ],
+        "supported": [
+          "resource_development_evidence_corroborated"
+        ],
+        "confirmed": [
+          "resource_development_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
+    },
+    {
+      "technique_id": "T1595",
+      "name": "Active Scanning",
+      "tactic": "Reconnaissance",
+      "description": "Adversaries may execute active reconnaissance scans to gather information that can be used during targeting. Active scans are those where the adversary probes victim infrastructure via network traffic, as opposed to other forms of reconnaissance that do not involve direct interaction. Adversaries may perform different forms of active scanning depending on what information they seek to gather. Thes",
+      "detection_patterns": [],
+      "evidence_requirements": [
+        "recon_evidence"
+      ],
+      "candidate_vs_confirmed_rules": {
+        "candidate": [
+          "recon_evidence_present"
+        ],
+        "supported": [
+          "recon_evidence_corroborated"
+        ],
+        "confirmed": [
+          "recon_evidence_validated"
+        ]
+      },
+      "related_use_cases": [],
+      "recommended_pivots": [
+        "corroborate_with_source_telemetry",
+        "review_tactic_context"
+      ],
+      "candidate_provenance": "mitre_audit_v19.1_promote_g5"
     }
   ]
 }

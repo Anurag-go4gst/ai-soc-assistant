@@ -7,15 +7,230 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from app.analysis.soc_aggregates import rules_coverage_map
+from app.threat.mitre_kb import load_mitre_techniques
 from app.use_cases.content_enrichment import content_enrichment_records
 from contracts.skill_enum import SKILL_ENUM
 
 MITRE_METADATA_ROLE = "metadata_not_evidence"
 
+
+def build_detection_coverage() -> dict[str, Any]:
+    """Deterministic MITRE detection-coverage / gap map (Wazuh A3 shape).
+
+    Each governed MITRE technique in the subset is a framework entry; the use
+    cases that reference it (``related_use_cases``) are its covering detection
+    rules. Techniques with no covering use case are detection gaps. Read-only —
+    no runtime routing or evidence change.
+    """
+    techniques = load_mitre_techniques()
+    rules = [
+        {"framework_id": technique.technique_id, "rule_id": use_case}
+        for technique in techniques
+        for use_case in technique.related_use_cases
+        if use_case
+    ]
+    coverage = rules_coverage_map(rules)
+    technique_rows: list[dict[str, Any]] = []
+    gaps: list[dict[str, Any]] = []
+    for technique in techniques:
+        covering = coverage.get(technique.technique_id, [])
+        row = {
+            "technique_id": technique.technique_id,
+            "name": technique.name,
+            "tactic": technique.tactic,
+            "covering_use_cases": covering,
+            "covered": bool(covering),
+        }
+        technique_rows.append(row)
+        if not covering:
+            gaps.append(
+                {
+                    "technique_id": technique.technique_id,
+                    "name": technique.name,
+                    "tactic": technique.tactic,
+                }
+            )
+    return {
+        "schema_role": "detection_coverage_v1",
+        "mitre_metadata_role": MITRE_METADATA_ROLE,
+        "technique_count": len(techniques),
+        "covered_count": len(techniques) - len(gaps),
+        "gap_count": len(gaps),
+        "coverage": coverage,
+        "techniques": technique_rows,
+        "gaps": gaps,
+    }
+
 _REPO_ROOT_CANDIDATES = (
     Path(__file__).resolve().parents[3],
     Path("/workspace"),
 )
+
+# MITRE ATLAS (AI/ML threat taxonomy) raw Navigator layers — operator-supplied,
+# preserved unmodified. These layers carry techniqueID + tactic (+ case-study
+# score) only; they have NO technique names/descriptions, so this builder reports
+# structure/frequency/coverage gap, not human-readable technique detail.
+_ATLAS_MATRIX_PATH = "docs/threat-intel/atlas/raw/ATLAS_Matrix.json"
+_ATLAS_FREQ_PATH = "docs/threat-intel/atlas/raw/ATLAS_Case_Study_Frequency.json"
+# WS-E E3: collapsed canonical layer (one row per techniqueID with tactics[] +
+# per-tactic scores + source_sha256 provenance). Preferred over raw when present.
+_ATLAS_NORMALIZED_PATH = "docs/threat-intel/atlas/normalized/atlas_matrix_normalized.json"
+# ATLAS tactics with no enterprise-ATT&CK analogue → zero SOC coverage by design.
+_ATLAS_AI_ONLY_TACTICS = ("ai-attack-staging", "ai-model-access")
+
+
+def _load_atlas_normalized() -> dict[str, Any] | None:
+    """Return the E3 normalized ATLAS artifact, or None if absent/unreadable."""
+    path = repo_root() / _ATLAS_NORMALIZED_PATH
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return None
+    techniques = payload.get("techniques") if isinstance(payload, dict) else None
+    return payload if isinstance(techniques, list) else None
+
+
+def _atlas_technique_names(technique_ids: list[str]) -> dict[str, str]:
+    """Resolve AML technique IDs → names via the offline ATLAS YAML resolver.
+
+    Returns {} when the resolver is not onboarded (graceful ID-only fallback). Names
+    are metadata only — never authority over status/coverage.
+    """
+    try:
+        from app.config import settings
+        from app.threat.attack_data_resolver import AttackDataResolver
+
+        yaml_path = getattr(settings, "ai_soc_atlas_yaml_path", "") or ""
+        if not yaml_path:
+            return {}
+        path = yaml_path if Path(yaml_path).is_absolute() else str(repo_root() / yaml_path)
+        resolver = AttackDataResolver(atlas_yaml_path=path)
+        if not resolver.operational:
+            return {}
+        names: dict[str, str] = {}
+        for tid in technique_ids:
+            detail = resolver.detail(tid)
+            if detail and detail.get("name"):
+                names[tid] = detail["name"]
+        return names
+    except Exception:  # noqa: BLE001 - enrichment is best-effort; never break the card
+        return {}
+
+
+def _load_atlas_layer(path_suffix: str) -> list[dict[str, Any]] | None:
+    """Return the ``techniques`` rows of an ATLAS Navigator layer, or None if the
+    file is absent/unreadable (air-gapped deployments may not have onboarded it)."""
+    path = repo_root() / path_suffix
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return None
+    techniques = payload.get("techniques") if isinstance(payload, dict) else None
+    return [row for row in techniques if isinstance(row, dict)] if isinstance(techniques, list) else None
+
+
+def build_atlas_coverage_gap() -> dict[str, Any]:
+    """Deterministic MITRE ATLAS (AI/ML threat) coverage-gap lane for the Knowledge page.
+
+    ATLAS is a separate taxonomy (``AML.Txxxx``) from our enterprise ATT&CK subset,
+    so enterprise coverage of ATLAS is structurally zero — every AML technique is an
+    AI/LLM/MCP-threat detection gap today. Reports the gap honestly, weights it by
+    real-world case-study frequency, and fails closed when ATLAS is not onboarded.
+    Read-only; no runtime routing or evidence change.
+    """
+    limitation_ids_only = (
+        "ATLAS Navigator layers carry technique IDs + tactics + case-study scores only "
+        "(no names/descriptions); load the full ATLAS data bundle for analyst-readable detail."
+    )
+    id_tactics: dict[str, set[str]] = {}
+    per_tactic: Counter[str] = Counter()
+    freq: dict[str, Any] = {}
+    normalization_provenance: dict[str, Any] | None = None
+
+    # WS-E: prefer the E3 normalized canonical layer (collapsed, provenance-stamped);
+    # fall back to the raw Navigator layers; fail closed if neither is onboarded.
+    normalized = _load_atlas_normalized()
+    if normalized is not None:
+        atlas_source_status = "onboarded_normalized"
+        normalization_provenance = {
+            "source_sha256": (normalized.get("provenance") or {}).get("source_sha256"),
+            "normalization_rules_version": normalized.get("normalization_rules_version"),
+            "source_file": (normalized.get("provenance") or {}).get("source_file"),
+        }
+        for row in normalized["techniques"]:
+            tid = str(row.get("technique_id") or "")
+            if not tid:
+                continue
+            tactics = row.get("tactics") or []
+            id_tactics.setdefault(tid, set()).update(str(t) for t in tactics)
+            for t in tactics:
+                per_tactic[str(t)] += 1
+            freq[tid] = row.get("case_study_score", 0)
+    else:
+        matrix = _load_atlas_layer(_ATLAS_MATRIX_PATH)
+        if matrix is None:
+            return {
+                "schema_role": "atlas_coverage_gap_v1",
+                "atlas_source_status": "not_onboarded",
+                "technique_count": 0,
+                "covered_count": 0,
+                "gap_count": 0,
+                "tactics": {},
+                "ai_only_tactics": {},
+                "top_techniques_by_case_study_frequency": [],
+                "limitation": "ATLAS raw layer is not onboarded in this deployment; AI-threat coverage is unknown.",
+            }
+        atlas_source_status = "onboarded_raw_layer"
+        freq_rows = _load_atlas_layer(_ATLAS_FREQ_PATH) or []
+        freq = {row.get("techniqueID"): row.get("score", 0) for row in freq_rows}
+        for row in matrix:
+            tid = str(row.get("techniqueID") or "")
+            tactic = str(row.get("tactic") or "")
+            if not tid:
+                continue
+            id_tactics.setdefault(tid, set()).add(tactic)
+            per_tactic[tactic] += 1
+
+    distinct = sorted(id_tactics)
+    multi_tactic = {tid: sorted(tacs) for tid, tacs in id_tactics.items() if len(tacs) > 1}
+    ai_only = {tac: per_tactic[tac] for tac in _ATLAS_AI_ONLY_TACTICS if tac in per_tactic}
+    top_by_freq = sorted(distinct, key=lambda i: freq.get(i, 0), reverse=True)[:10]
+    # WS-G G4: enrich with technique names when the offline ATLAS resolver is
+    # onboarded (graceful: ID-only when absent). Resolver supplies metadata only.
+    _names = _atlas_technique_names(top_by_freq)
+    limitation = (
+        "Top techniques include resolved AML names from the vendored ATLAS YAML; "
+        "Navigator raw layers remain ID+tactics+scores for full-matrix views."
+        if _names
+        else limitation_ids_only
+    )
+
+    return {
+        "schema_role": "atlas_coverage_gap_v1",
+        "atlas_source_status": atlas_source_status,
+        "normalization_provenance": normalization_provenance,
+        "mitre_metadata_role": MITRE_METADATA_ROLE,
+        # Enterprise ATT&CK and ATLAS share no IDs, so our SOC catalogue covers none
+        # of the AML taxonomy today — this is the AI/LLM/MCP-threat gap, stated plainly.
+        "technique_count": len(distinct),
+        "covered_count": 0,
+        "gap_count": len(distinct),
+        "tactics": dict(sorted(per_tactic.items())),
+        "ai_only_tactics": ai_only,
+        "multi_tactic_technique_count": len(multi_tactic),
+        "top_techniques_by_case_study_frequency": [
+            {
+                "technique_id": tid,
+                "name": _names.get(tid, ""),
+                "score": freq.get(tid, 0),
+                "tactics": sorted(id_tactics[tid]),
+            }
+            for tid in top_by_freq
+        ],
+        "technique_names_resolved": bool(_names),
+        "limitation": limitation,
+    }
 
 _SKILL_COVERAGE_PATH = "docs/evals/skill_coverage_matrix.json"
 _SOC_CAPABILITY_CROSSWALK_PATH = "docs/evals/soc_capability_crosswalk.json"

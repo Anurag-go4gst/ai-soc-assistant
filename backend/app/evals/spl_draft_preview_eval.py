@@ -185,7 +185,13 @@ def _evaluate_row(question: dict[str, Any], *, draft_enabled: bool, llm_fallback
         "execution_disabled": (draft or {}).get("execution_enabled") is False if draft else True,
         "review_required": (draft or {}).get("review_required") is True if draft else True,
         "warning_present": bool((draft or {}).get("warning")) if draft else True,
-        "placeholder_index": "<" in draft_spl if draft else True,
+        "placeholder_or_source_profile_binding": (
+            ("<" in draft_spl)
+            or bool((draft or {}).get("source_profile_bindings"))
+            or bool((draft or {}).get("source_profile_bindings_applied"))
+        )
+        if draft
+        else True,
         "validator_ran": bool((draft or {}).get("validator_status")) if draft else True,
         "draft_lint_clean": not lint_violations if draft else True,
         "quality_passed": quality_status in {None, "passed", "warning"} if draft else True,

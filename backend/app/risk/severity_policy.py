@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -94,6 +95,42 @@ def apply_analytics_severity_guard(
             "why_not_higher": [
                 "Pure analytics/ranking question without alert evidence or an active "
                 "use-case severity policy; incident severity is not assigned."
+            ],
+            "recommended_priority": "not_applicable",
+        }
+    )
+
+
+def _is_priority_label(severity_label: str) -> bool:
+    """True for an actual P1-P4 incident label (not a 'Not assigned' sentinel)."""
+    return bool(re.match(r"^P[1-4]\b", str(severity_label or "").strip()))
+
+
+def apply_gate_severity_cap(
+    decision: SeverityDecision,
+    *,
+    allow_severity_assessment: bool,
+) -> SeverityDecision:
+    """Cap a displayed severity to 'Not assigned' when the gate disallows assessment.
+
+    This is the single display-gating point so that every downstream surface
+    (analyst card, lineage, governance trace, response payload, action
+    capability) consumes the same gated severity. When
+    ``allow_severity_assessment`` is True, or the label is already a
+    non-priority sentinel, the decision passes through unchanged.
+    """
+    if allow_severity_assessment:
+        return decision
+    if not _is_priority_label(decision.severity_label):
+        return decision
+    return decision.model_copy(
+        update={
+            "severity_label": ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL,
+            "matched_rules": ["gate_severity_not_permitted"],
+            "why_not_higher": [
+                "The evidence gate does not permit a severity assessment for this "
+                "answer (no collected environment evidence or policy-backed alert "
+                "context); incident severity is not assigned."
             ],
             "recommended_priority": "not_applicable",
         }

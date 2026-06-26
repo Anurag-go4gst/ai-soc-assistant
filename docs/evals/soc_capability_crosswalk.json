@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-06-15T15:58:43+00:00",
+  "generated_at": "2026-06-18T04:50:08+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -3313,15 +3313,15 @@
     }
   ],
   "row_counts": {
-    "catalog_use_cases": 47,
+    "catalog_use_cases": 58,
     "discovery_skills": 754,
     "enrichment_only_use_cases": 3,
-    "enrichment_records": 8,
+    "enrichment_records": 13,
     "github_skill_rows": 12,
     "proposed_use_case_rows": 3,
     "question_rows": 105,
     "triage_scores": 754,
-    "use_case_rows": 50
+    "use_case_rows": 61
   },
   "schema_version": "2026-06-07-phase0b-v1",
   "use_case_rows": [
@@ -3365,34 +3365,28 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "auth_account_lockout_trend",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "auth_account_lockout_trend",
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
+      "answer_rules_status": "present",
       "catalog_present": true,
-      "enrichment_present": false,
-      "evidence_requirements": {
-        "optional_entities": [
-          "user",
-          "time_window"
-        ],
-        "optional_sources": [
-          "identity"
-        ],
-        "required_entities": [
-          "host"
-        ],
-        "required_sources": [
-          "mcp:splunk",
-          "asset_inventory"
-        ]
-      },
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "user",
+        "host",
+        "src",
+        "event_time",
+        "asset_criticality"
+      ],
       "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "github_reuse_type": [
+        "evidence_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
@@ -3405,17 +3399,17 @@
         "T1078"
       ],
       "mitre_metadata_role": "metadata_not_evidence",
-      "planning_or_analytic_skill": "asset_enrichment",
+      "planning_or_analytic_skill": "threshold_anomaly",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
-      "runtime_support_status": "planned",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "after_hours_login_critical_asset",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
+      "spl_template_status": "active",
+      "tests_added": true,
       "use_case_id": "auth_after_hours_critical_asset",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",
@@ -3552,7 +3546,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "auth_failed_login_top_users_exclude_service_accounts",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "auth_failed_login_top_users_exclude_service_accounts",
       "validation_status": "needs_soc_review"
@@ -3688,7 +3682,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "auth_new_source_ip",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "auth_new_source_ip_login",
       "validation_status": "needs_soc_review"
@@ -3732,9 +3726,9 @@
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
       "rag_status": "configured",
-      "runtime_support_status": "planned",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "privileged_account_failure",
-      "spl_template_status": "planned",
+      "spl_template_status": "active",
       "tests_added": true,
       "use_case_id": "auth_privileged_login_anomaly",
       "validation_status": "tests_added"
@@ -3872,7 +3866,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "aws_console_success_logins_by_user",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "aws_console_success_logins_by_user",
       "validation_status": "needs_soc_review"
@@ -3918,7 +3912,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "aws_iam_policy_modifications",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "aws_iam_policy_modifications",
       "validation_status": "needs_soc_review"
@@ -3963,7 +3957,7 @@
       "rag_status": "missing",
       "runtime_support_status": "planned",
       "spl_template_id": "aws_security_group_modifications",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "aws_security_group_modifications",
       "validation_status": "needs_soc_review"
@@ -3975,11 +3969,12 @@
       "evidence_requirements": {
         "optional_entities": [
           "host",
-          "alert_id",
+          "source_ip",
           "time_window"
         ],
         "optional_sources": [
-          "rag:sop"
+          "asset_inventory",
+          "environment_kb"
         ],
         "required_entities": [],
         "required_sources": [
@@ -3993,6 +3988,210 @@
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
       "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "cert_in_hash_match",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "cert_in_hash_match",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "cii_scan_detection",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "cii_scan_detection",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "cisco_cleartext_to_rtu",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "cisco_cleartext_to_rtu",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "cisco_duo_mfa_fatigue",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "cisco_duo_mfa_fatigue",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "cisco_stealthwatch_scan_with_asset",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "cisco_stealthwatch_scan_with_asset",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "present",
+      "catalog_present": true,
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "alert_id",
+        "host",
+        "time_window"
+      ],
+      "github_reference_skills": [],
+      "github_reuse_type": [
+        "evidence_reference",
+        "mitre_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
         "T1562.001",
         "T1003"
       ],
@@ -4002,17 +4201,17 @@
         "T1059.001"
       ],
       "mitre_metadata_role": "metadata_not_evidence",
-      "planning_or_analytic_skill": "mitre_mapping",
+      "planning_or_analytic_skill": "multi_signal_correlation",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
-      "runtime_support_status": "planned",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "notable_critical_review_mitre",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
+      "spl_template_status": "active",
+      "tests_added": true,
       "use_case_id": "critical_notable_mitre_review",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "present",
@@ -4461,26 +4660,23 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
+      "answer_rules_status": "present",
       "catalog_present": true,
-      "enrichment_present": false,
-      "evidence_requirements": {
-        "optional_entities": [
-          "host",
-          "user"
-        ],
-        "optional_sources": [
-          "edr",
-          "asset_inventory"
-        ],
-        "required_entities": [],
-        "required_sources": [
-          "mcp:splunk"
-        ]
-      },
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "host",
+        "user",
+        "process_name",
+        "command_line",
+        "parent_process",
+        "time_window"
+      ],
       "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "github_reuse_type": [
+        "evidence_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
@@ -4493,17 +4689,17 @@
         "T1059"
       ],
       "mitre_metadata_role": "metadata_not_evidence",
-      "planning_or_analytic_skill": "asset_enrichment",
+      "planning_or_analytic_skill": "rarity_anomaly",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
-      "runtime_support_status": "planned",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "edr_suspicious_process",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
+      "spl_template_status": "active",
+      "tests_added": true,
       "use_case_id": "edr_suspicious_process",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "present",
@@ -4614,6 +4810,48 @@
       "enrichment_present": false,
       "evidence_requirements": {
         "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "loto_breaker_correlation",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "loto_breaker_correlation",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
           "source_ip",
           "destination_ip"
         ],
@@ -4694,25 +4932,22 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
+      "answer_rules_status": "present",
       "catalog_present": true,
-      "enrichment_present": false,
-      "evidence_requirements": {
-        "optional_entities": [
-          "source_ip",
-          "destination_ip"
-        ],
-        "optional_sources": [
-          "asset_inventory"
-        ],
-        "required_entities": [],
-        "required_sources": [
-          "mcp:splunk"
-        ]
-      },
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "src",
+        "dest",
+        "deny_count",
+        "dest_port",
+        "time_window"
+      ],
       "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "github_reuse_type": [
+        "evidence_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
@@ -4724,17 +4959,17 @@
       ],
       "mitre_candidates": [],
       "mitre_metadata_role": null,
-      "planning_or_analytic_skill": "network_enrichment",
+      "planning_or_analytic_skill": "threshold_anomaly",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
-      "runtime_support_status": "planned",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "firewall_deny_spike",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
+      "spl_template_status": "active",
+      "tests_added": true,
       "use_case_id": "net_firewall_deny_spike",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",
@@ -4867,25 +5102,22 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
+      "answer_rules_status": "present",
       "catalog_present": true,
-      "enrichment_present": false,
-      "evidence_requirements": {
-        "optional_entities": [
-          "user",
-          "source_ip"
-        ],
-        "optional_sources": [
-          "identity"
-        ],
-        "required_entities": [],
-        "required_sources": [
-          "mcp:splunk"
-        ]
-      },
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "user",
+        "src",
+        "failed_vpn_logins",
+        "distinct_sources",
+        "time_window"
+      ],
       "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "github_reuse_type": [
+        "evidence_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
       "mapping_confidence": "high",
       "mapping_status": "catalog_export_row",
@@ -4898,17 +5130,17 @@
         "T1078"
       ],
       "mitre_metadata_role": "metadata_not_evidence",
-      "planning_or_analytic_skill": "identity_enrichment",
+      "planning_or_analytic_skill": "threshold_anomaly",
       "question": null,
       "question_id": null,
       "question_match_status": "n/a_use_case_only",
-      "rag_status": "missing",
-      "runtime_support_status": "planned",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
       "spl_template_id": "vpn_failure_spike",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
+      "spl_template_status": "active",
+      "tests_added": true,
       "use_case_id": "net_vpn_login_anomaly",
-      "validation_status": "needs_soc_review"
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",
@@ -4955,6 +5187,48 @@
       "spl_template_status": "unavailable",
       "tests_added": false,
       "use_case_id": "ot_critical_asset_after_hours",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "ot_firmware_drift",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "ot_firmware_drift",
       "validation_status": "needs_soc_review"
     },
     {
@@ -5011,6 +5285,48 @@
         "optional_entities": [
           "host",
           "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "ot_master_spoof",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "ot_master_spoof",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
           "destination_ip"
         ],
         "optional_sources": [
@@ -5042,6 +5358,48 @@
       "spl_template_status": "unavailable",
       "tests_added": false,
       "use_case_id": "ot_protocol_anomaly",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "ot_tftp_hmi",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "ot_tftp_hmi",
       "validation_status": "needs_soc_review"
     },
     {
@@ -5085,6 +5443,48 @@
       "spl_template_status": "unavailable",
       "tests_added": false,
       "use_case_id": "ot_unexpected_command",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "source_ip",
+          "time_window"
+        ],
+        "optional_sources": [
+          "asset_inventory",
+          "environment_kb"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "attack_discovery",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "spl_generation",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "physical_access_impossible",
+      "spl_template_status": "active",
+      "tests_added": false,
+      "use_case_id": "physical_access_impossible",
       "validation_status": "needs_soc_review"
     },
     {
@@ -5202,6 +5602,49 @@
       "spl_template_status": "unavailable",
       "tests_added": false,
       "use_case_id": "soc_draft_ticket",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "time_window",
+          "index",
+          "sourcetype"
+        ],
+        "optional_sources": [
+          "mcp:splunk",
+          "environment_kb",
+          "asset_registry"
+        ],
+        "required_entities": [],
+        "required_sources": []
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "knowledge_recall",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003",
+        "T1110"
+      ],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": "source_discovery",
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": null,
+      "spl_template_status": "unavailable",
+      "tests_added": false,
+      "use_case_id": "soc_environment_hygiene",
       "validation_status": "needs_soc_review"
     },
     {
@@ -5620,7 +6063,6 @@
     "q0.q102: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q103: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q104: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q105: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "github_skill row count drift: expected 7, got 12"
+    "q0.q105: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)"
   ]
 }

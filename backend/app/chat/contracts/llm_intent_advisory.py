@@ -17,6 +17,9 @@ class LLMIntentAdvisory(BaseModel):
     ambiguity_reasons: list[str] = Field(default_factory=list)
     clarification_draft: str | None = None
     evidence_need_hints: list[str] = Field(default_factory=list)
+    entity_slots_candidate: dict[str, Any] = Field(default_factory=dict)
+    entity_slot_confidence: dict[str, float] = Field(default_factory=dict)
+    entity_slot_reasons: dict[str, str] = Field(default_factory=dict)
     confidence_metadata: dict[str, Any] = Field(default_factory=dict)
     llm_called: bool = False
     dropped_reasons: list[str] = Field(default_factory=list)
@@ -24,4 +27,12 @@ class LLMIntentAdvisory(BaseModel):
     adjudication_status: LlmIntentAdjudicationStatus = "skipped"
     adjudication_reason: str | None = None
     provider_label: str | None = None
+    scheduling_trace: dict[str, Any] = Field(default_factory=dict)
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """Read-only dict compatibility for legacy trace/test consumers.
+
+        Live node boundaries retain this validated model; callers that only read
+        optional advisory fields can migrate without a flag-day conversion.
+        """
+        return getattr(self, key, default)

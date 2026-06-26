@@ -16,7 +16,12 @@ class ActionCapability(BaseModel):
     reason: str
 
 
-def action_capability_for(use_case_id: str | None, severity_label: str | None) -> ActionCapability:
+def action_capability_for(
+    use_case_id: str | None,
+    severity_label: str | None,
+    *,
+    hil_required: bool | None = None,
+) -> ActionCapability:
     allowed = ["summarize", "explain", "show_sop", "generate_spl", "draft_investigation_note"]
     unavailable = ["run_saved_search", "create_ticket", "block_ip", "disable_user", "isolate_endpoint"]
     return ActionCapability(
@@ -24,7 +29,7 @@ def action_capability_for(use_case_id: str | None, severity_label: str | None) -
         tier_label="Tier 1 - Prepare",
         allowed_actions=allowed,
         unavailable_actions=unavailable,
-        hil_required=False,
+        hil_required=bool(hil_required) if hil_required is not None else False,
         audit_required=True,
         reason=f"Use case {use_case_id or 'unknown'} with severity {severity_label or 'unknown'} is limited to inform/prepare actions in this stage.",
     )

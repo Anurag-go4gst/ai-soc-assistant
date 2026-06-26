@@ -104,7 +104,10 @@ def test_demo_route_plan_shadow_and_skill_unchanged() -> None:
 
 
 def test_experience_center_control_plane_trace_uses_captured_hf_and_known_mcp_basis() -> None:
-    response = _run("new_source_ip_logins")
+    # Retargeted from the removed new_source_ip_logins demo (2026-06-24 curation) to a
+    # retained attack_discovery scenario; the captured-HF / no-live-call provenance
+    # contract is identical.
+    response = _run("failed_login_spike_app01")
 
     assert response.query_to_intent is not None
     assert response.evidence_plan is not None
@@ -128,12 +131,6 @@ def test_experience_center_control_plane_trace_uses_captured_hf_and_known_mcp_ba
     assert "future-state preview" not in serialized
     assert "future state preview" not in serialized
 
-    mcp_trace = response.control_plane_trace["mcp_execution"]
-    assert mcp_trace["status"] == "fixture_evidence_packaged"
-    assert mcp_trace["execution_intent"] == "known_mcp_happy_path_fixture"
-    assert mcp_trace["tool_selection_status"] == "fixture_evidence_packaged"
-    assert mcp_trace["selected_mcp_server"] == "splunk"
-
 
 def test_all_demo_scenarios_expose_governance_metadata() -> None:
     from app.api.routes_scenarios import list_demo_scenario_fixtures
@@ -148,13 +145,9 @@ def test_all_demo_scenarios_expose_governance_metadata() -> None:
         assert response.governance_trace.completion_status.gated_wip
 
 
-def test_lockout_demo_envelope_when_mock_execution_path() -> None:
-    response = _run("account_lockouts_over_time_spl")
-    gov = response.governance_trace or response.experience_center_governance
-    assert gov is not None
-    assert gov.mcp_envelope is not None
-    assert gov.mcp_envelope.available is True
-    assert gov.mcp_envelope.origin == "fixture"
+# test_lockout_demo_envelope_when_mock_execution_path removed with the mock-execution
+# lockout demo (2026-06-24 curation; curated set is execution-disabled). Fixture-envelope
+# normalization is covered by app/tests/test_demo_splunk_envelope_stage3m_s3.py.
 
 
 def test_ec_failed_login_resource_planner_selects_splunk_search_tool() -> None:
@@ -350,8 +343,8 @@ def test_ec_multiple_scenarios_not_only_failed_login_are_updated() -> None:
             updated_non_app01.append(item["scenario_id"])
 
     assert len(updated_non_app01) >= 3
-    assert "new_source_ip_logins" in updated_non_app01
     assert "successful_login_after_failures" in updated_non_app01
+    assert "dns_beaconing_c2_hunt" in updated_non_app01
 
 
 def test_ec_requested_question_audit_is_documented() -> None:

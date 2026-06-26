@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { Toaster } from 'sonner';
-import { getCurrentUser, getHealth, logout } from './api/client';
+import { Toaster, toast } from 'sonner';
+import { getCurrentUser, getHealth, logout, UNAUTHORIZED_EVENT } from './api/client';
 import { AppShell } from './components/AppShell';
 import { TooltipProvider } from './components/ui/tooltip';
 import { ChatPage } from './pages/ChatPage';
 import { DebugPage } from './pages/DebugPage';
 import { InvestigationsPage } from './pages/InvestigationsPage';
 import { KnowledgePage } from './pages/KnowledgePage';
+import { LlmLabPage } from './pages/LlmLabPage';
 import { LoginPage } from './pages/LoginPage';
 import { QualityPage } from './pages/QualityPage';
 import { ScenariosPage } from './pages/ScenariosPage';
@@ -26,6 +27,34 @@ export default function App() {
       .then(setAuth)
       .catch(() => setAuth({ authenticated: false }))
       .finally(() => setCheckingAuth(false));
+  }, []);
+
+  useEffect(() => {
+    const onProfileUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<AuthResponse>).detail;
+      if (detail?.authenticated) {
+        setAuth(detail);
+      } else {
+        void getCurrentUser().then(setAuth).catch(() => setAuth({ authenticated: false }));
+      }
+    };
+    window.addEventListener('ai-soc-profile-updated', onProfileUpdated);
+    return () => window.removeEventListener('ai-soc-profile-updated', onProfileUpdated);
+  }, []);
+
+  // Any gated API call returning 401 means the session expired/was invalidated.
+  // Drop the cached auth state so the app bounces to the login screen instead of
+  // leaving the user in a logged-in-looking shell where every call silently fails.
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setAuth((current) => {
+        if (current && current.authenticated === false) return current;
+        toast.error('Your session has expired. Please sign in again.');
+        return { authenticated: false };
+      });
+    };
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
 
   useEffect(() => {
@@ -84,11 +113,18 @@ export default function App() {
   return (
     <TooltipProvider>
       <BrowserRouter>
-        <AppShell username={username} health={health} healthError={healthError} onLogout={handleLogout}>
+        <AppShell
+          username={username}
+          debugAccess={Boolean(auth.debug_access)}
+          health={health}
+          healthError={healthError}
+          onLogout={handleLogout}
+        >
           <Routes>
             <Route path="/" element={<Navigate to="/cockpit" replace />} />
             <Route path="/cockpit" element={<SocCockpit />} />
             <Route path="/chat" element={<ChatPage />} />
+            <Route path="/llm-lab" element={<LlmLabPage />} />
             <Route path="/investigations" element={<InvestigationsPage />} />
             <Route path="/scenarios" element={<ScenariosPage />} />
             <Route path="/knowledge" element={<KnowledgePage />} />

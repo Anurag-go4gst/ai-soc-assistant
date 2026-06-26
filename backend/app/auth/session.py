@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import Depends, HTTPException, Request, Response, status
 
+from app.auth.user_registry import get_user, session_user_from_token_payload
 from app.config import settings
 
 COOKIE_NAME = "ai_soc_session"
@@ -31,7 +32,8 @@ def _sign(payload: str) -> str:
     return _b64encode(digest)
 
 
-def create_session_token(username: str, role: str = "demo_analyst") -> str:
+def create_session_token(username: str, role: str | None = None) -> str:
+    role = role or settings.app_auth_role
     payload = {
         "username": username,
         "role": role,
@@ -57,9 +59,7 @@ def read_session_token(token: str | None) -> dict[str, Any] | None:
 
     if int(payload.get("exp", 0)) < int(time.time()):
         return None
-    if payload.get("username") != settings.app_auth_user:
-        return None
-    return payload
+    return session_user_from_token_payload(payload)
 
 
 def is_secure_request(request: Request) -> bool:
@@ -67,10 +67,10 @@ def is_secure_request(request: Request) -> bool:
     return request.url.scheme == "https" or forwarded_proto == "https" or settings.app_env == "production"
 
 
-def set_session_cookie(response: Response, request: Request, username: str) -> None:
+def set_session_cookie(response: Response, request: Request, username: str, role: str | None = None) -> None:
     response.set_cookie(
         key=COOKIE_NAME,
-        value=create_session_token(username),
+        value=create_session_token(username, role=role),
         httponly=True,
         secure=is_secure_request(request),
         samesite="lax",
@@ -91,7 +91,18 @@ def clear_session_cookie(response: Response, request: Request) -> None:
 
 def get_current_user(request: Request) -> dict[str, Any] | None:
     if not settings.app_auth_enabled:
-        return {"username": settings.app_auth_user, "role": "demo_analyst"}
+        user = get_user(settings.app_auth_user)
+        if user is not None:
+            return {
+                "username": user.username,
+                "role": user.role,
+                "debug_access": user.debug_access,
+            }
+        return {
+            "username": settings.app_auth_user,
+            "role": settings.app_auth_role,
+            "debug_access": settings.ai_soc_debug_api_enabled,
+        }
     return read_session_token(request.cookies.get(COOKIE_NAME))
 
 

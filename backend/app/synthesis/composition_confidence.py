@@ -5,19 +5,34 @@ from __future__ import annotations
 from app.chat.contracts.answer_contract import AnswerContract
 from app.config import settings
 
+_WEAK_MATCH_PATHS = frozenset({"out_of_registry", "query_understanding_weak"})
+_LOW_ROUTER_CONFIDENCE = 0.35
+
 
 def qualifies_for_weak_case_composition(
     contract: AnswerContract,
     *,
     path_type: str | None = None,
     intent_family: str | None = None,
+    match_path: str | None = None,
+    router_confidence: float | None = None,
+    needs_clarification: bool | None = None,
 ) -> bool:
     """Return True when the governed composer may narrate a weak/out-of-catalog body."""
     family = str(intent_family or contract.intent_family or "").strip()
     mode = str(contract.answer_mode or "").strip()
+    resolved_match = str(match_path or "").strip()
     if contract.out_of_catalog_notice:
         return True
+    if resolved_match in _WEAK_MATCH_PATHS:
+        return True
+    if router_confidence is not None and router_confidence < _LOW_ROUTER_CONFIDENCE:
+        return True
+    if needs_clarification or mode == "clarification":
+        return True
     if path_type == "guided_investigation" or mode == "guided_investigation" or family == "guided_investigation":
+        return True
+    if family in {"alert_summary", "github_investigation", "cve_investigation"}:
         return True
     if family == "knowledge_only":
         return True
@@ -46,6 +61,8 @@ def composition_confidence(
         score += 0.10
     if match_path == "out_of_registry":
         score -= 0.12
+    elif match_path == "query_understanding_weak":
+        score -= 0.08
     elif match_path in {"exact_question", "use_case"}:
         score += 0.15
     if soc_kb_snippet_count >= 2:
@@ -101,5 +118,11 @@ def should_attach_compose_hil(
     ):
         return True, "proposed_mcp_search_review"
     if confidence < compose_hil_threshold():
+        # A review-only SPL draft is a concrete, actionable deliverable — its value is
+        # the validated (non-executable) SPL, not the narration prose. Don't let low
+        # narration confidence gate it into a "blocked / human review" framing; the
+        # SPL is already review-only and the analyst can act on it directly.
+        if "spl_artifact" in (contract.section_order or []):
+            return False, None
         return True, "composition_confidence_below_threshold"
     return False, None

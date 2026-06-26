@@ -114,6 +114,31 @@ def test_raw_search_template_renders_static_spl_and_validates() -> None:
     assert result.execution_eligible is False
 
 
+def test_raw_search_template_validation_uses_template_profile() -> None:
+    template = SplTemplateDefinition(
+        template_id="test_lookup_template",
+        status="active",
+        use_case_id="test_lookup_use_case",
+        query_shape=QUERY_SHAPE_RAW_SEARCH,
+        spl_text=(
+            "search index=pgcil_soc sourcetype=pgcil:network earliest=-24h latest=now "
+            "| lookup ot_asset_inventory.csv ip as dest_ip OUTPUT asset_name "
+            "| stats count by asset_name | head 50"
+        ),
+        validation_rules={
+            "allowed_lookups": ["ot_asset_inventory.csv"],
+            "allowed_indexes": ["pgcil_soc"],
+            "allowed_sourcetypes": ["pgcil:network"],
+        },
+    )
+
+    result = render_template(template, {}, route_window=_route_window())
+
+    assert result.render_ok is True
+    assert result.validator_approved is True
+    assert result.rendered_spl == template.spl_text
+
+
 def test_missing_render_pattern_rejects() -> None:
     template = get_spl_template("sample_auth_failed_login_top_users_tstats")
     assert template is not None

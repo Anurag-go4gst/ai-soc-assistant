@@ -1,13 +1,46 @@
+import json
+
+import pytest
 from fastapi import HTTPException, Request, Response
 
 from app.auth.routes_auth import LoginRequest, login, me
 from app.auth.session import require_auth
+from app.auth.user_registry import reload_users_for_tests
 from app.schemas.requests import ChatRequest
 from app.api.routes_chat import chat
 from app.config import settings
 
 
-def _configure_auth(monkeypatch) -> None:
+@pytest.fixture(autouse=True)
+def _reset_user_registry():
+    """Auth is registry-backed; drop the cached document after each test so a
+    seeded temp registry never leaks into other suites."""
+    yield
+    reload_users_for_tests()
+
+
+def _configure_auth(monkeypatch, tmp_path) -> None:
+    # ``authenticate`` reads the user registry, not env creds (env only seeds a
+    # bootstrap registry when none exists). Point the registry at a temp file
+    # holding the credentials this suite logs in with.
+    users_file = tmp_path / "users.json"
+    users_file.write_text(
+        json.dumps(
+            {
+                "users": [
+                    {
+                        "username": "analyst",
+                        "password": "test-password",
+                        "role": "demo_analyst",
+                        "debug_access": False,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(settings, "app_auth_users_path", str(users_file))
+    reload_users_for_tests()
     monkeypatch.setattr(settings, "app_auth_enabled", True)
     monkeypatch.setattr(settings, "app_auth_user", "analyst")
     monkeypatch.setattr(settings, "app_auth_password", "test-password")
@@ -21,18 +54,23 @@ def _request(cookie: str | None = None) -> Request:
     return Request({"type": "http", "method": "GET", "path": "/", "headers": headers, "scheme": "http"})
 
 
-def test_login_success(monkeypatch) -> None:
-    _configure_auth(monkeypatch)
+def test_login_success(monkeypatch, tmp_path) -> None:
+    _configure_auth(monkeypatch, tmp_path)
     response = Response()
 
     payload = login(LoginRequest(username="analyst", password="test-password"), _request(), response)
 
-    assert payload.model_dump() == {"authenticated": True, "username": "analyst", "role": "demo_analyst"}
+    assert payload.model_dump() == {
+        "authenticated": True,
+        "username": "analyst",
+        "role": "demo_analyst",
+        "debug_access": False,
+    }
     assert "ai_soc_session" in response.headers.get("set-cookie", "")
 
 
-def test_login_failure(monkeypatch) -> None:
-    _configure_auth(monkeypatch)
+def test_login_failure(monkeypatch, tmp_path) -> None:
+    _configure_auth(monkeypatch, tmp_path)
 
     try:
         login(LoginRequest(username="analyst", password="wrong"), _request(), Response())
@@ -43,14 +81,19 @@ def test_login_failure(monkeypatch) -> None:
         raise AssertionError("expected invalid credentials")
 
 
-def test_me_unauthenticated(monkeypatch) -> None:
-    _configure_auth(monkeypatch)
+def test_me_unauthenticated(monkeypatch, tmp_path) -> None:
+    _configure_auth(monkeypatch, tmp_path)
 
-    assert me(None).model_dump() == {"authenticated": False, "username": None, "role": None}
+    assert me(None).model_dump() == {
+        "authenticated": False,
+        "username": None,
+        "role": None,
+        "debug_access": None,
+    }
 
 
-def test_chat_rejects_unauthenticated_request(monkeypatch) -> None:
-    _configure_auth(monkeypatch)
+def test_chat_rejects_unauthenticated_request(monkeypatch, tmp_path) -> None:
+    _configure_auth(monkeypatch, tmp_path)
 
     try:
         require_auth(None)
@@ -61,8 +104,8 @@ def test_chat_rejects_unauthenticated_request(monkeypatch) -> None:
         raise AssertionError("expected authentication required")
 
 
-def test_chat_allows_authenticated_request(monkeypatch) -> None:
-    _configure_auth(monkeypatch)
+def test_chat_allows_authenticated_request(monkeypatch, tmp_path) -> None:
+    _configure_auth(monkeypatch, tmp_path)
     user = require_auth({"username": "analyst", "role": "demo_analyst"})
     monkeypatch.setattr("app.api.routes_chat.route_skill", _fake_route_skill)
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", _fake_plan_workflow)
@@ -70,7 +113,10 @@ def test_chat_allows_authenticated_request(monkeypatch) -> None:
 
     response = chat(ChatRequest(message="test"))
 
-    assert response.note == "Routing and workflow planning only; SPL is not required at this stage. No MCP execution, RAG retrieval, or synthesis was run."
+    assert response.note == (
+        "Routing and workflow planning only; SPL is not required at this stage. "
+        "No MCP execution, RAG retrieval, or synthesis was run."
+    )
     assert response.selected_skill == "knowledge_recall"
 
 
@@ -107,4 +153,21 @@ def _fake_plan_workflow(selected_skill: str, tool_plan: list[str], query: str, t
 
 class _FakeTelemetry:
     def record_step(self, trace_id: str, step_name: str, status: str, **fields: object) -> None:
+        return None
+
+    def start_trace(self, trace_id: str | None = None, **fields: object):
+        from app.connectors.telemetry.base import TraceHandle
+
+        return TraceHandle(trace_id=trace_id or "fake")
+
+    def end_trace(self, trace_id: str, status: str = "completed", **fields: object) -> None:
+        return None
+
+    def merge_run_metadata(self, trace_id: str, metadata: dict) -> None:
+        return None
+
+    def record_llm_call(self, trace_id: str, **fields: object) -> None:
+        return None
+
+    def record_rag_retrieval(self, trace_id: str, **fields: object) -> None:
         return None

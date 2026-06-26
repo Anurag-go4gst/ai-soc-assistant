@@ -8,7 +8,9 @@ from pathlib import Path
 from typing import Any
 
 _MAP_PATH = Path(__file__).resolve().parent / "question_runtime_map_v1.json"
+_CISCO_MAP_PATH = Path(__file__).resolve().parent / "cisco_question_runtime_map_v1.json"
 _MAP_CACHE: dict[str, Any] | None = None
+_CISCO_MAP_CACHE: dict[str, Any] | None = None
 _NEAR_MATCH_THRESHOLD = 0.62
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _STOP_WORDS = {
@@ -45,16 +47,60 @@ def load_question_runtime_map(*, reload: bool = False) -> dict[str, Any]:
 
 
 def clear_question_runtime_map_cache() -> None:
-    global _MAP_CACHE
+    global _MAP_CACHE, _CISCO_MAP_CACHE
     _MAP_CACHE = None
+    _CISCO_MAP_CACHE = None
+
+
+def load_cisco_question_runtime_map(*, reload: bool = False) -> dict[str, Any]:
+    """Load the separate Cisco 50-question runtime map.
+
+    Kept in its own file (never merged into the 105 map) to avoid exact-match
+    precedence collisions — the Cisco map is consulted only after a 105 miss
+    (Cisco plan §8.3 pitfall #3).
+    """
+    global _CISCO_MAP_CACHE
+    if not reload and _CISCO_MAP_CACHE is not None:
+        return _CISCO_MAP_CACHE
+    if not _CISCO_MAP_PATH.exists():
+        _CISCO_MAP_CACHE = {"entries": []}
+        return _CISCO_MAP_CACHE
+    payload = json.loads(_CISCO_MAP_PATH.read_text(encoding="utf-8"))
+    _CISCO_MAP_CACHE = payload
+    return payload
 
 
 def list_question_runtime_entries(*, reload: bool = False) -> list[dict[str, Any]]:
     return list(load_question_runtime_map(reload=reload).get("entries", []))
 
 
+def list_cisco_question_runtime_entries(*, reload: bool = False) -> list[dict[str, Any]]:
+    """Return Cisco entries normalized to the shared registry-row shape.
+
+    The Cisco map keys rows by `question_id`; downstream readers
+    (`parser._registry_str`, route adjudication) expect `question_ref`. We mirror
+    `question_id` into `question_ref` and stamp the registry source so the parser
+    schema is identical to a 105 row.
+    """
+    normalized: list[dict[str, Any]] = []
+    for entry in load_cisco_question_runtime_map(reload=reload).get("entries", []):
+        row = dict(entry)
+        if not row.get("question_ref"):
+            row["question_ref"] = row.get("question_id")
+        row.setdefault("manifest_coverage_id", None)
+        row.setdefault("question_number", None)
+        row["registry_source"] = "cisco_question_runtime_map_v1"
+        normalized.append(row)
+    return normalized
+
+
 def question_runtime_entry(question_ref: str, *, reload: bool = False) -> dict[str, Any] | None:
     ref = question_ref.strip().lower()
+    if ref.startswith("cisco."):
+        for entry in list_cisco_question_runtime_entries(reload=reload):
+            if str(entry.get("question_id", "")).lower() == ref or str(entry.get("question_ref", "")).lower() == ref:
+                return entry
+        return None
     if not ref.startswith("q0."):
         digits = "".join(ch for ch in ref if ch.isdigit())
         if digits:
@@ -71,6 +117,12 @@ def match_question_runtime_entry(query: str, *, reload: bool = False) -> dict[st
     if not normalized:
         return None
     for entry in list_question_runtime_entries(reload=reload):
+        question = entry.get("question")
+        if isinstance(question, str) and _normalize_question_text(question) == normalized:
+            return entry
+    # Cisco precision layer: consulted only after a 105 miss (never merged —
+    # collision guard, Cisco plan §8.3 pitfall #3).
+    for entry in list_cisco_question_runtime_entries(reload=reload):
         question = entry.get("question")
         if isinstance(question, str) and _normalize_question_text(question) == normalized:
             return entry
@@ -96,6 +148,17 @@ def nearest_question_runtime_entry(
         score = _token_similarity(query_tokens, _question_tokens(question))
         if score >= threshold:
             scored.append((score, entry))
+
+    # Cisco precision layer is consulted only when the 105 map yields no nearest
+    # match, preserving 105 precedence (never merged — Cisco plan §8.3 #3).
+    if not scored:
+        for entry in list_cisco_question_runtime_entries(reload=reload):
+            question = entry.get("question")
+            if not isinstance(question, str):
+                continue
+            score = _token_similarity(query_tokens, _question_tokens(question))
+            if score >= threshold:
+                scored.append((score, entry))
 
     if not scored:
         return None

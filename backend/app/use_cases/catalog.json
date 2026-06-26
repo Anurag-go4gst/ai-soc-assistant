@@ -2492,14 +2492,30 @@
         "Write SPL to find successful AWS Console logins by user in the last 24 hours"
       ],
       "required_entities": [],
-      "optional_entities": ["user", "aws_region", "source_ip", "time_window"],
+      "optional_entities": [
+        "user",
+        "aws_region",
+        "source_ip",
+        "time_window"
+      ],
       "default_time_window": "earliest=-24h latest=now",
       "primary_skill": "spl_generation",
-      "secondary_skills": ["spl_validation", "evidence_collection", "context_sufficiency"],
-      "required_sources": ["mcp:splunk", "splunk:aws_cloudtrail"],
-      "optional_sources": ["rag:spl_examples"],
+      "secondary_skills": [
+        "spl_validation",
+        "evidence_collection",
+        "context_sufficiency"
+      ],
+      "required_sources": [
+        "mcp:splunk",
+        "splunk:aws_cloudtrail"
+      ],
+      "optional_sources": [
+        "rag:spl_examples"
+      ],
       "default_spl_template": "aws_console_success_logins_by_user",
-      "rag_collections": ["spl_examples"],
+      "rag_collections": [
+        "spl_examples"
+      ],
       "mitre_candidates": [],
       "severity_policy": null,
       "action_capability_tier": 1,
@@ -2507,7 +2523,11 @@
       "mitre_registry": {
         "permitted": [],
         "candidate": [],
-        "blocked": ["T1562.001", "T1003", "T1078"],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
         "blocked_rationale": {
           "T1562.001": "ConsoleLogin events do not prove defensive tooling was impaired.",
           "T1003": "ConsoleLogin events do not imply credential dumping.",
@@ -2519,7 +2539,11 @@
         "answer_visibility_policy": "trace_only",
         "mapping_confidence": "not_applicable",
         "mapping_rationale": "SPL generation for ConsoleLogin does not assert MITRE mapping.",
-        "source_fields": {"mitre_permitted": [], "mitre_candidates": [], "tactics": []},
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
         "schema_version": "2026-06-control-plane-v1",
         "registry_role": "metadata_not_evidence"
       },
@@ -2527,7 +2551,11 @@
       "mitre_requires_evidence": true,
       "mitre_requires_alert_context": false,
       "mitre_visibility_policy": "trace_only",
-      "mitre_blocked": ["T1562.001", "T1003", "T1078"]
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003",
+        "T1078"
+      ]
     },
     {
       "use_case_id": "aws_iam_policy_modifications",
@@ -2546,14 +2574,31 @@
         "Write SPL to determine who changed AWS IAM policies or attached policies to users or roles"
       ],
       "required_entities": [],
-      "optional_entities": ["user", "role", "policy_arn", "aws_region", "time_window"],
+      "optional_entities": [
+        "user",
+        "role",
+        "policy_arn",
+        "aws_region",
+        "time_window"
+      ],
       "default_time_window": "earliest=-24h latest=now",
       "primary_skill": "spl_generation",
-      "secondary_skills": ["spl_validation", "evidence_collection", "context_sufficiency"],
-      "required_sources": ["mcp:splunk", "splunk:aws_cloudtrail"],
-      "optional_sources": ["rag:spl_examples"],
+      "secondary_skills": [
+        "spl_validation",
+        "evidence_collection",
+        "context_sufficiency"
+      ],
+      "required_sources": [
+        "mcp:splunk",
+        "splunk:aws_cloudtrail"
+      ],
+      "optional_sources": [
+        "rag:spl_examples"
+      ],
       "default_spl_template": "aws_iam_policy_modifications",
-      "rag_collections": ["spl_examples"],
+      "rag_collections": [
+        "spl_examples"
+      ],
       "mitre_candidates": [],
       "severity_policy": null,
       "action_capability_tier": 1,
@@ -2561,7 +2606,11 @@
       "mitre_registry": {
         "permitted": [],
         "candidate": [],
-        "blocked": ["T1562.001", "T1003", "T1078"],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
         "blocked_rationale": {
           "T1562.001": "IAM policy changes are authorization changes; do not claim defense impairment without direct evidence.",
           "T1003": "IAM policy events do not imply credential dumping.",
@@ -2573,7 +2622,11 @@
         "answer_visibility_policy": "trace_only",
         "mapping_confidence": "not_applicable",
         "mapping_rationale": "SPL generation for IAM policy changes does not assert MITRE mapping.",
-        "source_fields": {"mitre_permitted": [], "mitre_candidates": [], "tactics": []},
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
         "schema_version": "2026-06-control-plane-v1",
         "registry_role": "metadata_not_evidence"
       },
@@ -2581,7 +2634,11 @@
       "mitre_requires_evidence": true,
       "mitre_requires_alert_context": false,
       "mitre_visibility_policy": "trace_only",
-      "mitre_blocked": ["T1562.001", "T1003", "T1078"]
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003",
+        "T1078"
+      ]
     },
     {
       "use_case_id": "auth_failed_login_top_users_exclude_service_accounts",
@@ -2598,22 +2655,47 @@
         "Show top users with failed login count in the last 24 hours and exclude service accounts"
       ],
       "required_entities": [],
-      "optional_entities": ["user", "source_ip", "time_window"],
+      "optional_entities": [
+        "user",
+        "source_ip",
+        "time_window"
+      ],
       "default_time_window": "earliest=-24h latest=now",
       "primary_skill": "attack_discovery",
-      "secondary_skills": ["spl_generation", "spl_validation", "evidence_collection", "context_sufficiency"],
-      "required_sources": ["mcp:splunk"],
-      "optional_sources": ["rag:sop", "asset_inventory"],
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection",
+        "context_sufficiency"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "rag:sop",
+        "asset_inventory"
+      ],
       "default_spl_template": "auth_failed_login_top_users_exclude_service_accounts",
-      "rag_collections": ["auth_sop", "splunk_context"],
-      "mitre_candidates": ["T1110.001"],
+      "rag_collections": [
+        "auth_sop",
+        "splunk_context"
+      ],
+      "mitre_candidates": [
+        "T1110.001"
+      ],
       "severity_policy": "auth_failed_login_spike",
       "action_capability_tier": 1,
       "output_template": "investigation_answer",
       "mitre_registry": {
         "permitted": [],
-        "candidate": ["T1110.001"],
-        "blocked": ["T1562.001", "T1003", "T1078"],
+        "candidate": [
+          "T1110.001"
+        ],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
         "blocked_rationale": {
           "T1562.001": "Failed-login counts do not prove defensive tooling was impaired.",
           "T1003": "Failed-login counts do not imply credential dumping.",
@@ -2625,7 +2707,15 @@
         "answer_visibility_policy": "answer_if_requested",
         "mapping_confidence": "high",
         "mapping_rationale": "Registry-level candidate mapping for failed-login volume only.",
-        "source_fields": {"mitre_permitted": [], "mitre_candidates": ["T1110.001"], "tactics": ["Credential Access"]},
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [
+            "T1110.001"
+          ],
+          "tactics": [
+            "Credential Access"
+          ]
+        },
         "schema_version": "2026-06-control-plane-v1",
         "registry_role": "metadata_not_evidence"
       },
@@ -2633,18 +2723,34 @@
       "mitre_requires_evidence": true,
       "mitre_requires_alert_context": true,
       "mitre_visibility_policy": "answer_if_requested",
-      "mitre_blocked": ["T1562.001", "T1003", "T1078"]
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003",
+        "T1078"
+      ]
     },
     {
       "use_case_id": "soc_generate_spl",
       "display_name": "Generate SPL",
       "category": "SOC / Knowledge / Analyst workflow",
+      "registry_tier": "t1_spl_native",
+      "use_case_type": "meta_output_artifact",
+      "t0_exact_authority": false,
+      "llm_advisory_recommended": true,
+      "requires_t2_shape_check": true,
+      "pattern_strength": "weak_modifier",
+      "must_not_override_detection_family": true,
+      "execution_eligible_default": false,
+      "human_review_required": true,
       "intent_patterns": [
-        "generate spl",
-        "write spl",
-        "produce spl",
-        "create spl",
-        "spl query"
+        "generate spl for",
+        "write spl for",
+        "create spl for",
+        "produce spl for",
+        "give me spl to",
+        "draft spl to detect",
+        "draft spl to find",
+        "draft spl to summarize"
       ],
       "example_queries": [
         "Generate SPL for failed logins"
@@ -2770,6 +2876,15 @@
       "use_case_id": "soc_optimize_spl",
       "display_name": "Optimize SPL",
       "category": "SOC / Knowledge / Analyst workflow",
+      "registry_tier": "t1_spl_native",
+      "use_case_type": "meta_output_artifact",
+      "t0_exact_authority": false,
+      "llm_advisory_recommended": true,
+      "requires_t2_shape_check": true,
+      "pattern_strength": "weak_modifier",
+      "must_not_override_detection_family": true,
+      "execution_eligible_default": false,
+      "human_review_required": true,
       "intent_patterns": [
         "optimize spl"
       ],
@@ -3526,6 +3641,802 @@
       "mitre_visibility_policy": "trace_only",
       "mitre_blocked": [
         "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "cisco_cleartext_to_rtu",
+      "display_name": "Cisco cleartext sessions to Phase-1 RTUs",
+      "category": "Network / Firewall",
+      "intent_patterns": [
+        "cleartext http",
+        "cleartext vnc",
+        "cleartext telnet",
+        "cleartext ftp",
+        "cleartext session",
+        "phase-1 rtu",
+        "firepower",
+        "vnc"
+      ],
+      "example_queries": [
+        "Flag cleartext HTTP or VNC toward Phase-1 RTUs"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "source_ip",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "asset_inventory",
+        "environment_kb"
+      ],
+      "default_spl_template": "cisco_cleartext_to_rtu",
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": "cisco_cleartext_to_rtu",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Cisco power-grid catalogue row; review-only governed template until COE signs lookup files and source profiles.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "cisco_stealthwatch_scan_with_asset",
+      "display_name": "Stealthwatch scan with OT asset context",
+      "category": "Network / Firewall",
+      "intent_patterns": [
+        "stealthwatch",
+        "horizontal scan",
+        "substation automation"
+      ],
+      "example_queries": [
+        "Identify Stealthwatch horizontal scanning in OT network"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "source_ip",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "asset_inventory",
+        "environment_kb"
+      ],
+      "default_spl_template": "cisco_stealthwatch_scan_with_asset",
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": "cisco_stealthwatch_scan_with_asset",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Cisco power-grid catalogue row; review-only governed template until COE signs lookup files and source profiles.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "cisco_duo_mfa_fatigue",
+      "display_name": "Cisco Duo MFA fatigue",
+      "category": "Authentication / Identity",
+      "intent_patterns": [
+        "duo",
+        "mfa fatigue",
+        "push denied"
+      ],
+      "example_queries": [
+        "Show Duo push denials before final approval"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "source_ip",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "asset_inventory",
+        "environment_kb"
+      ],
+      "default_spl_template": "cisco_duo_mfa_fatigue",
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": "cisco_duo_mfa_fatigue",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Cisco power-grid catalogue row; review-only governed template until COE signs lookup files and source profiles.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "ot_firmware_drift",
+      "display_name": "OT firmware drift",
+      "category": "OT / Critical infrastructure later",
+      "intent_patterns": [
+        "firmware drift",
+        "asset lookup",
+        "network banner"
+      ],
+      "example_queries": [
+        "Cross-reference OT banners against asset inventory firmware"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "source_ip",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "asset_inventory",
+        "environment_kb"
+      ],
+      "default_spl_template": "ot_firmware_drift",
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": "ot_firmware_drift",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Cisco power-grid catalogue row; review-only governed template until COE signs lookup files and source profiles.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "ot_master_spoof",
+      "display_name": "OT master station spoof",
+      "category": "OT / Critical infrastructure later",
+      "intent_patterns": [
+        "master station",
+        "broadcast polling",
+        "transformer"
+      ],
+      "example_queries": [
+        "Flag non-whitelisted master polling sources"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "source_ip",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "asset_inventory",
+        "environment_kb"
+      ],
+      "default_spl_template": "ot_master_spoof",
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": "ot_master_spoof",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Cisco power-grid catalogue row; review-only governed template until COE signs lookup files and source profiles.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "ot_tftp_hmi",
+      "display_name": "OT TFTP from HMI",
+      "category": "OT / Critical infrastructure later",
+      "intent_patterns": [
+        "tftp",
+        "hmi tftp",
+        "tftp backup",
+        "configuration backup"
+      ],
+      "example_queries": [
+        "Identify cleartext TFTP from substation HMIs"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "source_ip",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "asset_inventory",
+        "environment_kb"
+      ],
+      "default_spl_template": "ot_tftp_hmi",
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": "ot_tftp_hmi",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Cisco power-grid catalogue row; review-only governed template until COE signs lookup files and source profiles.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "physical_access_impossible",
+      "display_name": "Impossible physical access",
+      "category": "Compliance / Governance",
+      "intent_patterns": [
+        "physical badge",
+        "impossible travel",
+        "substation login"
+      ],
+      "example_queries": [
+        "Flag login while badge at different substation"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "source_ip",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "asset_inventory",
+        "environment_kb"
+      ],
+      "default_spl_template": "physical_access_impossible",
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": "physical_access_impossible",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Cisco power-grid catalogue row; review-only governed template until COE signs lookup files and source profiles.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "cii_scan_detection",
+      "display_name": "CII scan detection",
+      "category": "Compliance / Governance",
+      "intent_patterns": [
+        "cii",
+        "critical infrastructure scan"
+      ],
+      "example_queries": [
+        "List scanning against CII registry nodes"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "source_ip",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "asset_inventory",
+        "environment_kb"
+      ],
+      "default_spl_template": "cii_scan_detection",
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": "cii_scan_detection",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Cisco power-grid catalogue row; review-only governed template until COE signs lookup files and source profiles.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "loto_breaker_correlation",
+      "display_name": "LOTO breaker correlation",
+      "category": "Compliance / Governance",
+      "intent_patterns": [
+        "loto",
+        "breaker command",
+        "manual repair"
+      ],
+      "example_queries": [
+        "Correlate LOTO events with breaker commands"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "source_ip",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "asset_inventory",
+        "environment_kb"
+      ],
+      "default_spl_template": "loto_breaker_correlation",
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": "loto_breaker_correlation",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Cisco power-grid catalogue row; review-only governed template until COE signs lookup files and source profiles.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "cert_in_hash_match",
+      "display_name": "CERT-In hash match",
+      "category": "Compliance / Governance",
+      "intent_patterns": [
+        "cert-in",
+        "file hash",
+        "advisory"
+      ],
+      "example_queries": [
+        "Match downloads against CERT-In hash block list"
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "host",
+        "source_ip",
+        "time_window"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "primary_skill": "attack_discovery",
+      "secondary_skills": [
+        "spl_generation",
+        "spl_validation",
+        "evidence_collection"
+      ],
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "optional_sources": [
+        "asset_inventory",
+        "environment_kb"
+      ],
+      "default_spl_template": "cert_in_hash_match",
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": "cert_in_hash_match",
+      "action_capability_tier": 1,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Do not claim Impair Defenses / Disable or Modify Tools from missing telemetry or generic anomalies without direct tool/service/log-tamper evidence."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Cisco power-grid catalogue row; review-only governed template until COE signs lookup files and source profiles.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001"
+      ]
+    },
+    {
+      "use_case_id": "soc_environment_hygiene",
+      "display_name": "SOC environment hygiene",
+      "category": "Environment Knowledge / Metadata",
+      "intent_patterns": [
+        "environment hygiene",
+        "log generation formats",
+        "ingest latency indicators",
+        "storage pool",
+        "source discovery",
+        "active analytical tracking rules",
+        "operational node version",
+        "logging boundaries"
+      ],
+      "example_queries": [
+        "List the total distinct log generation formats transmitting operational updates along with immediate pipeline ingest latency indicators."
+      ],
+      "required_entities": [],
+      "optional_entities": [
+        "time_window",
+        "index",
+        "sourcetype"
+      ],
+      "default_time_window": null,
+      "primary_skill": "knowledge_recall",
+      "secondary_skills": [
+        "source_discovery",
+        "knowledge_recall",
+        "context_sufficiency"
+      ],
+      "required_sources": [],
+      "optional_sources": [
+        "mcp:splunk",
+        "environment_kb",
+        "asset_registry"
+      ],
+      "default_spl_template": null,
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "mitre_candidates": [],
+      "severity_policy": null,
+      "action_capability_tier": 0,
+      "output_template": "investigation_answer",
+      "mitre_registry": {
+        "permitted": [],
+        "candidate": [],
+        "blocked": [
+          "T1562.001",
+          "T1003",
+          "T1110"
+        ],
+        "blocked_rationale": {
+          "T1562.001": "Environment metadata does not prove tool/service/log-tamper evidence.",
+          "T1003": "Environment metadata does not support credential dumping.",
+          "T1110": "Environment metadata does not support brute-force behavior."
+        },
+        "requires_evidence": false,
+        "requires_alert_context": false,
+        "default_visibility": "not_applicable",
+        "answer_visibility_policy": "trace_only",
+        "mapping_confidence": "not_applicable",
+        "mapping_rationale": "Metadata-only environment hygiene route; no MITRE behavior should be claimed.",
+        "source_fields": {
+          "mitre_permitted": [],
+          "mitre_candidates": [],
+          "tactics": []
+        },
+        "schema_version": "2026-06-control-plane-v1",
+        "registry_role": "metadata_not_evidence"
+      },
+      "mitre_registry_schema_version": "2026-06-control-plane-v1",
+      "mitre_requires_evidence": false,
+      "mitre_requires_alert_context": false,
+      "mitre_visibility_policy": "trace_only",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003",
+        "T1110"
       ]
     }
   ]

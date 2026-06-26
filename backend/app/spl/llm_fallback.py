@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -89,9 +90,38 @@ def generate_llm_spl_fallback(
                 user_prompt=_user_prompt(
                     user_query, context=context, relevance_feedback=relevance_feedback
                 ),
-                max_tokens=min(settings.ai_soc_llm_max_output_tokens, 400),
+                # Raised from 400: the full advisory schema needs ~500 tokens; 400
+                # truncated mid-JSON (finish_reason=length) on live probes.
+                max_tokens=_spl_max_output_tokens(),
                 temperature=0.0,
+                # Constrained generation: a json_schema response_format makes
+                # llama.cpp grammar-constrain the output to a valid JSON object with
+                # our keys — diagnosed as the only mode this server honors (plain /
+                # json_object emitted ```json fences + dropped delimiters). This is
+                # the reliable fix; the tolerant repair in _strict_json_payload stays
+                # as the secondary net for servers that ignore json_schema.
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {"name": "spl_advisory", "schema": SPL_ADVISORY_JSON_SCHEMA},
+                },
             )
+        except LocalChatError as exc:
+            # A server that rejects json_schema (HTTP 400) degrades to a plain
+            # call + the tolerant parser, rather than failing closed outright.
+            if "http_400" in str(exc):
+                try:
+                    completion = active_client.generate(
+                        system_prompt=_system_prompt(correctness_mode=correctness_mode),
+                        user_prompt=_user_prompt(
+                            user_query, context=context, relevance_feedback=relevance_feedback
+                        ),
+                        max_tokens=_spl_max_output_tokens(),
+                        temperature=0.0,
+                    )
+                except LocalChatError:
+                    return _clarification(CLARIFICATION_NO_CLIENT)
+            else:
+                return _clarification(CLARIFICATION_NO_CLIENT)
         except LocalChatError:
             return _clarification(CLARIFICATION_NO_CLIENT)
         raw_output = completion.text
@@ -348,21 +378,100 @@ def _clarification(
     )
 
 
+def _strip_code_fences(text: str) -> str:
+    """Remove a single ```json ... ``` wrapper. Foundation-sec-8B adds fences despite
+    the no-fences instruction (measured 2026-06-16), which would fail the strict parser
+    and reject otherwise-valid SPL. Only an outer fence is stripped; inner content is
+    untouched so strict object-shape validation below still applies."""
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    body = stripped[3:]
+    newline = body.find("\n")
+    if newline != -1 and body[:newline].strip().lower() in {"", "json"}:
+        body = body[newline + 1 :]
+    if body.rstrip().endswith("```"):
+        body = body.rstrip()[:-3]
+    return body.strip()
+
+
+def _extract_first_json_object(text: str) -> str | None:
+    """Return the first balanced {...} object, ignoring braces inside strings.
+
+    Small instruct models often wrap JSON in prose or emit a trailing token after
+    the object; this lifts just the object so the strict parser can validate it.
+    """
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_string = False
+    escaped = False
+    for index in range(start, len(text)):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    return None
+
+
+def _repair_json_text(text: str) -> str:
+    """Best-effort, conservative repairs for common small-model JSON defects.
+
+    Only removes trailing commas before } or ] — it never rewrites values, so it
+    cannot turn invalid logic into a false positive. Missing-delimiter / truncated
+    output stays a parse failure (fail-closed)."""
+    return re.sub(r",(\s*[}\]])", r"\1", text)
+
+
+# SPL generation needs ~490-580 output tokens (full 15-key schema + a complete
+# candidate_spl). Decouple it from the shared synthesis budget
+# (ai_soc_llm_max_output_tokens, often tuned low for narration, e.g. 400) with a
+# hard floor so narration tuning can never truncate SPL mid-JSON again.
+_SPL_OUTPUT_TOKENS_FLOOR = 640
+_SPL_OUTPUT_TOKENS_CEILING = 768
+
+
+def _spl_max_output_tokens() -> int:
+    return max(_SPL_OUTPUT_TOKENS_FLOOR, min(settings.ai_soc_llm_max_output_tokens, _SPL_OUTPUT_TOKENS_CEILING))
+
+
 def _strict_json_payload(raw_output: str) -> tuple[dict[str, Any] | None, list[str]]:
-    text = (raw_output or "").strip()
+    text = _strip_code_fences(raw_output or "")
     if not text:
         return None, ["empty_llm_output"]
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError as exc:
-        return None, [f"strict_json_parse_failed:{exc.msg}"]
-    if not isinstance(payload, dict):
-        return None, ["strict_json_object_required"]
-    if json.dumps(payload, sort_keys=True, separators=(",", ":")) != json.dumps(
-        json.loads(text), sort_keys=True, separators=(",", ":")
-    ):
-        return None, ["strict_json_object_required"]
-    return payload, []
+    # Tolerant pre-parse net (secondary to response_format=json_object): lift the
+    # first balanced object out of any surrounding prose, then drop trailing commas.
+    candidates = [text]
+    extracted = _extract_first_json_object(text)
+    if extracted and extracted != text:
+        candidates.append(extracted)
+    candidates.append(_repair_json_text(extracted or text))
+    last_error = "strict_json_parse_failed:unknown"
+    for candidate in candidates:
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            last_error = f"strict_json_parse_failed:{exc.msg}"
+            continue
+        if not isinstance(payload, dict):
+            last_error = "strict_json_object_required"
+            continue
+        return payload, []
+    return None, [last_error]
 
 
 def _confidence_score(value: Any) -> float:
@@ -429,13 +538,40 @@ def _correctness_engineering_block() -> str:
     )
 
 
+# JSON schema for constrained generation. Mirrors the keys the adapter/_user_prompt
+# expect. `required` covers the governance-critical flags so the model always emits
+# them; the adapter still forces execution_eligible=false (no policy reliance on the
+# model honoring these — schema only guarantees the keys are present and parseable).
+SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "status": {"type": "string"},
+        "confidence_score": {"type": "number"},
+        "confidence_label": {"type": "string"},
+        "detection_family": {"type": "string"},
+        "candidate_spl": {"type": "string"},
+        "assumptions": {"type": "array", "items": {"type": "string"}},
+        "required_fields": {"type": "array", "items": {"type": "string"}},
+        "missing_details": {"type": "array", "items": {"type": "string"}},
+        "clarifying_questions": {"type": "array", "items": {"type": "string"}},
+        "validation_notes": {"type": "array", "items": {"type": "string"}},
+        "soc_std_rules_applied": {"type": "array", "items": {"type": "string"}},
+        "risk_notes": {"type": "array", "items": {"type": "string"}},
+        "execution_eligible": {"type": "boolean"},
+        "governed": {"type": "boolean"},
+        "catalog_approved": {"type": "boolean"},
+    },
+    "required": ["status", "candidate_spl", "execution_eligible", "governed", "catalog_approved"],
+}
+
+
 def _system_prompt(correctness_mode: bool = False) -> str:
     if correctness_mode:
         datamodels = ", ".join(APPROVED_CIM_DATAMODELS)
         return (
             "You are the AI SOC SPL advisory fallback (lab candidate only — never governed, "
-            "never catalog-approved, never executable). Output ONE JSON object and nothing else: "
-            "no markdown fences, no text before or after.\n"
+            "never catalog-approved, never executable). Return one JSON object "
+            "matching the provided schema.\n"
             f"{_correctness_engineering_block()}"
             "Decide whether the request is sufficiently specified. Return clarification questions when the "
             "required log source is unclear, fields required for logic are missing, or the user asks to "
@@ -445,9 +581,10 @@ def _system_prompt(correctness_mode: bool = False) -> str:
             "- begin with `search index=<index> sourcetype=<sourcetype>` OR, when it answers the question "
             f"correctly and faster, `tstats ... from datamodel=<one of: {datamodels}>`;\n"
             "- include a time bound (`earliest=-<N>[mhd]` and `latest=now`, or tstats earliest/latest);\n"
-            "- aggregate with stats/tstats when the question asks for a ranked or counted answer, grouping "
-            "by the asked entity (user, host, src_ip, domain, ...);\n"
-            "- end with `head 100`;\n"
+            "- ALWAYS include a `stats` (or timechart/tstats) aggregation grouping by the asked entity "
+            "(user, host, src_ip, domain, ...) — the deterministic validator REJECTS any query without "
+            "an aggregation, so a filter-only search is not acceptable;\n"
+            "- ALWAYS end with `head 100` — the validator REJECTS any query without a result limit;\n"
             "- NOT use: subsearches, macros, delete, collect, outputlookup, sendemail, rest, or any write "
             "command. (tstats/from/datamodel ARE allowed for the approved datamodels above.)\n"
             "confidence_score reflects source-profile completeness and field certainty. assumptions MUST list "
@@ -466,8 +603,8 @@ def _system_prompt(correctness_mode: bool = False) -> str:
         )
     return (
         "You are the AI SOC SPL advisory fallback (lab candidate only — never governed, "
-        "never catalog-approved, never executable). Output ONE JSON object and nothing else: "
-        "no markdown fences, no text before or after.\n"
+        "never catalog-approved, never executable). Return one JSON object "
+        "matching the provided schema.\n"
         f"{_soc_std_spl_001_prompt_rules()}"
         f"{_detection_family_prompt()}"
         "Decide whether the request is sufficiently specified. Return clarification questions when "
@@ -532,6 +669,13 @@ def _user_prompt(
         if ctx_lines:
             parts.append("Routing context (use it to anchor the data source and entity):")
             parts.extend(ctx_lines)
+            parts.append("")
+        grounding = context.get("t2_grounding")
+        if isinstance(grounding, str) and grounding.strip():
+            parts.append(
+                "Deterministic grounding (advisory — anchor families/MITRE/sources; do not invent indexes):"
+            )
+            parts.append(grounding.strip())
             parts.append("")
     if relevance_feedback:
         parts.append(

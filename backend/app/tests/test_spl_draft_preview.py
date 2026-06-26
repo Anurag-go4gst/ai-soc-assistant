@@ -78,6 +78,7 @@ def _governance_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_spl_fallback_enabled", False)
+    monkeypatch.setattr("app.spl.draft_preview.load_persisted_source_profile", lambda: {})
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
     monkeypatch.setattr(settings, "mcp_server_mock_execution_enabled", False)
 
@@ -143,7 +144,11 @@ def test_flag_on_builds_draft_preview_for_families(
     assert preview["governed"] is False
     assert preview["catalog_approved"] is False
     assert preview["warning"] == DRAFT_WARNING
-    assert "<" in preview["draft_spl"]
+    assert (
+        "<" in preview["draft_spl"]
+        or preview.get("source_profile_bindings")
+        or preview.get("source_profile_bindings_applied")
+    )
     assert preview["draft_lint_status"] == "passed"
     assert preview["quality_status"] == "passed"
     assert preview["quality_standard"] == "SOC-STD-SPL-001"
@@ -389,8 +394,9 @@ def test_esp_it_to_ot_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'like(dest_zone_norm, "%ot%")' not in spl
     assert "values(app_norm)" in spl
     assert "cidrmatch(" in spl
-    assert "corporate_it_cidr" in preview["required_source_profile_fields"]
-    assert "corporate_it_cidr" not in preview["required_log_fields"]
+    assert "corporate_cidr" in preview["required_source_profile_fields"]
+    assert "corporate_it_cidr" not in preview["required_source_profile_fields"]
+    assert "corporate_cidr" not in preview["required_log_fields"]
     assert "session_state" in preview["required_log_fields"]
     assert preview.get("investigation_checklist")
     assert preview.get("scope_notice")
@@ -416,13 +422,18 @@ def _assert_draft_preview_narrative(response) -> None:
     ).lower()
     for phrase in DRAFT_PREVIEW_FORBIDDEN_PHRASES:
         assert phrase not in blob, f"forbidden phrase in narrative: {phrase!r}"
-    assert "lab-only draft spl preview" in blob
-    assert "hil/soc review is required" in blob
-    assert blob.count("lab-only draft spl preview") == 1
+    # COE renderer ownership: the lab-only / HIL warning lives once in its owned
+    # section (spl_draft_preview.warning), not duplicated into the summary/message blob.
+    draft = response.spl_draft_preview
+    warning = str((draft.get("warning") if isinstance(draft, dict) else getattr(draft, "warning", "")) or "").lower()
+    assert "lab-only draft spl preview" in warning
+    assert "hil/soc review is required" in warning
+    assert blob.count("lab-only draft spl preview") == 0
+    # The summary/message surface still carries honest review-only / not-executed language.
+    assert "review-only" in blob or "not been executed" in blob or "no live query was executed" in blob
     assert analyst.hil_status == "required"
     assert analyst.spl_status == "review_required"
     assert response.message
-    assert "hil/soc review is required" in response.message.lower()
 
 
 def test_esp_draft_preview_review_wording(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -449,7 +460,21 @@ def test_esp_draft_preview_review_wording_with_live_composer(monkeypatch: pytest
         return_value=type("R", (), {"text": bad_prose})(),
     ):
         response = build_live_chat_response(ChatRequest(message=ESP_QUERY))
-    _assert_draft_preview_narrative(response)
+    # With the control plane on, the dedicated review-only SPL renderer owns the visible
+    # answer, so the composer's bad prose cannot survive and HIL/SOC review messaging is
+    # guaranteed. (The lab-only warning also remains in its owned spl_draft_preview.warning.)
+    visible = (response.message or "") + "\n" + (response.analyst_response.direct_answer_summary or "")
+    lowered = visible.lower()
+    assert "does not require review" not in lowered
+    assert "no human intelligence" not in lowered
+    first_line = next(line for line in visible.splitlines() if line.strip())
+    assert first_line == "Review-only SPL draft — no live query was executed"
+    assert "hil/soc review required before any future execution path" in lowered
+    assert "lab-only draft spl preview" in lowered
+    assert lowered.count("soc review checklist") == 1
+    draft = response.spl_draft_preview
+    warning = str(getattr(draft, "warning", "") or "").lower()
+    assert "lab-only draft spl preview" in warning
 
 
 def test_substation_hmi_brute_force_spl_quality(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -477,7 +502,9 @@ def test_live_response_includes_draft_when_flag_on(monkeypatch: pytest.MonkeyPat
     if response.spl_validation is not None:
         assert response.spl_validation.approved is False
     assert response.execution is None or response.execution.status != "executed"
-    assert DRAFT_WARNING in (response.message or "")
+    # COE renderer ownership: the lab-only warning is carried once in its owned section.
+    assert DRAFT_WARNING in (response.spl_draft_preview.warning or "")
+    assert DRAFT_WARNING not in (response.message or "")
 
 
 def test_live_response_omits_draft_when_flag_off(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -550,6 +577,36 @@ def test_vpn_new_country_draft_is_lab_only_with_source_profile_fields(
     assert "vpn_index" in preview["required_source_profile_fields"]
     assert preview["draft_status"] == DRAFT_STATUS
     assert "not executed" in " ".join(preview["assumptions"]).lower()
+
+
+def test_draft_preview_binds_approved_source_profile_without_live_claims(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from app.spl import source_profile_store as store
+
+    store_path = tmp_path / "source_profile_map.json"
+    monkeypatch.setattr(settings, "ai_soc_source_profile_store_path", str(store_path))
+    store.save_persisted_source_profile(
+        {"vpn_index": "vpn_prod", "vpn_sourcetype": "cisco:asa:vpn"},
+        updated_by="coe_ui",
+    )
+    monkeypatch.setattr(
+        "app.spl.draft_preview.load_persisted_source_profile",
+        store.load_persisted_source_profile,
+    )
+
+    preview = _preview(monkeypatch, VPN_NEW_COUNTRY_QUERY, "vpn_new_country_login")
+
+    assert "index=vpn_prod" in preview["draft_spl"]
+    assert "sourcetype=cisco:asa:vpn" in preview["draft_spl"]
+    assert "<vpn_index>" not in preview["draft_spl"]
+    assert preview["source_profile_bindings"] == [
+        {"slot": "vpn_index", "value": "vpn_prod", "source": "source_profile"},
+        {"slot": "vpn_sourcetype", "value": "cisco:asa:vpn", "source": "source_profile"},
+    ]
+    assert preview["execution_enabled"] is False
+    assert preview["review_required"] is True
 
 
 @pytest.mark.parametrize(

@@ -20,7 +20,10 @@ from collections import Counter
 from math import sqrt
 from typing import Any
 
-from app.coverage.question_runtime_map import list_question_runtime_entries
+from app.coverage.question_runtime_map import (
+    list_cisco_question_runtime_entries,
+    list_question_runtime_entries,
+)
 
 # Calibrated by the T1.2 paraphrase eval (51 rows): at 0.65 the corpus shows
 # zero wrong landings (margin gate absorbs ambiguity) while recovering most
@@ -163,13 +166,9 @@ def semantic_candidates(
     scored.sort(key=lambda item: item[0], reverse=True)
     candidates = []
     for score, entry in scored[:limit]:
-        candidates.append(
-            {
-                "question_ref": entry.get("question_ref"),
-                "question": entry.get("question"),
-                "_semantic_match_score": round(score, 4),
-            }
-        )
+        row = dict(entry)
+        row["_semantic_match_score"] = round(score, 4)
+        candidates.append(row)
     return candidates
 
 
@@ -183,6 +182,24 @@ def _index() -> list[tuple[dict[str, Any], Counter[str], float]]:
                 continue
             vector = _vectorize(question)
             built.append((entry, vector, _norm(vector)))
+        # Cisco precision layer (intent cascade hardening §4): the 50 verbatim
+        # questions plus curated paraphrase aliases are appended so analyst
+        # rewordings of the Cisco catalogue land on the precise registry row.
+        # 105 rows are indexed first; semantic match is only reached after a 105
+        # exact/near miss (parser), and the margin gate guards ambiguity — so 105
+        # precedence holds without a separate forked matcher.
+        for entry in list_cisco_question_runtime_entries():
+            question = entry.get("question")
+            if isinstance(question, str):
+                vector = _vectorize(question)
+                built.append((entry, vector, _norm(vector)))
+            for alias in entry.get("paraphrase_questions", []) or []:
+                if not isinstance(alias, str) or not alias.strip():
+                    continue
+                # Alias rows resolve to the same registry entry (same metadata),
+                # but vectorize the paraphrase surface form for matching.
+                vector = _vectorize(alias)
+                built.append((entry, vector, _norm(vector)))
         _INDEX_CACHE = built
     return _INDEX_CACHE
 

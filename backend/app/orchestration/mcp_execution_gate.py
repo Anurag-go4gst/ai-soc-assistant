@@ -117,6 +117,13 @@ def evaluate_mcp_execution(
         execution_review_action=execution_review_action,
         analyst_provided_spl=analyst_provided_spl,
         pending_execution=pending_execution,
+        # Live read-only searches always require per-call analyst confirmation,
+        # even if a deployment accidentally leaves the optional mock/lab flag
+        # disabled. Mock execution retains its explicit demo posture controls.
+        require_confirmation=(
+            registry.mode == "registry"
+            or settings.ai_soc_require_spl_execution_confirmation
+        ),
     )
     if confirmation_review is not None:
         execution = _blocked_execution(selection, "requires_human_review", confirmation_review["reason"])
@@ -279,6 +286,14 @@ def _gate_review(
         return _review("spl_revision", "spl_validation_failed", "analyst", ["regenerate_spl", "edit_spl", "reject_execution"])
     if spl_validation.get("normalized_spl") is None:
         return _review("spl_revision", "normalized_spl_null", "analyst", ["regenerate_spl", "edit_spl", "reject_execution"])
+    normalized_spl = str(spl_validation.get("normalized_spl") or "")
+    if "<" in normalized_spl or ">" in normalized_spl:
+        return _review(
+            "spl_revision",
+            "spl_source_slots_unresolved",
+            "analyst",
+            ["confirm_source_profile", "regenerate_spl", "reject_execution"],
+        )
     if not registry.global_execution_enabled:
         return _review("execution_approval", "mcp_global_execution_disabled", "soc_lead", ["approve_execution_after_policy_check", "reject_execution"])
     server = next((item for item in registry.servers if item.name == selected_mcp_server), None)

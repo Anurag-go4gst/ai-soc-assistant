@@ -15,14 +15,18 @@ callers pass only already-redacted strings, and the package never reaches into
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
+
+from app.safeguards.evidence_sanitizer import redact_secret_values
 
 from app.query_understanding.models import QueryUnderstandingResult
 
 if TYPE_CHECKING:
     from app.chat.contracts.answer_contract import AnswerContract
+
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +59,7 @@ class GovernedContextPackage:
     # never execution schema or credentials). For out-of-catalog / weak composition.
     skill_sections: list[str] = field(default_factory=list)
     mcp_tool_hints: list[str] = field(default_factory=list)
+    t2_grounding_block: str | None = None
     use_case_id: str | None = None
 
     def to_prompt_block(self, *, max_chars: int = DEFAULT_MAX_CONTEXT_CHARS) -> str:
@@ -73,11 +78,12 @@ class GovernedContextPackage:
             (2, "do_not_claim", self.unsupported_claims_avoid[:10]),
             (3, "limitations", self.limitations[:8]),
             (4, "skill_sections", self.skill_sections[:8]),
-            (4, "mcp_tool_hints", self.mcp_tool_hints[:8]),
+            (4, "t2_grounding", [self.t2_grounding_block] if self.t2_grounding_block else []),
+            (5, "mcp_tool_hints", self.mcp_tool_hints[:8]),
             (5, "resource_decisions", self.resource_decisions[:10]),
             (6, "soc_kb_snippets", self.soc_kb_snippets[:6]),
         ]
-        scalars = [f"raw_query: {self.raw_query}"]
+        scalars = [f"raw_query: {_sanitize_prompt_fragment(self.raw_query)}"]
         for label, value in (
             ("match_path", self.match_path),
             ("routed_skill", self.routed_skill),
@@ -86,13 +92,14 @@ class GovernedContextPackage:
             ("use_case_id", self.use_case_id),
         ):
             if value:
-                scalars.append(f"{label}: {value}")
+                scalars.append(f"{label}: {_sanitize_prompt_fragment(str(value))}")
 
         def render(sections: list[tuple[int, str, list[str]]]) -> str:
-            lines = list(scalars)
+            lines = [_sanitize_prompt_fragment(line) for line in scalars]
             for _, label, values in sections:
                 if values:
-                    lines.append(f"{label}: " + "; ".join(str(v) for v in values))
+                    sanitized = "; ".join(_sanitize_prompt_fragment(str(v)) for v in values)
+                    lines.append(f"{label}: {sanitized}")
             return "\n".join(lines)
 
         block = render(priced_sections)
@@ -112,6 +119,37 @@ class GovernedContextPackage:
             len(kept),
         )
         return rendered + f"\n{CONTEXT_TRUNCATION_MARKER}: true"
+
+
+from collections import OrderedDict
+
+# P2-B: cache stable context prompt blocks within a process (bounded LRU).
+_CONTEXT_PROMPT_CACHE: OrderedDict[str, str] = OrderedDict()
+_CONTEXT_CACHE_MAX = 64
+
+
+def cached_context_prompt_block(package: GovernedContextPackage, *, max_chars: int = DEFAULT_MAX_CONTEXT_CHARS) -> str:
+    """Return ``package.to_prompt_block()`` with a bounded in-process cache.
+
+    The cache key must cover every input that changes the rendered block — all
+    package fields (not just query/match_path/skill) and ``max_chars`` — otherwise a
+    thin intent-node package and a finalize-stage enriched package for the same query
+    collide and the second caller gets a stale block.
+    """
+    import dataclasses
+
+    key = hashlib.sha256(
+        (repr(dataclasses.astuple(package)) + f"|max_chars={max_chars}").encode()
+    ).hexdigest()[:32]
+    cached = _CONTEXT_PROMPT_CACHE.get(key)
+    if cached is not None:
+        _CONTEXT_PROMPT_CACHE.move_to_end(key)
+        return cached
+    block = package.to_prompt_block(max_chars=max_chars)
+    _CONTEXT_PROMPT_CACHE[key] = block
+    if len(_CONTEXT_PROMPT_CACHE) > _CONTEXT_CACHE_MAX:
+        _CONTEXT_PROMPT_CACHE.popitem(last=False)
+    return block
 
 
 def build_governed_context_package_v1(
@@ -142,6 +180,7 @@ def build_governed_context_package_for_contract(
     resource_decisions: list[str] | None = None,
     skill_sections: list[str] | None = None,
     mcp_tool_hints: list[str] | None = None,
+    t2_grounding_block: str | None = None,
     routed_skill: str | None = None,
 ) -> GovernedContextPackage:
     """Rich package for finalize-stage sidecars + out-of-catalog composition.
@@ -166,6 +205,7 @@ def build_governed_context_package_for_contract(
         soc_kb_snippets=[str(item) for item in (soc_kb_snippets or []) if item],
         skill_sections=[str(item) for item in (skill_sections or []) if item],
         mcp_tool_hints=[str(item) for item in (mcp_tool_hints or []) if item],
+        t2_grounding_block=t2_grounding_block,
         use_case_id=contract.use_case_id,
     )
 
@@ -197,3 +237,7 @@ def _use_case_candidates(
             if item and str(item) not in candidates:
                 candidates.append(str(item))
     return candidates
+
+
+def _sanitize_prompt_fragment(text: str) -> str:
+    return redact_secret_values(text)

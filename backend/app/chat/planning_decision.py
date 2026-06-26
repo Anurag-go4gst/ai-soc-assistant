@@ -120,12 +120,20 @@ def _build_planning_decision(
     crosswalk = _crosswalk_status(use_case_id=use_case_id, question_ref=question_ref)
 
     path_type = _resolve_path_type(intent, plan, crosswalk, llm_intent_advisory, query_understanding)
+    curated_context = get_runtime_curated_enrichment(use_case_id)
+    # Completeness floor: an investigation-shaped query that maps to an in-catalog
+    # use case capable of a real investigation (active SPL template + MITRE
+    # candidates) must not silently degrade to a thin RAG/knowledge answer. Escalate
+    # such under-routes to hybrid_investigation. Tightly guarded so pure
+    # knowledge/explanation/clarification asks are untouched (105-eval validated).
+    path_type, completeness_floor_applied = _apply_completeness_floor(
+        path_type, intent, curated_context, query_understanding
+    )
     branches = _branches_for(path_type, plan)
     selected_tools = _selected_tools(path_type, plan, routed_payload)
     blocked_tools = _blocked_tools(path_type, plan)
     live_skill = _live_execution_skill(routed_payload)
     activation = resolve_use_case_activation(use_case_id)
-    curated_context = get_runtime_curated_enrichment(use_case_id)
 
     runtime_status = crosswalk.get("runtime_support_status")
     planner_runtime_activation_allowed = (
@@ -171,7 +179,14 @@ def _build_planning_decision(
             "clarification_required",
             "mitre_context_required",
         },
-        reason=_reason(path_type, intent, plan),
+        reason=(
+            _reason(path_type, intent, plan)
+            + (
+                " [completeness_floor: escalated thin in-catalog under-route to investigation]"
+                if completeness_floor_applied
+                else ""
+            )
+        ),
         authority_source=(
             "deterministic_planner_path_selection"
             if planner_path_selection_enabled
@@ -239,6 +254,62 @@ def _guided_resource_plan_summary(plan: dict[str, Any], routed: dict[str, Any]) 
     return _resource_plan_summary_for_path("guided_investigation", plan, routed)
 
 
+# Thin paths a completeness floor may escalate from.
+_COMPLETENESS_THIN_PATHS = frozenset({"rag_only", "generic_soc_guidance"})
+# Families that are knowledge/explanation/policy/clarification BY DESIGN — never
+# escalate these (a "what is T1078" ask must stay knowledge).
+_COMPLETENESS_KNOWLEDGE_FAMILIES = frozenset(
+    {
+        "mitre_explanation",
+        "policy_knowledge",
+        "sop_or_playbook",
+        "knowledge_definition",
+        "knowledge_only",
+        "clarification_required",
+        "guided_investigation",
+        "alert_summary",
+        "github_investigation",
+    }
+)
+
+
+def _apply_completeness_floor(
+    path_type: str,
+    intent: dict[str, Any],
+    curated_context: Any,
+    query_understanding: Any,
+) -> tuple[str, bool]:
+    """Escalate a thin in-catalog under-route to hybrid_investigation.
+
+    Returns (path_type, applied). Only fires when ALL hold: the route is thin
+    (rag_only/generic_soc_guidance); the use case is investigation-capable (active
+    SPL template + non-empty MITRE candidates); the query is investigation-shaped
+    (soc_investigation_shaped or a concrete alert id); the intent is not a
+    knowledge/explanation/policy/clarification family and does not require
+    clarification. This is the safety net for in-catalog under-routing — guided_
+    investigation only rescues out-of-catalog hunts.
+    """
+    if path_type not in _COMPLETENESS_THIN_PATHS:
+        return path_type, False
+    family = str(intent.get("intent_family") or "")
+    if family in _COMPLETENESS_KNOWLEDGE_FAMILIES or bool(intent.get("requires_clarification")):
+        return path_type, False
+    cc = curated_context
+    if cc is None:
+        return path_type, False
+    if str(getattr(cc, "spl_template_status", "")) != "active":
+        return path_type, False
+    if not getattr(cc, "mitre_candidates", None):
+        return path_type, False
+    qu = query_understanding
+    investigation_shaped = bool(
+        getattr(qu, "soc_investigation_shaped", False) or getattr(qu, "alert_id", None)
+    )
+    if not investigation_shaped:
+        return path_type, False
+    return "hybrid_investigation", True
+
+
 def _resolve_path_type(
     intent: dict[str, Any],
     plan: dict[str, Any],
@@ -248,6 +319,14 @@ def _resolve_path_type(
 ) -> str:
     family = str(intent.get("intent_family") or "")
     runtime_status = crosswalk.get("runtime_support_status")
+
+    if settings.ai_soc_t2_answer_shape_enabled and _containment_decision_support_detected(
+        intent, query_understanding
+    ):
+        # "Should we isolate OT? what steps?" — route to guided so the answer-shape
+        # router emits ir_containment_advisory (staged advice, no enforcement).
+        # Flag-gated: default/pytest posture keeps the unsafe_blocked refusal.
+        return "guided_investigation"
 
     if _unsafe_containment_detected(intent, query_understanding):
         return "unsafe_blocked"
@@ -261,8 +340,14 @@ def _resolve_path_type(
     if _advisory_blocked(advisory):
         return "unsafe_blocked"
 
+    if family == "github_investigation":
+        return "guided_investigation"
+
     if family == "guided_investigation" or plan.get("answer_mode") == "guided_investigation":
         return "guided_investigation"
+
+    if family == "alert_summary":
+        return "generic_soc_guidance"
 
     if family == "mitre_mapping" and bool(intent.get("requires_clarification")):
         return "mitre_context_required"
@@ -364,7 +449,34 @@ def _live_execution_skill(routed: dict[str, Any]) -> str | None:
     return None
 
 
+def _containment_decision_support_detected(intent: dict[str, Any], query_understanding: Any) -> bool:
+    """True when the analyst is ASKING whether/how to contain (decision support),
+    not ordering enforcement. These route to the IR/containment advisory shape
+    (review-only staged guidance) instead of the bare unsafe refusal.
+
+    The query text is authoritative here: the upstream intent may label an advisory
+    "should we isolate / what steps" question as human_review, but the
+    ``containment_decision_support`` signal already requires interrogative framing
+    AND excludes enforcement imperatives + explicit run-it asks, so a genuine
+    command ("disable the account", "isolate the host now") never qualifies.
+    """
+    _ = intent
+    raw_query = getattr(query_understanding, "raw_query", None)
+    if isinstance(raw_query, str) and raw_query.strip():
+        signals = extract_query_signals(raw_query)
+        return bool(
+            signals.get("containment_decision_support") and not signals.get("explicit_run_spl")
+        )
+    return False
+
+
 def _unsafe_containment_detected(intent: dict[str, Any], query_understanding: Any) -> bool:
+    # Decision-support containment questions are handled as guided IR advisory
+    # upstream (flag-gated); they must not fall through to the unsafe refusal.
+    if settings.ai_soc_t2_answer_shape_enabled and _containment_decision_support_detected(
+        intent, query_understanding
+    ):
+        return False
     if str(intent.get("primary_intent") or "") == "human_review" and bool(intent.get("requires_hil")):
         return True
     raw_query = getattr(query_understanding, "raw_query", None)

@@ -1,0 +1,1756 @@
+{
+  "manifest_path": "backend/app/coverage/pattern_coverage_v1.json",
+  "projection_mismatches": [],
+  "row_count": 105,
+  "rows": [
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "notable_risk_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "What incident or alert network events are high or critical right now?",
+      "question_ref": "q0.q001",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:coe_synthetic_fixture"
+      ],
+      "dependency_class": "source_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": "cov.q002.top_outbound_source_ips",
+      "manifest_readiness": "coe_synthetic_fixture",
+      "may_skip_llm": false,
+      "promotion_status": "in_manifest",
+      "question": "Which source IPs generated the most outbound connections?",
+      "question_ref": "q0.q002",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which destination IPs received the most connections?",
+      "question_ref": "q0.q003",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:ioc_dependent"
+      ],
+      "dependency_class": "local_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": "cov.q004.known_malicious_ips",
+      "manifest_readiness": "ioc_dependent",
+      "may_skip_llm": false,
+      "promotion_status": "in_manifest",
+      "question": "Which hosts contacted known malicious IPs today?",
+      "question_ref": "q0.q004",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_lookup",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "local_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts contacted suspicious external domains?",
+      "question_ref": "q0.q005",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_lookup",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which DNS queries have unusually long names?",
+      "question_ref": "q0.q006",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:detection_dependent"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": "cov.q007.dga_detection_binding",
+      "manifest_readiness": "detection_dependent",
+      "may_skip_llm": false,
+      "promotion_status": "in_manifest",
+      "question": "Which DNS queries look like DGA activity?",
+      "question_ref": "q0.q007",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:detection_dependent"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": "cov.q008.beaconing_detection_binding",
+      "manifest_readiness": "detection_dependent",
+      "may_skip_llm": false,
+      "promotion_status": "in_manifest",
+      "question": "Which hosts show possible beaconing behavior?",
+      "question_ref": "q0.q008",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts communicated with many unique external IPs?",
+      "question_ref": "q0.q009",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts are generating the most SMB traffic?",
+      "question_ref": "q0.q010",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts made SMB connections to many peers?",
+      "question_ref": "q0.q011",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which systems used unusual destination ports?",
+      "question_ref": "q0.q012",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_threshold_or_detection",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which systems generated large outbound data transfers?",
+      "question_ref": "q0.q013",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_threshold_or_detection",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts showed potential data exfiltration to cloud apps?",
+      "question_ref": "q0.q014",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts have repeated connections to rare destinations?",
+      "question_ref": "q0.q015",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts contacted the same external IP many times?",
+      "question_ref": "q0.q016",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:coe_synthetic_fixture"
+      ],
+      "dependency_class": "source_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": "cov.q017.top_dns_query_hosts",
+      "manifest_readiness": "coe_synthetic_fixture",
+      "may_skip_llm": false,
+      "promotion_status": "in_manifest",
+      "question": "Which hosts generated the most DNS queries?",
+      "question_ref": "q0.q017",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which domains were queried by multiple hosts?",
+      "question_ref": "q0.q018",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts queried domains with suspicious subdomains?",
+      "question_ref": "q0.q019",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which networks saw traffic to high-risk ports?",
+      "question_ref": "q0.q020",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts communicated with foreign IP ranges?",
+      "question_ref": "q0.q021",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "local_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts contacted IPs in an IOC lookup?",
+      "question_ref": "q0.q022",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_lookup",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts showed possible command-and-control beaconing?",
+      "question_ref": "q0.q023",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "composed_dependencies",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which internal hosts generated outbound traffic after DNS lookups?",
+      "question_ref": "q0.q024",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts used unusual protocols?",
+      "question_ref": "q0.q025",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts have unusually high connection counts to one destination?",
+      "question_ref": "q0.q026",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which DNS queries resolved to suspicious top-level domains?",
+      "question_ref": "q0.q027",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "route_blocked",
+        "missing_proposed_primary_skill"
+      ],
+      "dependency_class": "policy_definition",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts showed peer-to-peer style communication?",
+      "question_ref": "q0.q028",
+      "route_blocked": true,
+      "row_authority_status": "exact_known_unsupported",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which systems accessed the internet through rare ports?",
+      "question_ref": "q0.q029",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts contacted external IPs after hours?",
+      "question_ref": "q0.q030",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts repeatedly contacted the same destination at regular intervals?",
+      "question_ref": "q0.q031",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:dependency_missing"
+      ],
+      "dependency_class": "composed_dependencies",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": "cov.q032.dns_and_network_multi_signal",
+      "manifest_readiness": "dependency_missing",
+      "may_skip_llm": false,
+      "promotion_status": "in_manifest",
+      "question": "Which hosts had both DNS and network anomalies?",
+      "question_ref": "q0.q032",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "local_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts communicated with suspicious destination domains and IPs?",
+      "question_ref": "q0.q033",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_lookup",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which destination IPs were contacted by many hosts?",
+      "question_ref": "q0.q034",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts generated the largest DNS response volumes?",
+      "question_ref": "q0.q035",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:ioc_dependent"
+      ],
+      "dependency_class": "local_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": "cov.q036.known_malicious_domains",
+      "manifest_readiness": "ioc_dependent",
+      "may_skip_llm": false,
+      "promotion_status": "in_manifest",
+      "question": "Which hosts reached known malicious domains from lookup data?",
+      "question_ref": "q0.q036",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_lookup",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts showed likely proxy or tunneling behavior?",
+      "question_ref": "q0.q037",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts had large inbound traffic from a single source?",
+      "question_ref": "q0.q038",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_threshold_or_detection",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts downloaded large volumes from the internet?",
+      "question_ref": "q0.q039",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts initiated traffic to rare countries?",
+      "question_ref": "q0.q040",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which systems have repeated hits to the same suspicious URL path?",
+      "question_ref": "q0.q041",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "local_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts contacted both malicious IPs and domains?",
+      "question_ref": "q0.q042",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_lookup",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts show consistent low-volume outbound connections?",
+      "question_ref": "q0.q043",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which rules are generating the most alerts?",
+      "question_ref": "q0.q044",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "requires_clarification_or_case_context"
+      ],
+      "dependency_class": "case_history_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": "cov.q045.notable_missing_context",
+      "manifest_readiness": "blocked_missing_context",
+      "may_skip_llm": false,
+      "promotion_status": "in_manifest",
+      "question": "What happened for this specific notable event?",
+      "question_ref": "q0.q045",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_clarification",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:coe_synthetic_fixture",
+        "skill_drift",
+        "coe_step3_implementation_not_approved",
+        "operation_authoritative_enabled_defaults_false"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": "cov.q046.excessive_failed_logins_sample",
+      "manifest_readiness": "coe_synthetic_fixture",
+      "may_skip_llm": false,
+      "promotion_status": "in_manifest",
+      "question": "Which users have excessive failed logins?",
+      "question_ref": "q0.q046",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Is one IP attacking many accounts?",
+      "question_ref": "q0.q047",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Did a user log in from impossible locations?",
+      "question_ref": "q0.q048",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts ran suspicious PowerShell?",
+      "question_ref": "q0.q049",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Did Office apps spawn cmd or PowerShell?",
+      "question_ref": "q0.q050",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "What unusual processes ran on critical servers?",
+      "question_ref": "q0.q051",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "local_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Did any host contact known malicious IPs?",
+      "question_ref": "q0.q052",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_lookup",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Are there suspicious DNS queries indicating C2 or DGA behavior?",
+      "question_ref": "q0.q053",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_threshold_or_detection",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Who is sending large amounts of data outbound?",
+      "question_ref": "q0.q054",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "enrichment_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Did anyone get added to Administrators?",
+      "question_ref": "q0.q055",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users are logging in outside normal hours?",
+      "question_ref": "q0.q056",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "local_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Did any endpoint run this suspicious hash?",
+      "question_ref": "q0.q057",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_lookup",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "notable_risk_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users or hosts have the highest risk scores?",
+      "question_ref": "q0.q058",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which source IPs generated the most authentication failures today?",
+      "question_ref": "q0.q059",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_plus_threshold",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which accounts had a successful login after repeated failures?",
+      "question_ref": "q0.q060",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users logged in from new countries today?",
+      "question_ref": "q0.q061",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": "cov.q062.auth_failed_login_spike_raw",
+      "manifest_readiness": "source_ready",
+      "may_skip_llm": false,
+      "promotion_status": "in_manifest",
+      "question": "Which hosts show a spike in failed logins?",
+      "question_ref": "q0.q062",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which endpoints spawned script interpreters recently?",
+      "question_ref": "q0.q063",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts executed encoded PowerShell commands?",
+      "question_ref": "q0.q064",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which endpoints created new scheduled tasks?",
+      "question_ref": "q0.q065",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which systems contacted rare external destinations?",
+      "question_ref": "q0.q066",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts are generating unusual DNS query volumes?",
+      "question_ref": "q0.q067",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "local_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which internal hosts contacted known command-and-control domains?",
+      "question_ref": "q0.q068",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_lookup",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "enrichment_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users accessed privileged applications unusually?",
+      "question_ref": "q0.q069",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users changed their password multiple times in a short window?",
+      "question_ref": "q0.q070",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "enrichment_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which accounts were disabled or re-enabled today?",
+      "question_ref": "q0.q071",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts show signs of lateral movement?",
+      "question_ref": "q0.q072",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which systems had multiple remote service creations?",
+      "question_ref": "q0.q073",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts show SMB connections to many peers?",
+      "question_ref": "q0.q074",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which endpoints created suspicious archive files?",
+      "question_ref": "q0.q075",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_threshold_or_detection",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts uploaded large amounts of data to cloud services?",
+      "question_ref": "q0.q076",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_threshold_or_detection",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which endpoints accessed USB storage recently?",
+      "question_ref": "q0.q077",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which systems had repeated malware detections?",
+      "question_ref": "q0.q078",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which files were modified by suspicious processes?",
+      "question_ref": "q0.q079",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts spawned shells from email clients?",
+      "question_ref": "q0.q080",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users received and opened phishing attachments?",
+      "question_ref": "q0.q081",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "threshold_baseline_plus_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which domains were queried by multiple hosts in a short period?",
+      "question_ref": "q0.q082",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts have suspicious parent-child process chains?",
+      "question_ref": "q0.q083",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "notable_risk_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which accounts have the most risk events?",
+      "question_ref": "q0.q084",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "notable_risk_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which assets have accumulated risk from multiple detections?",
+      "question_ref": "q0.q085",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "composed_dependencies",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users were involved in both failed logins and privilege changes?",
+      "question_ref": "q0.q086",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts are communicating with unusual ports externally?",
+      "question_ref": "q0.q087",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which endpoints have multiple persistence indicators?",
+      "question_ref": "q0.q088",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_plus_threshold",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users authenticated to VPN after repeated MFA failures?",
+      "question_ref": "q0.q089",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "notable_risk_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which assets are generating the most notable events?",
+      "question_ref": "q0.q090",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "case_history_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which alerts are still open and unresolved?",
+      "question_ref": "q0.q091",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "composed_dependencies",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users had access to sensitive systems and then large outbound transfers?",
+      "question_ref": "q0.q092",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "composed_dependencies",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts showed both process execution and suspicious DNS within 24 hours?",
+      "question_ref": "q0.q093",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "metadata_inventory",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which logs are missing from key security sources?",
+      "question_ref": "q0.q094",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "metadata_inventory",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which sources stopped sending events recently?",
+      "question_ref": "q0.q095",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "enrichment_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users performed privileged actions from non-admin workstations?",
+      "question_ref": "q0.q096",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which systems show signs of webshell activity?",
+      "question_ref": "q0.q097",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "detection_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which hosts downloaded executables from the internet?",
+      "question_ref": "q0.q098",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_detection_binding",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "composed_dependencies",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which detections involved the same user and host repeatedly?",
+      "question_ref": "q0.q099",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "composed_dependencies",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users triggered multiple different detections?",
+      "question_ref": "q0.q100",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "source_binding",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which devices are generating the most endpoint alerts?",
+      "question_ref": "q0.q101",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "promotion_status:not_in_manifest",
+        "manifest_readiness:missing"
+      ],
+      "dependency_class": "baseline_policy",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Which users are accessing resources from unusual hosts?",
+      "question_ref": "q0.q102",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_weak_needs_enrichment",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "requires_clarification_or_case_context"
+      ],
+      "dependency_class": "enrichment_lookup",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "For any flagged host or user, what is its asset criticality, business owner, and identity/privilege status?",
+      "question_ref": "q0.q103",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_clarification",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "requires_clarification_or_case_context"
+      ],
+      "dependency_class": "composed_dependencies",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "What is the full activity timeline for a given entity in the N hours before and after a detection?",
+      "question_ref": "q0.q104",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_clarification",
+      "s3_authority_ready": false
+    },
+    {
+      "blockers": [
+        "requires_clarification_or_case_context"
+      ],
+      "dependency_class": "case_history_source",
+      "existing_s3_authority_ready": false,
+      "manifest_coverage_id": null,
+      "manifest_readiness": null,
+      "may_skip_llm": false,
+      "promotion_status": "not_in_manifest",
+      "question": "Has this entity, IP, domain, or notable been seen or investigated before, and what was the prior disposition?",
+      "question_ref": "q0.q105",
+      "route_blocked": false,
+      "row_authority_status": "exact_known_needs_clarification",
+      "s3_authority_ready": false
+    }
+  ],
+  "runtime_map_path": "backend/app/coverage/question_runtime_map_v1.json",
+  "schema_version": "2026-06-row-authority-v1",
+  "status_counts": {
+    "exact_known_needs_clarification": 4,
+    "exact_known_needs_detection_binding": 28,
+    "exact_known_needs_lookup": 9,
+    "exact_known_unsupported": 1,
+    "exact_known_weak_needs_enrichment": 63
+  }
+}

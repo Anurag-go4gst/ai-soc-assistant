@@ -8,7 +8,11 @@ from typing import Any
 from app.config import settings
 from app.schemas.responses import AnalystResponseEnvelope
 from app.chat.contracts.answer_contract import build_answer_contract
-from app.chat.final_answer_readability import apply_draft_preview_readability, apply_final_answer_readability
+from app.chat.final_answer_readability import (
+    apply_draft_preview_readability,
+    apply_final_answer_readability,
+    unglue_priority_action,
+)
 from app.chat.network_boundary_display import resolve_analyst_use_case_label, scrub_auth_anomaly_display_text
 from app.risk.severity_policy import (
     ANALYTICS_REVIEW_TYPE_NOTE,
@@ -32,6 +36,181 @@ _FAILED_LOGIN_NUMERIC_COLUMNS = (
     "failed_logins",
     "failure_count",
 )
+
+
+
+_SUMMARY_PREFIX_MARKERS = (
+    "summarize for shift handoff:",
+    "give a concise analyst summary:",
+    "provide an analyst summary:",
+    "analyst summary:",
+    "summarize:",
+    "summary:",
+)
+
+
+
+
+def _advisory_mitre_threshold_rows(user_query: str) -> list[dict[str, str]]:
+    normalized = " ".join(str(user_query or "").lower().split())
+    technique = "ICS remote command sequence (example)"
+    if "dnp3" in normalized:
+        technique = "DNP3 restart/output change sequence (example)"
+    elif "modbus" in normalized:
+        technique = "Modbus write/function-code abuse (example)"
+    elif "beacon" in normalized:
+        technique = "DNS/command beaconing (example)"
+    return [
+        {"technique": technique, "status": "candidate", "notes": "Threshold review only; validate with telemetry."},
+        {"technique": "Status labels", "status": "not_claimed", "notes": "Confirmed/Candidate/Not-claimed per evidence gates."},
+    ]
+
+def alert_summary_default_actions() -> list[str]:
+    return [
+        "Confirm affected assets, identities, sources, and the observation window.",
+        "Corroborate the described sequence in auth, endpoint, and network telemetry.",
+        "Decide whether the activity is sanctioned maintenance or needs escalation.",
+    ]
+
+
+def build_alert_summary_message(
+    *,
+    user_query: str,
+    evidence_plan: dict[str, Any] | None = None,
+    severity_label: str | None = None,
+    mitre_rows: list[dict[str, Any]] | None = None,
+) -> str:
+    """Deterministic shift-handoff summary: situation, confidence, actions, unknowns."""
+    situation = _alert_summary_situation(user_query)
+    confidence_lines: list[str] = []
+    if severity_label and not severity_label.startswith(ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL):
+        confidence_lines.append(
+            f"Severity posture: {severity_label} — analyst validation required before escalation."
+        )
+    else:
+        confidence_lines.append(
+            "Confidence: moderate — the narrative is taken from the analyst prompt; "
+            "no live Splunk query or MCP execution corroborated this turn."
+        )
+    if mitre_rows:
+        technique_bits = [
+            f"{row.get('Technique')} ({row.get('Status')})"
+            for row in mitre_rows[:3]
+            if row.get("Technique")
+        ]
+        if technique_bits:
+            confidence_lines.append(
+                "MITRE context (candidate/review-only): " + ", ".join(technique_bits) + "."
+            )
+
+    plan = evidence_plan if isinstance(evidence_plan, dict) else {}
+    actions = _safe_display_list(plan.get("checklist") or [])
+    if not actions:
+        actions = alert_summary_default_actions()
+    unknowns = _safe_display_list(plan.get("limitations") or plan.get("unsupported_claims_avoid") or [])
+    if not unknowns:
+        unknowns = [
+            "Whether the described activity is authorized or malicious.",
+            "Full scope of hosts, users, or OT assets beyond the narrative.",
+            "Whether severity assignment or containment is warranted without corroboration.",
+        ]
+
+    return "\n\n".join(
+        [
+            "Analyst summary (review-only)",
+            f"Situation\n{situation}",
+            "Confidence\n" + "\n".join(f"- {line}" for line in confidence_lines),
+            "Recommended actions\n" + "\n".join(f"- {item}" for item in actions[:5]),
+            "Unknowns / gaps\n" + "\n".join(f"- {item}" for item in unknowns[:4]),
+            "No Splunk search or MCP execution was performed for this summary turn.",
+        ]
+    )
+
+
+def _alert_summary_situation(user_query: str) -> str:
+    text = str(user_query or "").strip()
+    normalized = " ".join(text.lower().split())
+    for marker in _SUMMARY_PREFIX_MARKERS:
+        if normalized.startswith(marker):
+            text = text[len(marker) :].strip()
+            break
+    if not text:
+        return "Analyst requested a concise handoff summary; no corroborating telemetry was queried."
+    return text[0].upper() + text[1:] if len(text) > 1 else text
+
+
+
+_BINDING_CLARIFICATION = (
+    "SPL draft requires source-profile slot binding before review. "
+    "Confirm index, sourcetype, and field mappings in Settings, then re-ask."
+)
+
+
+def _resolve_spl_surfaces_from_contract(
+    *,
+    contract: Any | None,
+    candidate_spl: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+    spl_draft_preview: dict[str, Any] | None,
+    synthesis_draft: dict[str, Any],
+    source_evidence: list[dict[str, Any]],
+    execution: dict[str, Any],
+    spl_code: str | None,
+    draft_spl_code: str | None,
+) -> tuple[str | None, str | None, dict[str, Any] | None, list[dict[str, Any]]]:
+    """Single SPL surface driven by AnswerContract / RunContract mirror fields."""
+    draft_preview = spl_draft_preview if isinstance(spl_draft_preview, dict) else None
+    resolved_spl = spl_code
+    resolved_draft = draft_spl_code
+    table: list[dict[str, Any]] = []
+
+    if (
+        contract is not None
+        and getattr(contract, "run_contract_mirrored", False)
+        and (
+            getattr(contract, "spl_candidate_renderable", False)
+            or getattr(contract, "spl_normalized", False)
+            or getattr(contract, "spl_block_reason", None)
+        )
+    ):
+        if getattr(contract, "spl_normalized", False):
+            resolved_spl = _candidate_spl_text(candidate_spl, spl_validation, synthesis_draft)
+            resolved_draft = None
+            draft_preview = None
+        elif getattr(contract, "spl_candidate_renderable", False):
+            resolved_draft = str((draft_preview or {}).get("draft_spl") or "") or resolved_draft
+            if not getattr(contract, "spl_normalized", False):
+                resolved_spl = None
+        else:
+            resolved_spl = None
+            resolved_draft = None
+            draft_preview = None
+        if str(getattr(contract, "spl_block_reason", "") or "") == "missing_slot_binding":
+            resolved_spl = None
+            resolved_draft = None
+            draft_preview = None
+
+    # T1 SPL-native review-only draft has no spl_draft_preview channel; surface its
+    # candidate SPL as the draft so the review-only renderer can show it.
+    if (
+        resolved_draft is None
+        and isinstance(candidate_spl, dict)
+        and candidate_spl.get("generation_mode") == "t2_spl_native_review"
+        and str(candidate_spl.get("candidate_spl") or "").strip()
+    ):
+        resolved_draft = _candidate_spl_text(candidate_spl, spl_validation, synthesis_draft)
+        resolved_spl = None
+
+    mirrored = contract is not None and getattr(contract, "run_contract_mirrored", False)
+    if mirrored:
+        allow_results = bool(getattr(contract, "allow_results_table", False))
+    else:
+        allow_results = str(execution.get("status") or "") == "executed"
+    if allow_results and str(execution.get("status") or "") == "executed":
+        table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(
+            synthesis_draft.get("splunk_results_table")
+        )
+    return resolved_spl, resolved_draft, draft_preview, table
 
 
 def build_analyst_response_for_live(
@@ -63,29 +242,7 @@ def build_analyst_response_for_live(
     llm_candidate = llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None
     draft_spl_code = str(draft_preview.get("draft_spl") or "") or None if draft_preview else None
     spl_code = _candidate_spl_text(candidate_spl, spl_validation, draft)
-    # B15: one SPL surface for the LLM failover path. When an LLM-relevant candidate
-    # SPL is exposed, suppress the lab draft preview so the analyst never sees two
-    # parallel SPL blocks. The draft survives only as a last-resort when the LLM was
-    # attempted but produced no exposed candidate (relevance/clarification fail), and
-    # is then labelled as such. Governed template SPL keeps its existing surfaces —
-    # this precedence is scoped to the LLM lane only.
-    candidate_meta = candidate_spl if isinstance(candidate_spl, dict) else {}
-    is_llm_candidate = candidate_meta.get("generation_mode") == "llm_spl_advisory_fallback"
-    llm_exposed = is_llm_candidate and bool(str(candidate_meta.get("candidate_spl") or "").strip())
-    llm_attempted_failed = bool(candidate_meta.get("llm_fallback_used")) and not llm_exposed
-    if llm_exposed and spl_code and draft_preview is not None:
-        draft_preview = None
-        draft_spl_code = None
-    elif draft_preview is not None and llm_attempted_failed:
-        draft_preview = {
-            **draft_preview,
-            "fallback_after_llm": True,
-            "fallback_notice": "Last-resort lab draft — the LLM candidate did not "
-            "pass the relevance/validation gate for this question.",
-        }
     table: list[dict[str, Any]] = []
-    if execution_payload.get("status") == "executed":
-        table = _splunk_table_from_evidence(source_evidence) or _as_table_rows(draft.get("splunk_results_table"))
     decision_payload = mitre_decision if isinstance(mitre_decision, dict) else None
     mitre_rows = _mitre_display_rows(mitre_mappings, user_query=user_query)
     if not mitre_rows and decision_payload and decision_payload.get("answer_visible"):
@@ -97,6 +254,19 @@ def build_analyst_response_for_live(
     not_claimed = _not_claimed_rows(decision_payload)
     playbook, sop_guidance, rag_meta = _playbook_from_rag(source_evidence)
     recommended = _recommended_actions_from_draft(draft) or _recommended_from_rag(source_evidence)
+    if not recommended and draft_preview:
+        recommended = _safe_display_list(draft_preview.get("investigation_checklist") or [])
+    binding_derived = bool(draft_preview and draft_preview.get("metadata_source") == "binding_derived")
+    if binding_derived and draft_preview:
+        initial_from_draft = _safe_display_list(draft_preview.get("initial_assessment") or [])
+    else:
+        initial_from_draft = []
+    if not recommended and user_query and not binding_derived:
+        from app.chat.signal_class_guidance import _TEMPLATES, classify_signal_class
+
+        signal_class = classify_signal_class(user_query)
+        template = _TEMPLATES.get(signal_class) or {}
+        recommended = [str(item) for item in template.get("evidence") or [] if item]
     # Single AnswerContract: prefer the pipeline-built projection; build only as
     # a fallback so the builder never makes a second, divergent contract.
     contract = answer_contract
@@ -119,7 +289,176 @@ def build_analyst_response_for_live(
             mitre_mappings=mitre_mappings,
             user_query=user_query,
         )
+    spl_code, draft_spl_code, draft_preview, table = _resolve_spl_surfaces_from_contract(
+        contract=contract,
+        candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
+        spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+        spl_draft_preview=draft_preview,
+        synthesis_draft=draft,
+        source_evidence=source_evidence,
+        execution=execution_payload,
+        spl_code=spl_code,
+        draft_spl_code=draft_spl_code,
+    )
+    if not (contract is not None and getattr(contract, "run_contract_mirrored", False)):
+        cand = candidate_spl if isinstance(candidate_spl, dict) else {}
+        if spl_code and cand.get("generation_mode") == "llm_spl_advisory_fallback":
+            draft_spl_code = None
+            draft_preview = None
+        elif spl_code and isinstance(spl_validation, dict) and spl_validation.get("approved"):
+            draft_spl_code = None
+            draft_preview = None
+    from app.chat.guidance_templates import (
+        build_mitre_evidence_threshold_guidance,
+        is_mitre_evidence_threshold_query,
+    )
+
+    if user_query and is_mitre_evidence_threshold_query(user_query):
+        threshold_message = build_mitre_evidence_threshold_guidance(user_query)
+        direct = str(message or "").strip() or threshold_message
+        if len(direct) < 120:
+            direct = threshold_message
+        recommended = [
+            "Apply Confirmed/Candidate/Not-claimed labels with explicit evidence thresholds.",
+            "Corroborate OT/protocol logs and engineering workstation context.",
+            "Do not declare technique-level conclusions from this question alone.",
+        ]
+        envelope = AnalystResponseEnvelope(
+            finding_title="MITRE evidence thresholds",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=recommended,
+            analyst_checklist=recommended,
+            investigation_steps=recommended,
+            response_profile="knowledge_recall",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            mitre_mappings=_advisory_mitre_threshold_rows(user_query),
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            preserved_mitre = list(envelope.mitre_mappings or [])
+            envelope = apply_final_answer_readability(envelope, contract)
+            envelope = envelope.model_copy(update={"mitre_mappings": preserved_mitre})
+        return envelope
     intent = intent_classification if isinstance(intent_classification, dict) else {}
+    if str(intent.get("intent_family") or "") == "cve_investigation":
+        from app.chat.guidance_templates import build_cve_investigation_guidance
+
+        cve_message = build_cve_investigation_guidance(user_query)
+        direct = str(message or "").strip() or cve_message
+        if not direct.startswith("CVE investigation"):
+            direct = cve_message
+        recommended = _safe_display_list(plan.get("checklist") or [])[:8] or [
+            "Map installed package/version rows for affected software.",
+            "Review exposure signals without live scanning.",
+            "Check vulnerability_source onboarding before unpatched claims.",
+            "List missing scanner/CMDB and exploit-attempt evidence.",
+        ]
+        envelope = AnalystResponseEnvelope(
+            finding_title="CVE investigation guidance",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=recommended,
+            analyst_checklist=recommended,
+            investigation_steps=recommended,
+            response_profile="hybrid_alert_review",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            mitre_mappings=mitre_rows,
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            envelope = apply_final_answer_readability(envelope, contract)
+        return envelope
+    if str(intent.get("primary_intent") or "") == "cross_skill_investigation":
+        from app.synthesis.deterministic_prose_stitch import build_cross_skill_investigation_message
+
+        cross_message = build_cross_skill_investigation_message(user_query)
+        direct = str(message or "").strip() or cross_message
+        if "Cross-skill investigation plan" not in direct:
+            direct = cross_message
+        recommended = [
+            "CVE leg: confirm affected versions and missing patch evidence.",
+            "MITRE leg: apply candidate/not-claimed labels with evidence thresholds.",
+            "GitHub leg: collect actor, PAT, commit timeline, workflow diff, and audit events.",
+        ]
+        envelope = AnalystResponseEnvelope(
+            finding_title="Cross-skill investigation plan",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=recommended,
+            analyst_checklist=recommended,
+            investigation_steps=recommended,
+            response_profile="hybrid_alert_review",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            mitre_mappings=_advisory_mitre_threshold_rows(user_query),
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            preserved_mitre = list(envelope.mitre_mappings or [])
+            envelope = apply_final_answer_readability(envelope, contract)
+            envelope = envelope.model_copy(update={"mitre_mappings": preserved_mitre})
+        return envelope
+    if str(intent.get("intent_family") or "") == "github_investigation":
+        from app.chat.guidance_templates import build_github_investigation_guidance
+
+        github_message = build_github_investigation_guidance(user_query)
+        direct = str(message or "").strip() or github_message
+        if not direct.startswith("GitHub investigation"):
+            direct = github_message
+        recommended = _safe_display_list(plan.get("checklist") or [])[:8]
+        if not recommended:
+            recommended = [
+                "Actor / username: map PAT or OAuth identity to org/repo membership.",
+                "Token type / PAT provenance: scope, creation, last use, rotation status.",
+                "Commit SHA / timeline and workflow file diff in the observation window.",
+                "Audit log events: repo.push, workflow_dispatch, oauth_access for the actor.",
+            ]
+        envelope = AnalystResponseEnvelope(
+            finding_title="GitHub investigation guidance",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=recommended,
+            analyst_checklist=recommended,
+            investigation_steps=recommended,
+            response_profile="hybrid_alert_review",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            mitre_mappings=mitre_rows,
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            envelope = apply_final_answer_readability(envelope, contract)
+        return envelope
+    if str(intent.get("intent_family") or "") == "alert_summary":
+        summary_message = build_alert_summary_message(
+            user_query=user_query,
+            evidence_plan=plan,
+            severity_label=severity_label,
+            mitre_rows=mitre_rows,
+        )
+        direct = str(message or "").strip()
+        if direct.startswith("Analyst summary (review-only)") and "Situation" in direct:
+            pass  # _chat_message already rendered the summary body
+        elif not direct or _ROUTING_COMPLETE_ONLY.search(direct) or "generic soc guidance path selected" in direct.lower():
+            direct = summary_message
+        elif direct == summary_message:
+            pass
+        else:
+            direct = f"{summary_message}\n\n{direct}".strip()
+        recommended = _safe_display_list(plan.get("checklist") or [])[:6] or alert_summary_default_actions()
+        envelope = AnalystResponseEnvelope(
+            finding_title="Analyst summary",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=recommended,
+            analyst_checklist=recommended,
+            response_profile="hybrid_alert_review",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            mitre_mappings=mitre_rows,
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            envelope = apply_final_answer_readability(envelope, contract)
+        return envelope
     summary = _governed_summary(
         analyst_summary,
         mitre_rows,
@@ -214,8 +553,21 @@ def build_analyst_response_for_live(
     ):
         display_severity = f"{severity_label} — Review required"
 
+    if (
+        isinstance(draft_preview, dict)
+        and isinstance(candidate_spl, dict)
+        and candidate_spl.get("llm_fallback_used")
+        and not str(candidate_spl.get("candidate_spl") or "").strip()
+    ):
+        draft_preview = {**draft_preview, "fallback_after_llm": True}
+    spl_unbound_constraints = _spl_unbound_constraints(
+        candidate_spl if isinstance(candidate_spl, dict) else None,
+        draft_preview if isinstance(draft_preview, dict) else None,
+    )
+
     envelope = AnalystResponseEnvelope(
         scenario_label=scrub_auth_anomaly_display_text(resolved_use_case_label, user_query=user_query),
+        initial_assessment=initial_from_draft,
         severity_label=display_severity,
         severity_confidence=severity_confidence,
         severity_rationale=severity_rationale,
@@ -231,6 +583,7 @@ def build_analyst_response_for_live(
         recommended_actions=recommended,
         spl_code=spl_code,
         spl_draft_preview=draft_preview,
+        spl_unbound_constraints=spl_unbound_constraints,
         draft_spl_code=draft_spl_code,
         llm_spl_candidate=llm_candidate,
         executed_spl=executed_spl,
@@ -244,6 +597,42 @@ def build_analyst_response_for_live(
     elif draft_spl_code:
         envelope = apply_draft_preview_readability(envelope)
     return envelope
+
+
+def _spl_unbound_constraints(
+    candidate_spl: dict[str, Any] | None,
+    draft_preview: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    constraints: list[dict[str, Any]] = []
+    if isinstance(draft_preview, dict):
+        raw = draft_preview.get("unbound_constraints")
+        if isinstance(raw, list):
+            constraints.extend(item for item in raw if isinstance(item, dict))
+    if isinstance(candidate_spl, dict):
+        trace = candidate_spl.get("spl_binding_trace")
+        if isinstance(trace, dict):
+            raw = trace.get("unbound_constraints")
+            if isinstance(raw, list):
+                constraints.extend(item for item in raw if isinstance(item, dict))
+        bindings = candidate_spl.get("user_constraint_bindings")
+        if isinstance(bindings, dict):
+            raw = bindings.get("unbound_constraints")
+            if isinstance(raw, list):
+                constraints.extend(item for item in raw if isinstance(item, dict))
+    deduped: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for item in constraints:
+        key = (
+            str(item.get("slot") or ""),
+            str(item.get("value") or item.get("dropped_value") or ""),
+            str(item.get("reason") or ""),
+            str(item.get("source") or item.get("dropped_source") or ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(dict(item))
+    return deduped
 
 
 def build_minimal_guidance_envelope(
@@ -283,13 +672,9 @@ def build_minimal_guidance_envelope(
         checklist_block = "\n".join(f"- {item}" for item in checklist[:8])
         prefix = f"SOC review checklist:\n\n{checklist_block}"
         direct = f"{direct}\n\n{prefix}".strip() if direct else prefix
-    recommended: list[str] = []
-    for item in checklist[:6]:
-        recommended.append(str(item))
-    for item in investigation[:4]:
-        text = str(item)
-        if text not in recommended:
-            recommended.append(text)
+    recommended: list[str] = [str(item) for item in checklist[:6]]
+    if not recommended:
+        recommended = [str(item) for item in investigation[:4]]
     exec_label = str(execution.get("status") or "skipped")
     review_notice = None
     if isinstance(human_review, dict) and human_review.get("required"):
@@ -598,9 +983,9 @@ def _recommended_actions_from_draft(draft: dict[str, Any]) -> list[str]:
         return []
     formatted: list[str] = []
     for index, item in enumerate(actions):
-        text = str(item)
-        if text.startswith(("P1", "P2", "P3", "P4")):
-            formatted.append(text.replace(" - ", " — ", 1) if " - " in text else text)
+        text = unglue_priority_action(str(item))
+        if re.match(r"^P[1-4]\s*[—-]\s*", text):
+            formatted.append(re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", text))
         else:
             priority = "P1" if index == 0 else "P2" if index == 1 else "P3"
             formatted.append(f"{priority} — {text}")
@@ -621,12 +1006,9 @@ def _recommended_from_rag(source_evidence: list[dict[str, Any]]) -> list[str]:
 
 
 def _format_rag_action(text: str) -> str:
-    cleaned = text.strip()
-    glued = re.match(r"^(P[1-4])([A-Za-z])", cleaned)
-    if glued:
-        cleaned = f"{glued.group(1)} — {cleaned[len(glued.group(1)):].lstrip(' -—')}"
+    cleaned = unglue_priority_action(text)
     if re.match(r"^P[1-4]\s*[—-]\s*", cleaned):
-        return re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", cleaned)
+        return cleaned
     return f"P2 — {cleaned.replace('_', ' ')}"
 
 

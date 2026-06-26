@@ -1,0 +1,16 @@
+{
+  "users": [
+    {
+      "username": "analyst",
+      "password": "change-me-analyst",
+      "role": "analyst",
+      "debug_access": false
+    },
+    {
+      "username": "coe_lead",
+      "password": "change-me-lead",
+      "role": "soc_lead",
+      "debug_access": true
+    }
+  ]
+}

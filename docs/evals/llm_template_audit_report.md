@@ -1,8 +1,8 @@
 # LLM Template Audit Report (Phase F)
 
-Generated: 2026-06-15T16:00:25.857457+00:00
-Active templates: 11
-Pass: 11 · Review: 0
+Generated: 2026-06-26T13:09:37.577132+00:00
+Active templates: 16
+Pass: 16 · Review: 0
 
 | template_id | use_case_id | approved | relevant | pipes | status | findings |
 |---|---|---:|---:|---:|---|---|
@@ -14,6 +14,11 @@ Pass: 11 · Review: 0
 | aws_console_success_logins_by_user | aws_console_success_logins_by_user | yes | — | 3 | pass | — |
 | aws_iam_policy_modifications | aws_iam_policy_modifications | yes | — | 3 | pass | — |
 | auth_failed_login_top_users_exclude_service_accounts | auth_failed_login_top_users_exclude_service_accounts | yes | — | 3 | pass | — |
+| privileged_account_failure | auth_privileged_login_anomaly | yes | — | 3 | pass | — |
+| after_hours_login_critical_asset | auth_after_hours_critical_asset | yes | — | 4 | pass | — |
+| vpn_failure_spike | net_vpn_login_anomaly | yes | — | 4 | pass | — |
+| firewall_deny_spike | net_firewall_deny_spike | yes | — | 4 | pass | — |
 | dns_beaconing_candidate | dns_beaconing_candidate | yes | — | 10 | pass | verbosity_high |
 | notable_critical_review_mitre | critical_notable_mitre_review | yes | — | 8 | pass | verbosity_high |
+| edr_suspicious_process | edr_suspicious_process | yes | — | 3 | pass | — |
 | edr_powershell_suspicious_command | edr_powershell_suspicious_command | yes | — | 5 | pass | — |

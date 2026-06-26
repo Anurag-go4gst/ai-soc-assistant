@@ -186,6 +186,10 @@ class FakeTelemetry:
         self.disagreements.append({"trace_id": trace_id, **fields})
 
     def record_step(self, trace_id: str, step_name: str, status: str, **fields: Any) -> None:
+        # ``node.*`` steps are additive per-node timing observability; keep the
+        # semantic-step list (asserted below) free of that namespace.
+        if str(step_name).startswith("node."):
+            return
         self.steps.append({"trace_id": trace_id, "step_name": step_name, "status": status, **fields})
 
     def record_spl_validation(self, trace_id: str, **fields: Any) -> None:
@@ -193,6 +197,23 @@ class FakeTelemetry:
 
     def record_mcp_execution(self, trace_id: str, **fields: Any) -> None:
         self.mcp_executions.append({"trace_id": trace_id, **fields})
+
+    def start_trace(self, trace_id: str | None = None, **fields: Any):
+        from app.connectors.telemetry.base import TraceHandle
+
+        return TraceHandle(trace_id=trace_id or "fake")
+
+    def end_trace(self, trace_id: str, status: str = "completed", **fields: Any) -> None:
+        return None
+
+    def merge_run_metadata(self, trace_id: str, metadata: dict[str, Any]) -> None:
+        return None
+
+    def record_llm_call(self, trace_id: str, **fields: Any) -> None:
+        return None
+
+    def record_rag_retrieval(self, trace_id: str, **fields: Any) -> None:
+        return None
 
 
 def fake_plan_workflow(selected_skill: str, tool_plan: list[str], query: str, trace_id: str) -> dict[str, Any]:

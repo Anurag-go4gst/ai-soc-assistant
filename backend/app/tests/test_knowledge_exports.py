@@ -13,6 +13,14 @@ from app.api.routes_knowledge import export_mapping_artifact
 from app.knowledge.mapping_exports import MITRE_METADATA_ROLE, SOC_VALIDATION_ARTIFACTS
 
 
+def test_detection_coverage_endpoint() -> None:
+    from app.api.routes_knowledge import knowledge_detection_coverage
+
+    payload = knowledge_detection_coverage()
+    assert payload["schema_role"] == "detection_coverage_v1"
+    assert payload["covered_count"] + payload["gap_count"] == payload["technique_count"]
+
+
 def test_mapping_summary_endpoint_matches_crosswalk() -> None:
     from app.knowledge.mapping_exports import build_mapping_summary, build_soc_capability_crosswalk_export_payload
 
@@ -20,7 +28,7 @@ def test_mapping_summary_endpoint_matches_crosswalk() -> None:
     crosswalk = build_soc_capability_crosswalk_export_payload()
 
     assert summary["row_counts"]["question_rows"] == 105
-    assert summary["row_counts"]["use_case_rows"] == 50
+    assert summary["row_counts"]["use_case_rows"] == 61
     assert summary["row_counts"]["github_skill_rows"] == 12
     assert summary["live_route_skills"] == list(
         ("alert_summary", "spl_generation", "attack_discovery", "knowledge_recall", "guided_investigation")
@@ -98,7 +106,7 @@ def test_soc_capability_crosswalk_json_export_contains_expected_rows() -> None:
 
     assert payload["artifact"] == "soc_capability_crosswalk"
     assert payload["row_counts"]["question_rows"] == 105
-    assert payload["row_counts"]["use_case_rows"] == 50
+    assert payload["row_counts"]["use_case_rows"] == 61
     assert payload["row_counts"]["github_skill_rows"] == 12
     assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
 
@@ -172,7 +180,7 @@ def test_skill_enrichment_status_matrix_json_export_works() -> None:
 
     assert payload["artifact"] == "skill_enrichment_status_matrix"
     assert payload.get("export_kind") == "json_backed"
-    assert payload["row_counts"]["use_cases"] == 8
+    assert payload["row_counts"]["use_cases"] == 13
 
 
 def test_rejected_github_skills_markdown_export_works() -> None:

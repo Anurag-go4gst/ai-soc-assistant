@@ -5,8 +5,10 @@ import { toast } from 'sonner';
 import { getProviderSettingsStatus, getSettingsStatus } from '@/api/client';
 import { SourceProfileSettingsPanel } from '@/components/settings/SourceProfileSettingsPanel';
 import { LlmSettingsPanel } from '@/components/settings/LlmSettingsPanel';
+import { LlmConnectionPanel } from '@/components/settings/LlmConnectionPanel';
 import { McpSettingsPanel } from '@/components/settings/McpSettingsPanel';
 import { ObservabilityPanel } from '@/components/settings/ObservabilityPanel';
+import { UserProfilePanel } from '@/components/settings/UserProfilePanel';
 import { ProvidersSettingsPanel } from '@/components/settings/ProvidersSettingsPanel';
 import { RagSettingsPanel } from '@/components/settings/RagSettingsPanel';
 import { EmbeddingsSettingsPanel } from '@/components/settings/EmbeddingsSettingsPanel';
@@ -103,12 +105,13 @@ export function SettingsPage() {
           <TabsList className="flex w-full justify-start overflow-x-auto">
             <TabsTrigger value="providers">Providers/MCP</TabsTrigger>
             <TabsTrigger value="mcp">MCP</TabsTrigger>
-            <TabsTrigger value="source-profiles">Source Profiles</TabsTrigger>
+            <TabsTrigger value="source-profiles">Environment Knowledge</TabsTrigger>
             <TabsTrigger value="rag">RAG</TabsTrigger>
             <TabsTrigger value="llm">LLM</TabsTrigger>
             <TabsTrigger value="embeddings">Embeddings</TabsTrigger>
             <TabsTrigger value="routing">Routing</TabsTrigger>
             <TabsTrigger value="safeguards">Safeguards</TabsTrigger>
+            <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="observability">Observability</TabsTrigger>
           </TabsList>
           <div className="mt-3">
@@ -124,7 +127,8 @@ export function SettingsPage() {
             <TabsContent value="rag" className="m-0">
               <RagSettingsPanel status={status.rag} />
             </TabsContent>
-            <TabsContent value="llm" className="m-0">
+            <TabsContent value="llm" className="m-0 space-y-3">
+              <LlmConnectionPanel supportedModes={['mock', 'local', 'openai_compatible', 'cisco_foundation_sec', 'disabled']} />
               <LlmSettingsPanel status={status.llm} />
             </TabsContent>
             <TabsContent value="embeddings" className="m-0">
@@ -135,6 +139,9 @@ export function SettingsPage() {
             </TabsContent>
             <TabsContent value="safeguards" className="m-0">
               <SafeguardsPanel status={status.safeguards} />
+            </TabsContent>
+            <TabsContent value="profile" className="m-0">
+              <UserProfilePanel />
             </TabsContent>
             <TabsContent value="observability" className="m-0">
               <ObservabilityPanel status={status.observability} />

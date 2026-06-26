@@ -82,6 +82,7 @@ def resolve_execution_spl(
     execution_review_action: str | None,
     analyst_provided_spl: str | None,
     pending_execution: dict[str, Any] | None,
+    require_confirmation: bool | None = None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Return (spl_validation_to_execute, blocking_review)."""
     action = (execution_review_action or "").strip().lower()
@@ -112,7 +113,7 @@ def resolve_execution_spl(
             )
         return validation, None
 
-    if confirmation_required():
+    if confirmation_required() if require_confirmation is None else require_confirmation:
         return None, None
     validation = safe_validate_for_execution(str(spl_validation.get("normalized_spl") or ""))
     if not validation.get("approved"):

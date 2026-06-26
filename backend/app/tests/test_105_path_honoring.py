@@ -73,7 +73,8 @@ def test_exact_105_smb_top_hosts_sets_needs_spl_true() -> None:
     )
     assert plan.needs_spl is True
     assert plan.spl_allowed is True
-    assert plan.needs_mcp is False
+    assert plan.needs_mcp is True
+    assert plan.mcp_allowed is False
     decision = plan_path_and_tools(
         intent_classification=result.intent_classification.model_dump(),
         evidence_plan=plan.model_dump(),
@@ -145,6 +146,39 @@ def test_analytics_query_without_alert_has_severity_not_assigned() -> None:
         alert_context_present=bool(signals["alert_context_present"]),
     )
     assert guarded.severity_label == ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
+
+
+SUBSTATION_REMOTE_ACCESS_QUERY = (
+    "Show me all external connections or remote access sessions currently mapping to the substation networks."
+)
+
+
+def test_substation_remote_access_enumeration_routes_to_esp_it_to_ot_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Show-me enumeration on OT boundary remote access must not collapse to generic guided."""
+    from app.query_understanding.soc_investigation_shape import detect_spl_artifact_request
+    from app.routing.select_route_from_understanding import select_route_from_understanding
+
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    assert detect_spl_artifact_request(SUBSTATION_REMOTE_ACCESS_QUERY) is True
+    assert match_detection_family(SUBSTATION_REMOTE_ACCESS_QUERY) == "esp_it_to_ot_connection"
+    understanding = understand_query(SUBSTATION_REMOTE_ACCESS_QUERY)
+    route, _ = select_route_from_understanding(understanding, SUBSTATION_REMOTE_ACCESS_QUERY)
+    assert route["skill"] == "spl_generation"
+    preview = build_draft_preview(
+        SUBSTATION_REMOTE_ACCESS_QUERY,
+        spl_validation={
+            "approved": False,
+            "normalized_spl": None,
+            "reject_reasons": ["spl_template_missing"],
+            "review_required_reason": "spl_template_missing",
+            "spl_template_status": "unavailable",
+        },
+    )
+    assert preview is not None
+    assert preview["detection_family"] == "esp_it_to_ot_connection"
+    assert preview["execution_eligible"] is False
 
 
 def test_powergrid_it_to_ot_firewall_question_still_routes_to_boundary_review() -> None:

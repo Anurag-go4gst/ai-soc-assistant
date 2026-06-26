@@ -802,6 +802,8 @@
       <a href="#s8c">Sidecar pipeline ✦</a>
       <a href="#s8">8 · LLM usage</a>
       <a href="#s8b">8b · Trace</a>
+      <a href="#s4b">4B · Evidence loop ✦</a>
+      <a href="#s14">14 · Knowledge ✦</a>
       <a href="#s13">13 · Endpoints</a>
       <a href="#s5">5 · Match outcomes</a>
       <a href="#s6">6 · Skills</a>
@@ -816,7 +818,8 @@
         <h1>How a SOC question travels through the governed assistant</h1>
         <p class="subtitle">
           Implementation-accurate walkthrough of the live <code>/chat</code> pipeline: Query Understanding, 105 taxonomy, use-case catalog,
-          five route skills (including guided investigation rescue), resource planning, safety gates, and analyst answer cards.
+          five route skills (including guided investigation rescue), resource planning, the Stage&nbsp;4B evidence-collection loop,
+          safety gates, Knowledge-page detection coverage, and analyst answer cards.
         </p>
       </div>
       <div class="hero-card">
@@ -830,6 +833,8 @@
           <span class="pill">SPL review-only</span>
           <span class="pill">MCP gated</span>
           <span class="pill">MITRE governed</span>
+          <span class="pill">4B evidence loop</span>
+          <span class="pill">Detection gaps UI</span>
           <span class="pill">HIL protected</span>
         </div>
       </div>
@@ -869,7 +874,7 @@
           <div class="flow-step">
             <div class="step-num">5</div>
             <h3>Evidence + Plan</h3>
-            <p>Evidence plan (CP on) and planning path. CP off still returns <code>resource_plan_summary</code> for guided hunts.</p>
+            <p>Evidence plan (CP on) and planning path. When <code>mcp_allowed</code>, the 4B HUB may run bounded discovery hops before adjudication. CP off still returns <code>resource_plan_summary</code> for guided hunts.</p>
           </div>
           <div class="flow-step">
             <div class="step-num">6</div>
@@ -879,12 +884,12 @@
           <div class="flow-step">
             <div class="step-num">7</div>
             <h3>Execute Branch</h3>
-            <p>Guided / RAG-only: SOC-KB lookup. Known paths: SPL validation and gated MCP read. MCP execution stays off by default.</p>
+            <p>Guided / RAG-only: SOC-KB lookup. Known paths: SPL validation and gated MCP read. Discovery hops are <code>planned</code> when MCP execution is off; <code>collected</code> when global + mock/live gates are on. <code>splunk_run_query</code> stays gated.</p>
           </div>
           <div class="flow-step">
             <div class="step-num">8</div>
             <h3>Finalize</h3>
-            <p>Answer contract → governed sidecars (missing-evidence, rationale) → composer narration through grounding + notice guards → fail-closed validator → control-plane trace + analyst card. Every LLM hop is budgeted, timeout-bounded, and falls back deterministic. See <a href="#s8c">§8c</a>.</p>
+            <p>Merge <code>mcp_evidence</code> into <code>source_evidence</code> → AnswerContract → governed sidecars → composer narration (grounding + notice guards) → fail-closed validator → <code>control_plane_trace</code> + analyst card. See <a href="#s8c">§8c</a> and <a href="#s4b">§4B</a>.</p>
           </div>
         </div>
         <p style="margin:16px 2px 0;color:var(--muted);font-size:13.5px;">
@@ -964,9 +969,19 @@
             <span class="arch-seq">5</span>
             <span class="nodetag">graph_node_evidence_planning</span>
             <h3>Evidence plan + Resource Planner</h3>
-            <p>Builds the evidence plan (CP on) or planning decision + <code>resource_plan_summary</code> (CP off). The Resource Planner composes a plan over the capability registry (RAG, analytics, SPL, MCP tools, LLM roles, skills) with <strong>degrade chains</strong>, recording <code>resource_decisions</code> — why each resource was used or skipped. Sets <code>answer_mode</code>, <code>spl_allowed</code>, <code>mcp_allowed</code>.</p>
-            <div class="tagrow"><span class="tag det">deterministic plan</span><span class="tag gate">sets spl / mcp allowances</span></div>
-            <span class="see-section">resource_decisions → §9</span>
+            <p>Builds the evidence plan (CP on) or planning decision + <code>resource_plan_summary</code> (CP off). The Resource Planner composes a plan over the capability registry (RAG, analytics, SPL, MCP tools, LLM roles, skills) with <strong>degrade chains</strong>, recording <code>resource_decisions</code> — why each resource was used or skipped. Sets <code>answer_mode</code>, <code>spl_allowed</code>, <code>mcp_allowed</code>. When the 4B loop is active this node is also the <strong>HUB</strong>: after each discovery hop or gated execution it reassesses requirements vs deliverables.</p>
+            <div class="tagrow"><span class="tag det">deterministic plan</span><span class="tag gate">sets spl / mcp allowances</span><span class="tag det">4B HUB when loop on</span></div>
+            <span class="see-section">resource_decisions → §9 · Evidence loop → §4B</span>
+          </div>
+          <div class="arch-arrow">↓ when <code>mcp_allowed</code> and loop initialized — see §4B</div>
+
+          <div class="arch-box cyan">
+            <span class="arch-seq">5B</span>
+            <span class="nodetag">_run_discovery_loop_imperative › graph_node_mcp_call</span>
+            <h3>Bounded discovery hops (read-only MCP)</h3>
+            <p>Before route adjudication, the imperative loop drains up to <code>MAX_MCP_HOPS</code> read-only discovery tools from <code>mcp_tool_playbook.json</code> (<code>splunk_get_info</code>, <code>splunk_get_indexes</code>, <code>splunk_get_knowledge_objects</code>, …). Each hop records <code>produces</code> keys vs requirements. With MCP execution <strong>off</strong>, hops stay <code>planned</code> (checklist only). With global + per-server execution <strong>on</strong>, hops become <code>collected</code> and sanitized <code>preview_rows</code> merge into <code>source_evidence</code> at finalize.</p>
+            <div class="tagrow"><span class="tag off">planned when execution off</span><span class="tag gate">collected when gated on</span><span class="tag det">tool selection deterministic</span></div>
+            <span class="see-section">Full loop topology → §4B</span>
           </div>
           <div class="arch-arrow">↓</div>
 
@@ -1016,7 +1031,7 @@
             <span class="arch-seq">9</span>
             <span class="nodetag">graph_node_execution › splunk_mcp lifecycle</span>
             <h3>MCP execution — gated, multi-call</h3>
-            <p>Only after approval and a non-null <code>normalized_spl</code>. The Splunk MCP adapter runs an async lifecycle (<code>submit → bounded poll → fetch</code>), can issue <strong>several MCP calls per turn</strong> (per-call evidence aggregation, broaden-on-empty across turns), and returns honest live / empty / timeout / denied outcomes. Seven Splunk tools exist; only the search tool is selectable after policy. <strong>MCP execution is OFF by default</strong> and fails closed without credentials.</p>
+            <p>Only after approval and a non-null <code>normalized_spl</code>. The Splunk MCP adapter runs an async lifecycle (<code>submit → bounded poll → fetch</code>), can issue <strong>several MCP calls per turn</strong> (per-call evidence aggregation, broaden-on-empty across turns), and returns honest live / empty / timeout / denied outcomes. Seven Splunk tools exist; only the search tool is selectable after policy. When the 4B loop is active, a successful or empty run_query returns to the HUB for reassessment (broaden / finalize / HIL). <strong>MCP execution is OFF by default</strong> and fails closed without credentials.</p>
             <div class="tagrow"><span class="tag off">execution OFF by default</span><span class="tag gate">approval + allowlist</span><span class="tag det">tool selection deterministic</span></div>
             <span class="see-section">MCP policy → §9 · Go-live contract</span>
           </div>
@@ -1026,7 +1041,7 @@
             <span class="arch-seq">10</span>
             <span class="nodetag">graph_node_context_finalize</span>
             <h3>Finalize + governed LLM sidecar lane</h3>
-            <p>Builds the AnswerContract, then runs the governed sidecar lane: missing-evidence reasoner → MITRE/risk rationale → composer narration. Each LLM hop uses the failover chain (Qwen flag → local → Instruct), a real wall-clock timeout, the per-turn budget, and the grounding + out-of-catalog-notice guards, then the fail-closed final-answer validator. Weak-case / out-of-catalog questions get on-the-fly composition with threshold HIL. Emits the analyst card + <code>control_plane_trace</code>.</p>
+            <p>Maps accumulated <code>mcp_evidence</code> discovery hops into governed <code>source_evidence</code> (<code>mcp_discovery</code> rows via <code>append_mcp_loop_source_evidence</code>), then builds <code>StructuredContext</code> and the AnswerContract. Collected discovery rows flow into <code>structured_facts</code> and sufficiency; raw rows never reach narration prompts (A1 sanitizer). Runs the governed sidecar lane: missing-evidence reasoner → MITRE/risk rationale → composer narration. Each LLM hop uses the failover chain, timeout, budget, and grounding guards, then the fail-closed final-answer validator. Emits the analyst card + <code>control_plane_trace</code> (including <code>evidence_loop</code> when the loop ran).</p>
             <div class="tagrow"><span class="tag det">facts deterministic</span><span class="tag llm">prose via failover chain</span><span class="tag fb">fails back to deterministic</span></div>
             <span class="see-section">Sidecar lane → §8c · Trace → §8b · Card → §12</span>
           </div>
@@ -1034,6 +1049,7 @@
 
         <div class="diagram-legend">
           <span class="legend-item"><span class="dot"></span> 1–10 = live <code>pipeline.py</code> node order</span>
+          <span class="legend-item"><span class="dot" style="background:#0891b2"></span> 5B = Stage 4B discovery hops (when loop on)</span>
           <span class="legend-item"><span class="dot" style="background:#16a34a"></span> M1–M5 = query-understanding match paths</span>
           <span class="legend-item"><span class="dot" style="background:#475569"></span> S1–S5 = the five live route skills</span>
           <span class="legend-item"><span class="dot" style="background:#d97706"></span> 7A–7C = dispatch (one execution path)</span>
@@ -1041,6 +1057,126 @@
 
         <div class="note warn-note" style="margin-top: 18px;">
           <strong>Authority is deterministic at every node.</strong> The LLM only suggests routes (shadow), proposes SPL / plan candidates (validated), and rewrites prose (guarded). It never selects the final route, sets severity / MITRE status / SPL approval / <code>execution_eligible</code>, or runs an MCP tool. Guided rescue uses <code>primary_intent=investigation_guidance</code> and keeps the out-of-catalog notice (no turn-blocking HIL). Every LLM failure falls back to the deterministic answer.
+        </div>
+        <div class="note" style="margin-top: 12px;">
+          <strong>Live runner:</strong> default <code>/chat</code> uses the <strong>imperative</strong> node sequence in <code>pipeline.py</code> (<code>LANGGRAPH_ORCHESTRATION_ENABLED=false</code>) for session-context parity. The same <code>graph_node_*</code> functions also wire into a cyclic LangGraph topology when orchestration is explicitly enabled — see <a href="#s4b">§4B</a>.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s4b">4B. Governed evidence-collection loop (Stage 4B) <span class="badge-new">new</span></h2>
+          <p>
+            When control plane is on and <code>mcp_allowed</code>, a bounded cyclic evidence loop runs around <code>graph_node_evidence_planning</code> (the HUB). Pure logic lives in <code>evidence_loop.py</code>; discovery I/O in <code>mcp_loop_discovery.py</code>; merge into governed evidence in <code>source_evidence.py</code>.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="arch-diagram">
+          <div class="arch-box purple">
+            <span class="arch-seq">HUB</span>
+            <span class="nodetag">graph_node_evidence_planning › assess_loop</span>
+            <h3>Requirement vs deliverable assessor</h3>
+            <p>Compares declared <code>produces</code> keys (from <code>mcp_tool_playbook.json</code>) against accumulated <code>mcp_evidence</code>. Chooses the next route deterministically. LLM chronology (<code>plan_tool_chronology</code>) is advisory-only and defaults off on the blocking live path.</p>
+            <div class="tagrow"><span class="tag det">deterministic routes</span><span class="tag llm">chronology advisory (flag)</span></div>
+          </div>
+          <div class="arch-arrow">↓ one route per reassessment</div>
+          <div class="arch-branch-row three-up">
+            <div class="arch-box branch-box cyan">
+              <span class="arch-seq branch">R1</span>
+              <span class="nodetag">discovery_hop</span>
+              <h3>Read-only discovery</h3>
+              <p><code>graph_node_mcp_call</code> → <code>execute_loop_discovery_hop</code>. Tools like <code>splunk_get_indexes</code>. Never <code>splunk_run_query</code>.</p>
+            </div>
+            <div class="arch-box branch-box amber">
+              <span class="arch-seq branch">R2</span>
+              <span class="nodetag">execute</span>
+              <h3>Gated run_query</h3>
+              <p>Requirements met → <code>graph_node_execution</code> with approved <code>normalized_spl</code> only.</p>
+            </div>
+            <div class="arch-box branch-box green">
+              <span class="arch-seq branch">R3</span>
+              <span class="nodetag">finalize / broaden / HIL</span>
+              <h3>Exit paths</h3>
+              <p><code>finalize</code> when sufficient; <code>broaden</code> on empty approved search; <code>human_review</code> / <code>capability_gap</code> / <code>exhausted</code> when honest degrade is required.</p>
+            </div>
+          </div>
+          <div class="arch-arrow">↓ discovery or execution returns to HUB until route ≠ discovery_hop or budget hit</div>
+          <div class="arch-box green">
+            <span class="arch-seq">OUT</span>
+            <span class="nodetag">graph_node_context_finalize</span>
+            <h3>Merge into governed evidence package</h3>
+            <p><code>append_mcp_loop_source_evidence</code> maps hops to <code>source_type=mcp_discovery</code>. <code>collection_status=planned</code> rows are excluded from sufficiency “collected”; <code>collected</code> rows with sanitized <code>preview_rows</code> feed <code>structured_facts</code>. <code>splunk_run_query</code> evidence stays owned by the execution node (no duplicate hop rows).</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 24px;">Imperative live path (default)</h3>
+        <pre>init_routing → query_to_intent → evidence_planning
+  → _run_discovery_loop_imperative()   # drain discovery hops before adjudication
+  → shadow_enrichment → dispatch (7A|7B|7C)
+  → [SPL chain + execution when 7C]
+  → evidence_planning (HUB re-entry after execution when loop active)
+  → context_finalize</pre>
+
+        <h3 style="margin-top: 24px;">Loop routes &amp; honest degrades</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Route</th>
+              <th>When</th>
+              <th>Analyst-visible outcome</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>discovery_hop</code></td>
+              <td>Missing read-only context (indexes, metadata, knowledge objects)</td>
+              <td>Planned checklist or collected preview rows (execution-gated)</td>
+            </tr>
+            <tr>
+              <td><code>execute</code></td>
+              <td>Discovery requirements satisfied; approved SPL exists</td>
+              <td>Gated <code>splunk_run_query</code> lifecycle</td>
+            </tr>
+            <tr>
+              <td><code>finalize</code></td>
+              <td>Evidence sufficient for the evidence plan</td>
+              <td>Proceed to context finalize / synthesis readiness</td>
+            </tr>
+            <tr>
+              <td><code>broaden</code></td>
+              <td>Approved search returned zero rows; broaden eligible</td>
+              <td>Defer to broaden-on-empty orchestration</td>
+            </tr>
+            <tr>
+              <td><code>capability_gap</code></td>
+              <td>Requirement in <code>UNSERVABLE_REQUIREMENTS</code> (CVE, asset, vuln source)</td>
+              <td>Honest degrade — no fabricated rows; EC uses <code>vulnerability_source:not_onboarded</code></td>
+            </tr>
+            <tr>
+              <td><code>exhausted</code></td>
+              <td><code>MAX_MCP_HOPS</code> (6) reached</td>
+              <td>Proceed with available evidence + limitations</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin-top: 24px;">Planned vs collected discovery</h3>
+        <div class="grid-2">
+          <div class="mini-card amber">
+            <h3>Execution off (default posture)</h3>
+            <p><code>MCP_GLOBAL_EXECUTION_ENABLED=false</code> (or mock/live per-server off). Discovery hops record <code>outcome=planned</code>, <code>collection_status=planned</code>, warning <code>discovery_hop_planned_only</code>. Analyst runs the checklist manually.</p>
+          </div>
+          <div class="mini-card green">
+            <h3>Execution on (mock or live)</h3>
+            <p>Global + server execution flags on. <code>execute_loop_discovery_hop</code> calls the connector; rows pass <code>evidence_sanitizer</code>; <code>collection_status=collected</code>. Facts flow into <code>structured_context</code>; narration still uses fact statements only (no raw row dump).</p>
+          </div>
+        </div>
+
+        <div class="note warn-note" style="margin-top: 18px;">
+          <strong>Loop eligibility:</strong> skipped when <code>mcp_allowed=false</code> or the turn is RAG-only (policy / knowledge paths). Composed Resource Planner dispatch does not disable the loop — discovery may still run before composed steps when MCP is allowed.
         </div>
       </div>
     </section>
@@ -1090,6 +1226,11 @@
             <td><strong>Route Adjudication</strong></td>
             <td>Does deterministic policy keep the routed skill? (control plane on)</td>
             <td><code>final_route=guided_investigation</code>, <code>authority_source=guided_investigation_rescue</code></td>
+          </tr>
+          <tr>
+            <td><strong>Evidence Loop HUB</strong></td>
+            <td>Do we have the MCP context the plan requires?</td>
+            <td><code>route=discovery_hop</code>, <code>next_tool=splunk_get_indexes</code>, or <code>route=finalize</code> when sufficient</td>
           </tr>
         </tbody>
       </table>
@@ -1515,6 +1656,10 @@ output template</pre>
               <td><code>resource_plan_shadow</code> <span class="badge-new">new</span></td>
               <td>LLM resource-plan proposal validated deterministically; <code>live_plan_source_unchanged=true</code>. Shadow only — never promoted to the live plan.</td>
             </tr>
+            <tr>
+              <td><code>evidence_loop</code> <span class="badge-new">new</span></td>
+              <td>When Stage 4B ran: hop chronology, per-hop <code>tool</code> / <code>outcome</code> / <code>delivered</code> keys, final HUB route, and whether discovery was planned-only vs collected.</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -1571,7 +1716,7 @@ output template</pre>
           </div>
           <div class="mini-card blue">
             <h3>Context package &amp; promotion gate</h3>
-            <p style="margin-bottom:10px;"><code>GovernedContextPackage</code> feeds sidecars redacted RAG, skill metadata, and MCP tool <em>hints</em> (descriptions only — never schema or credentials), truncated to the role budget. The <code>build_llm_role_scorecard</code> reads <code>control_plane_trace</code> and gates promotion: a role is trusted only at verdict <strong>HEALTHY</strong> (fallback &lt; 10%, agreement ≥ 70%, n ≥ 20).</p>
+            <p style="margin-bottom:10px;"><code>GovernedContextPackage</code> feeds sidecars redacted RAG, skill metadata, and MCP tool <em>hints</em> (descriptions only — never schema or credentials), truncated to the role budget. Row text and prompt blocks pass through <code>evidence_sanitizer</code> (A1). The <code>build_llm_role_scorecard</code> reads <code>control_plane_trace</code> and gates promotion: a role is trusted only at verdict <strong>HEALTHY</strong> (fallback &lt; 10%, agreement ≥ 70%, n ≥ 20).</p>
             <div class="chip-row">
               <span class="chip">HEALTHY</span>
               <span class="chip warm">DEGRADED</span>
@@ -1590,7 +1735,7 @@ output template</pre>
       <div class="section-title">
         <div>
           <h2>9. Resource Planner — guided investigation example</h2>
-          <p>What <code>resource_decisions</code> records for branch 3B. MCP discovery is planned-only; the analyst runs the checklist manually while gates stay closed.</p>
+          <p>What <code>resource_decisions</code> records for branch 3B. MCP discovery is <strong>planned-only</strong> when execution gates are closed; the same tools become <strong>collected</strong> hops when global + server execution is enabled (see <a href="#s4b">§4B</a>).</p>
         </div>
       </div>
       <div class="card">
@@ -1704,6 +1849,68 @@ output template</pre>
           <li><strong>CP off</strong>: <code>lab_runner.narrate_analyst_summary</code> — same synthesis flags, legacy path.</li>
         </ul>
         <p style="margin:12px 0 0;color:var(--muted);font-size:14px;">Experience Center fixtures never call a live provider.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s14">14. Knowledge surfaces &amp; detection coverage <span class="badge-new">new</span></h2>
+          <p>Read-only exports and the Knowledge page — no runtime routing changes. Shared aggregate builders from the Wazuh MCP adoption review (A2–A4) also feed Experience Center fixtures.</p>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0;">MITRE detection coverage &amp; gaps (A3)</h3>
+        <p>
+          <code>build_detection_coverage()</code> in <code>mapping_exports.py</code> walks the governed MITRE technique subset from <code>mitre_kb.py</code>. Each technique’s <code>related_use_cases</code> are its covering detection rules (inverted through <code>rules_coverage_map</code> in <code>soc_aggregates.py</code>). Techniques with no covering use case are <strong>gaps</strong>.
+        </p>
+        <div class="grid-2" style="margin-top:14px;">
+          <div class="mini-card blue">
+            <h3>API</h3>
+            <p><code>GET /knowledge/detection-coverage</code> → <code>detection_coverage_v1</code> payload with <code>technique_count</code>, <code>covered_count</code>, <code>gap_count</code>, per-technique rows, and <code>gaps[]</code>.</p>
+          </div>
+          <div class="mini-card green">
+            <h3>Knowledge UI</h3>
+            <p><code>KnowledgePage</code> card “MITRE detection coverage &amp; gaps” — covered/gap badges and gap list. Current governed subset: <strong>13</strong> techniques, <strong>11</strong> covered, <strong>2</strong> gaps (<code>T1110</code>, <code>T1110.003</code>). <code>mitre_metadata_role=metadata_not_evidence</code>.</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 24px;">Shared SOC aggregate builders (A2–A4)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Builder</th>
+              <th>Purpose</th>
+              <th>Consumers</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>top_risky_hosts()</code> (A2)</td>
+              <td>Urgency-weighted host heatmap (crit×10 + high×5 + med×2 + low×1)</td>
+              <td>EC flagship scenarios, analyst prioritization cards</td>
+            </tr>
+            <tr>
+              <td><code>rules_coverage_map()</code> (A3)</td>
+              <td>Framework-id → covering rule/use-case ids (inverted index)</td>
+              <td>Detection-gap export, future EC coverage card (follow-up)</td>
+            </tr>
+            <tr>
+              <td><code>alert_summary_aggregate()</code> (A4)</td>
+              <td>Shift-handoff rollup: severity distribution, top rules/MITRE/IPs/agents</td>
+              <td>EC / live alert-summary shaped answers</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin-top: 24px;">Other Knowledge exports (unchanged spine)</h3>
+        <p style="margin:0 0 10px;color:var(--muted);font-size:14px;">
+          <code>GET /knowledge/mapping-summary</code>, <code>/knowledge/exports/{artifact}</code> (skill coverage matrix, SOC capability crosswalk, GitHub intake, validation sheets). CSV variants where supported.
+        </p>
+
+        <div class="note warn-note" style="margin-top: 18px;">
+          <strong>Out of scope (plan §5):</strong> live CVE/vulnerability source onboarding, Wazuh as a second MCP server type (COE), and an Experience Center detection-gap card (Knowledge page ships first; EC card is follow-up).
+        </div>
       </div>
     </section>
 
@@ -1930,7 +2137,7 @@ output template</pre>
           </div>
           <div class="answer-row">
             <div class="answer-label">Manual Splunk discovery</div>
-            <div class="answer-content">Planned-only checklist: <code>splunk_get_indexes</code>, <code>splunk_get_metadata</code>, <code>splunk_get_knowledge_objects</code>. Analyst runs these manually; MCP execution stays disabled.</div>
+            <div class="answer-content">Planned-only checklist when MCP execution is off: <code>splunk_get_indexes</code>, <code>splunk_get_metadata</code>, <code>splunk_get_knowledge_objects</code>. When execution gates are on, the 4B loop may collect sanitized preview rows into <code>source_evidence</code> before finalize.</div>
           </div>
           <div class="answer-row">
             <div class="answer-label">SPL</div>
@@ -1966,10 +2173,13 @@ output template</pre>
           Query Understanding checks the 105 taxonomy and catalog. If the question matches, we use a governed route. If it is out-of-registry but clearly asks for a hunt, step 3B selects <code>guided_investigation</code> — not weak knowledge recall. Unsafe requests go to step 3C and never enter guided mode.
         </p>
         <p>
-          Steps 4–6 set intent, resource decisions, and — when control plane is on — route adjudication. Guided hunts always take step 7A: governed SOC-KB RAG, optional review-only SPL if a draft family matches, and a planned Splunk discovery checklist that is never auto-executed.
+          Steps 4–6 set intent, resource decisions, and — when control plane is on — route adjudication. When <code>mcp_allowed</code>, Stage&nbsp;4B may run bounded discovery hops (planned or collected) before adjudication and again after gated execution.
         </p>
         <p>
-          Step 8 produces a governed analyst card with an out-of-catalog notice when needed. The LLM may narrate prose, but severity, MITRE, SPL execution, and MCP remain under deterministic policy.”
+          Guided hunts take step 7B/7A: governed SOC-KB RAG, optional review-only SPL, and Splunk discovery via the evidence loop or a manual checklist. Step 8 merges discovery into <code>source_evidence</code>, runs the governed sidecar lane, and produces an analyst card. The Knowledge page exposes MITRE detection gaps read-only (<a href="#s14">§14</a>).
+        </p>
+        <p>
+          The LLM may narrate prose, but severity, MITRE, SPL execution, and MCP remain under deterministic policy.”
         </p>
       </div>
     </section>

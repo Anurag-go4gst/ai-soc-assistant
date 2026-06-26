@@ -7,17 +7,46 @@
       "required_entities": [],
       "default_time_window": "earliest=-60m latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure | stats count as failed_logins dc(user) as distinct_users min(_time) as first_seen max(_time) as last_seen values(action) as action by host, src | where failed_logins >= 25 | sort -failed_logins | head 100",
-      "returned_fields": ["host", "src", "failed_logins", "distinct_users", "first_seen", "last_seen", "action"],
+      "returned_fields": [
+        "host",
+        "src",
+        "failed_logins",
+        "distinct_users",
+        "first_seen",
+        "last_seen",
+        "action"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["pgcil:auth"],
-        "allowed_commands": ["search", "stats", "where", "sort", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:auth"
+        ],
+        "allowed_commands": [
+          "search",
+          "stats",
+          "where",
+          "sort",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["failed_logins", "distinct_users", "src", "host"],
-      "answer_sections_supported": ["splunk_results_table", "mitre_mappings", "recommended_actions"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "failed_logins",
+        "distinct_users",
+        "src",
+        "host"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "mitre_mappings",
+        "recommended_actions"
+      ]
     },
     {
       "template_id": "auth_success_after_failure",
@@ -26,17 +55,51 @@
       "required_entities": [],
       "default_time_window": "earliest=-60m latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now (action=failure OR action=success) | stats count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips values(host) as hosts min(eval(if(action=\"failure\", _time, null()))) as first_failure max(eval(if(action=\"success\", _time, null()))) as last_success max(_time) as last_event by user | where fail_count >= 5 AND success_count >= 1 | eval risk=\"P2 review - successful login after repeated failures\" | table user hosts source_ips fail_count success_count first_failure last_success last_event risk | sort -fail_count | head 100",
-      "returned_fields": ["user", "hosts", "source_ips", "fail_count", "success_count", "first_failure", "last_success", "last_event", "risk"],
+      "returned_fields": [
+        "user",
+        "hosts",
+        "source_ips",
+        "fail_count",
+        "success_count",
+        "first_failure",
+        "last_success",
+        "last_event",
+        "risk"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["pgcil:auth"],
-        "allowed_commands": ["search", "stats", "where", "eval", "table", "sort", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:auth"
+        ],
+        "allowed_commands": [
+          "search",
+          "stats",
+          "where",
+          "eval",
+          "table",
+          "sort",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["fail_count", "success_count", "user", "src", "host"],
-      "answer_sections_supported": ["splunk_results_table", "mitre_mappings", "recommended_actions"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "fail_count",
+        "success_count",
+        "user",
+        "src",
+        "host"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "mitre_mappings",
+        "recommended_actions"
+      ]
     },
     {
       "template_id": "auth_new_source_ip",
@@ -45,17 +108,46 @@
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now action=success | stats count as login_count min(_time) as first_seen max(_time) as last_seen values(action) as action by user, host, src | where NOT cidrmatch(\"10.0.0.0/8\", src) | sort -login_count | head 100",
-      "returned_fields": ["user", "host", "src", "login_count", "first_seen", "last_seen", "action"],
+      "returned_fields": [
+        "user",
+        "host",
+        "src",
+        "login_count",
+        "first_seen",
+        "last_seen",
+        "action"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["pgcil:auth"],
-        "allowed_commands": ["search", "stats", "where", "sort", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:auth"
+        ],
+        "allowed_commands": [
+          "search",
+          "stats",
+          "where",
+          "sort",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["login_count", "user", "src", "host"],
-      "answer_sections_supported": ["splunk_results_table", "mitre_mappings", "recommended_actions"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "login_count",
+        "user",
+        "src",
+        "host"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "mitre_mappings",
+        "recommended_actions"
+      ]
     },
     {
       "template_id": "auth_account_lockout_trend",
@@ -64,17 +156,35 @@
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now signature=account_locked | timechart span=1h count as lockout_count | head 100",
-      "returned_fields": ["_time", "lockout_count"],
+      "returned_fields": [
+        "_time",
+        "lockout_count"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["pgcil:auth"],
-        "allowed_commands": ["search", "timechart", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:auth"
+        ],
+        "allowed_commands": [
+          "search",
+          "timechart",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["lockout_count"],
-      "answer_sections_supported": ["splunk_results_table", "recommended_actions"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "lockout_count"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions"
+      ]
     },
     {
       "template_id": "aws_security_group_modifications",
@@ -84,9 +194,15 @@
       "description": "Raw CloudTrail search for EC2 security-group authorization, revocation, create, delete, and modify events.",
       "query_shape": "raw_search",
       "aggregation_shape": "ranked_entities",
-      "group_by_fields": ["userIdentity.arn"],
-      "metric_fields": ["change_count"],
-      "allowed_metrics": ["count"],
+      "group_by_fields": [
+        "userIdentity.arn"
+      ],
+      "metric_fields": [
+        "change_count"
+      ],
+      "allowed_metrics": [
+        "count"
+      ],
       "time_bound_required": true,
       "result_limit_required": true,
       "validator_profile": "raw_search_v1",
@@ -96,17 +212,47 @@
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=aws:cloudtrail earliest=-24h latest=now eventSource=ec2.amazonaws.com (eventName=AuthorizeSecurityGroupIngress OR eventName=AuthorizeSecurityGroupEgress OR eventName=RevokeSecurityGroupIngress OR eventName=RevokeSecurityGroupEgress OR eventName=ModifySecurityGroupRules OR eventName=CreateSecurityGroup OR eventName=DeleteSecurityGroup) | stats count as change_count values(eventName) as event_names values(requestParameters.groupId) as security_group_ids values(sourceIPAddress) as source_ips min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -change_count | head 100",
-      "returned_fields": ["userIdentity.arn", "userIdentity.userName", "awsRegion", "change_count", "event_names", "security_group_ids", "source_ips", "first_seen", "last_seen"],
+      "returned_fields": [
+        "userIdentity.arn",
+        "userIdentity.userName",
+        "awsRegion",
+        "change_count",
+        "event_names",
+        "security_group_ids",
+        "source_ips",
+        "first_seen",
+        "last_seen"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["aws:cloudtrail"],
-        "allowed_commands": ["search", "stats", "sort", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "aws:cloudtrail"
+        ],
+        "allowed_commands": [
+          "search",
+          "stats",
+          "sort",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["change_count", "event_names", "security_group_ids", "userIdentity.arn"],
-      "answer_sections_supported": ["splunk_results_table", "recommended_actions", "spl_code"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "change_count",
+        "event_names",
+        "security_group_ids",
+        "userIdentity.arn"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
     },
     {
       "template_id": "aws_console_success_logins_by_user",
@@ -116,9 +262,15 @@
       "description": "Raw CloudTrail search for successful AWS ConsoleLogin events grouped by actor.",
       "query_shape": "raw_search",
       "aggregation_shape": "ranked_entities",
-      "group_by_fields": ["userIdentity.arn"],
-      "metric_fields": ["login_count"],
-      "allowed_metrics": ["count"],
+      "group_by_fields": [
+        "userIdentity.arn"
+      ],
+      "metric_fields": [
+        "login_count"
+      ],
+      "allowed_metrics": [
+        "count"
+      ],
       "time_bound_required": true,
       "result_limit_required": true,
       "validator_profile": "raw_search_v1",
@@ -128,17 +280,45 @@
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=aws:cloudtrail earliest=-24h latest=now eventSource=signin.amazonaws.com eventName=ConsoleLogin responseElements.ConsoleLogin=Success | stats count as login_count values(sourceIPAddress) as source_ips values(userAgent) as user_agents min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -login_count | head 100",
-      "returned_fields": ["userIdentity.arn", "userIdentity.userName", "awsRegion", "login_count", "source_ips", "user_agents", "first_seen", "last_seen"],
+      "returned_fields": [
+        "userIdentity.arn",
+        "userIdentity.userName",
+        "awsRegion",
+        "login_count",
+        "source_ips",
+        "user_agents",
+        "first_seen",
+        "last_seen"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["aws:cloudtrail"],
-        "allowed_commands": ["search", "stats", "sort", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "aws:cloudtrail"
+        ],
+        "allowed_commands": [
+          "search",
+          "stats",
+          "sort",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["login_count", "source_ips", "userIdentity.arn"],
-      "answer_sections_supported": ["splunk_results_table", "recommended_actions", "spl_code"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "login_count",
+        "source_ips",
+        "userIdentity.arn"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
     },
     {
       "template_id": "aws_iam_policy_modifications",
@@ -148,9 +328,15 @@
       "description": "Raw CloudTrail search for IAM policy create/update/delete and attach/detach events grouped by actor.",
       "query_shape": "raw_search",
       "aggregation_shape": "ranked_entities",
-      "group_by_fields": ["userIdentity.arn"],
-      "metric_fields": ["change_count"],
-      "allowed_metrics": ["count"],
+      "group_by_fields": [
+        "userIdentity.arn"
+      ],
+      "metric_fields": [
+        "change_count"
+      ],
+      "allowed_metrics": [
+        "count"
+      ],
       "time_bound_required": true,
       "result_limit_required": true,
       "validator_profile": "raw_search_v1",
@@ -160,17 +346,49 @@
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=aws:cloudtrail earliest=-24h latest=now eventSource=iam.amazonaws.com (eventName=CreatePolicy OR eventName=CreatePolicyVersion OR eventName=SetDefaultPolicyVersion OR eventName=DeletePolicy OR eventName=DeletePolicyVersion OR eventName=PutUserPolicy OR eventName=PutRolePolicy OR eventName=PutGroupPolicy OR eventName=DeleteUserPolicy OR eventName=DeleteRolePolicy OR eventName=DeleteGroupPolicy OR eventName=AttachUserPolicy OR eventName=AttachRolePolicy OR eventName=AttachGroupPolicy OR eventName=DetachUserPolicy OR eventName=DetachRolePolicy OR eventName=DetachGroupPolicy) | stats count as change_count values(eventName) as event_names values(requestParameters.policyArn) as policy_arns values(requestParameters.userName) as target_users values(requestParameters.roleName) as target_roles values(sourceIPAddress) as source_ips min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -change_count | head 100",
-      "returned_fields": ["userIdentity.arn", "userIdentity.userName", "awsRegion", "change_count", "event_names", "policy_arns", "target_users", "target_roles", "source_ips", "first_seen", "last_seen"],
+      "returned_fields": [
+        "userIdentity.arn",
+        "userIdentity.userName",
+        "awsRegion",
+        "change_count",
+        "event_names",
+        "policy_arns",
+        "target_users",
+        "target_roles",
+        "source_ips",
+        "first_seen",
+        "last_seen"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["aws:cloudtrail"],
-        "allowed_commands": ["search", "stats", "sort", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "aws:cloudtrail"
+        ],
+        "allowed_commands": [
+          "search",
+          "stats",
+          "sort",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["change_count", "event_names", "policy_arns", "userIdentity.arn"],
-      "answer_sections_supported": ["splunk_results_table", "recommended_actions", "spl_code"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "change_count",
+        "event_names",
+        "policy_arns",
+        "userIdentity.arn"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
     },
     {
       "template_id": "auth_failed_login_top_users_exclude_service_accounts",
@@ -180,9 +398,15 @@
       "description": "Raw PGCIL auth search for failed-login counts by user over 24h with service-account exclusions encoded.",
       "query_shape": "raw_search",
       "aggregation_shape": "ranked_entities",
-      "group_by_fields": ["user"],
-      "metric_fields": ["fail_count"],
-      "allowed_metrics": ["count"],
+      "group_by_fields": [
+        "user"
+      ],
+      "metric_fields": [
+        "fail_count"
+      ],
+      "allowed_metrics": [
+        "count"
+      ],
       "time_bound_required": true,
       "result_limit_required": true,
       "validator_profile": "raw_search_v1",
@@ -192,22 +416,322 @@
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now action=failure NOT (user=\"svc_*\" OR user=\"service_*\" OR user=\"*_svc\") | stats count as fail_count values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | sort -fail_count | head 100",
-      "returned_fields": ["user", "fail_count", "source_ips", "first_seen", "last_seen"],
+      "returned_fields": [
+        "user",
+        "fail_count",
+        "source_ips",
+        "first_seen",
+        "last_seen"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["pgcil:auth"],
-        "allowed_commands": ["search", "stats", "sort", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:auth"
+        ],
+        "allowed_commands": [
+          "search",
+          "stats",
+          "sort",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["fail_count", "user", "source_ips"],
-      "answer_sections_supported": ["splunk_results_table", "recommended_actions", "spl_code"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "fail_count",
+        "user",
+        "source_ips"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
     },
-    {"template_id": "privileged_account_failure", "status": "planned", "use_case_id": "auth_privileged_login_anomaly", "required_entities": [], "default_time_window": "earliest=-24h latest=now", "spl_text": null, "returned_fields": [], "validation_rules": {"blocked_until_scd_fields_exist": true}, "result_limits": {"max_rows": 100}, "severity_inputs": [], "answer_sections_supported": []},
-    {"template_id": "after_hours_login_critical_asset", "status": "planned", "use_case_id": "auth_after_hours_critical_asset", "required_entities": ["host"], "default_time_window": "earliest=-24h latest=now", "spl_text": null, "returned_fields": [], "validation_rules": {"blocked_until_scd_fields_exist": true}, "result_limits": {"max_rows": 100}, "severity_inputs": [], "answer_sections_supported": []},
-    {"template_id": "vpn_failure_spike", "status": "planned", "use_case_id": "net_vpn_login_anomaly", "required_entities": [], "default_time_window": "earliest=-24h latest=now", "spl_text": null, "returned_fields": [], "validation_rules": {"blocked_until_scd_fields_exist": true}, "result_limits": {"max_rows": 100}, "severity_inputs": [], "answer_sections_supported": []},
-    {"template_id": "firewall_deny_spike", "status": "planned", "use_case_id": "net_firewall_deny_spike", "required_entities": [], "default_time_window": "earliest=-24h latest=now", "spl_text": null, "returned_fields": [], "validation_rules": {"blocked_until_scd_fields_exist": true}, "result_limits": {"max_rows": 100}, "severity_inputs": [], "answer_sections_supported": []},
+    {
+      "template_id": "privileged_account_failure",
+      "status": "active",
+      "enabled": true,
+      "production_ready": true,
+      "sample_only": false,
+      "use_case_id": "auth_privileged_login_anomaly",
+      "name": "Privileged account authentication review",
+      "description": "Read-only pgcil:auth aggregation for admin-shaped account logins (success and failure counts) with bounded time. Rewritten from the Windows EventCode lab family to the governed auth field model; does not confirm compromise.",
+      "query_shape": "raw_search",
+      "aggregation_shape": "ranked_entities",
+      "group_by_fields": [
+        "user"
+      ],
+      "metric_fields": [
+        "event_count",
+        "fail_count",
+        "success_count"
+      ],
+      "allowed_metrics": [
+        "count"
+      ],
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "event_count",
+        "fail_count",
+        "success_count",
+        "user",
+        "source_ips",
+        "hosts"
+      ],
+      "returned_fields": [
+        "user",
+        "event_count",
+        "fail_count",
+        "success_count",
+        "source_ips",
+        "hosts",
+        "first_seen",
+        "last_seen"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "mitre_mappings",
+        "recommended_actions",
+        "spl_code"
+      ],
+      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now (action=success OR action=failure) (user=\"*admin*\" OR user=\"*_adm\" OR user=\"administrator\" OR user=\"root\") NOT (user=\"svc_*\" OR user=\"service_*\" OR user=\"*_svc\") | stats count as event_count count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips values(host) as hosts min(_time) as first_seen max(_time) as last_seen by user | sort -event_count | head 100",
+      "validation_rules": {
+        "allowed_commands": [
+          "search",
+          "stats",
+          "sort",
+          "head"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:auth"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "validator_profile": "raw_search_v1"
+    },
+    {
+      "template_id": "after_hours_login_critical_asset",
+      "status": "active",
+      "enabled": true,
+      "production_ready": true,
+      "sample_only": false,
+      "use_case_id": "auth_after_hours_critical_asset",
+      "name": "After-hours authentication review",
+      "description": "Read-only authentication aggregation for logins outside 07:00-19:00 (indexed date_hour) with bounded time and analyst-review output fields. Critical-asset scoping is analyst review, not asserted by this query alone.",
+      "query_shape": "raw_search",
+      "aggregation_shape": "ranked_entities",
+      "group_by_fields": [
+        "user"
+      ],
+      "metric_fields": [
+        "after_hours_logins"
+      ],
+      "allowed_metrics": [
+        "count",
+        "dc"
+      ],
+      "required_entities": [
+        "host"
+      ],
+      "default_time_window": "earliest=-24h latest=now",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "after_hours_logins",
+        "distinct_hosts",
+        "user",
+        "hosts",
+        "source_ips"
+      ],
+      "returned_fields": [
+        "user",
+        "after_hours_logins",
+        "distinct_hosts",
+        "hosts",
+        "source_ips",
+        "first_seen",
+        "last_seen"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "mitre_mappings",
+        "recommended_actions",
+        "spl_code"
+      ],
+      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now (action=success OR action=failure) | where (date_hour<7) OR (date_hour>=19) | stats count as after_hours_logins dc(host) as distinct_hosts values(host) as hosts values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | sort -after_hours_logins | head 100",
+      "validation_rules": {
+        "allowed_commands": [
+          "search",
+          "where",
+          "stats",
+          "sort",
+          "head"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:auth"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "validator_profile": "raw_search_v1"
+    },
+    {
+      "template_id": "vpn_failure_spike",
+      "status": "active",
+      "enabled": true,
+      "production_ready": true,
+      "sample_only": false,
+      "use_case_id": "net_vpn_login_anomaly",
+      "name": "VPN failed-login spike by user",
+      "description": "Read-only aggregation of failed VPN authentications per user with bounded time and source spread for anomaly review.",
+      "query_shape": "raw_search",
+      "aggregation_shape": "ranked_entities",
+      "group_by_fields": [
+        "user"
+      ],
+      "metric_fields": [
+        "failed_vpn_logins"
+      ],
+      "allowed_metrics": [
+        "count",
+        "dc"
+      ],
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "failed_vpn_logins",
+        "distinct_sources",
+        "user"
+      ],
+      "returned_fields": [
+        "user",
+        "failed_vpn_logins",
+        "distinct_sources",
+        "source_ips",
+        "first_seen",
+        "last_seen"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "mitre_mappings",
+        "recommended_actions"
+      ],
+      "spl_text": "search index=pgcil_soc sourcetype=pgcil:vpn earliest=-24h latest=now action=failure | stats count as failed_vpn_logins dc(src) as distinct_sources values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | where failed_vpn_logins >= 10 | sort -failed_vpn_logins | head 100",
+      "validation_rules": {
+        "allowed_commands": [
+          "search",
+          "stats",
+          "where",
+          "sort",
+          "head"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:vpn"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "validator_profile": "raw_search_v1"
+    },
+    {
+      "template_id": "firewall_deny_spike",
+      "status": "active",
+      "enabled": true,
+      "production_ready": true,
+      "sample_only": false,
+      "use_case_id": "net_firewall_deny_spike",
+      "name": "Firewall deny spike by source/destination",
+      "description": "Read-only aggregation of firewall deny events per source/destination with bounded time and port spread for spike review.",
+      "query_shape": "raw_search",
+      "aggregation_shape": "ranked_entities",
+      "group_by_fields": [
+        "src",
+        "dest"
+      ],
+      "metric_fields": [
+        "deny_count"
+      ],
+      "allowed_metrics": [
+        "count",
+        "dc"
+      ],
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "deny_count",
+        "distinct_ports",
+        "src",
+        "dest"
+      ],
+      "returned_fields": [
+        "src",
+        "dest",
+        "deny_count",
+        "distinct_ports",
+        "dest_ports",
+        "apps",
+        "first_seen",
+        "last_seen"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions"
+      ],
+      "spl_text": "search index=pgcil_soc sourcetype=pgcil:firewall earliest=-24h latest=now action=deny | stats count as deny_count dc(dest_port) as distinct_ports values(dest_port) as dest_ports values(app) as apps min(_time) as first_seen max(_time) as last_seen by src, dest | where deny_count >= 50 | sort -deny_count | head 100",
+      "validation_rules": {
+        "allowed_commands": [
+          "search",
+          "stats",
+          "where",
+          "sort",
+          "head"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:firewall"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "validator_profile": "raw_search_v1"
+    },
     {
       "template_id": "dns_beaconing_candidate",
       "status": "active",
@@ -216,9 +740,17 @@
       "description": "Read-only DNS aggregation for candidate beaconing review with bounded time, rarity, and periodicity fields.",
       "query_shape": "raw_search",
       "aggregation_shape": "ranked_entities",
-      "group_by_fields": ["src"],
-      "metric_fields": ["DNS_query_count", "periodicity"],
-      "allowed_metrics": ["count", "dc"],
+      "group_by_fields": [
+        "src"
+      ],
+      "metric_fields": [
+        "DNS_query_count",
+        "periodicity"
+      ],
+      "allowed_metrics": [
+        "count",
+        "dc"
+      ],
       "time_bound_required": true,
       "result_limit_required": true,
       "validator_profile": "raw_search_v1",
@@ -228,17 +760,51 @@
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=pgcil:dns earliest=-24h latest=now | stats count as DNS_query_count values(query) as domain values(dest) as dest values(bytes_out) as bytes_out dc(query) as distinct_domains min(_time) as first_seen max(_time) as last_seen by src | eval observation_window=last_seen-first_seen | eval periodicity=if(DNS_query_count>1,round(observation_window/(DNS_query_count-1),2),null()) | eval jitter=\"requires_review\" | eval rare_domain_indicator=if(distinct_domains<=3 AND DNS_query_count>=20,\"review\",\"unknown\") | eval user_host_association=src | where DNS_query_count >= 20 | table src dest domain DNS_query_count periodicity jitter bytes_out rare_domain_indicator user_host_association first_seen last_seen | sort -DNS_query_count | head 100",
-      "returned_fields": ["src", "dest", "domain", "DNS_query_count", "periodicity", "jitter", "bytes_out", "rare_domain_indicator", "user_host_association", "first_seen", "last_seen"],
+      "returned_fields": [
+        "src",
+        "dest",
+        "domain",
+        "DNS_query_count",
+        "periodicity",
+        "jitter",
+        "bytes_out",
+        "rare_domain_indicator",
+        "user_host_association",
+        "first_seen",
+        "last_seen"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["pgcil:dns"],
-        "allowed_commands": ["search", "stats", "eval", "where", "table", "sort", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:dns"
+        ],
+        "allowed_commands": [
+          "search",
+          "stats",
+          "eval",
+          "where",
+          "table",
+          "sort",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["DNS_query_count", "periodicity", "rare_domain_indicator"],
-      "answer_sections_supported": ["splunk_results_table", "recommended_actions", "spl_code"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "DNS_query_count",
+        "periodicity",
+        "rare_domain_indicator"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
     },
     {
       "template_id": "notable_critical_review_mitre",
@@ -248,9 +814,15 @@
       "description": "Read-only aggregation of critical/high endpoint alerts over 6h with MITRE technique and host rollups for analyst review.",
       "query_shape": "raw_search",
       "aggregation_shape": "ranked_entities",
-      "group_by_fields": ["host"],
-      "metric_fields": ["alert_count"],
-      "allowed_metrics": ["count"],
+      "group_by_fields": [
+        "host"
+      ],
+      "metric_fields": [
+        "alert_count"
+      ],
+      "allowed_metrics": [
+        "count"
+      ],
       "time_bound_required": true,
       "result_limit_required": true,
       "validator_profile": "raw_search_v1",
@@ -260,19 +832,123 @@
       "required_entities": [],
       "default_time_window": "earliest=-6h latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=pgcil:edr earliest=-6h latest=now | eval rule_name=coalesce(rule_name,process_name,\"edr_detection\") | eval mitre_technique=coalesce(mitre_technique_id,\"T1059.001\") | eval mitre_tactic=coalesce(mitre_tactic,\"Execution\") | eval urgency=case(match(severity,\"(?i)critical\"),\"critical\",match(severity,\"(?i)high\"),\"high\",true(),\"medium\") | stats count as alert_count values(rule_name) as rule_name values(mitre_technique) as mitre_technique values(mitre_tactic) as mitre_tactic values(urgency) as urgency values(severity) as severity min(_time) as first_seen max(_time) as last_seen by host | where urgency IN (\"critical\",\"high\") | sort -alert_count | head 100",
-      "returned_fields": ["host", "rule_name", "mitre_technique", "mitre_tactic", "urgency", "severity", "alert_count", "first_seen", "last_seen"],
+      "returned_fields": [
+        "host",
+        "rule_name",
+        "mitre_technique",
+        "mitre_tactic",
+        "urgency",
+        "severity",
+        "alert_count",
+        "first_seen",
+        "last_seen"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["pgcil:edr"],
-        "allowed_commands": ["search", "eval", "stats", "where", "sort", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:edr"
+        ],
+        "allowed_commands": [
+          "search",
+          "eval",
+          "stats",
+          "where",
+          "sort",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["alert_count", "urgency", "severity", "host"],
-      "answer_sections_supported": ["splunk_results_table", "mitre_mappings", "recommended_actions", "spl_code"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "alert_count",
+        "urgency",
+        "severity",
+        "host"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "mitre_mappings",
+        "recommended_actions",
+        "spl_code"
+      ]
     },
-    {"template_id": "edr_suspicious_process", "status": "planned", "use_case_id": "edr_suspicious_process", "required_entities": [], "default_time_window": "earliest=-24h latest=now", "spl_text": null, "returned_fields": [], "validation_rules": {"blocked_until_scd_fields_exist": true}, "result_limits": {"max_rows": 100}, "severity_inputs": [], "answer_sections_supported": []},
+    {
+      "template_id": "edr_suspicious_process",
+      "status": "active",
+      "enabled": true,
+      "production_ready": true,
+      "sample_only": false,
+      "use_case_id": "edr_suspicious_process",
+      "name": "Suspicious process execution review",
+      "description": "Read-only endpoint aggregation for suspicious process execution (LOLBins + encoded/download command lines) with bounded time and analyst-review output fields.",
+      "query_shape": "raw_search",
+      "aggregation_shape": "ranked_entities",
+      "group_by_fields": [
+        "host",
+        "user",
+        "process_name"
+      ],
+      "metric_fields": [
+        "event_count"
+      ],
+      "allowed_metrics": [
+        "count"
+      ],
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "event_count",
+        "process_name",
+        "host",
+        "user"
+      ],
+      "returned_fields": [
+        "host",
+        "user",
+        "process_name",
+        "command_line",
+        "parent_process",
+        "process_path",
+        "signature_status",
+        "network_connection",
+        "event_count",
+        "first_seen",
+        "last_seen"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ],
+      "spl_text": "search index=pgcil_soc sourcetype=pgcil:edr earliest=-24h latest=now (process_name=\"rundll32.exe\" OR process_name=\"regsvr32.exe\" OR process_name=\"mshta.exe\" OR process_name=\"wscript.exe\" OR process_name=\"cscript.exe\" OR process_name=\"certutil.exe\" OR process_name=\"bitsadmin.exe\" OR process_name=\"msbuild.exe\" OR command_line=\"*-enc*\" OR command_line=\"*downloadstring*\") | stats count as event_count values(command_line) as command_line values(parent_process) as parent_process values(process_path) as process_path values(signature_status) as signature_status values(dest) as network_connection min(_time) as first_seen max(_time) as last_seen by host,user,process_name | sort -event_count | head 100",
+      "validation_rules": {
+        "allowed_commands": [
+          "search",
+          "stats",
+          "sort",
+          "head"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:edr"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "validator_profile": "raw_search_v1"
+    },
     {
       "template_id": "edr_powershell_suspicious_command",
       "status": "active",
@@ -281,9 +957,16 @@
       "description": "Read-only endpoint aggregation for suspicious PowerShell evidence with bounded time and analyst-review output fields.",
       "query_shape": "raw_search",
       "aggregation_shape": "ranked_entities",
-      "group_by_fields": ["host", "user"],
-      "metric_fields": ["event_count"],
-      "allowed_metrics": ["count"],
+      "group_by_fields": [
+        "host",
+        "user"
+      ],
+      "metric_fields": [
+        "event_count"
+      ],
+      "allowed_metrics": [
+        "count"
+      ],
       "time_bound_required": true,
       "result_limit_required": true,
       "validator_profile": "raw_search_v1",
@@ -293,17 +976,553 @@
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
       "spl_text": "search index=pgcil_soc sourcetype=pgcil:edr earliest=-24h latest=now (process_name=powershell.exe OR process_name=pwsh.exe OR command_line=\"*powershell*\" OR script_block_text=\"*\") | eval encoded_command_flag=if(match(command_line,\"(?i)(-enc|-encodedcommand)\"),\"true\",\"false\") | stats count as event_count values(command_line) as command_line values(script_block_text) as script_block_text values(parent_process) as parent_process values(process_name) as process_name values(event_id) as event_id values(encoded_command_flag) as encoded_command_flag values(dest) as network_connection min(_time) as first_seen max(_time) as last_seen by host,user | sort -event_count | head 100",
-      "returned_fields": ["host", "user", "command_line", "script_block_text", "event_id", "parent_process", "encoded_command_flag", "network_connection", "process_name", "event_count", "first_seen", "last_seen"],
+      "returned_fields": [
+        "host",
+        "user",
+        "command_line",
+        "script_block_text",
+        "event_id",
+        "parent_process",
+        "encoded_command_flag",
+        "network_connection",
+        "process_name",
+        "event_count",
+        "first_seen",
+        "last_seen"
+      ],
       "validation_rules": {
-        "allowed_indexes": ["pgcil_soc"],
-        "allowed_sourcetypes": ["pgcil:edr"],
-        "allowed_commands": ["search", "eval", "stats", "sort", "head"],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:edr"
+        ],
+        "allowed_commands": [
+          "search",
+          "eval",
+          "stats",
+          "sort",
+          "head"
+        ],
         "required_time_bounds": true,
         "result_limit_required": true
       },
-      "result_limits": {"max_rows": 100},
-      "severity_inputs": ["event_count", "encoded_command_flag", "host", "user"],
-      "answer_sections_supported": ["splunk_results_table", "recommended_actions", "spl_code"]
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "event_count",
+        "encoded_command_flag",
+        "host",
+        "user"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
+    },
+    {
+      "template_id": "cisco_cleartext_to_rtu",
+      "status": "active",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "use_case_id": "cisco_cleartext_to_rtu",
+      "name": "Cisco cleartext sessions to Phase-1 RTUs",
+      "description": "Review-only Firepower hunt for cleartext HTTP/VNC toward Phase-1 RTU destinations using a bounded RTU asset subsearch.",
+      "query_shape": "raw_search",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<cisco_firewall_index> sourcetype=<cisco_firewall_sourcetype> earliest=-24h latest=now (dest_port=80 OR dest_port=5900 OR app=HTTP OR app=VNC) | where dest_ip IN ([ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-7d latest=now tag=phase1_rtu | stats count by ip | fields ip | rename ip as dest_ip | head 100 ]) | stats count as session_count values(app) as applications values(dest_port) as dest_ports min(_time) as first_seen max(_time) as last_seen by src_ip dest_ip | sort -session_count | head 100",
+      "returned_fields": [
+        "src_ip",
+        "dest_ip",
+        "session_count",
+        "applications",
+        "dest_ports",
+        "first_seen",
+        "last_seen"
+      ],
+      "validation_rules": {
+        "allow_subsearches": true,
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "cisco:firepower",
+          "pgcil:network"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "session_count",
+        "dest_ip",
+        "src_ip"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
+    },
+    {
+      "template_id": "cisco_stealthwatch_scan_with_asset",
+      "status": "active",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "use_case_id": "cisco_stealthwatch_scan_with_asset",
+      "name": "Stealthwatch horizontal scan with OT asset enrichment",
+      "description": "Review-only Stealthwatch horizontal-scan hunt enriched with OT asset inventory lookup.",
+      "query_shape": "raw_search",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<stealthwatch_index> sourcetype=<stealthwatch_sourcetype> earliest=-24h latest=now (alert_type=horizontal_scan OR threat_category=scan) | lookup ot_asset_inventory.csv ip as src_ip OUTPUT asset_name asset_type criticality | where isnotnull(asset_name) | stats count as scan_events values(asset_name) as assets values(asset_type) as asset_types values(criticality) as criticality min(_time) as first_seen max(_time) as last_seen by src_ip | sort -scan_events | head 100",
+      "returned_fields": [
+        "src_ip",
+        "scan_events",
+        "assets",
+        "asset_types",
+        "criticality",
+        "first_seen",
+        "last_seen"
+      ],
+      "validation_rules": {
+        "allowed_lookups": [
+          "ot_asset_inventory.csv"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "cisco:stealthwatch"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "scan_events",
+        "criticality",
+        "src_ip"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
+    },
+    {
+      "template_id": "cisco_duo_mfa_fatigue",
+      "status": "active",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "use_case_id": "cisco_duo_mfa_fatigue",
+      "name": "Cisco Duo MFA fatigue sequences",
+      "description": "Review-only Duo hunt for repeated push denials followed by approval using bounded transaction grouping.",
+      "query_shape": "raw_search",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<cisco_duo_index> sourcetype=<cisco_duo_sourcetype> earliest=-24h latest=now factor=push | transaction user maxspan=15m maxevents=20 | where eventcount>=3 AND mvcount(result)>1 AND mvindex(result,-1)=\"allow\" | stats count as fatigue_sequences values(result) as auth_results min(_time) as first_seen max(_time) as last_seen by user | sort -fatigue_sequences | head 100",
+      "returned_fields": [
+        "user",
+        "fatigue_sequences",
+        "auth_results",
+        "first_seen",
+        "last_seen"
+      ],
+      "validation_rules": {
+        "allow_transaction": true,
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "cisco:duo"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "fatigue_sequences",
+        "user"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
+    },
+    {
+      "template_id": "ot_firmware_drift",
+      "status": "active",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "use_case_id": "ot_firmware_drift",
+      "name": "OT firmware drift vs asset inventory",
+      "description": "Review-only OT hunt comparing observed device banners against expected firmware in asset inventory lookup.",
+      "query_shape": "raw_search",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now | stats latest(banner) as observed_banner latest(firmware) as observed_firmware by ip | lookup ot_asset_inventory.csv ip OUTPUT expected_firmware asset_name asset_type | where isnotnull(expected_firmware) AND observed_firmware!=expected_firmware | table ip asset_name asset_type observed_firmware expected_firmware | sort ip | head 100",
+      "returned_fields": [
+        "ip",
+        "asset_name",
+        "asset_type",
+        "observed_firmware",
+        "expected_firmware"
+      ],
+      "validation_rules": {
+        "allowed_lookups": [
+          "ot_asset_inventory.csv"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:network"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "ip",
+        "asset_name",
+        "asset_type"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
+    },
+    {
+      "template_id": "ot_master_spoof",
+      "status": "active",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "use_case_id": "ot_master_spoof",
+      "name": "Non-whitelisted master station polling",
+      "description": "Review-only OT hunt for broadcast polling from sources not listed in the master stations lookup.",
+      "query_shape": "raw_search",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now (action=poll OR message_type=broadcast) | lookup master_stations.csv ip as src_ip OUTPUT station_name allowed | where allowed!=1 OR isnull(allowed) | stats count as poll_events values(station_name) as claimed_stations min(_time) as first_seen max(_time) as last_seen by src_ip | sort -poll_events | head 100",
+      "returned_fields": [
+        "src_ip",
+        "poll_events",
+        "claimed_stations",
+        "first_seen",
+        "last_seen"
+      ],
+      "validation_rules": {
+        "allowed_lookups": [
+          "master_stations.csv"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:network"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "poll_events",
+        "src_ip"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
+    },
+    {
+      "template_id": "ot_tftp_hmi",
+      "status": "active",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "use_case_id": "ot_tftp_hmi",
+      "name": "Cleartext TFTP from substation HMIs",
+      "description": "Review-only OT hunt for cleartext TFTP configuration backups from HMI assets via OT asset lookup.",
+      "query_shape": "raw_search",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now (dest_port=69 OR app=tftp) | lookup ot_assets.csv ip as src_ip OUTPUT asset_name asset_type hmi_profile | where asset_type=HMI OR isnotnull(hmi_profile) | stats count as tftp_events values(dest_ip) as tftp_targets values(asset_name) as hmi_assets min(_time) as first_seen max(_time) as last_seen by src_ip | sort -tftp_events | head 100",
+      "returned_fields": [
+        "src_ip",
+        "tftp_events",
+        "tftp_targets",
+        "hmi_assets",
+        "first_seen",
+        "last_seen"
+      ],
+      "validation_rules": {
+        "allowed_lookups": [
+          "ot_assets.csv"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:network"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "tftp_events",
+        "src_ip"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
+    },
+    {
+      "template_id": "physical_access_impossible",
+      "status": "active",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "use_case_id": "physical_access_impossible",
+      "name": "Impossible physical access vs login site",
+      "description": "Review-only compliance hunt correlating badge site from physical access lookup against login substation.",
+      "query_shape": "raw_search",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now action=success | lookup physical_access.csv user OUTPUT badge_site badge_time | eval login_site=coalesce(substation, host_site, host) | where isnotnull(badge_site) AND badge_site!=login_site | stats count as mismatch_events values(badge_site) as badge_sites values(login_site) as login_sites by user host | sort -mismatch_events | head 100",
+      "returned_fields": [
+        "user",
+        "host",
+        "mismatch_events",
+        "badge_sites",
+        "login_sites"
+      ],
+      "validation_rules": {
+        "allowed_lookups": [
+          "physical_access.csv"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:auth"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "mismatch_events",
+        "user",
+        "host"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
+    },
+    {
+      "template_id": "cii_scan_detection",
+      "status": "active",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "use_case_id": "cii_scan_detection",
+      "name": "Scan activity against CII registry nodes",
+      "description": "Review-only compliance hunt mapping scan activity to CII registry lookup nodes.",
+      "query_shape": "raw_search",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now | stats dc(dest_ip) as scanned_hosts count as scan_events by src_ip | lookup cii_registry.csv ip as dest_ip OUTPUT cii_node cii_tier | where isnotnull(cii_node) | sort -scan_events | head 100",
+      "returned_fields": [
+        "src_ip",
+        "scanned_hosts",
+        "scan_events",
+        "cii_node",
+        "cii_tier"
+      ],
+      "validation_rules": {
+        "allowed_lookups": [
+          "cii_registry.csv"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:network"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "scan_events",
+        "cii_tier",
+        "src_ip"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
+    },
+    {
+      "template_id": "loto_breaker_correlation",
+      "status": "active",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "use_case_id": "loto_breaker_correlation",
+      "name": "LOTO breaker command correlation",
+      "description": "Review-only compliance hunt joining active LOTO safety logs with breaker command events.",
+      "query_shape": "raw_search",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now (action=breaker_command OR command=breaker_update) | stats count as command_count values(command) as commands min(_time) as cmd_time by host src_ip | join max=1 type=left host [ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now tag=loto active=1 | stats latest(loto_state) as loto_state values(work_order) as work_orders by host | head 100 ] | where loto_state=active AND command_count>0 | table host src_ip commands loto_state work_orders cmd_time | head 100",
+      "returned_fields": [
+        "host",
+        "src_ip",
+        "commands",
+        "loto_state",
+        "work_orders",
+        "cmd_time"
+      ],
+      "validation_rules": {
+        "allow_join": true,
+        "allow_subsearches": true,
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:network"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "command_count",
+        "host",
+        "loto_state"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
+    },
+    {
+      "template_id": "cert_in_hash_match",
+      "status": "active",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "use_case_id": "cert_in_hash_match",
+      "name": "CERT-In advisory file hash match",
+      "description": "Review-only compliance hunt matching download file hashes against CERT-In IOC lookup.",
+      "query_shape": "raw_search",
+      "time_bound_required": true,
+      "result_limit_required": true,
+      "validator_profile": "raw_search_v1",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now (action=download OR event_type=file_download) | lookup cert_in_ioc.csv hash as file_hash OUTPUT ioc_label advisory_id | where isnotnull(ioc_label) | stats count as match_count values(ioc_label) as ioc_matches values(advisory_id) as advisories earliest(_time) as first_seen latest(_time) as last_seen by host file_hash file_name | sort -match_count | head 100",
+      "returned_fields": [
+        "host",
+        "file_hash",
+        "file_name",
+        "match_count",
+        "ioc_matches",
+        "advisories",
+        "first_seen",
+        "last_seen"
+      ],
+      "validation_rules": {
+        "allowed_lookups": [
+          "cert_in_ioc.csv"
+        ],
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:edr"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "match_count",
+        "host",
+        "file_hash"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "recommended_actions",
+        "spl_code"
+      ]
     },
     {
       "template_id": "sample_auth_failed_login_top_users_tstats",
@@ -314,11 +1533,21 @@
       "query_shape": "tstats_datamodel",
       "datamodel": "Authentication",
       "dataset": "Authentication",
-      "cim_fields": ["user", "action"],
+      "cim_fields": [
+        "user",
+        "action"
+      ],
       "aggregation_shape": "ranked_entities",
-      "group_by_fields": ["user"],
-      "metric_fields": ["count"],
-      "allowed_metrics": ["count", "dc"],
+      "group_by_fields": [
+        "user"
+      ],
+      "metric_fields": [
+        "count"
+      ],
+      "allowed_metrics": [
+        "count",
+        "dc"
+      ],
       "time_bound_required": true,
       "result_limit_required": true,
       "summariesonly_required": true,
@@ -344,9 +1573,16 @@
         "result_limit": "^[0-9]+$"
       },
       "spl_text": null,
-      "returned_fields": ["user", "failed_login_count"],
-      "validation_rules": {"sample_only": true},
-      "result_limits": {"max_rows": 100},
+      "returned_fields": [
+        "user",
+        "failed_login_count"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
       "severity_inputs": [],
       "answer_sections_supported": []
     },
@@ -359,11 +1595,21 @@
       "query_shape": "tstats_datamodel",
       "datamodel": "Network_Traffic",
       "dataset": "All_Traffic",
-      "cim_fields": ["src_ip", "action"],
+      "cim_fields": [
+        "src_ip",
+        "action"
+      ],
       "aggregation_shape": "ranked_entities",
-      "group_by_fields": ["src_ip"],
-      "metric_fields": ["count"],
-      "allowed_metrics": ["count", "sum"],
+      "group_by_fields": [
+        "src_ip"
+      ],
+      "metric_fields": [
+        "count"
+      ],
+      "allowed_metrics": [
+        "count",
+        "sum"
+      ],
       "time_bound_required": true,
       "result_limit_required": true,
       "summariesonly_required": true,
@@ -388,11 +1634,20 @@
         "latest": "^latest=now$",
         "result_limit": "^[0-9]+$"
       },
-      "optional_parameters": ["src_ip"],
+      "optional_parameters": [
+        "src_ip"
+      ],
       "spl_text": null,
-      "returned_fields": ["src_ip", "connection_count"],
-      "validation_rules": {"sample_only": true},
-      "result_limits": {"max_rows": 100},
+      "returned_fields": [
+        "src_ip",
+        "connection_count"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
       "severity_inputs": [],
       "answer_sections_supported": []
     },
@@ -405,11 +1660,20 @@
       "query_shape": "from_datamodel",
       "datamodel": "Network_Resolution",
       "dataset": "DNS",
-      "cim_fields": ["host", "query"],
+      "cim_fields": [
+        "host",
+        "query"
+      ],
       "aggregation_shape": "ranked_entities",
-      "group_by_fields": ["host"],
-      "metric_fields": ["count"],
-      "allowed_metrics": ["count"],
+      "group_by_fields": [
+        "host"
+      ],
+      "metric_fields": [
+        "count"
+      ],
+      "allowed_metrics": [
+        "count"
+      ],
       "time_bound_required": true,
       "result_limit_required": true,
       "summariesonly_required": false,
@@ -435,9 +1699,16 @@
         "result_limit": "^[0-9]+$"
       },
       "spl_text": null,
-      "returned_fields": ["host", "query_count"],
-      "validation_rules": {"sample_only": true},
-      "result_limits": {"max_rows": 100},
+      "returned_fields": [
+        "host",
+        "query_count"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
       "severity_inputs": [],
       "answer_sections_supported": []
     }

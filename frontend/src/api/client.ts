@@ -4,6 +4,10 @@ import type {
   ChatAnswerFeedbackRequest,
   ChatAnswerFeedbackResponse,
   ChatExecutionReviewOptions,
+  DebugReadinessResponse,
+  DebugTraceBundle,
+  DebugTraceTimeline,
+  DebugTracesResponse,
   DemoScenariosResponse,
   HealthResponse,
   KnowledgeCollection,
@@ -22,11 +26,48 @@ import type {
   SourceProfileDiscoverResponse,
   SourceProfileSaveResponse,
   SourceProfileSettingsResponse,
+  AssetRegistryRecord,
+  AssetRegistryResponse,
+  IocRegistrySettingsResponse,
   KnowledgeExportArtifact,
   KnowledgeMappingSummary,
 } from '../types/api';
 
 const API_BASE_URL = getApiBaseUrl();
+
+export const UNAUTHORIZED_EVENT = 'ai-soc-unauthorized';
+
+// Endpoints whose 401 is an expected business outcome (bad login, anonymous
+// probe) and must NOT bounce the user to the login screen.
+const UNAUTHORIZED_BOUNCE_EXCLUDED = ['/auth/login', '/auth/me'];
+
+// Global 401 interceptor. The SPA validates auth once on mount via the
+// un-gated /auth/me probe and caches the result, so an expired session leaves
+// the app rendering a logged-in shell while every gated API call returns 401.
+// Catch those 401s centrally and emit an event the App listens for to force a
+// re-auth, instead of each panel silently surfacing a toast.
+function installUnauthorizedInterceptor(): void {
+  if (typeof window === 'undefined') return;
+  const flagged = window as typeof window & { __aiSocAuthInterceptor?: boolean };
+  if (flagged.__aiSocAuthInterceptor) return;
+  flagged.__aiSocAuthInterceptor = true;
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const response = await originalFetch(input, init);
+    if (response.status === 401) {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const isApiCall = url.includes(API_BASE_URL);
+      const isExcluded = UNAUTHORIZED_BOUNCE_EXCLUDED.some((path) => url.includes(path));
+      if (isApiCall && !isExcluded) {
+        window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
+      }
+    }
+    return response;
+  };
+}
+
+installUnauthorizedInterceptor();
 
 export async function getHealth(): Promise<HealthResponse> {
   const response = await fetch(`${API_BASE_URL}/health`, { credentials: 'include' });
@@ -71,6 +112,21 @@ export async function logout(): Promise<void> {
   if (!response.ok) {
     throw new Error(`Logout failed: ${response.status}`);
   }
+}
+
+export async function updateUserProfile(payload: { debug_access: boolean }): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`Profile update failed: ${response.status}`);
+  }
+  return response.json();
 }
 
 export async function sendChatMessage(
@@ -184,6 +240,137 @@ export async function getSettingsStatus(): Promise<SettingsStatus> {
   return response.json();
 }
 
+export interface LlmRuntimeHealth {
+  reachable: boolean;
+  tok_per_s: number | null;
+  status: string;
+  healthy: boolean;
+  reason: string;
+  prompt_eval_s?: number | null;
+  sampled_tokens?: number;
+  model?: string | null;
+  threshold_tok_per_s?: number;
+  control_available: boolean;
+  last_control_result?: Record<string, unknown> | null;
+}
+
+export async function getLlmRuntimeHealth(): Promise<LlmRuntimeHealth> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/runtime-health`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`LLM runtime health failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function controlLlm(action: 'restart' | 'stop' | 'start'): Promise<Record<string, unknown>> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/control`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(`LLM control (${action}) failed: ${response.status} ${(detail as { detail?: string }).detail ?? ''}`);
+  }
+  return response.json();
+}
+
+export interface LlmLabStatus {
+  available: boolean;
+  llm_enabled: boolean;
+  mode: string;
+  provider_configured: boolean;
+  active_model: string | null;
+  available_models: string[];
+  disclaimer: string;
+}
+
+export interface LlmLabAnswer {
+  answer: string | null;
+  available: boolean;
+  llm_called: boolean;
+  provider: string | null;
+  timed_out: boolean;
+  latency_ms: number;
+  disclaimer: string;
+  reason: string | null;
+}
+
+export async function getLlmLabStatus(): Promise<LlmLabStatus> {
+  const response = await fetch(`${API_BASE_URL}/llm-lab/status`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`LLM lab status failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function askLlmLab(payload: {
+  prompt: string;
+  system_prompt?: string;
+  max_tokens?: number;
+}): Promise<LlmLabAnswer> {
+  const response = await fetch(`${API_BASE_URL}/llm-lab/ask`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`LLM lab ask failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export interface LlmConnectionConfig {
+  enabled: boolean;
+  mode: string;
+  base_url: string;
+  model: string;
+  api_key_configured: boolean;
+  timeout_seconds: number;
+  source: 'override' | 'env';
+}
+
+export interface LlmConnectionResponse {
+  connection: LlmConnectionConfig;
+  supported_modes: string[];
+}
+
+export interface LlmConnectionSaveResult {
+  saved: boolean;
+  validation_errors: string[];
+  connection: LlmConnectionConfig;
+}
+
+export async function getLlmConnection(): Promise<LlmConnectionResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/connection`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`LLM connection load failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveLlmConnection(payload: {
+  enabled: boolean;
+  mode: string;
+  base_url: string;
+  model: string;
+  api_key: string;
+  timeout_seconds: number;
+}): Promise<LlmConnectionSaveResult> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/connection`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`LLM connection save failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getProviderSettingsStatus(): Promise<ProviderSettingsStatus> {
   const response = await fetch(`${API_BASE_URL}/settings/providers/status`, { credentials: 'include' });
   if (!response.ok) {
@@ -205,12 +392,75 @@ export async function checkProviderDraft(payload: ProviderDraftCheckRequest): Pr
   return response.json();
 }
 
+export interface McpConnectionConfig {
+  enabled: boolean;
+  server_id: string;
+  deployment_mode: string;
+  discovery_policy: string;
+  transport: string;
+  auth_method: string;
+  url: string;
+  bearer_token_configured: boolean;
+  timeout_seconds: number;
+  saia_tools_enabled: boolean;
+  splunk_ai_assistant_mode: string;
+  allow_saved_search: boolean;
+  execution_enabled: boolean;
+  source: 'override' | 'env';
+}
+
+export interface McpConnectionResponse {
+  connection: McpConnectionConfig;
+  supported_deployment_modes: string[];
+  supported_discovery_policies: string[];
+  supported_transports: string[];
+  supported_auth_methods: string[];
+}
+
+export interface McpConnectionSaveResult {
+  saved: boolean;
+  validation_errors: string[];
+  connection: McpConnectionConfig;
+}
+
+export async function getMcpConnection(): Promise<McpConnectionResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/mcp/connection`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`MCP connection load failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveMcpConnection(payload: {
+  enabled: boolean;
+  deployment_mode: string;
+  discovery_policy: string;
+  transport: string;
+  auth_method: string;
+  url: string;
+  bearer_token: string;
+  timeout_seconds: number;
+  saia_tools_enabled: boolean;
+  splunk_ai_assistant_mode: string;
+  allow_saved_search: boolean;
+  execution_enabled: boolean;
+}): Promise<McpConnectionSaveResult> {
+  const response = await fetch(`${API_BASE_URL}/settings/mcp/connection`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`MCP connection save failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function verifyMcpConnection(action: 'validate' | 'test' | 'discover'): Promise<McpConnectionVerificationResult> {
   const response = await fetch(`${API_BASE_URL}/settings/mcp/${action}`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
   });
   if (!response.ok) {
     throw new Error(`MCP ${action} failed: ${response.status}`);
@@ -278,9 +528,82 @@ export async function discoverSourceProfilesFromMcp(): Promise<SourceProfileDisc
   return response.json();
 }
 
+export async function getAssetRegistry(): Promise<AssetRegistryResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/asset-registry`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`Asset registry load failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+
+export async function getIocRegistrySettings(): Promise<IocRegistrySettingsResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/ioc-registry`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`IOC registry load failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveAssetRegistry(assets: AssetRegistryRecord[]): Promise<AssetRegistryResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/asset-registry`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assets }),
+  });
+  if (!response.ok) {
+    throw new Error(`Asset registry save failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getKnowledgeMappingSummary(): Promise<KnowledgeMappingSummary> {
   const response = await fetch(`${API_BASE_URL}/knowledge/mapping-summary`, { credentials: 'include' });
   if (!response.ok) throw new Error(`Knowledge mapping summary failed: ${response.status}`);
+  return response.json();
+}
+
+export interface DetectionCoverage {
+  schema_role: string;
+  mitre_metadata_role: string;
+  technique_count: number;
+  covered_count: number;
+  gap_count: number;
+  coverage: Record<string, string[]>;
+  techniques: {
+    technique_id: string;
+    name: string;
+    tactic: string;
+    covering_use_cases: string[];
+    covered: boolean;
+  }[];
+  gaps: { technique_id: string; name: string; tactic: string }[];
+}
+
+export async function getDetectionCoverage(): Promise<DetectionCoverage> {
+  const response = await fetch(`${API_BASE_URL}/knowledge/detection-coverage`, { credentials: 'include' });
+  if (!response.ok) throw new Error(`Detection coverage failed: ${response.status}`);
+  return response.json();
+}
+
+export interface AtlasCoverageGap {
+  schema_role: string;
+  atlas_source_status: string;
+  mitre_metadata_role?: string;
+  technique_count: number;
+  covered_count: number;
+  gap_count: number;
+  tactics: Record<string, number>;
+  ai_only_tactics: Record<string, number>;
+  multi_tactic_technique_count?: number;
+  top_techniques_by_case_study_frequency: { technique_id: string; score: number; tactics: string[] }[];
+  limitation: string;
+}
+
+export async function getAtlasCoverage(): Promise<AtlasCoverageGap> {
+  const response = await fetch(`${API_BASE_URL}/knowledge/atlas-coverage`, { credentials: 'include' });
+  if (!response.ok) throw new Error(`ATLAS coverage failed: ${response.status}`);
   return response.json();
 }
 
@@ -357,4 +680,53 @@ export async function downloadKnowledgeExport(
   });
   if (!response.ok) throw new Error(`Knowledge export failed: ${response.status}`);
   return response.blob();
+}
+
+export async function getDebugTraces(params?: {
+  limit?: number;
+  entrypoint?: string;
+  status?: string;
+  since?: string;
+}): Promise<DebugTracesResponse> {
+  const search = new URLSearchParams();
+  if (params?.limit != null) search.set('limit', String(params.limit));
+  if (params?.entrypoint) search.set('entrypoint', params.entrypoint);
+  if (params?.status) search.set('status', params.status);
+  if (params?.since) search.set('since', params.since);
+  const query = search.toString();
+  const response = await fetch(`${API_BASE_URL}/debug/traces${query ? `?${query}` : ''}`, {
+    credentials: 'include',
+  });
+  if (response.status === 404) throw new Error('Debug API disabled (404)');
+  if (response.status === 403) throw new Error('Debug API forbidden for this role (403)');
+  if (!response.ok) throw new Error(`Debug traces failed: ${response.status}`);
+  return response.json();
+}
+
+export async function getDebugTraceTimeline(traceId: string): Promise<DebugTraceTimeline> {
+  const response = await fetch(`${API_BASE_URL}/debug/traces/${encodeURIComponent(traceId)}`, {
+    credentials: 'include',
+  });
+  if (response.status === 404) throw new Error('Trace not found (404)');
+  if (response.status === 403) throw new Error('Debug API forbidden for this role (403)');
+  if (!response.ok) throw new Error(`Debug trace failed: ${response.status}`);
+  return response.json();
+}
+
+export async function getDebugTraceBundle(traceId: string): Promise<DebugTraceBundle> {
+  const response = await fetch(`${API_BASE_URL}/debug/traces/${encodeURIComponent(traceId)}/bundle`, {
+    credentials: 'include',
+  });
+  if (response.status === 404) throw new Error('Trace not found (404)');
+  if (response.status === 403) throw new Error('Debug API forbidden for this role (403)');
+  if (!response.ok) throw new Error(`Debug bundle failed: ${response.status}`);
+  return response.json();
+}
+
+export async function getDebugReadiness(): Promise<DebugReadinessResponse> {
+  const response = await fetch(`${API_BASE_URL}/debug/readiness`, { credentials: 'include' });
+  if (response.status === 404) throw new Error('Debug API disabled (404)');
+  if (response.status === 403) throw new Error('Debug API forbidden for this role (403)');
+  if (!response.ok) throw new Error(`Debug readiness failed: ${response.status}`);
+  return response.json();
 }

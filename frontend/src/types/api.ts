@@ -7,6 +7,7 @@ export interface AuthResponse {
   authenticated: boolean;
   username?: string | null;
   role?: string | null;
+  debug_access?: boolean | null;
 }
 
 export interface SessionContextStatusEnvelope {
@@ -78,6 +79,8 @@ export interface PlaceholderResponse {
   query_to_intent?: Record<string, unknown> | null;
   control_plane_trace?: Record<string, unknown> | null;
   answer_contract?: Record<string, unknown> | null;
+  run_contract?: Record<string, unknown> | null;
+  routing_contract?: Record<string, unknown> | null;
   final_answer_validation?: Record<string, unknown> | null;
   mitre_decision?: Record<string, unknown> | null;
   mitre_mappings?: MitreMappingDecision[] | null;
@@ -94,6 +97,25 @@ export interface PlaceholderResponse {
   answer_guard_status?: string | null;
   final_answer_safety_status?: string | null;
   session_context_status?: SessionContextStatusEnvelope | null;
+  /** Experience Center capture provenance (B6 honesty badge). */
+  ec_provenance?: EcProvenance | null;
+  /** Per-stage recorded/replayed latency for staged-progress replay (B4). */
+  ec_stage_latencies?: EcStageLatency[] | null;
+}
+
+/** Experience Center capture provenance — drives the MCP-transport honesty badge. */
+export interface EcProvenance {
+  model_id?: string;
+  captured_at?: string;
+  transport?: 'fake' | 'live';
+  live_mcp_called?: boolean;
+}
+
+/** One captured pipeline stage's latency: real measured + capped replay value. */
+export interface EcStageLatency {
+  stage: string;
+  recorded_ms?: number;
+  replayed_ms: number;
 }
 
 export type ChatAnswerFeedbackRating = 'up' | 'down' | 'neutral';
@@ -384,6 +406,8 @@ export interface SplDraftPreviewEnvelope {
   validator_status: string;
   review_required: boolean;
   execution_enabled: boolean;
+  unbound_constraints?: Array<Record<string, unknown>>;
+  source_profile_bindings?: Array<Record<string, unknown>>;
   warning: string;
   not_catalog_approved_notice: string;
 }
@@ -436,6 +460,7 @@ export interface AnalystResponseEnvelope {
   spl_code?: string | null;
   draft_spl_code?: string | null;
   spl_draft_preview?: SplDraftPreviewEnvelope | null;
+  spl_unbound_constraints?: Array<Record<string, unknown>>;
   llm_spl_candidate?: LlmSplCandidateEnvelope | null;
   executed_spl?: string | null;
   execution_status?: string | null;
@@ -511,7 +536,15 @@ export interface FoundationSecGovernance {
 export interface DemoScenarioSummary {
   scenario_id: string;
   label: string;
-  category: 'Investigate' | 'Knowledge / SOP' | 'Generate SPL' | 'MITRE Mapping' | 'Air-gapped Mode' | string;
+  category:
+    | 'Alert Triage'
+    | 'Threat Hunt'
+    | 'SPL'
+    | 'MITRE'
+    | 'Knowledge & Compliance'
+    | 'OT/ICS'
+    | 'Guided (out-of-catalog)'
+    | string;
   query: string;
   environment_mode: string;
   demo_badge: string;
@@ -910,6 +943,57 @@ export interface SourceProfileSaveResponse {
 export interface SourceProfileDiscoverResponse extends SourceProfileSaveResponse {
   discovered_slots: string[];
   mcp_discovery_trace: SourceProfileSettingsResponse['mcp_discovery_trace'];
+}
+
+export interface AssetRegistryRecord {
+  ip: string;
+  mac?: string;
+  asset_name: string;
+  asset_type?: string;
+  purdue_layer?: string;
+  criticality?: string;
+  substation_id?: string;
+  region?: string;
+  is_master_station?: boolean;
+  expected_firmware?: string;
+  notes?: string;
+}
+
+
+export interface IocRegistryHashRecord {
+  value: string;
+  hash_type: string;
+  confidence: string;
+  tlp: string;
+}
+
+export interface IocRegistrySettingsResponse {
+  enabled: boolean;
+  registry_path: string;
+  import_path_hint: string;
+  path_exists: boolean;
+  hash_count: number;
+  hashes: IocRegistryHashRecord[];
+  advisory_id?: string | null;
+  imported_at?: string | null;
+  staleness_status?: string | null;
+  source_count: number;
+  ioc_count: number;
+  validation_errors: string[];
+  read_only_hashes?: boolean;
+  import_instructions?: string;
+  saved?: boolean;
+}
+
+export interface AssetRegistryResponse {
+  assets: AssetRegistryRecord[];
+  asset_count: number;
+  updated_at?: string | null;
+  updated_by?: string | null;
+  source?: string | null;
+  store_path_configured?: boolean;
+  execution_authority?: string;
+  saved?: boolean;
 }
 
 export interface McpConnectionVerificationResult {
@@ -1450,4 +1534,111 @@ export interface LlmProviderStatus {
   supports_tool_calling: boolean;
   concurrency_limit: number;
   last_error?: string | null;
+}
+
+export interface DebugSummarySkippedRole {
+  role: string;
+  reason: string;
+}
+
+export interface DebugSummary {
+  routing?: {
+    match_path?: string | null;
+    use_case_id?: string | null;
+    matched_patterns?: string[];
+    question_ref?: string | null;
+    selected_skill?: string | null;
+    intent_family?: string | null;
+  };
+  llm?: {
+    live_calls?: number;
+    live_roles?: string[];
+    skipped_roles?: DebugSummarySkippedRole[];
+    spl_path?: string | null;
+    spl_live_called?: boolean;
+    spl_outcome?: string | null;
+    composer_skipped_reason?: string | null;
+  };
+  spl?: {
+    template_id?: string | null;
+    approved?: boolean | null;
+    reject_reasons?: string[];
+    normalized_spl?: boolean;
+  };
+  mcp?: {
+    allowed?: boolean;
+    status?: string | null;
+    block_reason?: string | null;
+  };
+  hil?: {
+    required?: boolean;
+    kind?: string | null;
+    reason?: string | null;
+  };
+}
+
+export interface DebugTraceRun {
+  trace_id: string;
+  run_id?: string | null;
+  user_id?: string | null;
+  entrypoint?: string | null;
+  status?: string | null;
+  metadata?: Record<string, unknown>;
+  started_at?: string | null;
+  ended_at?: string | null;
+  duration_ms?: number | null;
+  answer_mode?: string | null;
+  selected_skill?: string | null;
+  turn_id?: string | null;
+  question_preview?: string | null;
+  answer_preview?: string | null;
+  llm_used?: boolean | null;
+  llm_live_calls?: number | null;
+  mcp_used?: boolean | null;
+  match_path?: string | null;
+  use_case_id?: string | null;
+  question_ref?: string | null;
+  matched_pattern?: string | null;
+  spl_path?: string | null;
+}
+
+export interface DebugTraceEvent {
+  kind: string;
+  created_at?: string | null;
+  step_name?: string | null;
+  status?: string | null;
+  event?: Record<string, unknown>;
+}
+
+export interface DebugTraceTimeline {
+  run: DebugTraceRun;
+  events: DebugTraceEvent[];
+  event_count: number;
+}
+
+export interface DebugTraceBundle {
+  trace_id: string;
+  run: DebugTraceRun;
+  timeline: DebugTraceEvent[];
+  explainability: {
+    debug_summary?: DebugSummary | null;
+    control_plane_trace?: Record<string, unknown> | null;
+    governance_trace?: Record<string, unknown> | null;
+    lineage_summary?: Record<string, unknown> | null;
+    llm_sidecars?: Record<string, unknown> | null;
+  };
+  turn_id?: string | null;
+}
+
+export interface DebugTracesResponse {
+  traces: DebugTraceRun[];
+  count: number;
+}
+
+export interface DebugReadinessResponse {
+  telemetry: Record<string, unknown>;
+  llm: Record<string, unknown>;
+  mcp: Record<string, unknown>;
+  rag: Record<string, unknown>;
+  debug_api_enabled: boolean;
 }

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { LlmConnectionVerificationResult, LlmGovernanceStatus, LlmSettingsDraftCheckResult, SettingsStatus } from '@/types/api';
 import { BoolPill, ModeBadge, PanelMockBanner, PlaceholderConnectorBanner, SettingRow } from './SettingRow';
+import { LlmRuntimeHealthPanel } from './LlmRuntimeHealthPanel';
 
 const LLM_MODES = ['mock', 'local', 'openai_compatible', 'cisco_foundation_sec', 'disabled'];
 
@@ -44,6 +45,7 @@ export function LlmSettingsPanel({ status }: { status: SettingsStatus['llm'] }) 
         <p className="rounded-md border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
           Model connectivity only. Final synthesis and direct tool calling are disabled until later stages.
         </p>
+        <LlmRuntimeHealthPanel />
         {governance ? <LlmGovernanceSection governance={governance} /> : null}
         {status.implemented === false ? <PlaceholderConnectorBanner fallback={status.fallback} /> : null}
         {!status.enabled ? <PanelMockBanner /> : null}

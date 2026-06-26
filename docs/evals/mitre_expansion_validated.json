@@ -1,0 +1,79 @@
+{
+  "schema_role": "mitre_expansion_validated_v1",
+  "generated_at_utc": "2026-06-17T08:33:53.058698+00:00",
+  "audit_source": "docs/evals/out/llm_mitre_catalogue_audit.json",
+  "bundle_count": 98,
+  "candidate_count": 13,
+  "resolver_operational": true,
+  "disposition_counts": {
+    "not_found": 4,
+    "deprecated": 9
+  },
+  "candidates": [
+    {
+      "technique_id": "T0819",
+      "disposition": "not_found",
+      "detail": null
+    },
+    {
+      "technique_id": "T0839",
+      "disposition": "not_found",
+      "detail": null
+    },
+    {
+      "technique_id": "T0849",
+      "disposition": "not_found",
+      "detail": null
+    },
+    {
+      "technique_id": "T0881",
+      "disposition": "not_found",
+      "detail": null
+    },
+    {
+      "technique_id": "T1022",
+      "disposition": "deprecated",
+      "detail": null
+    },
+    {
+      "technique_id": "T1043",
+      "disposition": "deprecated",
+      "detail": null
+    },
+    {
+      "technique_id": "T1045",
+      "disposition": "deprecated",
+      "detail": null
+    },
+    {
+      "technique_id": "T1053.004",
+      "disposition": "deprecated",
+      "detail": null
+    },
+    {
+      "technique_id": "T1070.001",
+      "disposition": "deprecated",
+      "detail": null
+    },
+    {
+      "technique_id": "T1086",
+      "disposition": "deprecated",
+      "detail": null
+    },
+    {
+      "technique_id": "T1193",
+      "disposition": "deprecated",
+      "detail": null
+    },
+    {
+      "technique_id": "T1562",
+      "disposition": "deprecated",
+      "detail": null
+    },
+    {
+      "technique_id": "T1562.001",
+      "disposition": "deprecated",
+      "detail": null
+    }
+  ]
+}

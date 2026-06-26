@@ -1,0 +1,1393 @@
+{
+  "schema_role": "atlas_matrix_normalized_v1",
+  "generated_at_utc": "2026-06-17T04:20:29.694308+00:00",
+  "normalization_rules_version": "atlas-normalize-v1",
+  "provenance": {
+    "source_file": "docs/threat-intel/atlas/raw/ATLAS_Matrix.json",
+    "source_sha256": "b4798f6d200039e3deb856bd471fe081ef6635cb6a966ca7a8ce469eeb55bb79",
+    "atlas_data_version": {
+      "attack": "4",
+      "navigator": "4.6.4",
+      "layer": "4.3"
+    },
+    "raw_row_count": 185
+  },
+  "technique_count": 170,
+  "techniques": [
+    {
+      "technique_id": "AML.T0000",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 8
+    },
+    {
+      "technique_id": "AML.T0000.000",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0000.001",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0000.002",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0001",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0002",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0002.000",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 6
+    },
+    {
+      "technique_id": "AML.T0002.001",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 4
+    },
+    {
+      "technique_id": "AML.T0002.002",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0003",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0004",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0005",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0005.000",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0005.001",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0005.002",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0006",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0007",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0008",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0008.000",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0008.001",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0008.002",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0008.003",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0008.004",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0008.005",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0010",
+      "tactics": [
+        "initial-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0010.000",
+      "tactics": [
+        "initial-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0010.001",
+      "tactics": [
+        "initial-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 5
+    },
+    {
+      "technique_id": "AML.T0010.002",
+      "tactics": [
+        "initial-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0010.003",
+      "tactics": [
+        "initial-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 4
+    },
+    {
+      "technique_id": "AML.T0010.004",
+      "tactics": [
+        "initial-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0010.005",
+      "tactics": [
+        "initial-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0011",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0011.000",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0011.001",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0011.002",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0011.003",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0012",
+      "tactics": [
+        "initial-access",
+        "privilege-escalation"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0013",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0014",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0015",
+      "tactics": [
+        "defense-evasion",
+        "impact",
+        "initial-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 7
+    },
+    {
+      "technique_id": "AML.T0016",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0016.000",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0016.001",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 4
+    },
+    {
+      "technique_id": "AML.T0016.002",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0017",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 9
+    },
+    {
+      "technique_id": "AML.T0017.000",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 4
+    },
+    {
+      "technique_id": "AML.T0018",
+      "tactics": [
+        "ai-attack-staging",
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0018.000",
+      "tactics": [
+        "ai-attack-staging",
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0018.001",
+      "tactics": [
+        "ai-attack-staging",
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0018.002",
+      "tactics": [
+        "ai-attack-staging",
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0019",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0020",
+      "tactics": [
+        "persistence",
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0021",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 5
+    },
+    {
+      "technique_id": "AML.T0024",
+      "tactics": [
+        "exfiltration"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0024.000",
+      "tactics": [
+        "exfiltration"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0024.001",
+      "tactics": [
+        "exfiltration"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0024.002",
+      "tactics": [
+        "exfiltration"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0025",
+      "tactics": [
+        "exfiltration"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 8
+    },
+    {
+      "technique_id": "AML.T0029",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0031",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 5
+    },
+    {
+      "technique_id": "AML.T0034",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0034.000",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0034.001",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0034.002",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0035",
+      "tactics": [
+        "collection"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0036",
+      "tactics": [
+        "collection"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0037",
+      "tactics": [
+        "collection"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0040",
+      "tactics": [
+        "ai-model-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 7
+    },
+    {
+      "technique_id": "AML.T0041",
+      "tactics": [
+        "ai-model-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0042",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 7
+    },
+    {
+      "technique_id": "AML.T0043",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0043.000",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0043.001",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0043.002",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0043.003",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0043.004",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0044",
+      "tactics": [
+        "ai-model-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0046",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0047",
+      "tactics": [
+        "ai-model-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 13
+    },
+    {
+      "technique_id": "AML.T0048",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 4
+    },
+    {
+      "technique_id": "AML.T0048.000",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 10
+    },
+    {
+      "technique_id": "AML.T0048.001",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0048.002",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0048.003",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 12
+    },
+    {
+      "technique_id": "AML.T0048.004",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 5
+    },
+    {
+      "technique_id": "AML.T0049",
+      "tactics": [
+        "initial-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 5
+    },
+    {
+      "technique_id": "AML.T0050",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0051",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0051.000",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 10
+    },
+    {
+      "technique_id": "AML.T0051.001",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 13
+    },
+    {
+      "technique_id": "AML.T0051.002",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0052",
+      "tactics": [
+        "initial-access",
+        "lateral-movement"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0052.000",
+      "tactics": [
+        "initial-access",
+        "lateral-movement"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0052.001",
+      "tactics": [
+        "initial-access",
+        "lateral-movement"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0053",
+      "tactics": [
+        "execution",
+        "privilege-escalation"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 9
+    },
+    {
+      "technique_id": "AML.T0054",
+      "tactics": [
+        "defense-evasion",
+        "privilege-escalation"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 4
+    },
+    {
+      "technique_id": "AML.T0055",
+      "tactics": [
+        "credential-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 7
+    },
+    {
+      "technique_id": "AML.T0056",
+      "tactics": [
+        "exfiltration"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0057",
+      "tactics": [
+        "exfiltration"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0058",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0059",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0060",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0061",
+      "tactics": [
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0062",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0063",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0064",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0065",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 20
+    },
+    {
+      "technique_id": "AML.T0066",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0067",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0067.000",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0068",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 7
+    },
+    {
+      "technique_id": "AML.T0069",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0069.000",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0069.001",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0069.002",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0070",
+      "tactics": [
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0071",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0072",
+      "tactics": [
+        "command-and-control"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0073",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 5
+    },
+    {
+      "technique_id": "AML.T0074",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 4
+    },
+    {
+      "technique_id": "AML.T0075",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0076",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0077",
+      "tactics": [
+        "exfiltration"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0078",
+      "tactics": [
+        "initial-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 4
+    },
+    {
+      "technique_id": "AML.T0079",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 7
+    },
+    {
+      "technique_id": "AML.T0080",
+      "tactics": [
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0080.000",
+      "tactics": [
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0080.001",
+      "tactics": [
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0081",
+      "tactics": [
+        "defense-evasion",
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0082",
+      "tactics": [
+        "credential-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0083",
+      "tactics": [
+        "credential-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0084",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0084.000",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0084.001",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0084.002",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0084.003",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0085",
+      "tactics": [
+        "collection"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0085.000",
+      "tactics": [
+        "collection"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0085.001",
+      "tactics": [
+        "collection"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0086",
+      "tactics": [
+        "exfiltration"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 5
+    },
+    {
+      "technique_id": "AML.T0087",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0088",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0089",
+      "tactics": [
+        "discovery"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0090",
+      "tactics": [
+        "credential-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0091",
+      "tactics": [
+        "lateral-movement"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0091.000",
+      "tactics": [
+        "lateral-movement"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0092",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0093",
+      "tactics": [
+        "initial-access",
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0094",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0095",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0095.000",
+      "tactics": [
+        "reconnaissance"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0096",
+      "tactics": [
+        "command-and-control"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0097",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0098",
+      "tactics": [
+        "credential-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0099",
+      "tactics": [
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0100",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0101",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0102",
+      "tactics": [
+        "ai-attack-staging"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0103",
+      "tactics": [
+        "execution"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0104",
+      "tactics": [
+        "resource-development"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0105",
+      "tactics": [
+        "privilege-escalation"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 2
+    },
+    {
+      "technique_id": "AML.T0106",
+      "tactics": [
+        "credential-access"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0107",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0108",
+      "tactics": [
+        "command-and-control"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0109",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0110",
+      "tactics": [
+        "persistence"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0111",
+      "tactics": [
+        "defense-evasion"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 1
+    },
+    {
+      "technique_id": "AML.T0112",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    },
+    {
+      "technique_id": "AML.T0112.000",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 3
+    },
+    {
+      "technique_id": "AML.T0112.001",
+      "tactics": [
+        "impact"
+      ],
+      "per_tactic_score": {},
+      "case_study_score": 0
+    }
+  ]
+}

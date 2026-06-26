@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import logging
 import re
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from app.demo import ec_fsm_store
+from app.chat.guidance_templates import scrub_ec_analyst_visible_phrasing
+from app.demo.capture_loader import (
+    CaptureArtifactError,
+    ec_provenance_block,
+    load_capture_artifact,
+    normalize_stage_latencies,
+)
+
+from app.analysis.soc_aggregates import alert_summary_aggregate, top_risky_hosts
 from app.actions.capability_policy import action_capability_for
 from app.answer_guard.models import AnswerGuardStatus
 from app.chat.analyst_response_builder import attach_evidence_summary
@@ -22,6 +34,7 @@ from app.demo.mcp_result_envelope import (
 )
 from app.connectors.mcp.mcp_tool_plan_shadow import run_mcp_tool_plan_shadow
 from app.lineage.builder import build_investigation_lineage
+from app.evidence.source_evidence import build_candidate_artifact_refs
 from app.llm.mitre_risk_rationale import build_deterministic_severity_rationale
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.workflow_planner import plan_workflow
@@ -38,6 +51,10 @@ from app.threat.mitre_kb import map_mitre_for_use_case
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import get_use_case, match_use_cases
 
+_logger = logging.getLogger("ai_soc.demo.scenarios")
+
+_MITRE_FSM_FAMILY = "mitre_require_input"
+
 CREATED_AT = "2026-05-24T00:00:00Z"
 EVIDENCE_ORIGIN = "coe_synthetic_fixture"
 DEMO_BADGE = "COE scenario"
@@ -49,6 +66,16 @@ EXPERIENCE_CENTER_PROVENANCE = {
     "live_mcp_called": False,
     "future_state_preview": False,
     "hallucinated_mcp_output": False,
+}
+
+# Frontend-facing capture provenance for the MCP-transport honesty badge (plan B6).
+# Curated fixtures use a simulated MCP lifecycle, never a live backend call.
+_LEGACY_EC_PROVENANCE = {
+    "source": "curated_fixture",
+    "transport": "fake",
+    "mcp_label": "simulated MCP lifecycle replay",
+    "live_llm_called": False,
+    "live_mcp_called": False,
 }
 
 
@@ -72,28 +99,283 @@ class DemoScenario:
     structured_context: dict[str, Any] | None = None
     selected_use_case_id: str | None = None
     confidence: float = 0.91
+    # Alternate phrasings that should resolve to this scenario in the EC parity path.
+    # Normalized (via extract_query_signals) at module load; the scenario `query` is
+    # always an implicit alias.
+    aliases: tuple[str, ...] = ()
+    # Two-turn FSM family (plan D2). Scenarios sharing a family are linked turns of one
+    # showcase: `fsm_step` 0 is the clarification turn, 1 is the answer turn. One-shot
+    # scenarios leave both None.
+    fsm_family: str | None = None
+    fsm_step: int | None = None
 
 
 def list_demo_scenarios() -> list[dict[str, Any]]:
-    return [_scenario_summary(item) for item in SCENARIOS.values()]
+    # The clarification (fsm_step==0) turn of a multi-turn family is an internal turn,
+    # not a standalone pickable scenario; expose only the entry/answer scenarios.
+    return [_scenario_summary(item) for item in SCENARIOS.values() if item.fsm_step != 0]
 
 
-def resolve_demo_scenario_id_for_query(message: str) -> str | None:
-    """Match live /chat text to an Experience Center scenario query (exact, normalized)."""
+def _normalize_query(text: str) -> str:
     from app.chat.query_signals import extract_query_signals
 
-    normalized = extract_query_signals(message)["normalized_query"]
-    matches: list[str] = []
+    return extract_query_signals(text)["normalized_query"]
+
+
+def _build_alias_index() -> dict[str, str]:
+    """Map every normalized {query} ∪ {aliases} phrase to exactly one scenario id.
+
+    Fails fast (raises) if any normalized phrase maps to >1 scenario, so an alias
+    collision is caught at import/boot — never mid-demo. A deterministic, logged
+    tie-breaker is applied as defense-in-depth.
+    """
+    index: dict[str, str] = {}
+    collisions: dict[str, list[str]] = {}
     for scenario in SCENARIOS.values():
-        scenario_norm = extract_query_signals(scenario.query)["normalized_query"]
-        if normalized == scenario_norm:
-            matches.append(scenario.scenario_id)
-    if not matches:
+        phrases = [scenario.query, *scenario.aliases]
+        for phrase in phrases:
+            normalized = _normalize_query(phrase)
+            if not normalized:
+                continue
+            existing = index.get(normalized)
+            if existing is not None and existing != scenario.scenario_id:
+                collisions.setdefault(normalized, [existing]).append(scenario.scenario_id)
+                # Deterministic tie-breaker (defense-in-depth): keep the lexicographically
+                # smallest scenario id so resolution stays stable even under collision.
+                winner = min(existing, scenario.scenario_id)
+                _logger.error(
+                    "experience_center_alias_collision normalized=%r scenarios=%s tiebreak_winner=%s",
+                    normalized,
+                    sorted({existing, scenario.scenario_id}),
+                    winner,
+                )
+                index[normalized] = winner
+            else:
+                index[normalized] = scenario.scenario_id
+    if collisions:
+        detail = ", ".join(
+            f"{phrase!r}->{sorted(set(ids))}" for phrase, ids in collisions.items()
+        )
+        raise RuntimeError(
+            f"Experience Center alias collision(s) detected at load: {detail}"
+        )
+    return index
+
+
+def resolve_demo_scenario_id_for_query(
+    message: str, *, session_id: str | None = None
+) -> str | None:
+    """Resolve live /chat text to an Experience Center scenario id.
+
+    Matches the normalized incoming query against the union of each scenario's
+    ``query`` and ``aliases``. For multi-turn families (plan D2) the resolved id is
+    advanced through the FSM keyed by ``(session_id, family)`` so turn 1 serves the
+    clarification and turn 2 serves the mapped answer; partial/invalid turn-2 input
+    re-serves the clarification rather than falling through to a wrong scenario.
+    """
+    normalized = _normalize_query(message)
+    if not normalized:
         return None
-    return matches[0]
+
+    # A direct exact/alias match always takes precedence over a sticky in-progress
+    # family: if the user types a query that matches a *different* scenario, they have
+    # moved on — we must not trap them re-serving a stale clarification.
+    direct_match = _ALIAS_INDEX.get(normalized)
+
+    # In-progress multi-turn family: advance (valid turn-2 context) or, only when the
+    # query matches nothing else, re-serve the clarification. ``direct_match`` lets the
+    # FSM yield to an unrelated scenario instead of hijacking it.
+    advanced = _resolve_multi_turn_continuation(
+        message, normalized, session_id, direct_match=direct_match
+    )
+    if advanced is not None:
+        return advanced
+
+    if direct_match is None:
+        return None
+    return _enter_scenario(direct_match, session_id)
+
+
+def _enter_scenario(scenario_id: str, session_id: str | None) -> str:
+    """Apply FSM entry semantics when a resolved scenario is the start of a family."""
+    scenario = SCENARIOS[scenario_id]
+    family = scenario.fsm_family
+    if family is None:
+        return scenario_id
+    # Entering a family via its clarification (step 0) turn resets the FSM and marks
+    # awaiting-input. Entering directly via the answer turn (full context supplied as
+    # turn 1) is allowed and resolves straight to the answer.
+    if scenario.fsm_step == 0:
+        ec_fsm_store.set_step(session_id, family, 1)
+        return scenario_id
+    ec_fsm_store.reset(session_id, family)
+    return scenario_id
+
+
+def _resolve_multi_turn_continuation(
+    message: str, normalized: str, session_id: str | None, *, direct_match: str | None
+) -> str | None:
+    """Advance an awaiting-input family; return its scenario id, or None if N/A.
+
+    ``direct_match`` is the exact alias-index hit for this query (or None). When the
+    query matches an unrelated scenario, an awaiting family yields to it (resets and
+    returns None) rather than re-serving its clarification — otherwise one MITRE
+    clarification turn would hijack every subsequent unrelated question in the session.
+    """
+    if not session_id:
+        return None
+    for family, turns in _FSM_FAMILIES.items():
+        if ec_fsm_store.get_step(session_id, family) != 1:
+            continue
+        clarification_id = turns.get(0)
+        answer_id = turns.get(1)
+        # A brand-new clarification-turn query resets the family rather than advancing.
+        if clarification_id and normalized == _normalize_query(SCENARIOS[clarification_id].query):
+            ec_fsm_store.set_step(session_id, family, 1)
+            return clarification_id
+        if answer_id and _turn2_input_sufficient(family, message):
+            ec_fsm_store.reset(session_id, family)
+            return answer_id
+        # The user typed something that matches a *different* scenario: they moved on.
+        # Reset the stale family and let normal resolution serve that scenario.
+        if direct_match is not None and direct_match not in (clarification_id, answer_id):
+            ec_fsm_store.reset(session_id, family)
+            continue
+        # Partial/invalid turn-2 input with no other match: re-serve the clarification.
+        if clarification_id:
+            return clarification_id
+    return None
+
+
+def _turn2_input_sufficient(family: str, message: str) -> bool:
+    """Deterministic check that turn-2 supplied the required alert context.
+
+    For the MITRE family, the required input is alert context (a rule/notable signature
+    or the key alert fields host/index/sourcetype). Without it we re-clarify.
+    """
+    lowered = message.lower()
+    if family == _MITRE_FSM_FAMILY:
+        has_signature = any(
+            token in lowered for token in ("signature=", "rule=", "rule_name=", "notable")
+        )
+        field_hits = sum(
+            1 for token in ("host=", "index=", "sourcetype=", "src=", "user=") if token in lowered
+        )
+        return has_signature or field_hits >= 2
+    return True
+
+
+
+def _scrub_ec_visible_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Scrub analyst-visible EC strings so demo cards avoid banned fixture terms."""
+    scrubbed = dict(payload)
+    message = scrubbed.get("message")
+    if isinstance(message, str):
+        scrubbed["message"] = scrub_ec_analyst_visible_phrasing(message)
+    summary = scrubbed.get("analyst_summary")
+    if isinstance(summary, str):
+        scrubbed["analyst_summary"] = scrub_ec_analyst_visible_phrasing(summary)
+    analyst = scrubbed.get("analyst_response")
+    if isinstance(analyst, dict):
+        cleaned = dict(analyst)
+        for field in (
+            "one_sentence_finding",
+            "direct_answer_summary",
+            "narrative_summary",
+            "finding_title",
+            "evidence_summary",
+            "review_notice",
+            "execution_status_label",
+        ):
+            value = cleaned.get(field)
+            if isinstance(value, str):
+                cleaned[field] = scrub_ec_analyst_visible_phrasing(value)
+        for list_field in ("recommended_actions", "analyst_checklist", "investigation_steps"):
+            items = cleaned.get(list_field)
+            if isinstance(items, list):
+                cleaned[list_field] = [scrub_ec_analyst_visible_phrasing(str(item)) for item in items]
+        scrubbed["analyst_response"] = cleaned
+    review = scrubbed.get("human_review")
+    if isinstance(review, dict):
+        cleaned_review = dict(review)
+        for field in ("safe_message_for_user", "message", "reason_display"):
+            value = cleaned_review.get(field)
+            if isinstance(value, str):
+                cleaned_review[field] = scrub_ec_analyst_visible_phrasing(value)
+        scrubbed["human_review"] = cleaned_review
+    return scrubbed
 
 
 def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
+    """Serve an Experience Center scenario answer (curated legacy fixture).
+
+    The curated in-code fixtures are the EC answers — they carry the rich MITRE/CVE
+    tables, severity rationale, and P1–P4 actions that make a strong demo, and they
+    need no live LLM/MCP call. Live capture artifacts (``captures/*.json``) are kept
+    only as a deep fallback if the legacy build ever fails; they are intentionally NOT
+    served preferentially because the gate-blocked live captures are thinner than the
+    curated answers (decision 2026-06-25). Demo-time posture is always
+    ``live_llm_called=false``, ``live_mcp_called=false``, ``coe_synthetic_fixture``.
+    """
+    if scenario_id not in SCENARIOS:
+        raise KeyError(f"Unknown Experience Center scenario '{scenario_id}'")
+
+    try:
+        return _scrub_ec_visible_payload(_run_demo_scenario_legacy(scenario_id))
+    except Exception:  # noqa: BLE001 - never blank the demo; fall back to a capture
+        _logger.warning(
+            "experience_center_legacy_build_failed scenario=%s", scenario_id, exc_info=True
+        )
+
+    try:
+        artifact = load_capture_artifact(scenario_id)
+    except CaptureArtifactError as exc:
+        _logger.warning(
+            "experience_center_capture_unusable scenario=%s reason=%s", scenario_id, exc
+        )
+        artifact = None
+    if artifact is not None:
+        return _serve_capture_artifact(scenario_id, artifact)
+    raise RuntimeError(f"Experience Center scenario '{scenario_id}' has no usable answer source")
+
+
+def _serve_capture_artifact(scenario_id: str, artifact: dict[str, Any]) -> dict[str, Any]:
+    """Serve a scenario as the governed EC response with the real LLM narration overlaid.
+
+    The frozen capture supplies the *narrated prose* (what the live model actually
+    wrote); the governed legacy build supplies the deterministic facts (SPL, MITRE,
+    severity, actions) and every EC governance panel (``experience_center_governance``,
+    ``foundation_sec_governance``, ``demo_badge``, lineage). This mirrors production
+    live-synthesis exactly — the model rewrites prose, facts stay deterministic — so
+    EC governance/posture is preserved while the prospect reads the genuine model answer.
+    """
+    base = _run_demo_scenario_legacy(scenario_id)
+    captured = artifact.get("final_response") or {}
+
+    # Overlay only the LLM-narrated prose fields. Deterministic facts and governance
+    # panels remain from ``base`` (tests + EC posture depend on them).
+    captured_summary = captured.get("analyst_summary")
+    if isinstance(captured_summary, str) and captured_summary.strip():
+        base["analyst_summary"] = captured_summary
+    captured_ar = captured.get("analyst_response")
+    base_ar = base.get("analyst_response")
+    if isinstance(captured_ar, dict) and isinstance(base_ar, dict):
+        for prose_field in ("one_sentence_finding", "direct_answer_summary", "narrative_summary"):
+            value = captured_ar.get(prose_field)
+            if isinstance(value, str) and value.strip():
+                base_ar[prose_field] = value
+
+    # Capture provenance / latency markers + enforced EC isolation posture.
+    provenance = artifact.get("provenance") or {}
+    base["ec_provenance"] = ec_provenance_block(provenance)
+    base["ec_stage_latencies"] = normalize_stage_latencies(artifact.get("stage_latencies") or [])
+    base["ec_answer_source"] = "captured_artifact"
+    base["live_llm_called"] = False
+    base["live_mcp_called"] = False
+    return _scrub_ec_visible_payload(base)
+
+
+def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
     scenario = SCENARIOS[scenario_id]
     trace_id = f"demo-{scenario.scenario_id}-{uuid4().hex[:8]}"
     workflow = plan_workflow(
@@ -192,6 +474,13 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         answer_guard_status=answer_guard,
         action_capability=action_capability,
         demo_llm_shadow=demo_llm_shadow.to_lineage_dict() if demo_llm_shadow else None,
+        candidate_artifact_count=len(
+            build_candidate_artifact_refs(
+                trace_id=trace_id,
+                spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+                candidate_spl={"candidate_spl": candidate_spl} if candidate_spl else None,
+            )
+        ),
     )
     _scrub_experience_center_stage_labels(scenario, investigation_lineage)
     llm_sidecars = _experience_center_llm_sidecars(
@@ -246,6 +535,11 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "evidence_origin": EVIDENCE_ORIGIN,
         "no_live_customer_data": True,
         "demo_badge": DEMO_BADGE,
+        # MCP-transport honesty badge (plan B6) — EC uses a simulated MCP lifecycle,
+        # never a live backend call; the frontend renders this regardless of capture.
+        "ec_provenance": dict(_LEGACY_EC_PROVENANCE),
+        "ec_answer_source": "curated_fixture",
+        "ec_stage_latencies": None,
         "environment_mode": scenario.environment_mode,
         "mcp_execution_mode": scenario.mcp_execution_mode,
         "saia_available": scenario.saia_available,
@@ -299,6 +593,18 @@ def run_demo_scenario(scenario_id: str) -> dict[str, Any]:
         "action_capability": action_capability.model_dump(),
         "experience_center_governance": experience_center_governance.model_dump(),
         "governance_trace": experience_center_governance.model_dump(),
+        "ec_answer_source": "legacy_fixture",
+        "live_llm_called": False,
+        "live_mcp_called": False,
+        "ec_provenance": ec_provenance_block(
+            {
+                "model_id": "coe_synthetic_fixture",
+                "captured_at": CREATED_AT,
+                "transport": "fake",
+                "live_llm_called": False,
+                "live_mcp_called": False,
+            }
+        ),
     }
 
 
@@ -864,7 +1170,7 @@ def _human_review(scenario: DemoScenario, execution: dict[str, Any]) -> dict[str
             execution.get("block_reason") or scenario.expected_sufficiency_mode,
             "soc_analyst",
             ["review_fixture_evidence", "copy_candidate_spl", "do_not_execute_fixture_data"],
-            "Review the synthetic fixture output. It is not live production evidence and is not executed.",
+            "Review the fixture calibration output. It is not live production evidence and was not performed.",
         )
     return no_human_review()
 
@@ -979,8 +1285,6 @@ DNS_BEACONING_VISIBLE_SPL = _pretty_spl(DNS_BEACONING_SPL)
 CRITICAL_NOTABLE_SPL = _scoped_template_spl("notable_critical_review_mitre")
 CRITICAL_NOTABLE_VISIBLE_SPL = _pretty_spl(CRITICAL_NOTABLE_SPL)
 
-_CRITICAL_URGENCY_WEIGHT = {"critical": 10, "high": 5, "medium": 2, "low": 1}
-
 _CRITICAL_ALERT_FIXTURE_ROWS = [
     {
         "alert_id": "ALT-8841",
@@ -1033,22 +1337,8 @@ _CRITICAL_ALERT_FIXTURE_ROWS = [
 ]
 
 
-def _urgency_risk_weight(urgency: str) -> int:
-    return _CRITICAL_URGENCY_WEIGHT.get(str(urgency).lower(), 1)
-
-
 def _top_risky_hosts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    scores: dict[str, int] = {}
-    for row in rows:
-        host = str(row.get("host") or "")
-        if not host:
-            continue
-        count = int(row.get("alert_count") or row.get("count") or 1)
-        scores[host] = scores.get(host, 0) + _urgency_risk_weight(str(row.get("urgency") or "")) * count
-    return [
-        {"Host": host, "Risk score": score, "Rank": index + 1}
-        for index, (host, score) in enumerate(sorted(scores.items(), key=lambda item: -item[1]))
-    ]
+    return top_risky_hosts(rows, count_field="alert_count")
 
 
 def _playbook_payload() -> dict[str, object]:
@@ -1580,6 +1870,54 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             ],
             "review_notice": "Out-of-catalog guided review. No vetted template; SPL must be analyst-authored and validated. MCP execution stays gated.",
         }
+    if scenario.scenario_id == "ot_modbus_scada_rtu_anomaly":
+        return {
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "status_badge": "OT/ICS - guided review only",
+            "finding_title": "Guided OT hunt: anomalous Modbus/SCADA traffic to a substation RTU",
+            "one_sentence_finding": "Anomalous Modbus/SCADA-to-RTU traffic is reviewed as a guided OT hunt; governed OT templates stay review-only until ICS asset lookups are onboarded, so V.AI SOC returns an OT-safe hunt plan rather than auto-executed SPL.",
+            "out_of_catalog_notice": "Governed OT Modbus/SCADA templates are review-only here (not enabled against a live ICS lookup). Guidance below is review-only; any SPL must be analyst-authored and validated.",
+            "foundation_sec_analysis": "Foundation-sec proposes OT hunt directions; with templates review-only the resource planner degrades to RAG hunt patterns. No MITRE technique is claimed (OT technique=0 by design) and MCP execution stays gated.",
+            "key_fields": [
+                "Unauthorized Modbus function codes (write single/multiple registers, force coil)",
+                "New or unexpected Modbus masters communicating with RTUs",
+                "Off-hours or off-baseline write commands to the RTU",
+                "IT-segment sources reaching the OT/SCADA VLAN",
+            ],
+            "recommended_actions": [
+                "P2: Enumerate Modbus masters talking to the affected RTU and flag any not on the approved engineering list.",
+                "P2: Review write-class function codes against the engineering change calendar before treating a write as malicious.",
+                "P3: Confirm no IT-segment source crossed into the OT/SCADA VLAN; validate segmentation and jump-host enforcement.",
+                "P3: Author and validate targeted OT SPL per data source before any execution; this pattern has no enabled template.",
+            ],
+            "review_notice": "OT guided review. Governed OT templates are review-only; SPL must be analyst-authored and validated. MCP execution stays gated.",
+        }
+    if scenario.scenario_id == "ot_hmi_unauthorized_access":
+        return {
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "status_badge": "OT/ICS - guided review only",
+            "finding_title": "Guided OT hunt: unauthorized access to a substation HMI (IT-to-OT boundary)",
+            "one_sentence_finding": "Unauthorized HMI access at a substation is reviewed as a guided IT-to-OT boundary hunt; governed OT access templates stay review-only here, so V.AI SOC returns a boundary-focused OT-safe hunt plan rather than auto-executed SPL.",
+            "out_of_catalog_notice": "Governed OT HMI-access templates are review-only here (not enabled against live ICS identity/asset lookups). Guidance below is review-only; any SPL must be analyst-authored and validated.",
+            "foundation_sec_analysis": "Foundation-sec proposes IT-to-OT boundary hunt directions; with templates review-only the resource planner degrades to RAG hunt patterns. No MITRE technique is claimed by design and MCP execution stays gated.",
+            "key_fields": [
+                "HMI logons that did not transit the approved OT jump host",
+                "New or non-engineering accounts authenticating to the HMI",
+                "Cleartext protocols (TFTP/Telnet) originating from the HMI",
+                "IT-segment sources reaching the substation OT VLAN",
+            ],
+            "recommended_actions": [
+                "P2: Confirm whether each HMI logon transited the approved OT jump host; flag any direct IT-to-HMI access.",
+                "P2: Validate the authenticating accounts against the engineering roster and approved maintenance windows.",
+                "P3: Review HMI-originated protocols for cleartext (TFTP/Telnet) and unexpected egress.",
+                "P3: Author and validate targeted OT SPL per data source before any execution; this pattern has no enabled template.",
+            ],
+            "review_notice": "OT guided review. Governed OT templates are review-only; SPL must be analyst-authored and validated. MCP execution stays gated.",
+        }
     return {
         **base,
         "finding_title": scenario.label,
@@ -1739,8 +2077,12 @@ SCENARIOS: dict[str, DemoScenario] = {
     "failed_login_spike_app01": DemoScenario(
         scenario_id="failed_login_spike_app01",
         label="Failed login spike on APP-01",
-        category="Investigate",
+        category="Alert Triage",
         query="Investigate failed login spike on APP-01",
+        aliases=(
+            "Investigate the failed login spike on APP-01",
+            "Investigate a failed login spike on host APP-01",
+        ),
         environment_mode="connected_coe_demo",
         expected_skill="attack_discovery",
         expected_sources=["mcp:splunk", "rag:sop"],
@@ -1797,69 +2139,15 @@ SCENARIOS: dict[str, DemoScenario] = {
             quality="partial",
         ),
     ),
-    "new_source_ip_logins": DemoScenario(
-        scenario_id="new_source_ip_logins",
-        label="New source IP logins",
-        category="Investigate",
-        query="Investigate new source IP logins on APP-01",
-        environment_mode="connected_coe_demo",
-        expected_skill="attack_discovery",
-        expected_sources=["mcp:splunk", "rag:sop"],
-        expected_sufficiency_mode="partial_answer",
-        mcp_execution_mode="disabled",
-        saia_available=True,
-        rag_available=True,
-        analyst_summary="APP-01 has new source IP login evidence with SOC KB guidance attached for analyst validation.",
-        trace_explanation=[
-            "Routed to attack_discovery because the query asks to investigate novel authentication source behavior.",
-            "COE fixture Splunk evidence is represented as SourceEvidence; operational execution remains gated.",
-            "SOC KB guidance is included for validation and escalation criteria.",
-        ],
-        source_evidence=[
-            _evidence(
-                "ev-splunk-new-source-app01",
-                "splunk_mcp",
-                "Splunk auth fixture",
-                2,
-                ["index", "sourcetype", "host", "user", "src", "action", "prior_sightings"],
-                [
-                    {"index": "pgcil_soc", "sourcetype": "pgcil:auth", "host": "APP-01", "user": "svc_app", "src": "10.10.9.44", "action": "success", "prior_sightings": 0},
-                    {"index": "pgcil_soc", "sourcetype": "pgcil:auth", "host": "APP-01", "user": "j.das", "src": "10.10.9.45", "action": "success", "prior_sightings": 0},
-                ],
-                tool_name="search",
-                query_or_request_summary="New source IP authentication aggregation for APP-01 in pgcil_soc/pgcil:auth.",
-                provider_used="splunk_mcp_fixture",
-            ),
-            _evidence(
-                "ev-rag-new-source-sop",
-                "rag",
-                "SOC KB fixture",
-                1,
-                ["entry_id", "document_type", "source_excerpt", "source_refs"],
-                [_rag_row("sop-auth-003", "New source validation", "Validate source ownership, account criticality, and post-login activity before escalation.", ["SOC-SOP-AUTH-001#validation"])],
-                tool_name="retrieve_soc_kb",
-                query_or_request_summary="Approved authentication-source validation guidance.",
-                provider_used="governed_rag_fixture",
-            ),
-        ],
-        structured_context=_context(
-            "new_source_ip_logins",
-            "attack_discovery",
-            [
-                _fact("fact-new-source", "APP-01 has successful authentications from sources with no prior sightings for the affected users.", ["ev-splunk-new-source-app01"]),
-                _fact("fact-valid-accounts", "MITRE T1078 is a validation candidate for successful authentication from unusual sources.", ["ev-splunk-new-source-app01", "ev-rag-new-source-sop"]),
-            ],
-            metrics={"new_source_count": 2, "service_account_seen": True},
-            mitre=[{"technique_id": "T1078", "name": "Valid Accounts", "support": "analyst_review", "source_refs": ["ev-splunk-new-source-app01"]}],
-            refs=["ev-splunk-new-source-app01", "ev-rag-new-source-sop"],
-            quality="partial",
-        ),
-    ),
     "successful_login_after_failures": DemoScenario(
         scenario_id="successful_login_after_failures",
         label="Successful login after failures",
-        category="Generate SPL",
+        category="SPL",
         query="Generate SPL for successful login after failures",
+        aliases=(
+            "Generate SPL for a successful login after failed attempts",
+            "Write SPL to find a successful login after repeated failures",
+        ),
         environment_mode="connected_coe_demo",
         expected_skill="spl_generation",
         expected_sources=["spl_policy", "mcp:splunk"],
@@ -1892,60 +2180,16 @@ SCENARIOS: dict[str, DemoScenario] = {
             quality="partial",
         ),
     ),
-    "successful_login_after_failures_run": DemoScenario(
-        scenario_id="successful_login_after_failures_run",
-        label="Successful login after failures - run",
-        category="Generate + Run",
-        query="Generate SPL for successful login after failures and run on host APP-01 in index pgcil_soc sourcetype pgcil:auth for the last 60 minutes",
-        environment_mode="connected_coe_demo",
-        expected_skill="spl_generation",
-        expected_sources=["spl_policy", "mcp:splunk"],
-        expected_sufficiency_mode="partial_answer",
-        mcp_execution_mode="mock_success",
-        saia_available=True,
-        rag_available=False,
-        candidate_spl=SUCCESS_AFTER_FAILURES_SPL,
-        selected_use_case_id="auth_success_after_failure",
-        analyst_summary="Validated success-after-failure SPL reached the Experience Center MCP fixture path and returned one fixture row for APP-01.",
-        trace_explanation=[
-            "Generates success-after-failure SPL from the governed template.",
-            "Binds the scoped request to APP-01 in pgcil_soc/pgcil:auth for the fixture window.",
-            "Experience Center MCP fixture selection uses approved normalized_spl only and returns fixture evidence.",
-        ],
-        source_evidence=[
-            _evidence(
-                "ev-splunk-success-after-fail-run",
-                "splunk_mcp",
-                "Splunk auth fixture",
-                1,
-                ["user", "src", "host", "fail_count", "success_count", "first_failure", "last_event", "risk"],
-                _mock_rows_for("fixture", "successful_login_after_failures_run"),
-                tool_name="search",
-                executed_spl=SUCCESS_AFTER_FAILURES_SPL,
-                provider_used="mock_mcp_fixture",
-            ),
-        ],
-        structured_context=_context(
-            "successful_login_after_failures_run",
-            "spl_generation",
-            [
-                _fact(
-                    "fact-success-correlation-run",
-                    "COE fixture Splunk evidence returned one APP-01 success-after-failure sequence from validated normalized SPL.",
-                    ["ev-splunk-success-after-fail-run"],
-                )
-            ],
-            metrics={"successful_logins": 1, "failed_logins": 58, "mock_result_rows": 1},
-            mitre=[{"technique_id": "T1078", "name": "Valid Accounts", "support": "analyst_review", "source_refs": ["ev-splunk-success-after-fail-run"]}],
-            refs=["ev-splunk-success-after-fail-run"],
-            quality="partial",
-        ),
-    ),
     "brute_force_sop_guidance": DemoScenario(
         scenario_id="brute_force_sop_guidance",
         label="Brute-force SOP guidance",
-        category="Knowledge / SOP",
-        query="Show SOP for brute-force investigation",
+        category="Knowledge & Compliance",
+        query="Show the SOP for brute-force investigation",
+        aliases=(
+            "Show SOP for brute-force investigation",
+            "What is the SOP for a brute-force investigation",
+            "Show me the brute-force investigation playbook",
+        ),
         environment_mode="knowledge_only_coe_demo",
         expected_skill="knowledge_recall",
         expected_sources=["rag:sop"],
@@ -1969,42 +2213,16 @@ SCENARIOS: dict[str, DemoScenario] = {
             refs=["ev-rag-sop-only"],
         ),
     ),
-    "account_lockouts_over_time_spl": DemoScenario(
-        scenario_id="account_lockouts_over_time_spl",
-        label="Account lockouts over time SPL",
-        category="Generate SPL",
-        query="Generate SPL for account lockouts over time",
-        environment_mode="connected_coe_demo",
-        expected_skill="spl_generation",
-        expected_sources=["spl_policy", "mcp:splunk"],
-        expected_sufficiency_mode="spl_review_only",
-        mcp_execution_mode="mock_success",
-        saia_available=True,
-        rag_available=True,
-        candidate_spl=LOCKOUT_SPL,
-        analyst_summary="Lockout trend SPL uses action=lockout and passes deterministic validation. This fixture explicitly models an Experience Center MCP fixture result with capped preview rows.",
-        trace_explanation=[
-            "Generates lockout-specific SPL using action=lockout.",
-            "Runs deterministic SPL validation before any mock gate.",
-            "Experience Center MCP fixture result is used; no live MCP execution is performed.",
-        ],
-        source_evidence=[
-            _evidence("ev-splunk-lockout-trend", "splunk_mcp", "Splunk auth fixture", 3, ["_time", "lockout_count"], _mock_rows_for("fixture"), tool_name="search", executed_spl=LOCKOUT_SPL, provider_used="mock_mcp_fixture"),
-        ],
-        structured_context=_context(
-            "account_lockouts_over_time_spl",
-            "spl_generation",
-            [_fact("fact-lockout-spl", "The candidate SPL trends action=lockout events over time.", ["ev-splunk-lockout-trend"])],
-            metrics={"mock_result_rows": 3},
-            refs=["ev-splunk-lockout-trend"],
-            quality="partial",
-        ),
-    ),
     "mitre_mapping_auth_alert": DemoScenario(
         scenario_id="mitre_mapping_auth_alert",
-        label="MITRE mapping for auth alert",
-        category="MITRE Mapping",
+        label="Map this alert to MITRE (require-input showcase)",
+        category="MITRE",
         query="Map this alert to MITRE: notable signature=brute_force_success_after_failures index=pgcil_soc sourcetype=pgcil:auth host=APP-01",
+        aliases=(
+            "Map this alert to MITRE: signature=brute_force_success_after_failures host=APP-01 index=pgcil_soc sourcetype=pgcil:auth",
+        ),
+        fsm_family=_MITRE_FSM_FAMILY,
+        fsm_step=1,
         environment_mode="connected_coe_demo",
         expected_skill="alert_summary",
         expected_sources=["mcp:splunk", "rag:sop"],
@@ -2040,8 +2258,10 @@ SCENARIOS: dict[str, DemoScenario] = {
     "mitre_mapping_requires_context": DemoScenario(
         scenario_id="mitre_mapping_requires_context",
         label="MITRE clarification required",
-        category="MITRE Mapping",
+        category="MITRE",
         query="Map this alert to MITRE",
+        fsm_family=_MITRE_FSM_FAMILY,
+        fsm_step=0,
         environment_mode="connected_coe_demo",
         expected_skill="knowledge_recall",
         expected_sources=[],
@@ -2064,73 +2284,15 @@ SCENARIOS: dict[str, DemoScenario] = {
             quality="insufficient",
         ),
     ),
-    "mcp_metadata_discovery_app01": DemoScenario(
-        scenario_id="mcp_metadata_discovery_app01",
-        label="APP-01 metadata discovery",
-        category="Generate SPL",
-        query="Before generating SPL, check which indexes and sourcetypes are available for APP-01 authentication logs",
-        environment_mode="connected_coe_demo",
-        expected_skill="spl_generation",
-        selected_use_case_id="soc_generate_spl",
-        expected_sources=["mcp:splunk"],
-        expected_sufficiency_mode="analyst_review_required",
-        mcp_execution_mode="not_required",
-        saia_available=True,
-        rag_available=False,
-        analyst_summary="Index and sourcetype discovery must run before SPL generation for APP-01 authentication logs.",
-        trace_explanation=[
-            "Routes to SPL preparation but stops at metadata discovery.",
-            "LLM-invented index and sourcetype names are ignored.",
-            "Deterministic tool mapping selects splunk_get_indexes and splunk_get_metadata.",
-        ],
-        source_evidence=[],
-        structured_context=_context(
-            "mcp_metadata_discovery_app01",
-            "spl_generation",
-            [_fact("fact-metadata-discovery", "APP-01 authentication SPL requires metadata discovery before SPL generation.", [])],
-            metrics={"deterministic_tools": ["splunk_get_indexes", "splunk_get_metadata"]},
-            refs=[],
-            quality="partial",
-        ),
-    ),
-    "airgapped_no_saia_success_after_failures": DemoScenario(
-        scenario_id="airgapped_no_saia_success_after_failures",
-        label="Air-gapped success after failures",
-        category="Air-gapped Mode",
-        query="Air-gapped mode: generate SPL for successful login after failures without SAIA",
-        environment_mode="airgapped_coe_demo",
-        expected_skill="spl_generation",
-        expected_sources=["spl_policy", "mcp:splunk"],
-        expected_sufficiency_mode="spl_review_only",
-        mcp_execution_mode="disabled",
-        saia_available=False,
-        rag_available=True,
-        candidate_spl=SUCCESS_AFTER_FAILURES_SPL,
-        selected_use_case_id="auth_success_after_failure",
-        analyst_summary="SAIA is unavailable in this air-gapped fixture, so deterministic fallback SPL generation is active while core Splunk MCP fixture metadata remains available.",
-        trace_explanation=[
-            "SAIA/generative assistant tools are unavailable.",
-            "Fallback provider generates advisory SPL without tool calling.",
-            "Core Splunk MCP fixture discovery is shown as available, with no live MCP execution.",
-        ],
-        source_evidence=[
-            _evidence("ev-splunk-airgap-metadata", "splunk_mcp", "Splunk capability fixture", 1, ["server", "tool", "status"], [{"server": "splunk", "tool": "search", "status": "available", "saia": "unavailable"}], tool_name="tool_discovery", provider_used="mcp_registry_fixture"),
-        ],
-        structured_context=_context(
-            "airgapped_no_saia_success_after_failures",
-            "spl_generation",
-            [_fact("fact-airgap-fallback", "SAIA is unavailable and deterministic fallback is active; core Splunk MCP fixture search metadata is available.", ["ev-splunk-airgap-metadata"])],
-            metrics={"successful_logins": 1, "failed_logins": 58, "saia_available": False, "fallback_active": True},
-            refs=["ev-splunk-airgap-metadata"],
-            fallback=True,
-            quality="partial",
-        ),
-    ),
     "dns_beaconing_c2_hunt": DemoScenario(
         scenario_id="dns_beaconing_c2_hunt",
         label="DNS beaconing / C2 hunt",
-        category="Investigate",
+        category="Threat Hunt",
         query="Hunt for possible DNS beaconing or C2 from internal hosts in the last 24 hours",
+        aliases=(
+            "Hunt for possible DNS beaconing or C2 from internal hosts",
+            "Hunt for DNS beaconing or C2 activity from internal hosts",
+        ),
         environment_mode="connected_coe_demo",
         expected_skill="attack_discovery",
         selected_use_case_id="dns_beaconing_candidate",
@@ -2188,59 +2350,17 @@ SCENARIOS: dict[str, DemoScenario] = {
             quality="partial",
         ),
     ),
-    "dns_beaconing_c2_hunt_run": DemoScenario(
-        scenario_id="dns_beaconing_c2_hunt_run",
-        label="DNS beaconing / C2 hunt - run",
-        category="Generate + Run",
-        query="Hunt for DNS beaconing from internal hosts in index pgcil_soc sourcetype pgcil:dns over the last 24 hours and run it",
-        environment_mode="connected_coe_demo",
-        expected_skill="attack_discovery",
-        selected_use_case_id="dns_beaconing_candidate",
-        expected_sources=["spl_policy", "mcp:splunk"],
-        expected_sufficiency_mode="partial_answer",
-        mcp_execution_mode="mock_success",
-        saia_available=True,
-        rag_available=False,
-        candidate_spl=DNS_BEACONING_SPL,
-        analyst_summary="Validated beaconing SPL reached the Experience Center MCP fixture path and returned two periodic-DNS hosts for review. MITRE T1071.004 stays candidate-only pending jitter and domain reputation.",
-        trace_explanation=[
-            "Generates the governed dns_beaconing_candidate SPL and validates it deterministically.",
-            "Binds the scoped request to pgcil_soc/pgcil:dns over the 24h window.",
-            "Experience Center MCP fixture selection uses approved normalized_spl only and returns capped preview rows.",
-        ],
-        source_evidence=[
-            _evidence(
-                "ev-splunk-dns-beacon-run",
-                "splunk_mcp",
-                "Splunk DNS fixture",
-                2,
-                ["src", "dest", "domain", "DNS_query_count", "periodicity", "bytes_out", "rare_domain_indicator"],
-                _mock_rows_for("fixture", "dns_beaconing_c2_hunt_run"),
-                tool_name="search",
-                executed_spl=DNS_BEACONING_SPL,
-                provider_used="mock_mcp_fixture",
-            ),
-        ],
-        structured_context=_context(
-            "dns_beaconing_c2_hunt_run",
-            "attack_discovery",
-            [
-                _fact("fact-dns-beacon-run", "COE fixture Splunk evidence returned two periodic-DNS hosts from validated normalized SPL.", ["ev-splunk-dns-beacon-run"]),
-                _fact("fact-c2-candidate-run", "MITRE T1071.004 is a candidate for the periodic DNS pattern; jitter and domain reputation are not yet confirmed.", ["ev-splunk-dns-beacon-run"], 0.7),
-            ],
-            metrics={"beaconing_hosts": 2, "max_query_count": 288, "mock_result_rows": 2},
-            mitre=[{"technique_id": "T1071.004", "name": "Application Layer Protocol: DNS", "support": "analyst_review", "source_refs": ["ev-splunk-dns-beacon-run"]}],
-            refs=["ev-splunk-dns-beacon-run"],
-            quality="partial",
-        ),
-    ),
     "critical_alerts_mitre_cve_review": DemoScenario(
         scenario_id="critical_alerts_mitre_cve_review",
         label="Critical alerts + MITRE + CVE cross-ref",
-        category="Investigate",
+        category="Alert Triage",
         query=(
             "Show me all critical alerts in the last 6 hours, cross-reference with MITRE ATT&CK, "
             "and check if any affected hosts have unpatched CVEs"
+        ),
+        aliases=(
+            "Show all critical alerts in the last 6 hours, cross-reference with MITRE ATT&CK, and check affected hosts for unpatched CVEs",
+            "List critical alerts from the last 6 hours, map them to MITRE ATT&CK, and flag hosts with unpatched CVEs",
         ),
         environment_mode="connected_coe_demo",
         expected_skill="attack_discovery",
@@ -2336,8 +2456,12 @@ SCENARIOS: dict[str, DemoScenario] = {
     "guided_investigation_supply_chain": DemoScenario(
         scenario_id="guided_investigation_supply_chain",
         label="Guided hunt: build-server supply chain",
-        category="Guided Investigation",
+        category="Guided (out-of-catalog)",
         query="Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+        aliases=(
+            "Hunt for a CI/CD supply-chain compromise across our build servers",
+            "Hunt for software supply-chain compromise on our CI/CD build servers",
+        ),
         environment_mode="connected_coe_demo",
         expected_skill="guided_investigation",
         expected_sources=["rag:sop"],
@@ -2377,4 +2501,226 @@ SCENARIOS: dict[str, DemoScenario] = {
             quality="partial",
         ),
     ),
+    "cert_in_ot_reporting_obligation": DemoScenario(
+        scenario_id="cert_in_ot_reporting_obligation",
+        label="CERT-In 6-hour OT incident reporting",
+        category="Knowledge & Compliance",
+        query="What is our CERT-In 6-hour reporting obligation for a suspected OT incident?",
+        aliases=(
+            "What is the CERT-In 6 hour reporting obligation for a suspected OT incident",
+            "Explain our CERT-In six hour reporting requirement for an OT security incident",
+            "What are our CERT-In reporting timelines for a suspected OT/ICS incident",
+        ),
+        environment_mode="knowledge_only_coe_demo",
+        expected_skill="knowledge_recall",
+        expected_sources=["rag:sop"],
+        expected_sufficiency_mode="knowledge_only_answer",
+        mcp_execution_mode="not_required",
+        saia_available=True,
+        rag_available=True,
+        analyst_summary=(
+            "CERT-In Directions (April 2022) require reporting a cyber incident affecting "
+            "critical/OT infrastructure within 6 hours of noticing it. Governed SOC-KB guidance "
+            "is returned for review; legal/compliance confirms applicability before filing."
+        ),
+        trace_explanation=[
+            "Routes to knowledge_recall for a regulatory/compliance question; no SPL is generated.",
+            "Returns governed SOC-KB regulatory guidance (CERT-In 6-hour rule) as SourceEvidence only.",
+            "Keeps it advisory: legal/compliance owns the final reporting decision and channel.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-rag-certin-ot",
+                "rag",
+                "SOC KB fixture",
+                1,
+                ["entry_id", "document_type", "source_excerpt", "source_refs"],
+                [
+                    _rag_row(
+                        "reg-certin-001",
+                        "CERT-In 6-hour reporting",
+                        "Under the CERT-In Directions of 28 April 2022, a covered entity must report a "
+                        "notifiable cyber incident (including those affecting critical/OT infrastructure) "
+                        "to CERT-In within 6 hours of noticing it or being brought to notice. Preserve "
+                        "ICS/OT logs, capture the incident timeline, and coordinate with the CISO and "
+                        "legal/compliance before filing via the CERT-In channel.",
+                        ["CERT-IN-DIR-2022#6hour"],
+                    )
+                ],
+                tool_name="retrieve_soc_kb",
+                query_or_request_summary="Approved CERT-In OT incident-reporting obligation guidance.",
+                provider_used="governed_rag_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "cert_in_ot_reporting_obligation",
+            "knowledge_recall",
+            [
+                _fact(
+                    "fact-certin-6h",
+                    "CERT-In Directions (2022) require reporting a notifiable cyber incident within 6 hours of noticing it.",
+                    ["ev-rag-certin-ot"],
+                ),
+                _fact(
+                    "fact-certin-ot-scope",
+                    "Suspected OT/ICS incidents on critical infrastructure fall within CERT-In's notifiable scope; preserve OT logs and coordinate with legal/compliance.",
+                    ["ev-rag-certin-ot"],
+                ),
+            ],
+            metrics={"reporting_window_hours": 6},
+            mitre=[],
+            refs=["ev-rag-certin-ot"],
+        ),
+    ),
+    "ot_modbus_scada_rtu_anomaly": DemoScenario(
+        scenario_id="ot_modbus_scada_rtu_anomaly",
+        label="Anomalous Modbus/SCADA traffic to a substation RTU",
+        category="OT/ICS",
+        query="Investigate anomalous Modbus/SCADA traffic to a substation RTU",
+        aliases=(
+            "Investigate anomalous Modbus or SCADA traffic to a substation RTU",
+            "Investigate suspicious Modbus/SCADA traffic reaching a substation RTU",
+        ),
+        environment_mode="connected_coe_demo",
+        expected_skill="guided_investigation",
+        expected_sources=["rag:sop"],
+        expected_sufficiency_mode="analyst_review_required",
+        mcp_execution_mode="disabled",
+        saia_available=True,
+        rag_available=True,
+        analyst_summary=(
+            "Anomalous Modbus/SCADA-to-RTU traffic is reviewed as a guided OT hunt. Governed OT "
+            "templates for this pattern are review-only (not yet enabled against a live ICS lookup), "
+            "so V.AI SOC returns a structured hunt plan and OT-safe guidance rather than auto-executed SPL."
+        ),
+        trace_explanation=[
+            "OT/ICS Modbus-to-RTU patterns have governed templates that remain review-only until ICS asset lookups are onboarded.",
+            "The guided_investigation rescue returns an OT hunt plan (unauthorized function codes, new Modbus masters, off-baseline write commands) with an out-of-catalog notice instead of guessing SPL.",
+            "MITRE remains unmapped (OT technique=0 by design here); MCP execution stays disabled and any SPL is analyst-authored.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-rag-ot-modbus-hunt",
+                "rag",
+                "SOC KB fixture",
+                1,
+                ["entry_id", "document_type", "source_excerpt", "source_refs"],
+                [
+                    _rag_row(
+                        "hunt-ot-modbus-001",
+                        "Modbus/SCADA RTU hunt patterns",
+                        "Review Modbus traffic for unauthorized function codes (write single/multiple registers, "
+                        "force coil), new or unexpected Modbus masters talking to RTUs, off-hours write commands, "
+                        "and IT-segment sources reaching the OT/SCADA VLAN. Confirm against the engineering "
+                        "change calendar before treating a write as malicious.",
+                        ["SOC-HUNT-OT-MODBUS-001#patterns"],
+                    )
+                ],
+                tool_name="retrieve_soc_kb",
+                query_or_request_summary="Approved Modbus/SCADA RTU hunt patterns for OT guided guidance.",
+                provider_used="governed_rag_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "ot_modbus_scada_rtu_anomaly",
+            "guided_investigation",
+            [
+                _fact(
+                    "fact-ot-modbus-review-only",
+                    "Governed OT Modbus/SCADA templates are review-only until ICS asset/lookup data is onboarded; guided review-only guidance is returned.",
+                    ["ev-rag-ot-modbus-hunt"],
+                ),
+                _fact(
+                    "fact-ot-modbus-plan",
+                    "Hunt plan covers unauthorized Modbus function codes, unexpected masters, off-baseline writes, and IT-to-OT boundary crossings.",
+                    ["ev-rag-ot-modbus-hunt"],
+                ),
+            ],
+            metrics={"out_of_catalog": True, "ot_domain": True, "hunt_patterns": 4},
+            mitre=[],
+            refs=["ev-rag-ot-modbus-hunt"],
+            quality="partial",
+        ),
+    ),
+    "ot_hmi_unauthorized_access": DemoScenario(
+        scenario_id="ot_hmi_unauthorized_access",
+        label="Unauthorized access to a substation OT/ICS HMI",
+        category="OT/ICS",
+        query="Review unauthorized access to an OT/ICS HMI at a substation",
+        aliases=(
+            "Review unauthorized access to an OT or ICS HMI at a substation",
+            "Investigate unauthorized access to a substation HMI on the OT network",
+        ),
+        environment_mode="connected_coe_demo",
+        expected_skill="guided_investigation",
+        expected_sources=["rag:sop"],
+        expected_sufficiency_mode="analyst_review_required",
+        mcp_execution_mode="disabled",
+        saia_available=True,
+        rag_available=True,
+        analyst_summary=(
+            "Unauthorized HMI access at a substation is reviewed as a guided IT-to-OT boundary hunt. "
+            "Governed OT access templates are review-only here, so V.AI SOC returns an OT-safe hunt "
+            "plan focused on the IT-to-OT boundary rather than auto-executed SPL."
+        ),
+        trace_explanation=[
+            "OT/ICS HMI access review crosses the IT-to-OT boundary; governed OT templates stay review-only until ICS identity/asset lookups are onboarded.",
+            "The guided_investigation rescue returns a boundary-focused hunt plan (jump-host bypass, new logons to HMI, cleartext protocols from HMI, OT-VLAN ingress) with an out-of-catalog notice.",
+            "MITRE remains unmapped by design; MCP execution stays disabled and any SPL is analyst-authored.",
+        ],
+        source_evidence=[
+            _evidence(
+                "ev-rag-ot-hmi-hunt",
+                "rag",
+                "SOC KB fixture",
+                1,
+                ["entry_id", "document_type", "source_excerpt", "source_refs"],
+                [
+                    _rag_row(
+                        "hunt-ot-hmi-001",
+                        "OT HMI access hunt patterns",
+                        "For unauthorized HMI access, review logons to the HMI that did not transit the approved "
+                        "OT jump host, new or non-engineering accounts authenticating to the HMI, cleartext "
+                        "protocols (TFTP/Telnet) originating from the HMI, and any IT-segment source reaching the "
+                        "substation OT VLAN. Validate against approved maintenance windows and engineering rosters.",
+                        ["SOC-HUNT-OT-HMI-001#patterns"],
+                    )
+                ],
+                tool_name="retrieve_soc_kb",
+                query_or_request_summary="Approved OT HMI access hunt patterns for IT-to-OT boundary review.",
+                provider_used="governed_rag_fixture",
+            ),
+        ],
+        structured_context=_context(
+            "ot_hmi_unauthorized_access",
+            "guided_investigation",
+            [
+                _fact(
+                    "fact-ot-hmi-review-only",
+                    "Governed OT HMI-access templates are review-only until ICS identity/asset lookups are onboarded; guided review-only guidance is returned.",
+                    ["ev-rag-ot-hmi-hunt"],
+                ),
+                _fact(
+                    "fact-ot-hmi-boundary",
+                    "Hunt plan focuses on the IT-to-OT boundary: jump-host bypass, non-engineering logons, cleartext protocols from the HMI, and OT-VLAN ingress.",
+                    ["ev-rag-ot-hmi-hunt"],
+                ),
+            ],
+            metrics={"out_of_catalog": True, "ot_domain": True, "hunt_patterns": 4},
+            mitre=[],
+            refs=["ev-rag-ot-hmi-hunt"],
+            quality="partial",
+        ),
+    ),
 }
+
+# Built after the registry so alias normalization sees every scenario. Fail-fast on
+# any alias/query collision (plan D1).
+_ALIAS_INDEX: dict[str, str] = _build_alias_index()
+
+# (session, family) FSM routing table for multi-turn scenarios (plan D2): step -> id.
+_FSM_FAMILIES: dict[str, dict[int, str]] = {}
+for _scenario in SCENARIOS.values():
+    if _scenario.fsm_family is not None and _scenario.fsm_step is not None:
+        _FSM_FAMILIES.setdefault(_scenario.fsm_family, {})[_scenario.fsm_step] = _scenario.scenario_id
+del _scenario

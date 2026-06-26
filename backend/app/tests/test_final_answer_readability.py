@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.final_answer_readability import apply_final_answer_readability
 from app.schemas.responses import AnalystResponseEnvelope
@@ -327,7 +329,11 @@ def test_sop_knowledge_profile_suppresses_alert_analysis_fields() -> None:
     )
     result = apply_final_answer_readability(envelope, contract)
     summary = (result.direct_answer_summary or "").lower()
-    assert result.direct_answer_summary == "Governed SOP retrieved. SPL and MCP were skipped as requested."
+    # WS-7a: the SOP/knowledge summary now surfaces the retrieved playbook title +
+    # purpose instead of the legacy thin status string. Alert-analysis fields stay
+    # suppressed on a knowledge-only turn.
+    assert "brute-force login sop" in summary
+    assert "scope and escalation checks" in summary
     assert result.severity_label is None
     assert result.mitre_mappings == []
     assert result.spl_code is None
@@ -520,16 +526,37 @@ def test_investigation_actions_unglue_p2review_concatenation() -> None:
     )
     envelope = AnalystResponseEnvelope(recommended_actions=["P2Review failed-login volume and source distribution."])
     result = apply_final_answer_readability(envelope, contract)
-    assert result.recommended_actions[0] == "P2 — Review failed-login volume and source distribution."
+    assert result.recommended_actions[0] == "Review failed-login volume and source distribution."
     assert "P2Review" not in str(result.model_dump())
 
 
-def test_investigation_actions_use_priority_prefix() -> None:
+def test_investigation_actions_do_not_add_priority_prefix_without_severity() -> None:
     contract = build_answer_contract(
         intent_classification={"answer_goal": ["analyst_action_guidance"]},
         evidence_plan={"answer_mode": "hybrid", "mcp_allowed": True},
         mitre_decision={},
         severity_decision=None,
+        spl_validation=None,
+        execution={"status": "skipped"},
+        human_review={"required": False},
+    )
+    envelope = AnalystResponseEnvelope(
+        recommended_actions=[
+            "Review failed-login volume and source distribution.",
+            "Check for successful login after repeated failures.",
+        ]
+    )
+    result = apply_final_answer_readability(envelope, contract)
+    assert all(" — " not in action for action in result.recommended_actions)
+    assert not result.recommended_actions[0].startswith("P2")
+
+
+def test_investigation_actions_keep_priority_prefix_when_severity_assigned() -> None:
+    contract = build_answer_contract(
+        intent_classification={"answer_goal": ["analyst_action_guidance"]},
+        evidence_plan={"answer_mode": "hybrid", "mcp_allowed": True},
+        mitre_decision={},
+        severity_decision=SimpleNamespace(severity_label="P2 High"),
         spl_validation=None,
         execution={"status": "skipped"},
         human_review={"required": False},

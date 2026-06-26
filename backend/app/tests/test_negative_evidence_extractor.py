@@ -133,3 +133,25 @@ def test_candidate_without_evidence_is_demoted_not_claimed() -> None:
     assert visible == {"T1110.001"}
     assert "T1078" in decision.not_claimed  # demoted by absent successful_login
     assert "T1078" not in decision.rejected_techniques  # not registry-blocked
+
+
+def test_t1048_and_t1071_004_preconditions_present_and_negate():
+    """WS-C: the two candidate-tier bundle adds have data-driven preconditions.
+
+    Both are evidence-negated when their required positive evidence is absent, and
+    cleared once it is present — same pattern as the parent/sibling techniques.
+    """
+    from app.threat.mitre_evidence_preconditions import (
+        PRECONDITION_BY_ID,
+        not_claimed_reason,
+        precondition_negated,
+    )
+
+    assert {"T1048", "T1071.004"} <= set(PRECONDITION_BY_ID)
+    # Negated with no evidence; cleared with the established positive-evidence key.
+    assert precondition_negated("T1048", set()) is True
+    assert precondition_negated("T1048", {"outbound_transfer"}) is False
+    assert precondition_negated("T1071.004", set()) is True
+    assert precondition_negated("T1071.004", {"network_telemetry"}) is False
+    assert "alternative protocol" in not_claimed_reason("T1048")
+    assert "DNS" in not_claimed_reason("T1071.004")

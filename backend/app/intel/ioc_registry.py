@@ -42,6 +42,88 @@ def load_ioc_registry(path: str | Path, *, reload: bool = False) -> _LoadedIocRe
 def clear_ioc_registry_cache() -> None:
     _REGISTRY_CACHE.clear()
 
+def resolve_ioc_registry_path(registry_path: str | Path | None = None) -> Path:
+    """Resolve configured IOC registry path, falling back to packaged sample."""
+    if registry_path:
+        return Path(registry_path)
+    from app.config import settings
+
+    configured = settings.ioc_registry_path.strip()
+    if configured:
+        candidate = Path(configured)
+        if candidate.exists():
+            return candidate
+    return Path(__file__).resolve().parent / "fixtures" / "ioc_registry.sample.json"
+
+
+def summarize_ioc_registry_for_settings(*, registry_path: str | Path | None = None) -> dict[str, Any]:
+    """Build read-only settings summary for the IOC registry UI."""
+    from app.config import settings
+    from app.intel.ioc_lookup import evaluate_registry_staleness
+
+    path = resolve_ioc_registry_path(registry_path)
+    summary: dict[str, Any] = {
+        "enabled": bool(settings.ioc_registry_enabled),
+        "registry_path": str(path),
+        "import_path_hint": settings.ioc_registry_path.strip() or str(path),
+        "path_exists": path.exists(),
+        "hash_count": 0,
+        "hashes": [],
+        "advisory_id": None,
+        "imported_at": None,
+        "staleness_status": None,
+        "source_count": 0,
+        "ioc_count": 0,
+        "validation_errors": [],
+    }
+    if not path.exists():
+        summary["validation_errors"] = ["registry_file_missing"]
+        return summary
+    try:
+        loaded = load_ioc_registry(path, reload=True)
+    except (OSError, ValueError, ValidationError) as exc:
+        summary["validation_errors"] = [str(exc)]
+        return summary
+
+    document = loaded.document
+    summary["source_count"] = len(document.sources)
+    summary["ioc_count"] = len(document.iocs)
+    if document.sources:
+        primary = document.sources[0]
+        summary["advisory_id"] = primary.source_id
+        summary["imported_at"] = primary.last_refreshed.isoformat()
+    summary["staleness_status"] = evaluate_registry_staleness(path).value
+
+    hash_types = {IocType.HASH_MD5, IocType.HASH_SHA1, IocType.HASH_SHA256}
+    hashes: list[dict[str, str]] = []
+    for record in document.iocs:
+        if record.ioc_type not in hash_types:
+            continue
+        hashes.append(
+            {
+                "value": record.value,
+                "hash_type": record.ioc_type.value,
+                "confidence": record.confidence,
+                "tlp": record.tlp,
+            }
+        )
+    summary["hash_count"] = len(hashes)
+    summary["hashes"] = hashes[:500]
+    return summary
+
+
+def save_ioc_registry_document(payload: dict[str, Any], *, registry_path: str | Path | None = None) -> dict[str, Any]:
+    """Validate and persist an IOC registry JSON document."""
+    errors = validate_ioc_registry_payload(payload)
+    if errors:
+        raise ValueError("; ".join(errors))
+    path = resolve_ioc_registry_path(registry_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    clear_ioc_registry_cache()
+    return summarize_ioc_registry_for_settings(registry_path=path)
+
+
 
 def validate_ioc_registry_payload(payload: dict[str, Any]) -> list[str]:
     """Return validation error messages for a registry payload."""

@@ -94,8 +94,8 @@ _DRAFT_FAMILY_LEAD_INS = {
         "claim compromise without corroborating evidence."
     ),
     "auth_failed_login_threshold": (
-        "This ranks source/user pairs by failed-login volume over 24 hours. Thresholds "
-        "are illustrative — tune per environment. Lab draft only — not executed."
+        "This ranks failed-login volume for analyst review. The time window and aggregation "
+        "shape follow the question; tune thresholds per environment. Lab draft only — not executed."
     ),
     "dns_beaconing_hunt": (
         "This surfaces high-volume or unusually long DNS queries as beaconing candidates. "
@@ -117,12 +117,32 @@ _DRAFT_GENERIC_LEAD_IN = (
     "provided for SOC review. Validate the index, sourcetype, and field placeholders "
     "against your source profile; the draft is review-only and has not been executed."
 )
+_REVIEW_ONLY_DRAFT_PREFIX = "Review-only SPL draft - no live query was executed."
 
 
 def _draft_preview_lead_in(spl_draft_preview: Any) -> str:
     preview = spl_draft_preview if isinstance(spl_draft_preview, dict) else {}
     family = str(preview.get("detection_family") or "")
-    return _DRAFT_FAMILY_LEAD_INS.get(family, _DRAFT_GENERIC_LEAD_IN)
+    if family == "auth_failed_login_threshold":
+        window = str(preview.get("time_window_label") or "the requested time window")
+        shape = str(preview.get("aggregation_shape") or "")
+        if shape == "user_ranking":
+            return _with_review_only_draft_prefix(
+                f"This ranks users by failed-login volume over {window}. Abnormally high "
+                "activity is surfaced by relative ranking (top-N), not a fixed count threshold. "
+                "Lab draft only — not executed."
+            )
+        return _with_review_only_draft_prefix(
+            f"This ranks source/user pairs by failed-login volume over {window}. "
+            "Tune any threshold after review. Lab draft only — not executed."
+        )
+    return _with_review_only_draft_prefix(_DRAFT_FAMILY_LEAD_INS.get(family, _DRAFT_GENERIC_LEAD_IN))
+
+
+def _with_review_only_draft_prefix(text: str) -> str:
+    if text.startswith(_REVIEW_ONLY_DRAFT_PREFIX):
+        return text
+    return f"{_REVIEW_ONLY_DRAFT_PREFIX} {text}"
 
 
 def _draft_preview_presentation(spl_draft_preview: Any) -> dict[str, str]:
@@ -186,6 +206,11 @@ def apply_draft_preview_readability(envelope: AnalystResponseEnvelope) -> Analys
     payload = _scrub_draft_preview_contradictions(payload)
     payload["one_sentence_finding"] = None
     _apply_analytics_draft_severity_guard(payload, presentation)
+    payload["recommended_actions"] = _format_investigation_actions(
+        payload.get("recommended_actions") or []
+    )
+    if payload.get("severity_label") == ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL:
+        payload["recommended_actions"] = _strip_priority_prefixes(payload["recommended_actions"])
     return AnalystResponseEnvelope.model_validate(payload)
 
 
@@ -244,7 +269,10 @@ def apply_final_answer_readability(
             "source_profile_missing": bool(draft_preview.get("source_profile_missing")),
         }
         payload["hil_status"] = "required"
-        payload["analyst_checklist"] = list(draft_preview.get("investigation_checklist") or [])
+        checklist = list(draft_preview.get("investigation_checklist") or [])
+        payload["analyst_checklist"] = checklist
+        if not payload.get("recommended_actions") and checklist:
+            payload["recommended_actions"] = list(checklist)
         payload["direct_answer_summary"] = None
         payload = _scrub_draft_preview_contradictions(payload)
         _apply_analytics_draft_severity_guard(payload, presentation)
@@ -257,6 +285,8 @@ def apply_final_answer_readability(
         _format_investigation_actions(payload.get("recommended_actions") or []),
         contract,
     )
+    if _severity_not_assigned(contract, payload):
+        payload["recommended_actions"] = _strip_priority_prefixes(payload["recommended_actions"])
     if payload.get("investigation_steps"):
         payload["investigation_steps"] = _scrub_blocked_context_actions(
             [str(item) for item in payload.get("investigation_steps") or []],
@@ -279,6 +309,8 @@ def _apply_guided_investigation_card(
 
     preferred_order = (
         "investigation_guidance",
+        "draft_spl_preview",
+        "spl_artifact",
         "procedural_steps",
         "analyst_action_guidance",
         "limitations",
@@ -296,6 +328,12 @@ def _apply_guided_investigation_card(
                 payload.get("recommended_actions") or payload.get("analyst_checklist")
             ),
             "limitations": bool(payload.get("limitations")),
+            "spl_artifact": bool(
+                contract.render_sections.get("spl_artifact")
+                or payload.get("draft_spl_code")
+                or payload.get("spl_code")
+            ),
+            "draft_spl_preview": bool(payload.get("draft_spl_code")),
         }
     )
     payload["render_sections"] = render
@@ -413,6 +451,21 @@ def _apply_knowledge_profile_cleanup(payload: dict[str, Any], contract: AnswerCo
 
 
 def _sop_knowledge_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
+    playbook = envelope.retrieved_playbook if isinstance(envelope.retrieved_playbook, dict) else {}
+    sop = envelope.sop_guidance if isinstance(envelope.sop_guidance, dict) else {}
+    steps = [str(item).strip() for item in sop.get("triage_steps") or [] if str(item).strip()]
+    title = str(playbook.get("title") or "").strip()
+    purpose = str(playbook.get("purpose") or "").strip()
+    if steps or title or purpose:
+        parts: list[str] = []
+        if title:
+            parts.append(title)
+        if purpose:
+            parts.append(purpose)
+        if steps:
+            numbered = "\n".join(f"{index}. {step}" for index, step in enumerate(steps[:8], start=1))
+            parts.append(f"Triage steps:\n{numbered}")
+        return "\n\n".join(parts)
     return "Governed SOP retrieved. SPL and MCP were skipped as requested."
 
 
@@ -519,7 +572,92 @@ def _dedupe_labels(payload: dict[str, Any], contract: AnswerContract) -> dict[st
     return payload
 
 
+
+
+_EXECUTED_EVIDENCE_STATUSES = frozenset({"executed", "executed_mock_evidence", "executed_live_evidence"})
+
+_LIVE_RESULT_PHRASES_WITHOUT_EVIDENCE = (
+    re.compile(r"\bdetected\b", re.I),
+    re.compile(r"\bobserved\b", re.I),
+    re.compile(r"\bfound\b", re.I),
+    re.compile(r"currently showing", re.I),
+    re.compile(r"\bmapped to\b", re.I),
+    re.compile(r"\bconfirmed\b", re.I),
+    re.compile(r"evidence shows", re.I),
+    re.compile(r"results indicate", re.I),
+)
+
+
+def _has_collected_live_evidence(payload: dict[str, Any], contract: AnswerContract) -> bool:
+    if contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES:
+        return False
+    table = payload.get("splunk_results_table") or []
+    return bool(table)
+
+
+def _scrub_live_result_claims_without_evidence(text: str) -> str:
+    cleaned = text
+    for pattern in _LIVE_RESULT_PHRASES_WITHOUT_EVIDENCE:
+        cleaned = pattern.sub("[requires collected telemetry]", cleaned)
+    return cleaned
+
+
+def _apply_no_collected_evidence_render_gate(
+    payload: dict[str, Any],
+    contract: AnswerContract,
+) -> dict[str, Any]:
+    if not getattr(contract, "run_contract_mirrored", False):
+        if _has_collected_live_evidence(payload, contract):
+            return payload
+        if contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES:
+            payload["splunk_results_table"] = []
+            payload["splunk_status_line"] = None
+            payload["evidence_summary"] = None
+        ungrounded_severity = contract.severity_label in {None, "P3 Medium"}
+        if (
+            contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES
+            and contract.intent_family
+            in {"guided_investigation", "spl_generation_only", "knowledge_only"}
+            and ungrounded_severity
+        ):
+            payload["severity_label"] = None
+            payload["severity_confidence"] = None
+            payload["severity_rationale"] = None
+            payload["severity_safety_note"] = None
+        if contract.execution_status not in _EXECUTED_EVIDENCE_STATUSES and contract.intent_family in {
+            "guided_investigation",
+            "spl_generation_only",
+        }:
+            for field in ("direct_answer_summary", "one_sentence_finding"):
+                value = payload.get(field)
+                if isinstance(value, str) and value.strip():
+                    payload[field] = _scrub_live_result_claims_without_evidence(value)
+        return payload
+    if contract.allow_results_table and _has_collected_live_evidence(payload, contract):
+        return payload
+    if not contract.allow_results_table:
+        payload["splunk_results_table"] = []
+        payload["splunk_status_line"] = None
+        payload["evidence_summary"] = None
+    if not contract.allow_severity_assessment:
+        severity_label = payload.get("severity_label")
+        if severity_label != ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL:
+            payload["severity_label"] = None
+            payload["severity_confidence"] = None
+            payload["severity_rationale"] = None
+            payload["severity_safety_note"] = None
+    if not contract.allow_mitre_mapping:
+        payload["mitre_mappings"] = []
+        payload["not_claimed"] = []
+    if not contract.allow_live_result_language:
+        for field in ("direct_answer_summary", "one_sentence_finding"):
+            value = payload.get(field)
+            if isinstance(value, str) and value.strip():
+                payload[field] = _scrub_live_result_claims_without_evidence(value)
+    return payload
+
 def _apply_section_visibility(payload: dict[str, Any], contract: AnswerContract) -> dict[str, Any]:
+    payload = _apply_no_collected_evidence_render_gate(payload, contract)
     render = contract.render_sections
     if not render.get("mitre_mapping"):
         payload["mitre_mappings"] = []
@@ -539,7 +677,9 @@ def _apply_section_visibility(payload: dict[str, Any], contract: AnswerContract)
         or render.get("investigation_guidance")
     ):
         payload["recommended_actions"] = []
-    if not render.get("live_results"):
+    if not render.get("live_results") or (
+        getattr(contract, "run_contract_mirrored", False) and not contract.allow_results_table
+    ):
         payload["splunk_results_table"] = []
         payload["splunk_status_line"] = None
         payload["evidence_summary"] = None
@@ -714,13 +854,19 @@ def _maybe_scrub_direct_answer_summary(text: str, contract: AnswerContract) -> s
     return scrub_blocked_context_display_phrasing(text)
 
 
+def unglue_priority_action(text: str) -> str:
+    """Normalize glued priority prefixes such as ``P2Review`` → ``P2 — Review``."""
+    cleaned = str(text).strip()
+    glued = re.match(r"^(P[1-4])([A-Za-z])", cleaned)
+    if glued:
+        cleaned = f"{glued.group(1)} — {cleaned[len(glued.group(1)):].lstrip(' -—')}"
+    return re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", cleaned)
+
+
 def _format_investigation_actions(actions: list[Any]) -> list[str]:
     formatted: list[str] = []
     for item in actions:
-        text = str(item).strip()
-        glued = re.match(r"^(P[1-4])([A-Za-z])", text)
-        if glued:
-            text = f"{glued.group(1)} — {text[len(glued.group(1)):].lstrip(' -—')}"
+        text = unglue_priority_action(str(item))
         if re.match(r"^P[1-4]\s*[—-]\s*", text):
             formatted.append(re.sub(r"^P([1-4])\s*-\s*", r"P\1 — ", text))
             continue
@@ -730,6 +876,20 @@ def _format_investigation_actions(actions: list[Any]) -> list[str]:
         human = text.replace("_", " ")
         formatted.append(f"P2 — {human}")
     return formatted
+
+
+def _strip_priority_prefixes(actions: list[Any]) -> list[str]:
+    stripped: list[str] = []
+    for item in actions:
+        text = str(item).strip()
+        text = re.sub(r"^P[1-4]\s*[—-]\s*", "", text).strip()
+        stripped.append(text)
+    return stripped
+
+
+def _severity_not_assigned(contract: AnswerContract, payload: dict[str, Any]) -> bool:
+    label = str(payload.get("severity_label") or contract.severity_label or "")
+    return not label or label == ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
 
 
 _AUTH_LIMITATION_KEYS = frozenset(

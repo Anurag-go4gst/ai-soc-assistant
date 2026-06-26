@@ -1,0 +1,35 @@
+[Unit]
+# Host-side watcher that applies LLM service control requests enqueued by the
+# Dockerized backend (UI Stop/Restart/Start). The backend never touches systemd;
+# it writes a sentinel into the shared control dir and THIS unit applies it.
+# See docs/operations/llm-control-and-chat-access.md.
+Description=AI-SOC LLM control watcher (applies UI restart/stop/start to llama-server)
+After=network.target llama-server.service
+Wants=llama-server.service
+
+[Service]
+Type=simple
+# Run as a dedicated low-privilege user; grant only the systemctl rights it needs
+# via the sudoers drop-in (deploy/llm-control-watcher.sudoers).
+User=ai-soc-control
+Group=ai-soc-control
+
+# The shared control directory = the host side of the docker-compose bind mount
+# (./.llm-control -> /var/lib/ai-soc/llm-control inside the container).
+Environment=AI_SOC_LLM_CONTROL_DIR=/var/www/ai-soc-assistant/.llm-control
+Environment=AI_SOC_LLM_SERVICE=llama-server.service
+
+ExecStart=/usr/bin/python3 /var/www/ai-soc-assistant/scripts/llm_control_watcher.py --interval 5
+Restart=on-failure
+RestartSec=5
+
+# Hardening — this process only reads a directory and runs one allow-listed
+# systemctl unit (via sudo). It needs no broad filesystem or network access.
+NoNewPrivileges=false
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/www/ai-soc-assistant/.llm-control
+
+[Install]
+WantedBy=multi-user.target

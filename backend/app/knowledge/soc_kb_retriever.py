@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -165,7 +166,37 @@ def soc_kb_source_evidence(trace_id: str, query: str, retrieval: dict[str, Any])
     envelope["evidence_origin"] = retrieval.get("evidence_origin")
     envelope["rag_approval_summary"] = retrieval.get("rag_approval_summary")
     envelope["direct_to_llm"] = False
+    _record_rag_telemetry(
+        trace_id,
+        collection=source_name,
+        status=collection_status,
+        result_count=len(entries),
+        evidence_origin=retrieval.get("evidence_origin"),
+    )
     return envelope
+
+
+def _record_rag_telemetry(
+    trace_id: str,
+    *,
+    collection: str | None,
+    status: str,
+    result_count: int,
+    evidence_origin: Any,
+) -> None:
+    """Persist a redacted RAG-retrieval event (no chunk text) for the debug trace."""
+    try:
+        from app.connectors.telemetry import get_telemetry_connector
+
+        get_telemetry_connector().record_rag_retrieval(
+            trace_id,
+            collection=collection,
+            status=status,
+            result_count=result_count,
+            evidence_origin=evidence_origin if isinstance(evidence_origin, str) else None,
+        )
+    except Exception:  # noqa: BLE001 - telemetry must never break retrieval
+        logging.getLogger("ai_soc.telemetry").warning("rag_telemetry_persist_failed", exc_info=True)
 
 
 def _retrieve(

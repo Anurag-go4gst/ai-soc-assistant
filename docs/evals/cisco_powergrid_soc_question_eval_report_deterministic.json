@@ -1,0 +1,692 @@
+{
+  "bank_path": "/var/www/ai-soc-assistant/docs/evals/cisco_powergrid_question_bank.json",
+  "critical_violations": 0,
+  "fail": 0,
+  "min_wave": "wave3",
+  "pass": 50,
+  "question_id": null,
+  "results": [
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "esp_it_to_ot_connection",
+        "due": true,
+        "mapped_pattern_type": "cisco_it_to_ot_crossing",
+        "mapped_question_ref": "cisco.perim.001",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.perim.001",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_routing_protocol_anomaly",
+        "due": true,
+        "mapped_pattern_type": "cisco_routing_protocol_anomaly",
+        "mapped_question_ref": "cisco.perim.002",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.perim.002",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_cleartext_to_rtu",
+        "due": true,
+        "mapped_pattern_type": "cisco_cleartext_to_rtu",
+        "mapped_question_ref": "cisco.perim.003",
+        "spl_policy_tier": "tier2_lookup"
+      },
+      "question_id": "cisco.perim.003",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_ios_port_security",
+        "due": true,
+        "mapped_pattern_type": "cisco_ios_port_security",
+        "mapped_question_ref": "cisco.perim.004",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.perim.004",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_stealthwatch_scan",
+        "due": true,
+        "mapped_pattern_type": "cisco_stealthwatch_scan",
+        "mapped_question_ref": "cisco.perim.005",
+        "spl_policy_tier": "tier2_lookup"
+      },
+      "question_id": "cisco.perim.005",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_firewall_geo_egress",
+        "due": true,
+        "mapped_pattern_type": "cisco_firewall_geo_egress",
+        "mapped_question_ref": "cisco.perim.006",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.perim.006",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_sgt_classification_failure",
+        "due": true,
+        "mapped_pattern_type": "cisco_sgt_classification_failure",
+        "mapped_question_ref": "cisco.perim.007",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.perim.007",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_icmp_anomaly",
+        "due": true,
+        "mapped_pattern_type": "cisco_icmp_anomaly",
+        "mapped_question_ref": "cisco.perim.008",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.perim.008",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_ios_config_change",
+        "due": true,
+        "mapped_pattern_type": "cisco_ios_config_change",
+        "mapped_question_ref": "cisco.perim.009",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.perim.009",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_firewall_dns_bypass",
+        "due": true,
+        "mapped_pattern_type": "cisco_firewall_dns_bypass",
+        "mapped_question_ref": "cisco.perim.010",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.perim.010",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_tacacs_privilege",
+        "due": true,
+        "mapped_pattern_type": "cisco_tacacs_privilege",
+        "mapped_question_ref": "cisco.identity.011",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.identity.011",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_ise_mab",
+        "due": true,
+        "mapped_pattern_type": "cisco_ise_mab",
+        "mapped_question_ref": "cisco.identity.012",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.identity.012",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_ise_posture",
+        "due": true,
+        "mapped_pattern_type": "cisco_ise_posture",
+        "mapped_question_ref": "cisco.identity.013",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.identity.013",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "auth_after_hours_login",
+        "due": true,
+        "mapped_pattern_type": "cisco_vpn_after_hours_login",
+        "mapped_question_ref": "cisco.identity.014",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.identity.014",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "auth_failed_login_threshold",
+        "due": true,
+        "mapped_pattern_type": "cisco_ise_failed_login_spike",
+        "mapped_question_ref": "cisco.identity.015",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.identity.015",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_ise_quarantine",
+        "due": true,
+        "mapped_pattern_type": "cisco_ise_quarantine",
+        "mapped_question_ref": "cisco.identity.016",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.identity.016",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_wlc_rogue_ap",
+        "due": true,
+        "mapped_pattern_type": "cisco_wlc_rogue_ap",
+        "mapped_question_ref": "cisco.identity.017",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.identity.017",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_duo_mfa_fatigue",
+        "due": true,
+        "mapped_pattern_type": "cisco_duo_mfa_fatigue",
+        "mapped_question_ref": "cisco.identity.018",
+        "spl_policy_tier": "tier2_lookup"
+      },
+      "question_id": "cisco.identity.018",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_ise_profile_shift",
+        "due": true,
+        "mapped_pattern_type": "cisco_ise_profile_shift",
+        "mapped_question_ref": "cisco.identity.019",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.identity.019",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_tacacs_stale_session",
+        "due": true,
+        "mapped_pattern_type": "cisco_tacacs_stale_session",
+        "mapped_question_ref": "cisco.identity.020",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.identity.020",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ot_goose_burst",
+        "due": true,
+        "mapped_pattern_type": "ot_goose_burst",
+        "mapped_question_ref": "cisco.ot.021",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.ot.021",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ot_mms_write",
+        "due": true,
+        "mapped_pattern_type": "ot_mms_write",
+        "mapped_question_ref": "cisco.ot.022",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.ot.022",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "iccp_disconnect",
+        "due": true,
+        "mapped_pattern_type": "iccp_disconnect",
+        "mapped_question_ref": "cisco.ot.023",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.ot.023",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ot_modbus_exception",
+        "due": true,
+        "mapped_pattern_type": "ot_modbus_exception",
+        "mapped_question_ref": "cisco.ot.024",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.ot.024",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ot_firmware_drift",
+        "due": true,
+        "mapped_pattern_type": "ot_firmware_drift",
+        "mapped_question_ref": "cisco.ot.025",
+        "spl_policy_tier": "tier2_lookup"
+      },
+      "question_id": "cisco.ot.025",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ot_master_spoof",
+        "due": true,
+        "mapped_pattern_type": "ot_master_spoof",
+        "mapped_question_ref": "cisco.ot.026",
+        "spl_policy_tier": "tier2_lookup"
+      },
+      "question_id": "cisco.ot.026",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ot_ems_db_change",
+        "due": true,
+        "mapped_pattern_type": "ot_ems_db_change",
+        "mapped_question_ref": "cisco.ot.027",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.ot.027",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ot_dpi_malformed",
+        "due": true,
+        "mapped_pattern_type": "ot_dpi_malformed",
+        "mapped_question_ref": "cisco.ot.028",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.ot.028",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ot_solar_setpoint_change",
+        "due": true,
+        "mapped_pattern_type": "ot_solar_setpoint_change",
+        "mapped_question_ref": "cisco.ot.029",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.ot.029",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ot_tftp_hmi",
+        "due": true,
+        "mapped_pattern_type": "ot_tftp_hmi",
+        "mapped_question_ref": "cisco.ot.030",
+        "spl_policy_tier": "tier2_lookup"
+      },
+      "question_id": "cisco.ot.030",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ssh_weak_cipher",
+        "due": true,
+        "mapped_pattern_type": "ssh_weak_cipher",
+        "mapped_question_ref": "cisco.compliance.031",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.compliance.031",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "physical_access_impossible",
+        "due": true,
+        "mapped_pattern_type": "physical_access_impossible",
+        "mapped_question_ref": "cisco.compliance.032",
+        "spl_policy_tier": "tier2_lookup"
+      },
+      "question_id": "cisco.compliance.032",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cii_scan_detection",
+        "due": true,
+        "mapped_pattern_type": "cii_scan_detection",
+        "mapped_question_ref": "cisco.compliance.033",
+        "spl_policy_tier": "tier2_lookup"
+      },
+      "question_id": "cisco.compliance.033",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "windows_account_lockout",
+        "due": true,
+        "mapped_pattern_type": "scada_log_cleared",
+        "mapped_question_ref": "cisco.compliance.034",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.compliance.034",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ot_dual_master_conflict",
+        "due": true,
+        "mapped_pattern_type": "ot_dual_master_conflict",
+        "mapped_question_ref": "cisco.compliance.035",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.compliance.035",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ntp_stratum_change",
+        "due": true,
+        "mapped_pattern_type": "ntp_stratum_change",
+        "mapped_question_ref": "cisco.compliance.036",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.compliance.036",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "loto_breaker_correlation",
+        "due": true,
+        "mapped_pattern_type": "loto_breaker_correlation",
+        "mapped_question_ref": "cisco.compliance.037",
+        "spl_policy_tier": "tier2_lookup"
+      },
+      "question_id": "cisco.compliance.037",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "agc_frequency_anomaly",
+        "due": true,
+        "mapped_pattern_type": "agc_frequency_anomaly",
+        "mapped_question_ref": "cisco.compliance.038",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.compliance.038",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "endpoint_tooling_install",
+        "due": true,
+        "mapped_pattern_type": "endpoint_tooling_install",
+        "mapped_question_ref": "cisco.compliance.039",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.compliance.039",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "ioc_destination_match",
+        "due": true,
+        "mapped_pattern_type": "cert_in_hash_match",
+        "mapped_question_ref": "cisco.compliance.040",
+        "spl_policy_tier": "tier2_lookup"
+      },
+      "question_id": "cisco.compliance.040",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "endpoint_suspicious_process",
+        "due": true,
+        "mapped_pattern_type": "cisco_hmi_terminal_spawn",
+        "mapped_question_ref": "cisco.endpoint.041",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.endpoint.041",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "cisco_amp_process_injection",
+        "due": true,
+        "mapped_pattern_type": "cisco_amp_process_injection",
+        "mapped_question_ref": "cisco.endpoint.042",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.endpoint.042",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "endpoint_hosts_file_change",
+        "due": true,
+        "mapped_pattern_type": "endpoint_hosts_file_change",
+        "mapped_question_ref": "cisco.endpoint.043",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.endpoint.043",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "due": true,
+        "mapped_pattern_type": "environment_hygiene",
+        "mapped_question_ref": "cisco.endpoint.044",
+        "metadata_hygiene": {
+          "execution_enabled": false,
+          "needs_spl": false,
+          "planned_tools": [
+            "splunk_get_indexes"
+          ]
+        },
+        "spl_policy_tier": "metadata_only"
+      },
+      "question_id": "cisco.endpoint.044",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "due": true,
+        "mapped_pattern_type": "environment_hygiene",
+        "mapped_question_ref": "cisco.endpoint.045",
+        "metadata_hygiene": {
+          "execution_enabled": false,
+          "needs_spl": false,
+          "planned_tools": [
+            "splunk_get_index_info"
+          ]
+        },
+        "spl_policy_tier": "metadata_only"
+      },
+      "question_id": "cisco.endpoint.045",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "due": true,
+        "mapped_pattern_type": "environment_hygiene",
+        "mapped_question_ref": "cisco.endpoint.046",
+        "metadata_hygiene": {
+          "execution_enabled": false,
+          "needs_spl": false,
+          "planned_tools": [
+            "splunk_get_metadata"
+          ]
+        },
+        "spl_policy_tier": "metadata_only"
+      },
+      "question_id": "cisco.endpoint.046",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "due": true,
+        "mapped_pattern_type": "environment_hygiene",
+        "mapped_question_ref": "cisco.endpoint.047",
+        "metadata_hygiene": {
+          "execution_enabled": false,
+          "needs_spl": false,
+          "planned_tools": [
+            "splunk_get_knowledge_objects"
+          ]
+        },
+        "spl_policy_tier": "metadata_only"
+      },
+      "question_id": "cisco.endpoint.047",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "due": true,
+        "mapped_pattern_type": "environment_hygiene",
+        "mapped_question_ref": "cisco.endpoint.048",
+        "metadata_hygiene": {
+          "execution_enabled": false,
+          "needs_spl": false,
+          "planned_tools": [
+            "splunk_get_info"
+          ]
+        },
+        "spl_policy_tier": "metadata_only"
+      },
+      "question_id": "cisco.endpoint.048",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "endpoint_persistence_schtask_service",
+        "due": true,
+        "mapped_pattern_type": "endpoint_unsigned_driver",
+        "mapped_question_ref": "cisco.endpoint.049",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.endpoint.049",
+      "reason": "happy_path",
+      "status": "PASS"
+    },
+    {
+      "critical_violations": [],
+      "details": {
+        "draft_family": "auth_failed_login_threshold",
+        "due": true,
+        "mapped_pattern_type": "auth_failed_login_spike",
+        "mapped_question_ref": "cisco.endpoint.050",
+        "spl_policy_tier": "tier1"
+      },
+      "question_id": "cisco.endpoint.050",
+      "reason": "happy_path",
+      "status": "PASS"
+    }
+  ],
+  "review": 0,
+  "total": 50
+}

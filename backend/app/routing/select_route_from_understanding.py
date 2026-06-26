@@ -11,6 +11,7 @@ from app.routing.governance import _tool_plan_for_skill
 from app.routing.routing_provenance import build_routing_provenance
 from app.routing.skills import valid_skill
 from app.use_cases.registry import get_use_case
+from app.chat.query_signals import is_github_investigation_query
 from app.query_understanding.soc_investigation_shape import prefers_guided_investigation_over_catalog
 
 # Non-enum catalog primary_skill → legacy routing skill (H1 total function).
@@ -34,7 +35,7 @@ def select_route_from_understanding(
 
     if path in _EXACT_105_PATHS:
         return _route_exact_105(understanding, query, path, keyword_would_have)
-    if path == "near_105_question":
+    if path in {"near_105_question", "semantic_105_question"}:
         return _route_near_105(understanding, query, keyword_would_have)
     if path == "use_case_catalog":
         return _route_catalog_only(understanding, query, keyword_would_have)
@@ -155,6 +156,14 @@ def _route_catalog_only(
     query: str,
     keyword_would_have: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    if is_github_investigation_query(query):
+        return _route_guided_investigation_rescue(
+            understanding,
+            query,
+            keyword_would_have,
+            reason="github_investigation_domain_rescue",
+        )
+
     if prefers_guided_investigation_over_catalog(query):
         return _route_guided_investigation_rescue(
             understanding,
@@ -224,14 +233,84 @@ def _route_out_of_registry(
     # request, but it must never turn an unsafe action into guided guidance.
     from app.chat.query_signals import extract_query_signals
 
+    from app.query_understanding.soc_investigation_shape import (
+        detect_investigation_request,
+        detect_spl_artifact_request,
+    )
+
     signals = extract_query_signals(query, understanding)
-    if understanding.soc_investigation_shaped and not signals["action_or_containment_shaped"]:
+    action = bool(signals["action_or_containment_shaped"])
+
+    # T2 answer-shape floor — runs for containment decision-support asks too, but
+    # never for unsafe execution or explicit run-SPL.
+    from app.config import settings as _settings
+    from app.query_understanding.soc_investigation_shape import is_unsafe_execution
+
+    if _settings.ai_soc_t2_answer_shape_enabled:
+        normalized = " ".join(query.lower().split())
+        # ``run_execution`` is the returned signal that captures explicit run-SPL
+        # intent (``explicit_run_spl`` is internal-only and never returned, so the
+        # old ``.get("explicit_run_spl")`` guard was always falsy / a no-op).
+        if not is_unsafe_execution(normalized) and not signals.get("run_execution"):
+            from app.chat.answer_shape_router import classify_answer_shape
+
+            if classify_answer_shape(query).primary_shape != "hunt":
+                return _route_guided_investigation_rescue(
+                    understanding,
+                    query,
+                    keyword_would_have,
+                    reason="out_of_registry_t2_answer_shape_floor",
+                )
+
+    # P1 floor 1 — analyst investigation/triage/evidence framing routes to the
+    # guided_investigation rescue, ahead of the keyword detection-family match.
+    # The family matcher is greedy (it fires on PMU/HMI nouns), so without this an
+    # "evidence-led investigation plan" was being pulled into the SPL path. Genuine
+    # knowledge-explanation openers are excluded inside the detector.
+    live_data = bool(signals.get("live_data_request"))
+    guidance = bool(signals.get("guidance_request"))
+
+    if not action and detect_investigation_request(query) and not live_data:
+        return _route_guided_investigation_rescue(
+            understanding,
+            query,
+            keyword_would_have,
+            reason="out_of_registry_investigation_request_floor",
+        )
+
+    # A/B: a question that maps to a known detection family is a concrete SPL ask.
+    # Route it to the SPL path so the review-only draft is built, instead of the
+    # knowledge_recall dead-end that discards the identified family.
+    if not action and _detection_family_match(query):
+        return _route_detection_spl(
+            understanding, query, keyword_would_have,
+            reason="out_of_registry_detection_family_floor",
+        )
+
+    # P1 floor 2 — explicit Splunk-search / detection-imperative asks must produce a
+    # review-only SPL draft, never collapse to a knowledge answer.
+    if not action and detect_spl_artifact_request(query):
+        return _route_detection_spl(
+            understanding, query, keyword_would_have,
+            reason="out_of_registry_spl_artifact_floor",
+        )
+
+    if not action and live_data and not guidance:
+        return _route_detection_spl(
+            understanding,
+            query,
+            keyword_would_have,
+            reason="out_of_registry_unmapped_live_data_request",
+        )
+
+    if understanding.soc_investigation_shaped and not action and not live_data:
         return _route_guided_investigation_rescue(
             understanding,
             query,
             keyword_would_have,
             reason="out_of_registry_soc_investigation_rescue",
         )
+
     base = dict(LOW_CONFIDENCE_ROUTE)
     base["reasons"] = list(base.get("reasons", [])) + ["out_of_registry_no_105_or_catalog_match"]
     provenance = build_routing_provenance(
@@ -274,6 +353,49 @@ def _route_guided_investigation_rescue(
         provenance["deterministic_match_path"] = "out_of_registry"
         provenance["catalog_keyword_rescue"] = True
     return base, provenance
+
+
+def _route_detection_spl(
+    understanding: QueryUnderstandingResult,
+    query: str,
+    keyword_would_have: dict[str, Any],
+    *,
+    reason: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Out-of-registry detection/analytics ask → review-only SPL path (never executed).
+
+    The downstream SPL stage builds a family lab draft when one matches, else the
+    governed LLM T2 shaper proposes a validated, review-only candidate. This replaces
+    the knowledge_recall dead-end for questions that clearly want a detection/SPL.
+    """
+    base = {
+        "skill": "spl_generation",
+        "tool_plan": _tool_plan_for_skill("spl_generation"),
+        "confidence": 0.5,
+        "reasons": [reason, "review_only", "execution_disabled"],
+    }
+    provenance = build_routing_provenance(
+        understanding,
+        selected_by="out_of_registry_detection_floor",
+        authority_source="out_of_registry_detection_floor",
+        skill=base["skill"],
+        tool_plan=list(base["tool_plan"]),
+        confidence=float(base["confidence"]),
+        keyword_router_would_have_selected=keyword_would_have,
+        rescue_mode=True,
+        why_not_knowledge_recall="Query requests a detection/analytics result; route to review-only SPL, not a knowledge answer.",
+    )
+    return base, provenance
+
+
+def _detection_family_match(query: str) -> bool:
+    """True when the deterministic keyword matcher maps the query to a draft family."""
+    try:
+        from app.spl.draft_preview import has_strong_detection_family_match
+
+        return bool(has_strong_detection_family_match(query))
+    except Exception:
+        return False
 
 
 def _keyword_fallback(

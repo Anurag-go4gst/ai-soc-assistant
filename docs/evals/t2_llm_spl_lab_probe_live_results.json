@@ -1,0 +1,58 @@
+{
+  "mode": "live",
+  "total": 2,
+  "producer_fired": 2,
+  "governance_invariants_held": 2,
+  "rows": [
+    {
+      "id": "pj.001",
+      "q": "Hunt for a flood of DNP3 unsolicited responses from an RTU to the SCADA master outside its normal class-poll schedule.",
+      "observed": {
+        "fired": true,
+        "status": "blocked",
+        "lab_tier": false,
+        "clarification_required": true,
+        "clarification_reason": "llm_spl_fallback_quality_failed",
+        "validation_approved": false,
+        "normalized_spl_is_null": true,
+        "execution_eligible": null,
+        "quality_status": "failed",
+        "hard_fail_count": 1,
+        "reject_reasons": [
+          "disallowed_index",
+          "disallowed_sourcetype"
+        ],
+        "latency_ms": 97172,
+        "candidate_spl_excerpt": "",
+        "adapter_errors": [],
+        "wall_ms": 97174
+      }
+    },
+    {
+      "id": "pj.002",
+      "q": "Detect Modbus/TCP write-single-register or write-multiple-coils commands sent to boiler-control PLCs from hosts other than the approved engineering workstation.",
+      "observed": {
+        "fired": true,
+        "status": "blocked",
+        "lab_tier": false,
+        "clarification_required": true,
+        "clarification_reason": "llm_spl_fallback_validation_failed",
+        "validation_approved": false,
+        "normalized_spl_is_null": true,
+        "execution_eligible": null,
+        "quality_status": "passed",
+        "hard_fail_count": 0,
+        "reject_reasons": [
+          "missing_aggregation",
+          "disallowed_index",
+          "disallowed_sourcetype",
+          "missing_result_limit"
+        ],
+        "latency_ms": 57057,
+        "candidate_spl_excerpt": "",
+        "adapter_errors": [],
+        "wall_ms": 57059
+      }
+    }
+  ]
+}

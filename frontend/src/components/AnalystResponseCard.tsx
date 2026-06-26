@@ -47,7 +47,6 @@ export function AnalystResponseCard({
   const title = stripSeverityPrefix(response.finding_title);
   const policyChecks = validationNotes.length ? validationNotes : triageSteps;
   const priorityActions = response.recommended_actions ?? [];
-  const hasPriorityInvestigation = hasPriorityActions(priorityActions);
   const renderSections = response.render_sections ?? {};
   const splOnly = response.response_profile === 'spl_only';
   const isKnowledgeRecall = response.response_profile === 'knowledge_recall';
@@ -66,6 +65,12 @@ export function AnalystResponseCard({
   const investigationSteps = response.investigation_steps?.length
     ? response.investigation_steps
     : response.analyst_checklist ?? [];
+  const investigationStepKeys = new Set(investigationSteps.map(normalizeSectionItem));
+  const uniquePriorityActions = priorityActions.filter((action) => {
+    const key = normalizeSectionItem(action);
+    return key && !investigationStepKeys.has(key);
+  });
+  const hasPriorityInvestigation = hasPriorityActions(uniquePriorityActions);
   const showInvestigationSteps = Boolean(!isKnowledgeRecall && investigationSteps.length);
   const showRequiredEvidence = Boolean(!isKnowledgeRecall && response.required_evidence?.length);
   const showMissingEvidence = Boolean(!isKnowledgeRecall && missingEvidence.length);
@@ -88,6 +93,15 @@ export function AnalystResponseCard({
   );
   const draftSplCode = response.draft_spl_code?.trim() || null;
   const draftPreview = response.spl_draft_preview;
+  const unresolvedSplBindings = formatDraftUnboundConstraints(
+    response.spl_unbound_constraints?.length
+      ? response.spl_unbound_constraints
+      : (draftPreview?.unbound_constraints ?? []),
+  );
+  // Review-only SPL draft: the dedicated renderer owns the answer shape, so the
+  // investigation-steps phase is the SOC review checklist (not a competing "Analyst
+  // workflow" heading).
+  const isReviewOnlySplDraft = splOnly && Boolean(draftSplCode);
   const llmSplCandidate = response.llm_spl_candidate;
   const showLlmSplCandidate = Boolean(llmSplCandidate);
   const showSpl = Boolean(response.spl_code && (renderSections.spl_artifact ?? true));
@@ -100,7 +114,7 @@ export function AnalystResponseCard({
     response.review_notice && !response.spl_code && !response.spl_status_detail && !showDraftSpl,
   );
   const showInvestigationPlan =
-    !splOnly && !isKnowledgeRecall && priorityActions.length > 0 && (hasPriorityInvestigation || !response.spl_code);
+    !splOnly && !isKnowledgeRecall && uniquePriorityActions.length > 0 && (hasPriorityInvestigation || !response.spl_code);
   const showPolicyBridge = !isKnowledgeRecall && policyChecks.length > 0 && showInvestigationPlan && hasPriorityInvestigation;
   const governedAnalysis = splOnly ? null : foundationSecGovernance?.governed_analysis ?? null;
   const hasReasoning = !splOnly && Boolean(governedAnalysis || response.foundation_sec_analysis);
@@ -125,10 +139,10 @@ export function AnalystResponseCard({
   if (showInvestigationSteps) {
     phases.push({
       key: 'steps',
-      label: 'Investigation steps',
+      label: isReviewOnlySplDraft ? 'SOC review checklist before execution' : 'Investigation steps',
       icon: <ListChecks className="h-3.5 w-3.5" />,
       accent: 'amber',
-      chips: [{ text: 'Analyst workflow', variant: 'outline' }],
+      chips: isReviewOnlySplDraft ? [] : [{ text: 'Analyst workflow', variant: 'outline' }],
       content: <StepList items={investigationSteps} />,
     });
   }
@@ -237,6 +251,12 @@ export function AnalystResponseCard({
       content: (
         <>
           {response.spl_status_detail ? <SplStatusDetail detail={response.spl_status_detail} /> : null}
+          {unresolvedSplBindings.length && (showSpl || showDraftSpl) ? (
+            <div className={response.spl_status_detail ? 'mt-3' : ''}>
+              <SectionTitle>Unresolved source bindings</SectionTitle>
+              <BulletList items={unresolvedSplBindings} />
+            </div>
+          ) : null}
           {showDraftSpl ? (
             <>
               <p
@@ -383,9 +403,9 @@ export function AnalystResponseCard({
           ) : null}
           {showInvestigationPlan ? (
             hasPriorityInvestigation ? (
-              <RecommendationList items={priorityActions} />
+              <RecommendationList items={uniquePriorityActions} />
             ) : (
-              <BulletList items={priorityActions} />
+              <BulletList items={uniquePriorityActions} />
             )
           ) : null}
           {response.escalation_criteria?.length ? (
@@ -408,7 +428,9 @@ export function AnalystResponseCard({
   return (
     <div className="max-w-[1120px] rounded-xl border border-cyan-500/20 bg-slate-950/70 px-6 py-5 text-[15px] text-slate-100 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
-        {response.severity_label && !isKnowledgeRecall ? <SeverityBadge label={response.severity_label} /> : null}
+        {response.severity_label && !isKnowledgeRecall && !isReviewOnlySplDraft ? (
+          <SeverityBadge label={response.severity_label} />
+        ) : null}
         {response.severity_confidence ? (
           <Badge variant="outline">Confidence: {response.severity_confidence}</Badge>
         ) : null}
@@ -432,7 +454,10 @@ export function AnalystResponseCard({
         </div>
       ) : showSummaryInHeader && summaryText ? (
         <div className="mt-2 space-y-2">
-          {splitParagraphs(summaryText).map((paragraph) => (
+          {(isReviewOnlySplDraft ? summaryText.split('\n') : splitParagraphs(summaryText))
+            .map((paragraph) => paragraph.trim())
+            .filter(Boolean)
+            .map((paragraph) => (
             <p key={paragraph} className="leading-6 text-slate-200">
               {paragraph}
             </p>
@@ -782,6 +807,15 @@ function hasPriorityActions(items: string[]) {
   return items.some((item) => /^P[1-4]\s*[—-]\s*/.test(item));
 }
 
+function normalizeSectionItem(item: string) {
+  return item
+    .replace(/^P[1-4]\s*[—\-–:]\s*/i, '')
+    .replace(/^Step\s+\d+\s*:\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 function StepList({ items }: { items: string[] }) {
   return (
     <ul className="mt-2 space-y-1.5 text-slate-200">
@@ -868,6 +902,24 @@ function formatMissingEvidence(response: AnalystResponseEnvelope): string[] {
 
 function humanizeStep(value: string): string {
   return value.replace(/_/g, ' ');
+}
+
+function formatDraftUnboundConstraints(value?: Array<Record<string, unknown>>): string[] {
+  if (!Array.isArray(value)) return [];
+  const labels = value.map((item) => {
+    const slot = String(item.slot ?? 'binding').replace(/_/g, ' ');
+    const reason = String(item.reason ?? 'unresolved').replace(/_/g, ' ');
+    const source = typeof item.source === 'string'
+      ? item.source
+      : typeof item.dropped_source === 'string'
+        ? item.dropped_source
+        : null;
+    const valueLabel = item.value ?? item.dropped_value;
+    const valueText = valueLabel == null || valueLabel === '' ? '' : ` (${String(valueLabel)})`;
+    const sourceText = source ? ` from ${source.replace(/_/g, ' ')}` : '';
+    return `${slot}${valueText}: ${reason}${sourceText}`;
+  });
+  return Array.from(new Set(labels));
 }
 
 function normalizePriorityAction(item: string): { priority: string; text: string } {

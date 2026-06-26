@@ -5,8 +5,10 @@ from __future__ import annotations
 from app.chat.contracts.answer_contract import AnswerContract
 from app.llm.governed_context_package import (
     CONTEXT_TRUNCATION_MARKER,
+    GovernedContextPackage,
     build_governed_context_package_for_contract,
     build_governed_context_package_v1,
+    cached_context_prompt_block,
 )
 
 
@@ -85,3 +87,21 @@ def test_v1_thin_package_unaffected() -> None:
     assert "match_path: exact_105" in block
     # No finalize-stage sections leak into the thin package.
     assert "missing_evidence" not in block
+
+
+def test_cached_block_does_not_collide_thin_vs_enriched() -> None:
+    """Regression: the cache key must cover all content fields + max_chars, not just
+    query/match_path/skill, or an enriched package returns the stale thin block."""
+    common = dict(raw_query="failed login spike", match_path="catalogue_105", routed_skill="attack_discovery")
+    thin = GovernedContextPackage(**common)
+    enriched = GovernedContextPackage(
+        **common, candidate_mitre=["T1110"], missing_evidence=["source ip"], answer_mode="partial_answer"
+    )
+    thin_block = cached_context_prompt_block(thin)
+    enriched_block = cached_context_prompt_block(enriched)
+    assert thin_block != enriched_block
+    assert "T1110" in enriched_block and "missing_evidence" in enriched_block
+    # max_chars participates in the key.
+    assert cached_context_prompt_block(enriched, max_chars=40) != enriched_block
+    # Stable cache hit: identical inputs return the same object.
+    assert cached_context_prompt_block(thin) == thin_block

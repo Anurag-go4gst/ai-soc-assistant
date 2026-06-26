@@ -14,6 +14,13 @@ _lock = Lock()
 _counters: dict[str, int] = {
     "telemetry_write_failures": 0,
     "telemetry_writes_skipped_null": 0,
+    # Per-turn outcome + LLM-call counters (Phase 5). Counts only, no payloads.
+    "chat_turns_completed": 0,
+    "chat_turns_human_review": 0,
+    "chat_turns_error": 0,
+    "llm_calls_total": 0,
+    "llm_calls_timed_out": 0,
+    "llm_calls_fallback": 0,
 }
 
 

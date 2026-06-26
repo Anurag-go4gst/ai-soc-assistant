@@ -1,0 +1,12 @@
+{
+  "schema_version": "cve_snapshot_v1",
+  "cves": [
+    {
+      "cve_id": "CVE-2024-0001",
+      "severity": "HIGH",
+      "products": [
+        "example_app"
+      ]
+    }
+  ]
+}

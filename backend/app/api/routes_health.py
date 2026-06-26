@@ -16,7 +16,9 @@ def health() -> dict:
     return {
         "status": "ok",
         "service": "ai-soc-assistant-backend",
+        # Integer-only counters (no payload content); flat so each value stays an int.
         "telemetry": {
             "write_failures": counters.get("telemetry_write_failures", 0),
+            **counters,
         },
     }

@@ -81,7 +81,8 @@
     },
     "pg.dns.001": {
       "analyst_enabled_sections": [
-        "policy_citation"
+        "policy_citation",
+        "procedural_steps"
       ],
       "answer_mode": "rag_only",
       "candidate_spl_present": false,
@@ -89,7 +90,8 @@
       "draft_spl_present": false,
       "draft_status": null,
       "enabled_sections": [
-        "policy_citation"
+        "policy_citation",
+        "procedural_steps"
       ],
       "execution_eligible": null,
       "execution_status": "skipped",
@@ -102,8 +104,8 @@
       "requires_clarification": false,
       "response_mode": "deterministic_knowledge_or_routing",
       "route_final": "knowledge_recall",
-      "selected_skill": "attack_discovery",
-      "severity_label": "P3 Medium",
+      "selected_skill": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
       "spl_approved": null,
       "spl_template_status": null
     },
@@ -131,7 +133,7 @@
       "response_mode": "insufficient_evidence",
       "route_final": "knowledge_recall",
       "selected_skill": "knowledge_recall",
-      "severity_label": "P3 Medium",
+      "severity_label": "Not assigned from this question alone",
       "spl_approved": null,
       "spl_template_status": null
     },
@@ -408,7 +410,7 @@
       "requires_clarification": true,
       "response_mode": "insufficient_evidence",
       "route_final": "knowledge_recall",
-      "selected_skill": "alert_summary",
+      "selected_skill": "knowledge_recall",
       "severity_label": "Not assigned from this question alone",
       "spl_approved": null,
       "spl_template_status": null
@@ -416,24 +418,27 @@
     "q0.q049": {
       "analyst_enabled_sections": [
         "analyst_action_guidance",
-        "draft_spl_preview",
         "evidence_checklist",
         "investigation_guidance",
         "limitations",
         "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
         "triage_checklist"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
       "contract_answer_mode": "live_investigation",
-      "draft_spl_present": true,
-      "draft_status": "draft_preview_not_governed",
+      "draft_spl_present": false,
+      "draft_status": null,
       "enabled_sections": [
         "analyst_action_guidance",
         "evidence_checklist",
         "investigation_guidance",
         "limitations",
         "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
         "triage_checklist"
       ],
       "execution_eligible": false,
@@ -445,11 +450,11 @@
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "requires_clarification": false,
-      "response_mode": "candidate_spl_rejected",
+      "response_mode": "insufficient_evidence",
       "route_final": "attack_discovery",
       "selected_skill": "attack_discovery",
       "severity_label": "Not assigned from this question alone",
-      "spl_approved": false,
+      "spl_approved": true,
       "spl_template_status": "active"
     },
     "q0.q055": {
@@ -484,6 +489,7 @@
         "evidence_checklist",
         "investigation_guidance",
         "limitations",
+        "policy_citation",
         "procedural_steps",
         "severity_assessment",
         "spl_artifact",
@@ -499,6 +505,7 @@
         "evidence_checklist",
         "investigation_guidance",
         "limitations",
+        "policy_citation",
         "procedural_steps",
         "severity_assessment",
         "spl_artifact",

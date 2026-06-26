@@ -4,7 +4,16 @@ import { getDemoScenarios } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import type { DemoScenarioSummary } from '@/types/api';
 
-const CATEGORY_ORDER = ['Investigate', 'Knowledge / SOP', 'Generate SPL', 'Generate + Run', 'MITRE Mapping', 'Air-gapped Mode'];
+// Plan category order (Track C). Backend supplies these exact display strings.
+const CATEGORY_ORDER = [
+  'Alert Triage',
+  'Threat Hunt',
+  'SPL',
+  'MITRE',
+  'Knowledge & Compliance',
+  'OT/ICS',
+  'Guided (out-of-catalog)',
+];
 
 interface DemoScenarioPickerProps {
   disabled?: boolean;
@@ -91,17 +100,18 @@ export function DemoScenarioPicker({ disabled, onRun }: DemoScenarioPickerProps)
   );
 }
 
+const CATEGORY_CAPABILITY_CHIPS: Record<string, string[]> = {
+  'Alert Triage': ['Investigation', 'MITRE', 'Knowledge'],
+  'Threat Hunt': ['SPL', 'Investigation'],
+  SPL: ['SPL', 'Knowledge'],
+  MITRE: ['MITRE', 'Investigation'],
+  'Knowledge & Compliance': ['Knowledge'],
+  'OT/ICS': ['SPL', 'Investigation'],
+  'Guided (out-of-catalog)': ['Investigation', 'Knowledge'],
+};
+
 function ScenarioCapabilityChips({ category }: { category: DemoScenarioSummary['category'] }) {
-  const labels =
-    category === 'Knowledge / SOP'
-      ? ['Knowledge']
-      : category === 'Generate SPL' || category === 'Air-gapped Mode'
-        ? ['SPL', 'Knowledge']
-        : category === 'Generate + Run'
-          ? ['SPL', 'MCP preview']
-        : category === 'MITRE Mapping'
-          ? ['MITRE', 'Investigation']
-          : ['Investigation', 'Knowledge', 'MITRE'];
+  const labels = CATEGORY_CAPABILITY_CHIPS[category] ?? ['Investigation', 'Knowledge', 'MITRE'];
 
   return (
     <div className="mt-2 flex flex-wrap gap-1.5 text-[0.65rem] text-slate-400">

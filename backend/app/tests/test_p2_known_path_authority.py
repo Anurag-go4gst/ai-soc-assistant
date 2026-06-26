@@ -47,8 +47,10 @@ def test_allowlisted_known_path_surfaces_operation_authority(monkeypatch: pytest
     assert response.coverage_id == COV_Q046_PILOT_COVERAGE_ID
     assert response.route_authority is not None
     assert response.route_authority["authority_decision"] == "applied"
-    assert response.route_authority["authority_holder"] == "route_plan_primary_skill"
-    assert response.route_authority["legacy_selected_skill_preserved"] == "attack_discovery"
+    # Top-level is RunContract-aligned; migration mechanics under raw_shadow_compare.
+    assert response.route_authority["authority_holder"] == "canonical_run_contract"
+    assert response.route_authority["raw_shadow_compare"]["authority_holder"] == "route_plan_primary_skill"
+    assert response.route_authority["raw_shadow_compare"]["legacy_selected_skill_preserved"] == "attack_discovery"
     assert response.execution.executed_spl is None
 
 
@@ -69,5 +71,6 @@ def test_non_allowlisted_known_path_surfaces_fallback_without_applying(monkeypat
     assert response.route_authority is not None
     assert response.route_authority["authority_decision"] == "fallback"
     assert response.route_authority["authority_fallback_reason"] == FALLBACK_COVERAGE_ID_NOT_ALLOWLISTED
-    assert response.route_authority["authority_holder"] == "legacy_selected_skill"
+    assert response.route_authority["authority_holder"] == "canonical_run_contract"
+    assert response.route_authority["raw_shadow_compare"]["authority_holder"] == "legacy_selected_skill"
     assert response.execution.executed_spl is None

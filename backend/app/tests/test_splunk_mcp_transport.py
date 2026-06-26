@@ -308,11 +308,14 @@ def test_gate_live_run_uses_real_adapter_and_live_provenance(live_gate) -> None:
     from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 
     set_search_transport_factory(lambda: FakeTransport(["done"], rows=[{"user": "alice"}, {"user": "bob"}]))
+    # Live registry runs always require per-call analyst confirmation (safety
+    # hardening); supply it so this exercises the confirmed live-execution path.
     execution, review = evaluate_mcp_execution(
         trace_id="trace-live",
         selected_skill="attack_discovery",
         workflow_plan={},
         spl_validation=_APPROVED,
+        execution_review_action="confirm",
     )
     assert execution["status"] == "executed"
     assert execution["evidence_source"] == "live"  # bug #1 fix

@@ -1,4 +1,4 @@
-import { Activity, ShieldCheck, Database, Gauge, ArrowRight, Cpu, FileSearch, ListChecks, Route, ShieldAlert } from 'lucide-react';
+import { Activity, ShieldCheck, Database, Gauge, ArrowRight, Cpu, FileSearch, ListChecks, Route, ShieldAlert, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/CopyButton';
 import { cn } from '@/lib/utils';
@@ -131,6 +131,31 @@ function nodeTraceState(trace: PlaceholderResponse): { label: string; variant: V
   return { label: `${nodes.length} nodes traced`, variant: 'success' };
 }
 
+// Surface where the LLM was actually invoked this turn (advisory; deterministic stays
+// authoritative). Reads per-node llm_call markers + the control-plane llm_calls summary.
+function llmCallsState(trace: PlaceholderResponse): { count: number; label: string; variant: Variant; where: string[] } {
+  const nodes = (trace.node_trace ?? []) as Array<Record<string, unknown>>;
+  const where: string[] = [];
+  for (const node of nodes) {
+    const call = node?.llm_call as Record<string, unknown> | null | undefined;
+    if (call && call.called) {
+      const role = String(call.role ?? 'llm');
+      where.push(`${String(node.node_name ?? 'node')} (${role})`);
+    }
+  }
+  const cp = (trace.control_plane_trace ?? {}) as Record<string, unknown>;
+  const summary = Array.isArray(cp.llm_calls) ? (cp.llm_calls as Array<Record<string, unknown>>) : [];
+  for (const rec of summary) {
+    const role = String(rec.role ?? rec.kind ?? 'llm');
+    if (!where.some((w) => w.includes(role))) {
+      where.push(rec.outcome ? `${role} ${String(rec.outcome)}` : role);
+    }
+  }
+  const count = where.length;
+  if (!count) return { count: 0, label: 'deterministic only', variant: 'secondary', where: [] };
+  return { count, label: `${count} LLM call${count > 1 ? 's' : ''}`, variant: 'warning', where };
+}
+
 type ComposerTrace = {
   composer_is_enabled?: boolean;
   provider_configured?: boolean;
@@ -229,6 +254,7 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
   const review = reviewState(trace);
   const session = sessionState(trace);
   const nodes = nodeTraceState(trace);
+  const llmCalls = llmCallsState(trace);
   const ready = trace.context_sufficiency?.synthesis_readiness ?? false;
   const reviewPending = trace.human_review?.required === true;
   const summaryParagraph = draftPreviewSummary(trace) ?? trace.analyst_summary;
@@ -260,13 +286,19 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
           variant={ready ? 'success' : 'secondary'}
         />
       </div>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <Stat icon={<FileSearch className="h-3 w-3" />} label="SPL Template" value={splTemplate.label} variant={splTemplate.variant} />
         <Stat icon={<ShieldAlert className="h-3 w-3" />} label="MITRE" value={mitre.label} variant={mitre.variant} />
         <Stat icon={<ListChecks className="h-3 w-3" />} label="HIL" value={review.label} variant={review.variant} />
         <Stat icon={<Database className="h-3 w-3" />} label="Session" value={session.label} variant={session.variant} />
         <Stat icon={<Route className="h-3 w-3" />} label="Node Trace" value={nodes.label} variant={nodes.variant} />
+        <Stat icon={<Sparkles className="h-3 w-3" />} label="LLM" value={llmCalls.label} variant={llmCalls.variant} />
       </div>
+      {llmCalls.count > 0 ? (
+        <p className="mt-2 text-xs text-amber-200/80">
+          LLM invoked at: {llmCalls.where.join(', ')} — advisory; deterministic checks stay authoritative.
+        </p>
+      ) : null}
       {reviewPending ? (
         <p className="mt-3 text-xs text-slate-400">Action needed — see the review notice below.</p>
       ) : (

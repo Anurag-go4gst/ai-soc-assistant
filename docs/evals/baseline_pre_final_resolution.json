@@ -1,0 +1,109 @@
+{
+  "name": "baseline_pre_final_resolution",
+  "captured_at": "2026-06-24",
+  "purpose": "Step 0 baseline for final-resolution-answer-quality plan. Pre-edit pass-rates for the 3 target buckets (summary/guided/github) + latency. Gate = post-run must be >= these, trending to >=80% good/pass.",
+  "rubric_caveat": "skill_mix_20 & focused_20 use good/fair/poor; micro_10 uses pass/fail. 'good_or_pass' treats good+pass as pass; fair counts as NOT-pass (mediocre framing). Re-runs MUST use one consistent rubric \u2014 recommend good/fair/poor everywhere with good=pass.",
+  "source_probes": {
+    "skill_mix_20": {
+      "probed_at": "2026-06-24T09:15:49Z",
+      "questions": 20,
+      "quality_counts": {
+        "fair": 6,
+        "good": 13,
+        "poor": 1
+      }
+    },
+    "focused_20": {
+      "probed_at": "2026-06-24T09:28:07Z",
+      "questions": 20,
+      "quality_counts": {
+        "fair": 9,
+        "poor": 6,
+        "good": 5
+      }
+    },
+    "micro_10": {
+      "probed_at": "2026-06-24T09:37:44Z",
+      "questions": 10,
+      "quality_counts": {
+        "pass": 5,
+        "fail": 5
+      }
+    }
+  },
+  "target_bucket_baseline": {
+    "summary": {
+      "n": 12,
+      "good_or_pass": 0,
+      "good_rate_pct": 0.0,
+      "clarification_stub": 8,
+      "clarification_pct": 66.7,
+      "ids": [
+        "as01",
+        "as02",
+        "as03",
+        "as04",
+        "f_as01",
+        "f_as02",
+        "f_as03",
+        "f_as04",
+        "f_as05",
+        "f_as06",
+        "f_as07",
+        "f_as08"
+      ]
+    },
+    "guided": {
+      "n": 12,
+      "good_or_pass": 6,
+      "good_rate_pct": 50.0,
+      "clarification_stub": 10,
+      "clarification_pct": 83.3,
+      "ids": [
+        "gi01",
+        "gi02",
+        "gi03",
+        "gi04",
+        "f_gi01",
+        "f_gi02",
+        "f_gi03",
+        "f_gi04",
+        "f_gi05",
+        "f_gi06",
+        "f_gi07",
+        "f_gi08"
+      ]
+    },
+    "github": {
+      "n": 3,
+      "good_or_pass": 0,
+      "good_rate_pct": 0.0,
+      "clarification_stub": 2,
+      "clarification_pct": 66.7,
+      "ids": [
+        "m05",
+        "m06",
+        "m09"
+      ]
+    }
+  },
+  "latency": {
+    "n": 50,
+    "max_s": 162.4,
+    "median_s": 1.1,
+    "over_60s": 12,
+    "over_120s": 4
+  },
+  "confirmed_findings": {
+    "summary_routes_to_clarification": "focused summary asks f_as02..08 = 7/8 clarification_required+knowledge_recall, not concise summary framing",
+    "guided_collapses_to_stub": "focused f_gi01..06 = 6/8 poor clarification_required stubs (selected knowledge_recall, not guided)",
+    "github_zero_pass": "micro github m05/m06/m09 = 0/3 pass; no github intent family exists"
+  },
+  "governance_gate": {
+    "status": "GREEN",
+    "ran": "./scripts/run_stage3_governance_regression.sh",
+    "result": "stage3_governance_regression: PASS (SOC clean-answer 120/120, cisco powergrid 50/50, EC suite restored)",
+    "note": "Earlier RED (16 EC failures) was an in-flight parallel EC-overhaul session; it completed and the EC/demo tests now pass. Step 0 #4 satisfied.",
+    "tree_state": "EC-overhaul work is COMPLETE but UNCOMMITTED (scenarios.py +547/-266, untracked capture_loader.py/ec_fsm_store.py, routes_chat.py modified). Commit EC as its own scoped commit before starting final-resolution Track A."
+  }
+}

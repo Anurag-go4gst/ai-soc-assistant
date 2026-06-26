@@ -125,15 +125,14 @@ def route_skill(
                 selection_reason = "llm_primary_lab blocked outside explicit lab/dev config; deterministic route selected"
                 guard_checks.append("lab_llm_primary_blocked")
             else:
-                llm_shadow = _safe_llm_shadow(query, llm_connector)
-                llm_advisory = build_llm_semantic_advisory(query, llm_shadow)
                 if _qu_route_retains_authority(understanding, base_route):
                     selected_by = str(routing_provenance.get("selected_by", selected_by))
-                    selection_reason = "QU route retained; LLM advisory recorded for comparison only"
+                    selection_reason = "QU route retained; LLM advisory skipped for registry-backed match"
                     guard_checks.append("qu_route_authority_preserved")
-                    if llm_shadow and llm_shadow.get("skill") != base_route.get("skill"):
-                        disagreements.append("selected_skill")
+                    guard_checks.append("llm_shadow_skipped_registry_authority")
                 else:
+                    llm_shadow = _safe_llm_shadow(query, llm_connector)
+                    llm_advisory = build_llm_semantic_advisory(query, llm_shadow)
                     selected, selected_by, disagreements, guard_checks = normalize_assisted_selection(
                         query=query,
                         deterministic=base_route,
@@ -143,6 +142,8 @@ def route_skill(
                     if routing_mode == ROUTING_MODE_LLM_PRIMARY_LAB and selected_by == "llm_advisory_validated":
                         selected_by = "lab_llm_primary"
                     selection_reason = "LLM semantic advisory normalized through deterministic registry and policy"
+                    if llm_shadow and llm_shadow.get("skill") != base_route.get("skill"):
+                        disagreements.append("selected_skill")
         else:
             selection_reason = "unsupported routing mode fallback to deterministic route"
             guard_checks.append("unsupported_routing_mode_fallback")
@@ -236,12 +237,25 @@ def route_skill(
 
 
 def _qu_route_retains_authority(understanding: QueryUnderstandingResult, base_route: dict[str, Any]) -> bool:
-    """Exact 105 and guided-investigation rescue routes keep deterministic authority."""
+    """Registry-backed 105 matches and guided-investigation rescue keep deterministic authority."""
     if base_route.get("skill") == "guided_investigation":
         return True
     path = understanding.deterministic_match_path
-    if path not in {"exact_105_question", "exact_105_plus_use_case_catalog"}:
+    registry_backed = path in {
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog",
+        "semantic_105_question",
+        "near_105_question",
+    }
+    if not registry_backed:
         return False
+    if path in {"semantic_105_question", "near_105_question"}:
+        question_ref = getattr(understanding, "mapped_question_ref", None)
+        if not isinstance(question_ref, str) or not question_ref.strip():
+            return False
+        near_score = getattr(understanding, "question_registry_match_score", None)
+        if near_score is not None and float(near_score) < 0.75:
+            return False
     return not _deterministic_uncertain(base_route, understanding)
 
 

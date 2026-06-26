@@ -212,7 +212,10 @@ def test_uncatalogued_spl_generation_requires_clarification_not_stage3c_stub(
 ) -> None:
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", False)
     monkeypatch.setattr("app.spl.llm_fallback.settings.ai_soc_llm_spl_fallback_enabled", False)
-    response = _chat("Write SPL to detect impossible travel from VPN logs")
+    # A bare SPL-generation modifier with no catalogued detection family: the
+    # weak soc_generate_spl meta row matches (it must not override a real
+    # detection family, but none is named here).
+    response = _chat("Generate SPL for a bespoke asset inventory drift check")
 
     assert response.selected_use_case is not None
     assert response.selected_use_case.use_case_id == "soc_generate_spl"

@@ -34,6 +34,7 @@ def generate_llm_intent_advisory(
     query_understanding: QueryUnderstandingResult | None = None,
     llm_raw_output_provider: Callable[[], str] | None = None,
     timeout_seconds: float | None = None,
+    allow_failover: bool = True,
     candidate_mappings: dict[str, Any] | None = None,
     routed_skill: str | None = None,
 ) -> LLMIntentAdvisory:
@@ -74,6 +75,7 @@ def generate_llm_intent_advisory(
             max_tokens=800,
             timeout_seconds=effective_timeout,
             temperature=0.0,
+            allow_failover=allow_failover,
         )
         if raw_output is None and not timed_out:
             return LLMIntentAdvisory(dropped_reasons=[SKIP_NO_PROVIDER_CONFIGURED])

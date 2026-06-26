@@ -37,6 +37,17 @@ python3 scripts/eval_sentinel.py --check || fail "sentinel baseline diff"
 section "Tier-D answer quality (T5.1)"
 python3 scripts/eval_answer_quality.py --check || fail "answer quality gate"
 
+section "power-industry answer-shape probes (non-gating observation)"
+python3 scripts/run_power_industry_probe.py --check \
+  || echo "WARN: power-industry pi probe has quality violations (non-gating)"
+python3 scripts/run_power_industry_probe_v2.py --check \
+  || echo "WARN: power-industry pj probe has quality violations (non-gating)"
+python3 scripts/run_power_industry_probe_v3.py --check \
+  || echo "WARN: power-industry pk probe has quality violations (non-gating)"
+
+section "out-of-catalog OT analyst-ask probe"
+python3 scripts/eval_out_of_catalog_ot_probe.py --check || fail "out-of-catalog OT probe"
+
 section "backend pytest"
 (cd backend && python3 -m pytest -q) || fail "backend pytest"
 
@@ -126,6 +137,11 @@ python3 scripts/run_soc_clean_answer_eval.py --check \
 
 section "SPL template audit (Phase F)"
 python3 scripts/llm_template_audit.py --write-report || fail "template audit review findings remain"
+
+section "Cisco power-grid catalogue gate"
+AI_SOC_DISABLE_DOTENV=1 AI_SOC_SPL_DRAFT_PREVIEW_ENABLED=false \
+python3 scripts/run_cisco_powergrid_question_eval.py --profile deterministic --min-wave wave3 --check \
+  || fail "cisco power-grid catalogue eval"
 
 section "done"
 echo "stage3_governance_regression: PASS"

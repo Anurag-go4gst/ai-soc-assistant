@@ -179,6 +179,27 @@ def clarification_route(query: str) -> dict[str, Any]:
     }
 
 
+def _advisory_promotion_blocked(
+    query: str,
+    understanding: QueryUnderstandingResult | None,
+) -> tuple[bool, str | None]:
+    """Return (blocked, guard_check_name) when LLM advisory must not override deterministic route."""
+    from app.chat.query_signals import extract_query_signals
+    from app.query_understanding.soc_investigation_shape import is_unsafe_execution
+
+    normalized = " ".join(query.lower().split())
+    if is_unsafe_execution(normalized):
+        return True, "unsafe_execution_blocks_advisory_promotion"
+    signals = extract_query_signals(query, understanding)
+    if signals.get("block_or_contain"):
+        return True, "destructive_action_blocks_advisory_promotion"
+    if signals.get("explicit_run_spl"):
+        return True, "explicit_run_spl_blocks_advisory_promotion"
+    return False, None
+
+
+
+
 def normalize_assisted_selection(
     *,
     query: str,
@@ -217,8 +238,17 @@ def normalize_assisted_selection(
         advisory.warnings.append(f"unknown_llm_question_ref_rejected:{llm_question_ref}")
         guard_checks.append("unknown_llm_question_ref_rejected")
 
+    # Safety invariant: an LLM advisory candidate must never override the
+    # deterministic route when the query is unsafe-execution or destructive-action
+    # shaped (e.g. eff.072 password-exfil SPL run-now, eff.098 firewall-rule wipe).
+    # Deterministic authority wins; the request stays on its refusal / knowledge
+    # route rather than being promoted to an SPL/investigation skill.
+    promotion_blocked, promotion_guard = _advisory_promotion_blocked(query, understanding)
+    if promotion_guard:
+        guard_checks.append(promotion_guard)
+
     validated = _validated_llm_route_candidate(advisory)
-    if deterministic_uncertain and validated:
+    if deterministic_uncertain and validated and not promotion_blocked:
         selected = {
             "skill": validated["skill"],
             "tool_plan": _tool_plan_for_skill(validated["skill"]),
@@ -350,17 +380,35 @@ def _normalize_evidence_need(item: dict[str, Any], advisory: LLMSemanticAdvisory
     ).__dict__
 
 
+
+def _registry_paraphrase_authoritative(understanding: Any) -> bool:
+    """Question-runtime paraphrase rows with a mapped ref are registry-authoritative."""
+    path = getattr(understanding, "deterministic_match_path", "")
+    if path not in {"semantic_105_question", "near_105_question"}:
+        return False
+    question_ref = getattr(understanding, "mapped_question_ref", None)
+    if not isinstance(question_ref, str) or not question_ref.strip():
+        return False
+    score = getattr(understanding, "question_registry_match_score", None)
+    return score is None or float(score) >= 0.75
+
+
+
 def _deterministic_uncertain(deterministic: dict[str, Any], understanding: Any) -> bool:
     match_path = getattr(understanding, "deterministic_match_path", "")
+    low_confidence = float(deterministic.get("confidence", 0.0)) < 0.70
+    needs_clarification = deterministic.get("tool_plan") == ["needs_clarification"]
+    if _registry_paraphrase_authoritative(understanding):
+        return low_confidence or needs_clarification
     if match_path in {"exact_105_question", "exact_105_plus_use_case_catalog", "use_case_catalog"}:
         return (
-            float(deterministic.get("confidence", 0.0)) < 0.70
-            or deterministic.get("tool_plan") == ["needs_clarification"]
+            low_confidence
+            or needs_clarification
             or getattr(understanding, "llm_advisory_recommended", False)
         )
     return (
-        float(deterministic.get("confidence", 0.0)) < 0.70
-        or deterministic.get("tool_plan") == ["needs_clarification"]
+        low_confidence
+        or needs_clarification
         or getattr(understanding, "llm_advisory_recommended", False)
         or match_path in {"near_105_question", "out_of_registry"}
     )

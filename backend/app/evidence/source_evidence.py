@@ -7,12 +7,64 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.knowledge.soc_kb_retriever import soc_kb_source_evidence
+from app.safeguards.evidence_sanitizer import redact_secret_values
 from app.safeguards.mcp_result_safeguard import scan_mcp_preview_rows
 
 SOURCE_PREVIEW_CAP = 5
 FIELD_CAP = 40
 VALUE_CAP = 240
 SENSITIVE_PATTERNS = re.compile(r"(password|passwd|secret|token|api[_-]?key|credential|authorization)", re.IGNORECASE)
+
+
+def build_source_evidence_refs(
+    *,
+    trace_id: str,
+    query: str,
+    selected_skill: str,
+    spl_validation: dict[str, Any] | None,
+    execution: dict[str, Any],
+    soc_kb_retrieval: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Collected live/RAG/MCP rows only — no skipped splunk_mcp placeholders."""
+    return build_source_evidence(
+        trace_id=trace_id,
+        query=query,
+        selected_skill=selected_skill,
+        spl_validation=spl_validation,
+        execution=execution,
+        soc_kb_retrieval=soc_kb_retrieval,
+        include_skipped_mcp_placeholder=False,
+    )
+
+
+def build_candidate_artifact_refs(
+    *,
+    trace_id: str,
+    spl_validation: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None = None,
+    severity_decision: Any | None = None,
+) -> list[str]:
+    """Metadata-only artifact refs (SPL validation, candidate SPL, severity)."""
+    refs: list[str] = []
+    if isinstance(spl_validation, dict):
+        template_id = spl_validation.get("template_id")
+        if template_id:
+            refs.append(f"spl_validation:{template_id}")
+        elif spl_validation.get("normalized_spl"):
+            refs.append("spl_validation:normalized")
+        elif spl_validation.get("reject_reasons"):
+            refs.append("spl_validation:rejected")
+    if isinstance(candidate_spl, dict) and str(candidate_spl.get("candidate_spl") or "").strip():
+        mode = str(candidate_spl.get("generation_mode") or "candidate")
+        refs.append(f"candidate_spl:{mode}")
+    if severity_decision is not None:
+        label = getattr(severity_decision, "severity_label", None)
+        if label:
+            refs.append(f"severity:{label}")
+    if not refs:
+        return []
+    stable = f"{trace_id}:candidate_artifacts:{':'.join(refs)}"
+    return [f"artifact_{hashlib.sha256(stable.encode('utf-8')).hexdigest()[:16]}"]
 
 
 def build_source_evidence(
@@ -23,6 +75,7 @@ def build_source_evidence(
     spl_validation: dict[str, Any] | None,
     execution: dict[str, Any],
     soc_kb_retrieval: dict[str, Any] | None = None,
+    include_skipped_mcp_placeholder: bool = True,
 ) -> list[dict[str, Any]]:
     evidence: list[dict[str, Any]] = []
     if soc_kb_retrieval is not None and soc_kb_retrieval.get("retrieval_status") != "disabled":
@@ -61,46 +114,47 @@ def build_source_evidence(
         return evidence
 
     status = str(execution.get("status") or "skipped")
-    rows, fields, envelope_warnings = _preview_from_execution(execution)
-    rows, injection_flags, injection_warnings = scan_mcp_preview_rows(rows)
-    sensitivity_flags = sorted(set(_sensitivity_flags(rows, fields) + injection_flags))
-    if injection_warnings:
-        envelope_warnings = [*envelope_warnings, *injection_warnings]
-    raw_result_hash = _raw_hash(rows) if rows else None
     collection_status = _collection_status(status)
-    warnings: list[str] = list(envelope_warnings)
-    if execution.get("block_reason"):
-        warnings.append(str(execution["block_reason"])[:VALUE_CAP])
-    if spl_validation.get("warnings"):
-        warnings.extend(str(item)[:VALUE_CAP] for item in spl_validation.get("warnings", []))
-    result_count = int(execution.get("result_count") or 0)
-    if status == "executed" and result_count == 0:
-        warnings.append("execution_completed_zero_rows")
+    if collection_status != "skipped" or include_skipped_mcp_placeholder:
+        rows, fields, envelope_warnings = _preview_from_execution(execution)
+        rows, injection_flags, injection_warnings = scan_mcp_preview_rows(rows)
+        sensitivity_flags = sorted(set(_sensitivity_flags(rows, fields) + injection_flags))
+        if injection_warnings:
+            envelope_warnings = [*envelope_warnings, *injection_warnings]
+        raw_result_hash = _raw_hash(rows) if rows else None
+        warnings: list[str] = list(envelope_warnings)
+        if execution.get("block_reason"):
+            warnings.append(str(execution["block_reason"])[:VALUE_CAP])
+        if spl_validation.get("warnings"):
+            warnings.extend(str(item)[:VALUE_CAP] for item in spl_validation.get("warnings", []))
+        result_count = int(execution.get("result_count") or 0)
+        if status == "executed" and result_count == 0:
+            warnings.append("execution_completed_zero_rows")
 
-    evidence.append(
-        _evidence(
-            trace_id=trace_id,
-            source_type="splunk_mcp",
-            source_name=str(execution.get("selected_mcp_server") or "mcp_splunk"),
-            tool_name=execution.get("selected_mcp_tool"),
-            collection_status=collection_status,
-            query_or_request_summary=_request_summary(selected_skill, query, execution),
-            executed_spl=execution.get("executed_spl"),
-            result_count=result_count,
-            execution_outcome="negative_result" if status == "executed" and result_count == 0 else None,
-            fields_returned=fields,
-            preview_rows=rows,
-            raw_result_hash=raw_result_hash,
-            raw_result_stored=False,
-            time_range=_time_range(spl_validation.get("normalized_spl")),
-            warnings=warnings,
-            sensitivity_flags=sensitivity_flags,
-            tool_category=_tool_category(execution.get("selected_mcp_tool")),
-            provider_used="splunk_run_query" if execution.get("executed_spl") else None,
-            saved_search_name=execution.get("saved_search_name"),
-            provenance="ai_soc_validated_execution_gate",
+        evidence.append(
+            _evidence(
+                trace_id=trace_id,
+                source_type="splunk_mcp",
+                source_name=str(execution.get("selected_mcp_server") or "mcp_splunk"),
+                tool_name=execution.get("selected_mcp_tool"),
+                collection_status=collection_status,
+                query_or_request_summary=_request_summary(selected_skill, query, execution),
+                executed_spl=execution.get("executed_spl"),
+                result_count=result_count,
+                execution_outcome="negative_result" if status == "executed" and result_count == 0 else None,
+                fields_returned=fields,
+                preview_rows=rows,
+                raw_result_hash=raw_result_hash,
+                raw_result_stored=False,
+                time_range=_time_range(spl_validation.get("normalized_spl")),
+                warnings=warnings,
+                sensitivity_flags=sensitivity_flags,
+                tool_category=_tool_category(execution.get("selected_mcp_tool")),
+                provider_used="splunk_run_query" if execution.get("executed_spl") else None,
+                saved_search_name=execution.get("saved_search_name"),
+                provenance="ai_soc_validated_execution_gate",
+            )
         )
-    )
 
     # O5c Step 2: per-call evidence. On a completed broaden turn the singular
     # `execution` above is the broadened (c2) search; emit a separate honest
@@ -247,8 +301,112 @@ def _evidence(
 _PLAN_STEP_REF_BY_SOURCE_TYPE = {
     "splunk_mcp": "mcp",
     "splunk_mcp_saia": "spl",
+    "mcp_discovery": "mcp",
     "rag": "rag",
 }
+
+
+def mcp_loop_source_evidence(
+    trace_id: str,
+    mcp_evidence: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Stage 4B phase 6: map accumulated loop hops into governed source_evidence."""
+    items: list[dict[str, Any]] = []
+    for index, hop in enumerate(mcp_evidence):
+        if not isinstance(hop, dict):
+            continue
+        tool = str(hop.get("tool") or "unknown_mcp_tool")
+        if tool == "splunk_run_query":
+            # The gated execution node owns run_query evidence; skip duplicate hop rows.
+            continue
+        outcome = str(hop.get("outcome") or "unknown")
+        delivered = [str(item) for item in (hop.get("delivered") or [])]
+        payload = hop.get("payload") if isinstance(hop.get("payload"), dict) else {}
+        payload_rows = payload.get("preview_rows")
+        if isinstance(payload_rows, list) and payload_rows:
+            rows = _safe_rows([dict(row) for row in payload_rows if isinstance(row, dict)])
+        else:
+            rows = _mcp_hop_preview_rows(tool=tool, delivered=delivered, outcome=outcome)
+        warnings: list[str] = []
+        if outcome == "planned":
+            warnings.append("discovery_hop_planned_only")
+        if payload.get("read_only"):
+            warnings.append("read_only_discovery_hop")
+        collection_status = _mcp_hop_collection_status(outcome)
+        items.append(
+            _evidence(
+                trace_id=trace_id,
+                source_type="mcp_discovery",
+                source_name=tool,
+                tool_name=tool,
+                collection_status=collection_status,
+                query_or_request_summary=_safe_text(
+                    f"discovery_hop:{tool}:delivered={','.join(delivered) or 'none'}",
+                    300,
+                ),
+                result_count=len(delivered) if delivered else 0,
+                fields_returned=_fields_returned(rows),
+                preview_rows=rows,
+                warnings=warnings,
+                tool_category="discovery",
+                provenance="stage_4b_evidence_loop",
+                execution_outcome=outcome if outcome != "collected" else None,
+            )
+        )
+        # Distinct evidence_id per hop even when the same tool repeats.
+        items[-1]["evidence_id"] = _mcp_hop_evidence_id(trace_id, tool, index, outcome)
+    return items
+
+
+def append_mcp_loop_source_evidence(
+    evidence: list[dict[str, Any]],
+    *,
+    trace_id: str,
+    mcp_evidence: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    if not mcp_evidence:
+        return evidence
+    loop_items = mcp_loop_source_evidence(trace_id, mcp_evidence)
+    if not loop_items:
+        return evidence
+    return [*evidence, *loop_items]
+
+
+def _mcp_hop_collection_status(outcome: str) -> str:
+    if outcome == "collected":
+        return "collected"
+    if outcome == "planned":
+        return "planned"
+    if outcome in {"blocked", "requires_human_review"}:
+        return "blocked"
+    if outcome == "failed":
+        return "failed"
+    return "skipped"
+
+
+def _mcp_hop_preview_rows(*, tool: str, delivered: list[str], outcome: str) -> list[dict[str, Any]]:
+    if delivered:
+        return [
+            {
+                "produce_key": produce,
+                "discovery_status": outcome,
+                "tool": tool,
+                "derivation": "stage_4b_evidence_loop",
+            }
+            for produce in delivered[:SOURCE_PREVIEW_CAP]
+        ]
+    return [
+        {
+            "tool": tool,
+            "discovery_status": outcome,
+            "derivation": "stage_4b_evidence_loop",
+        }
+    ]
+
+
+def _mcp_hop_evidence_id(trace_id: str, tool: str, index: int, outcome: str) -> str:
+    stable = f"{trace_id}:mcp_discovery:{tool}:{index}:{outcome}"
+    return f"ev_{hashlib.sha256(stable.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _collection_status(execution_status: str) -> str:
@@ -282,13 +440,11 @@ def _preview_from_execution(
     envelope_data = execution.get("splunk_result_envelope")
     if isinstance(envelope_data, dict):
         raw_rows = envelope_data.get("rows")
-        if isinstance(raw_rows, list):
-            rows = [dict(row) for row in raw_rows[:SOURCE_PREVIEW_CAP] if isinstance(row, dict)]
-        else:
-            rows = []
-        fields = [str(item) for item in envelope_data.get("fields", []) if item is not None][:FIELD_CAP]
-        if not fields:
-            fields = _fields_returned(rows)
+        # Live executed-search rows arrive on the envelope; route them through
+        # _safe_rows so secret values are redacted like the legacy preview path
+        # (the envelope path must not bypass the sanitizer).
+        rows = _safe_rows(raw_rows if isinstance(raw_rows, list) else [])
+        fields = _fields_returned(rows)
         envelope_warnings = [
             str(item)[:VALUE_CAP]
             for item in envelope_data.get("warnings", [])
@@ -321,7 +477,8 @@ def _safe_value(value: Any) -> Any:
 
 
 def _safe_text(value: str, max_len: int) -> str:
-    return SENSITIVE_PATTERNS.sub("[redacted]", value).replace("\n", " ")[:max_len]
+    masked = redact_secret_values(SENSITIVE_PATTERNS.sub("[redacted]", value))
+    return masked.replace("\n", " ")[:max_len]
 
 
 def _summarize(query: str) -> str:

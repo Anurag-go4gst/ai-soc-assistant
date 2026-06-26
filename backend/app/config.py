@@ -1,10 +1,21 @@
+import os
+import sys
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# ``env_file`` is resolved relative to the current working directory, so running
+# pytest from the repo root would load the all-on production ``.env`` and flip
+# default-off flags, breaking tests that assert default posture. Under pytest we
+# ignore ``.env`` entirely so the suite is deterministic regardless of CWD. Set
+# ``AI_SOC_DISABLE_DOTENV=1`` to force the same behavior outside pytest.
+_DISABLE_DOTENV = "pytest" in sys.modules or os.getenv("AI_SOC_DISABLE_DOTENV") == "1"
+_ENV_FILE: str | None = None if _DISABLE_DOTENV else ".env"
 
 
 # Telemetry sink values that are wired up today. ``splunk`` and ``both`` are
 # reserved for a future Splunk telemetry connector; until that connector
 # lands the config layer rejects them at startup (see ``_validate``).
-SUPPORTED_TELEMETRY_SINKS: tuple[str, ...] = ("db", "none")
+SUPPORTED_TELEMETRY_SINKS: tuple[str, ...] = ("db", "file", "none")
 PLANNED_TELEMETRY_SINKS: tuple[str, ...] = ("splunk", "both")
 
 # Governed LLM layer modes (Stage 3J-B). No mode triggers a real LLM call yet.
@@ -62,6 +73,7 @@ class Settings(BaseSettings):
     splunk_allowed_saia_tools: str = "saia_generate_spl,saia_explain_spl,saia_optimize_spl,saia_ask_splunk_question"
     splunk_mcp_base_url: str = ""
     splunk_mcp_token: str = ""
+    ai_soc_mcp_connection_store_path: str = ""
     llm_enabled: bool = False
     foundation_sec_instruct_url: str = ""
     foundation_sec_reasoning_url: str = ""
@@ -69,6 +81,11 @@ class Settings(BaseSettings):
     routing_mode: str = "llm_assisted_semantic"
     routing_lab_llm_primary_enabled: bool = False
     debug_trace_enabled: bool = True
+    ai_soc_debug_api_enabled: bool = True
+    ai_soc_debug_api_user_allowlist: str = ""
+    ai_soc_debug_api_allow_any_authenticated: bool = False
+    app_auth_role: str = "demo_analyst"
+    app_auth_users_path: str = ""
     routing_deterministic_threshold: float = 0.70
     routing_llm_shadow_enabled: bool = True
 
@@ -88,6 +105,22 @@ class Settings(BaseSettings):
     ioc_registry_path: str = ""
     detection_registry_enabled: bool = False
     detection_registry_path: str = ""
+    # WS-G offline ATT&CK/ATLAS STIX resolver (plan §15). Default-off, fail-closed:
+    # unset/missing path -> resolver returns None (no names), exactly as today. These
+    # are path vars, not a posture flag; MCP-execution + all-on SOC posture unchanged.
+    ai_soc_attack_stix_path: str = ""
+    ai_soc_atlas_stix_path: str = ""
+    # WS-G offline ATT&CK Excel + ATLAS YAML resolver (the vendored, zero-extra-dep
+    # backend; preferred over STIX when present). Default to the vendored repo paths;
+    # missing file -> resolver returns None, fail-closed. Path vars, not posture flags.
+    ai_soc_attack_xlsx_path: str = "docs/evals/enterprise-attack-v19.1.xlsx"
+    ai_soc_atlas_yaml_path: str = "docs/threat-intel/atlas/raw/ATLAS.yaml"
+    # WS-A CVE snapshot read model (plan §3 A5). Default-off, fail-closed.
+    ai_soc_cve_snapshot_dir: str = ""
+    ai_soc_cve_snapshot_stale_after_days: int = 30
+    # NVD API key for the connected-zone CVE snapshot builder (operator tooling only;
+    # never used by the air-gapped runtime). Registered so the .env value loads cleanly.
+    nvd_api_key: str = ""
     routing_compare_logging_enabled: bool = True
     # Stage 3L-S3 Steps 1–2: shadow compare envelope only (no route authority change).
     route_authority_compare_enabled: bool = True
@@ -178,7 +211,22 @@ class Settings(BaseSettings):
     ai_soc_llm_airgap_enforced: bool = False
     ai_soc_llm_default_provider: str = ""
     ai_soc_llm_default_model: str = ""
+    # Direct-LLM lab model selection (advisory/display only — does NOT hot-swap the
+    # llama-server, which loads the model pinned in its systemd unit). The active
+    # label and the comma-separated allowlist are surfaced by the Ask LLM page so an
+    # operator can record/see the intended target.
+    ai_soc_llm_active_model: str = "foundation-sec-1.1-8b-instruct-q8_0"
+    ai_soc_llm_available_models: str = "foundation-sec-1.1-8b-instruct-q8_0"
+    # Optional path for the UI-editable LLM connection override store (api key
+    # included → keep off git). Blank = backend/data/llm_connection.json.
+    ai_soc_llm_connection_store_path: str = ""
     ai_soc_llm_timeout_seconds: int = 30
+    # Protected wall-time reserve for the intent advisor hop (not the full sidecar timeout).
+    ai_soc_llm_intent_advisor_reserve_seconds: float = 12.0
+    # Wall-clock ceiling for all blocking LLM calls on a single /chat turn. Caps the
+    # stacked-sidecar latency on the slow on-prem model so a turn cannot hang 70-160s;
+    # the deterministic answer always ships. 0 disables the gate.
+    ai_soc_llm_turn_deadline_seconds: float = 75.0
     ai_soc_llm_max_input_tokens: int = 8000
     ai_soc_llm_max_output_tokens: int = 1024
     ai_soc_llm_temperature: float = 0.2
@@ -205,6 +253,12 @@ class Settings(BaseSettings):
     ai_soc_spl_template_governance_enabled: bool = False
     # Lab-only SPL draft preview when governed template/source profile is unavailable. Default off.
     ai_soc_spl_draft_preview_enabled: bool = False
+    # T2 answer-shape router + signal-class guidance (WS-0/WS-1). Default off.
+    ai_soc_t2_answer_shape_enabled: bool = False
+    # T2 answer surfacing — expose SPL drafts in analyst card (WS-2). Default off.
+    ai_soc_t2_answer_surfacing_enabled: bool = False
+    # T2 RAG/playbook surfacing — render SOC-KB steps on knowledge turns (WS-7a). Default off.
+    ai_soc_t2_rag_surfacing_enabled: bool = False
     # Phase 4/5: curated enrichment activation for runtime evidence/planner paths. Default off.
     ai_soc_curated_enrichment_activation_enabled: bool = False
     ai_soc_llm_reasoning_provider: str = ""
@@ -221,6 +275,7 @@ class Settings(BaseSettings):
     ai_soc_source_profile_map: str = ""
     # Persisted COE source profile map (Settings UI). Empty = backend/data/source_profile_map.json
     ai_soc_source_profile_store_path: str = ""
+    ai_soc_asset_registry_store_path: str = ""
     ai_soc_llm_template_match_provider: str = ""
     ai_soc_llm_template_match_model: str = ""
     ai_soc_llm_template_render_provider: str = ""
@@ -248,6 +303,13 @@ class Settings(BaseSettings):
     ai_soc_llm_local_base_url: str = ""
     ai_soc_llm_local_api_key: str = ""
     ai_soc_llm_local_model: str = ""
+    # Operator LLM service control from the UI/API. The backend runs in Docker and
+    # cannot ``systemctl`` the host llama-server directly: when enabled, a control
+    # request is written as a sentinel file into ``ai_soc_llm_control_dir`` (a shared
+    # volume) and a host watcher (``scripts/llm_control_watcher.py``) applies it.
+    # Default OFF — this is a privileged control surface.
+    ai_soc_llm_control_enabled: bool = False
+    ai_soc_llm_control_dir: str = ""
     # COE Qwen 2.5 72B — prepended to the failover chain when true and QWEN_* are set.
     # Default false: dev/staging uses LOCAL_* (Foundation-Sec) + Instruct failover only.
     ai_soc_llm_qwen_primary_enabled: bool = False
@@ -307,23 +369,29 @@ class Settings(BaseSettings):
     spl_default_latest: str = "now"
     spl_max_result_limit: int = 100
     spl_allowed_commands: str = (
-        "search,stats,where,table,fields,sort,dedup,rename,eval,timechart,bin,head,streamstats"
+        "search,stats,where,table,fields,sort,dedup,rename,eval,timechart,bin,bucket,head,streamstats,iplocation,mvexpand"
     )
     spl_blocked_commands: str = "delete,collect,outputlookup,sendemail,script,map,rest,loadjob,inputlookup"
+    spl_allowed_lookups: str = ""
+    spl_allow_join_in_governed_templates: bool = False
+    spl_allow_transaction_in_governed_templates: bool = False
 
     # ``ai_soc_telemetry_sink`` is the AI-SOC product's own telemetry sink
     # selector (not a Splunk product setting). Supported today: ``db`` (writes
-    # to Postgres) and ``none`` (disables telemetry). ``splunk`` and ``both``
-    # are planned and will fail fast at startup until the Splunk telemetry
-    # connector is implemented.
+    # to Postgres), ``file`` (append-only NDJSON under ``ai_soc_telemetry_file_dir``
+    # for air-gapped deployments without Postgres), and ``none`` (disables
+    # telemetry). ``splunk`` and ``both`` are planned and will fail fast at
+    # startup until the Splunk telemetry connector is implemented.
     ai_soc_telemetry_sink: str = "db"
+    # Directory for the ``file`` telemetry sink. One NDJSON file per UTC day.
+    ai_soc_telemetry_file_dir: str = "telemetry_logs"
 
     app_auth_enabled: bool = True
     app_auth_user: str = "analyst"
     app_auth_password: str = ""
     app_auth_session_secret: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8")
 
 
 def _validate(s: Settings) -> Settings:

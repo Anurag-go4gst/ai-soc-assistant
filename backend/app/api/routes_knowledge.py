@@ -27,6 +27,8 @@ from app.knowledge.mapping_exports import (
     build_proposed_use_cases_export_payload,
     build_skill_enrichment_status_export_payload,
     build_mapping_summary,
+    build_detection_coverage,
+    build_atlas_coverage_gap,
     build_soc_capability_crosswalk_export_payload,
     build_skill_coverage_export_payload,
     github_intake_csv_rows,
@@ -181,6 +183,16 @@ def test_retrieval(
 @router.get("/knowledge/mapping-summary")
 def knowledge_mapping_summary() -> dict[str, Any]:
     return build_mapping_summary()
+
+
+@router.get("/knowledge/detection-coverage")
+def knowledge_detection_coverage() -> dict[str, Any]:
+    return build_detection_coverage()
+
+
+@router.get("/knowledge/atlas-coverage")
+def knowledge_atlas_coverage() -> dict[str, Any]:
+    return build_atlas_coverage_gap()
 
 
 @router.get("/knowledge/exports/{artifact}")

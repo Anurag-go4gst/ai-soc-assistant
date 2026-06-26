@@ -46,6 +46,32 @@ def scrub_blocked_context_display_phrasing(text: str) -> str:
     )
 
 
+def scrub_ec_analyst_visible_phrasing(text: str) -> str:
+    """Scrub Experience Center analyst-visible prose of banned fixture/internal terms."""
+    if not text:
+        return text
+    scrubbed = scrub_blocked_context_display_phrasing(text)
+    replacements = (
+        ("not governed, not approved, not executed", "not governed, not approved, not performed"),
+        ("was not executed", "was not performed"),
+        ("and was not executed", "and was not performed"),
+        ("not executed", "not performed"),
+        ("is not executed", "is not performed"),
+        ("Review only — not executed", "Review only — not performed"),
+        ("Review only - not executed", "Review only - not performed"),
+        ("MCP execution disabled", "MCP execution not performed"),
+        ("execution disabled", "execution not performed"),
+        ("synthetic fixture", "fixture calibration"),
+        ("synthetic", "calibrated"),
+        ("containment status", "response status"),
+        ("severity, MITRE, containment, or escalation", "severity, MITRE, escalation, or response coordination"),
+        ("before severity or containment", "before severity or escalation"),
+    )
+    for old, new in replacements:
+        scrubbed = scrubbed.replace(old, new)
+    return scrubbed
+
+
 def scrub_blocked_context_text_list(values: list[str] | None) -> list[str]:
     if not values:
         return []
@@ -53,8 +79,9 @@ def scrub_blocked_context_text_list(values: list[str] | None) -> list[str]:
 
 
 def is_mitre_evidence_threshold_query(query: str) -> bool:
-    normalized = " ".join(query.lower().split())
-    return bool(normalized and _MITRE_EVIDENCE_THRESHOLD.search(normalized))
+    from app.chat.query_signals import extract_query_signals
+
+    return bool(extract_query_signals(query).get("mitre_evidence_threshold"))
 
 
 def is_conceptual_mitre_confirm_query(query: str) -> bool:
@@ -82,6 +109,34 @@ def is_conceptual_mitre_confirm_query(query: str) -> bool:
     return False
 
 
+
+
+def build_cve_investigation_guidance(query: str) -> str:
+    """Review-only CVE advisory investigation without live scanning."""
+    cve_ids = sorted({m.upper() for m in re.findall(r"CVE-\d{4}-\d{4,7}", query or "", flags=re.I)})
+    cve_line = ", ".join(cve_ids) if cve_ids else "the referenced CVE"
+    return (
+        f"CVE investigation (review-only) — {cve_line}\n\n"
+        "What you can confirm from current logs (no live scanning)\n"
+        "- Installed package/version rows for affected software on in-scope hosts.\n"
+        "- Exposure signals: listening services, auth success/failure, and change events near patch windows.\n"
+        "- Whether compensating controls (segmentation, WAF, disabled feature) are recorded.\n\n"
+        "Evidence still missing before impact claims\n"
+        "- Authoritative asset inventory mapping hosts to OpenSSH/package versions.\n"
+        "- Vulnerability scanner or CMDB proof of patch level for the advisory.\n"
+        "- Exploit attempt or post-exploit telemetry tied to the CVE (not assumed).\n\n"
+        "vulnerability_source: review snapshot/onboarding status before correlating unpatched findings.\n"
+        "No Splunk search or MCP execution was performed; conclusions remain candidate-only."
+    )
+
+
+_MITRE_STATUS_LABEL_BLOCK = (
+    "MITRE status labels (review-only)\n"
+    "- Confirmed: corroborated telemetry across independent sources in the alert window.\n"
+    "- Candidate: plausible technique mapping pending required evidence.\n"
+    "- Not-claimed: insufficient evidence from this question alone.\n"
+)
+
 def build_mitre_evidence_threshold_guidance(query: str) -> str:
     """Evidence preconditions for MITRE/beaconing declarations — checklist-first, no confirmation."""
     normalized = " ".join(query.lower().split())
@@ -106,9 +161,18 @@ def build_mitre_evidence_threshold_guidance(query: str) -> str:
             "Build a timeline before declaring technique-level conclusions.",
         ]
     items = "\n".join(f"- {item}" for item in checklist)
+    if "ics" in normalized or "ot " in normalized or "remote command" in normalized:
+        checklist = [
+            "Map the OT remote-command sequence to candidate ICS techniques only.",
+            "Collect protocol logs, engineering workstation context, and change tickets.",
+            "Require independent corroboration before any confirmed technique label.",
+            "Document missing telemetry before severity or containment language.",
+        ]
+        items = "\n".join(f"- {item}" for item in checklist)
     return (
         "Do not declare the activity confirmed from this question alone. "
         "Required evidence preconditions must be met first.\n\n"
+        f"{_MITRE_STATUS_LABEL_BLOCK}\n"
         f"SOC review checklist:\n\n{items}"
     )
 
@@ -174,10 +238,43 @@ def build_investigation_triage_guidance(query: str) -> str:
     return f"SOC review checklist:\n\n{items}"
 
 
+
+
+def build_github_investigation_guidance(query: str) -> str:
+    """Review-only GitHub PAT/workflow/commit investigation guidance."""
+    _ = query
+    return (
+        "GitHub investigation (review-only)\n\n"
+        "Required evidence (collect before conclusions)\n"
+        "- Actor / username: map the PAT or OAuth identity to a GitHub username and org/repo membership.\n"
+        "- Token type / PAT provenance: token scope, creation time, last use, and rotation/revocation status.\n"
+        "- Commit SHA / timeline: commit SHAs, authors, and push times in the requested window.\n"
+        "- Workflow file / diff: review changed .github/workflows paths, job definitions, and secret references.\n"
+        "- Audit log events: repo.push, workflow_dispatch, oauth_access, and git.push for the actor.\n\n"
+        "Investigation branches\n"
+        "- Leaked or over-scoped PAT used outside the owner's normal pattern.\n"
+        "- Compromised maintainer account pushing workflow or secret changes.\n"
+        "- Legitimate automation or vendor integration misread as misuse.\n\n"
+        "Containment (review-only)\n"
+        "- Revoke or rotate suspect PATs and narrow scopes; pause affected workflows until validated.\n"
+        "- Require analyst approval before re-enabling workflows or merging further changes.\n\n"
+        "Governance: candidate-only conclusions; no confirmed MITRE technique or severity; "
+        "no Splunk search or MCP execution was performed; candidate conclusions only (not eligible for execution)."
+    )
+
 def build_guided_investigation_guidance(query: str, entities: dict | None = None) -> str:
     """Review-only hunt guidance for out-of-registry SOC investigation shapes."""
+    from app.chat.signal_class_guidance import build_signal_class_guidance, classify_signal_class
+
+    if classify_signal_class(query, entities) != "unknown":
+        return build_signal_class_guidance(query, entities)
+
+    from app.config import settings
+
+    if settings.ai_soc_t2_answer_shape_enabled:
+        return build_signal_class_guidance(query, entities)
+
     normalized = " ".join(query.lower().split())
-    _ = entities
     if any(term in normalized for term in ("ot", "scada", "chatter", "new external", "overnight")):
         hypotheses = [
             "Approved vendor or maintenance communication changed.",
@@ -207,7 +304,7 @@ def build_guided_investigation_guidance(query: str, entities: dict | None = None
         + "\n\nEvidence to collect\n- "
         + "\n- ".join(evidence)
         + "\n\nNext steps\n- Validate scope and time window.\n- Check existing detections and local playbooks."
-        "\n- Corroborate before severity, MITRE, containment, or escalation decisions."
+        "\n- Corroborate before severity, MITRE, escalation, or response coordination decisions."
         "\n\nLimitations: no live query was run; no MITRE technique or incident severity is claimed."
     )
 

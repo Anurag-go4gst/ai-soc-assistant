@@ -34,7 +34,7 @@ from app.spl.template_registry import load_spl_templates  # noqa: E402
 def _active_templates() -> list[dict[str, Any]]:
     templates: list[dict[str, Any]] = []
     for template in load_spl_templates():
-        if template.status != "active" or not (template.spl_text or "").strip():
+        if template.status != "active" or template.enabled is False or not (template.spl_text or "").strip():
             continue
         templates.append(template.model_dump())
     return templates

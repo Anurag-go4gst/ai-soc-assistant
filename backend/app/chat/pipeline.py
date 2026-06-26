@@ -1,18 +1,23 @@
 from __future__ import annotations
 
+import logging
 import re
+import time
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any, TypedDict
 from uuid import uuid4
 
 from app.config import settings
 from app.connectors.telemetry import get_telemetry_connector
+from app.connectors.telemetry import metrics as _telemetry_metrics
+from app.connectors.telemetry.log_context import current_trace_id, reset_trace_id, set_trace_id
 from app.actions.capability_policy import action_capability_for
 from app.chat.analyst_response_builder import build_analyst_response_for_live
 from app.answer_guard.models import AnswerGuardStatus
 from app.evidence.context_structurer import structure_context
 from app.evidence.context_sufficiency import check_context_sufficiency
-from app.evidence.source_evidence import build_source_evidence
+from app.evidence.source_evidence import append_mcp_loop_source_evidence, build_source_evidence
 from app.knowledge.rag_evidence_lineage import resolve_answer_readiness, resolve_response_evidence_origin
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.lineage.builder import build_investigation_lineage
@@ -39,6 +44,7 @@ from app.routing.intent_operation_bridge_shadow import apply_intent_operation_br
 from app.coverage.question_runtime_map_shadow import apply_question_runtime_map_to_shadow
 from app.routing.precondition_evaluation_shadow import apply_precondition_evaluation_to_shadow
 from app.routing.route_authority_compare import apply_route_authority_compare_to_shadow
+from app.routing.route_authority_apply import project_compare_for_display
 from app.routing.registry_route_authority import resolve_effective_routing_skill
 from app.routing.route_adjudication import adjudicate_route as adjudicate_control_plane_route
 from app.routing.llm_plan_validator import (
@@ -51,7 +57,11 @@ from app.routing.use_case_registry_bridge import build_use_case_registry_bridge
 from app.routing.template_match_shadow import apply_template_match_to_shadow
 from app.synthesis.analyst_summary_llm_assist import apply_analyst_summary_shadow
 from app.governance.trace_panels import build_governance_trace
-from app.risk.severity_policy import apply_analytics_severity_guard, decide_severity
+from app.risk.severity_policy import (
+    apply_analytics_severity_guard,
+    apply_gate_severity_cap,
+    decide_severity,
+)
 from app.safeguards.spl_validator import validate_spl
 from app.safeguards.spl_slot_binding_validator import validate_spl_slot_bindings
 from app.schemas.requests import ChatRequest
@@ -60,15 +70,24 @@ from app.skills.selector import select_skill_chain
 from app.spl.template_registry import QUERY_SHAPE_RAW_SEARCH, get_spl_template, template_summary
 from app.splunk.capabilities import build_splunk_capability_profile
 from app.chat.network_boundary_display import resolve_analyst_use_case_label
+from app.chat.review_only_spl_renderer import apply_review_only_spl_render
 from app.spl.draft_preview import (
     DRAFT_PREVIEW_STATUS_MESSAGE,
     build_draft_preview,
     build_draft_preview_analyst_message,
     candidate_detection_families,
 )
+from app.llm.clients.local_chat_client import LocalChatError
 from app.spl.llm_fallback import generate_llm_spl_fallback
+from app.spl.llm_plan_compiler import generate_llm_spl_via_plan
 from app.spl.spl_relevance_check import check_spl_relevance
+from app.spl.mcp_loop_discovery import execute_loop_discovery_hop
+from app.spl.mcp_source_discovery import run_mcp_source_discovery
+from app.spl.source_profile_resolver import extract_placeholder_slots
 from app.spl.spl_source_resolve import build_spl_source_profile_review, resolve_spl_source_profile
+from app.spl.t2_generation import generate_review_only_spl
+from app.spl.t2_pre_parse import pre_parse_spl_tokens
+from app.spl.runtime_source_profiles import resolve_profile_for_index
 from app.splunk.spl_services import (
     explain_spl,
     generate_candidate_spl_with_provider,
@@ -89,6 +108,7 @@ from app.synthesis.composition_confidence import (
     should_attach_compose_hil,
 )
 from app.synthesis.governed_answer_composer import (
+    GovernedComposerResult,
     build_composer_runtime_status,
     compose_governed_answer,
 )
@@ -104,6 +124,8 @@ from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
 from app.use_cases.content_enrichment import enrichment_spl_governance, enrichment_spl_governance_for_runtime
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
+from app.use_cases.routing_authority import catalog_authority_row
+from app.chat.contracts.run_contract import RouteContract
 from app.chat.evidence_planner import plan_evidence, resolve_analyst_evidence_plan
 from app.planner.executor import (
     DispatchHooks,
@@ -113,22 +135,77 @@ from app.planner.executor import (
 )
 from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
+from app.chat.answer_shape_router import (
+    build_shaped_guidance,
+    build_supply_chain_firmware_guidance,
+    classify_answer_shape,
+    is_supply_chain_firmware_query,
+    should_bypass_shape_router,
+)
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.llm.missing_evidence_reasoner import (
     MissingEvidenceReasonerResult,
     run_missing_evidence_reasoner,
 )
-from app.llm.mitre_risk_rationale import run_mitre_risk_rationale
+from app.llm.mitre_risk_rationale import (
+    MitreRiskRationaleResult,
+    build_deterministic_mitre_rationale,
+    build_deterministic_severity_rationale,
+    run_mitre_risk_rationale,
+)
 from app.planner.resource_plan_shadow import run_resource_plan_shadow
-from app.connectors.mcp.mcp_tool_plan_shadow import run_mcp_tool_plan_shadow
+from app.connectors.mcp.mcp_tool_chronology import deterministic_default_chronology
+from app.connectors.mcp.mcp_tool_planner import plan_tool_chronology
+from app.chat.evidence_loop import (
+    MAX_MCP_HOPS,
+    ROUTE_DISCOVERY_HOP,
+    assess_loop,
+    cve_requirements_present,
+    initialize_loop,
+    loop_initialized,
+    record_execution_hop,
+    record_hop,
+)
+from app.chat.guided_hunt_grounding import (
+    T2_UNVERIFIED_BANNER,
+    build_guided_hunt_grounding,
+    guided_hunt_grounding_trace,
+)
+from app.cve.evidence_adapter import (
+    append_cve_snapshot_source_evidence,
+    resolve_vulnerability_source_status as resolve_cve_vulnerability_status,
+    vulnerability_context_line,
+)
+from app.connectors.mcp.mcp_tool_plan_shadow import (
+    mcp_tool_plan_llm_advisory_enabled,
+    run_mcp_tool_plan_shadow,
+)
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.llm.sidecar_skip_policy import should_skip_sidecar
+from app.llm.intent_advisor_scheduler import (
+    build_intent_scheduling_trace,
+    intent_advisor_hop_blocked,
+    intent_advisor_provider_configured,
+    intent_elapsed_before_call_ms,
+    should_prioritize_intent_advisor,
+)
+from app.chat.query_signals import extract_query_signals
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
+from app.spl.source_profile_bindings import build_source_profile_binding_slots
+from app.spl.template_compatibility import check_template_compatibility
+from app.spl.template_query_bindings import customize_template_spl_with_trace
+from app.spl.user_constraint_bindings import (
+    SLOT_SOURCE_LLM,
+    UserConstraintBindings,
+    build_user_constraint_bindings,
+)
 from app.chat.mitre_branch import planner_mitre_branch_suppressed_decision, run_mitre_evidence_branch
+from app.chat.hil_resolution import resolve_effective_hil_required
 from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
+from app.chat.debug_summary import build_debug_summary
 from app.chat.pipeline_visibility import build_pipeline_visibility
 from app.chat.session_context import (
     SessionContextResolution,
@@ -146,6 +223,8 @@ from app.chat.progress_context import (
     reset_progress_reporter,
 )
 from app.chat.progress_events import ProgressReporter
+
+logger = logging.getLogger("ai_soc.telemetry")
 
 _PARTIAL_SYNTHESIS_MESSAGE = (
     "Final LLM synthesis timed out; showing validated intermediate result."
@@ -192,11 +271,13 @@ class ChatPipelineState(TypedDict, total=False):
     note: str
     governance_trace: Any
     query_to_intent: dict[str, Any] | None
-    llm_intent_advisory: dict[str, Any] | None
+    llm_intent_advisory: LLMIntentAdvisory | None
     intent_classification: dict[str, Any] | None
     evidence_plan: dict[str, Any] | None
     planning_decision: dict[str, Any] | None
     route_adjudication: dict[str, Any] | None
+    route_contract: dict[str, Any] | None
+    run_contract: dict[str, Any] | None
     llm_plan_validation: dict[str, Any] | None
     mitre_decision: dict[str, Any] | None
     mitre_branch_result: dict[str, Any] | None
@@ -208,6 +289,15 @@ class ChatPipelineState(TypedDict, total=False):
     session_role: str | None
     effective_query: str | None
     llm_turn_budget: TurnLlmBudget | None
+    # Stage 4B governed evidence-collection loop (CONTROL_PLANE_ENABLED only).
+    mcp_chronology: list[str]
+    mcp_cursor: int
+    mcp_evidence: list[dict[str, Any]]
+    mcp_hops_done: int
+    mcp_requirements: dict[str, list[str]]
+    mcp_required_produces: list[str]
+    mcp_loop: dict[str, Any]
+    mcp_loop_planner: dict[str, Any] | None
     response: PlaceholderResponse
 
 
@@ -223,6 +313,7 @@ def build_live_chat_response(
     finally:
         if token is not None:
             reset_progress_reporter(token)
+        reset_trace_id()
 
 
 def _build_live_chat_response_inner(
@@ -230,6 +321,30 @@ def _build_live_chat_response_inner(
     *,
     session_role: str | None = None,
 ) -> PlaceholderResponse:
+    started_at = datetime.now(UTC)
+    state: ChatPipelineState | None = None
+    try:
+        state = _run_live_chat_pipeline(request, session_role=session_role)
+    except Exception:
+        # Record an honest error run so the debug surface can answer
+        # "why no response" instead of showing nothing.
+        if isinstance(state, dict):
+            _persist_live_chat_error(state, started_at=started_at, session_role=session_role)
+        raise
+    response = state.get("response")
+    if response is None:
+        raise RuntimeError("chat pipeline did not produce a response")
+    _persist_live_chat_telemetry(
+        state, response, started_at=started_at, session_role=session_role
+    )
+    return response
+
+
+def _run_live_chat_pipeline(
+    request: ChatRequest,
+    *,
+    session_role: str | None = None,
+) -> ChatPipelineState:
     emit_stage("queued")
     session_resolution = resolve_session_context(request)
     state: ChatPipelineState = {
@@ -240,35 +355,206 @@ def _build_live_chat_response_inner(
         "session_role": session_role,
         "effective_query": session_resolution.effective_query,
     }
-    state = graph_node_init_routing(state)
-    state = graph_node_query_to_intent(state)
-    state = graph_node_evidence_planning(state)
-    state = graph_node_shadow_enrichment(state)
-    if has_composed_plan(state):
+    state = _timed_node(state, "init_routing", graph_node_init_routing)
+    state = _timed_node(state, "query_to_intent", graph_node_query_to_intent)
+    state = _timed_node(state, "route_resolution", graph_node_route_resolution)
+    state = _timed_node(state, "route_contract", graph_node_route_contract)
+    state = _timed_node(state, "evidence_planning", graph_node_evidence_planning)
+    state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
+    state = _timed_node(state, "shadow_tail", graph_node_shadow_tail)
+    if has_composed_plan(state) and not _session_spl_refine_active(state):
         # WS0 T0.4: composed-plan dispatch — same node calls, same predicates,
         # plus per-step status/degrade-chain recording.
-        state = execute_plan_dispatch(state, _dispatch_hooks())
-    elif _uses_rag_only_path(state):
-        state = graph_node_prepare_rag_only(state)
-        state = graph_node_rag_early(state)
+        state = _timed_node(state, "plan_dispatch", lambda s: execute_plan_dispatch(s, _dispatch_hooks()))
+    elif _uses_rag_only_path(state) and not _session_spl_refine_active(state):
+        state = _timed_node(state, "prepare_rag_only", graph_node_prepare_rag_only)
+        state = _timed_node(state, "rag_early", graph_node_rag_early)
     else:
-        state = graph_node_workflow_spl(state)
+        state = _timed_node(state, "workflow_spl", graph_node_workflow_spl)
         if _uses_pre_mcp_rag(state):
-            state = graph_node_rag_early(state)
-        state = graph_node_spl_source_resolve(state)
-        state = graph_node_execution(state)
-    state = graph_node_context_finalize(state)
-    response = state.get("response")
-    if response is None:
-        raise RuntimeError("chat pipeline did not produce a response")
-    return response
+            state = _timed_node(state, "rag_early", graph_node_rag_early)
+        state = _timed_node(state, "spl_source_resolve", graph_node_spl_source_resolve)
+        state = _timed_node(state, "execution", graph_node_execution)
+    if settings.control_plane_enabled and loop_initialized(state):
+        state = _timed_node(state, "evidence_planning_loop", graph_node_evidence_planning)
+    state = _timed_node(state, "context_finalize", graph_node_context_finalize)
+    return state
+
+
+def _timed_node(
+    state: ChatPipelineState,
+    node_name: str,
+    fn: Any,
+) -> ChatPipelineState:
+    """Run a pipeline node, timing it and recording a durable node-timeline step.
+
+    The trace spine is keyed on ``state['trace_id']`` (set by ``init_routing``);
+    for the first node the id only exists on the returned state, so timing is
+    recorded from the result. Telemetry never breaks the node flow.
+    """
+    started = time.monotonic()
+    try:
+        result = fn(state)
+    except Exception:
+        duration_ms = int((time.monotonic() - started) * 1000)
+        _record_node_timing(state.get("trace_id"), node_name, "error", duration_ms)
+        raise
+    duration_ms = int((time.monotonic() - started) * 1000)
+    trace_id = result.get("trace_id") if isinstance(result, dict) else None
+    _record_node_timing(trace_id or state.get("trace_id"), node_name, "completed", duration_ms)
+    return result
+
+
+def _record_node_timing(
+    trace_id: Any,
+    node_name: str,
+    status: str,
+    duration_ms: int,
+) -> None:
+    if not trace_id:
+        return
+    try:
+        _routes_chat().get_telemetry_connector().record_step(
+            str(trace_id),
+            f"node.{node_name}",
+            status,
+            duration_ms=duration_ms,
+            node=True,
+        )
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        logger.warning("node_timing_persist_failed", exc_info=True)
+
+
+def _persist_live_chat_telemetry(
+    state: ChatPipelineState,
+    response: PlaceholderResponse,
+    *,
+    started_at: datetime,
+    session_role: str | None,
+) -> None:
+    """Phase 0/1: persist the durable trace spine + per-turn LLM-call ledger.
+
+    Telemetry must never break the chat flow, so all work is wrapped here and the
+    connector also fails closed internally. Only metadata is persisted — no raw
+    prompts, completions, or events (redaction is applied by the connector).
+    """
+    try:
+        telemetry = _routes_chat().get_telemetry_connector()
+        trace_id = str(response.trace_id or state.get("trace_id") or "")
+        if not trace_id:
+            return
+        payload = response.model_dump(mode="json")
+        sufficiency = payload.get("context_sufficiency")
+        answer_mode = sufficiency.get("answer_mode") if isinstance(sufficiency, dict) else None
+        run_status = "human_review" if payload.get("human_review") else "completed"
+        telemetry.start_trace(
+            trace_id,
+            entrypoint="chat",
+            status="running",
+            started_at=started_at,
+            user_id=session_role,
+            metadata={"session_role": session_role},
+        )
+        budget = state.get("llm_turn_budget")
+        records = budget.records if isinstance(budget, TurnLlmBudget) else []
+        debug_summary = build_debug_summary(payload=payload, llm_budget_records=records)
+        for record in records:
+            telemetry.record_llm_call(
+                trace_id,
+                kind=record.get("kind"),
+                role=record.get("role"),
+                provider_label=record.get("provider_label"),
+                outcome=record.get("outcome"),
+                latency_ms=record.get("latency_ms"),
+                model=record.get("model"),
+            )
+            _count_llm_call(record)
+        telemetry.end_trace(
+            trace_id,
+            status=run_status,
+            metadata={
+                "answer_mode": answer_mode,
+                "selected_skill": payload.get("selected_skill"),
+                "llm_call_count": len(records),
+                "llm_live_calls": sum(1 for item in records if item.get("outcome") == "completed"),
+                "debug_summary": debug_summary,
+                "control_plane_trace": payload.get("control_plane_trace"),
+                "governance_trace": payload.get("governance_trace"),
+                "lineage_summary": payload.get("investigation_lineage"),
+                "llm_sidecars": payload.get("llm_sidecars"),
+            },
+        )
+        _telemetry_metrics.increment(
+            "chat_turns_human_review" if run_status == "human_review" else "chat_turns_completed"
+        )
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        logger.warning("live_chat_telemetry_persist_failed", exc_info=True)
+
+
+def _count_llm_call(record: dict[str, Any]) -> None:
+    _telemetry_metrics.increment("llm_calls_total")
+    outcome = str(record.get("outcome") or "")
+    if outcome == "timed_out":
+        _telemetry_metrics.increment("llm_calls_timed_out")
+    if outcome in {"timed_out", "dropped", "blocked"}:
+        _telemetry_metrics.increment("llm_calls_fallback")
+
+
+def _persist_live_chat_error(
+    state: ChatPipelineState,
+    *,
+    started_at: datetime,
+    session_role: str | None,
+) -> None:
+    """Record an error run when the pipeline raised before producing a response."""
+    try:
+        trace_id = str(state.get("trace_id") or "")
+        if not trace_id:
+            return
+        telemetry = _routes_chat().get_telemetry_connector()
+        _telemetry_metrics.increment("chat_turns_error")
+        telemetry.start_trace(
+            trace_id,
+            entrypoint="chat",
+            status="error",
+            started_at=started_at,
+            user_id=session_role,
+            metadata={"session_role": session_role},
+        )
+        telemetry.end_trace(trace_id, status="error", metadata={"error": True})
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        logger.warning("live_chat_error_telemetry_persist_failed", exc_info=True)
+
+
+
+def _compute_turn_deadline_for_state(query_understanding: Any, routed: dict[str, Any]) -> float:
+    """P2-B dynamic turn deadline from query shape and routed skill."""
+    from app.llm.hybrid_role_graph import compute_turn_deadline_seconds
+
+    provenance = routed.get("routing_provenance") if isinstance(routed, dict) else {}
+    match_path = provenance.get("deterministic_match_path") if isinstance(provenance, dict) else None
+    selected_skill = str(routed.get("skill") or "knowledge_recall") if isinstance(routed, dict) else "knowledge_recall"
+    soc_shaped = bool(getattr(query_understanding, "soc_investigation_shaped", False))
+    return compute_turn_deadline_seconds(
+        match_path=match_path,
+        selected_skill=selected_skill,
+        soc_investigation_shaped=soc_shaped,
+    )
+
 
 
 def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("understanding_query")
     request = state["request"]
     query_text = state.get("effective_query") or request.message
-    trace_id = str(uuid4())
+    # Reuse the request-boundary trace seeded before dependencies execute. This
+    # keeps success telemetry, protected exception diagnostics, and the sanitized
+    # 500 envelope on one correlation id. Direct/in-process callers still receive
+    # a fresh id.
+    trace_id = current_trace_id()
+    if not trace_id or trace_id == "-":
+        trace_id = str(uuid4())
+    set_trace_id(trace_id)
     qu_failed = False
     try:
         query_understanding = understand_query(query_text)
@@ -311,7 +597,9 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
         "selected_use_case": selected_use_case,
         "routed": routed,
         "route_plan_shadow": route_plan_shadow,
-        "llm_turn_budget": TurnLlmBudget(),
+        "llm_turn_budget": TurnLlmBudget(
+            deadline_seconds=_compute_turn_deadline_for_state(query_understanding, routed),
+        ),
     }
 
 
@@ -331,32 +619,111 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             "question_ref": getattr(qu, "mapped_question_ref", None),
             "use_case_ids": list(getattr(qu, "mapped_use_case_ids", None) or []),
         }
-    budget = state.get("llm_turn_budget") or TurnLlmBudget()
+    prior_budget = state.get("llm_turn_budget") or TurnLlmBudget()
+    budget = TurnLlmBudget(
+        max_sidecar_calls=prior_budget.max_sidecar_calls,
+        max_narration_calls=prior_budget.max_narration_calls,
+        deadline_seconds=prior_budget.deadline_seconds,
+        sidecar_calls=prior_budget.sidecar_calls,
+        narration_calls=prior_budget.narration_calls,
+        records=list(prior_budget.records),
+    )
+    preliminary_signals = extract_query_signals(query_text, query_understanding)
+    provider_configured = intent_advisor_provider_configured()
+    primary_use_case_id = (candidate_mappings.get("use_case_ids") or [None])[0]
     skip_advisory, skip_reason = should_skip_sidecar(
         match_path=candidate_mappings.get("match_path"),
         registry_warnings=list(getattr(qu, "registry_warnings", None) or []) if qu is not None else None,
+        catalog_row=catalog_authority_row(primary_use_case_id),
     )
-    if skip_advisory:
-        llm_advisory = LLMIntentAdvisory(dropped_reasons=[skip_reason or "deterministic_exact_match_t0"])
-    elif budget.sidecar_budget_exhausted():
-        llm_advisory = LLMIntentAdvisory(dropped_reasons=["turn_budget_exhausted"])
-    else:
-        llm_advisory = generate_llm_intent_advisory(
-            query_text,
-            query_understanding=query_understanding,
-            candidate_mappings=candidate_mappings,
-            routed_skill=routed_skill,
+    if not skip_advisory and _high_confidence_registry_match_t0(qu):
+        skip_advisory = True
+        skip_reason = "registry_backed_high_confidence_t0"
+    if skip_advisory and should_prioritize_intent_advisor(
+        query_text,
+        qu,
+        candidate_mappings,
+        preliminary_signals,
+    ):
+        skip_advisory = False
+        skip_reason = None
+    skip_policy = skip_reason
+    elapsed_before_call_ms = intent_elapsed_before_call_ms(budget)
+
+    def _scheduling_trace(
+        *,
+        fallback_reason: str | None,
+        route_after_skip: str | None = None,
+    ) -> dict[str, Any]:
+        return build_intent_scheduling_trace(
+            budget=budget,
+            skip_policy=skip_policy,
+            provider_configured=provider_configured,
+            elapsed_before_call_ms=elapsed_before_call_ms,
+            fallback_reason_if_skipped=fallback_reason,
+            route_selected_after_skip=route_after_skip,
         )
-        if llm_advisory.llm_called:
-            outcome = "completed"
-            if "llm_timed_out" in llm_advisory.dropped_reasons:
-                outcome = "timed_out"
-            elif llm_advisory.dropped_reasons:
-                outcome = "dropped"
-            budget.record_sidecar(
-                role="intent_shadow_classifier",
-                provider_label=llm_advisory.provider_label,
-                outcome=outcome,
+
+    if skip_advisory:
+        fallback = skip_reason or "deterministic_exact_match_t0"
+        llm_advisory = LLMIntentAdvisory(
+            dropped_reasons=[fallback],
+            scheduling_trace=_scheduling_trace(
+                fallback_reason=fallback,
+                route_after_skip=routed_skill,
+            ),
+        )
+    elif (hop_block := intent_advisor_hop_blocked(budget)):
+        llm_advisory = LLMIntentAdvisory(
+            dropped_reasons=[hop_block],
+            scheduling_trace=_scheduling_trace(
+                fallback_reason=hop_block,
+                route_after_skip=routed_skill,
+            ),
+        )
+    else:
+        _intent_timeout = budget.capped_hop_timeout_seconds(role="intent_shadow_classifier")
+        if _intent_timeout is None:
+            llm_advisory = LLMIntentAdvisory(
+                dropped_reasons=["insufficient_deadline_reserve"],
+                scheduling_trace=_scheduling_trace(
+                    fallback_reason="insufficient_deadline_reserve",
+                    route_after_skip=routed_skill,
+                ),
+            )
+        else:
+            _t0 = time.monotonic()
+            llm_advisory = generate_llm_intent_advisory(
+                query_text,
+                query_understanding=query_understanding,
+                candidate_mappings=candidate_mappings,
+                routed_skill=routed_skill,
+                timeout_seconds=_intent_timeout,
+                allow_failover=not budget.time_budget_exhausted(),
+            )
+            if llm_advisory.llm_called:
+                outcome = "completed"
+                if "llm_timed_out" in llm_advisory.dropped_reasons:
+                    outcome = "timed_out"
+                elif llm_advisory.dropped_reasons:
+                    outcome = "dropped"
+                budget.record_sidecar(
+                    role="intent_shadow_classifier",
+                    provider_label=llm_advisory.provider_label,
+                    outcome=outcome,
+                    latency_ms=int((time.monotonic() - _t0) * 1000),
+                )
+            llm_advisory = llm_advisory.model_copy(
+                update={
+                    "scheduling_trace": _scheduling_trace(
+                        fallback_reason=(
+                            llm_advisory.dropped_reasons[0]
+                            if llm_advisory.dropped_reasons
+                            else None
+                        ),
+                        route_after_skip=routed_skill,
+                    ),
+                }
             )
     result = build_query_to_intent(
         query=query_text,
@@ -376,14 +743,45 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     return {
         **state,
         "query_to_intent": payload,
-        "llm_intent_advisory": payload.get("llm_intent_advisory"),
+        # Preserve the validated model at the node boundary.  The serialized copy
+        # remains in query_to_intent for the wire/trace contract, while live
+        # consumers receive the typed advisory and cannot silently lose fields.
+        "llm_intent_advisory": result.llm_intent_advisory,
         "intent_classification": payload.get("intent_classification"),
         "selected_use_case": selected_use_case,
         "llm_turn_budget": budget,
     }
 
 
+def _high_confidence_registry_match_t0(query_understanding: Any | None) -> bool:
+    if query_understanding is None:
+        return False
+    match_path = str(getattr(query_understanding, "deterministic_match_path", "") or "")
+    if match_path not in {"near_105_question", "semantic_105_question"}:
+        return False
+    if getattr(query_understanding, "registry_warnings", None):
+        return False
+    question_ref = getattr(query_understanding, "mapped_question_ref", None)
+    if not isinstance(question_ref, str) or not question_ref.strip():
+        return False
+    score = getattr(query_understanding, "question_registry_match_score", None)
+    return isinstance(score, (int, float)) and float(score) >= 0.95
+
+
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
+    # Stage 4B: on loop re-entry (after an mcp_call discovery hop or the gated
+    # execution hop) the HUB only re-assesses + routes — it must NOT re-emit
+    # progress, re-route, or re-compose the plan (idempotency, plan bug #2).
+    if settings.control_plane_enabled and loop_initialized(state):
+        execution = state.get("execution") if "execution" in state else None
+        if isinstance(execution, dict):
+            state = {**state, **record_execution_hop(state, execution)}
+        decision = assess_loop(
+            state,
+            execution=execution,
+            broaden_eligible=_loop_broaden_eligible(state),
+        )
+        return {**state, "mcp_loop": decision.to_dict()}
     emit_stage("planning_evidence")
     if not settings.control_plane_enabled:
         planning = plan_path_and_tools(
@@ -422,10 +820,183 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case=state.get("selected_use_case"),
         llm_intent_advisory=state.get("llm_intent_advisory"),
     )
-    return {**state, "evidence_plan": evidence_payload, "planning_decision": planning.model_dump()}
+    if not _mcp_evidence_loop_enabled(state, evidence_payload):
+        return {
+            **state,
+            "evidence_plan": evidence_payload,
+            "planning_decision": planning.model_dump(),
+        }
+    # Stage 4B: compose the reviewed discovery chronology once, so the HUB can
+    # drive read-only mcp_call hops before the linear SPL/execution chain.
+    chronology, loop_planner = _resolve_loop_chronology(state, spl_approved=False)
+    loop_init = initialize_loop(
+        chronology,
+        required_produces=_loop_required_produces(evidence_payload),
+    )
+    loop_state = {**loop_init}
+    if loop_planner is not None:
+        loop_state["mcp_loop_planner"] = loop_planner
+    return {
+        **state,
+        "evidence_plan": evidence_payload,
+        "planning_decision": planning.model_dump(),
+        **loop_init,
+        "mcp_loop_planner": loop_planner,
+        "mcp_loop": assess_loop(loop_state).to_dict(),
+    }
 
 
-def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
+def graph_node_mcp_call(state: ChatPipelineState) -> ChatPipelineState:
+    """Stage 4B: run one read-only discovery hop, then return to the HUB.
+
+    Execution stays globally gated — discovery hops are planned-only in the
+    current air-gapped posture (no live MCP call), so the deliverable records the
+    tool's declared `produces` as planned context. `splunk_run_query` is never
+    run here; it stays in the gated execution node.
+    """
+    decision = assess_loop(state)
+    tool = decision.next_tool
+    if decision.route != ROUTE_DISCOVERY_HOP or not tool or tool == "splunk_run_query":
+        return state
+    hop = execute_loop_discovery_hop(
+        tool,
+        rbac_role=session_role_for_mcp_gate(state.get("session_role")),
+        trace_id=state.get("trace_id"),
+    )
+    return {
+        **state,
+        **record_hop(
+            state,
+            tool=tool,
+            delivered=hop["delivered"],
+            outcome=str(hop["outcome"]),
+            payload=hop.get("payload") if isinstance(hop.get("payload"), dict) else {},
+        ),
+    }
+
+
+def _loop_required_produces(evidence_payload: dict[str, Any] | None) -> list[str]:
+    """Requirements the loop must satisfy: chronology produces plus any explicit
+    evidence-plan needs (so unservable needs like CVE surface as honest gaps)."""
+    needs: list[str] = []
+    plan = evidence_payload if isinstance(evidence_payload, dict) else {}
+    for key in ("missing_evidence", "evidence_needs", "required_produces"):
+        value = plan.get(key)
+        if isinstance(value, list):
+            needs.extend(str(item) for item in value)
+    return needs
+
+
+def _resolve_vulnerability_source_status(state: ChatPipelineState) -> dict[str, Any] | None:
+    """Plan §3 A4: when the evidence plan needs CVE/vulnerability context, resolve
+    the operator-vendored CVE snapshot read model into honest provenance.
+    """
+    return resolve_cve_vulnerability_status(
+        required_produces=[str(item) for item in (state.get("mcp_required_produces") or [])],
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+    )
+
+
+def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[str, Any]) -> bool:
+    if not settings.control_plane_enabled:
+        return False
+    if evidence_payload.get("mcp_allowed") is False:
+        return False
+    provisional = {**state, "evidence_plan": evidence_payload}
+    if _uses_rag_only_path(provisional):
+        return False
+    return True
+
+
+def _resolve_loop_chronology(
+    state: ChatPipelineState,
+    *,
+    spl_approved: bool,
+) -> tuple[list[str], dict[str, Any] | None]:
+    """Deterministic chronology on the live blocking path by default; the LLM
+    planner is invoked only when the advisory flag is on. plan_tool_chronology
+    makes a slow on-prem Instruct call — keeping it off the blocking /chat path
+    by default is deliberate (PowerGrid latency incident). Either way the result
+    is deterministically reviewed and the deterministic default always carries."""
+    rbac_role = session_role_for_mcp_gate(state.get("session_role"))
+    target_index = _target_index_from_spl_validation(state.get("spl_validation"))
+    if not mcp_tool_plan_llm_advisory_enabled():
+        return deterministic_default_chronology(spl_approved=spl_approved), {
+            "decision_source": "deterministic_default",
+            "dropped": [],
+            "warnings": [],
+            "planner": {"llm_called": False, "skipped_reason": "live_path_deterministic_only"},
+        }
+    request = state["request"]
+    reviewed = plan_tool_chronology(
+        request.message,
+        target_index=target_index,
+        spl_approved=spl_approved,
+        rbac_role=rbac_role,
+    )
+    chronology = list(reviewed.get("approved_tools") or deterministic_default_chronology(spl_approved=spl_approved))
+    planner_meta = reviewed.get("planner") if isinstance(reviewed.get("planner"), dict) else None
+    return chronology, {
+        "decision_source": reviewed.get("decision_source"),
+        "dropped": reviewed.get("dropped"),
+        "warnings": reviewed.get("warnings"),
+        "planner": planner_meta,
+    }
+
+
+def _target_index_from_spl_validation(spl_validation: dict[str, Any] | None) -> str | None:
+    if not isinstance(spl_validation, dict):
+        return None
+    normalized = str(spl_validation.get("normalized_spl") or "")
+    match = re.search(r"\bindex\s*=\s*([^\s|]+)", normalized, re.IGNORECASE)
+    return match.group(1).strip() if match else None
+
+
+def _run_discovery_loop_imperative(state: ChatPipelineState) -> ChatPipelineState:
+    """Imperative twin: drain discovery hops before the linear chain when CP is on."""
+    if not loop_initialized(state):
+        return state
+    hops = 0
+    while hops < MAX_MCP_HOPS:
+        route = (state.get("mcp_loop") or {}).get("route")
+        if route != ROUTE_DISCOVERY_HOP:
+            break
+        state = graph_node_mcp_call(state)
+        state = graph_node_evidence_planning(state)
+        hops += 1
+    return state
+
+
+def graph_node_composed_dispatch(state: ChatPipelineState) -> ChatPipelineState:
+    """WS0 composed-plan dispatch node for LangGraph."""
+    return execute_plan_dispatch(state, _dispatch_hooks())
+
+
+def _loop_broaden_eligible(state: ChatPipelineState) -> bool:
+    execution = state.get("execution")
+    if not isinstance(execution, dict):
+        return False
+    if execution.get("status") != "executed" or int(execution.get("result_count") or 0) != 0:
+        return False
+    return _mcp_allowed(state)
+
+
+def _provisional_evidence_plan_for_adjudication(state: ChatPipelineState) -> dict[str, Any] | None:
+    """Intent-only evidence plan for route adjudication tie-break (not final plan)."""
+    intent = state.get("intent_classification")
+    if not isinstance(intent, dict):
+        return None
+    plan = plan_evidence(
+        intent,
+        query_to_intent=state.get("query_to_intent"),
+        routed=state.get("routed"),
+        query_understanding=state.get("query_understanding"),
+        selected_use_case=state.get("selected_use_case"),
+    )
+    return plan.model_dump()
+
+
+def graph_node_route_resolution(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("route_adjudication")
     request = state["request"]
     routed = state["routed"]
@@ -462,17 +1033,15 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
         )
     _apply_ood_llm_lab_metadata(route_plan_shadow, request.message)
     apply_analyst_summary_shadow(route_plan_shadow)
-    skill_selection = select_skill_chain(routed=routed, selected_use_case=state.get("selected_use_case"))
     comparison = routed.get("comparison", {})
     route_adjudication_payload: dict[str, Any] | None = None
-    llm_plan_validation_payload: dict[str, Any] | None = None
     if settings.control_plane_enabled and isinstance(state.get("intent_classification"), dict):
         llm_advisory = comparison.get("llm_shadow") if isinstance(comparison, dict) else None
         adjudication = adjudicate_control_plane_route(
             deterministic_route=str(routed.get("skill") or "knowledge_recall"),
             llm_advisory=llm_advisory if isinstance(llm_advisory, dict) else None,
             route_plan_shadow=route_plan_shadow,
-            evidence_plan=state.get("evidence_plan"),
+            evidence_plan=_provisional_evidence_plan_for_adjudication(state),
             intent_classification=state["intent_classification"],
             query_understanding=state.get("query_understanding"),
             message=request.message,
@@ -486,6 +1055,43 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
             "legacy_intent_authority": False,
             "route_adjudication_authority_source": adjudication.authority_source,
         }
+        # Keep the shadow copy in sync with the adjudicated authority; otherwise
+        # governance/lineage panels read a stale legacy resolution that
+        # contradicts RunContract (effective_skill / skill_resolution drift).
+        route_plan_shadow["routing_skill_resolution"] = routing_skill_resolution
+    return {
+        **state,
+        "route_plan_shadow": route_plan_shadow,
+        "routing_skill_resolution": routing_skill_resolution,
+        "route_adjudication": route_adjudication_payload,
+        "comparison": comparison,
+        "disagreement": not bool(comparison.get("match", False)),
+    }
+
+
+def graph_node_route_contract(state: ChatPipelineState) -> ChatPipelineState:
+    from app.chat.run_contract_builder import build_route_contract  # circular: pipeline state
+
+    route_contract = build_route_contract(state)
+    routed = dict(state.get("routed") or {})
+    routed["skill"] = route_contract.canonical_skill
+    return {
+        **state,
+        "routed": routed,
+        "route_contract": route_contract.model_dump(mode="json"),
+    }
+
+
+def graph_node_shadow_tail(state: ChatPipelineState) -> ChatPipelineState:
+    routed = state["routed"]
+    route_plan_shadow = state["route_plan_shadow"]
+    comparison = routed.get("comparison", {})
+    route_adjudication_payload = state.get("route_adjudication")
+    llm_plan_validation_payload: dict[str, Any] | None = None
+    skill_selection = select_skill_chain(
+        routed=routed,
+        selected_use_case=state.get("selected_use_case"),
+    )
     if should_validate_llm_advisory_plan():
         advisory_plan = build_advisory_plan_from_context(
             comparison=comparison if isinstance(comparison, dict) else None,
@@ -498,7 +1104,7 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
         llm_validation = validate_llm_advisory_plan(
             advisory_plan,
             evidence_plan=state.get("evidence_plan"),
-            route_adjudication=route_adjudication_payload,
+            route_adjudication=route_adjudication_payload if isinstance(route_adjudication_payload, dict) else None,
             intent_classification=state.get("intent_classification"),
             candidate_mappings=candidate_mappings,
         )
@@ -507,14 +1113,17 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
     return {
         **state,
         "route_plan_shadow": route_plan_shadow,
-        "routing_skill_resolution": routing_skill_resolution,
-        "route_adjudication": route_adjudication_payload,
         "llm_plan_validation": llm_plan_validation_payload,
         "skill_selection": skill_selection,
         "selected_skill_chain": skill_selection.selected_chain,
-        "comparison": comparison,
-        "disagreement": not bool(comparison.get("match", False)),
     }
+
+
+def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
+    """Backward-compatible wrapper: route resolution → contract → shadow tail."""
+    state = graph_node_route_resolution(state)
+    state = graph_node_route_contract(state)
+    return graph_node_shadow_tail(state)
 
 
 def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
@@ -543,7 +1152,12 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     candidate_mapped_pattern = None
     if query_understanding is not None and getattr(
         query_understanding, "deterministic_match_path", None
-    ) in ("exact_105_question", "exact_105_plus_use_case_catalog"):
+    ) in (
+        "exact_105_question",
+        "exact_105_plus_use_case_catalog",
+        "near_105_question",
+        "semantic_105_question",
+    ):
         candidate_mapped_pattern = getattr(query_understanding, "mapped_pattern_type", None)
     session_refined = _session_spl_refine_stage(
         state=state,
@@ -572,6 +1186,8 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             ),
             slot_binding_enabled=settings.control_plane_enabled,
             mapped_pattern_type=candidate_mapped_pattern,
+            llm_intent_advisory=state.get("llm_intent_advisory"),
+            query_understanding=query_understanding,
         )
     exact_105_pattern = candidate_mapped_pattern
     mapped_use_case_ids = (
@@ -580,12 +1196,20 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         else []
     )
     draft_use_case_id = mapped_use_case_ids[0] if mapped_use_case_ids else None
+    llm_draft_advisory = (
+        state["llm_intent_advisory"].model_dump()
+        if isinstance(state.get("llm_intent_advisory"), LLMIntentAdvisory)
+        else state.get("llm_intent_advisory")
+    )
     spl_draft_preview = build_draft_preview(
         query_text,
         spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
         unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
         pattern_type=exact_105_pattern,
         use_case_id=draft_use_case_id,
+        live_data_request=_live_data_request_from_state(state),
+        llm_intent_advisory=llm_draft_advisory if isinstance(llm_draft_advisory, dict) else None,
+        query_understanding=query_understanding,
     )
     llm_spl_candidate = _llm_spl_candidate_stage(
         skill=effective_skill,
@@ -614,15 +1238,16 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
     if getattr(request, "execution_review_action", None) == "update_spl" and getattr(request, "analyst_provided_spl", None):
         analyst_spl = str(request.analyst_provided_spl).strip()
         if analyst_spl:
+            candidate = state.get("candidate_spl")
             resolve_result = resolve_spl_source_profile(
                 analyst_spl,
                 user_query=request.message,
                 soc_kb_retrieval=state.get("soc_kb_retrieval"),
                 session_slots=dict(getattr(session_pins, "source_profile_slots", None) or {}),
+                template_id=str(candidate.get("template_id") or "") if isinstance(candidate, dict) else None,
             )
             if resolve_result.fully_resolved and isinstance(resolve_result.validation, dict):
                 spl_validation = resolve_result.validation
-                candidate = state.get("candidate_spl")
                 if isinstance(candidate, dict):
                     state = {
                         **state,
@@ -708,6 +1333,44 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
     return {**state, "execution": execution, "human_review": human_review}
 
 
+
+def _live_data_request_from_state(state: ChatPipelineState) -> bool:
+    signals = _query_signals_from_state(state) or {}
+    return bool(signals.get("live_data_request"))
+
+
+def _apply_effective_hil_to_state(
+    state: ChatPipelineState,
+    *,
+    answer_contract: Any | None,
+    execution_authorized: bool,
+) -> ChatPipelineState:
+    evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
+    intent = state.get("intent_classification") if isinstance(state.get("intent_classification"), dict) else {}
+    effective_hil = resolve_effective_hil_required(
+        evidence_plan=evidence_plan,
+        answer_contract=answer_contract,
+        human_review=state.get("human_review") if isinstance(state.get("human_review"), dict) else None,
+        execution=state.get("execution") if isinstance(state.get("execution"), dict) else None,
+        live_data_request=_live_data_request_from_state(state),
+        execution_authorized=execution_authorized,
+        intent_requires_hil=bool(intent.get("requires_hil")),
+    )
+    updated: ChatPipelineState = dict(state)
+    planning = state.get("planning_decision")
+    if isinstance(planning, dict):
+        planning_copy = {**planning, "hil_required": effective_hil, "effective_hil_required": effective_hil}
+        updated["planning_decision"] = planning_copy
+    governance = state.get("governance_trace")
+    if governance is not None:
+        if isinstance(governance, dict):
+            updated["governance_trace"] = {**governance, "effective_hil_required": effective_hil}
+        else:
+            updated["governance_trace"] = governance.model_copy(
+                update={"effective_hil_required": effective_hil}
+            )
+    return updated
+
 def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
     request = state["request"]
     trace_id = state["trace_id"]
@@ -729,6 +1392,14 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
         build_draft_preview(
             state.get("effective_query") or request.message,
             unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
+            llm_intent_advisory=(
+                state["llm_intent_advisory"].model_dump()
+                if isinstance(state.get("llm_intent_advisory"), LLMIntentAdvisory)
+                else state.get("llm_intent_advisory")
+                if isinstance(state.get("llm_intent_advisory"), dict)
+                else None
+            ),
+            query_understanding=state.get("query_understanding"),
         )
         if guided
         else None
@@ -780,6 +1451,9 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
 
 
 def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState:
+    evidence_plan = state.get("evidence_plan")
+    if isinstance(evidence_plan, dict) and evidence_plan.get("needs_spl") is False:
+        return state
     candidate = state.get("candidate_spl")
     validation = state.get("spl_validation")
     if not isinstance(candidate, dict) or not isinstance(validation, dict):
@@ -821,6 +1495,7 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
         soc_kb_retrieval=soc_kb_retrieval,
         session_slots=session_slots,
         required_sources=required_sources,
+        template_id=str(candidate.get("template_id") or "") or None,
     )
     trace = {
         "resolved_slots": resolve_result.resolved_slots,
@@ -869,8 +1544,15 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
         updated["spl_validation"] = resolved_validation
         return updated
 
-    if resolve_result.missing_slots:
-        review = build_spl_source_profile_review(resolve_result.missing_slots)
+    clarification_slots = list(resolve_result.missing_slots)
+    if not clarification_slots and is_lab_tier and not resolve_result.fully_resolved:
+        # Policy/COE may fill placeholders while validation still fails (e.g. sourcetype
+        # not on allowlist). Lab-tier drafts must surface source-profile clarification,
+        # not fall through to execution-stage spl_revision.
+        clarification_slots = extract_placeholder_slots(spl)
+
+    if clarification_slots:
+        review = build_spl_source_profile_review(clarification_slots)
         existing_review = state.get("human_review")
         if isinstance(existing_review, dict) and existing_review.get("required"):
             review = {
@@ -884,7 +1566,7 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
         updated_spl_validation = {
             **validation,
             "review_required_reason": "spl_source_profile_clarification",
-            "source_profile_missing_slots": resolve_result.missing_slots,
+            "source_profile_missing_slots": clarification_slots,
             "source_resolve_tiers": resolve_result.tiers_used,
         }
         updated["spl_validation"] = updated_spl_validation
@@ -951,6 +1633,49 @@ def _record_guided_resource_outcome(
     return result
 
 
+_ENV_HYGIENE_TOOLS_BY_QID = {
+    "cisco.endpoint.044": "splunk_get_indexes",
+    "cisco.endpoint.045": "splunk_get_index_info",
+    "cisco.endpoint.046": "splunk_get_metadata",
+    "cisco.endpoint.047": "splunk_get_knowledge_objects",
+    "cisco.endpoint.048": "splunk_get_info",
+}
+
+
+def _environment_hygiene_envelope(state: ChatPipelineState) -> dict[str, Any] | None:
+    qu = state.get("query_understanding")
+    if getattr(qu, "mapped_pattern_type", None) != "environment_hygiene":
+        return None
+    question_ref = str(getattr(qu, "mapped_question_ref", "") or "")
+    tool = _ENV_HYGIENE_TOOLS_BY_QID.get(question_ref, "splunk_get_indexes")
+    preview: dict[str, Any] = {}
+    trace: dict[str, Any] = {"planned_tool": tool}
+    if tool in {"splunk_get_indexes", "splunk_get_metadata"} and settings.mcp_discovery_enabled:
+        preview, trace = run_mcp_source_discovery(discovery_allowed=True)
+    status = "planned"
+    if preview:
+        status = "collected_preview"
+    elif not settings.mcp_discovery_enabled:
+        status = "configured_unavailable"
+    return {
+        "status": status,
+        "question_ref": question_ref or None,
+        "pattern_type": "environment_hygiene",
+        "needs_spl": False,
+        "execution_enabled": False,
+        "execution_eligible": False,
+        "planned_tool": tool,
+        "planned_tool_sequence": [tool],
+        "preview": preview,
+        "trace": trace,
+        "governance": "read_only_metadata_discovery; no splunk_run_query; no live rows claimed unless collected",
+        "limitations": [
+            "Metadata discovery is read-only and scoped to the configured MCP service account.",
+            "When MCP discovery is disabled or unavailable, this is a planned checklist rather than live Splunk state.",
+        ],
+    }
+
+
 def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("mapping_mitre")
     request = state["request"]
@@ -959,6 +1684,19 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     selected_use_case = state.get("selected_use_case")
     spl_validation = state.get("spl_validation")
     execution = state["execution"]
+    route_contract_raw = state.get("route_contract")
+    if isinstance(route_contract_raw, dict):
+        route = RouteContract.model_validate(route_contract_raw)
+    else:
+        from app.chat.run_contract_builder import build_route_contract  # circular: pipeline state
+
+        route = build_route_contract(state)
+        state = {**state, "route_contract": route.model_dump(mode="json")}
+    from app.chat.run_contract_builder import (  # circular: pipeline state
+        build_final_evidence_gate,
+        build_run_contract,
+    )
+
     emit_stage("checking_sufficiency")
     source_evidence, structured_context, context_sufficiency = _context_stage(
         trace_id=trace_id,
@@ -969,8 +1707,23 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         execution=execution,
         soc_kb_retrieval=state.get("soc_kb_retrieval"),
         evidence_plan=state.get("evidence_plan"),
+        mcp_evidence=state.get("mcp_evidence"),
     )
     human_review = _attach_hil_soc_kb_guidance(state["human_review"], source_evidence)
+    # FinalEvidenceGate: single cross-stream authority for evidence classification
+    # and evidence-derived permissions. Computed once here, then projected by
+    # RunContract and honored by MITRE/severity/renderer downstream.
+    gate_state_input = {**state, "source_evidence": source_evidence}
+    final_evidence_gate = build_final_evidence_gate(gate_state_input, route=route)
+    gate_payload = final_evidence_gate.to_dict()
+    structured_context["final_evidence_gate"] = gate_payload
+    run_contract = build_run_contract(gate_state_input, route=route, gate=final_evidence_gate)
+    state = {
+        **state,
+        "run_contract": run_contract.model_dump_canonical(),
+        "source_evidence": source_evidence,
+        "final_evidence_gate": gate_payload,
+    }
     source_refs = [str(item.get("evidence_id")) for item in source_evidence]
     spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
     if selected_use_case is not None:
@@ -1067,14 +1820,29 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             guard_signals.get("exact_105_analytics")
             or guard_signals.get("exact_105_hunt_spl")
             or guard_signals.get("analytics_aggregation")
+            or guard_signals.get("live_data_request")
             or guard_intent.get("intent_family")
-            in ("spl_generation_only", "live_investigation", "clarification_required")
+            in (
+                "spl_generation_only",
+                "live_investigation",
+                "clarification_required",
+                "guided_investigation",
+            )
         ),
         alert_context_present=guard_alert_reference,
+    )
+    # FinalEvidenceGate authority: when the gate disallows a severity assessment,
+    # cap the displayed severity to "Not assigned" BEFORE it feeds action
+    # capability, lineage, governance trace, and the response payload — so every
+    # surface honors the gate, not just the analyst card via AnswerContract.
+    severity_decision = apply_gate_severity_cap(
+        severity_decision,
+        allow_severity_assessment=run_contract.allow_severity_assessment,
     )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,
         severity_decision.severity_label,
+        hil_required=run_contract.effective_hil_required,
     )
     emit_stage("generating_answer")
     synthesis_lab = run_governed_synthesis_lab(
@@ -1144,9 +1912,20 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     if operation_audit is not None:
         route_plan_shadow["operation_audit"] = operation_audit
+    # Raw shadow authority compare has now been consumed for routing/audit logic
+    # above; re-project the displayed compare so governance/lineage panels never
+    # claim the legacy route is authoritative once RunContract holds authority.
+    _display_compare = route_plan_shadow.get("route_authority_compare")
+    if isinstance(_display_compare, dict):
+        route_plan_shadow["route_authority_compare"] = project_compare_for_display(
+            _display_compare,
+            authority_holder=run_contract.routing.authority_holder,
+            canonical_skill=run_contract.routing.canonical_skill,
+            legacy_skill=run_contract.routing.legacy_skill,
+        )
     investigation_lineage = build_investigation_lineage(
         trace_id=trace_id,
-        mode_source="live",
+        mode_source="live" if run_contract.execution_authorized else "review_only",
         query_understanding=state["query_understanding"],
         selected_use_case=response_use_case,
         selected_skill_chain=state["selected_skill_chain"],
@@ -1163,10 +1942,21 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         synthesis_status=synthesis_status,
         answer_guard_status=answer_guard,
         action_capability=action_capability,
+        collected_evidence_count=run_contract.collected_evidence_count,
+        execution_authorized=run_contract.execution_authorized,
+        allow_results_table=run_contract.allow_results_table,
+        candidate_artifact_count=run_contract.source_evidence_summary.candidate_artifact_count,
     )
 
     planning_decision = state.get("planning_decision")
     path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
+    qu = state.get("query_understanding")
+    entities_payload: dict[str, Any] | None = None
+    if qu is not None and hasattr(qu, "entities"):
+        entities_payload = qu.entities.model_dump()
+    elif isinstance(qu, dict) and isinstance(qu.get("entities"), dict):
+        entities_payload = qu["entities"]
+    match_path_for_t2 = _candidate_match_path(state)
     message = _chat_message(
         spl_validation,
         execution,
@@ -1175,6 +1965,24 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         planning_decision=planning_decision,
         soc_kb_retrieval=state.get("soc_kb_retrieval"),
         user_query=request.message,
+        entities=entities_payload,
+        match_path=match_path_for_t2,
+        intent_classification=state.get("intent_classification")
+        if isinstance(state.get("intent_classification"), dict)
+        else None,
+        spl_draft_preview=state.get("spl_draft_preview")
+        if isinstance(state.get("spl_draft_preview"), dict)
+        else None,
+        llm_intent_advisory=state.get("llm_intent_advisory"),
+    )
+    _intent_payload = state.get("intent_classification") if isinstance(state.get("intent_classification"), dict) else {}
+    from app.synthesis.deterministic_prose_stitch import apply_deterministic_prose_enhancements
+
+    message = apply_deterministic_prose_enhancements(
+        message,
+        user_query=request.message,
+        intent_family=str(_intent_payload.get("intent_family") or "") or None,
+        primary_intent=str(_intent_payload.get("primary_intent") or "") or None,
     )
     note = _chat_note(
         spl_validation,
@@ -1189,6 +1997,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     candidate_spl = state.get("candidate_spl")
     spl_draft_preview = state.get("spl_draft_preview")
     llm_spl_candidate = state.get("llm_spl_candidate")
+    environment_hygiene = _environment_hygiene_envelope(state)
+    if environment_hygiene is not None:
+        tool = str(environment_hygiene.get("planned_tool") or "splunk_get_indexes")
+        message = (
+            "Environment metadata hygiene is a read-only discovery path. "
+            f"The governed next step is {tool}; SPL search generation and execution remain disabled."
+        )
+        note = "Metadata hygiene answer path selected; no candidate SPL or MCP search execution."
+        spl_draft_preview = None
     if _session_stale_clarification_required(state):
         human_review = _session_stale_clarification_review()
         message = human_review["safe_message_for_user"]
@@ -1198,6 +2015,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         candidate_spl,
         session_alert_context=session_alert_context,
         query_signals=_query_signals_from_state(state),
+        intent_classification=state.get("intent_classification")
+        if isinstance(state.get("intent_classification"), dict)
+        else None,
     ):
         human_review = _mitre_clarification_review()
         message = (
@@ -1205,6 +2025,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             "detection rule, notable/event ID, or the SPL and a few sample fields."
         )
         note = "MITRE mapping requires grounded alert context; no SPL was generated."
+    elif _is_t2_review_only(candidate_spl, spl_validation):
+        # T1 SPL-native review-only draft: a renderable, non-executable SPL draft.
+        # This is a review state, not a clarification — the analyst validates the
+        # source profile/fields before any execution path. The review-only renderer
+        # owns the visible message (the SPL is shown).
+        human_review = _t2_review_only_review()
+        note = "Review-only SPL draft produced; analyst validation required before any execution. Nothing was executed."
     elif _is_spl_clarification_required(spl_validation):
         human_review = _spl_clarification_review(spl_validation)
         message = human_review["safe_message_for_user"]
@@ -1241,11 +2068,40 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         and synthesis_status.status != "partial_timeout"
         and not _is_governed_spl_ready_for_response(spl_validation)
     ):
-        message = build_draft_preview_analyst_message(spl_draft_preview)
+        shaped_non_hunt = (
+            settings.ai_soc_t2_answer_shape_enabled
+            and bool(request.message)
+            and not should_bypass_shape_router(match_path_for_t2)
+            and classify_answer_shape(request.message, entities=entities_payload).primary_shape != "hunt"
+        )
+        draft_block = build_draft_preview_analyst_message(spl_draft_preview)
+        if shaped_non_hunt:
+            # Keep shaped guidance as the answer body; append draft when surfacing is off.
+            if not settings.ai_soc_t2_answer_surfacing_enabled and draft_block not in message:
+                message = f"{message}\n\n{draft_block}".strip()
+        elif settings.ai_soc_t2_answer_surfacing_enabled:
+            pass
+        else:
+            message = draft_block
         note = (
             "Governed template SPL was not produced. HIL/SOC review is required. "
             "No MCP execution was run."
         )
+        if (
+            not human_review.get("required")
+            and human_review.get("review_type") != "spl_source_profile_clarification"
+            and isinstance(spl_validation, dict)
+            and spl_validation.get("approved") is False
+        ):
+            from app.orchestration.human_review import human_review as build_human_review
+
+            human_review = build_human_review(
+                "intent_clarification",
+                "lab_draft_preview_review_required",
+                "soc_analyst",
+                ["review_draft_spl", "confirm_source_profile", "cancel"],
+                message,
+            )
 
     evidence_origin = resolve_response_evidence_origin(
         source_evidence=source_evidence,
@@ -1267,7 +2123,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     governance_trace = build_governance_trace(
         demo_mode=False,
         use_case_id=response_use_case.use_case_id if response_use_case else None,
-        selected_skill=str(routed["skill"]),
+        selected_skill=_effective_routing_skill(state),
         severity_decision=severity_decision,
         investigation_lineage=investigation_lineage,
         source_evidence=source_evidence,
@@ -1299,6 +2155,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     resolved_use_case_id = (
         response_use_case.use_case_id if response_use_case is not None else use_case_id
     )
+    from app.spl.draft_preview_customization import reconcile_evidence_plan_for_draft_preview
+
     evidence_plan_for_analyst = resolve_analyst_evidence_plan(
         state.get("evidence_plan"),
         use_case_id=resolved_use_case_id,
@@ -1306,9 +2164,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         query_to_intent=state.get("query_to_intent"),
         query_understanding=state.get("query_understanding"),
     )
+    evidence_plan_for_analyst = reconcile_evidence_plan_for_draft_preview(
+        evidence_plan_for_analyst,
+        spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+    )
     answer_contract = None
+    hybrid_role_plan = None
     missing_evidence_reasoning_trace: dict[str, Any] | None = None
     llm_turn_budget_trace: dict[str, Any] | None = None
+    guided_grounding_block = None
     contract_evidence_plan = evidence_plan_for_analyst
     # Contract is a read-model that drives the section-ordered analyst card; build it
     # for every classified answer so no path falls back to a one-paragraph bubble.
@@ -1328,6 +2192,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             query_signals=_query_signals_from_state(state),
             use_case_id=resolved_use_case_id,
             match_path=_candidate_match_path(state),
+            spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+            run_contract=run_contract,
         )
         if path_type == "guided_investigation" and _rag_no_match(state.get("soc_kb_retrieval")):
             limitations = list(answer_contract.limitations)
@@ -1338,21 +2204,87 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             if no_match_limitation not in limitations:
                 limitations.append(no_match_limitation)
                 answer_contract = answer_contract.model_copy(update={"limitations": limitations})
-        budget = state.get("llm_turn_budget") or TurnLlmBudget()
-        if budget.sidecar_budget_exhausted():
-            reasoner_result = MissingEvidenceReasonerResult(skipped_reason="turn_budget_exhausted")
-        else:
-            reasoner_result = run_missing_evidence_reasoner(
-                contract=answer_contract,
+        if path_type == "guided_investigation":
+            guided_grounding_block = build_guided_hunt_grounding(
                 query=request.message,
-                resource_decisions=_resource_decision_labels(state),
+                answer_contract=answer_contract,
+                soc_kb_retrieval=state.get("soc_kb_retrieval")
+                if isinstance(state.get("soc_kb_retrieval"), dict)
+                else None,
             )
-            if reasoner_result.llm_called:
-                budget.record_sidecar(
-                    role="missing_evidence_reasoner",
-                    provider_label=reasoner_result.provider_label,
-                    outcome="timed_out" if reasoner_result.timed_out else "completed",
+            merged_limits = list(answer_contract.limitations)
+            if T2_UNVERIFIED_BANNER not in merged_limits:
+                merged_limits.append(T2_UNVERIFIED_BANNER)
+                answer_contract = answer_contract.model_copy(update={"limitations": merged_limits})
+        from app.chat.guidance_templates import should_skip_llm_composer as _skip_composer_fn
+
+        _intent_family = ""
+        if isinstance(intent_classification, dict):
+            _intent_family = str(intent_classification.get("intent_family") or "")
+        _skip_comp, _skip_comp_reason = _skip_composer_fn(
+            query=request.message,
+            path_type=path_type,
+            intent_family=_intent_family or None,
+            use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
+        )
+        _draft_preview_active = isinstance(spl_draft_preview, dict) and bool(
+            str(spl_draft_preview.get("draft_spl") or "").strip()
+        )
+        _llm_adv = state.get("llm_intent_advisory")
+        _intent_skipped = bool(getattr(_llm_adv, "dropped_reasons", None)) if _llm_adv is not None else True
+        _intent_skip = (
+            (_llm_adv.dropped_reasons or [None])[0]
+            if _llm_adv is not None and getattr(_llm_adv, "dropped_reasons", None)
+            else None
+        )
+        from app.llm.hybrid_role_graph import build_hybrid_role_plan
+
+        hybrid_role_plan = build_hybrid_role_plan(
+            query=request.message,
+            match_path=_candidate_match_path(state),
+            selected_skill=_effective_routing_skill(state),
+            answer_contract=answer_contract,
+            path_type=path_type,
+            intent_family=_intent_family or None,
+            draft_preview_active=_draft_preview_active,
+            skip_composer=_skip_comp,
+            skip_composer_reason=_skip_comp_reason,
+            intent_advisory_skipped=_intent_skipped,
+            intent_skip_reason=_intent_skip,
+            control_plane_enabled=bool(settings.control_plane_enabled),
+            soc_investigation_shaped=bool(
+                getattr(state.get("query_understanding"), "soc_investigation_shaped", False)
+            ),
+        )
+        budget = state.get("llm_turn_budget") or TurnLlmBudget()
+        if not hybrid_role_plan.role_enabled("missing_evidence_reasoner"):
+            reasoner_result = MissingEvidenceReasonerResult(
+                skipped_reason=hybrid_role_plan.skip_reason("missing_evidence_reasoner")
+            )
+        elif (hop_block := budget.sidecar_hop_blocked(role="missing_evidence_reasoner")):
+            reasoner_result = MissingEvidenceReasonerResult(skipped_reason=hop_block)
+        else:
+            _reasoner_timeout = budget.capped_hop_timeout_seconds(role="missing_evidence_reasoner")
+            if _reasoner_timeout is None:
+                reasoner_result = MissingEvidenceReasonerResult(
+                    skipped_reason="insufficient_deadline_reserve"
                 )
+            else:
+                _t0 = time.monotonic()
+                reasoner_result = run_missing_evidence_reasoner(
+                    contract=answer_contract,
+                    query=request.message,
+                    resource_decisions=_resource_decision_labels(state),
+                    timeout_seconds=_reasoner_timeout,
+                    allow_failover=not budget.time_budget_exhausted(),
+                )
+                if reasoner_result.llm_called:
+                    budget.record_sidecar(
+                        role="missing_evidence_reasoner",
+                        provider_label=reasoner_result.provider_label,
+                        outcome="timed_out" if reasoner_result.timed_out else "completed",
+                        latency_ms=int((time.monotonic() - _t0) * 1000),
+                    )
         if reasoner_result.bullets:
             merged_limits = list(answer_contract.limitations)
             for bullet in reasoner_result.bullets:
@@ -1361,6 +2293,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_contract = answer_contract.model_copy(update={"limitations": merged_limits})
         missing_evidence_reasoning_trace = reasoner_result.to_trace_dict()
         llm_turn_budget_trace = budget.to_trace_dict()
+        # Plan §3 A4b: surface the CVE snapshot status in the visible analyst card
+        # (advisory; never a confirmed unpatched-CVE claim without join keys).
+        _vuln_line = vulnerability_context_line(
+            structured_context.get("vulnerability_source") if isinstance(structured_context, dict) else None
+        )
+        if _vuln_line:
+            _limits = list(answer_contract.limitations)
+            if _vuln_line not in _limits:
+                _limits.append(_vuln_line)
+                answer_contract = answer_contract.model_copy(update={"limitations": _limits})
     else:
         missing_evidence_reasoning_trace = None
         llm_turn_budget_trace = None
@@ -1386,29 +2328,80 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
         llm_spl_candidate=llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None,
     )
+    if environment_hygiene is not None and analyst_response is not None:
+        limitations = list(analyst_response.limitations or [])
+        for item in environment_hygiene.get("limitations") or []:
+            if str(item) not in limitations:
+                limitations.append(str(item))
+        checklist = list(analyst_response.analyst_checklist or [])
+        planned_tool = str(environment_hygiene.get("planned_tool") or "splunk_get_indexes")
+        planned_item = f"Review planned read-only metadata tool: {planned_tool}."
+        if planned_item not in checklist:
+            checklist.append(planned_item)
+        analyst_response = analyst_response.model_copy(
+            update={
+                "direct_answer_summary": message,
+                "environment_hygiene": environment_hygiene,
+                "limitations": limitations,
+                "analyst_checklist": checklist,
+                "spl_status": "metadata_only_no_spl",
+                "execution_status_label": "review_only_not_executed",
+            }
+        )
     mitre_risk_rationale_trace: dict[str, Any] | None = None
     resource_plan_shadow_trace: dict[str, Any] | None = None
     if answer_contract is not None and analyst_response is not None:
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
-        rationale_result = run_mitre_risk_rationale(
-            contract=answer_contract,
-            query=request.message,
-            severity_decision=severity_decision,
-            mitre_decision=mitre_decision if isinstance(mitre_decision, dict) else None,
-            mitre_branch_result=mitre_branch_payload if isinstance(mitre_branch_payload, dict) else None,
-            budget_exhausted=budget.sidecar_budget_exhausted(),
-            budget=budget,  # per-internal-call accounting (mitre + risk = up to 2 slots)
+        draft_preview_active = isinstance(spl_draft_preview, dict) and bool(
+            str(spl_draft_preview.get("draft_spl") or "").strip()
         )
-        mitre_risk_rationale_trace = rationale_result.to_trace_dict()
-        rationale_updates: dict[str, Any] = {}
-        if rationale_result.severity_rationale_prose:
-            rationale_updates["severity_rationale"] = rationale_result.severity_rationale_prose
-        if rationale_result.mitre_rationale_prose:
-            rationale_updates["foundation_sec_analysis"] = rationale_result.mitre_rationale_prose
-        if rationale_updates:
-            analyst_response = analyst_response.model_copy(update=rationale_updates)
-        if llm_turn_budget_trace is not None:
-            llm_turn_budget_trace = budget.to_trace_dict()
+        if draft_preview_active:
+            mitre_risk_rationale_trace = {
+                "llm_called": False,
+                "guard_status": "skipped",
+                "fallback_used": True,
+                "skipped_reason": "draft_spl_preview_active",
+                "provider_label": None,
+                "severity_rationale_present": bool(analyst_response.severity_rationale),
+                "mitre_rationale_present": bool(analyst_response.foundation_sec_analysis),
+                "adapter_warnings": [],
+            }
+        elif hybrid_role_plan is None or not hybrid_role_plan.role_enabled("mitre_reasoner"):
+            rationale_result = MitreRiskRationaleResult(
+                severity_rationale_prose=build_deterministic_severity_rationale(severity_decision),
+                mitre_rationale_prose=build_deterministic_mitre_rationale(
+                    contract=answer_contract,
+                    mitre_branch_result=mitre_branch_payload if isinstance(mitre_branch_payload, dict) else None,
+                ),
+                guard_status="skipped",
+                fallback_used=True,
+                skipped_reason=(
+                    hybrid_role_plan.skip_reason("mitre_reasoner")
+                    if hybrid_role_plan is not None
+                    else "hybrid_plan_unavailable"
+                ),
+            )
+            mitre_risk_rationale_trace = rationale_result.to_trace_dict()
+        else:
+            rationale_result = run_mitre_risk_rationale(
+                contract=answer_contract,
+                query=request.message,
+                severity_decision=severity_decision,
+                mitre_decision=mitre_decision if isinstance(mitre_decision, dict) else None,
+                mitre_branch_result=mitre_branch_payload if isinstance(mitre_branch_payload, dict) else None,
+                budget_exhausted=budget.sidecar_hop_blocked(role="mitre_reasoner") is not None,
+                budget=budget,  # per-internal-call accounting (mitre + risk = up to 2 slots)
+            )
+            mitre_risk_rationale_trace = rationale_result.to_trace_dict()
+            rationale_updates: dict[str, Any] = {}
+            if rationale_result.severity_rationale_prose:
+                rationale_updates["severity_rationale"] = rationale_result.severity_rationale_prose
+            if rationale_result.mitre_rationale_prose:
+                rationale_updates["foundation_sec_analysis"] = rationale_result.mitre_rationale_prose
+            if rationale_updates:
+                analyst_response = analyst_response.model_copy(update=rationale_updates)
+            if llm_turn_budget_trace is not None:
+                llm_turn_budget_trace = budget.to_trace_dict()
 
         evidence_plan_payload = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
         live_plan_source = None
@@ -1416,9 +2409,21 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             live_resource_plan = evidence_plan_payload.get("resource_plan")
             if isinstance(live_resource_plan, dict):
                 live_plan_source = live_resource_plan.get("plan_source")
-        if budget.sidecar_budget_exhausted():
-            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "turn_budget_exhausted"}
+        if draft_preview_active:
+            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "draft_spl_preview_active"}
+        elif hybrid_role_plan is None or not hybrid_role_plan.role_enabled("route_plan_candidate_generator"):
+            resource_plan_shadow_trace = {
+                "llm_called": False,
+                "skipped_reason": (
+                    hybrid_role_plan.skip_reason("route_plan_candidate_generator")
+                    if hybrid_role_plan is not None
+                    else "hybrid_plan_unavailable"
+                ),
+            }
+        elif (hop_block := budget.sidecar_hop_blocked(role="route_plan_candidate_generator")):
+            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": hop_block}
         else:
+            _t0 = time.monotonic()
             shadow_result = run_resource_plan_shadow(
                 query=request.message,
                 match_path=_match_path_from_state(state),
@@ -1430,6 +2435,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                     role="route_plan_candidate_generator",
                     provider_label="local_or_failover",
                     outcome="completed",
+                    latency_ms=int((time.monotonic() - _t0) * 1000),
                 )
             if isinstance(evidence_plan_payload, dict):
                 after_source = (evidence_plan_payload.get("resource_plan") or {}).get("plan_source")
@@ -1449,12 +2455,21 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         intent_family=intent_family or None,
         use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
     )
-    if answer_contract is not None and analyst_response is not None and not skip_composer:
+    if (
+        answer_contract is not None
+        and analyst_response is not None
+        and hybrid_role_plan is not None
+        and hybrid_role_plan.role_enabled("governed_composer")
+        and not skip_composer
+    ):
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
-        if budget.narration_budget_exhausted():
+        # Do not start slow narration when its configured socket window cannot fit
+        # inside the remaining turn budget. The deterministic envelope is complete.
+        narration_reserve = budget.composer_reserve_seconds()
+        if (hop_block := budget.narration_hop_blocked(reserve_seconds=narration_reserve)):
             composer_trace = {
                 **composer_trace,
-                "llm_composer_skipped_reason": "turn_budget_exhausted",
+                "llm_composer_skipped_reason": hop_block,
             }
         else:
             composer_use_case_id = (
@@ -1464,10 +2479,23 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             enrichment_projection = llm_facing_curated_enrichment_projection(enrichment_context)
             if enrichment_projection is None:
                 enrichment_projection = get_guidance_only_enrichment_projection(composer_use_case_id)
+            routed_payload = state.get("routed") if isinstance(state.get("routed"), dict) else {}
+            intent_payload = (
+                state.get("intent_classification")
+                if isinstance(state.get("intent_classification"), dict)
+                else {}
+            )
             weak_case = qualifies_for_weak_case_composition(
                 answer_contract,
                 path_type=path_type,
                 intent_family=intent_family or None,
+                match_path=_match_path_from_state(state) or _candidate_match_path(state),
+                router_confidence=(
+                    float(routed_payload["confidence"])
+                    if isinstance(routed_payload.get("confidence"), (int, float))
+                    else None
+                ),
+                needs_clarification=bool(intent_payload.get("requires_clarification")),
             )
             soc_snippets = soc_kb_snippets_from_source_evidence(source_evidence)
             skill_sections = skill_sections_from_enrichment(enrichment_projection)
@@ -1483,20 +2511,43 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                         mcp_allowed=bool(answer_contract.mcp_allowed),
                     ),
                     routed_skill=_context_selected_skill(state),
+                    t2_grounding_block=(
+                        guided_grounding_block.to_prompt_block() if guided_grounding_block else None
+                    ),
                 )
-            composer_result = compose_governed_answer(
-                contract=answer_contract,
-                enrichment_projection=enrichment_projection,
-                fallback_envelope=analyst_response,
-                context_package=context_package,
-                path_type=path_type,
-                intent_family=intent_family or None,
-            )
-            composer_trace = {**composer_trace, **composer_result.trace_payload()}
+            _composer_timeout = budget.capped_hop_timeout_seconds(role="governed_composer")
+            if _composer_timeout is None:
+                # Budget drained between the narration gate and here: keep the complete
+                # deterministic envelope rather than start an unbounded narration hop.
+                composer_result = GovernedComposerResult(
+                    envelope=analyst_response,
+                    llm_composer_enabled=True,
+                    llm_composer_used=False,
+                    llm_guard_status="skipped",
+                    llm_fallback_used=True,
+                    llm_blocked_reason="insufficient_deadline_reserve",
+                )
+                composer_trace = {
+                    **composer_trace,
+                    "llm_composer_skipped_reason": "insufficient_deadline_reserve",
+                }
+            else:
+                _t0 = time.monotonic()
+                composer_result = compose_governed_answer(
+                    contract=answer_contract,
+                    enrichment_projection=enrichment_projection,
+                    fallback_envelope=analyst_response,
+                    context_package=context_package,
+                    path_type=path_type,
+                    intent_family=intent_family or None,
+                    timeout_seconds=_composer_timeout,
+                )
+                composer_trace = {**composer_trace, **composer_result.trace_payload()}
             if composer_result.llm_composer_used:
                 budget.record_narration(
                     provider_label=composer_result.llm_provider_label,
                     outcome="completed",
+                    latency_ms=int((time.monotonic() - _t0) * 1000),
                 )
             analyst_response = composer_result.envelope
             if composer_result.llm_composer_used and weak_case:
@@ -1578,8 +2629,57 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 or answer_contract.missing_evidence
             )
         )
-        if not has_guidance:
+        from app.chat.rag_answer_surfacing import is_substantive_guidance_message
+
+        if not has_guidance and not is_substantive_guidance_message(message):
             analyst_response = None
+    if settings.ai_soc_t2_rag_surfacing_enabled:
+        from app.chat.rag_answer_surfacing import apply_rag_answer_surfacing
+
+        message, answer_contract, analyst_response, human_review = apply_rag_answer_surfacing(
+            message=message,
+            answer_contract=answer_contract,
+            analyst_response=analyst_response,
+            source_evidence=source_evidence,
+            evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+            context_sufficiency=context_sufficiency if isinstance(context_sufficiency, dict) else None,
+            user_query=request.message,
+            human_review=human_review if isinstance(human_review, dict) else None,
+            selected_skill=_effective_routing_skill(state),
+        )
+        if answer_contract is not None:
+            answer_contract_payload = answer_contract.model_dump()
+    if settings.ai_soc_t2_answer_surfacing_enabled:
+        from app.chat.t2_answer_surfacing import apply_t2_answer_surfacing
+
+        message, answer_contract, analyst_response = apply_t2_answer_surfacing(
+            message=message,
+            answer_contract=answer_contract,
+            analyst_response=analyst_response,
+            human_review=human_review if isinstance(human_review, dict) else None,
+            candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
+            spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+            spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+            user_query=request.message,
+            match_path=match_path_for_t2,
+        )
+    if settings.ai_soc_t2_answer_surfacing_enabled:
+        # WS-7b/7c: enrich a status-only stub with an asset-scoped checklist
+        # (named entity) or a T1 objective headline (SPL artifact present). Runs
+        # on in-catalogue rows too, so it is not happy-path-bypassed.
+        from app.chat.entity_headline_surfacing import apply_entity_and_headline_surfacing
+
+        message, analyst_response = apply_entity_and_headline_surfacing(
+            message=message,
+            answer_contract=answer_contract,
+            analyst_response=analyst_response,
+            spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+            candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
+            user_query=request.message,
+        )
+    analyst_response = _collapse_card_summary_when_sections_own_details(analyst_response)
+    analyst_response = _strip_priority_prefixes_when_severity_unassigned(analyst_response)
+    message = _collapse_top_level_message_when_card_owns_sections(message, analyst_response)
     final_answer_validation = None
     guided_without_control_plane = (
         isinstance(state.get("planning_decision"), dict)
@@ -1596,6 +2696,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             routing_provenance=(state.get("routed") or {}).get("routing_provenance")
             if isinstance(state.get("routed"), dict)
             else None,
+            visible_message=message,
         )
         final_answer_validation = validation.model_dump()
         if validation.guard_status == "blocked":
@@ -1617,6 +2718,77 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 "synthesis_readiness": False,
             }
             response_mode = _response_mode(context_sufficiency, human_review, spl_validation)
+
+    execution_authorized = bool(
+        isinstance(execution, dict)
+        and str(execution.get("status") or "").lower()
+        in {"executed", "executed_mock_evidence", "executed_live_evidence", "success"}
+    )
+    _intent_for_hil = intent_classification if isinstance(intent_classification, dict) else {}
+    effective_hil_required = resolve_effective_hil_required(
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+        answer_contract=answer_contract,
+        human_review=human_review if isinstance(human_review, dict) else None,
+        execution=execution if isinstance(execution, dict) else None,
+        live_data_request=_live_data_request_from_state(state),
+        execution_authorized=execution_authorized,
+        intent_requires_hil=bool(_intent_for_hil.get("requires_hil")),
+    )
+    if isinstance(state.get("planning_decision"), dict):
+        state = {
+            **state,
+            "planning_decision": {
+                **state["planning_decision"],
+                "hil_required": effective_hil_required,
+                "effective_hil_required": effective_hil_required,
+            },
+        }
+    if governance_trace is not None:
+        if isinstance(governance_trace, dict):
+            governance_trace = {**governance_trace, "effective_hil_required": effective_hil_required}
+        else:
+            governance_trace = governance_trace.model_copy(
+                update={"effective_hil_required": effective_hil_required}
+            )
+    if isinstance(human_review, dict):
+        human_review = {**human_review, "effective_hil_required": effective_hil_required}
+
+    # P1 steps 4–5: deterministic skill-contribution contract + investigation floor.
+    # Records what the selected skill contributed to the finalized card (sections,
+    # evidence keys, provenance, skip reason, survival) and guarantees an
+    # investigation skill never returns a silent empty card.
+    from app.chat.skill_contribution import (
+        apply_investigation_floor,
+        apply_out_of_catalog_guidance_floor,
+        build_skill_contribution,
+        derive_boundary_class,
+    )
+
+    _routing_provenance = (
+        (state.get("routed") or {}).get("routing_provenance")
+        if isinstance(state.get("routed"), dict)
+        else None
+    )
+    skill_contribution = build_skill_contribution(
+        selected_skill=_effective_routing_skill(state),
+        envelope=analyst_response,
+        routing_provenance=_routing_provenance if isinstance(_routing_provenance, dict) else None,
+        source_evidence=source_evidence,
+        human_review=human_review if isinstance(human_review, dict) else None,
+        boundary_class=derive_boundary_class(request.message),
+    )
+    analyst_response = apply_out_of_catalog_guidance_floor(
+        envelope=analyst_response,
+        contribution=skill_contribution,
+        message=message,
+        match_path=match_path_for_t2,
+    )
+    if analyst_response is not None:
+        analyst_response = apply_investigation_floor(
+            envelope=analyst_response, contribution=skill_contribution
+        )
+    skill_contribution_record: dict[str, Any] = skill_contribution.to_dict()
+
     visibility: dict[str, Any] = {}
     control_plane_trace = None
     if settings.control_plane_enabled:
@@ -1653,6 +2825,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_guard=answer_guard.model_dump(),
             node_trace=visibility.get("node_trace"),
         )
+        control_plane_trace["llm_calls"] = visibility.get("llm_calls")
         control_plane_trace["llm_composer"] = composer_trace
         if missing_evidence_reasoning_trace is not None:
             control_plane_trace["missing_evidence_reasoning"] = missing_evidence_reasoning_trace
@@ -1660,6 +2833,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             control_plane_trace["mitre_risk_rationale"] = mitre_risk_rationale_trace
         if resource_plan_shadow_trace is not None:
             control_plane_trace["resource_plan_shadow"] = resource_plan_shadow_trace
+        budget = state.get("llm_turn_budget") or TurnLlmBudget()
+        tool_plan_reserve = max(1.0, float(settings.ai_soc_llm_timeout_seconds))
+        allow_tool_plan_llm = (
+            hybrid_role_plan is not None
+            and hybrid_role_plan.role_enabled("mcp_tool_plan_shadow")
+            and not draft_preview_active
+            and budget.sidecar_hop_blocked(role="mcp_tool_plan_shadow") is None
+            and budget.can_start_call(reserve_seconds=tool_plan_reserve)
+        )
         mcp_tool_plan_shadow_trace = run_mcp_tool_plan_shadow(
             query=request.message,
             target_index=_target_index_from_validation(spl_validation),
@@ -1667,11 +2849,47 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             session_role=state.get("session_role"),
             needs_mcp=_mcp_tool_plan_needs_mcp(state, spl_validation),
             needs_spl=spl_validation is not None,
+            allow_llm_advisory=allow_tool_plan_llm,
+            llm_advisory_skip_reason=(
+                "turn_budget_exhausted"
+                if not draft_preview_active and not allow_tool_plan_llm
+                else None
+            ),
         )
         if mcp_tool_plan_shadow_trace is not None:
             control_plane_trace["mcp_tool_plan_shadow"] = mcp_tool_plan_shadow_trace
+            planner_meta = mcp_tool_plan_shadow_trace.get("planner") or {}
+            if planner_meta.get("llm_called"):
+                budget.record_sidecar(
+                    role="mcp_tool_plan_shadow",
+                    provider_label=planner_meta.get("llm_label"),
+                    outcome="completed" if not planner_meta.get("llm_error") else "dropped",
+                )
         if llm_turn_budget_trace is not None:
-            control_plane_trace["llm_turn_budget"] = llm_turn_budget_trace
+            control_plane_trace["llm_turn_budget"] = budget.to_trace_dict()
+        if hybrid_role_plan is not None:
+            control_plane_trace["hybrid_role_graph"] = hybrid_role_plan.to_trace_dict()
+        # Stage 4B: surface the governed evidence-loop so it is debuggable in
+        # prod traces (chronology, bounded hop count, accumulated hops, verdict).
+        if state.get("mcp_chronology") is not None:
+            control_plane_trace["evidence_loop"] = {
+                "chronology": list(state.get("mcp_chronology") or []),
+                "hops_done": int(state.get("mcp_hops_done", 0)),
+                "decision": state.get("mcp_loop"),
+                "hops": state.get("mcp_evidence") or [],
+                "planner": state.get("mcp_loop_planner"),
+            }
+        # Plan §3 A4: attach CVE snapshot provenance when the plan needs vulnerability context.
+        vuln_source = _resolve_vulnerability_source_status(state)
+        if vuln_source is not None:
+            if isinstance(control_plane_trace.get("evidence_loop"), dict):
+                control_plane_trace["evidence_loop"]["vulnerability_source"] = vuln_source
+            else:
+                control_plane_trace["vulnerability_source"] = vuln_source
+        if path_type == "guided_investigation" and guided_grounding_block is not None:
+            control_plane_trace["guided_hunt_grounding"] = guided_hunt_grounding_trace(
+                guided_grounding_block
+            )
 
     session_context_status = None
     if settings.ai_soc_session_context_enabled and isinstance(session_resolution, SessionContextResolution):
@@ -1689,15 +2907,52 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     # this node) so the response's evidence_plan carries executed/fallback/
     # blocked provenance for every composed step.
     state = annotate_step_statuses({**state, "mitre_decision": mitre_decision})
+    from app.chat.run_contract_builder import (  # circular
+        build_final_evidence_gate as _build_final_evidence_gate_final,
+        build_run_contract as _build_run_contract_final,
+    )
+
+    # Recompute the gate against the final state (post composer / final validation
+    # / HIL changes) and pass it into the rebuild, so the exposed
+    # final_evidence_gate cannot drift from the final RunContract.
+    _final_gate_state = {
+        **state,
+        "human_review": human_review,
+        "source_evidence": source_evidence,
+        "answer_contract": answer_contract_payload,
+    }
+    final_evidence_gate = _build_final_evidence_gate_final(_final_gate_state, route=route)
+    run_contract = _build_run_contract_final(_final_gate_state, route=route, gate=final_evidence_gate)
+    gate_payload = final_evidence_gate.to_dict()
+    structured_context["final_evidence_gate"] = gate_payload
+    state = {
+        **state,
+        "run_contract": run_contract.model_dump_canonical(),
+        "final_evidence_gate": gate_payload,
+    }
+    # Review-only SPL drafts: one dedicated renderer owns the visible answer (fixed
+    # section order + labels) and suppresses the generic title/review-type/investigation
+    # producers. Presentation only — RunContract/HIL/MCP/source-evidence are unchanged.
+    analyst_response, message = apply_review_only_spl_render(
+        run_contract=run_contract,
+        analyst_response=analyst_response,
+        message=message,
+        draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+    )
+    action_capability = action_capability_for(
+        response_use_case.use_case_id if response_use_case else None,
+        severity_decision.severity_label,
+        hil_required=run_contract.effective_hil_required,
+    )
     response = PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,
         fallback_active=True if partial_fallback else None,
         response_packaging_status=response_packaging_status,
-        selected_skill=str(routed["skill"]),
+        selected_skill=run_contract.routing.canonical_skill,
         primary_operation=primary_operation,
         coverage_id=coverage_id,
-        route_authority=route_authority,
+        route_authority=_route_authority_payload(route_plan_shadow),
         legacy_intent_authority=bool(
             (routing_skill_resolution or {}).get("legacy_intent_authority", True)
         ),
@@ -1715,6 +2970,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case=response_use_case,
         selected_skill_chain=state["selected_skill_chain"],
         skill_selection=state["skill_selection"],
+        skill_contribution=skill_contribution_record,
         message=message,
         note=note,
         analyst_summary=(
@@ -1745,7 +3001,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         governance_trace=governance_trace,
         query_to_intent=state.get("query_to_intent"),
         planning_decision=state.get("planning_decision"),
-        llm_intent_advisory=state.get("llm_intent_advisory"),
+        llm_intent_advisory=(
+            state["llm_intent_advisory"].model_dump()
+            if isinstance(state.get("llm_intent_advisory"), LLMIntentAdvisory)
+            else state.get("llm_intent_advisory")
+        ),
         evidence_plan=state.get("evidence_plan"),
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
@@ -1753,13 +3013,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         final_answer_validation=final_answer_validation,
         mitre_decision=mitre_decision,
         analyst_response=analyst_response,
+        environment_hygiene=environment_hygiene,
         mitre_evidence_status=visibility.get("mitre_evidence_status"),
         spl_template_status=visibility.get("spl_template_status"),
         node_trace=visibility.get("node_trace"),
         answer_guard_status=visibility.get("answer_guard_status"),
         final_answer_safety_status=visibility.get("final_answer_safety_status"),
         session_context_status=session_context_status,
+        run_contract=state.get("run_contract"),
+        routing_contract=state.get("route_contract"),
     )
+    response = _apply_coe_stop_condition_gate(response, query=request.message)
     if settings.ai_soc_session_context_enabled and state.get("session_id"):
         persist_session_pins(
             pins_from_pipeline_state(
@@ -1791,6 +3055,161 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         "mitre_decision": mitre_decision,
         "answer_contract": answer_contract_payload,
     }
+
+
+_COE_STOP_CONDITION_IDS = frozenset(
+    {
+        "run_contract_missing",
+        "live_backed_without_execution",
+        "results_table_not_allowed",
+        "priority_prefix_without_severity",
+        "route_authority_holder_contradiction",
+        "duplicate_spl_warning",
+        "duplicate_soc_review_checklist",
+    }
+)
+
+
+def _collapse_top_level_message_when_card_owns_sections(
+    message: str,
+    analyst_response: Any | None,
+) -> str:
+    if analyst_response is None:
+        return message
+    lowered = str(message or "").lower()
+    if not (
+        "lab-only draft spl preview" in lowered
+        or "soc review checklist" in lowered
+        or "draft spl (review-only" in lowered
+    ):
+        return message
+    summary = str(getattr(analyst_response, "direct_answer_summary", "") or "").strip()
+    if summary:
+        return summary
+    return "Review-only answer prepared; no live query was executed."
+
+
+_PRIORITY_ACTION_PREFIX = re.compile(r"^P[1-4]\s*[—\-–:]\s*", re.IGNORECASE)
+
+
+def _strip_priority_prefixes_when_severity_unassigned(analyst_response: Any | None) -> Any | None:
+    """Drop P1/P2/P3/P4 action prefixes when incident severity is not assigned.
+
+    COE stop condition: priority prefixes must not appear unless severity is actually
+    assigned. Some answer paths emit P-prefixed actions without an assigned severity;
+    normalize them here so the final answer is self-consistent rather than nulled.
+    """
+    if analyst_response is None:
+        return None
+    label = str(getattr(analyst_response, "severity_label", "") or "")
+    severity_assigned = bool(label) and "not assigned" not in label.lower()
+    if severity_assigned:
+        return analyst_response
+    updates: dict[str, Any] = {}
+    for field in ("recommended_actions", "analyst_checklist", "investigation_steps"):
+        items = getattr(analyst_response, field, None)
+        if not isinstance(items, list) or not items:
+            continue
+        stripped = [
+            _PRIORITY_ACTION_PREFIX.sub("", str(item)).strip() if isinstance(item, str) else item
+            for item in items
+        ]
+        if stripped != list(items):
+            updates[field] = stripped
+    if not updates:
+        return analyst_response
+    return analyst_response.model_copy(update=updates)
+
+
+def _collapse_card_summary_when_sections_own_details(analyst_response: Any | None) -> Any | None:
+    if analyst_response is None:
+        return None
+    summary = str(getattr(analyst_response, "direct_answer_summary", "") or "").strip()
+    if not summary:
+        return analyst_response
+    lowered = summary.lower()
+    owns_detail_sections = any(
+        getattr(analyst_response, field, None)
+        for field in (
+            "recommended_actions",
+            "analyst_checklist",
+            "investigation_steps",
+            "triage_checklist",
+            "evidence_checklist",
+            "spl_draft_preview",
+            "draft_spl_code",
+            "spl_code",
+        )
+    )
+    if not owns_detail_sections:
+        return analyst_response
+    if not (
+        "review steps:" in lowered
+        or "soc review checklist" in lowered
+        or "draft spl" in lowered
+        or "\n-" in summary
+    ):
+        return analyst_response
+    first_line = next((line.strip() for line in summary.splitlines() if line.strip()), "")
+    if not first_line:
+        first_line = "Review-only answer prepared; no live query was executed."
+    return analyst_response.model_copy(update={"direct_answer_summary": first_line[:500]})
+
+
+def _is_coe_stop_condition_violation(violation: str) -> bool:
+    return violation in _COE_STOP_CONDITION_IDS or violation.startswith("run_contract_field_missing:")
+
+
+def _apply_coe_stop_condition_gate(response: PlaceholderResponse, *, query: str) -> PlaceholderResponse:
+    """Fail closed on COE stop-condition violations after RunContract packaging."""
+    from app.evals.answer_efficacy_checks import evaluate_universal_efficacy
+
+    payload = response.model_dump(mode="json")
+    violations = [
+        violation
+        for violation in evaluate_universal_efficacy(query=query, payload=payload)
+        if _is_coe_stop_condition_violation(violation)
+    ]
+    if not violations:
+        return response
+
+    first = violations[0]
+    blocked_reason = f"COE stop-condition validation failed: {first}."
+    final_validation = payload.get("final_answer_validation") if isinstance(payload.get("final_answer_validation"), dict) else {}
+    prior_failed = final_validation.get("failed_checks") if isinstance(final_validation.get("failed_checks"), list) else []
+    payload["final_answer_validation"] = {
+        **final_validation,
+        "enabled": True,
+        "guard_status": "blocked",
+        "failed_checks": sorted({str(item) for item in prior_failed + violations}),
+        "blocked_reason": blocked_reason,
+        "analyst_review_required": True,
+        "reason": "COE stop-condition validation failed; routing to analyst review (fail closed).",
+    }
+
+    existing_review = payload.get("human_review") if isinstance(payload.get("human_review"), dict) else {}
+    payload["human_review"] = {
+        **existing_review,
+        "required": True,
+        "review_type": existing_review.get("review_type") or "answer_guard_blocked",
+        "reason": existing_review.get("reason") or "coe_stop_condition_violation",
+        "reviewer_role": existing_review.get("reviewer_role") or "soc_analyst",
+        "allowed_actions": existing_review.get("allowed_actions") or ["review_renderer_output", "cancel"],
+        "safe_message_for_user": blocked_reason,
+    }
+    context = payload.get("context_sufficiency") if isinstance(payload.get("context_sufficiency"), dict) else None
+    if context is not None:
+        payload["context_sufficiency"] = {
+            **context,
+            "status": "analyst_review_required",
+            "synthesis_readiness": False,
+        }
+    payload["message"] = blocked_reason
+    payload["note"] = "COE stop-condition validation failed; visible answer withheld for analyst review."
+    payload["response_mode"] = "human_review"
+    payload["analyst_response"] = None
+    payload["mitre_mappings"] = []
+    return PlaceholderResponse.model_validate(payload)
 
 
 def _route_authority_payload(route_plan_shadow: dict[str, Any] | None) -> dict[str, object] | None:
@@ -1844,7 +3263,20 @@ def _dispatch_hooks() -> DispatchHooks:
     )
 
 
+def _session_spl_refine_active(state: ChatPipelineState) -> bool:
+    resolution = state.get("session_context_resolution")
+    return (
+        isinstance(resolution, SessionContextResolution)
+        and resolution.spl_refine_from_session
+        and resolution.status.staleness == "fresh"
+        and resolution.pins is not None
+        and bool(resolution.pins.last_candidate_spl)
+    )
+
+
 def _uses_rag_only_path(state: ChatPipelineState) -> bool:
+    if _session_spl_refine_active(state):
+        return False
     planning = state.get("planning_decision")
     path_type = planning.get("path_type") if isinstance(planning, dict) else None
     if path_type == "guided_investigation":
@@ -1939,7 +3371,7 @@ def _spl_allowed(state: ChatPipelineState) -> bool:
 def _mcp_allowed(state: ChatPipelineState) -> bool:
     if not settings.control_plane_enabled:
         return True
-    return bool(_evidence_plan(state).get("mcp_allowed", True))
+    return _evidence_plan(state).get("mcp_allowed") is True
 
 
 def _context_selected_skill(state: ChatPipelineState) -> str:
@@ -2128,6 +3560,7 @@ def _needs_mitre_clarification(
     *,
     session_alert_context: bool = False,
     query_signals: dict[str, Any] | None = None,
+    intent_classification: dict[str, Any] | None = None,
 ) -> bool:
     """Conservative heuristic: a MITRE mapping ask with no alert context yet.
 
@@ -2137,7 +3570,26 @@ def _needs_mitre_clarification(
     """
     if isinstance(query_signals, dict) and query_signals.get("use_case_review_guidance"):
         return False
+    if isinstance(query_signals, dict) and query_signals.get("mitre_evidence_threshold"):
+        return False
+    if isinstance(query_signals, dict) and query_signals.get("cross_skill_investigation"):
+        return False
+    if isinstance(query_signals, dict) and query_signals.get("cve_focus_investigation"):
+        return False
+    intent = intent_classification if isinstance(intent_classification, dict) else {}
+    if str(intent.get("primary_intent") or "") == "cross_skill_investigation":
+        return False
+    if str(intent.get("intent_family") or "") in {
+        "github_investigation",
+        "cve_investigation",
+        "alert_summary",
+        "hybrid_alert_review",
+        "mitre_explanation",
+    }:
+        return False
     normalized = " ".join(query.lower().split())
+    if normalized.startswith(("mitre focus:", "cve focus:", "github focus:", "cross-skill")):
+        return False
     if not any(keyword in normalized for keyword in _MITRE_INTENT_KEYWORDS):
         return False
     if candidate_spl and candidate_spl.get("candidate_spl"):
@@ -2244,6 +3696,30 @@ def _spl_clarification_user_message(spl_validation: dict[str, Any] | None) -> st
     return (
         "I need a governed template match or supported source details before drafting SPL. "
         "Confirm the index, sourcetype, key fields, and time range for this request."
+    )
+
+
+def _is_t2_review_only(
+    candidate_spl: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+) -> bool:
+    cs = candidate_spl if isinstance(candidate_spl, dict) else {}
+    sv = spl_validation if isinstance(spl_validation, dict) else {}
+    return (
+        cs.get("generation_mode") == "t2_spl_native_review"
+        or str(sv.get("review_required_reason") or "") == "t2_spl_native_review_only"
+    )
+
+
+def _t2_review_only_review() -> dict:
+    return human_review(
+        "spl_review_required",
+        "t2_spl_native_review_only",
+        "soc_analyst",
+        ["review_draft_spl", "provide_source_profile", "cancel"],
+        "A review-only SPL draft was generated. Validate the source profile and fields "
+        "before any execution path. Nothing was executed.",
+        required=True,
     )
 
 
@@ -2629,6 +4105,39 @@ def _session_spl_refine_stage(
     return candidate_payload, validation_payload
 
 
+
+
+def _spl_user_constraint_bindings(
+    user_query: str,
+    *,
+    llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
+    query_understanding: Any | None = None,
+    template_id: str | None = None,
+) -> UserConstraintBindings:
+    template = get_spl_template(template_id) if template_id else None
+    policy_indexes = None
+    policy_sourcetypes = None
+    if template is not None and isinstance(template.validation_rules, dict):
+        raw_indexes = template.validation_rules.get("allowed_indexes")
+        raw_sourcetypes = template.validation_rules.get("allowed_sourcetypes")
+        if isinstance(raw_indexes, list) and raw_indexes:
+            policy_indexes = tuple(str(item).lower() for item in raw_indexes)
+        if isinstance(raw_sourcetypes, list) and raw_sourcetypes:
+            policy_sourcetypes = tuple(str(item).lower() for item in raw_sourcetypes)
+    source_profile_result = build_source_profile_binding_slots(
+        user_query,
+        template_id=template_id,
+    )
+    return build_user_constraint_bindings(
+        user_query,
+        llm_intent_advisory=llm_intent_advisory,
+        query_understanding=query_understanding,
+        extra_slots=source_profile_result.slots,
+        source_profile_trace=source_profile_result.trace(),
+        allowed_indexes=policy_indexes,
+        allowed_sourcetypes=policy_sourcetypes,
+    )
+
 def _candidate_spl_stage(
     trace_id: str,
     skill: str,
@@ -2640,6 +4149,8 @@ def _candidate_spl_stage(
     use_case_id: str | None = None,
     slot_binding_enabled: bool = False,
     mapped_pattern_type: str | None = None,
+    llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
+    query_understanding: Any | None = None,
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
@@ -2661,6 +4172,12 @@ def _candidate_spl_stage(
             reason=governance_block_reason,
             spl_governance=spl_governance,
         )
+    user_bindings = _spl_user_constraint_bindings(
+        user_query,
+        llm_intent_advisory=llm_intent_advisory,
+        query_understanding=query_understanding,
+        template_id=template_id,
+    )
     template_candidate = _candidate_from_default_template(
         trace_id=trace_id,
         skill=skill,
@@ -2669,6 +4186,12 @@ def _candidate_spl_stage(
         spl_governance=spl_governance,
         telemetry=telemetry,
         profile=profile,
+        slot_source=(
+            "llm"
+            if any(source == SLOT_SOURCE_LLM for source in user_bindings.slot_sources.values())
+            else "user"
+        ),
+        user_constraint_bindings=user_bindings,
     )
     if template_candidate is not None:
         candidate_payload, validation_payload = template_candidate
@@ -2701,6 +4224,22 @@ def _candidate_spl_stage(
         )
         return candidate_payload, validation_payload
 
+    # T1 SPL-native path: a runtime-source-profile query (scada_perf/cisco_asa)
+    # with no governed template gets a deterministic review-only draft (shape ->
+    # repair -> validate) before any clarification/LLM degrade. Narrowly gated on
+    # the runtime profile so other catalogue/105 paths are untouched. Always
+    # review-only (approved=false, normalized_spl=null, execution disabled).
+    t2_native_candidate = _candidate_from_t2_spl_native(
+        trace_id=trace_id,
+        skill=skill,
+        user_query=user_query,
+        telemetry=telemetry,
+        profile=profile,
+        spl_governance=spl_governance,
+    )
+    if t2_native_candidate is not None:
+        return t2_native_candidate
+
     llm_failover_enabled = _should_use_llm_spl_failover(skill)
     # B02: when LLM failover is enabled, do not short-circuit planned/missing
     # template rows to clarification — let the LLM generate, then the relevance +
@@ -2721,6 +4260,48 @@ def _candidate_spl_stage(
             spl_governance=spl_governance,
         )
 
+    # Catalogue/runtime-map matches already carry deterministic pattern authority.
+    # If no governed template rendered and a lab draft family exists for that
+    # mapped pattern, prefer the deterministic review-only draft over the slow
+    # advisory LLM fallback. This keeps candidate SPL non-executable while
+    # avoiding timeout-prone model calls for known Cisco catalogue paraphrases.
+    if mapped_pattern_type and not template_id:
+        lab_draft_candidate = _candidate_from_lab_draft(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+            pattern_type=mapped_pattern_type,
+            use_case_id=use_case_id,
+            llm_fallback_reason="deterministic_draft_preferred_for_catalog_pattern",
+            llm_intent_advisory=llm_intent_advisory,
+        )
+        if lab_draft_candidate is not None:
+            return lab_draft_candidate
+
+    signals = query_signals if isinstance(query_signals, dict) else {}
+    if signals.get("live_data_request"):
+        from app.spl.draft_preview import has_strong_detection_family_match
+
+        if has_strong_detection_family_match(user_query):
+            live_data_draft = _candidate_from_lab_draft(
+                trace_id=trace_id,
+                skill=skill,
+                user_query=user_query,
+                telemetry=telemetry,
+                profile=profile,
+                spl_governance=spl_governance,
+                pattern_type=mapped_pattern_type,
+                use_case_id=use_case_id,
+                live_data_request=True,
+                llm_fallback_reason="deterministic_draft_preferred_for_live_data_family",
+                llm_intent_advisory=llm_intent_advisory,
+            )
+            if live_data_draft is not None:
+                return live_data_draft
+
     fallback_candidate = _candidate_from_llm_fallback(
         trace_id=trace_id,
         skill=skill,
@@ -2739,6 +4320,12 @@ def _candidate_spl_stage(
             # deterministic first-match silently winning.
             "candidate_families": (
                 _ambiguous_families(user_query) if llm_failover_enabled else None
+            ),
+            # WS-F: governed deterministic grounding (detection families + MITRE/ATLAS
+            # + AI-threat refs) so the T2 LLM SPL is anchored to in-repo references,
+            # never invented. Advisory context only; the producer still validates output.
+            "t2_grounding": (
+                _build_t2_grounding_block(user_query) if llm_failover_enabled else None
             ),
         },
     )
@@ -2841,6 +4428,7 @@ def _candidate_from_default_template(
     profile: Any | None = None,
     extra_slots: dict[str, Any] | None = None,
     slot_source: str = "user",
+    user_constraint_bindings: UserConstraintBindings | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     template = get_spl_template(template_id)
     if template is None or template.query_shape != QUERY_SHAPE_RAW_SEARCH or not template.spl_text:
@@ -2858,6 +4446,7 @@ def _candidate_from_default_template(
         user_query,
         extra_slots=extra_slots,
         slot_source=slot_source,
+        user_constraint_bindings=user_constraint_bindings,
     )
     if not slot_outcome.valid:
         if telemetry is not None and profile is not None:
@@ -2894,26 +4483,40 @@ def _candidate_from_default_template(
 
     from app.spl.spl_generation_safety import apply_spl_generation_safety
 
-    rendered_spl = customize_template_spl(
+    bindings = user_constraint_bindings or _spl_user_constraint_bindings(
+        user_query,
+        template_id=template.template_id,
+    )
+    compatibility = check_template_compatibility(template.template_id, bindings, template=template)
+    force_skeleton = compatibility.use_user_bound_skeleton
+    rendered_spl, binding_trace = customize_template_spl_with_trace(
         template.template_id,
         template.spl_text,
         user_query,
         normalized_slots=slot_outcome.normalized_slots,
+        user_constraint_bindings=bindings,
+        force_user_skeleton=force_skeleton,
     )
-    validation = validate_spl(rendered_spl)
+    binding_trace["template_compatibility"] = compatibility.to_dict()
+    validation = validate_spl(rendered_spl, template_profile=template.validation_rules)
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
     final_spl, validation, optimization = merge_post_validation_optimization(
         rendered_spl,
         validation,
         profile=profile,
         user_query=user_query,
+        template_profile=template.validation_rules,
     )
     candidate_payload = {
         "trace_id": trace_id,
         "skill": skill,
         "user_query": user_query,
         "candidate_spl": final_spl,
-        "generation_mode": "deterministic_template_render",
+        "generation_mode": (
+            "deterministic_user_bound_skeleton"
+            if binding_trace.get("used_user_bound_skeleton")
+            else "deterministic_template_render"
+        ),
         "confidence": 0.93,
         "assumptions": [
             f"Governed raw-search SPL template selected from use-case catalog: {template.template_id}.",
@@ -2921,6 +4524,8 @@ def _candidate_from_default_template(
         ],
         "warnings": [] if validation.get("approved") else ["template_spl_validation_failed"],
         "template_id": template.template_id,
+        "user_constraint_bindings": bindings.to_dict(),
+        "spl_binding_trace": binding_trace,
     }
     validation_payload = {
         "approved": validation["approved"],
@@ -2929,7 +4534,11 @@ def _candidate_from_default_template(
         "warnings": validation["warnings"],
         "enforced_limits": validation["enforced_limits"],
         "policy_version": validation["policy_version"],
-        "selected_candidate_spl_provider": "deterministic_template_render",
+        "selected_candidate_spl_provider": (
+            "deterministic_user_bound_skeleton"
+            if binding_trace.get("used_user_bound_skeleton")
+            else "deterministic_template_render"
+        ),
         "candidate_provider_reason": "use_case_catalog_default_raw_template",
         "saia_available": False,
         "fallback_required": False,
@@ -3116,6 +4725,25 @@ def _ambiguous_families(user_query: str) -> list[str] | None:
     return families if len(families) > 1 else None
 
 
+def _build_t2_grounding_block(user_query: str) -> str | None:
+    """WS-F governed grounding for the T2 LLM SPL producer (advisory, never authority).
+
+    Anchors the out-of-catalogue prompt to in-repo detection families + MITRE/ATLAS
+    references so the LLM SPL is grounded, not invented. Best-effort: never breaks the
+    SPL path."""
+    try:
+        from app.chat.grounding_assembler import assemble_grounding
+
+        block = assemble_grounding(
+            user_query,
+            detection_families=candidate_detection_families(user_query, limit=4),
+        )
+        text = block.to_prompt_block()
+        return text or None
+    except Exception:
+        return None
+
+
 def _should_use_llm_spl_failover(skill: str) -> bool:
     """LLM-primary failover is available when the flag is on and the skill is an
     SPL-producing skill. The relevance + validation gates downstream keep any
@@ -3123,6 +4751,184 @@ def _should_use_llm_spl_failover(skill: str) -> bool:
     if not settings.ai_soc_llm_spl_fallback_enabled:
         return False
     return skill in {"attack_discovery", "spl_generation"}
+
+
+def _t2_runtime_profile_for_query(user_query: str) -> Any | None:
+    """Return the runtime source profile (scada_perf/cisco_asa) named in the
+    query, or None.  Narrow gate for the T1 SPL-native path."""
+    tokens = pre_parse_spl_tokens(user_query)
+    for index in tokens.indexes:
+        profile = resolve_profile_for_index(index)
+        if profile is not None:
+            return profile
+    return None
+
+
+def _candidate_from_t2_spl_native(
+    *,
+    trace_id: str,
+    skill: str,
+    user_query: str,
+    telemetry: Any,
+    profile: Any,
+    spl_governance: dict[str, Any] | None,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """T1 SPL-native review-only candidate for runtime-source-profile queries.
+
+    Deterministic pre-parse -> T2 shape -> repair -> review-only SPL.  The draft
+    is always non-executable (approved=False, normalized_spl=None,
+    execution_eligible=False).  Returns None when no runtime profile resolves so
+    the existing degrade chain (lab draft / LLM fallback / clarification) runs.
+    """
+    runtime_profile = _t2_runtime_profile_for_query(user_query)
+    if runtime_profile is None:
+        return None
+
+    artifact = generate_review_only_spl(user_query)
+
+    # Unsafe candidate -> hard block, no renderable SPL.
+    if artifact.blocked:
+        candidate_payload, validation_payload = _candidate_clarification(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            reason="t2_unsafe_spl_blocked",
+            spl_governance=spl_governance,
+        )
+        validation_payload["reject_reasons"] = sorted(
+            set(list(validation_payload.get("reject_reasons") or []) + list(artifact.block_reasons))
+        )
+        return candidate_payload, validation_payload
+
+    # No usable canonical SPL (operation unknown / unresolved fields) -> defer.
+    if not artifact.renderable or not artifact.candidate_spl.strip():
+        return None
+
+    # Wire the runtime source profile into the validator so a known index
+    # (scada_perf/cisco_asa) is not falsely rejected.  ``_profile_tuple`` only
+    # honours list values, so these MUST be lists.
+    template_profile: dict[str, Any] = {
+        "allowed_indexes": list(runtime_profile.allowed_indexes),
+        "allowed_commands": [
+            "search", "fields", "eval", "bin", "stats", "eventstats", "streamstats",
+            "where", "table", "sort", "rename", "dedup", "lookup", "coalesce", "head",
+        ],
+    }
+    lookup_name = artifact.shape.get("lookup_name")
+    if lookup_name:
+        template_profile["allowed_lookups"] = [str(lookup_name)]
+    validation = validate_spl(artifact.candidate_spl, template_profile=template_profile)
+
+    # Review-only notes: deterministic shape/repair notes + honest validator
+    # findings the analyst must resolve before any future execution path.
+    validation_notes = list(artifact.validation_notes)
+    for reason in validation.get("reject_reasons") or []:
+        note = f"Validator (review): {reason}"
+        if note not in validation_notes:
+            validation_notes.append(note)
+
+    shape = artifact.shape
+    t2_block = {
+        "runtime_operation": artifact.runtime_operation,
+        "source_profile": artifact.source_profile,
+        "entity_fields": list(shape.get("entity_fields") or []),
+        "metric_fields": list(shape.get("metric_fields") or []),
+        "baseline_window": shape.get("baseline_window"),
+        "detection_window": shape.get("detection_window"),
+        "lookup_name": shape.get("lookup_name"),
+        "lookup_match_field": shape.get("lookup_match_field"),
+        "log_match_field": shape.get("log_match_field"),
+        "spl_candidate": artifact.candidate_spl,
+        "validation_notes": validation_notes,
+        "repairs": list(artifact.repairs),
+        "execution_eligible": False,
+        "review_required": True,
+    }
+    review_labels = {
+        "governed": False,
+        "catalog_approved": False,
+        "execution_enabled": False,
+        "execution_eligible": False,
+        "review_required": True,
+    }
+    candidate_payload = {
+        "trace_id": trace_id,
+        "skill": skill,
+        "user_query": user_query,
+        "candidate_spl": artifact.candidate_spl,
+        "generation_mode": "t2_spl_native_review",
+        "confidence": 0.6,
+        "assumptions": [
+            *validation_notes,
+            "T1 SPL-native review-only draft — not governed, not executed.",
+            "Requires analyst validation before any MCP execution path.",
+        ],
+        "warnings": ["t2_spl_native_review_only"],
+        "selected_candidate_spl_provider": "t2_spl_native",
+        "fallback_required": False,
+        "candidate_spl_generated": True,
+        "validation_required": True,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "llm_supported": False,
+        "llm_fallback_used": False,
+        "llm_fallback_status": "t2_spl_native_review",
+        "llm_fallback_reason": "t1_spl_native_runtime_profile",
+        "exposure_tier": "review_candidate",
+        "detection_family": None,
+        "review_only_renderable": True,
+        "t2_spl_native": t2_block,
+        **review_labels,
+    }
+    validation_payload = {
+        # Fail-closed: the analyst sees the draft, but approved/normalized_spl stay
+        # false/null so the MCP execution gate can never run it.
+        "approved": False,
+        "normalized_spl": None,
+        "reject_reasons": list(validation.get("reject_reasons") or []),
+        "warnings": list(validation.get("warnings") or []),
+        "enforced_limits": validation.get("enforced_limits") or {},
+        "policy_version": validation.get("policy_version"),
+        "selected_candidate_spl_provider": "t2_spl_native",
+        "candidate_provider_reason": "t1_spl_native_runtime_profile",
+        "saia_available": False,
+        "fallback_required": False,
+        "spl_explanation_provider": "rule_based",
+        "spl_optimization_provider": "rule_based",
+        "spl_guidance_provider": "scd_rag",
+        "optimization_applied": False,
+        "optimization_revalidation_status": None,
+        "optimization_revalidation_approved": False,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "validation_notes": validation_notes,
+        "t2_spl_native": t2_block,
+        **review_labels,
+    }
+    _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
+    _mark_spl_review_status(candidate_payload, validation_payload, reason="t2_spl_native_review_only")
+    telemetry.record_step(
+        trace_id,
+        "candidate_spl_generated",
+        "completed",
+        skill=skill,
+        generation_mode=candidate_payload["generation_mode"],
+        confidence=candidate_payload["confidence"],
+        warnings=candidate_payload["warnings"],
+        selected_candidate_spl_provider="t2_spl_native",
+        fallback_required=False,
+    )
+    telemetry.record_spl_validation(
+        trace_id,
+        stage="spl_validation_result",
+        approved=False,
+        reject_reasons=validation_payload["reject_reasons"],
+        warnings=validation_payload["warnings"],
+        policy_version=validation_payload["policy_version"],
+    )
+    return candidate_payload, validation_payload
 
 
 def _candidate_from_lab_draft(
@@ -3136,6 +4942,8 @@ def _candidate_from_lab_draft(
     pattern_type: str | None,
     use_case_id: str | None,
     llm_fallback_reason: str | None,
+    live_data_request: bool = False,
+    llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     """Deterministic lab-draft last resort for the LLM-failover degrade chain.
 
@@ -3150,6 +4958,9 @@ def _candidate_from_lab_draft(
         user_query,
         pattern_type=pattern_type,
         use_case_id=use_case_id,
+        live_data_request=live_data_request,
+        llm_intent_advisory=llm_intent_advisory,
+        query_understanding=None,
     )
     draft_spl = (draft or {}).get("draft_spl")
     if not draft or not isinstance(draft_spl, str) or not draft_spl.strip():
@@ -3292,9 +5103,38 @@ def _candidate_from_llm_fallback(
     # answers the question, and regenerate once with the mismatch feedback before
     # accepting. A timeout/unavailable client returns a clarification result (no
     # raw output), which the gate treats as not-relevant and falls through.
-    result = generate_llm_spl_fallback(
-        user_query=user_query, context=llm_context, correctness_mode=True
-    )
+    #
+    # Plan-plus-compiler is the PRIMARY producer (proven reliable + repeatable on
+    # the on-host 8B: 10/10 lab-tier in the seeded eval): the LLM emits a small
+    # detection plan and deterministic code compiles SOC-STD-compliant SPL. Free-
+    # form generation is the automatic fallback when the plan path yields no usable
+    # SPL. Both flow through the same validation / quality / lab-tier gates.
+    # Expected provider failures degrade to the deterministic path. Programming
+    # errors (TypeError/signature drift, ValueError, etc.) intentionally propagate
+    # to the sanitized P0-0 error envelope so they remain visible and diagnosable.
+    try:
+        result = generate_llm_spl_via_plan(user_query=user_query)
+        if result is None or not str(getattr(result, "candidate_spl", "") or "").strip():
+            result = generate_llm_spl_fallback(
+                user_query=user_query, context=llm_context, correctness_mode=True
+            )
+    except LocalChatError as exc:
+        try:
+            telemetry.record_step(
+                trace_id,
+                "llm_spl_producer_failed",
+                "failed",
+                skill=skill,
+                exception_type=type(exc).__name__,
+            )
+        except Exception:  # noqa: BLE001 - telemetry must never break chat
+            logger.warning("llm_spl_producer_failed_telemetry_failed", exc_info=True)
+        logger.warning(
+            "llm_spl_producer_failed exc_type=%s trace_id=%s",
+            type(exc).__name__,
+            trace_id,
+        )
+        return None
     if result is None:
         return None
     relevance = _gate_llm_spl_relevance(result, user_query)
@@ -3343,6 +5183,7 @@ def _candidate_from_llm_fallback(
             pattern_type=(llm_context or {}).get("pattern_type"),
             use_case_id=(llm_context or {}).get("use_case_id"),
             llm_fallback_reason=result.clarification_reason,
+            llm_intent_advisory=(llm_context or {}).get("llm_intent_advisory"),
         )
         if lab_draft_candidate is not None:
             return lab_draft_candidate
@@ -3360,6 +5201,33 @@ def _candidate_from_llm_fallback(
                 rule_id = str(finding.get("rule_id") or "quality")
                 if rule_id not in reject_reasons:
                     reject_reasons.append(rule_id)
+
+    if not expose_spl:
+        # Diagnostic telemetry: preserve why an LLM SPL attempt was not exposed so
+        # blocked/rejected drafts are debuggable in /debug. Redacted + best-effort;
+        # never breaks the SPL path. The candidate SPL is lab-tier (placeholders, no
+        # secrets) but still excerpted defensively.
+        try:
+            rejected_spl = str(getattr(result, "candidate_spl", "") or "")
+            telemetry.record_step(
+                trace_id,
+                "llm_spl_rejected",
+                "completed",
+                skill=skill,
+                generation_mode=getattr(result, "provider", "llm_spl_advisory"),
+                relevant=relevance.relevant,
+                quality_status=result.quality_status,
+                hard_fail_count=result.hard_fail_count,
+                reject_reasons=reject_reasons[:12],
+                quality_findings=[
+                    {"rule_id": str(f.get("rule_id")), "severity": str(f.get("severity"))}
+                    for f in (result.quality_findings or [])
+                ][:12],
+                adapter_errors=list(result.adapter_errors or [])[:6],
+                rejected_spl_excerpt=(rejected_spl[:280] + "…") if len(rejected_spl) > 280 else rejected_spl,
+            )
+        except Exception:  # noqa: BLE001 - telemetry must never break chat
+            logger.warning("llm_spl_rejected_telemetry_failed", exc_info=True)
 
     llm_lab_labels = {
         "governed": False,
@@ -3708,6 +5576,11 @@ def _chat_message(
     planning_decision: dict[str, Any] | None = None,
     soc_kb_retrieval: dict[str, Any] | None = None,
     user_query: str | None = None,
+    entities: dict[str, Any] | None = None,
+    match_path: str | None = None,
+    intent_classification: dict[str, Any] | None = None,
+    spl_draft_preview: dict[str, Any] | None = None,
+    llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
 ) -> str:
     from app.chat.guidance_templates import (
         build_conceptual_mitre_guidance,
@@ -3725,16 +5598,99 @@ def _chat_message(
     )
 
     path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
+    intent_family = ""
+    primary_intent = ""
+    if isinstance(intent_classification, dict):
+        intent_family = str(intent_classification.get("intent_family") or "")
+        primary_intent = str(intent_classification.get("primary_intent") or "")
+    if primary_intent == "cross_skill_investigation" and user_query:
+        from app.synthesis.deterministic_prose_stitch import build_cross_skill_investigation_message
+
+        return build_cross_skill_investigation_message(user_query)
+    if intent_family == "cve_investigation" and user_query:
+        from app.chat.guidance_templates import build_cve_investigation_guidance
+
+        return build_cve_investigation_guidance(user_query)
+    if intent_family == "github_investigation" and user_query:
+        from app.chat.guidance_templates import build_github_investigation_guidance
+
+        return build_github_investigation_guidance(user_query)
+    if user_query and is_mitre_evidence_threshold_query(user_query):
+        return build_mitre_evidence_threshold_guidance(user_query)
+
+    if intent_family == "alert_summary" and user_query:
+        from app.chat.analyst_response_builder import build_alert_summary_message
+
+        plan = evidence_plan if isinstance(evidence_plan, dict) else {}
+        return build_alert_summary_message(
+            user_query=user_query,
+            evidence_plan=plan,
+        )
+
     if is_unsafe_blocked_path(path_type) or (user_query and is_explicit_run_spl_query(user_query)):
         if user_query and is_explicit_run_spl_query(user_query):
             return build_spl_execution_refusal_guidance()
         return build_unsafe_action_guidance()
+    # WS-0 is an out-of-registry answer-shape floor, not a guided-path-only
+    # decoration.  Some T2 asks legitimately retain an SPL-review planning path;
+    # they still need the deterministic regulatory/baseline/timeline/insider/OT
+    # answer builder.  Exact/semantic catalogue paths remain byte-identical.
+    if settings.ai_soc_t2_answer_shape_enabled and user_query:
+        if not should_bypass_shape_router(match_path):
+            from app.chat.query_signals import extract_query_signals
+            from app.chat.network_boundary_display import is_firewall_boundary_query
+            from app.spl.draft_preview import has_strong_detection_family_match
+
+            live_data_signals = extract_query_signals(user_query)
+            if (
+                live_data_signals.get("live_data_request")
+                and is_firewall_boundary_query(user_query)
+                and has_strong_detection_family_match(user_query)
+                and path_type in {"spl_review", "spl_review_plus_rag", "hybrid_investigation"}
+            ):
+                preview = (
+                    spl_draft_preview
+                    if isinstance(spl_draft_preview, dict)
+                    else build_draft_preview(
+                        user_query,
+                        live_data_request=True,
+                        llm_intent_advisory=(
+                            llm_intent_advisory.model_dump()
+                            if isinstance(llm_intent_advisory, LLMIntentAdvisory)
+                            else llm_intent_advisory
+                            if isinstance(llm_intent_advisory, dict)
+                            else None
+                        ),
+                    )
+                )
+                if preview:
+                    return build_draft_preview_analyst_message(preview)
+            shape = classify_answer_shape(user_query, entities=entities)
+            if shape.primary_shape != "hunt":
+                return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
+            if (
+                str(match_path or "") == "out_of_registry"
+                and path_type
+                in {"guided_investigation", "hybrid_investigation", "spl_review", "spl_review_plus_rag"}
+            ):
+                return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
     if path_type == "guided_investigation" and user_query:
-        return build_guided_investigation_guidance(user_query)
+        # WS-0: route through the answer-shape router so non-hunt shapes
+        # (IR/containment, regulatory, timeline, baselining, source-health,
+        # insider/DLP, process-aware) get their shaped builders. The router
+        # falls back to build_guided_investigation_guidance when the shape flag
+        # is off or the match path is in-catalogue (happy-path bypass).
+        return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
     if user_query and is_policy_escalation_guidance_query(user_query):
         return build_policy_escalation_guidance(user_query)
     if user_query and is_mitre_evidence_threshold_query(user_query):
         return build_mitre_evidence_threshold_guidance(user_query)
+    if settings.ai_soc_t2_answer_shape_enabled and user_query:
+        # WS pk.009: supply-chain firmware/code-signing asks get judgment + substance
+        # (cert provenance, vendor authorization, hash, rollout correlation), not the
+        # conceptual-mitre judgment alone. Flag-gated; default posture unchanged.
+        if is_supply_chain_firmware_query(user_query):
+            return build_supply_chain_firmware_guidance(user_query)
     if user_query and is_conceptual_mitre_confirm_query(user_query):
         return build_conceptual_mitre_guidance(user_query)
     if user_query:
@@ -3807,6 +5763,11 @@ def _is_governed_spl_ready_for_response(spl_validation: dict[str, Any] | None) -
 def _is_spl_clarification_required(spl_validation: dict[str, Any] | None) -> bool:
     if not isinstance(spl_validation, dict):
         return False
+    # A T1 SPL-native review-only draft is a renderable review state, not a
+    # clarification, even though it carries review-level findings (e.g. missing
+    # sourcetype) that otherwise map to the clarification reason set.
+    if str(spl_validation.get("review_required_reason") or "") == "t2_spl_native_review_only":
+        return False
     if spl_validation.get("llm_fallback_status") == "clarification_required":
         return True
     review_reason = str(spl_validation.get("review_required_reason") or "")
@@ -3836,6 +5797,12 @@ def _response_mode(
     review = human_review if isinstance(human_review, dict) else {}
     if review.get("required") is True:
         review_type = str(review.get("review_type") or "")
+        # The wired execute/edit/cancel confirmation for a ready, validated SPL.
+        if review_type == "spl_execution_confirmation":
+            return "execution_confirmation"
+        # Review-only SPL draft (T1 SPL-native): renderable, non-executable.
+        if review_type == "spl_review_required":
+            return "review_required"
         if "clarification" in review_type:
             return "clarification_required"
         return "human_review_required"
@@ -4042,6 +6009,7 @@ def _context_stage(
     execution: dict,
     soc_kb_retrieval: dict | None = None,
     evidence_plan: dict | None = None,
+    mcp_evidence: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict], dict, dict]:
     telemetry = _routes_chat().get_telemetry_connector()
     if soc_kb_retrieval is None:
@@ -4060,6 +6028,18 @@ def _context_stage(
         spl_validation=spl_validation,
         execution=execution,
         soc_kb_retrieval=soc_kb_retrieval,
+        include_skipped_mcp_placeholder=False,
+    )
+    source_evidence = append_mcp_loop_source_evidence(
+        source_evidence,
+        trace_id=trace_id,
+        mcp_evidence=mcp_evidence,
+    )
+    source_evidence = append_cve_snapshot_source_evidence(
+        source_evidence,
+        trace_id=trace_id,
+        evidence_plan=evidence_plan,
+        query=query,
     )
     telemetry.record_step(
         trace_id,

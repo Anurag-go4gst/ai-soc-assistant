@@ -1,0 +1,72 @@
+{
+  "probe_count": 11,
+  "rows": {
+    "probe.guided.modbus_cleartext": {
+      "intent_family": "spl_generation_only",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": false
+    },
+    "probe.guided.vpn_anomalies": {
+      "intent_family": "spl_generation_only",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": false
+    },
+    "probe.metadata.index_permissions": {
+      "intent_family": "spl_generation_only",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": false
+    },
+    "probe.nonsoc.vacation_policy": {
+      "intent_family": "clarification_required",
+      "match_path": "out_of_registry",
+      "requires_clarification": true,
+      "requires_hil": false
+    },
+    "probe.novel.kerberoasting": {
+      "intent_family": "spl_generation_only",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": false
+    },
+    "probe.novel.ot_goose_injection": {
+      "intent_family": "spl_generation_only",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": false
+    },
+    "probe.novel.rdp_correlation": {
+      "intent_family": "spl_generation_only",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": false
+    },
+    "probe.ot.substation_remote_access": {
+      "intent_family": "spl_generation_only",
+      "match_path": "out_of_registry",
+      "requires_clarification": false,
+      "requires_hil": false
+    },
+    "probe.paraphrase.smb_talkers": {
+      "intent_family": "live_investigation",
+      "match_path": "near_105_question",
+      "requires_clarification": false,
+      "requires_hil": false
+    },
+    "probe.sentinel.pg_clar_001": {
+      "intent_family": "clarification_required",
+      "match_path": "out_of_registry",
+      "requires_clarification": true,
+      "requires_hil": false
+    },
+    "probe.unsafe.block_and_run": {
+      "intent_family": "clarification_required",
+      "match_path": "out_of_registry",
+      "requires_clarification": true,
+      "requires_hil": true
+    }
+  },
+  "version": "intent_out_of_set_probes_baseline_v1"
+}

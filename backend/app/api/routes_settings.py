@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Response
 from pydantic import BaseModel
 
 from app.config import SUPPORTED_AI_SOC_LLM_MODES, SUPPORTED_ROUTING_MODES, settings
@@ -29,6 +29,13 @@ from app.connectors.mcp.registry import SUPPORTED_AUTH_MODES as SUPPORTED_MCP_AU
 from app.connectors.mcp.registry import SUPPORTED_MCP_TYPES, SUPPORTED_TRANSPORTS
 from app.connectors.rag import get_rag_connector
 from app.connectors.telemetry import get_telemetry_connector, metrics
+from app.auth.session import require_auth
+from app.intel.ioc_registry import save_ioc_registry_document, summarize_ioc_registry_for_settings
+from app.environment.asset_registry_store import (
+    import_asset_registry_payload,
+    load_asset_registry_document,
+    save_asset_registry,
+)
 from app.knowledge.soc_kb_retriever import soc_kb_status_summary
 from app.llm.registry_settings import build_llm_governance_status
 from app.providers import ProviderType, mock_asset_inventory_profile, splunk_provider_profile
@@ -42,7 +49,7 @@ from app.spl.source_profile_store import (
 )
 from app.splunk.capabilities import build_splunk_capability_profile
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 class ProviderDraftCheckRequest(BaseModel):
@@ -72,6 +79,21 @@ class McpVerificationRequest(BaseModel):
     username: str = ""
     password: str = ""
     timeout_seconds: int = 5
+
+
+class McpConnectionSaveRequest(BaseModel):
+    enabled: bool = False
+    deployment_mode: str = "coe"
+    discovery_policy: str = "dynamic"
+    transport: str = "streamable_http"
+    auth_method: str = "bearer"
+    url: str = ""
+    bearer_token: str = ""
+    timeout_seconds: int = 10
+    saia_tools_enabled: bool = False
+    splunk_ai_assistant_mode: str = "auto"
+    allow_saved_search: bool = False
+    execution_enabled: bool = False
 
 
 _ALLOWED_TOOLS = [
@@ -476,6 +498,57 @@ def discover_mcp_tools(payload: McpVerificationRequest | None = None) -> dict:
     return _mcp_verification_result(draft, action="discover")
 
 
+@router.get("/settings/mcp/connection")
+def get_mcp_connection(_user: dict = Depends(require_auth)) -> dict:
+    from app.connectors.mcp.connection_store import effective_connection
+
+    return {
+        "connection": effective_connection(),
+        "supported_deployment_modes": ["coe", "customer_test", "production", "air_gapped"],
+        "supported_discovery_policies": ["dynamic", "restricted", "static_only"],
+        "supported_transports": sorted(SUPPORTED_TRANSPORTS),
+        "supported_auth_methods": sorted(SUPPORTED_MCP_AUTH_MODES),
+    }
+
+
+@router.post("/settings/mcp/connection")
+def save_mcp_connection(payload: McpConnectionSaveRequest, user: dict = Depends(require_auth)) -> dict:
+    from app.connectors.mcp.connection_store import effective_connection, save_connection
+
+    draft = McpVerificationRequest(
+        provider_kind="splunk",
+        deployment_mode=payload.deployment_mode,
+        discovery_policy=payload.discovery_policy,
+        transport=payload.transport,
+        auth_method=payload.auth_method,
+        url=payload.url,
+        bearer_token=payload.bearer_token or settings.splunk_mcp_token,
+        timeout_seconds=payload.timeout_seconds,
+    )
+    errors = _validate_mcp_draft(draft)
+    if payload.execution_enabled:
+        errors.append("execution_enablement_requires_env_change_control")
+    if errors:
+        return {"saved": False, "validation_errors": errors, "connection": effective_connection()}
+
+    save_connection(
+        enabled=payload.enabled,
+        deployment_mode=payload.deployment_mode,
+        discovery_policy=payload.discovery_policy,
+        transport=payload.transport,
+        auth_method=payload.auth_method,
+        url=payload.url,
+        bearer_token=payload.bearer_token,
+        timeout_seconds=payload.timeout_seconds,
+        saia_tools_enabled=payload.saia_tools_enabled,
+        splunk_ai_assistant_mode=payload.splunk_ai_assistant_mode,
+        allow_saved_search=payload.allow_saved_search,
+        execution_enabled=False,
+        updated_by=str(user.get("username") or "unknown"),
+    )
+    return {"saved": True, "validation_errors": [], "connection": effective_connection()}
+
+
 @router.get("/settings/llm/health")
 def llm_endpoint_health_status(force: bool = False) -> dict:
     """Health ping (green/red) for the active LLM endpoints, plus a latency hint.
@@ -488,6 +561,46 @@ def llm_endpoint_health_status(force: bool = False) -> dict:
     from app.llm.endpoint_health import llm_endpoint_health
 
     return llm_endpoint_health(force=force)
+
+
+@router.get("/settings/llm/runtime-health")
+def llm_runtime_health() -> dict:
+    """Live generation-throughput probe (real tok/s), plus control availability.
+
+    Streams a tiny completion and measures the actual rate from inter-token timing,
+    so a slow-but-alive model reports its true low tok/s (never a false 0.0). Never
+    raises — a down/disabled model is reported, not thrown.
+    """
+    from app.llm.runtime_control import control_available, last_result
+    from app.llm.runtime_health import measure_runtime
+
+    health = measure_runtime()
+    return {
+        **health,
+        "control_available": control_available(),
+        "last_control_result": last_result(),
+    }
+
+
+@router.post("/settings/llm/control")
+def llm_runtime_control(
+    action: str = Body(..., embed=True),
+    user: dict = Depends(require_auth),
+) -> dict:
+    """Enqueue a privileged LLM service control action (restart/stop/start).
+
+    Default-off (``AI_SOC_LLM_CONTROL_ENABLED``). The backend never touches host
+    systemd: it writes a sentinel a host watcher applies. Returns the accepted record.
+    """
+    from app.llm.runtime_control import ALLOWED_ACTIONS, LlmControlError, request_control
+
+    if action not in ALLOWED_ACTIONS:
+        raise HTTPException(status_code=400, detail="invalid_action")
+    try:
+        record = request_control(action, requested_by=str(user.get("username") or "unknown"))
+    except LlmControlError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return {"accepted": True, **record}
 
 
 @router.post("/settings/llm/check")
@@ -715,6 +828,63 @@ def smoke_llm_generation(payload: LlmVerificationRequest | None = None) -> dict:
         usage=usage,
         latency_ms=elapsed_ms,
     )
+
+
+class LlmConnectionSaveRequest(BaseModel):
+    enabled: bool = False
+    mode: str = "local"
+    base_url: str = ""
+    model: str = ""
+    api_key: str = ""
+    timeout_seconds: int = 120
+
+
+@router.get("/settings/llm/connection")
+def get_llm_connection(_user: dict = Depends(require_auth)) -> dict:
+    """Effective LLM connection config (override merged onto env). Redacted."""
+    from app.llm.connection_store import effective_connection
+
+    return {
+        "connection": effective_connection(),
+        "supported_modes": list(SUPPORTED_AI_SOC_LLM_MODES),
+    }
+
+
+@router.post("/settings/llm/connection")
+def save_llm_connection(payload: LlmConnectionSaveRequest, user: dict = Depends(require_auth)) -> dict:
+    """Persist the LLM connection from the UI and apply it live (no restart).
+
+    A blank ``api_key`` keeps the previously stored key. The api key is never
+    echoed back — only an ``api_key_configured`` boolean.
+    """
+    from app.llm.connection_store import effective_connection, save_connection
+
+    mode = payload.mode.strip().lower()
+    errors: list[str] = []
+    if mode not in SUPPORTED_AI_SOC_LLM_MODES:
+        errors.append("invalid_mode")
+    if payload.timeout_seconds <= 0:
+        errors.append("timeout_seconds_must_be_positive")
+    if payload.enabled and mode not in {"mock", "disabled"}:
+        if not payload.base_url.strip():
+            errors.append("base_url_required")
+        elif not payload.base_url.strip().rstrip("/").endswith("/v1"):
+            errors.append("base_url_should_end_with_v1")
+        if not payload.model.strip():
+            errors.append("model_required")
+    if errors:
+        return {"saved": False, "validation_errors": errors, "connection": effective_connection()}
+
+    save_connection(
+        enabled=payload.enabled,
+        mode=mode,
+        base_url=payload.base_url,
+        model=payload.model,
+        api_key=payload.api_key,
+        timeout_seconds=payload.timeout_seconds,
+        updated_by=str(user.get("username") or "unknown"),
+    )
+    return {"saved": True, "validation_errors": [], "connection": effective_connection()}
 
 
 def _mcp_verification_payload(payload: McpVerificationRequest | None) -> McpVerificationRequest:
@@ -1625,6 +1795,14 @@ class SourceProfileSaveRequest(BaseModel):
     values: dict[str, str] = {}
 
 
+class AssetRegistrySaveRequest(BaseModel):
+    assets: list[dict[str, object]] = []
+
+
+class IocRegistrySaveRequest(BaseModel):
+    registry: dict[str, object]
+
+
 @router.get("/settings/source-profiles")
 def get_source_profile_settings() -> dict:
     document = load_persisted_source_profile_document()
@@ -1640,12 +1818,13 @@ def get_source_profile_settings() -> dict:
         "mcp_discovery_trace": mcp_trace,
         "orchestration_order": [
             "policy_env",
-            "coe_store",
             "rag_kb",
             "chat_session",
             "mcp_discovery",
+            "asset_registry",
+            "coe_store",
         ],
-        "conflict_preference": "mcp_discovery_over_coe_store",
+        "conflict_preference": "coe_store_over_asset_registry_over_mcp_discovery",
         "updated_at": document.get("updated_at"),
         "updated_by": document.get("updated_by"),
         "store_path_configured": bool(getattr(settings, "ai_soc_source_profile_store_path", "")),
@@ -1667,7 +1846,7 @@ def save_source_profile_settings(payload: SourceProfileSaveRequest) -> dict:
 @router.post("/settings/source-profiles/discover-from-mcp")
 def discover_source_profiles_from_mcp() -> dict:
     discovered, trace = run_mcp_source_discovery(discovery_allowed=True)
-    document = merge_mcp_discovery_into_store(discovered, overwrite=True)
+    document = merge_mcp_discovery_into_store(discovered, overwrite=False)
     return {
         "saved": True,
         "discovered_slots": list(discovered.keys()),
@@ -1676,4 +1855,92 @@ def discover_source_profiles_from_mcp() -> dict:
         "mcp_discovery_trace": trace,
         "updated_at": document.get("updated_at"),
         "updated_by": document.get("updated_by"),
+    }
+
+
+@router.get("/settings/asset-registry")
+def get_asset_registry_settings() -> dict:
+    document = load_asset_registry_document()
+    assets = list(document.get("assets") or [])
+    return {
+        "assets": assets,
+        "asset_count": len(assets),
+        "updated_at": document.get("updated_at"),
+        "updated_by": document.get("updated_by"),
+        "source": document.get("source"),
+        "store_path_configured": bool(getattr(settings, "ai_soc_asset_registry_store_path", "")),
+        "execution_authority": "advisory_only",
+    }
+
+
+@router.put("/settings/asset-registry")
+def save_asset_registry_settings(payload: AssetRegistrySaveRequest) -> dict:
+    try:
+        document = save_asset_registry(payload.assets, updated_by="coe_ui")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    assets = list(document.get("assets") or [])
+    return {
+        "saved": True,
+        "assets": assets,
+        "asset_count": len(assets),
+        "updated_at": document.get("updated_at"),
+        "updated_by": document.get("updated_by"),
+        "source": document.get("source"),
+    }
+
+
+@router.post("/settings/asset-registry/import")
+def import_asset_registry_settings(
+    payload: str = Body(default=""),
+    content_type: str = Header(default="application/json"),
+) -> dict:
+    try:
+        document = import_asset_registry_payload(payload, content_type=content_type, updated_by="coe_ui")
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    assets = list(document.get("assets") or [])
+    return {
+        "saved": True,
+        "assets": assets,
+        "asset_count": len(assets),
+        "updated_at": document.get("updated_at"),
+        "updated_by": document.get("updated_by"),
+        "source": document.get("source"),
+    }
+
+
+@router.get("/settings/asset-registry/export")
+def export_asset_registry_settings() -> Response:
+    document = load_asset_registry_document()
+    body = json.dumps({"assets": document.get("assets") or []}, indent=2, sort_keys=True) + "\n"
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="asset_registry.json"'},
+    )
+
+
+@router.get("/settings/ioc-registry")
+def get_ioc_registry_settings() -> dict:
+    summary = summarize_ioc_registry_for_settings()
+    return {
+        **summary,
+        "read_only_hashes": True,
+        "import_instructions": (
+            "Replace the JSON file at import_path_hint with a validated CERT-In / COE IOC bundle, "
+            "then set IOC_REGISTRY_ENABLED=true in the deployment environment."
+        ),
+    }
+
+
+@router.put("/settings/ioc-registry")
+def save_ioc_registry_settings(payload: IocRegistrySaveRequest) -> dict:
+    try:
+        summary = save_ioc_registry_document(dict(payload.registry))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "saved": True,
+        **summary,
     }
