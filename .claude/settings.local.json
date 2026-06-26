@@ -57,7 +57,10 @@
       "Bash(PYTHONPATH=backend:. python3 -m pytest backend/app/tests/test_log_trace_correlation.py backend/app/tests/test_live_chat_telemetry_spine.py -q)",
       "Bash(PYTHONPATH=../backend:.. timeout 300 python3 -m pytest app/tests/test_spl_tiered_policy.py app/tests/test_asset_registry_store.py app/tests/test_cisco_question_bank_schema.py app/tests/test_cisco_question_runtime_map.py app/tests/test_environment_hygiene_path.py app/tests/test_cisco_draft_family_match.py -q)",
       "Bash(TELEMETRY_MODE=none ./scripts/run_stage3_governance_regression.sh)",
-      "Bash(PYTHONPATH=/var/www/ai-soc-assistant/backend:/var/www/ai-soc-assistant python3 -m pytest -q)"
+      "Bash(PYTHONPATH=/var/www/ai-soc-assistant/backend:/var/www/ai-soc-assistant python3 -m pytest -q)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(curl -s -o /dev/null -w \"status route: %{http_code}\\\\n\" http://127.0.0.1:8010/llm-lab/status)",
+      "Bash(curl -s http://127.0.0.1:8010/llm-lab/status)"
     ]
   }
 }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-18T13:35:36.930689+00:00",
+  "generated_at": "2026-06-26T06:57:43.244567+00:00",
   "profile": {
     "ai_soc_curated_enrichment_activation_enabled": true,
     "ai_soc_langgraph_shadow_enabled": true,
@@ -37,7 +37,9 @@
             "Check whether any successful authentication followed the failures.",
             "Review asset or account criticality before severity claims."
           ],
+          "correlation": null,
           "enrichment_driven": true,
+          "evidence_legs": [],
           "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
           "investigation_workflow": [
             "Scope authentication failures by user, source, host, and time window.",
@@ -330,7 +332,7 @@
         "execution_intent": "spl_search",
         "execution_status": "requires_human_review",
         "hil_required": true,
-        "hil_review_type": "execution_approval",
+        "hil_review_type": "spl_revision",
         "live_execution_skill": "attack_discovery",
         "missing_evidence_count": 6,
         "mitre_answer_visible": false,
@@ -375,7 +377,9 @@
               "Check whether any successful authentication followed the failures.",
               "Review asset or account criticality before severity claims."
             ],
+            "correlation": null,
             "enrichment_driven": true,
+            "evidence_legs": [],
             "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
             "investigation_workflow": [
               "Scope authentication failures by user, source, host, and time window.",
@@ -690,7 +694,7 @@
         "execution_intent": "spl_search",
         "execution_status": "requires_human_review",
         "hil_required": true,
-        "hil_review_type": "execution_approval",
+        "hil_review_type": "spl_revision",
         "live_execution_skill": "attack_discovery",
         "missing_evidence_count": 6,
         "mitre_answer_visible": false,
@@ -737,7 +741,9 @@
             "Check privileged account or critical asset context.",
             "Look for follow-on activity before compromise language."
           ],
+          "correlation": null,
           "enrichment_driven": true,
+          "evidence_legs": [],
           "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
           "investigation_workflow": [
             "Correlate failures followed by successful authentication for the same user, source, host, and time window.",
@@ -1017,7 +1023,7 @@
       ],
       "imperative": {
         "answer_mode": "live_investigation",
-        "answer_profile": null,
+        "answer_profile": "spl_only",
         "branches": [
           "evidence",
           "severity",
@@ -1073,7 +1079,9 @@
               "Check privileged account or critical asset context.",
               "Look for follow-on activity before compromise language."
             ],
+            "correlation": null,
             "enrichment_driven": true,
+            "evidence_legs": [],
             "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
             "investigation_workflow": [
               "Correlate failures followed by successful authentication for the same user, source, host, and time window.",
@@ -1375,7 +1383,7 @@
       "runtime_active": true,
       "shadow": {
         "answer_mode": "live_investigation",
-        "answer_profile": null,
+        "answer_profile": "spl_only",
         "branches": [
           "evidence",
           "severity",
@@ -1432,7 +1440,9 @@
             "Assess domain rarity and destination context.",
             "Tie traffic to a host or user before impact language."
           ],
+          "correlation": null,
           "enrichment_driven": true,
+          "evidence_legs": [],
           "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
           "investigation_workflow": [
             "Review periodicity, jitter, outbound volume, and domain rarity together.",
@@ -1701,7 +1711,7 @@
       ],
       "imperative": {
         "answer_mode": "live_investigation",
-        "answer_profile": null,
+        "answer_profile": "spl_only",
         "branches": [
           "evidence",
           "severity",
@@ -1756,7 +1766,9 @@
               "Assess domain rarity and destination context.",
               "Tie traffic to a host or user before impact language."
             ],
+            "correlation": null,
             "enrichment_driven": true,
+            "evidence_legs": [],
             "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
             "investigation_workflow": [
               "Review periodicity, jitter, outbound volume, and domain rarity together.",
@@ -2047,7 +2059,7 @@
       "runtime_active": true,
       "shadow": {
         "answer_mode": "live_investigation",
-        "answer_profile": null,
+        "answer_profile": "spl_only",
         "branches": [
           "evidence",
           "severity",
@@ -2100,7 +2112,9 @@
           "answer_mode": "clarification",
           "answer_rules": [],
           "checklist": [],
+          "correlation": null,
           "enrichment_driven": false,
+          "evidence_legs": [],
           "evidence_plan_reason": null,
           "investigation_workflow": [],
           "limitations": [],
@@ -2233,7 +2247,9 @@
             "answer_mode": "clarification",
             "answer_rules": [],
             "checklist": [],
+            "correlation": null,
             "enrichment_driven": false,
+            "evidence_legs": [],
             "evidence_plan_reason": null,
             "investigation_workflow": [],
             "limitations": [],
@@ -2384,7 +2400,9 @@
           "answer_mode": "rag_only",
           "answer_rules": [],
           "checklist": [],
+          "correlation": null,
           "enrichment_driven": false,
+          "evidence_legs": [],
           "evidence_plan_reason": "curated_enrichment_not_runtime_active",
           "investigation_workflow": [],
           "limitations": [],
@@ -2505,7 +2523,7 @@
         "execution_intent": "none",
         "execution_status": "skipped",
         "hil_required": false,
-        "hil_review_type": "execution_approval",
+        "hil_review_type": "none",
         "live_execution_skill": "knowledge_recall",
         "missing_evidence_count": 0,
         "mitre_answer_visible": false,
@@ -2516,7 +2534,7 @@
         "normalized_spl_present": false,
         "path_type": "rag_only",
         "runtime_support_status": "planned",
-        "severity_label": "P3 Medium",
+        "severity_label": "Not assigned from this question alone",
         "side": "imperative",
         "spl_approved": null,
         "spl_generation_status": "none",
@@ -2539,7 +2557,9 @@
             "answer_mode": "rag_only",
             "answer_rules": [],
             "checklist": [],
+            "correlation": null,
             "enrichment_driven": false,
+            "evidence_legs": [],
             "evidence_plan_reason": "curated_enrichment_not_runtime_active",
             "investigation_workflow": [],
             "limitations": [],
@@ -2678,7 +2698,7 @@
         "execution_intent": "none",
         "execution_status": "skipped",
         "hil_required": false,
-        "hil_review_type": "execution_approval",
+        "hil_review_type": "none",
         "live_execution_skill": "knowledge_recall",
         "missing_evidence_count": 0,
         "mitre_answer_visible": false,
@@ -2689,7 +2709,7 @@
         "normalized_spl_present": false,
         "path_type": "rag_only",
         "runtime_support_status": "planned",
-        "severity_label": "P3 Medium",
+        "severity_label": "Not assigned from this question alone",
         "side": "shadow",
         "spl_approved": null,
         "spl_generation_status": "none",
@@ -2718,7 +2738,9 @@
           "answer_mode": "clarification",
           "answer_rules": [],
           "checklist": [],
+          "correlation": null,
           "enrichment_driven": false,
+          "evidence_legs": [],
           "evidence_plan_reason": "curated_enrichment_not_runtime_active",
           "investigation_workflow": [],
           "limitations": [],
@@ -2802,7 +2824,7 @@
       ],
       "imperative": {
         "answer_mode": "clarification",
-        "answer_profile": "hybrid_alert_review",
+        "answer_profile": null,
         "branches": [
           "clarification",
           "hil"
@@ -2823,7 +2845,7 @@
         "normalized_spl_present": false,
         "path_type": "mitre_context_required",
         "runtime_support_status": "planned",
-        "severity_label": "P3 Medium",
+        "severity_label": "Not assigned from this question alone",
         "side": "imperative",
         "spl_approved": null,
         "spl_generation_status": "none",
@@ -2851,7 +2873,9 @@
             "answer_mode": "clarification",
             "answer_rules": [],
             "checklist": [],
+            "correlation": null,
             "enrichment_driven": false,
+            "evidence_legs": [],
             "evidence_plan_reason": "curated_enrichment_not_runtime_active",
             "investigation_workflow": [],
             "limitations": [],
@@ -2955,7 +2979,7 @@
       "runtime_active": false,
       "shadow": {
         "answer_mode": "clarification",
-        "answer_profile": "hybrid_alert_review",
+        "answer_profile": null,
         "branches": [
           "clarification",
           "hil"
@@ -2976,7 +3000,7 @@
         "normalized_spl_present": false,
         "path_type": "mitre_context_required",
         "runtime_support_status": "planned",
-        "severity_label": "P3 Medium",
+        "severity_label": "Not assigned from this question alone",
         "side": "shadow",
         "spl_approved": null,
         "spl_generation_status": "none",
@@ -3006,7 +3030,9 @@
           "answer_mode": "clarification",
           "answer_rules": [],
           "checklist": [],
+          "correlation": null,
           "enrichment_driven": false,
+          "evidence_legs": [],
           "evidence_plan_reason": null,
           "investigation_workflow": [],
           "limitations": [],
@@ -3090,7 +3116,7 @@
       ],
       "imperative": {
         "answer_mode": "clarification",
-        "answer_profile": "hybrid_alert_review",
+        "answer_profile": null,
         "branches": [
           "clarification",
           "hil"
@@ -3139,7 +3165,9 @@
             "answer_mode": "clarification",
             "answer_rules": [],
             "checklist": [],
+            "correlation": null,
             "enrichment_driven": false,
+            "evidence_legs": [],
             "evidence_plan_reason": null,
             "investigation_workflow": [],
             "limitations": [],
@@ -3243,7 +3271,7 @@
       "runtime_active": false,
       "shadow": {
         "answer_mode": "clarification",
-        "answer_profile": "hybrid_alert_review",
+        "answer_profile": null,
         "branches": [
           "clarification",
           "hil"
@@ -3290,7 +3318,9 @@
           "answer_mode": "clarification",
           "answer_rules": [],
           "checklist": [],
+          "correlation": null,
           "enrichment_driven": false,
+          "evidence_legs": [],
           "evidence_plan_reason": null,
           "investigation_workflow": [],
           "limitations": [],
@@ -3433,7 +3463,9 @@
             "answer_mode": "clarification",
             "answer_rules": [],
             "checklist": [],
+            "correlation": null,
             "enrichment_driven": false,
+            "evidence_legs": [],
             "evidence_plan_reason": null,
             "investigation_workflow": [],
             "limitations": [],
