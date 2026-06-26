@@ -228,8 +228,10 @@ def apply_t2_answer_surfacing(
         if summary:
             updated_response = updated_response.model_copy(update={"direct_answer_summary": summary[:500]})
         from app.chat.guidance_envelope import populate_envelope_from_guidance
+        from app.chat.t2_review_checklist import is_t2_spl_native_candidate
 
-        updated_response = populate_envelope_from_guidance(
-            updated_response, message, limitations=limitations
-        )
+        if not is_t2_spl_native_candidate(candidate_spl):
+            updated_response = populate_envelope_from_guidance(
+                updated_response, message, limitations=limitations
+            )
     return merged_message, updated_contract, updated_response

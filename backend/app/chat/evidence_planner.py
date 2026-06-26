@@ -8,6 +8,7 @@ from app.chat.query_signals import is_live_data_request
 from app.config import settings
 from app.chat.planning_decision import _apply_completeness_floor
 from app.chat.multi_leg_evidence import compose_multi_leg_evidence
+from app.chat.t2_review_checklist import query_resolves_t2_source_profile
 from app.coverage.question_runtime_map import question_runtime_entry
 from app.coverage.promotion_lifecycle import effective_promotion_status
 from app.coverage.row_authority import classify_runtime_row_authority, project_s3_authority_ready
@@ -78,9 +79,11 @@ def plan_evidence(
             use_case_id=selected_use_case_id,
             query_understanding=query_understanding,
         )
-        multi_leg = compose_multi_leg_evidence(str(getattr(query_understanding, "raw_query", "") or ""))
-        if multi_leg:
-            enriched = enriched.model_copy(update=multi_leg)
+        raw_query = str(getattr(query_understanding, "raw_query", "") or "")
+        if not query_resolves_t2_source_profile(raw_query):
+            multi_leg = compose_multi_leg_evidence(raw_query)
+            if multi_leg:
+                enriched = enriched.model_copy(update=multi_leg)
         enriched = _attach_canonical_handoff_summaries(
             enriched,
             query_to_intent=query_to_intent,

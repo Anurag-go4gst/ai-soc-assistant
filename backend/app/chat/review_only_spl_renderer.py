@@ -20,6 +20,12 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.chat.t2_review_checklist import (
+    build_t2_review_checklist,
+    is_t2_spl_native_candidate,
+    t2_card_overlays,
+    t2_spl_native_block,
+)
 from app.spl.binding_semantics import format_profile_binding_line
 
 _MAIN_TITLE = "Review-only SPL draft — no live query was executed"
@@ -107,7 +113,14 @@ def _scope_line(analyst_response: Any, *, t2_source_profile: str | None = None) 
     )
 
 
-def _checklist_items(analyst_response: Any, draft_preview: dict[str, Any] | None) -> list[str]:
+def _checklist_items(
+    analyst_response: Any,
+    draft_preview: dict[str, Any] | None,
+    *,
+    candidate_spl: dict[str, Any] | None = None,
+) -> list[str]:
+    if is_t2_spl_native_candidate(candidate_spl):
+        return build_t2_review_checklist(t2_spl_native_block(candidate_spl))
     for source in (
         getattr(analyst_response, "analyst_checklist", None),
         (draft_preview or {}).get("investigation_checklist") if isinstance(draft_preview, dict) else None,
@@ -118,12 +131,27 @@ def _checklist_items(analyst_response: Any, draft_preview: dict[str, Any] | None
     return list(_GENERIC_CHECKLIST)
 
 
-def _draft_spl_text(analyst_response: Any, draft_preview: dict[str, Any] | None) -> str:
+def _draft_spl_text(
+    analyst_response: Any,
+    draft_preview: dict[str, Any] | None,
+    *,
+    candidate_spl: dict[str, Any] | None = None,
+) -> str:
+    if (
+        isinstance(candidate_spl, dict)
+        and candidate_spl.get("generation_mode") == "t2_spl_native_review"
+    ):
+        t2_spl = str(candidate_spl.get("candidate_spl") or "").strip()
+        if t2_spl:
+            return t2_spl
+    code = str(getattr(analyst_response, "draft_spl_code", "") or "").strip()
+    if code:
+        return code
     if isinstance(draft_preview, dict):
         spl = str(draft_preview.get("draft_spl") or "").strip()
         if spl:
             return spl
-    return str(getattr(analyst_response, "draft_spl_code", "") or "").strip()
+    return ""
 
 
 def _assumptions(draft_preview: dict[str, Any] | None) -> list[str]:
@@ -243,6 +271,7 @@ def render_review_only_spl_answer(
     analyst_response: Any,
     draft_preview: dict[str, Any] | None,
     t2_source_profile: str | None = None,
+    candidate_spl: dict[str, Any] | None = None,
 ) -> str:
     """Compose the single clean visible answer for a review-only SPL draft.
 
@@ -300,10 +329,13 @@ def render_review_only_spl_answer(
         lines.append("")
 
     lines.append(_CHECKLIST_HEADER)
-    for index, item in enumerate(_checklist_items(analyst_response, draft_preview), start=1):
+    for index, item in enumerate(
+        _checklist_items(analyst_response, draft_preview, candidate_spl=candidate_spl),
+        start=1,
+    ):
         lines.append(f"{index}. {item}")
 
-    draft_spl = _draft_spl_text(analyst_response, draft_preview)
+    draft_spl = _draft_spl_text(analyst_response, draft_preview, candidate_spl=candidate_spl)
     if draft_spl:
         lines.append("")
         lines.append("Draft SPL preview:")
@@ -353,21 +385,24 @@ def apply_review_only_spl_render(
     # draft ready" wording — it is not "not governed, not approved".
     has_lab_draft = (
         isinstance(draft_preview, dict) and str(draft_preview.get("draft_spl") or "").strip()
-    ) or bool(str(getattr(analyst_response, "draft_spl_code", "") or "").strip())
+    ) or bool(str(getattr(analyst_response, "draft_spl_code", "") or "").strip()) or (
+        is_t2_spl_native_candidate(candidate_spl)
+        and str((candidate_spl or {}).get("candidate_spl") or "").strip()
+    )
     if not has_lab_draft:
         return analyst_response, message
 
     # A T1 SPL-native (T2) review draft owns its own source profile; use it for the
     # scope so a co-matched IT-to-OT use case cannot drive the firewall framing.
     t2_source_profile: str | None = None
-    if isinstance(candidate_spl, dict) and candidate_spl.get("generation_mode") == "t2_spl_native_review":
-        block = candidate_spl.get("t2_spl_native") if isinstance(candidate_spl.get("t2_spl_native"), dict) else {}
-        t2_source_profile = str(block.get("source_profile") or "") or None
+    if is_t2_spl_native_candidate(candidate_spl):
+        t2_source_profile = str(t2_spl_native_block(candidate_spl).get("source_profile") or "") or None
 
     composed = render_review_only_spl_answer(
         analyst_response=analyst_response,
         draft_preview=draft_preview,
         t2_source_profile=t2_source_profile,
+        candidate_spl=candidate_spl,
     )
 
     # Header text owned by the card summary (status block + scope only). The title is not
@@ -395,7 +430,12 @@ def apply_review_only_spl_render(
         "severity_rationale": None,
         "severity_safety_note": None,
         "direct_answer_summary": "\n\n".join(header_lines),
-        "analyst_checklist": _checklist_items(analyst_response, draft_preview),
+        "analyst_checklist": _checklist_items(
+            analyst_response, draft_preview, candidate_spl=candidate_spl
+        ),
     }
+    overlays = t2_card_overlays(candidate_spl)
+    if overlays:
+        updates.update(overlays)
     updated = analyst_response.model_copy(update=updates)
     return updated, composed
