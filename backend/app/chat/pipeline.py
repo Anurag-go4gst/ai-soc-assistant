@@ -812,6 +812,11 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case=state.get("selected_use_case"),
     )
     evidence_payload = plan.model_dump()
+    evidence_payload["mcp_allowed_normalized"] = _mcp_allowed_decision_from_plan(evidence_payload)
+    route_adjudication_payload = _route_adjudication_with_final_plan_drift(
+        state.get("route_adjudication"),
+        evidence_payload,
+    )
     planning = plan_path_and_tools(
         intent_classification=intent,
         evidence_plan=evidence_payload,
@@ -825,6 +830,7 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
             **state,
             "evidence_plan": evidence_payload,
             "planning_decision": planning.model_dump(),
+            "route_adjudication": route_adjudication_payload,
         }
     # Stage 4B: compose the reviewed discovery chronology once, so the HUB can
     # drive read-only mcp_call hops before the linear SPL/execution chain.
@@ -840,6 +846,7 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         **state,
         "evidence_plan": evidence_payload,
         "planning_decision": planning.model_dump(),
+        "route_adjudication": route_adjudication_payload,
         **loop_init,
         "mcp_loop_planner": loop_planner,
         "mcp_loop": assess_loop(loop_state).to_dict(),
@@ -880,11 +887,49 @@ def _loop_required_produces(evidence_payload: dict[str, Any] | None) -> list[str
     evidence-plan needs (so unservable needs like CVE surface as honest gaps)."""
     needs: list[str] = []
     plan = evidence_payload if isinstance(evidence_payload, dict) else {}
-    for key in ("missing_evidence", "evidence_needs", "required_produces"):
+    for key in ("missing_evidence", "evidence_needs", "required_produces", "missing_required_evidence"):
         value = plan.get(key)
         if isinstance(value, list):
             needs.extend(str(item) for item in value)
-    return needs
+    needs.extend(_row_authority_loop_requirements(plan.get("row_authority_summary")))
+    needs.extend(_source_profile_loop_requirements(plan.get("source_profile_binding_summary")))
+    return list(dict.fromkeys(item for item in needs if str(item).strip()))
+
+
+def _row_authority_loop_requirements(summary: Any) -> list[str]:
+    if not isinstance(summary, dict):
+        return []
+    status = str(summary.get("row_authority_status") or "")
+    by_status = {
+        "exact_known_needs_lookup": "lookup_dependency",
+        "exact_known_needs_detection_binding": "detection_binding",
+        "exact_known_needs_context_binding": "context_binding",
+        "exact_known_needs_clarification": "case_context",
+    }
+    requirement = by_status.get(status)
+    if requirement:
+        return [requirement]
+    requirements: list[str] = []
+    for blocker in summary.get("blockers") or []:
+        blocker_text = str(blocker)
+        if "lookup" in blocker_text:
+            requirements.append("lookup_dependency")
+        elif "detection" in blocker_text:
+            requirements.append("detection_binding")
+        elif "context" in blocker_text:
+            requirements.append("context_binding")
+        elif "clarification" in blocker_text:
+            requirements.append("case_context")
+    return list(dict.fromkeys(requirements))
+
+
+def _source_profile_loop_requirements(summary: Any) -> list[str]:
+    if not isinstance(summary, dict):
+        return []
+    missing = summary.get("source_profile_bindings_missing")
+    if isinstance(missing, list) and missing:
+        return ["source_profile"]
+    return []
 
 
 def _resolve_vulnerability_source_status(state: ChatPipelineState) -> dict[str, Any] | None:
@@ -900,12 +945,94 @@ def _resolve_vulnerability_source_status(state: ChatPipelineState) -> dict[str, 
 def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[str, Any]) -> bool:
     if not settings.control_plane_enabled:
         return False
-    if evidence_payload.get("mcp_allowed") is False:
+    if _mcp_allowed_decision_from_plan(evidence_payload)["allowed"] is not True:
         return False
     provisional = {**state, "evidence_plan": evidence_payload}
     if _uses_rag_only_path(provisional):
         return False
     return True
+
+
+def _mcp_allowed_decision_from_plan(evidence_plan: dict[str, Any] | None) -> dict[str, Any]:
+    plan = evidence_plan if isinstance(evidence_plan, dict) else {}
+    if not settings.control_plane_enabled:
+        return {
+            "allowed": True,
+            "source": "control_plane_disabled",
+            "reason": "legacy_gate_bypass",
+        }
+    if plan.get("mcp_allowed") is True:
+        return {
+            "allowed": True,
+            "source": "evidence_plan",
+            "reason": "explicit_true",
+        }
+    if "mcp_allowed" not in plan:
+        return {
+            "allowed": False,
+            "source": "evidence_plan_missing",
+            "reason": "mcp_allowed_unset_fail_closed",
+        }
+    if plan.get("mcp_allowed") is None:
+        return {
+            "allowed": False,
+            "source": "evidence_plan_null",
+            "reason": "mcp_allowed_null_fail_closed",
+        }
+    return {
+        "allowed": False,
+        "source": "evidence_plan",
+        "reason": "explicit_false",
+    }
+
+
+def _route_adjudication_with_final_plan_drift(
+    route_adjudication: Any,
+    evidence_payload: dict[str, Any] | None,
+) -> Any:
+    if not isinstance(route_adjudication, dict):
+        return route_adjudication
+    plan = evidence_payload if isinstance(evidence_payload, dict) else {}
+    normalized = _mcp_allowed_decision_from_plan(plan)
+    narrowed: list[str] = []
+    if plan.get("needs_mcp") is True and normalized["allowed"] is not True:
+        narrowed.append("mcp_execution")
+    if plan.get("needs_spl") is True and plan.get("spl_allowed") is not True:
+        narrowed.append("spl_generation")
+    drift = {
+        "status": "capability_narrowed" if narrowed else "aligned",
+        "route_preserved": True,
+        "selected_route": route_adjudication.get("final_route") or route_adjudication.get("route"),
+        "route_family": _route_family(route_adjudication),
+        "final_plan_family": _plan_family(plan),
+        "capabilities_narrowed": narrowed,
+        "mcp_allowed_normalized": normalized,
+        "row_authority_status": (
+            (plan.get("row_authority_summary") or {}).get("row_authority_status")
+            if isinstance(plan.get("row_authority_summary"), dict)
+            else None
+        ),
+    }
+    updated = dict(route_adjudication)
+    updated["final_evidence_plan_drift"] = drift
+    return updated
+
+
+def _route_family(route_adjudication: dict[str, Any]) -> str | None:
+    route = route_adjudication.get("final_route") or route_adjudication.get("route")
+    if route is None:
+        return None
+    return str(route)
+
+
+def _plan_family(plan: dict[str, Any]) -> str:
+    if plan.get("needs_spl"):
+        return "spl_generation"
+    if plan.get("needs_mcp"):
+        return "live_investigation"
+    if plan.get("needs_rag"):
+        return "knowledge_recall"
+    return str(plan.get("answer_mode") or "unknown")
 
 
 def _resolve_loop_chronology(
@@ -3380,7 +3507,7 @@ def _spl_allowed(state: ChatPipelineState) -> bool:
 def _mcp_allowed(state: ChatPipelineState) -> bool:
     if not settings.control_plane_enabled:
         return True
-    return _evidence_plan(state).get("mcp_allowed") is True
+    return _mcp_allowed_decision_from_plan(_evidence_plan(state))["allowed"] is True
 
 
 def _context_selected_skill(state: ChatPipelineState) -> str:

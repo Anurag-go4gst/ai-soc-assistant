@@ -8,6 +8,12 @@ from app.chat.query_signals import is_live_data_request
 from app.config import settings
 from app.chat.planning_decision import _apply_completeness_floor
 from app.chat.multi_leg_evidence import compose_multi_leg_evidence
+from app.coverage.question_runtime_map import question_runtime_entry
+from app.coverage.promotion_lifecycle import effective_promotion_status
+from app.coverage.row_authority import classify_runtime_row_authority, project_s3_authority_ready
+from app.spl.source_profile_bindings import build_source_profile_binding_slots
+from app.spl.user_constraint_bindings import build_user_constraint_bindings
+from app.use_cases.answer_packs import answer_pack_summary, reviewed_answer_pack
 from app.use_cases.content_enrichment import (
     CuratedEnrichmentContext,
     get_content_enrichment,
@@ -67,9 +73,19 @@ def plan_evidence(
             query_to_intent=query_to_intent,
             query_understanding=query_understanding,
         )
+        enriched = _apply_reviewed_answer_pack(
+            enriched,
+            use_case_id=selected_use_case_id,
+            query_understanding=query_understanding,
+        )
         multi_leg = compose_multi_leg_evidence(str(getattr(query_understanding, "raw_query", "") or ""))
         if multi_leg:
             enriched = enriched.model_copy(update=multi_leg)
+        enriched = _attach_canonical_handoff_summaries(
+            enriched,
+            query_to_intent=query_to_intent,
+            query_understanding=query_understanding,
+        )
         return _attach_resource_plan(
             enriched,
             intent=intent,
@@ -476,6 +492,120 @@ def _maybe_apply_completeness_floor_to_plan(
             "reasons": reasons,
         }
     )
+
+
+def _attach_canonical_handoff_summaries(
+    plan: EvidencePlan,
+    *,
+    query_to_intent: dict[str, Any] | None,
+    query_understanding: Any,
+) -> EvidencePlan:
+    updates: dict[str, Any] = {}
+    row_summary = _row_authority_summary(query_understanding)
+    if row_summary is not None:
+        updates["row_authority_summary"] = row_summary
+    raw_query = str(getattr(query_understanding, "raw_query", "") or "")
+    if raw_query:
+        source_profile = build_source_profile_binding_slots(raw_query)
+        source_profile_trace = source_profile.trace()
+        updates["source_profile_binding_summary"] = {
+            **source_profile_trace,
+            "environment_kb_is_telemetry": False,
+        }
+        try:
+            bindings = build_user_constraint_bindings(
+                raw_query,
+                query_understanding=query_understanding,
+                extra_slots=source_profile.slots,
+                source_profile_trace=source_profile_trace,
+            )
+            updates["normalized_slot_summary"] = {
+                "normalized_slots": dict(bindings.normalized_slots),
+                "slot_sources": dict(bindings.slot_sources),
+                "validation_status": dict(bindings.validation_status),
+                "unbound_constraints": list(bindings.unbound_constraints),
+            }
+        except Exception:
+            updates["normalized_slot_summary"] = {
+                "normalized_slots": {},
+                "slot_sources": {},
+                "validation_status": {},
+                "unbound_constraints": [{"reason": "binding_summary_unavailable"}],
+            }
+    lifecycle = effective_promotion_status(
+        stored_promotion_status=(row_summary or {}).get("promotion_status") if row_summary else None,
+        row_authority_summary=row_summary,
+        source_profile_binding_summary=updates.get("source_profile_binding_summary"),
+        answer_pack_summary=plan.answer_pack_summary,
+    )
+    if lifecycle["stored_promotion_status"] or lifecycle["demotion_reasons"]:
+        updates["promotion_lifecycle_summary"] = lifecycle
+    return plan.model_copy(update=updates) if updates else plan
+
+
+def _row_authority_summary(query_understanding: Any) -> dict[str, Any] | None:
+    question_ref = getattr(query_understanding, "mapped_question_ref", None)
+    if not isinstance(question_ref, str) or not question_ref.strip():
+        return None
+    entry = question_runtime_entry(question_ref)
+    if entry is None:
+        return None
+    status, blockers = classify_runtime_row_authority(entry)
+    return {
+        "question_ref": str(entry.get("question_ref") or question_ref),
+        "row_authority_status": status,
+        "s3_authority_ready": project_s3_authority_ready(status),
+        "promotion_status": entry.get("promotion_status"),
+        "manifest_coverage_id": entry.get("manifest_coverage_id"),
+        "manifest_readiness": entry.get("manifest_readiness"),
+        "dependency_class": entry.get("dependency_class"),
+        "route_blocked": bool(entry.get("route_blocked")),
+        "blockers": blockers,
+    }
+
+
+def _apply_reviewed_answer_pack(
+    plan: EvidencePlan,
+    *,
+    use_case_id: str | None,
+    query_understanding: Any,
+) -> EvidencePlan:
+    question_ref = getattr(query_understanding, "mapped_question_ref", None)
+    pack = reviewed_answer_pack(
+        case_id=str(question_ref) if isinstance(question_ref, str) else None,
+        use_case_id=use_case_id,
+    )
+    if pack is None:
+        return plan
+    updates: dict[str, Any] = {
+        "answer_pack_summary": answer_pack_summary(pack),
+        "reasons": list(dict.fromkeys([*plan.reasons, "reviewed_answer_pack_projection"])),
+        "enrichment_driven": True,
+    }
+    _merge_pack_list_field(updates, plan, pack, "required_evidence_keys", "required_evidence")
+    _merge_pack_list_field(updates, plan, pack, "optional_evidence_keys", "optional_evidence")
+    _merge_pack_list_field(updates, plan, pack, "required_sources", "source_needs")
+    _merge_pack_list_field(updates, plan, pack, "limitations", "caveats")
+    _merge_pack_list_field(updates, plan, pack, "unsupported_claims_avoid", "must_not_claim")
+    _merge_pack_list_field(updates, plan, pack, "mitre_candidates_metadata_only", "mitre_candidates")
+    _merge_pack_list_field(updates, plan, pack, "missing_required_evidence", "dependency_gaps")
+    if not plan.evidence_plan_reason:
+        updates["evidence_plan_reason"] = "reviewed_answer_pack_projection"
+    return plan.model_copy(update=updates)
+
+
+def _merge_pack_list_field(
+    updates: dict[str, Any],
+    plan: EvidencePlan,
+    pack: dict[str, Any],
+    plan_field: str,
+    pack_field: str,
+) -> None:
+    incoming = [str(item) for item in pack.get(pack_field) or [] if str(item).strip()]
+    if not incoming:
+        return
+    current = [str(item) for item in getattr(plan, plan_field, []) or [] if str(item).strip()]
+    updates[plan_field] = list(dict.fromkeys([*current, *incoming]))
 
 
 def _attach_resource_plan(

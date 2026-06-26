@@ -36,9 +36,13 @@ def test_attack_discovery_permits_spl_and_mcp() -> None:
     assert not plan.provenance.get("skill_vetoes")
 
 
-def test_knowledge_recall_vetoes_spl_and_mcp() -> None:
+def test_knowledge_recall_vetoes_spl_and_blocks_mcp_step() -> None:
     plan = compose_resource_plan(_live_plan(), skill_id="knowledge_recall")
-    assert {step.step_id for step in plan.steps} == {"narration"}
+    assert {step.step_id for step in plan.steps} == {"narration", "mcp"}
+    mcp = plan.step_by_id("mcp")
+    assert mcp is not None
+    assert mcp.status == "blocked_policy"
+    assert mcp.status_reason == "skill_contract"
     assert set(plan.provenance["skill_vetoes"]) == {
         "spl_artifact:skill_contract",
         "mcp_execution:skill_contract",

@@ -53,6 +53,19 @@ isProject: false
 
 Proposed for review before implementation.
 
+Implementation progress:
+
+- Phase 1 report-only row authority audit is implemented through `scripts/build_row_authority_report.py`, with fixed artifacts at `docs/evals/row_authority_report.{json,md}`.
+- The nullable `mcp_allowed` follow-up is implemented for execution-gate, evidence-loop, and RunContract consumers; `mcp_allowed_normalized` records fail-closed trace provenance.
+- A safe Phase 2/3 projection slice is implemented: EvidencePlan now carries optional `row_authority_summary`, `normalized_slot_summary`, and `source_profile_binding_summary` without changing route order or execution behavior.
+- A Phase 4/7 parity guard is implemented: ResourcePlan keeps an MCP step present but `blocked_policy` when live evidence is needed and the selected skill/policy does not allow MCP.
+- Phase 5 drift tracing is implemented: final EvidencePlan can narrow capabilities (for example MCP disabled) without replacing the selected route, and the drift record carries `row_authority_status`.
+- Phase 6 dependency-gap projection is implemented: `missing_required_evidence`, row-authority lookup/detection/context/clarification gaps, and missing source-profile bindings flow into the existing bounded evidence loop as honest capability gaps where no governed tool can serve them.
+- Phase 8 reviewed answer-pack projection is implemented as EvidencePlan enrichment only: draft/raw packs are ignored, raw LLM prose is not loaded, and source-profile hints cannot override user/Environment-KB slot binding.
+- Phase 9 lifecycle summary is implemented as a read-only per-turn trace: promotion readiness requires reviewed pack + golden pass + S3 authority, runtime demotion is non-destructive, and `can_skip_llm_for_t0` is true only for effective authority-ready rows.
+- Phase 10 governance/eval gate passed on 2026-06-26: `./scripts/run_stage3_governance_regression.sh` completed with backend pytest `3103 passed, 1 skipped, 6 xfailed`; dual parity, SOC clean-answer eval, SPL template audit, and Cisco 50-question catalogue gate passed.
+- Remaining acceptance criteria are limited to containment banner state follow-up and review of unrelated pre-existing unmerged eval/settings artifacts in the worktree.
+
 ## Objective
 
 Preserve and strengthen the shipped `/chat` graph architecture for all known and unknown SOC questions:

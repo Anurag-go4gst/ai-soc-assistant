@@ -17,24 +17,28 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+BACKEND_ROOT = REPO_ROOT / "backend"
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from app.coverage.row_authority import (
+    AUTHORITY_READY,
+    NEEDS_CLARIFICATION,
+    NEEDS_DETECTION_BINDING,
+    NEEDS_LOOKUP,
+    UNSUPPORTED,
+    WEAK_NEEDS_ENRICHMENT,
+    classify_runtime_row_authority,
+    project_s3_authority_ready,
+)
 
 RUNTIME_MAP_PATH = REPO_ROOT / "backend" / "app" / "coverage" / "question_runtime_map_v1.json"
 MANIFEST_PATH = REPO_ROOT / "backend" / "app" / "coverage" / "pattern_coverage_v1.json"
+CATALOG_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "catalog.json"
 OUTPUT_JSON_PATH = REPO_ROOT / "docs" / "evals" / "row_authority_report.json"
 OUTPUT_MD_PATH = REPO_ROOT / "docs" / "evals" / "row_authority_report.md"
-
-AUTHORITY_READY = "exact_known_authority_ready"
-WEAK_NEEDS_ENRICHMENT = "exact_known_weak_needs_enrichment"
-NEEDS_LOOKUP = "exact_known_needs_lookup"
-NEEDS_DETECTION_BINDING = "exact_known_needs_detection_binding"
-NEEDS_CONTEXT_BINDING = "exact_known_needs_context_binding"
-NEEDS_CLARIFICATION = "exact_known_needs_clarification"
-UNSUPPORTED = "exact_known_unsupported"
-
-AUTHORITY_READY_READINESS = frozenset({"source_ready"})
-LOOKUP_READINESS = frozenset({"ioc_dependent", "lookup_dependent"})
-DETECTION_READINESS = frozenset({"detection_dependent"})
-CONTEXT_READINESS = frozenset({"blocked_missing_context", "context_dependent"})
+CATALOG_AUTHORITY_READY = "catalog_authority_ready"
+CATALOG_WEAK_NEEDS_ENRICHMENT = "catalog_weak_needs_enrichment"
 
 
 def _load_json(path: Path) -> Any:
@@ -56,69 +60,67 @@ def _manifest_by_question(manifest: Any) -> dict[str, dict[str, Any]]:
     return index
 
 
-def _project_s3_authority_ready(row_authority_status: str) -> bool:
-    return row_authority_status == AUTHORITY_READY
-
-
-def classify_row_authority(entry: dict[str, Any], manifest_entry: dict[str, Any] | None = None) -> tuple[str, list[str]]:
-    """Return ``(row_authority_status, blockers)`` for one runtime-map row."""
+def _classify_catalog_authority(record: dict[str, Any]) -> tuple[str, bool, list[str]]:
+    explicit_t0 = "t0_exact_authority" in record
+    t0_authority = record.get("t0_exact_authority") is True
     blockers: list[str] = []
-    question_ref = str(entry.get("question_ref") or "")
-    readiness = entry.get("manifest_readiness")
-    promotion_status = entry.get("promotion_status")
-    dependency_class = entry.get("dependency_class")
-
-    if entry.get("route_blocked") is True or not entry.get("proposed_primary_skill"):
-        if entry.get("route_blocked") is True:
-            blockers.append("route_blocked")
-        if not entry.get("proposed_primary_skill"):
-            blockers.append("missing_proposed_primary_skill")
-        return UNSUPPORTED, blockers
-
-    if question_ref in {"q0.q045", "q0.q103", "q0.q104", "q0.q105"}:
-        blockers.append("requires_clarification_or_case_context")
-        return NEEDS_CLARIFICATION, blockers
-
-    if readiness in LOOKUP_READINESS or dependency_class == "local_lookup":
-        blockers.append(f"manifest_readiness:{readiness or 'missing'}")
-        return NEEDS_LOOKUP, blockers
-
-    if readiness in DETECTION_READINESS or dependency_class == "detection_binding":
-        blockers.append(f"manifest_readiness:{readiness or 'missing'}")
-        return NEEDS_DETECTION_BINDING, blockers
-
-    if readiness in CONTEXT_READINESS:
-        blockers.append(f"manifest_readiness:{readiness}")
-        return NEEDS_CONTEXT_BINDING, blockers
-
-    existing_ready = entry.get("s3_authority_ready") is True
-    manifest_execution_eligible = False
-    if isinstance(manifest_entry, dict):
-        governance = manifest_entry.get("governance")
-        if isinstance(governance, dict):
-            manifest_execution_eligible = governance.get("execution_eligible") is True
-
-    if existing_ready and promotion_status == "in_manifest" and readiness in AUTHORITY_READY_READINESS:
-        if manifest_execution_eligible:
-            return AUTHORITY_READY, blockers
-        blockers.append("manifest_execution_eligible_false")
-        return WEAK_NEEDS_ENRICHMENT, blockers
-
-    if promotion_status != "in_manifest":
-        blockers.append(f"promotion_status:{promotion_status or 'missing'}")
-    if not readiness:
-        blockers.append("manifest_readiness:missing")
-    elif readiness not in AUTHORITY_READY_READINESS:
-        blockers.append(f"manifest_readiness:{readiness}")
-    if entry.get("skill_drift") is True:
-        blockers.append("skill_drift")
-    for blocker in entry.get("s3_authority_blockers") or []:
-        if isinstance(blocker, str) and blocker not in blockers:
-            blockers.append(blocker)
-    return WEAK_NEEDS_ENRICHMENT, blockers
+    if explicit_t0 and t0_authority and not record.get("llm_advisory_recommended") and not record.get("human_review_required"):
+        return CATALOG_AUTHORITY_READY, True, blockers
+    if not explicit_t0:
+        blockers.append("t0_exact_authority_not_explicit")
+    if not t0_authority:
+        blockers.append("t0_exact_authority_false")
+    if record.get("llm_advisory_recommended"):
+        blockers.append("llm_advisory_recommended")
+    if record.get("human_review_required"):
+        blockers.append("human_review_required")
+    if record.get("requires_t2_shape_check"):
+        blockers.append("requires_t2_shape_check")
+    return CATALOG_WEAK_NEEDS_ENRICHMENT, False, blockers
 
 
-def build_report(runtime_map: Any, manifest: Any) -> dict[str, Any]:
+def _catalog_rows(catalog: Any) -> list[dict[str, Any]]:
+    records = catalog.get("use_cases") if isinstance(catalog, dict) else None
+    if not isinstance(records, list):
+        return []
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        use_case_id = record.get("use_case_id")
+        if not isinstance(use_case_id, str) or not use_case_id:
+            continue
+        status, ready, blockers = _classify_catalog_authority(record)
+        rows.append(
+            {
+                "row_kind": "catalog",
+                "row_id": use_case_id,
+                "use_case_id": use_case_id,
+                "display_name": record.get("display_name"),
+                "question_ref": None,
+                "question": None,
+                "row_authority_status": status,
+                "s3_authority_ready": ready,
+                "existing_s3_authority_ready": None,
+                "may_skip_llm": ready,
+                "registry_tier": record.get("registry_tier"),
+                "use_case_type": record.get("use_case_type"),
+                "t0_exact_authority": record.get("t0_exact_authority"),
+                "llm_advisory_recommended": record.get("llm_advisory_recommended"),
+                "requires_t2_shape_check": record.get("requires_t2_shape_check"),
+                "human_review_required": record.get("human_review_required"),
+                "default_spl_template": record.get("default_spl_template"),
+                "required_sources": list(record.get("required_sources") or []),
+                "optional_sources": list(record.get("optional_sources") or []),
+                "mitre_candidates": list(record.get("mitre_candidates") or []),
+                "blockers": blockers,
+            }
+        )
+    rows.sort(key=lambda row: row["row_id"])
+    return rows
+
+
+def build_report(runtime_map: Any, manifest: Any, catalog: Any | None = None) -> dict[str, Any]:
     entries = runtime_map.get("entries") if isinstance(runtime_map, dict) else None
     if not isinstance(entries, list):
         raise ValueError("runtime map missing entries list")
@@ -133,8 +135,8 @@ def build_report(runtime_map: Any, manifest: Any) -> dict[str, Any]:
         question_ref = entry.get("question_ref")
         if not isinstance(question_ref, str) or not question_ref:
             continue
-        status, blockers = classify_row_authority(entry, manifest_index.get(question_ref))
-        projected_ready = _project_s3_authority_ready(status)
+        status, blockers = classify_runtime_row_authority(entry, manifest_index.get(question_ref))
+        projected_ready = project_s3_authority_ready(status)
         existing_ready = entry.get("s3_authority_ready") is True
         if projected_ready != existing_ready:
             projection_mismatches.append(
@@ -147,6 +149,8 @@ def build_report(runtime_map: Any, manifest: Any) -> dict[str, Any]:
             )
         rows.append(
             {
+                "row_kind": "question_105",
+                "row_id": question_ref,
                 "question_ref": question_ref,
                 "question": entry.get("question"),
                 "row_authority_status": status,
@@ -156,22 +160,31 @@ def build_report(runtime_map: Any, manifest: Any) -> dict[str, Any]:
                 "promotion_status": entry.get("promotion_status"),
                 "manifest_coverage_id": entry.get("manifest_coverage_id"),
                 "manifest_readiness": entry.get("manifest_readiness"),
+                "pattern_type": entry.get("pattern_type"),
+                "proposed_primary_skill": entry.get("proposed_primary_skill"),
+                "proposed_operation_type": entry.get("proposed_operation_type"),
                 "dependency_class": entry.get("dependency_class"),
                 "route_blocked": entry.get("route_blocked") is True,
+                "mitre_registry": entry.get("mitre_registry"),
                 "blockers": blockers,
             }
         )
 
     rows.sort(key=lambda row: row["question_ref"])
-    status_counts = dict(sorted(Counter(row["row_authority_status"] for row in rows).items()))
+    catalog_rows = _catalog_rows(catalog) if catalog is not None else []
+    all_rows = [*rows, *catalog_rows]
+    status_counts = dict(sorted(Counter(row["row_authority_status"] for row in all_rows).items()))
     return {
         "schema_version": "2026-06-row-authority-v1",
         "runtime_map_path": str(RUNTIME_MAP_PATH.relative_to(REPO_ROOT)),
         "manifest_path": str(MANIFEST_PATH.relative_to(REPO_ROOT)),
-        "row_count": len(rows),
+        "catalog_path": str(CATALOG_PATH.relative_to(REPO_ROOT)),
+        "row_count": len(all_rows),
+        "question_105_count": len(rows),
+        "catalog_count": len(catalog_rows),
         "status_counts": status_counts,
         "projection_mismatches": projection_mismatches,
-        "rows": rows,
+        "rows": all_rows,
     }
 
 
@@ -186,6 +199,8 @@ def _serialize_markdown(report: dict[str, Any]) -> str:
         "Report-only audit for the 105-question runtime map. `row_authority_status` is the reasoned enum; `s3_authority_ready` is the one-way projected readiness boolean.",
         "",
         f"- Rows: **{report['row_count']}**",
+        f"- 105-question rows: **{report.get('question_105_count', 0)}**",
+        f"- Catalogue rows: **{report.get('catalog_count', 0)}**",
         f"- Projection mismatches against existing `s3_authority_ready`: **{len(report['projection_mismatches'])}**",
         "",
         "## Status Counts",
@@ -206,6 +221,8 @@ def _serialize_markdown(report: dict[str, Any]) -> str:
     )
     special_refs = {"q0.q028", "q0.q045", "q0.q046", "q0.q103", "q0.q104", "q0.q105"}
     for row in report["rows"]:
+        if row.get("row_kind") != "question_105":
+            continue
         if row["question_ref"] not in special_refs and row["manifest_coverage_id"] is None:
             continue
         blockers = ", ".join(row["blockers"]) if row["blockers"] else "-"
@@ -228,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="Fail if generated outputs differ from disk.")
     args = parser.parse_args(argv)
 
-    report = build_report(_load_json(RUNTIME_MAP_PATH), _load_json(MANIFEST_PATH))
+    report = build_report(_load_json(RUNTIME_MAP_PATH), _load_json(MANIFEST_PATH), _load_json(CATALOG_PATH))
     rendered_json = _serialize_json(report)
     rendered_md = _serialize_markdown(report)
 

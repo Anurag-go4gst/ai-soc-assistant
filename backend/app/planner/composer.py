@@ -48,7 +48,9 @@ def compose_resource_plan(
             spl_step = None
         if mcp_step is not None and not _skill_permits(contract, "mcp"):
             skill_vetoes.append("mcp_execution:skill_contract")
-            mcp_step = None
+            mcp_step.status = "blocked_policy"
+            mcp_step.status_reason = "skill_contract"
+            mcp_step.policy_checks.append("blocked_by_skill_contract")
         required = [str(item) for item in contract.get("required_evidence") or []]
         if required:
             check = "skill_required_evidence:" + ",".join(sorted(required))
