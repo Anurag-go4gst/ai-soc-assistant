@@ -12,6 +12,7 @@ from app.query_understanding.soc_investigation_shape import (
 )
 from app.query_understanding.time_window import normalize_time_window
 from app.use_cases.registry import load_use_case_catalog, match_use_cases
+from app.use_cases.routing_authority import catalog_authority_row, llm_advisory_recommended
 
 IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 INDEX_RE = re.compile(r"\bindex=([^\s|]+)", re.IGNORECASE)
@@ -91,7 +92,11 @@ def understand_query(query: str) -> QueryUnderstandingResult:
         deterministic_match_path=deterministic_match_path,
         registry_consistency=_registry_consistency(primary_use_case, question_registry_entry),
         registry_warnings=registry_warnings,
-        llm_advisory_recommended=_llm_advisory_recommended(deterministic_match_path, registry_warnings),
+        llm_advisory_recommended=_llm_advisory_recommended(
+            deterministic_match_path,
+            registry_warnings,
+            catalog_row=catalog_authority_row(primary_use_case.use_case_id if primary_use_case else None),
+        ),
     )
     shaped = (
         detect_investigation_hypothesis_guidance(query)
@@ -345,5 +350,14 @@ def _registry_warnings(primary_use_case: object | None, registry_entry: dict | N
     return []
 
 
-def _llm_advisory_recommended(deterministic_match_path: str, registry_warnings: list[str]) -> bool:
-    return deterministic_match_path in {"near_105_question", "semantic_105_question", "out_of_registry"} or bool(registry_warnings)
+def _llm_advisory_recommended(
+    deterministic_match_path: str,
+    registry_warnings: list[str],
+    *,
+    catalog_row: dict | None = None,
+) -> bool:
+    return llm_advisory_recommended(
+        deterministic_match_path,
+        catalog_row=catalog_row,
+        registry_warnings=registry_warnings,
+    )

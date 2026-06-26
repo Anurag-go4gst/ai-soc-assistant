@@ -69,6 +69,9 @@ class CandidateSplEnvelope(BaseModel):
     detection_family: str | None = None
     user_constraint_bindings: dict[str, object] | None = None
     spl_binding_trace: dict[str, object] | None = None
+    # T1 SPL-native (T2 shape) review-only artifact.  Present only for the
+    # runtime-source-profile SPL-native path; review-only and never executable.
+    t2_spl_native: dict[str, object] | None = None
 
 
 class SplDraftPreviewEnvelope(BaseModel):

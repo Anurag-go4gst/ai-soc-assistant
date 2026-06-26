@@ -85,6 +85,9 @@ from app.spl.mcp_loop_discovery import execute_loop_discovery_hop
 from app.spl.mcp_source_discovery import run_mcp_source_discovery
 from app.spl.source_profile_resolver import extract_placeholder_slots
 from app.spl.spl_source_resolve import build_spl_source_profile_review, resolve_spl_source_profile
+from app.spl.t2_generation import generate_review_only_spl
+from app.spl.t2_pre_parse import pre_parse_spl_tokens
+from app.spl.runtime_source_profiles import resolve_profile_for_index
 from app.splunk.spl_services import (
     explain_spl,
     generate_candidate_spl_with_provider,
@@ -121,6 +124,7 @@ from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
 from app.use_cases.content_enrichment import enrichment_spl_governance, enrichment_spl_governance_for_runtime
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
+from app.use_cases.routing_authority import catalog_authority_row
 from app.chat.contracts.run_contract import RouteContract
 from app.chat.evidence_planner import plan_evidence, resolve_analyst_evidence_plan
 from app.planner.executor import (
@@ -626,9 +630,11 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     )
     preliminary_signals = extract_query_signals(query_text, query_understanding)
     provider_configured = intent_advisor_provider_configured()
+    primary_use_case_id = (candidate_mappings.get("use_case_ids") or [None])[0]
     skip_advisory, skip_reason = should_skip_sidecar(
         match_path=candidate_mappings.get("match_path"),
         registry_warnings=list(getattr(qu, "registry_warnings", None) or []) if qu is not None else None,
+        catalog_row=catalog_authority_row(primary_use_case_id),
     )
     if not skip_advisory and _high_confidence_registry_match_t0(qu):
         skip_advisory = True
@@ -2019,6 +2025,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             "detection rule, notable/event ID, or the SPL and a few sample fields."
         )
         note = "MITRE mapping requires grounded alert context; no SPL was generated."
+    elif _is_t2_review_only(candidate_spl, spl_validation):
+        # T1 SPL-native review-only draft: a renderable, non-executable SPL draft.
+        # This is a review state, not a clarification — the analyst validates the
+        # source profile/fields before any execution path. The review-only renderer
+        # owns the visible message (the SPL is shown).
+        human_review = _t2_review_only_review()
+        note = "Review-only SPL draft produced; analyst validation required before any execution. Nothing was executed."
     elif _is_spl_clarification_required(spl_validation):
         human_review = _spl_clarification_review(spl_validation)
         message = human_review["safe_message_for_user"]
@@ -3358,7 +3371,7 @@ def _spl_allowed(state: ChatPipelineState) -> bool:
 def _mcp_allowed(state: ChatPipelineState) -> bool:
     if not settings.control_plane_enabled:
         return True
-    return bool(_evidence_plan(state).get("mcp_allowed", True))
+    return _evidence_plan(state).get("mcp_allowed") is True
 
 
 def _context_selected_skill(state: ChatPipelineState) -> str:
@@ -3683,6 +3696,30 @@ def _spl_clarification_user_message(spl_validation: dict[str, Any] | None) -> st
     return (
         "I need a governed template match or supported source details before drafting SPL. "
         "Confirm the index, sourcetype, key fields, and time range for this request."
+    )
+
+
+def _is_t2_review_only(
+    candidate_spl: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+) -> bool:
+    cs = candidate_spl if isinstance(candidate_spl, dict) else {}
+    sv = spl_validation if isinstance(spl_validation, dict) else {}
+    return (
+        cs.get("generation_mode") == "t2_spl_native_review"
+        or str(sv.get("review_required_reason") or "") == "t2_spl_native_review_only"
+    )
+
+
+def _t2_review_only_review() -> dict:
+    return human_review(
+        "spl_review_required",
+        "t2_spl_native_review_only",
+        "soc_analyst",
+        ["review_draft_spl", "provide_source_profile", "cancel"],
+        "A review-only SPL draft was generated. Validate the source profile and fields "
+        "before any execution path. Nothing was executed.",
+        required=True,
     )
 
 
@@ -4186,6 +4223,22 @@ def _candidate_spl_stage(
             policy_version=validation_payload["policy_version"],
         )
         return candidate_payload, validation_payload
+
+    # T1 SPL-native path: a runtime-source-profile query (scada_perf/cisco_asa)
+    # with no governed template gets a deterministic review-only draft (shape ->
+    # repair -> validate) before any clarification/LLM degrade. Narrowly gated on
+    # the runtime profile so other catalogue/105 paths are untouched. Always
+    # review-only (approved=false, normalized_spl=null, execution disabled).
+    t2_native_candidate = _candidate_from_t2_spl_native(
+        trace_id=trace_id,
+        skill=skill,
+        user_query=user_query,
+        telemetry=telemetry,
+        profile=profile,
+        spl_governance=spl_governance,
+    )
+    if t2_native_candidate is not None:
+        return t2_native_candidate
 
     llm_failover_enabled = _should_use_llm_spl_failover(skill)
     # B02: when LLM failover is enabled, do not short-circuit planned/missing
@@ -4698,6 +4751,184 @@ def _should_use_llm_spl_failover(skill: str) -> bool:
     if not settings.ai_soc_llm_spl_fallback_enabled:
         return False
     return skill in {"attack_discovery", "spl_generation"}
+
+
+def _t2_runtime_profile_for_query(user_query: str) -> Any | None:
+    """Return the runtime source profile (scada_perf/cisco_asa) named in the
+    query, or None.  Narrow gate for the T1 SPL-native path."""
+    tokens = pre_parse_spl_tokens(user_query)
+    for index in tokens.indexes:
+        profile = resolve_profile_for_index(index)
+        if profile is not None:
+            return profile
+    return None
+
+
+def _candidate_from_t2_spl_native(
+    *,
+    trace_id: str,
+    skill: str,
+    user_query: str,
+    telemetry: Any,
+    profile: Any,
+    spl_governance: dict[str, Any] | None,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """T1 SPL-native review-only candidate for runtime-source-profile queries.
+
+    Deterministic pre-parse -> T2 shape -> repair -> review-only SPL.  The draft
+    is always non-executable (approved=False, normalized_spl=None,
+    execution_eligible=False).  Returns None when no runtime profile resolves so
+    the existing degrade chain (lab draft / LLM fallback / clarification) runs.
+    """
+    runtime_profile = _t2_runtime_profile_for_query(user_query)
+    if runtime_profile is None:
+        return None
+
+    artifact = generate_review_only_spl(user_query)
+
+    # Unsafe candidate -> hard block, no renderable SPL.
+    if artifact.blocked:
+        candidate_payload, validation_payload = _candidate_clarification(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            reason="t2_unsafe_spl_blocked",
+            spl_governance=spl_governance,
+        )
+        validation_payload["reject_reasons"] = sorted(
+            set(list(validation_payload.get("reject_reasons") or []) + list(artifact.block_reasons))
+        )
+        return candidate_payload, validation_payload
+
+    # No usable canonical SPL (operation unknown / unresolved fields) -> defer.
+    if not artifact.renderable or not artifact.candidate_spl.strip():
+        return None
+
+    # Wire the runtime source profile into the validator so a known index
+    # (scada_perf/cisco_asa) is not falsely rejected.  ``_profile_tuple`` only
+    # honours list values, so these MUST be lists.
+    template_profile: dict[str, Any] = {
+        "allowed_indexes": list(runtime_profile.allowed_indexes),
+        "allowed_commands": [
+            "search", "fields", "eval", "bin", "stats", "eventstats", "streamstats",
+            "where", "table", "sort", "rename", "dedup", "lookup", "coalesce", "head",
+        ],
+    }
+    lookup_name = artifact.shape.get("lookup_name")
+    if lookup_name:
+        template_profile["allowed_lookups"] = [str(lookup_name)]
+    validation = validate_spl(artifact.candidate_spl, template_profile=template_profile)
+
+    # Review-only notes: deterministic shape/repair notes + honest validator
+    # findings the analyst must resolve before any future execution path.
+    validation_notes = list(artifact.validation_notes)
+    for reason in validation.get("reject_reasons") or []:
+        note = f"Validator (review): {reason}"
+        if note not in validation_notes:
+            validation_notes.append(note)
+
+    shape = artifact.shape
+    t2_block = {
+        "runtime_operation": artifact.runtime_operation,
+        "source_profile": artifact.source_profile,
+        "entity_fields": list(shape.get("entity_fields") or []),
+        "metric_fields": list(shape.get("metric_fields") or []),
+        "baseline_window": shape.get("baseline_window"),
+        "detection_window": shape.get("detection_window"),
+        "lookup_name": shape.get("lookup_name"),
+        "lookup_match_field": shape.get("lookup_match_field"),
+        "log_match_field": shape.get("log_match_field"),
+        "spl_candidate": artifact.candidate_spl,
+        "validation_notes": validation_notes,
+        "repairs": list(artifact.repairs),
+        "execution_eligible": False,
+        "review_required": True,
+    }
+    review_labels = {
+        "governed": False,
+        "catalog_approved": False,
+        "execution_enabled": False,
+        "execution_eligible": False,
+        "review_required": True,
+    }
+    candidate_payload = {
+        "trace_id": trace_id,
+        "skill": skill,
+        "user_query": user_query,
+        "candidate_spl": artifact.candidate_spl,
+        "generation_mode": "t2_spl_native_review",
+        "confidence": 0.6,
+        "assumptions": [
+            *validation_notes,
+            "T1 SPL-native review-only draft — not governed, not executed.",
+            "Requires analyst validation before any MCP execution path.",
+        ],
+        "warnings": ["t2_spl_native_review_only"],
+        "selected_candidate_spl_provider": "t2_spl_native",
+        "fallback_required": False,
+        "candidate_spl_generated": True,
+        "validation_required": True,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "llm_supported": False,
+        "llm_fallback_used": False,
+        "llm_fallback_status": "t2_spl_native_review",
+        "llm_fallback_reason": "t1_spl_native_runtime_profile",
+        "exposure_tier": "review_candidate",
+        "detection_family": None,
+        "review_only_renderable": True,
+        "t2_spl_native": t2_block,
+        **review_labels,
+    }
+    validation_payload = {
+        # Fail-closed: the analyst sees the draft, but approved/normalized_spl stay
+        # false/null so the MCP execution gate can never run it.
+        "approved": False,
+        "normalized_spl": None,
+        "reject_reasons": list(validation.get("reject_reasons") or []),
+        "warnings": list(validation.get("warnings") or []),
+        "enforced_limits": validation.get("enforced_limits") or {},
+        "policy_version": validation.get("policy_version"),
+        "selected_candidate_spl_provider": "t2_spl_native",
+        "candidate_provider_reason": "t1_spl_native_runtime_profile",
+        "saia_available": False,
+        "fallback_required": False,
+        "spl_explanation_provider": "rule_based",
+        "spl_optimization_provider": "rule_based",
+        "spl_guidance_provider": "scd_rag",
+        "optimization_applied": False,
+        "optimization_revalidation_status": None,
+        "optimization_revalidation_approved": False,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "validation_notes": validation_notes,
+        "t2_spl_native": t2_block,
+        **review_labels,
+    }
+    _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
+    _mark_spl_review_status(candidate_payload, validation_payload, reason="t2_spl_native_review_only")
+    telemetry.record_step(
+        trace_id,
+        "candidate_spl_generated",
+        "completed",
+        skill=skill,
+        generation_mode=candidate_payload["generation_mode"],
+        confidence=candidate_payload["confidence"],
+        warnings=candidate_payload["warnings"],
+        selected_candidate_spl_provider="t2_spl_native",
+        fallback_required=False,
+    )
+    telemetry.record_spl_validation(
+        trace_id,
+        stage="spl_validation_result",
+        approved=False,
+        reject_reasons=validation_payload["reject_reasons"],
+        warnings=validation_payload["warnings"],
+        policy_version=validation_payload["policy_version"],
+    )
+    return candidate_payload, validation_payload
 
 
 def _candidate_from_lab_draft(
@@ -5532,6 +5763,11 @@ def _is_governed_spl_ready_for_response(spl_validation: dict[str, Any] | None) -
 def _is_spl_clarification_required(spl_validation: dict[str, Any] | None) -> bool:
     if not isinstance(spl_validation, dict):
         return False
+    # A T1 SPL-native review-only draft is a renderable review state, not a
+    # clarification, even though it carries review-level findings (e.g. missing
+    # sourcetype) that otherwise map to the clarification reason set.
+    if str(spl_validation.get("review_required_reason") or "") == "t2_spl_native_review_only":
+        return False
     if spl_validation.get("llm_fallback_status") == "clarification_required":
         return True
     review_reason = str(spl_validation.get("review_required_reason") or "")
@@ -5561,6 +5797,12 @@ def _response_mode(
     review = human_review if isinstance(human_review, dict) else {}
     if review.get("required") is True:
         review_type = str(review.get("review_type") or "")
+        # The wired execute/edit/cancel confirmation for a ready, validated SPL.
+        if review_type == "spl_execution_confirmation":
+            return "execution_confirmation"
+        # Review-only SPL draft (T1 SPL-native): renderable, non-executable.
+        if review_type == "spl_review_required":
+            return "review_required"
         if "clarification" in review_type:
             return "clarification_required"
         return "human_review_required"

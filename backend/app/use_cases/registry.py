@@ -56,7 +56,46 @@ def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
                 action_capability_tier=use_case.action_capability_tier,
             )
         )
+    _demote_weak_modifier_overrides(matches)
     return sorted(matches, key=lambda item: item.confidence, reverse=True)[:limit]
+
+
+# Confidence floor a weak SPL-meta modifier (e.g. soc_generate_spl) is pushed
+# below when it co-occurs with a real detection-family row.  The meta row must
+# never out-rank the detection family it is merely asking to query.
+_WEAK_MODIFIER_DEMOTION = 0.40
+
+
+def _demote_weak_modifier_overrides(matches: list[UseCaseSelection]) -> None:
+    """Honour ``must_not_override_detection_family``.
+
+    When a ``weak_modifier`` SPL-meta row matched a real detection-family row
+    *only incidentally* — i.e. via a non-canonical term (display name/example),
+    not one of its own intent patterns — demote it so the detection family wins.
+    An explicit canonical request ("generate spl for …") keeps the meta row, so
+    "Generate SPL for failed logins" still routes to soc_generate_spl.
+    """
+    matched_ids = {selection.use_case_id for selection in matches}
+    definitions = {item.use_case_id: item for item in load_use_case_catalog() if item.use_case_id in matched_ids}
+    has_detection_family = any(
+        definitions[selection.use_case_id].use_case_type != "meta_output_artifact"
+        for selection in matches
+        if selection.use_case_id in definitions
+    )
+    if not has_detection_family:
+        return
+    for selection in matches:
+        definition = definitions.get(selection.use_case_id)
+        if definition is None:
+            continue
+        if not (definition.must_not_override_detection_family and definition.pattern_strength == "weak_modifier"):
+            continue
+        canonical = {" ".join(p.lower().split()) for p in definition.intent_patterns}
+        matched_canonical = {" ".join(p.lower().split()) for p in selection.matched_patterns}
+        if canonical & matched_canonical:
+            # Explicit SPL-generation request — the meta row is the right route.
+            continue
+        selection.confidence = max(0.0, selection.confidence - _WEAK_MODIFIER_DEMOTION)
 
 
 def _expanded_match_terms(use_case: UseCaseDefinition) -> list[str]:

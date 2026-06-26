@@ -168,7 +168,7 @@ def build_run_contract(
     execution_authorized = execution_status.lower() in _EXECUTION_AUTHORIZED_STATUSES
 
     evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
-    mcp_allowed = _resolve_mcp_allowed(state, evidence_plan)
+    mcp_allowed = _resolve_mcp_allowed(state, evidence_plan, execution_authorized=execution_authorized)
 
     collected_evidence_count = gate.collected_evidence_count
     source_evidence_available = collected_evidence_count > 0
@@ -176,7 +176,10 @@ def build_run_contract(
     spl_validation = state.get("spl_validation") if isinstance(state.get("spl_validation"), dict) else None
     candidate_spl = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else None
     spl_draft_preview = state.get("spl_draft_preview") if isinstance(state.get("spl_draft_preview"), dict) else None
-    spl_allowed = bool(evidence_plan.get("spl_allowed"))
+    # Mirror the pipeline's _spl_allowed authority: with the control plane off
+    # there is no evidence_plan node, so SPL is allowed (a candidate that exists
+    # was already permitted upstream).  With CP on, honour the evidence plan.
+    spl_allowed = bool(evidence_plan.get("spl_allowed")) if settings.control_plane_enabled else True
 
     spl_candidate_present = _spl_candidate_present(candidate_spl, spl_draft_preview)
     spl_candidate_renderable = _spl_candidate_renderable(
@@ -275,13 +278,23 @@ def _resolve_canonical_skill(state: ChatPipelineState) -> str:
 
 
 
-def _resolve_mcp_allowed(state: ChatPipelineState, evidence_plan: dict[str, Any]) -> bool:
-    """Align with pipeline _mcp_allowed: CP-off defaults permissive; plan gates when present."""
-    if not settings.control_plane_enabled:
-        return True
-    if not evidence_plan:
-        return True
-    return bool(evidence_plan.get("mcp_allowed", True))
+def _resolve_mcp_allowed(
+    state: ChatPipelineState,
+    evidence_plan: dict[str, Any],
+    *,
+    execution_authorized: bool = False,
+) -> bool:
+    """Audit projection of MCP authorization for this turn.
+
+    This is a post-execution read-model, not the execution gate. With the control
+    plane off (or no evidence plan), there is no permissive plan to report, so the
+    audit value is explicit: MCP is "allowed" only when execution was actually
+    authorized this turn. A review-only / blocked answer reports explicit False
+    rather than the permissive gate-bypass True.
+    """
+    if not settings.control_plane_enabled or not evidence_plan:
+        return bool(execution_authorized)
+    return evidence_plan.get("mcp_allowed") is True
 
 def _query_signals_from_state(state: ChatPipelineState) -> dict[str, Any] | None:
     q2i = state.get("query_to_intent")
@@ -318,6 +331,17 @@ def _spl_candidate_renderable(
         return False
     if isinstance(candidate_spl, dict) and candidate_spl.get("generation_mode") == "clarification_required":
         return False
+    # T1 SPL-native review-only draft: render the safe, non-executable SPL even
+    # though it carries review-level validator findings (e.g. missing sourcetype).
+    # Execution is hard-blocked elsewhere (approved=false, normalized_spl=null),
+    # so showing the draft is safe and is the point of the review-only path.
+    if (
+        isinstance(candidate_spl, dict)
+        and candidate_spl.get("generation_mode") == "t2_spl_native_review"
+        and candidate_spl.get("review_only_renderable")
+        and str(candidate_spl.get("candidate_spl") or "").strip()
+    ):
+        return True
     if (
         isinstance(spl_draft_preview, dict)
         and spl_draft_preview.get("template_match_strength") == "strong"

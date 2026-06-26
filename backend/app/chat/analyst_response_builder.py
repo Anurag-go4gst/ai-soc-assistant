@@ -190,6 +190,17 @@ def _resolve_spl_surfaces_from_contract(
             resolved_draft = None
             draft_preview = None
 
+    # T1 SPL-native review-only draft has no spl_draft_preview channel; surface its
+    # candidate SPL as the draft so the review-only renderer can show it.
+    if (
+        resolved_draft is None
+        and isinstance(candidate_spl, dict)
+        and candidate_spl.get("generation_mode") == "t2_spl_native_review"
+        and str(candidate_spl.get("candidate_spl") or "").strip()
+    ):
+        resolved_draft = _candidate_spl_text(candidate_spl, spl_validation, synthesis_draft)
+        resolved_spl = None
+
     mirrored = contract is not None and getattr(contract, "run_contract_mirrored", False)
     if mirrored:
         allow_results = bool(getattr(contract, "allow_results_table", False))

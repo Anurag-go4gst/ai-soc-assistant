@@ -2733,12 +2733,24 @@
       "use_case_id": "soc_generate_spl",
       "display_name": "Generate SPL",
       "category": "SOC / Knowledge / Analyst workflow",
+      "registry_tier": "t1_spl_native",
+      "use_case_type": "meta_output_artifact",
+      "t0_exact_authority": false,
+      "llm_advisory_recommended": true,
+      "requires_t2_shape_check": true,
+      "pattern_strength": "weak_modifier",
+      "must_not_override_detection_family": true,
+      "execution_eligible_default": false,
+      "human_review_required": true,
       "intent_patterns": [
-        "generate spl",
-        "write spl",
-        "produce spl",
-        "create spl",
-        "spl query"
+        "generate spl for",
+        "write spl for",
+        "create spl for",
+        "produce spl for",
+        "give me spl to",
+        "draft spl to detect",
+        "draft spl to find",
+        "draft spl to summarize"
       ],
       "example_queries": [
         "Generate SPL for failed logins"
@@ -2864,6 +2876,15 @@
       "use_case_id": "soc_optimize_spl",
       "display_name": "Optimize SPL",
       "category": "SOC / Knowledge / Analyst workflow",
+      "registry_tier": "t1_spl_native",
+      "use_case_type": "meta_output_artifact",
+      "t0_exact_authority": false,
+      "llm_advisory_recommended": true,
+      "requires_t2_shape_check": true,
+      "pattern_strength": "weak_modifier",
+      "must_not_override_detection_family": true,
+      "execution_eligible_default": false,
+      "human_review_required": true,
       "intent_patterns": [
         "optimize spl"
       ],

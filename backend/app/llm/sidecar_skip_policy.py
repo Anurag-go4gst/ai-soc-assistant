@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.query_understanding.parser import _llm_advisory_recommended
+from app.use_cases.routing_authority import sidecar_intent_is_t0
 
 # Sufficiency-gate modes (evidence stage) where policy/authority is fixed.
 _T0_SUFFICIENCY_MODES = frozenset({"blocked_by_policy", "insufficient_evidence"})
@@ -19,13 +19,15 @@ def should_skip_sidecar(
     answer_mode: str | None = None,
     hil_status: str | None = None,
     registry_warnings: list[str] | None = None,
+    catalog_row: dict | None = None,
 ) -> tuple[bool, str | None]:
     """Return (skip, reason) when no sidecar LLM call is permitted."""
     if match_path is not None:
         normalized_path = str(match_path).strip()
-        if normalized_path and not _llm_advisory_recommended(
+        if normalized_path and sidecar_intent_is_t0(
             normalized_path,
-            list(registry_warnings or []),
+            catalog_row=catalog_row,
+            registry_warnings=list(registry_warnings or []),
         ):
             return True, "deterministic_exact_match_t0"
     if sufficiency_mode and sufficiency_mode.strip().lower() in _T0_SUFFICIENCY_MODES:

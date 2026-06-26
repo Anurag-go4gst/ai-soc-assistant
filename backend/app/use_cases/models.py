@@ -22,6 +22,19 @@ class UseCaseDefinition(BaseModel):
     severity_policy: str | None = None
     action_capability_tier: int
     output_template: str
+    # Row-level routing authority (T0/T1 architecture).  Defaults preserve the
+    # legacy posture: a catalogue row behaves as deterministic T0 (skip the
+    # intent LLM) unless it opts out.  SPL-meta rows (soc_generate_spl,
+    # soc_optimize_spl) override these to declare themselves T1 SPL-native.
+    registry_tier: str = "catalog_default"
+    use_case_type: str | None = None
+    t0_exact_authority: bool = True
+    llm_advisory_recommended: bool = False
+    requires_t2_shape_check: bool = False
+    pattern_strength: str | None = None
+    must_not_override_detection_family: bool = False
+    execution_eligible_default: bool = False
+    human_review_required: bool = False
 
 
 class UseCaseSelection(BaseModel):

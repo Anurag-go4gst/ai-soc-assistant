@@ -26,6 +26,7 @@ _MAIN_TITLE = "Review-only SPL draft — no live query was executed"
 _SEVERITY_NOT_ASSIGNED = "Not assigned from this question alone"
 _EXECUTION_LINE = "Execution: Not executed"
 _REVIEW_LINE = "Review: HIL/SOC review required before any future execution path"
+_ANALYST_VALIDATION_LINE = "Requires analyst validation before MCP execution"
 _REVIEW_ONLY_NOTICE = (
     "This is a lab-only draft SPL preview. It is not governed, not approved, and not executed."
 )
@@ -244,6 +245,7 @@ def render_review_only_spl_answer(
     lines.append(f"Severity: {_severity_text(analyst_response)}")
     lines.append(_EXECUTION_LINE)
     lines.append(_REVIEW_LINE)
+    lines.append(_ANALYST_VALIDATION_LINE)
     lines.append(f"Scope: {_scope_line(analyst_response).removeprefix('Scope: ')}")
     lines.append("")
 
@@ -357,6 +359,7 @@ def apply_review_only_spl_render(
         f"Severity: {_severity_text(analyst_response)}",
         _EXECUTION_LINE,
         _REVIEW_LINE,
+        _ANALYST_VALIDATION_LINE,
         _scope_line(analyst_response),
     ]
 
