@@ -21,6 +21,11 @@ from app.config import settings
 from app.connectors.telemetry import metrics
 from app.connectors.telemetry.redaction import MAX_SERIALIZED_PAYLOAD_BYTES, minimize, truncate
 from app.schemas.requests import ChatRequest
+from app.chat.debug_summary import (
+    build_debug_summary,
+    llm_live_calls_from_payload,
+    routing_list_fields,
+)
 from app.schemas.responses import PlaceholderResponse
 
 _MIGRATION_PATH = Path(__file__).resolve().parents[1] / "db" / "migrations" / "0002_answer_quality.sql"
@@ -104,13 +109,19 @@ def _link_trace_to_turn(
         return
     payload = response.model_dump(mode="json")
     execution = payload.get("execution") or {}
+    debug_summary = build_debug_summary(payload=payload)
+    llm_block = debug_summary.get("llm") if isinstance(debug_summary.get("llm"), dict) else {}
+    llm_live_calls = int(llm_block.get("live_calls") or 0)
     metadata: dict[str, Any] = {
         "turn_id": response.turn_id,
         "user_id": _user_id(user),
         "question_preview": _preview(request.message),
         "selected_skill": payload.get("selected_skill"),
         "llm_used": _llm_used(payload),
+        "llm_live_calls": llm_live_calls,
         "mcp_used": bool(execution.get("selected_mcp_tool")) if isinstance(execution, dict) else False,
+        "debug_summary": debug_summary,
+        **routing_list_fields(debug_summary),
     }
     run_contract = payload.get("run_contract")
     if isinstance(run_contract, dict):
