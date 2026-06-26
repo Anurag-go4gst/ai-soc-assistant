@@ -16,10 +16,10 @@ from app.spl.binding_semantics import (
     semantic_label_for_slot,
     semantic_meaning_for_slot,
 )
+from app.spl.final_spl_projection import build_final_spl_projection
 from app.spl.output_projection import (
     binding_initial_assessment,
     binding_investigation_checklist,
-    build_output_projection_from_bindings,
     infer_binding_source_family,
     resolved_scope_profile_bindings,
 )
@@ -125,14 +125,8 @@ def build_draft_metadata(
         used_skeleton=used_skeleton,
     )
     source_family = infer_binding_source_family(bindings, bound_slots)
-    if used_skeleton:
-        required_event_fields, _skeleton_table_fields, _eval_lines = build_output_projection_from_bindings(
-            bindings, bound_slots, source_family=source_family
-        )
-    else:
-        required_event_fields, _, _eval_lines = build_output_projection_from_bindings(
-            bindings, bound_slots, source_family=source_family
-        )
+    projection = build_final_spl_projection(bindings, bound_slots, source_family=source_family)
+    required_event_fields = projection.required_event_fields
     required_profile_fields = _required_profile_bindings(customization_meta, bound_slots, bindings)
     required_profile_fields = _merge_resolved_scope_bindings(required_profile_fields, bindings, bound_slots)
     checklist = binding_investigation_checklist(source_family, bindings, bound_slots)

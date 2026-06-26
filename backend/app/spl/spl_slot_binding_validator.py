@@ -697,13 +697,22 @@ def _valid_cidr(value: str) -> bool:
 
 def _normalize_time_window(value: str) -> str | None:
     text = " ".join(value.split())
+    lower = text.lower()
+    if any(token in lower for token in ("last 24 hours", "last 24h", "past 24 hours", "24 hours")):
+        return "earliest=-24h latest=now"
+    if "last hour" in lower or "last 1 hour" in lower:
+        return "earliest=-1h latest=now"
+    if any(token in lower for token in ("last 7 days", "past 7 days", "7 days")):
+        return "earliest=-7d latest=now"
+    if any(token in lower for token in ("30 minutes", "last 30 minutes", "past 30 minutes")):
+        return "earliest=-30m latest=now"
     if _EARLIEST_LATEST_PAIR.fullmatch(text):
         return text
     if text in {"earliest=-24h latest=now", "earliest=-1h latest=now", "earliest=-60m latest=now"}:
         return text
     if _RELATIVE_TIME_PATTERN.fullmatch(text):
         return f"earliest={text} latest=now"
-    if text.lower() in {"now", "all", "0", "earliest=0"}:
+    if lower in {"now", "all", "0", "earliest=0"}:
         return None
     return None
 

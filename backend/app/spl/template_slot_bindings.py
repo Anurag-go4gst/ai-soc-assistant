@@ -12,7 +12,11 @@ from app.spl.numeric_code_filter import (
     numeric_code_aliases,
     split_code_list,
 )
-from app.spl.output_projection import build_output_projection_from_bindings
+from app.spl.final_spl_projection import (
+    assemble_skeleton_spl,
+    build_final_spl_projection,
+    dedupe_spl_eval_lines,
+)
 from app.spl.user_constraint_bindings import UserConstraintBindings
 
 _TIME_BOUNDS_RE = re.compile(r"\bearliest=[^\s|]+(?:\s+latest=[^\s|]+)?")
@@ -154,8 +158,8 @@ def skeleton_output_plan(
 ) -> tuple[list[str], list[str]]:
     """Return required event log fields and SPL table fields for a user-bound skeleton."""
     slots = dict(slots or bindings.normalized_slots)
-    required, table, _eval_lines = build_output_projection_from_bindings(bindings, slots)
-    return required, table
+    projection = build_final_spl_projection(bindings, slots)
+    return projection.required_event_fields, projection.table_fields
 
 
 def skeleton_eval_lines(
@@ -163,8 +167,8 @@ def skeleton_eval_lines(
     slots: dict[str, str] | None = None,
 ) -> list[str]:
     slots = dict(slots or bindings.normalized_slots)
-    _required, _table, eval_lines = build_output_projection_from_bindings(bindings, slots)
-    return eval_lines
+    projection = build_final_spl_projection(bindings, slots)
+    return projection.eval_lines
 
 
 
@@ -178,213 +182,10 @@ def build_user_bound_skeleton(
     slots: dict[str, str] | None = None,
 ) -> str:
     slots = dict(slots or bindings.normalized_slots)
-    required_fields, table_fields = skeleton_output_plan(bindings, slots)
-    del required_fields  # metadata path uses skeleton_output_plan directly
-
-    indexes = bindings.explicit_indexes or ([slots["index"]] if slots.get("index") else ["*"])
-    index_clause = " OR ".join(f"index={idx}" for idx in indexes)
-    time_bounds = slots.get("time_window") or bindings.explicit_time_window or "earliest=-24h latest=now"
-    sourcetype_clause = f" sourcetype={slots['sourcetype']}" if slots.get("sourcetype") else ""
-    base = f"search ({index_clause}){sourcetype_clause} {time_bounds}"
-
-    filters: list[str] = []
-    pre_where_commands: list[str] = []
-    pre_where_commands.extend(skeleton_eval_lines(bindings, slots))
-    if bindings.explicit_protocols or slots.get("protocol"):
-        protocol = (bindings.explicit_protocols[0] if bindings.explicit_protocols else slots.get("protocol", "")).lower()
-        if not any("protocol_norm=" in line for line in pre_where_commands):
-            pre_where_commands.append(
-                '| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, ""))'
-            )
-        filters.append(f'like(protocol_norm, "%{protocol}%")')
-    function_code_norm: str | None = None
-    if bindings.explicit_function_codes or slots.get("function_code"):
-        codes = _function_codes(bindings, slots)
-        function_field = _safe_field(slots.get("function_code_field"), "function_code")
-        eval_line, where_clause = build_numeric_code_filter(
-            codes,
-            norm_field="function_code_norm",
-            aliases=numeric_code_aliases("function_code", primary_field=function_field),
-        )
-        pre_where_commands.append(eval_line)
-        function_code_norm = where_clause
-    event_code_norm: str | None = None
-    if bindings.explicit_event_codes or slots.get("event_code"):
-        codes = split_code_list(
-            bindings.explicit_event_codes
-            if bindings.explicit_event_codes
-            else slots.get("event_code")
-        )
-        if not any("event_code_norm=" in line for line in pre_where_commands):
-            eval_line, where_clause = build_numeric_code_filter(
-                codes,
-                norm_field="event_code_norm",
-                aliases=numeric_code_aliases("event_code"),
-            )
-            pre_where_commands.append(eval_line)
-            event_code_norm = where_clause
-        else:
-            codes_list = split_code_list(
-                bindings.explicit_event_codes
-                if bindings.explicit_event_codes
-                else slots.get("event_code")
-            )
-            event_code_norm = f"event_code_norm IN ({', '.join(codes_list)})"
-    use_norm_filters = bool(pre_where_commands)
-    if bindings.explicit_users or slots.get("user"):
-        user = bindings.explicit_users[0] if bindings.explicit_users else slots["user"]
-        if use_norm_filters and any("user_norm=" in line for line in pre_where_commands):
-            filters.append(f'user_norm="{user.lower()}"')
-        else:
-            filters.append(f'user="{user}"')
-    if bindings.explicit_hosts or slots.get("host"):
-        host = bindings.explicit_hosts[0] if bindings.explicit_hosts else slots["host"]
-        filters.append(f'host="{host}"')
-    if bindings.explicit_src_ips or slots.get("src_ip"):
-        ip = bindings.explicit_src_ips[0] if bindings.explicit_src_ips else slots["src_ip"]
-        filters.append(f'src_ip="{ip}"')
-    if bindings.explicit_dest_ips or slots.get("dest_ip"):
-        ip = bindings.explicit_dest_ips[0] if bindings.explicit_dest_ips else slots["dest_ip"]
-        filters.append(f'dest_ip="{ip}"')
-    if bindings.explicit_ports or slots.get("port"):
-        port = bindings.explicit_ports[0] if bindings.explicit_ports else int(slots["port"])
-        filters.append(f"dest_port={port}")
-    if bindings.explicit_services or slots.get("service"):
-        service = (bindings.explicit_services[0] if bindings.explicit_services else slots.get("service", "")).lower()
-        port = _SERVICE_PORT_MAP.get(service)
-        if port:
-            filters.append(f"(dest_port={port} OR service=\"{service}\")")
-        else:
-            filters.append(f'service="{service}"')
-    if bindings.explicit_src_zones or slots.get("src_zone"):
-        zone = bindings.explicit_src_zones[0] if bindings.explicit_src_zones else slots["src_zone"]
-        filters.append(f'src_zone="{zone}"')
-    if bindings.explicit_dest_zones or slots.get("dest_zone"):
-        zone = bindings.explicit_dest_zones[0] if bindings.explicit_dest_zones else slots["dest_zone"]
-        filters.append(f'dest_zone="{zone}"')
-    action_semantic = None
-    if bindings.explicit_action_semantics or slots.get("action_semantic"):
-        action_semantic = (
-            bindings.explicit_action_semantics[0]
-            if bindings.explicit_action_semantics
-            else slots.get("action_semantic")
-        )
-        action_filter = _action_semantic_filter(action_semantic)
-        if action_filter:
-            pre_where_commands.append(action_filter)
-    if bindings.explicit_lookups or slots.get("lookup"):
-        lookup = bindings.explicit_lookups[0] if bindings.explicit_lookups else slots["lookup"]
-        return (
-            f"{base} | lookup {lookup} asset_ip OUTPUT asset_name | where isnull(asset_name) "
-            f"| table _time src_ip dest_ip asset_name | head 100"
-        )
-
-    direction = bindings.explicit_directionality.get("unexpected_ip_direction") or slots.get("unexpected_ip_direction")
-    allowlist = bindings.explicit_allowlist_semantics.get("allowlist_semantic") or slots.get("allowlist_semantic")
-    if allowlist or direction == "destination":
-        src_field = _safe_field(slots.get("src_ip_field"), "src_ip")
-        dest_field = _safe_field(slots.get("dest_ip_field"), "dest_ip")
-        pre_where_commands.append(
-            f"| eval src_ip_norm={_coalesce_field_expr(src_field, ('src_ip', 'src', 'source'))}"
-        )
-        pre_where_commands.append(
-            f"| eval dest_ip_norm={_coalesce_field_expr(dest_field, ('dest_ip', 'dest', 'destination'))}"
-        )
-        pre_where = f" {' '.join(pre_where_commands)}" if pre_where_commands else ""
-        if slots.get("approved_destination_lookup"):
-            lookup = slots["approved_destination_lookup"]
-            where_parts = list(filters)
-            if function_code_norm:
-                where_parts.append(function_code_norm)
-            if event_code_norm:
-                where_parts.append(event_code_norm)
-            where_clause = " AND ".join(where_parts) if where_parts else "1=1"
-            return (
-                f"{base}{pre_where} | where {where_clause} "
-                f"| lookup {lookup} dest_ip as dest_ip_norm OUTPUT dest_ip as approved_dest_ip "
-                f"| where isnull(approved_dest_ip) "
-                f"| table {_skeleton_table_clause(table_fields)} | head 100"
-            )
-        cidr = slots.get("approved_destination_cidr") or "<approved_ot_destination_cidr>"
-        filters.append(f'NOT cidrmatch("{cidr}", dest_ip_norm)')
-
-    src_scope = slots.get("src_scope")
-    dest_scope = slots.get("dest_scope")
-    if src_scope == "substation_subnet" and slots.get("substation_mapping_lookup"):
-        lookup = slots["substation_mapping_lookup"]
-        pre_where_commands.append(
-            '| eval src_ip_norm=coalesce(src_ip, src, source, "")'
-        )
-        pre_where_commands.append(
-            f'| lookup {lookup} ip as src_ip_norm OUTPUT substation_id'
-        )
-        filters.append("isnotnull(substation_id)")
-    elif src_scope == "substation_subnet" and slots.get("approved_source_cidr"):
-        cidr = slots["approved_source_cidr"]
-        if not any("src_ip_norm=" in cmd for cmd in pre_where_commands):
-            pre_where_commands.append(
-                '| eval src_ip_norm=coalesce(src_ip, Source_Network_Address, IpAddress, source_ip, src, source, "")'
-            )
-        filters.append(f'cidrmatch("{cidr}", src_ip_norm)')
-    elif src_scope and not slots.get("substation_mapping_lookup"):
-        pass  # unbound scope handled via bindings.unbound_constraints upstream
-
-    threshold = bindings.explicit_thresholds.get("threshold") or slots.get("threshold")
-    if threshold:
-        comparison = (
-            bindings.explicit_thresholds.get("comparison")
-            or slots.get("threshold_comparison")
-            or "greater_than"
-        )
-        op = ">" if comparison in {"greater_than", "more_than", "gt"} else ">="
-        subject = slots.get("aggregation_subject") or "user"
-        by_field = "user" if subject == "user" else _safe_field(subject, "user")
-        norm_filters: list[str] = []
-        if function_code_norm:
-            norm_filters.append(function_code_norm)
-        if event_code_norm:
-            norm_filters.append(event_code_norm)
-        where_parts = list(filters) + norm_filters
-        where_clause = " AND ".join(where_parts) if where_parts else "1=1"
-        pre_where = f" {' '.join(pre_where_commands)}" if pre_where_commands else ""
-        return (
-            f"{base}{pre_where} | where {where_clause} "
-            f"| stats count by {by_field} | where count {op} {threshold} | sort - count | head 100"
-        )
-
-    norm_filters: list[str] = []
-    if function_code_norm:
-        norm_filters.append(function_code_norm)
-    if event_code_norm:
-        norm_filters.append(event_code_norm)
-    where_parts = list(filters) + norm_filters
-    where_clause = " AND ".join(where_parts) if where_parts else "1=1"
-    pre_where = f" {' '.join(pre_where_commands)}" if pre_where_commands else ""
-    return (
-        f"{base}{pre_where} | where {where_clause} "
-        f"| table {_skeleton_table_clause(table_fields)} | head 100"
-    )
+    projection = build_final_spl_projection(bindings, slots)
+    return assemble_skeleton_spl(bindings, slots, projection)
 
 
-
-def _action_semantic_filter(action_semantic: str | None) -> str | None:
-    if not action_semantic:
-        return None
-    action = str(action_semantic).strip().lower()
-    if action in {"failed_login", "failure", "failed", "denied"}:
-        return (
-            '| eval action_norm=lower(coalesce(action, status, result, signature, "")) '
-            '| where like(action_norm, "%fail%") OR like(action_norm, "%denied%")'
-        )
-    if action in {"permit", "allowed", "allow", "accept"}:
-        return (
-            '| where like(lower(coalesce(action, status, result, "")), "%permit%") '
-            'OR like(lower(coalesce(action, status, result, "")), "%allow%") '
-            'OR like(lower(coalesce(action, status, result, "")), "%accept%")'
-        )
-    return (
-        f'| where like(lower(coalesce(action, status, result, "")), "%{action}%")'
-    )
 
 
 def _render_auth_success_after_failure(
@@ -499,7 +300,7 @@ def _render_ot_modbus_draft(
         if slot_name not in spec.accepted_slots and slot_name not in {"indexes"}:
             unbound.append({"slot": slot_name, "value": value, "reason": "unsupported_by_template"})
 
-    return RenderBindingOutcome(spl=spl_text.strip(), bound_slots=slots, unbound_constraints=unbound)
+    return RenderBindingOutcome(spl=dedupe_spl_eval_lines(spl_text.strip()), bound_slots=slots, unbound_constraints=unbound)
 
 
 def _render_generic_search(

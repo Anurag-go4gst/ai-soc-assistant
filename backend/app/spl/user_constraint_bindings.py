@@ -10,6 +10,7 @@ from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.query_understanding.models import QueryEntities, QueryUnderstandingResult
 from app.spl.slot_binding_merge import (
     filter_slot_conflicts,
+    slot_values_semantically_equal,
     supplement_accepted_llm_entity_slots,
 )
 from app.spl.spl_slot_binding_validator import (
@@ -468,11 +469,7 @@ def _final_slot_precedence_decisions(
 
 
 def _slot_values_equal(left: Any, right: Any, *, slot_type: str | None = None) -> bool:
-    if isinstance(left, list) and isinstance(right, list):
-        return [str(item).lower() for item in left] == [str(item).lower() for item in right]
-    if slot_type in {"src_scope", "dest_scope"}:
-        return _canonical_scope_value(left) == _canonical_scope_value(right)
-    return str(left).lower() == str(right).lower()
+    return slot_values_semantically_equal(slot_type, left, right)
 
 
 def _canonical_scope_value(value: Any) -> str:

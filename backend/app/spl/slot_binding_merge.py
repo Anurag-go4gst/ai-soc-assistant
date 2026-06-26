@@ -30,6 +30,28 @@ def canonical_scope_value(value: Any) -> str:
         return "substation_subnet"
     return text
 
+def slot_values_semantically_equal(slot: str, left: Any, right: Any) -> bool:
+    """Return True when two slot values express the same constraint."""
+    if left is None or right is None:
+        return False
+    if slot in {"src_zone", "dest_zone"}:
+        return str(left).strip().lower() == str(right).strip().lower()
+    if slot == "port":
+        try:
+            return int(left) == int(right)
+        except (ValueError, TypeError):
+            return str(left).strip() == str(right).strip()
+    if slot == "time_window":
+        from app.spl.spl_slot_binding_validator import _normalize_time_window
+
+        left_norm = _normalize_time_window(str(left))
+        right_norm = _normalize_time_window(str(right))
+        return left_norm is not None and left_norm == right_norm
+    if slot in {"src_scope", "dest_scope"}:
+        return canonical_scope_value(left) == canonical_scope_value(right)
+    return False
+
+
 
 def _is_cidr_like(value: Any) -> bool:
     text = str(value).strip()
@@ -107,15 +129,29 @@ def _is_false_positive_scope_conflict(
     return False
 
 
+def _is_false_positive_conflict(
+    conflict: dict[str, Any],
+    merged_raw: dict[str, Any],
+) -> bool:
+    slot = str(conflict.get("slot") or "")
+    kept = conflict.get("kept_value")
+    dropped = conflict.get("dropped_value")
+    if _is_false_positive_scope_conflict(conflict, merged_raw):
+        return True
+    if slot and slot_values_semantically_equal(slot, kept, dropped):
+        return True
+    return False
+
+
 def filter_slot_conflicts(
     conflicts: list[dict[str, Any]],
     merged_raw: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """Drop false-positive scope conflicts when canonical scope values match."""
+    """Drop false-positive conflicts when canonical/semantic slot values match."""
     return [
         conflict
         for conflict in conflicts
-        if not _is_false_positive_scope_conflict(conflict, merged_raw)
+        if not _is_false_positive_conflict(conflict, merged_raw)
     ]
 
 

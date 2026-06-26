@@ -643,9 +643,9 @@ def test_t2_firewall_probe_e2e_multi_index(monkeypatch: pytest.MonkeyPatch) -> N
     assert preview is not None
     spl = preview["draft_spl"]
     assert "(index=syslog OR index=cisco_asa)" in spl
-    assert "dest_port=445" in spl
-    assert 'src_zone="IT VLAN"' in spl
-    assert 'dest_zone="OT DMZ"' in spl
+    assert "dest_port_norm=445" in spl
+    assert 'src_zone_norm="IT VLAN"' in spl
+    assert 'dest_zone_norm="OT DMZ"' in spl
     assert "permit" in spl.lower() or "allow" in spl.lower()
 
 
@@ -883,3 +883,109 @@ def test_filter_slot_conflicts_dest_scope_does_not_use_source_profile_cidr() -> 
     merged = {"approved_source_cidr": "10.40.0.0/16"}
     filtered = filter_slot_conflicts([conflict], merged)
     assert len(filtered) == 1
+
+def test_same_value_src_zone_user_llm_no_conflict() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts, slot_values_semantically_equal
+
+    assert slot_values_semantically_equal("src_zone", "IT VLAN", "it vlan") is True
+    conflict = {
+        "slot": "src_zone",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "IT VLAN",
+        "dropped_value": "it vlan",
+    }
+    assert filter_slot_conflicts([conflict], {}) == []
+
+
+def test_same_value_dest_zone_no_conflict() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts, slot_values_semantically_equal
+
+    assert slot_values_semantically_equal("dest_zone", "OT DMZ", "ot dmz") is True
+    conflict = {
+        "slot": "dest_zone",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "OT DMZ",
+        "dropped_value": "ot dmz",
+    }
+    assert filter_slot_conflicts([conflict], {}) == []
+
+
+def test_port_string_int_no_conflict() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts, slot_values_semantically_equal
+
+    assert slot_values_semantically_equal("port", "445", 445) is True
+    conflict = {
+        "slot": "port",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "445",
+        "dropped_value": 445,
+    }
+    assert filter_slot_conflicts([conflict], {}) == []
+
+
+def test_time_window_equivalence_no_conflict() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts, slot_values_semantically_equal
+
+    assert slot_values_semantically_equal("time_window", "last 24 hours", "earliest=-24h latest=now") is True
+    conflict = {
+        "slot": "time_window",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "last 24 hours",
+        "dropped_value": "earliest=-24h latest=now",
+    }
+    assert filter_slot_conflicts([conflict], {}) == []
+
+
+def test_real_scalar_conflicts_remain() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts, slot_values_semantically_equal
+
+    assert slot_values_semantically_equal("port", 445, 3389) is False
+    conflict = {
+        "slot": "port",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": 445,
+        "dropped_value": 3389,
+    }
+    assert len(filter_slot_conflicts([conflict], {})) == 1
+
+
+def test_firewall_filters_use_normalized_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(T2_FIREWALL_PROBE, live_data_request=True)
+    assert preview is not None
+    spl = preview["draft_spl"]
+    assert "src_zone_norm=" in spl
+    assert "dest_zone_norm=" in spl
+    assert "dest_port_norm=" in spl
+    assert 'src_zone_norm="IT VLAN"' in spl
+    assert 'dest_zone_norm="OT DMZ"' in spl
+    assert "dest_port_norm=445" in spl
+
+
+def test_modbus_no_duplicate_src_dest_ip_norm_eval(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    spl = preview["draft_spl"]
+    assert spl.count("| eval src_ip_norm=") == 1
+    assert spl.count("| eval dest_ip_norm=") == 1
+
+
+def test_windows_no_duplicate_evals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(T2_WINEVENT_PROBE, live_data_request=True)
+    assert preview is not None
+    spl = preview["draft_spl"]
+    assert spl.count("| eval event_code_norm=") == 1
+    assert spl.count("| eval user_norm=") == 1
+    assert spl.count("| eval src_ip_norm=") == 1
+
+
+def test_dedupe_keeps_richer_alias_list() -> None:
+    from app.spl.final_spl_projection import dedupe_eval_lines
+
+    sparse = '| eval src_ip_norm=coalesce(src_ip, "")'
+    rich = '| eval src_ip_norm=coalesce(src_ip, Source_Network_Address, IpAddress, source_ip, src, source, "")'
+    result = dedupe_eval_lines([sparse, rich])
+    assert result == [rich]
+

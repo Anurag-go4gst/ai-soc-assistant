@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from app.spl.numeric_code_filter import numeric_code_aliases
 from app.spl.user_constraint_bindings import UserConstraintBindings
 
 BindingSourceFamily = str
@@ -54,162 +53,10 @@ def build_output_projection_from_bindings(
     source_family: BindingSourceFamily | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
     """Return required event fields, SPL table fields, and pre-where eval lines."""
-    slots = dict(slots or bindings.normalized_slots)
-    family = source_family or infer_binding_source_family(bindings, slots)
-    required: list[str] = ["_time"]
-    table: list[str] = ["_time"]
-    eval_lines: list[str] = []
+    # Circular-import exception: final_spl_projection imports family constants from here.
+    from app.spl.final_spl_projection import build_output_projection_from_bindings as _delegate
 
-    if bindings.explicit_event_codes or slots.get("event_code"):
-        for alias in numeric_code_aliases("event_code"):
-            if alias not in required:
-                required.append(alias)
-        required.append("event_code_norm")
-        table.append("event_code_norm")
-        eval_lines.append(
-            "| eval event_code_norm=tonumber(coalesce(EventCode, EventID, event_code))"
-        )
-
-    if bindings.explicit_users or slots.get("user"):
-        for alias in ("user", "Account_Name", "TargetUserName", "Target_User_Name", "account", "username"):
-            if alias not in required:
-                required.append(alias)
-        required.append("user_norm")
-        table.append("user_norm")
-        eval_lines.append(
-            '| eval user_norm=lower(coalesce(user, Account_Name, TargetUserName, Target_User_Name, account, ""))'
-        )
-
-    src_bound = bool(
-        bindings.explicit_src_ips
-        or slots.get("src_ip")
-        or slots.get("src_scope")
-        or slots.get("approved_source_cidr")
-        or slots.get("substation_mapping_lookup")
-    )
-    if src_bound:
-        for alias in ("src_ip", "Source_Network_Address", "IpAddress", "source_ip", "src", "source"):
-            if alias not in required:
-                required.append(alias)
-        required.append("src_ip_norm")
-        table.append("src_ip_norm")
-        eval_lines.append(
-            '| eval src_ip_norm=coalesce(src_ip, Source_Network_Address, IpAddress, source_ip, src, source, "")'
-        )
-
-    dest_host_bound = bool(bindings.explicit_hosts or slots.get("host")) or family == WINDOWS_LOGON_FAMILY
-    if dest_host_bound:
-        for alias in ("host", "ComputerName", "dest_host", "dest", "Computer"):
-            if alias not in required:
-                required.append(alias)
-        required.append("dest_host_norm")
-        table.append("dest_host_norm")
-        eval_lines.append(
-            '| eval dest_host_norm=coalesce(host, ComputerName, dest_host, dest, Computer, "")'
-        )
-
-    if bindings.explicit_dest_ips or slots.get("dest_ip"):
-        for alias in ("dest_ip", "destination", "dest"):
-            if alias not in required:
-                required.append(alias)
-        required.append("dest_ip_norm")
-        if "dest_ip_norm" not in table:
-            table.append("dest_ip_norm")
-        if not any("dest_ip_norm=" in line for line in eval_lines):
-            eval_lines.append('| eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")')
-
-    direction_bound = bool(
-        bindings.explicit_directionality.get("unexpected_ip_direction")
-        or slots.get("unexpected_ip_direction")
-        or bindings.explicit_allowlist_semantics
-        or slots.get("allowlist_semantic")
-        or slots.get("approved_destination_cidr")
-        or slots.get("approved_destination_lookup")
-    )
-    if direction_bound:
-        for alias in ("src_ip", "src", "source", "source_ip"):
-            if alias not in required:
-                required.append(alias)
-        if "src_ip_norm" not in table:
-            required.append("src_ip_norm")
-            table.append("src_ip_norm")
-        if not any("src_ip_norm=" in line for line in eval_lines):
-            eval_lines.append('| eval src_ip_norm=coalesce(src_ip, src, source, source_ip, "")')
-        for alias in ("dest_ip", "destination", "dest"):
-            if alias not in required:
-                required.append(alias)
-        if "dest_ip_norm" not in table:
-            required.append("dest_ip_norm")
-            table.append("dest_ip_norm")
-        if not any("dest_ip_norm=" in line for line in eval_lines):
-            eval_lines.append('| eval dest_ip_norm=coalesce(dest_ip, dest, destination, "")')
-        if "action" not in table:
-            table.append("action")
-
-    if bindings.explicit_protocols or slots.get("protocol"):
-        required.extend(["protocol", "proto", "protocol_name", "protocol_norm"])
-        table.append("protocol_norm")
-        eval_lines.append('| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, ""))')
-
-    if bindings.explicit_function_codes or slots.get("function_code"):
-        function_field = slots.get("function_code_field") or "function_code"
-        for alias in numeric_code_aliases("function_code", primary_field=function_field):
-            if alias not in required:
-                required.append(alias)
-        required.append("function_code_norm")
-        table.append("function_code_norm")
-
-    if bindings.explicit_ports or slots.get("port"):
-        for alias in ("dest_port", "port", "destination_port"):
-            if alias not in required:
-                required.append(alias)
-        table.append("dest_port_norm")
-        eval_lines.append('| eval dest_port_norm=tonumber(coalesce(dest_port, port, destination_port))')
-
-    if bindings.explicit_services or slots.get("service"):
-        for alias in ("service", "app", "application"):
-            if alias not in required:
-                required.append(alias)
-        table.append("service_norm")
-        eval_lines.append('| eval service_norm=lower(coalesce(service, app, application, ""))')
-
-    if bindings.explicit_src_zones or slots.get("src_zone"):
-        for alias in ("src_zone", "src_network", "source_zone"):
-            if alias not in required:
-                required.append(alias)
-        table.append("src_zone")
-
-    if bindings.explicit_dest_zones or slots.get("dest_zone"):
-        for alias in ("dest_zone", "dest_network", "destination_zone"):
-            if alias not in required:
-                required.append(alias)
-        table.append("dest_zone")
-
-    if bindings.explicit_action_semantics or slots.get("action_semantic"):
-        for alias in ("action", "status", "result"):
-            if alias not in required:
-                required.append(alias)
-        if "action" not in table:
-            table.append("action")
-
-    if family == WINDOWS_LOGON_FAMILY:
-        for field in ("Logon_Type", "Workstation_Name", "Authentication_Package"):
-            if field not in table:
-                table.append(field)
-
-    if bindings.explicit_lookups or slots.get("lookup"):
-        for alias in ("asset_name", "asset_ip", "src_ip"):
-            if alias not in table:
-                table.append(alias)
-
-    if "action" not in table and family == FIREWALL_FLOW_FAMILY:
-        table.append("action")
-
-    return (
-        list(dict.fromkeys(required)),
-        list(dict.fromkeys(table)),
-        list(dict.fromkeys(eval_lines)),
-    )
+    return _delegate(bindings, slots, source_family=source_family)
 
 
 def binding_initial_assessment(
