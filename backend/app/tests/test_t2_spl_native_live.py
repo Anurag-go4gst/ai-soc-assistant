@@ -83,6 +83,47 @@ def test_review_only_spl_rendered_when_mcp_blocked() -> None:
     assert "Not executed" in response.message or "not executed" in response.message.lower()
 
 
+_SCADA_REVIEW_ONLY = (
+    "Provide a complete review-only SPL query for index=scada_perf using earliest=-30d to "
+    "compute an eventstats stdev baseline by rtu_id and filter anomalies in the last 24h "
+    "using transmission_error_count."
+)
+
+
+def test_scada_review_only_phrasing_routes_t2_not_guided_investigation() -> None:
+    # Regression: the "review-only SPL" + index/metric/entity/time-window phrasing
+    # must land on the T1/T2 SPL-native path — not guided investigation, not an
+    # IT-to-OT boundary review, not a P3 severity, not MITRE/missing-evidence.
+    response = _chat(_SCADA_REVIEW_ONLY)
+    assert response.selected_skill == "spl_generation"
+    cs = response.candidate_spl
+    assert cs is not None and cs.generation_mode == "t2_spl_native_review"
+    t2 = cs.t2_spl_native
+    assert t2 is not None
+    assert t2["runtime_operation"] == "threshold_anomaly"
+    assert t2["source_profile"] == "scada_perf"
+    assert "rtu_id" in t2["entity_fields"]
+    assert "transmission_error_count" in t2["metric_fields"]
+    assert t2["baseline_window"] == "30d"
+    assert t2["detection_window"] == "24h"
+    assert cs.execution_eligible is False
+
+    msg = response.message or ""
+    # Review-only SPL artifact is rendered.
+    assert "index=scada_perf" in msg
+    assert "Review-only SPL draft" in msg
+    # No severity assignment, no IT-to-OT boundary framing, no guided investigation.
+    assert "Severity: Not assigned from this question alone" in msg
+    assert "IT-to-OT" not in msg
+    assert "investigation plan" not in msg.lower()
+    assert "guided" not in (response.selected_skill or "").lower()
+    # No MITRE mapping, no privileged-account / MFA missing-evidence leakage.
+    assert not (response.mitre_mappings or [])
+    low = msg.lower()
+    assert "privileged account" not in low
+    assert "mfa" not in low
+
+
 def test_exact_105_preserved_no_t2_hijack() -> None:
     # A canonical exact-105 question must keep its deterministic route and must
     # not be turned into a T2 SPL-native review draft.

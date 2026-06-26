@@ -81,8 +81,18 @@ def _severity_text(analyst_response: Any) -> str:
     return label
 
 
-def _scope_line(analyst_response: Any) -> str:
-    """Family-aware scope line; only assert the IT-to-OT framing on a strong match."""
+def _scope_line(analyst_response: Any, *, t2_source_profile: str | None = None) -> str:
+    """Family-aware scope line; only assert the IT-to-OT framing on a strong match.
+
+    A T1 SPL-native (T2) draft owns its own source profile (e.g. scada_perf), so a
+    co-matched IT-to-OT use case's scenario label must not drive the scope. For T2
+    the scope is profile-aware and never the firewall/boundary framing.
+    """
+    if t2_source_profile:
+        return (
+            f"Scope: Review-only SPL draft for source profile '{t2_source_profile}'; "
+            "validate fields and time window before review. Nothing was executed."
+        )
     haystack = " ".join(
         str(getattr(analyst_response, field, "") or "")
         for field in ("finding_title", "scenario_label")
@@ -232,6 +242,7 @@ def render_review_only_spl_answer(
     *,
     analyst_response: Any,
     draft_preview: dict[str, Any] | None,
+    t2_source_profile: str | None = None,
 ) -> str:
     """Compose the single clean visible answer for a review-only SPL draft.
 
@@ -246,7 +257,7 @@ def render_review_only_spl_answer(
     lines.append(_EXECUTION_LINE)
     lines.append(_REVIEW_LINE)
     lines.append(_ANALYST_VALIDATION_LINE)
-    lines.append(f"Scope: {_scope_line(analyst_response).removeprefix('Scope: ')}")
+    lines.append(f"Scope: {_scope_line(analyst_response, t2_source_profile=t2_source_profile).removeprefix('Scope: ')}")
     lines.append("")
 
     lines.append(_REVIEW_ONLY_NOTICE)
@@ -317,6 +328,7 @@ def apply_review_only_spl_render(
     analyst_response: Any,
     message: str,
     draft_preview: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None = None,
 ) -> tuple[Any, str]:
     """For review-only SPL answers, own the visible answer and suppress competing producers.
 
@@ -345,9 +357,17 @@ def apply_review_only_spl_render(
     if not has_lab_draft:
         return analyst_response, message
 
+    # A T1 SPL-native (T2) review draft owns its own source profile; use it for the
+    # scope so a co-matched IT-to-OT use case cannot drive the firewall framing.
+    t2_source_profile: str | None = None
+    if isinstance(candidate_spl, dict) and candidate_spl.get("generation_mode") == "t2_spl_native_review":
+        block = candidate_spl.get("t2_spl_native") if isinstance(candidate_spl.get("t2_spl_native"), dict) else {}
+        t2_source_profile = str(block.get("source_profile") or "") or None
+
     composed = render_review_only_spl_answer(
         analyst_response=analyst_response,
         draft_preview=draft_preview,
+        t2_source_profile=t2_source_profile,
     )
 
     # Header text owned by the card summary (status block + scope only). The title is not
@@ -360,7 +380,7 @@ def apply_review_only_spl_render(
         _EXECUTION_LINE,
         _REVIEW_LINE,
         _ANALYST_VALIDATION_LINE,
-        _scope_line(analyst_response),
+        _scope_line(analyst_response, t2_source_profile=t2_source_profile),
     ]
 
     updates: dict[str, Any] = {

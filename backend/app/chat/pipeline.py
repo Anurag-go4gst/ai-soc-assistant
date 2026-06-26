@@ -1839,6 +1839,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision,
         allow_severity_assessment=run_contract.allow_severity_assessment,
     )
+    # A T1 SPL-native review-only draft is a pure SPL-artifact request: no
+    # collected evidence and no alert context. Severity must not be assigned even
+    # if a co-matched use-case (e.g. an IT-to-OT boundary row) carries a P-policy.
+    if _is_t2_review_only(state.get("candidate_spl"), spl_validation):
+        severity_decision = apply_gate_severity_cap(
+            severity_decision,
+            allow_severity_assessment=False,
+        )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,
         severity_decision.severity_label,
@@ -2938,6 +2946,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         analyst_response=analyst_response,
         message=message,
         draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+        candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
     )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,
