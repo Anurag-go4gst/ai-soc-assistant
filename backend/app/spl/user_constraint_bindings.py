@@ -11,6 +11,7 @@ from app.spl.spl_slot_binding_validator import (
     SlotValidationOutcome,
     extract_natural_language_slots,
     extract_query_slots,
+    load_slot_binding_policy,
     validate_slot_map,
 )
 
@@ -95,6 +96,7 @@ def build_user_constraint_bindings(
     llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
     query_understanding: QueryUnderstandingResult | None = None,
     extra_slots: dict[str, Any] | None = None,
+    source_profile_trace: dict[str, Any] | None = None,
     allowed_indexes: tuple[str, ...] | None = None,
     allowed_sourcetypes: tuple[str, ...] | None = None,
     preserve_user_explicit_indexes: bool = True,
@@ -117,6 +119,26 @@ def build_user_constraint_bindings(
             SLOT_SOURCE_LLM: llm_slots,
             SLOT_SOURCE_SOURCE_PROFILE: source_profile_slots,
         }
+    )
+    policy_for_source_profile = None
+    if (
+        (allowed_indexes is None and source_profile_slots.get("index"))
+        or (allowed_sourcetypes is None and source_profile_slots.get("sourcetype"))
+    ):
+        policy_for_source_profile = load_slot_binding_policy()
+    base_allowed_indexes = allowed_indexes or (
+        policy_for_source_profile.allowed_indexes if policy_for_source_profile is not None else None
+    )
+    base_allowed_sourcetypes = allowed_sourcetypes or (
+        policy_for_source_profile.allowed_sourcetypes if policy_for_source_profile is not None else None
+    )
+    allowed_indexes = _with_source_profile_allowed_value(
+        base_allowed_indexes,
+        source_profile_slots.get("index"),
+    )
+    allowed_sourcetypes = _with_source_profile_allowed_value(
+        base_allowed_sourcetypes,
+        source_profile_slots.get("sourcetype"),
     )
 
     validated = validate_slot_map(
@@ -169,8 +191,30 @@ def build_user_constraint_bindings(
         "accepted_slots": dict(validated.normalized_slots),
         "rejected_slots": dict(bindings.rejected_slots),
         "slot_conflicts": list(conflicts),
+        "final_slot_precedence_decision": _final_slot_precedence_decisions(
+            merged_raw,
+            slot_sources,
+            conflicts,
+        ),
     }
+    if source_profile_trace:
+        bindings.debug_trace.update(source_profile_trace)
     return bindings
+
+
+def _with_source_profile_allowed_value(
+    allowed_values: tuple[str, ...] | None,
+    value: Any,
+) -> tuple[str, ...] | None:
+    if not value:
+        return allowed_values
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return allowed_values
+    values = tuple(allowed_values or ())
+    if normalized in values:
+        return values
+    return (*values, normalized)
 
 
 def bindings_to_extra_slots(bindings: UserConstraintBindings) -> dict[str, Any]:
@@ -256,6 +300,35 @@ def _precedence_rank(source: str) -> int:
         return len(_SLOT_PRECEDENCE)
 
 
+def _final_slot_precedence_decisions(
+    merged_raw: dict[str, Any],
+    slot_sources: dict[str, str],
+    conflicts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    decisions = [
+        {
+            "slot": slot,
+            "value": value,
+            "source": slot_sources.get(slot),
+            "status": "kept",
+        }
+        for slot, value in sorted(merged_raw.items())
+    ]
+    for conflict in conflicts:
+        decisions.append(
+            {
+                "slot": conflict.get("slot"),
+                "value": conflict.get("dropped_value"),
+                "source": conflict.get("dropped_source"),
+                "status": "dropped",
+                "reason": conflict.get("reason"),
+                "kept_source": conflict.get("kept_source"),
+                "kept_value": conflict.get("kept_value"),
+            }
+        )
+    return decisions
+
+
 def _slot_values_equal(left: Any, right: Any) -> bool:
     if isinstance(left, list) and isinstance(right, list):
         return [str(item).lower() for item in left] == [str(item).lower() for item in right]
@@ -302,11 +375,14 @@ def _bindings_from_slots(
         normalized_slots=dict(normalized_slots),
         slot_sources=dict(slot_sources),
     )
+    def is_explicit(slot: str) -> bool:
+        return slot_sources.get(slot) != SLOT_SOURCE_SOURCE_PROFILE
+
     index_val = normalized_slots.get("index")
-    if index_val:
+    if index_val and is_explicit("index"):
         bindings.explicit_indexes = [index_val]
     indexes_val = normalized_slots.get("indexes")
-    if indexes_val:
+    if indexes_val and is_explicit("indexes"):
         bindings.explicit_indexes = [part.strip() for part in str(indexes_val).split(",") if part.strip()]
     for key, attr in (
         ("sourcetype", "explicit_sourcetypes"),
@@ -319,35 +395,35 @@ def _bindings_from_slots(
         ("dest_zone", "explicit_dest_zones"),
         ("lookup", "explicit_lookups"),
     ):
-        if normalized_slots.get(key):
+        if normalized_slots.get(key) and is_explicit(key):
             getattr(bindings, attr).append(normalized_slots[key])
-    if normalized_slots.get("protocol"):
+    if normalized_slots.get("protocol") and is_explicit("protocol"):
         bindings.explicit_protocols.append(normalized_slots["protocol"])
-    if normalized_slots.get("service"):
+    if normalized_slots.get("service") and is_explicit("service"):
         bindings.explicit_services.append(normalized_slots["service"])
-    if normalized_slots.get("event_code"):
+    if normalized_slots.get("event_code") and is_explicit("event_code"):
         bindings.explicit_event_codes.append(normalized_slots["event_code"])
-    if normalized_slots.get("function_code"):
+    if normalized_slots.get("function_code") and is_explicit("function_code"):
         raw_fc = normalized_slots["function_code"]
         bindings.explicit_function_codes.extend(
             [part.strip() for part in str(raw_fc).split(",") if part.strip()]
         )
-    if normalized_slots.get("port"):
+    if normalized_slots.get("port") and is_explicit("port"):
         try:
             bindings.explicit_ports.append(int(normalized_slots["port"]))
         except ValueError:
             pass
-    if normalized_slots.get("time_window"):
+    if normalized_slots.get("time_window") and is_explicit("time_window"):
         bindings.explicit_time_window = normalized_slots["time_window"]
-    if normalized_slots.get("threshold"):
+    if normalized_slots.get("threshold") and is_explicit("threshold"):
         bindings.explicit_thresholds["threshold"] = normalized_slots["threshold"]
-    if normalized_slots.get("threshold_comparison"):
+    if normalized_slots.get("threshold_comparison") and is_explicit("threshold_comparison"):
         bindings.explicit_thresholds["comparison"] = normalized_slots["threshold_comparison"]
-    if normalized_slots.get("unexpected_ip_direction"):
+    if normalized_slots.get("unexpected_ip_direction") and is_explicit("unexpected_ip_direction"):
         bindings.explicit_directionality["unexpected_ip_direction"] = normalized_slots["unexpected_ip_direction"]
-    if normalized_slots.get("allowlist_semantic"):
+    if normalized_slots.get("allowlist_semantic") and is_explicit("allowlist_semantic"):
         bindings.explicit_allowlist_semantics["allowlist_semantic"] = normalized_slots["allowlist_semantic"]
-    if normalized_slots.get("action_semantic"):
+    if normalized_slots.get("action_semantic") and is_explicit("action_semantic"):
         bindings.explicit_action_semantics.append(normalized_slots["action_semantic"])
     return bindings
 

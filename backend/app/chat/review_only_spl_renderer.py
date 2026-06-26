@@ -20,6 +20,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.spl.binding_semantics import format_profile_binding_line
+
 _MAIN_TITLE = "Review-only SPL draft — no live query was executed"
 _SEVERITY_NOT_ASSIGNED = "Not assigned from this question alone"
 _EXECUTION_LINE = "Execution: Not executed"
@@ -119,6 +121,101 @@ def _assumptions(draft_preview: dict[str, Any] | None) -> list[str]:
     return [str(item).strip() for item in (draft_preview.get("assumptions") or []) if str(item).strip()]
 
 
+def _source_profile_used(draft_preview: dict[str, Any] | None) -> list[str]:
+    if not isinstance(draft_preview, dict):
+        return []
+    rows: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    for key in ("source_profile_bindings_applied", "source_profile_bindings"):
+        for item in draft_preview.get(key) or []:
+            if not isinstance(item, dict):
+                continue
+            slot = str(item.get("slot") or item.get("profile_key") or "").strip()
+            value = str(item.get("value") or "").strip()
+            if not slot or not value:
+                continue
+            identity = (slot, value)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            source = str(item.get("source") or "source_profile").strip()
+            rows.append(format_profile_binding_line(item))
+    return rows
+
+
+def _missing_bindings(draft_preview: dict[str, Any] | None) -> list[str]:
+    if not isinstance(draft_preview, dict):
+        return []
+    rows: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    for key in ("source_profile_bindings_missing", "unbound_constraints"):
+        for item in draft_preview.get(key) or []:
+            if not isinstance(item, dict):
+                continue
+            slot = str(item.get("slot") or item.get("profile_key") or "").strip()
+            reason = str(item.get("reason") or "missing_binding").strip()
+            if not slot:
+                continue
+            identity = (slot, reason)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            rows.append(f"- {slot}: {reason}")
+    return rows
+
+
+def _source_family_draft_sections(draft_preview: dict[str, Any] | None) -> list[str]:
+    if not isinstance(draft_preview, dict):
+        return []
+    rendered: list[str] = []
+    for section in draft_preview.get("source_family_draft_sections") or []:
+        if not isinstance(section, dict):
+            continue
+        title = str(section.get("title") or "").strip()
+        if not title:
+            continue
+        status = str(section.get("status") or "review_only").strip()
+        rendered.append(f"{title} ({status}):")
+        draft_spl = str(section.get("draft_spl") or "").strip()
+        if draft_spl:
+            rendered.append(draft_spl)
+            continue
+        missing = [str(item) for item in (section.get("missing_slots") or []) if str(item).strip()]
+        if missing:
+            rendered.append(f"Missing bindings: {', '.join(missing)}")
+            continue
+        references = [str(item) for item in (section.get("references") or []) if str(item).strip()]
+        if references:
+            rendered.append(f"References: {', '.join(references)}")
+    return rendered
+
+
+
+
+def _required_event_fields(draft_preview: dict[str, Any] | None) -> list[str]:
+    if not isinstance(draft_preview, dict):
+        return []
+    fields = draft_preview.get("required_event_fields") or draft_preview.get("required_log_fields") or []
+    return [str(item).strip() for item in fields if str(item).strip()]
+
+
+def _required_profile_bindings(draft_preview: dict[str, Any] | None) -> list[str]:
+    if not isinstance(draft_preview, dict):
+        return []
+    rows: list[str] = []
+    bindings = draft_preview.get("required_source_profile_bindings")
+    if isinstance(bindings, list) and bindings:
+        for item in bindings:
+            if isinstance(item, dict):
+                rows.append(format_profile_binding_line(item))
+        return rows
+    for slot in draft_preview.get("required_source_profile_fields") or []:
+        slot_text = str(slot).strip()
+        if slot_text:
+            rows.append(f"- {slot_text}")
+    return rows
+
+
 def render_review_only_spl_answer(
     *,
     analyst_response: Any,
@@ -136,11 +233,41 @@ def render_review_only_spl_answer(
     lines.append(f"Severity: {_severity_text(analyst_response)}")
     lines.append(_EXECUTION_LINE)
     lines.append(_REVIEW_LINE)
-    lines.append(_scope_line(analyst_response))
+    lines.append(f"Scope: {_scope_line(analyst_response).removeprefix('Scope: ')}")
     lines.append("")
 
     lines.append(_REVIEW_ONLY_NOTICE)
     lines.append("")
+
+    event_fields = _required_event_fields(draft_preview)
+    if event_fields:
+        lines.append("Required event fields:")
+        lines.extend(f"- {field}" for field in event_fields)
+        lines.append("")
+
+    profile_bindings = _required_profile_bindings(draft_preview)
+    if profile_bindings:
+        lines.append("Required source-profile bindings:")
+        lines.extend(profile_bindings)
+        lines.append("")
+
+    used = _source_profile_used(draft_preview)
+    if used:
+        lines.append("Source profile used:")
+        lines.extend(used)
+        lines.append("")
+
+    missing = _missing_bindings(draft_preview)
+    if missing:
+        lines.append("Missing source bindings:")
+        lines.extend(missing)
+        lines.append("")
+
+    family_sections = _source_family_draft_sections(draft_preview)
+    if family_sections:
+        lines.append("Additional source-family draft sections:")
+        lines.extend(family_sections)
+        lines.append("")
 
     lines.append(_CHECKLIST_HEADER)
     for index, item in enumerate(_checklist_items(analyst_response, draft_preview), start=1):
@@ -227,7 +354,7 @@ def apply_review_only_spl_render(
         # safety note) for this path so no competing top-level line is rendered.
         "severity_rationale": None,
         "severity_safety_note": None,
-        "direct_answer_summary": "\n".join(header_lines),
+        "direct_answer_summary": "\n\n".join(header_lines),
         "analyst_checklist": _checklist_items(analyst_response, draft_preview),
     }
     updated = analyst_response.model_copy(update=updates)

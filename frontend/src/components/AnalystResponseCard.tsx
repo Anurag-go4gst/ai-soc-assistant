@@ -142,7 +142,7 @@ export function AnalystResponseCard({
       label: isReviewOnlySplDraft ? 'SOC review checklist before execution' : 'Investigation steps',
       icon: <ListChecks className="h-3.5 w-3.5" />,
       accent: 'amber',
-      chips: [{ text: isReviewOnlySplDraft ? 'Review only' : 'Analyst workflow', variant: 'outline' }],
+      chips: isReviewOnlySplDraft ? [] : [{ text: 'Analyst workflow', variant: 'outline' }],
       content: <StepList items={investigationSteps} />,
     });
   }
@@ -454,7 +454,10 @@ export function AnalystResponseCard({
         </div>
       ) : showSummaryInHeader && summaryText ? (
         <div className="mt-2 space-y-2">
-          {splitParagraphs(summaryText).map((paragraph) => (
+          {(isReviewOnlySplDraft ? summaryText.split('\n') : splitParagraphs(summaryText))
+            .map((paragraph) => paragraph.trim())
+            .filter(Boolean)
+            .map((paragraph) => (
             <p key={paragraph} className="leading-6 text-slate-200">
               {paragraph}
             </p>

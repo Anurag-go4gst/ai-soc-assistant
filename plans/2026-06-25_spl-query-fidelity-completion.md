@@ -37,19 +37,25 @@ Preserve explicit user constraints through query understanding → slot validati
 
 1. **Schema drop bug fixed** — `SplDraftPreviewEnvelope` now declares `unbound_constraints` and `source_profile_bindings`; `CandidateSplEnvelope` now declares `user_constraint_bindings` and `spl_binding_trace`. These fields were previously present in raw dicts but could be silently dropped by typed response serialization.
 2. **Governed-template visibility fixed** — `build_analyst_response_for_live()` now projects draft and governed candidate binding issues into `analyst_response.spl_unbound_constraints`, and the frontend renders the same “Unresolved source bindings” section for governed SPL and draft SPL surfaces.
-3. **Verification wording corrected** — prior close notes claimed full backend/governance green. Current local review verified targeted suites and frontend build; the full backend/governance runner wedged in the backend-pytest PTY despite no visible pytest process, so this review does not re-claim full-suite green.
+3. **Verification wording corrected** — prior close notes claimed full backend/governance green before it was reproducible. The final review reran the governance gate successfully after fixing a stale EC fixture-policy test.
+4. **EC fixture-policy test corrected** — `run_demo_scenario()` intentionally prefers curated legacy fixtures and keeps capture artifacts as fallback. `test_ec_overhaul.py` now asserts that serving policy while still directly testing capture-artifact restamping/posture through `_serve_capture_artifact()`.
 
 ## Live-path test isolation (2026-06-25)
 
 `test_q010_smb_top_talkers_keeps_clarification_contract` monkeypatches empty source profile to preserve the frozen clarification contract. New companion test `test_q010_smb_top_talkers_resolves_network_bindings_when_source_profile_populated` documents populated-store behavior (`spl_revision`, not `spl_source_profile_clarification`).
 
-## Verification (2026-06-25 close; amended by review)
+## Verification (2026-06-25 final review)
 
 - Targeted SPL fidelity/schema regression: **17 passed**
-- Prior focused SPL/source-profile/display suites: **95 passed**
-- Prior broader SPL/control-plane/run-contract slice: **59 passed**
+- Focused SPL/source-profile/display/live-data bundle: **125 passed**
+- EC overhaul regression after fixture-policy correction: **22 passed**
 - Frontend build: **green**
-- Full backend/governance: not re-verified in this review because the local runner session wedged during backend pytest after initial progress output while no pytest process was visible.
+- Governance regression: **PASS**
+  - Backend pytest: **2982 passed**, 1 skipped, 6 xfailed
+  - LangGraph dual-run parity: 120/120
+  - SOC clean-answer eval: 120/120
+  - SPL template audit: 16/16
+  - Cisco power-grid catalogue gate: PASS=50 REVIEW=0 FAIL=0 CRITICAL=0
 
 ```bash
 cd backend

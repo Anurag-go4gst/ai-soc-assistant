@@ -64,7 +64,8 @@ def test_substation_query_renders_clean_review_only_spl_answer() -> None:
     assert "lab-only draft spl preview" in lowered
     assert visible.count("SOC review checklist before execution") == 1
     assert visible.count("Draft SPL preview:") == 1
-    assert visible.count("search index=") == 1
+    assert visible.count("search index=") >= 1
+    assert visible.count("Additional source-family draft sections:") <= 1
     assert lowered.count("assumptions and placeholders") == 1
 
     # 8. How produced uses review-only language, not live-backed.

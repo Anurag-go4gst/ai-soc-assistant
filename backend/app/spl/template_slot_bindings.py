@@ -7,6 +7,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.spl.spl_slot_binding_validator import escape_spl_quoted_string
+from app.spl.numeric_code_filter import (
+    build_numeric_code_filter,
+    numeric_code_aliases,
+    split_code_list,
+)
 from app.spl.user_constraint_bindings import UserConstraintBindings
 
 _TIME_BOUNDS_RE = re.compile(r"\bearliest=[^\s|]+(?:\s+latest=[^\s|]+)?")
@@ -37,6 +42,11 @@ _TEMPLATE_SLOT_SPECS: dict[str, TemplateSlotBindingSpec] = {
                 "unexpected_ip_direction",
                 "allowlist_semantic",
                 "action_semantic",
+                "approved_destination_lookup",
+                "approved_destination_cidr",
+                "src_ip_field",
+                "dest_ip_field",
+                "function_code_field",
             }
         ),
         slot_injection_strategy="ot_protocol",
@@ -66,6 +76,11 @@ _TEMPLATE_SLOT_SPECS: dict[str, TemplateSlotBindingSpec] = {
                 "unexpected_ip_direction",
                 "allowlist_semantic",
                 "cidr",
+                "approved_destination_lookup",
+                "approved_destination_cidr",
+                "src_ip_field",
+                "dest_ip_field",
+                "function_code_field",
             }
         ),
     ),
@@ -129,29 +144,121 @@ def customize_template_spl_with_bindings(
     return outcome
 
 
+def skeleton_output_plan(
+    bindings: UserConstraintBindings,
+    slots: dict[str, str] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Return required event log fields and SPL table fields for a user-bound skeleton."""
+    slots = dict(slots or bindings.normalized_slots)
+    required: list[str] = ["_time"]
+    table: list[str] = ["_time"]
+
+    if bindings.explicit_protocols or slots.get("protocol"):
+        required.extend(["protocol", "proto", "protocol_name", "protocol_norm"])
+        table.append("protocol_norm")
+
+    if bindings.explicit_function_codes or slots.get("function_code"):
+        function_field = _safe_field(slots.get("function_code_field"), "function_code")
+        for alias in numeric_code_aliases("function_code", primary_field=function_field):
+            if alias not in required:
+                required.append(alias)
+        required.append("function_code_norm")
+        table.append("function_code_norm")
+
+    if bindings.explicit_event_codes or slots.get("event_code"):
+        required.extend(["EventCode", "EventID", "event_code", "event_code_norm"])
+        table.append("event_code_norm")
+
+    direction = bindings.explicit_directionality.get("unexpected_ip_direction") or slots.get(
+        "unexpected_ip_direction"
+    )
+    allowlist = bindings.explicit_allowlist_semantics.get("allowlist_semantic") or slots.get(
+        "allowlist_semantic"
+    )
+    uses_ip_norm = bool(
+        bindings.explicit_src_ips
+        or slots.get("src_ip")
+        or bindings.explicit_dest_ips
+        or slots.get("dest_ip")
+        or allowlist
+        or direction == "destination"
+    )
+    if uses_ip_norm:
+        required.extend(["src_ip", "src", "source", "src_ip_norm"])
+        required.extend(["dest_ip", "dest", "destination", "dest_ip_norm"])
+        table.extend(["src_ip_norm", "dest_ip_norm"])
+
+    if bindings.explicit_users or slots.get("user"):
+        required.extend(["user", "username", "account", "src_user"])
+    if bindings.explicit_hosts or slots.get("host"):
+        required.extend(["host", "dest_host", "device", "hostname"])
+    if bindings.explicit_ports or slots.get("port"):
+        required.extend(["dest_port", "port", "destination_port"])
+    if bindings.explicit_services or slots.get("service"):
+        required.extend(["service", "app", "application"])
+    if bindings.explicit_src_zones or slots.get("src_zone"):
+        required.extend(["src_zone", "src_network", "source_zone"])
+    if bindings.explicit_dest_zones or slots.get("dest_zone"):
+        required.extend(["dest_zone", "dest_network", "destination_zone"])
+    if bindings.explicit_action_semantics or slots.get("action_semantic"):
+        required.extend(["action", "status", "result"])
+
+    if "action" not in table:
+        table.append("action")
+    return list(dict.fromkeys(required)), list(dict.fromkeys(table))
+
+
+def _skeleton_table_clause(table_fields: list[str]) -> str:
+    return " ".join(dict.fromkeys(table_fields))
+
+
 def build_user_bound_skeleton(
     bindings: UserConstraintBindings,
     slots: dict[str, str] | None = None,
 ) -> str:
     slots = dict(slots or bindings.normalized_slots)
+    required_fields, table_fields = skeleton_output_plan(bindings, slots)
+    del required_fields  # metadata path uses skeleton_output_plan directly
+
     indexes = bindings.explicit_indexes or ([slots["index"]] if slots.get("index") else ["*"])
     index_clause = " OR ".join(f"index={idx}" for idx in indexes)
     time_bounds = slots.get("time_window") or bindings.explicit_time_window or "earliest=-24h latest=now"
-    base = f"search ({index_clause}) {time_bounds}"
+    sourcetype_clause = f" sourcetype={slots['sourcetype']}" if slots.get("sourcetype") else ""
+    base = f"search ({index_clause}){sourcetype_clause} {time_bounds}"
 
     filters: list[str] = []
+    pre_where_commands: list[str] = []
     if bindings.explicit_protocols or slots.get("protocol"):
         protocol = (bindings.explicit_protocols[0] if bindings.explicit_protocols else slots.get("protocol", "")).lower()
-        filters.append(f'like(lower(coalesce(protocol, proto, protocol_name, "")), "%{protocol}%")')
+        pre_where_commands.append(
+            '| eval protocol_norm=lower(coalesce(protocol, proto, protocol_name, ""))'
+        )
+        filters.append(f'like(protocol_norm, "%{protocol}%")')
+    function_code_norm: str | None = None
     if bindings.explicit_function_codes or slots.get("function_code"):
         codes = _function_codes(bindings, slots)
-        code_terms = " OR ".join(
-            f'function_code="{c}" OR modbus_function_code="{c}" OR function="{c}"' for c in codes
+        function_field = _safe_field(slots.get("function_code_field"), "function_code")
+        eval_line, where_clause = build_numeric_code_filter(
+            codes,
+            norm_field="function_code_norm",
+            aliases=numeric_code_aliases("function_code", primary_field=function_field),
         )
-        filters.append(f"({code_terms})")
+        pre_where_commands.append(eval_line)
+        function_code_norm = where_clause
+    event_code_norm: str | None = None
     if bindings.explicit_event_codes or slots.get("event_code"):
-        code = str(bindings.explicit_event_codes[0] if bindings.explicit_event_codes else slots.get("event_code"))
-        filters.append(f'(EventCode={code} OR EventID={code})')
+        codes = split_code_list(
+            bindings.explicit_event_codes
+            if bindings.explicit_event_codes
+            else slots.get("event_code")
+        )
+        eval_line, where_clause = build_numeric_code_filter(
+            codes,
+            norm_field="event_code_norm",
+            aliases=numeric_code_aliases("event_code"),
+        )
+        pre_where_commands.append(eval_line)
+        event_code_norm = where_clause
     if bindings.explicit_users or slots.get("user"):
         user = bindings.explicit_users[0] if bindings.explicit_users else slots["user"]
         filters.append(f'user="{user}"')
@@ -200,13 +307,44 @@ def build_user_bound_skeleton(
     direction = bindings.explicit_directionality.get("unexpected_ip_direction") or slots.get("unexpected_ip_direction")
     allowlist = bindings.explicit_allowlist_semantics.get("allowlist_semantic") or slots.get("allowlist_semantic")
     if allowlist or direction == "destination":
-        lookup_placeholder = "<approved_ot_destination_allowlist>"
-        filters.append(
-            f"NOT cidrmatch(\"{lookup_placeholder}\", coalesce(dest_ip, dest, destination, \"\"))"
+        src_field = _safe_field(slots.get("src_ip_field"), "src_ip")
+        dest_field = _safe_field(slots.get("dest_ip_field"), "dest_ip")
+        pre_where_commands.append(
+            f"| eval src_ip_norm={_coalesce_field_expr(src_field, ('src_ip', 'src', 'source'))}"
         )
+        pre_where_commands.append(
+            f"| eval dest_ip_norm={_coalesce_field_expr(dest_field, ('dest_ip', 'dest', 'destination'))}"
+        )
+        pre_where = f" {' '.join(pre_where_commands)}" if pre_where_commands else ""
+        if slots.get("approved_destination_lookup"):
+            lookup = slots["approved_destination_lookup"]
+            where_parts = list(filters)
+            if function_code_norm:
+                where_parts.append(function_code_norm)
+            if event_code_norm:
+                where_parts.append(event_code_norm)
+            where_clause = " AND ".join(where_parts) if where_parts else "1=1"
+            return (
+                f"{base}{pre_where} | where {where_clause} "
+                f"| lookup {lookup} dest_ip as dest_ip_norm OUTPUT dest_ip as approved_dest_ip "
+                f"| where isnull(approved_dest_ip) "
+                f"| table {_skeleton_table_clause(table_fields)} | head 100"
+            )
+        cidr = slots.get("approved_destination_cidr") or "<approved_ot_destination_cidr>"
+        filters.append(f'NOT cidrmatch("{cidr}", dest_ip_norm)')
 
-    where_clause = " AND ".join(filters) if filters else "1=1"
-    return f"{base} | where {where_clause} | table _time src_ip dest_ip protocol function_code action | head 100"
+    norm_filters: list[str] = []
+    if function_code_norm:
+        norm_filters.append(function_code_norm)
+    if event_code_norm:
+        norm_filters.append(event_code_norm)
+    where_parts = list(filters) + norm_filters
+    where_clause = " AND ".join(where_parts) if where_parts else "1=1"
+    pre_where = f" {' '.join(pre_where_commands)}" if pre_where_commands else ""
+    return (
+        f"{base}{pre_where} | where {where_clause} "
+        f"| table {_skeleton_table_clause(table_fields)} | head 100"
+    )
 
 
 def _render_auth_success_after_failure(
@@ -245,12 +383,15 @@ def _render_ot_modbus_draft(
 ) -> RenderBindingOutcome:
     unbound: list[dict[str, Any]] = []
     index = slots.get("index") or (bindings.explicit_indexes[0] if bindings.explicit_indexes else None)
+    sourcetype = slots.get("sourcetype") or (bindings.explicit_sourcetypes[0] if bindings.explicit_sourcetypes else None)
     protocol = (bindings.explicit_protocols[0] if bindings.explicit_protocols else slots.get("protocol", "")).lower()
 
     if index:
         spl_text = re.sub(r"index=<[^>]+>", f"index={index}", spl_text, count=1)
     else:
         unbound.append({"slot": "index", "reason": "missing_source_profile"})
+    if sourcetype:
+        spl_text = re.sub(r"sourcetype=<[^>]+>", f"sourcetype={sourcetype}", spl_text, count=1)
 
     if protocol == "modbus":
         spl_text = spl_text.replace("(*dnp3* OR *modbus*)", "*modbus*")
@@ -262,24 +403,53 @@ def _render_ot_modbus_draft(
     elif protocol == "dnp3":
         spl_text = spl_text.replace("(*dnp3* OR *modbus*)", "*dnp3*")
 
-    codes = bindings.explicit_function_codes or _as_list(slots.get("function_code"))
+    codes = bindings.explicit_function_codes or split_code_list(slots.get("function_code"))
     if codes:
-        code_filter = " OR ".join(
-            f'command_norm="{c}" OR function_code="{c}" OR modbus_function_code="{c}"' for c in codes
+        function_field = _safe_field(slots.get("function_code_field"), "function_code")
+        eval_line, where_clause = build_numeric_code_filter(
+            [str(code) for code in codes],
+            norm_field="function_code_norm",
+            aliases=numeric_code_aliases("function_code", primary_field=function_field),
         )
+        command_eval = '| eval command_norm=lower(coalesce(action, command, event_action, function, function_code, ""))'
+        spl_text = spl_text.replace(command_eval, f"{command_eval}\n{eval_line}", 1)
         spl_text = re.sub(
             r"AND \(\s*like\(command_norm, \"%write%\"\).*?\)",
-            f"AND ({code_filter})",
+            f"AND ({where_clause})",
             spl_text,
             flags=re.DOTALL,
         )
 
     direction = bindings.explicit_directionality.get("unexpected_ip_direction") or slots.get("unexpected_ip_direction")
     if direction == "destination" or bindings.explicit_allowlist_semantics:
-        spl_text = spl_text.replace(
-            'NOT cidrmatch("<engineering_workstation_cidr>", src_ip_norm)',
-            'NOT cidrmatch("<approved_ot_destination_allowlist>", dest_ip_norm)',
-        )
+        if slots.get("dest_ip_field"):
+            dest_field = _safe_field(slots.get("dest_ip_field"), "dest_ip")
+            spl_text = re.sub(
+                r"\|\s*eval\s+dest_ip_norm=coalesce\([^\n]+\)",
+                f"| eval dest_ip_norm={_coalesce_field_expr(dest_field, ('dest_ip', 'dest', 'destination'))}",
+                spl_text,
+                count=1,
+            )
+        if slots.get("src_ip_field"):
+            src_field = _safe_field(slots.get("src_ip_field"), "src_ip")
+            spl_text = re.sub(
+                r"\|\s*eval\s+src_ip_norm=coalesce\([^\n]+\)",
+                f"| eval src_ip_norm={_coalesce_field_expr(src_field, ('src_ip', 'src', 'source'))}",
+                spl_text,
+                count=1,
+            )
+        if slots.get("approved_destination_lookup"):
+            lookup = slots["approved_destination_lookup"]
+            spl_text = spl_text.replace(
+                'NOT cidrmatch("<engineering_workstation_cidr>", src_ip_norm)',
+                f'1=1\n| lookup {lookup} dest_ip as dest_ip_norm OUTPUT dest_ip as approved_dest_ip\n| where isnull(approved_dest_ip)',
+            )
+        else:
+            cidr = slots.get("approved_destination_cidr") or "<approved_ot_destination_cidr>"
+            spl_text = spl_text.replace(
+                'NOT cidrmatch("<engineering_workstation_cidr>", src_ip_norm)',
+                f'NOT cidrmatch("{cidr}", dest_ip_norm)',
+            )
 
     time_bounds = slots.get("time_window")
     if time_bounds:
@@ -343,6 +513,22 @@ def _as_list(value: Any) -> list[Any]:
     return [value]
 
 
+def _safe_field(value: Any, fallback: str) -> str:
+    text = str(value or "").strip()
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.:-]{0,127}", text):
+        return text
+    return fallback
+
+
+def _coalesce_field_expr(primary: str, fallbacks: tuple[str, ...]) -> str:
+    fields: list[str] = []
+    for field in (primary, *fallbacks):
+        safe = _safe_field(field, "")
+        if safe and safe not in fields:
+            fields.append(safe)
+    return f'coalesce({", ".join(fields)}, "")'
+
+
 def _function_codes(bindings: UserConstraintBindings, slots: dict[str, str]) -> list[str]:
     if bindings.explicit_function_codes:
         return [str(code) for code in bindings.explicit_function_codes]
@@ -352,3 +538,20 @@ def _function_codes(bindings: UserConstraintBindings, slots: dict[str, str]) -> 
     if isinstance(raw, list):
         return [str(code) for code in raw]
     return [part.strip() for part in str(raw).split(",") if part.strip()]
+
+
+def _function_code_terms(
+    code: Any,
+    function_field: str,
+    *,
+    include_function: bool = True,
+) -> tuple[str, ...]:
+    fields = [function_field, "function_code", "modbus_function_code"]
+    if include_function:
+        fields.append("function")
+    unique_fields: list[str] = []
+    for field in fields:
+        safe = _safe_field(field, "")
+        if safe and safe not in unique_fields:
+            unique_fields.append(safe)
+    return tuple(f'{field}="{code}"' for field in unique_fields)

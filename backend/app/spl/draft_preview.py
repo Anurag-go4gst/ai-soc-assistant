@@ -13,6 +13,11 @@ from app.chat.network_boundary_display import (
 )
 from app.config import settings
 from app.safeguards.spl_validator import validate_spl
+from app.spl.draft_metadata_builder import (
+    apply_draft_metadata_to_preview,
+    bindings_from_dict,
+    build_draft_metadata,
+)
 from app.spl.draft_preview_customization import customize_draft_preview_for_query
 from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
 from app.spl.source_profile_catalog import canonical_source_profile_slot
@@ -2779,7 +2784,25 @@ def build_draft_preview(
                 {"slot": canonical, "value": value, "source": "source_profile"}
             )
     if source_profile_bindings:
-        customization_meta["source_profile_bindings"] = source_profile_bindings
+        existing_bindings = [
+            item
+            for item in (customization_meta.get("source_profile_bindings") or [])
+            if isinstance(item, dict)
+        ]
+        seen_bindings = {
+            (str(item.get("slot")), str(item.get("value")), str(item.get("source")))
+            for item in existing_bindings
+        }
+        for binding in source_profile_bindings:
+            key = (
+                str(binding.get("slot")),
+                str(binding.get("value")),
+                str(binding.get("source")),
+            )
+            if key not in seen_bindings:
+                existing_bindings.append(binding)
+                seen_bindings.add(key)
+        customization_meta["source_profile_bindings"] = existing_bindings
     if source_profile_missing_slots:
         existing_unbound = list(customization_meta.get("unbound_constraints") or [])
         existing_keys = {
@@ -2794,7 +2817,21 @@ def build_draft_preview(
                     {"slot": slot, "reason": "missing_source_profile", "source": "source_profile"}
                 )
         customization_meta["unbound_constraints"] = existing_unbound
-    assumptions_text = " ".join(customized_assumptions)
+    bindings = bindings_from_dict(customization_meta.get("user_constraint_bindings") or {})
+    draft_metadata = build_draft_metadata(
+        user_query=user_query,
+        bindings=bindings,
+        family_id=family.family_id,
+        compatibility=customization_meta.get("template_compatibility"),
+        customization_meta=customization_meta,
+        time_window_label=customization_meta.get("time_window_label"),
+    )
+    visible_assumptions = (
+        tuple(draft_metadata.assumptions)
+        if draft_metadata.metadata_source == "binding_derived"
+        else customized_assumptions
+    )
+    assumptions_text = " ".join(visible_assumptions)
     quality = evaluate_draft_quality(
         draft_spl,
         extra_text=assumptions_text,
@@ -2804,7 +2841,7 @@ def build_draft_preview(
     validation = validate_spl(draft_spl)
     validator_status = "approved" if validation.get("approved") else "blocked"
     presentation = family_presentation(family.family_id)
-    return {
+    preview = {
         "draft_spl": draft_spl,
         "draft_status": DRAFT_STATUS,
         "draft_source": DRAFT_SOURCE,
@@ -2814,7 +2851,7 @@ def build_draft_preview(
         "family_title": presentation["title"],
         "review_type": presentation["review_type"],
         "review_type_display": presentation["review_type_display"],
-        "assumptions": list(customized_assumptions),
+        "assumptions": list(visible_assumptions),
         **customization_meta,
         "required_log_fields": list(family.required_log_fields),
         "required_source_profile_fields": _canonical_profile_fields(
@@ -2845,6 +2882,7 @@ def build_draft_preview(
         "warning": DRAFT_WARNING,
         "not_catalog_approved_notice": "Not catalog-approved / review required.",
     }
+    return apply_draft_metadata_to_preview(preview, draft_metadata)
 
 
 def maybe_attach_draft_preview_message(

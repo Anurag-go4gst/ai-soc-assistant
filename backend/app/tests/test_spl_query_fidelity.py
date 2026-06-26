@@ -4,10 +4,13 @@ import pytest
 
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.spl.draft_preview import _family_by_id
+from app.spl.draft_preview import build_draft_preview
 from app.spl.draft_preview_customization import customize_draft_preview_for_query
 from app.chat.analyst_response_builder import build_analyst_response_for_live
+from app.chat.review_only_spl_renderer import render_review_only_spl_answer
 from app.schemas.responses import CandidateSplEnvelope, SplDraftPreviewEnvelope
 from app.spl.spl_slot_binding_validator import extract_natural_language_slots
+from app.spl.source_profile_store import save_persisted_source_profile
 from app.spl.template_compatibility import check_template_compatibility
 from app.spl.template_query_bindings import customize_template_spl, validate_template_slots_for_render
 from app.spl.user_constraint_bindings import build_user_constraint_bindings
@@ -28,6 +31,23 @@ LOOKUP_QUERY = "Correlate ot_assets.csv against latest OT network traffic to fin
 THRESHOLD_QUERY = "Find users with more than 10 failed logins in 30 minutes."
 DIRECTION_QUERY = "Find connections from 10.1.2.3 to 10.2.3.4."
 SMB_QUERY = "Show SMB traffic from IT to OT."
+SUBSTATION_REMOTE_ACCESS_QUERY = (
+    "Show me all external connections or remote access sessions currently mapping "
+    "to the substation networks."
+)
+
+
+def _use_temp_source_profile(monkeypatch: pytest.MonkeyPatch, tmp_path, values: dict[str, str]) -> None:
+    from app.config import settings
+
+    path = tmp_path / "source_profile_map.json"
+    monkeypatch.setattr(settings, "ai_soc_source_profile_store_path", str(path))
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    save_persisted_source_profile(
+        values,
+        field_sources={key: "coe_store" for key in values},
+        updated_by="test",
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -58,11 +78,136 @@ def test_modbus_function_code_query_preserves_constraints() -> None:
     )
     assert "index=ot_logs" in spl
     assert "dnp3" not in spl.lower()
-    assert "function_code=\"5\"" in spl or 'function_code="5"' in spl
+    assert "function_code_norm IN (5, 15)" in spl
     assert bindings.explicit_directionality.get("unexpected_ip_direction") == "destination" or (
         bindings.normalized_slots.get("unexpected_ip_direction") == "destination"
     )
-    assert meta.get("used_user_bound_skeleton") or "approved_ot_destination_allowlist" in spl
+    assert "approved_ot_destination_allowlist" not in spl
+    assert meta.get("used_user_bound_skeleton") or "approved_ot_destination_cidr" in spl
+
+
+def test_modbus_source_profile_lookup_binds_without_generic_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    _use_temp_source_profile(
+        monkeypatch,
+        tmp_path,
+        {
+            "ot_network_index": "pgcil_soc",
+            "ot_modbus_sourcetype": "ot:modbus",
+            "approved_modbus_targets_lookup": "approved_modbus_targets.csv",
+            "src_ip_field": "source_ip",
+            "dest_ip_field": "target_ip",
+            "function_code_field": "modbus_func",
+        },
+    )
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    spl = preview["draft_spl"]
+    assert "index=ot_logs" in spl
+    assert "sourcetype=ot:modbus" in spl
+    assert "lookup approved_modbus_targets.csv" in spl
+    assert "where isnull(approved_dest_ip)" in spl
+    assert "approved_ot_destination_allowlist" not in spl
+    assert "modbus_func" in spl
+    assert "target_ip" in spl
+    applied = preview.get("source_profile_bindings_applied") or []
+    assert any(item.get("slot") == "approved_destination_lookup" for item in applied)
+    trace = preview["user_constraint_bindings"]["debug_trace"]
+    assert trace["source_profile_lookup_attempted"] is True
+    assert any(
+        item.get("slot") == "index"
+        and item.get("kept_source") == "user_explicit"
+        and item.get("dropped_source") == "source_profile"
+        for item in trace["slot_conflicts"]
+    )
+
+
+def test_modbus_source_profile_cidr_fallback_when_lookup_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    _use_temp_source_profile(
+        monkeypatch,
+        tmp_path,
+        {
+            "ot_modbus_sourcetype": "ot:modbus",
+            "approved_ot_destination_cidr": "10.40.0.0/16",
+        },
+    )
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    spl = preview["draft_spl"]
+    assert 'cidrmatch("10.40.0.0/16", dest_ip_norm)' in spl
+    assert "approved_ot_destination_allowlist" not in spl
+    assert "lookup approved_modbus_targets.csv" not in spl
+
+
+def test_modbus_missing_profile_leaves_precise_missing_binding(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    _use_temp_source_profile(monkeypatch, tmp_path, {})
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    assert "<approved_ot_destination_cidr>" in preview["draft_spl"]
+    assert "approved_ot_destination_allowlist" not in preview["draft_spl"]
+    missing = preview.get("source_profile_bindings_missing") or []
+    assert any(item.get("slot") == "approved_destination_lookup" for item in missing)
+    assert any(item.get("slot") == "approved_destination_cidr" for item in missing)
+
+
+def test_remote_access_substation_profile_visibility_lists_families(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    _use_temp_source_profile(
+        monkeypatch,
+        tmp_path,
+        {
+            "firewall_index": "pgcil_soc",
+            "firewall_sourcetype": "pgcil:firewall",
+            "vpn_index": "pgcil_soc",
+            "vpn_sourcetype": "pgcil:vpn",
+            "jump_host_index": "pgcil_soc",
+            "jump_host_sourcetype": "pgcil:jump_host",
+            "pam_index": "pgcil_soc",
+            "pam_sourcetype": "pgcil:pam",
+            "substation_mapping_lookup": "substation_networks.csv",
+            "external_system_registry_lookup": "external_system_registry.csv",
+        },
+    )
+    preview = build_draft_preview(SUBSTATION_REMOTE_ACCESS_QUERY, live_data_request=True)
+    assert preview is not None
+    applied_slots = {item.get("slot") for item in preview.get("source_profile_bindings_applied") or []}
+    assert {"firewall_index", "vpn_index", "jump_host_index", "pam_index"}.issubset(applied_slots)
+    sections = preview.get("source_family_draft_sections") or []
+    vpn_section = next(item for item in sections if item.get("title") == "VPN remote-access sessions")
+    assert vpn_section["status"] == "review_only_draft"
+    assert "sourcetype=pgcil:vpn" in vpn_section["draft_spl"]
+
+    answer = render_review_only_spl_answer(
+        analyst_response=type(
+            "Analyst",
+            (),
+            {
+                "severity_label": None,
+                "finding_title": "IT-to-OT firewall boundary review",
+                "scenario_label": None,
+                "analyst_checklist": [],
+                "draft_spl_code": "",
+            },
+        )(),
+        draft_preview=preview,
+    ).lower()
+    assert "source profile used:" in answer
+    assert "vpn_index" in answer
+    assert "jump_host_index" in answer
+    assert "pam_index" in answer
+    assert "vpn remote-access sessions" in answer
+    assert "sourcetype=pgcil:vpn" in answer
+    assert "execution: not executed" in answer
 
 
 def test_llm_slots_do_not_override_user_explicit_index() -> None:
@@ -278,3 +423,177 @@ _BASE_AUTH_TEMPLATE = (
     "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now "
     "(action=failure OR action=success) | stats count by user | head 100"
 )
+
+def test_modbus_skeleton_suppresses_stale_template_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    joined = " ".join(preview.get("assumptions") or []).lower()
+    assert preview.get("metadata_source") == "binding_derived"
+    assert preview.get("generation_mode") == "user_bound_skeleton"
+    assert preview.get("stale_template_metadata_suppressed") is True
+    assert "scada firewall" not in joined
+    assert "dnp3" not in joined
+    assert "modbus" in joined
+    assert "ot_logs" in joined
+    assert "function_code" in preview.get("required_log_fields") or "modbus_function_code" in preview.get(
+        "required_log_fields"
+    )
+
+
+def test_protocol_specific_metadata_excludes_unrelated_protocols(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    joined = " ".join(preview.get("assumptions") or []).lower()
+    assert "dnp3" not in joined
+    assert "unrelated protocols are excluded" in joined
+
+
+def test_explicit_index_metadata_uses_user_index(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    joined = " ".join(preview.get("assumptions") or [])
+    assert "index=ot_logs" in joined
+    assert "scada_firewall" not in joined.lower()
+
+
+def test_directionality_metadata_preserves_destination_semantics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    joined = " ".join(preview.get("assumptions") or []).lower()
+    assert "destination" in joined
+
+
+def test_lookup_vs_cidr_metadata_distinction(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    _use_temp_source_profile(
+        monkeypatch,
+        tmp_path,
+        {"approved_modbus_targets_lookup": "approved_modbus_targets.csv"},
+    )
+    lookup_preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert lookup_preview is not None
+    lookup_text = " ".join(lookup_preview.get("assumptions") or []).lower()
+    assert "lookup approved_modbus_targets.csv" in lookup_text
+
+    _use_temp_source_profile(
+        monkeypatch,
+        tmp_path,
+        {"approved_ot_destination_cidr": "10.40.0.0/16"},
+    )
+    cidr_preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert cidr_preview is not None
+    cidr_text = " ".join(cidr_preview.get("assumptions") or []).lower()
+    assert "cidr 10.40.0.0/16" in cidr_text
+    assert "lookup" not in cidr_text or "approved_modbus_targets" not in cidr_text
+
+
+def test_source_profile_conflict_metadata_shows_user_wins(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    _use_temp_source_profile(monkeypatch, tmp_path, {"ot_network_index": "pgcil_soc"})
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    trace = preview["user_constraint_bindings"]["debug_trace"]
+    assert any(item.get("kept_source") == "user_explicit" for item in trace.get("slot_conflicts") or [])
+    joined = " ".join(preview.get("assumptions") or [])
+    assert "index=ot_logs" in joined
+    assert "pgcil_soc" not in joined
+
+
+def test_draft_metadata_debug_trace_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    assert preview.get("user_bound_skeleton") is True
+    assert isinstance(preview.get("template_compatibility_decision"), dict)
+    assert preview.get("selected_template_family") == "scada_dnp3_modbus_write"
+    assert isinstance(preview.get("accepted_slots"), list)
+    assert isinstance(preview.get("bound_slots"), dict)
+
+def test_required_event_fields_exclude_cidr_and_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    event_fields = preview.get("required_event_fields") or preview.get("required_log_fields") or []
+    lowered = [str(field).lower() for field in event_fields]
+    assert "cidr" not in lowered
+    assert "lookup" not in lowered
+    assert "approved_dest_ip" not in lowered
+    profile_bindings = preview.get("required_source_profile_bindings") or []
+    if profile_bindings:
+        labels = {str(item.get("semantic_label") or item.get("slot")) for item in profile_bindings}
+        assert "approved_destination_cidr" in labels or "approved_target_lookup" in labels or "field_mapping" in labels
+
+
+def test_numeric_code_filter_uses_tonumber_coalesce(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    spl = preview["draft_spl"]
+    assert "function_code_norm=tonumber(coalesce(" in spl
+    assert "function_code_norm IN (5, 15)" in spl
+
+
+def test_cidr_binding_semantic_label_visible_in_assumptions(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    _use_temp_source_profile(
+        monkeypatch,
+        tmp_path,
+        {"approved_ot_destination_cidr": "10.40.0.0/16"},
+    )
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    joined = " ".join(preview.get("assumptions") or []).lower()
+    assert "approved_destination_cidr" in joined
+    assert "outside approved destination targets" in joined
+
+def test_skeleton_table_uses_normalized_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    spl = preview["draft_spl"]
+    for field in ("_time", "src_ip_norm", "dest_ip_norm", "protocol_norm", "function_code_norm", "action"):
+        assert field in spl.split("| table ")[1].split(" | head")[0]
+    assert "status_code" not in spl.split("tonumber(coalesce(")[1].split(")")[0]
+
+
+def test_required_event_fields_match_skeleton_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    event_fields = preview.get("required_event_fields") or []
+    assert "_time" in event_fields
+    assert "src_ip_norm" in event_fields
+    assert "dest_ip_norm" in event_fields
+    assert "protocol_norm" in event_fields
+    assert "function_code_norm" in event_fields
+    profile_bindings = preview.get("required_source_profile_bindings") or []
+    profile_slots = {item.get("slot") for item in profile_bindings if isinstance(item, dict)}
+    assert "index" not in event_fields
+    assert "sourcetype" not in event_fields
+    assert "approved_destination_cidr" not in event_fields
+
+
+def test_default_time_window_assumption_is_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(MODBUS_QUERY, family_id="scada_dnp3_modbus_write")
+    assert preview is not None
+    joined = " ".join(preview.get("assumptions") or [])
+    assert "defaulted to last 24 hours" in joined.lower()
+

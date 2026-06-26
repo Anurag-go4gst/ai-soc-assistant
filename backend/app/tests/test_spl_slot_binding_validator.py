@@ -147,7 +147,7 @@ def test_ip_and_cidr_slots_must_parse() -> None:
     assert valid.valid is True
     assert invalid.valid is False
     assert "slot_ip_invalid:dest_ip" in invalid.reject_reasons
-    assert "slot_cidr_invalid" in invalid.reject_reasons
+    assert any(reason.startswith("slot_cidr_invalid") for reason in invalid.reject_reasons)
 
 
 def test_numeric_threshold_must_parse_as_numeric() -> None:

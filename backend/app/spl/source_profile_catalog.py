@@ -63,6 +63,11 @@ SOURCE_PROFILE_SLOT_DEFINITIONS: tuple[SourceProfileSlotDefinition, ...] = (
     SourceProfileSlotDefinition("pam_session_broker", "PAM session broker", "remote_access", "PAM/session-broker platform name used for privileged remote sessions", "CyberArk"),
     SourceProfileSlotDefinition("substation_mapping_lookup", "Substation mapping lookup", "lookup", "Lookup that maps IP/asset identity to substation or OT zone", "ot_asset_inventory.csv"),
     SourceProfileSlotDefinition("external_system_registry_lookup", "External system registry lookup", "lookup", "Lookup of approved external systems and remote access ownership", "external_system_registry.csv"),
+    SourceProfileSlotDefinition("approved_modbus_targets_lookup", "Approved Modbus targets lookup", "lookup", "Lookup of approved Modbus/OT destination targets", "approved_modbus_targets.csv"),
+    SourceProfileSlotDefinition("approved_ot_destination_cidr", "Approved OT destination CIDR", "network", "Approved OT destination network CIDR for destination anti-join filters", "10.40.0.0/16"),
+    SourceProfileSlotDefinition("src_ip_field", "Source IP field", "field_mapping", "Preferred source IP field for network/OT telemetry", "src_ip"),
+    SourceProfileSlotDefinition("dest_ip_field", "Destination IP field", "field_mapping", "Preferred destination IP field for network/OT telemetry", "dest_ip"),
+    SourceProfileSlotDefinition("function_code_field", "Function code field", "field_mapping", "Preferred Modbus/DNP3 function-code field", "function_code"),
     SourceProfileSlotDefinition("internal_dns_ip", "Internal DNS IPs", "network", "Comma-separated internal DNS/Umbrella resolver IPs", "10.1.2.53,10.1.2.54"),
     SourceProfileSlotDefinition("western_grid_tag", "Western Grid tag", "ot", "Environment label for Western Grid substations", "Western_Grid"),
     SourceProfileSlotDefinition("northern_grid_tag", "Northern Grid tag", "ot", "Environment label for Northern Grid assets", "Northern_Grid"),
@@ -100,6 +105,8 @@ SOURCE_PROFILE_SLOT_ALIASES: dict[str, str] = {
     "ot_jump_zone": "jump_host_zone",
     "vpn_auth_sourcetype": "vpn_sourcetype",
     "jump_host_ips": "approved_jump_host_ips",
+    "approved_ot_destination_allowlist": "approved_ot_destination_cidr",
+    "engineering_workstation_cidr": "corporate_cidr",
 }
 
 

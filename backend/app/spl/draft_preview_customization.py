@@ -7,7 +7,12 @@ from typing import Any
 
 from app.query_understanding.time_window import normalize_time_window, time_window_or_default
 from app.spl.template_compatibility import check_template_compatibility
-from app.spl.template_slot_bindings import build_user_bound_skeleton, render_spl_with_bindings
+from app.spl.template_slot_bindings import (
+    build_user_bound_skeleton,
+    render_spl_with_bindings,
+    skeleton_output_plan,
+)
+from app.spl.source_profile_bindings import build_source_profile_binding_slots
 from app.spl.user_constraint_bindings import build_user_constraint_bindings
 
 _AUTH_FAILURE_FILTER = (
@@ -65,7 +70,7 @@ def time_window_display_label(query: str) -> str:
         return "the last 24 hours"
     if bounds and bounds.startswith("earliest="):
         return bounds.replace("earliest=", "from ").replace(" latest=now", " through now")
-    return "the requested time window"
+    return "defaulted to last 24 hours"
 
 
 def auth_failed_login_aggregation_shape(query: str) -> str:
@@ -140,23 +145,43 @@ def customize_draft_preview_for_query(
     llm_intent_advisory: dict[str, Any] | None = None,
 ) -> tuple[str, tuple[str, ...], dict[str, Any]]:
     """Apply query-aware SPL/time-window customization for a detection family."""
-    bindings = build_user_constraint_bindings(user_query, llm_intent_advisory=llm_intent_advisory)
+    source_profile_result = build_source_profile_binding_slots(user_query, family_id=family_id)
+    bindings = build_user_constraint_bindings(
+        user_query,
+        llm_intent_advisory=llm_intent_advisory,
+        extra_slots=source_profile_result.slots,
+        source_profile_trace=source_profile_result.trace(),
+    )
     metadata: dict[str, Any] = {
         "time_window_bounds": time_window_or_default(user_query),
         "time_window_label": time_window_display_label(user_query),
         "user_constraint_bindings": bindings.to_dict(),
+        **source_profile_result.trace(),
     }
+    supplemental_sections = (
+        _remote_access_source_family_sections(source_profile_result.slots)
+        if _has_remote_access_binding_trace(source_profile_result.trace())
+        else []
+    )
+    if supplemental_sections:
+        metadata["source_family_draft_sections"] = supplemental_sections
     compatibility = check_template_compatibility(None, bindings, family_id=family_id)
     metadata["template_compatibility"] = compatibility.to_dict()
     if compatibility.use_user_bound_skeleton:
         skeleton = build_user_bound_skeleton(bindings)
+        _required, table_fields = skeleton_output_plan(bindings)
+        metadata["skeleton_table_fields"] = table_fields
         metadata["used_user_bound_skeleton"] = True
         metadata["unbound_constraints"] = list(bindings.unbound_constraints)
-        return skeleton, assumptions, metadata
+        return skeleton, (), metadata
     if family_id == "scada_dnp3_modbus_write":
         outcome = render_spl_with_bindings(family_id, draft_spl, bindings)
         metadata["unbound_constraints"] = list(outcome.unbound_constraints)
-        return outcome.spl, assumptions, metadata
+        if outcome.bound_slots:
+            metadata["partial_customization"] = True
+        if outcome.used_user_bound_skeleton:
+            metadata["used_user_bound_skeleton"] = True
+        return outcome.spl, assumptions if not outcome.used_user_bound_skeleton else (), metadata
     if family_id == "auth_failed_login_threshold":
         spl, assumption_rows, shape, window_label = customize_auth_failed_login_threshold(
             user_query,
@@ -175,6 +200,139 @@ def customize_draft_preview_for_query(
         )
         return spl, assumption_rows, metadata
     return draft_spl, assumptions, metadata
+
+
+_REMOTE_ACCESS_SECTION_SLOTS = frozenset(
+    {
+        "firewall_index",
+        "firewall_sourcetype",
+        "vpn_index",
+        "vpn_sourcetype",
+        "jump_host_index",
+        "jump_host_sourcetype",
+        "pam_index",
+        "pam_sourcetype",
+        "substation_mapping_lookup",
+        "external_system_registry_lookup",
+    }
+)
+
+
+def _has_remote_access_binding_trace(trace: dict[str, Any]) -> bool:
+    for key in ("source_profile_bindings_found", "source_profile_bindings_missing"):
+        for item in trace.get(key) or []:
+            if isinstance(item, dict) and item.get("slot") in _REMOTE_ACCESS_SECTION_SLOTS:
+                return True
+    return False
+
+
+def _remote_access_source_family_sections(slots: dict[str, Any]) -> list[dict[str, Any]]:
+    sections: list[dict[str, Any]] = []
+    if slots.get("vpn_index") and slots.get("vpn_sourcetype"):
+        sections.append(
+            {
+                "title": "VPN remote-access sessions",
+                "status": "review_only_draft",
+                "draft_spl": (
+                    f"search index={slots['vpn_index']} sourcetype={slots['vpn_sourcetype']} "
+                    "earliest=-24h latest=now (action=success OR action=allowed OR result=success OR event=login)\n"
+                    '| eval user_norm=lower(coalesce(user, username, src_user, ""))\n'
+                    '| eval src_ip_norm=coalesce(src_ip, src, source, "")\n'
+                    '| eval assigned_ip_norm=coalesce(assigned_ip, vpn_ip, client_ip, "")\n'
+                    '| eval action_norm=lower(coalesce(action, status, result, event_action, ""))\n'
+                    "| table _time user_norm src_ip_norm assigned_ip_norm action_norm\n"
+                    "| sort 0 - _time\n"
+                    "| head 100"
+                ),
+            }
+        )
+    else:
+        sections.append(
+            {
+                "title": "VPN remote-access sessions",
+                "status": "missing_source_bindings",
+                "missing_slots": [
+                    slot for slot in ("vpn_index", "vpn_sourcetype") if not slots.get(slot)
+                ],
+            }
+        )
+
+    jump_bound = slots.get("jump_host_index") and slots.get("jump_host_sourcetype")
+    pam_bound = slots.get("pam_index") and slots.get("pam_sourcetype")
+    if jump_bound or pam_bound:
+        draft_parts: list[str] = []
+        if jump_bound:
+            draft_parts.append(
+                f"search index={slots['jump_host_index']} sourcetype={slots['jump_host_sourcetype']} "
+                "earliest=-24h latest=now (rdp OR ssh OR logon OR session)\n"
+                '| eval user_norm=lower(coalesce(user, username, account, ""))\n'
+                '| eval src_ip_norm=coalesce(src_ip, src, source, "")\n'
+                '| eval dest_norm=lower(coalesce(dest, host, target, ""))\n'
+                "| table _time user_norm src_ip_norm dest_norm\n"
+                "| sort 0 - _time\n"
+                "| head 100"
+            )
+        if pam_bound:
+            draft_parts.append(
+                f"search index={slots['pam_index']} sourcetype={slots['pam_sourcetype']} "
+                "earliest=-24h latest=now (session OR checkout OR connect OR record)\n"
+                '| eval user_norm=lower(coalesce(user, username, account, ""))\n'
+                '| eval target_norm=lower(coalesce(target, asset, host, system, ""))\n'
+                '| eval action_norm=lower(coalesce(action, status, result, event_action, ""))\n'
+                "| table _time user_norm target_norm action_norm\n"
+                "| sort 0 - _time\n"
+                "| head 100"
+            )
+        sections.append(
+            {
+                "title": "Jump-host/PAM sessions",
+                "status": "review_only_draft",
+                "draft_spl": "\n\n".join(draft_parts),
+            }
+        )
+    else:
+        sections.append(
+            {
+                "title": "Jump-host/PAM sessions",
+                "status": "missing_source_bindings",
+                "missing_slots": [
+                    slot
+                    for slot in (
+                        "jump_host_index",
+                        "jump_host_sourcetype",
+                        "pam_index",
+                        "pam_sourcetype",
+                    )
+                    if not slots.get(slot)
+                ],
+            }
+        )
+
+    if slots.get("substation_mapping_lookup") or slots.get("external_system_registry_lookup"):
+        sections.append(
+            {
+                "title": "Asset/substation mapping lookup",
+                "status": "source_profile_reference",
+                "references": [
+                    str(slots[key])
+                    for key in ("substation_mapping_lookup", "external_system_registry_lookup")
+                    if slots.get(key)
+                ],
+            }
+        )
+    else:
+        sections.append(
+            {
+                "title": "Asset/substation mapping lookup",
+                "status": "missing_source_bindings",
+                "missing_slots": [
+                    slot
+                    for slot in ("substation_mapping_lookup", "external_system_registry_lookup")
+                    if not slots.get(slot)
+                ],
+            }
+        )
+    return sections
 
 
 def draft_preview_satisfied_evidence_keys(family_id: str) -> frozenset[str]:

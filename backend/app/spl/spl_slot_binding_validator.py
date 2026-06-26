@@ -42,6 +42,11 @@ SLOT_TYPES = frozenset(
         "event_code",
         "service",
         "lookup",
+        "approved_destination_lookup",
+        "approved_destination_cidr",
+        "src_ip_field",
+        "dest_ip_field",
+        "function_code_field",
         "action_semantic",
         "unexpected_ip_direction",
         "allowlist_semantic",
@@ -63,6 +68,7 @@ _INDEX_PATTERN = re.compile(r"^[a-z0-9_][a-z0-9_*-]{0,63}$", re.IGNORECASE)
 _SOURCETYPE_PATTERN = re.compile(r"^[a-z0-9_:][a-z0-9_:*-]{0,127}$", re.IGNORECASE)
 _ZONE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$")
 _RULE_APP_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _./:-]{0,127}$")
+_FIELD_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$")
 _COUNTRY_PATTERN = re.compile(r"^[A-Za-z]{2,3}$")
 _TIME_TOKEN_PATTERN = re.compile(r"^(?:earliest|latest)=", re.IGNORECASE)
 _RELATIVE_TIME_PATTERN = re.compile(r"^-\d+[smhdw]$", re.IGNORECASE)
@@ -430,9 +436,9 @@ def validate_slot_value(
             return None, [f"slot_ip_invalid:{slot_type}"]
         return text, []
 
-    if slot_type == "cidr":
+    if slot_type in {"cidr", "approved_destination_cidr"}:
         if not _valid_cidr(text):
-            return None, ["slot_cidr_invalid"]
+            return None, [f"slot_cidr_invalid:{slot_type}"]
         return text, []
 
     if slot_type == "index":
@@ -517,9 +523,14 @@ def validate_slot_value(
     if slot_type == "function_code":
         return str(text), []
 
-    if slot_type == "lookup":
+    if slot_type in {"lookup", "approved_destination_lookup"}:
         if not re.fullmatch(r"[A-Za-z0-9_.-]+\.csv", text, re.I):
-            return None, ["slot_lookup_invalid"]
+            return None, [f"slot_lookup_invalid:{slot_type}"]
+        return text, []
+
+    if slot_type in {"src_ip_field", "dest_ip_field", "function_code_field"}:
+        if not _FIELD_PATTERN.fullmatch(text):
+            return None, [f"slot_field_invalid:{slot_type}"]
         return text, []
 
     if slot_type == "indexes":

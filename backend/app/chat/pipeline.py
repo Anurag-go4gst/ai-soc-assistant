@@ -181,6 +181,7 @@ from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
+from app.spl.source_profile_bindings import build_source_profile_binding_slots
 from app.spl.template_compatibility import check_template_compatibility
 from app.spl.template_query_bindings import customize_template_spl_with_trace
 from app.spl.user_constraint_bindings import (
@@ -4006,10 +4007,16 @@ def _spl_user_constraint_bindings(
             policy_indexes = tuple(str(item).lower() for item in raw_indexes)
         if isinstance(raw_sourcetypes, list) and raw_sourcetypes:
             policy_sourcetypes = tuple(str(item).lower() for item in raw_sourcetypes)
+    source_profile_result = build_source_profile_binding_slots(
+        user_query,
+        template_id=template_id,
+    )
     return build_user_constraint_bindings(
         user_query,
         llm_intent_advisory=llm_intent_advisory,
         query_understanding=query_understanding,
+        extra_slots=source_profile_result.slots,
+        source_profile_trace=source_profile_result.trace(),
         allowed_indexes=policy_indexes,
         allowed_sourcetypes=policy_sourcetypes,
     )

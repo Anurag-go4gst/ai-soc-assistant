@@ -92,6 +92,12 @@ class SplDraftPreviewEnvelope(BaseModel):
     template_compatibility: dict[str, object] | None = None
     unbound_constraints: list[dict[str, object]] = []
     source_profile_bindings: list[dict[str, object]] = []
+    source_profile_lookup_attempted: bool | None = None
+    environment_knowledge_lookup_attempted: bool | None = None
+    source_profile_bindings_found: list[dict[str, object]] = []
+    source_profile_bindings_applied: list[dict[str, object]] = []
+    source_profile_bindings_missing: list[dict[str, object]] = []
+    source_family_draft_sections: list[dict[str, object]] = []
     warning: str
     not_catalog_approved_notice: str
 

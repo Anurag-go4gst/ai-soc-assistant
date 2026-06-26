@@ -144,7 +144,11 @@ def test_flag_on_builds_draft_preview_for_families(
     assert preview["governed"] is False
     assert preview["catalog_approved"] is False
     assert preview["warning"] == DRAFT_WARNING
-    assert "<" in preview["draft_spl"]
+    assert (
+        "<" in preview["draft_spl"]
+        or preview.get("source_profile_bindings")
+        or preview.get("source_profile_bindings_applied")
+    )
     assert preview["draft_lint_status"] == "passed"
     assert preview["quality_status"] == "passed"
     assert preview["quality_standard"] == "SOC-STD-SPL-001"

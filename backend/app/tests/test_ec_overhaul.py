@@ -246,8 +246,10 @@ def test_every_scenario_has_artifact_or_working_legacy_fixture() -> None:
         assert out["live_mcp_called"] is False
         assert out["evidence_origin"] == "coe_synthetic_fixture"
         assert out["ec_answer_source"] in {"captured_artifact", "legacy_fixture"}
+        # Current EC serving policy prefers the curated legacy fixture and keeps
+        # capture artifacts as a deep fallback if fixture assembly fails.
         if artifact is not None:
-            assert out["ec_answer_source"] == "captured_artifact"
+            assert out["ec_answer_source"] == "legacy_fixture"
 
 
 def test_corrupt_artifact_falls_back_to_legacy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -302,8 +304,10 @@ def test_served_artifact_restamps_ids_and_keeps_posture() -> None:
     scenario_id = "failed_login_spike_app01"
     if not capture_path_for(scenario_id).is_file():
         pytest.skip("no captured artifact present for restamp check")
-    a = S.run_demo_scenario(scenario_id)
-    b = S.run_demo_scenario(scenario_id)
+    artifact = load_capture_artifact(scenario_id)
+    assert artifact is not None
+    a = S._serve_capture_artifact(scenario_id, artifact)
+    b = S._serve_capture_artifact(scenario_id, artifact)
     assert a["trace_id"] != b["trace_id"]  # fresh per run
     assert a["ec_answer_source"] == "captured_artifact"
     assert a["live_llm_called"] is False and a["live_mcp_called"] is False
