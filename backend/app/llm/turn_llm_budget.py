@@ -7,11 +7,32 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+from app.llm.sidecar_clients import INTENT_ROLE
+
+
+def intent_advisor_reserve_seconds() -> float:
+    """Protected wall-time reserve for the intent advisor hop."""
+    from app.config import settings
+
+    configured = float(getattr(settings, "ai_soc_llm_intent_advisor_reserve_seconds", 12.0) or 12.0)
+    return max(1.0, configured)
+
+
+def downstream_optional_reserve_seconds() -> float:
+    """Soft downstream reservation for optional late hops (e.g. composer narration)."""
+    from app.config import settings
+
+    configured = max(1.0, float(getattr(settings, "ai_soc_llm_timeout_seconds", 30) or 30))
+    return max(1.0, min(configured, 15.0))
+
+
 def hop_reserve_seconds(role: str) -> float:
     """Wall time that must remain before starting a sidecar hop."""
     from app.config import settings
     from app.llm.sidecar_clients import sidecar_timeout_seconds
 
+    if role == INTENT_ROLE:
+        return intent_advisor_reserve_seconds()
     return max(
         1.0,
         min(
@@ -88,7 +109,7 @@ class TurnLlmBudget:
             return "turn_budget_exhausted"
         if self.time_budget_exhausted():
             return "turn_budget_exhausted"
-        if self.capped_hop_timeout_seconds(role="governed_composer") is None:
+        if self.capped_hop_timeout_seconds(role="governed_composer", min_seconds=1.0) is None:
             return "insufficient_deadline_reserve"
         return None
 

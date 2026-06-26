@@ -42,7 +42,9 @@ SLOT_TYPES = frozenset(
         "event_code",
         "service",
         "lookup",
+        "substation_mapping_lookup",
         "approved_destination_lookup",
+        "approved_source_cidr",
         "approved_destination_cidr",
         "src_ip_field",
         "dest_ip_field",
@@ -50,12 +52,38 @@ SLOT_TYPES = frozenset(
         "action_semantic",
         "unexpected_ip_direction",
         "allowlist_semantic",
+        "src_scope",
+        "dest_scope",
+        "aggregation_subject",
         "alert_id",
         "result_limit",
         "earliest",
         "latest",
     }
 )
+
+_LLM_SLOT_KEY_ALIASES: dict[str, str] = {
+    "event_id": "event_code",
+    "eventid": "event_code",
+    "account": "user",
+    "username": "user",
+    "source_index": "index",
+    "data_source": "index",
+    "src_subnet": "src_scope",
+    "source_subnet": "src_scope",
+    "dest_subnet": "dest_scope",
+    "destination_subnet": "dest_scope",
+}
+
+
+def normalize_slot_key_aliases(slots: dict[str, Any]) -> dict[str, Any]:
+    """Rename known LLM / NL slot aliases to canonical keys before validation."""
+    normalized: dict[str, Any] = {}
+    for key, value in slots.items():
+        canonical = _LLM_SLOT_KEY_ALIASES.get(str(key).strip().lower(), key)
+        if canonical not in normalized or normalized[canonical] in (None, "", []):
+            normalized[canonical] = value
+    return normalized
 
 _INJECTION_PATTERN = re.compile(
     r'["\\`]|[\[\]]|(?:\||;)|\b(?:search|tstats|delete|stats|where|inputlookup|outputlookup|map|rest)\b',
@@ -292,8 +320,20 @@ def extract_natural_language_slots(user_query: str) -> dict[str, Any]:
     if tw and "time_window" not in slots:
         slots["time_window"] = tw
 
-    if re.search(r"\bsubstation\b", normalized, re.I) and "cidr" not in slots:
-        slots["allowlist_semantic"] = slots.get("allowlist_semantic", "substation_subnet")
+    if re.search(r"\bfrom\s+substation\s+subnet", normalized, re.I):
+        slots["src_scope"] = "substation_subnet"
+    elif re.search(r"\bto\s+substation\s+subnet", normalized, re.I):
+        slots["dest_scope"] = "substation_subnet"
+    elif re.search(r"\bsubstation\s+subnet", normalized, re.I) and "src_scope" not in slots and "dest_scope" not in slots:
+        if re.search(r"\bfrom\b", normalized, re.I):
+            slots["src_scope"] = "substation_subnet"
+        elif re.search(r"\bto\b", normalized, re.I):
+            slots["dest_scope"] = "substation_subnet"
+
+    if re.search(r"\busers?\s+with\b", normalized, re.I):
+        slots.setdefault("aggregation_subject", "user")
+    elif re.search(r"\bhosts?\s+with\b", normalized, re.I):
+        slots.setdefault("aggregation_subject", "host")
 
     return slots
 
@@ -377,6 +417,21 @@ def validate_slot_map(
         if slot_type == "function_code" and isinstance(raw_value, list):
             normalized["function_code"] = ",".join(str(item) for item in raw_value)
             continue
+        if slot_type == "indexes":
+            raw_parts = raw_value if isinstance(raw_value, list) else [
+                part.strip() for part in str(raw_value).split(",") if part.strip()
+            ]
+            accepted, index_errors = _validate_indexes_list(
+                raw_parts,
+                allowed_indexes=allowed_indexes,
+            )
+            if accepted:
+                normalized["indexes"] = ",".join(accepted)
+            if index_errors:
+                reject_reasons.extend(index_errors)
+            if not accepted:
+                reject_reasons.append("slot_indexes_all_rejected")
+            continue
         value, slot_errors = validate_slot_value(
             slot_type,
             raw_value,
@@ -436,7 +491,7 @@ def validate_slot_value(
             return None, [f"slot_ip_invalid:{slot_type}"]
         return text, []
 
-    if slot_type in {"cidr", "approved_destination_cidr"}:
+    if slot_type in {"cidr", "approved_source_cidr", "approved_destination_cidr"}:
         if not _valid_cidr(text):
             return None, [f"slot_cidr_invalid:{slot_type}"]
         return text, []
@@ -510,6 +565,11 @@ def validate_slot_value(
             return escape_spl_quoted_string(text), []
         return text.lower(), []
 
+    if slot_type in {"src_scope", "dest_scope", "aggregation_subject"}:
+        if not _RULE_APP_PATTERN.fullmatch(text.replace(" ", "_")):
+            return escape_spl_quoted_string(text), []
+        return text.lower(), []
+
     if slot_type in {"src_zone", "dest_zone"}:
         if not _ZONE_PATTERN.fullmatch(text):
             return None, [f"slot_pattern_invalid:{slot_type}"]
@@ -523,7 +583,7 @@ def validate_slot_value(
     if slot_type == "function_code":
         return str(text), []
 
-    if slot_type in {"lookup", "approved_destination_lookup"}:
+    if slot_type in {"lookup", "approved_destination_lookup", "substation_mapping_lookup"}:
         if not re.fullmatch(r"[A-Za-z0-9_.-]+\.csv", text, re.I):
             return None, [f"slot_lookup_invalid:{slot_type}"]
         return text, []
@@ -534,10 +594,32 @@ def validate_slot_value(
         return text, []
 
     if slot_type == "indexes":
-        parts = [part.strip().lower() for part in str(text).split(",") if part.strip()]
-        return ",".join(parts), []
+        return None, ["slot_indexes_must_be_validated_as_collection"]
 
     return None, [f"unsupported_slot:{slot_type}"]
+
+
+def _validate_indexes_list(
+    parts: list[Any],
+    *,
+    allowed_indexes: tuple[str, ...],
+) -> tuple[list[str], list[str]]:
+    accepted: list[str] = []
+    errors: list[str] = []
+    for part in parts:
+        text = str(part).strip()
+        if not text:
+            continue
+        lowered = text.lower()
+        if not _INDEX_PATTERN.fullmatch(text):
+            errors.append(f"slot_pattern_invalid:indexes:{lowered}")
+            continue
+        if lowered not in allowed_indexes:
+            errors.append(f"slot_index_not_allowlisted:{lowered}")
+            continue
+        if lowered not in accepted:
+            accepted.append(lowered)
+    return accepted, errors
 
 
 def validate_render_bindings(

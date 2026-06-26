@@ -75,6 +75,23 @@ def build_source_profile_binding_slots(
         _bind(result, profile, sources, "dest_ip_field", slot="dest_ip_field")
         _bind(result, profile, sources, "function_code_field", slot="function_code_field")
 
+    winevent_context = _is_winevent_context(user_query)
+    firewall_context = _is_firewall_context(user_query)
+    substation_scope_context = _is_substation_scope_context(user_query)
+
+    if winevent_context:
+        _bind(result, profile, sources, "windows_security_sourcetype", slot="sourcetype", required=False)
+        _bind(result, profile, sources, "windows_index", slot="index", required=False)
+
+    if firewall_context:
+        _bind(result, profile, sources, "firewall_index", slot="index", required=False)
+        _bind(result, profile, sources, "firewall_sourcetype", slot="sourcetype", required=False)
+        _bind(result, profile, sources, "cisco_firewall_sourcetype", slot="sourcetype", required=False)
+
+    if substation_scope_context:
+        _bind(result, profile, sources, "substation_mapping_lookup", slot="substation_mapping_lookup", required=False)
+        _bind(result, profile, sources, "ot_asset_cidr", slot="approved_source_cidr", required=False)
+
     if remote_access_context:
         for profile_key, slot in (
             ("firewall_index", "firewall_index"),
@@ -150,3 +167,21 @@ def _is_remote_access_context(user_query: str, *, family_id: str | None) -> bool
         re.search(r"\b(remote access|vpn|jump[- ]?host|bastion|pam|external connections?)\b", text)
         and re.search(r"\b(substation|ot|scada|control center|network)\b", text)
     )
+
+
+def _is_winevent_context(user_query: str) -> bool:
+    text = user_query.lower()
+    return bool(re.search(r"\bwineventlog\b|\bevent\s*id\s*\d", text))
+
+
+def _is_firewall_context(user_query: str) -> bool:
+    text = user_query.lower()
+    return bool(
+        re.search(r"\b(syslog|cisco_asa|firewall|permit|permits)\b", text)
+        and re.search(r"\b(port|zone|vlan|dmz|traffic)\b", text)
+    )
+
+
+def _is_substation_scope_context(user_query: str) -> bool:
+    text = user_query.lower()
+    return bool(re.search(r"\bsubstation\s+subnet", text))

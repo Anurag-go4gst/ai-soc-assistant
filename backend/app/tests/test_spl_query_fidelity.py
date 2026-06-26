@@ -52,14 +52,20 @@ def _use_temp_source_profile(monkeypatch: pytest.MonkeyPatch, tmp_path, values: 
 
 @pytest.fixture(autouse=True)
 def _expanded_indexes(monkeypatch):
+    from app.config import settings
+
+    allowed_indexes = "pgcil_soc,ot_logs,wineventlog,syslog,cisco_asa,ot_soc"
+    allowed_sourcetypes = "pgcil:auth,ot:modbus,WinEventLog:Security,cisco:asa"
     monkeypatch.setenv(
         "SPL_ALLOWED_INDEXES",
-        "pgcil_soc,ot_logs,wineventlog,syslog,cisco_asa,ot_soc",
+        allowed_indexes,
     )
     monkeypatch.setenv(
         "SPL_ALLOWED_SOURCETYPES",
-        "pgcil:auth,ot:modbus,WinEventLog:Security,cisco:asa",
+        allowed_sourcetypes,
     )
+    monkeypatch.setattr(settings, "spl_allowed_indexes", allowed_indexes)
+    monkeypatch.setattr(settings, "spl_allowed_sourcetypes", allowed_sourcetypes)
 
 
 def test_modbus_function_code_query_preserves_constraints() -> None:
@@ -597,3 +603,113 @@ def test_default_time_window_assumption_is_explicit(monkeypatch: pytest.MonkeyPa
     joined = " ".join(preview.get("assumptions") or [])
     assert "defaulted to last 24 hours" in joined.lower()
 
+# --- T2 plan Phase 10-11 probe E2E tests ---
+
+T2_WINEVENT_PROBE = (
+    "Search wineventlog for Event ID 4624 for user jsmith from substation subnets over the last 7 days."
+)
+T2_FIREWALL_PROBE = (
+    "Look across syslog and cisco_asa for permits from IT VLAN to OT DMZ on port 445."
+)
+T2_THRESHOLD_PROBE = "Find users with more than 10 failed logins in 30 minutes."
+
+
+def test_t2_winevent_probe_e2e_generic_skeleton(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(
+        T2_WINEVENT_PROBE,
+        spl_validation={"spl_template_status": "missing"},
+        live_data_request=True,
+    )
+    assert preview is not None
+    assert preview["detection_family"] == "unmapped_live_data_request"
+    spl = preview["draft_spl"]
+    assert "index=wineventlog" in spl
+    assert "earliest=-7d latest=now" in spl
+    assert "event_code_norm IN (4624)" in spl
+    assert 'user="jsmith"' in spl
+    assert "approved_ot_destination" not in spl
+    assert preview.get("user_bound_skeleton") is True
+    assert preview.get("execution_enabled") is False
+
+
+def test_t2_firewall_probe_e2e_multi_index(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(
+        T2_FIREWALL_PROBE,
+        spl_validation={"spl_template_status": "missing"},
+        live_data_request=True,
+    )
+    assert preview is not None
+    spl = preview["draft_spl"]
+    assert "(index=syslog OR index=cisco_asa)" in spl
+    assert "dest_port=445" in spl
+    assert 'src_zone="IT VLAN"' in spl
+    assert 'dest_zone="OT DMZ"' in spl
+    assert "permit" in spl.lower() or "allow" in spl.lower()
+
+
+def test_t2_threshold_probe_e2e_auth_family(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    preview = build_draft_preview(
+        T2_THRESHOLD_PROBE,
+        spl_validation={"spl_template_status": "missing"},
+    )
+    assert preview is not None
+    assert preview["detection_family"] == "auth_failed_login_threshold"
+    spl = preview["draft_spl"]
+    assert "earliest=-30m latest=now" in spl
+    assert "action=failure" in spl or "action=failed" in spl
+    assert "fail_count > 10" in spl
+    assert "by user_norm" in spl
+
+
+def test_llm_event_id_alias_reaches_event_code_binding() -> None:
+    advisory = LLMIntentAdvisory(
+        entity_slots_candidate={"event_id": "4624", "account": "jsmith", "src_subnet": "substation_subnet"},
+    )
+    bindings = build_user_constraint_bindings(
+        "Search wineventlog from substation subnets.",
+        llm_intent_advisory=advisory,
+    )
+    assert bindings.normalized_slots.get("event_code") == "4624"
+    assert bindings.normalized_slots.get("user") == "jsmith"
+    assert bindings.normalized_slots.get("src_scope") == "substation_subnet"
+
+
+def test_t2_llm_slots_do_not_override_user_explicit_index() -> None:
+    advisory = LLMIntentAdvisory(entity_slots_candidate={"index": "wrong_index", "event_id": "9999"})
+    bindings = build_user_constraint_bindings(T2_WINEVENT_PROBE, llm_intent_advisory=advisory)
+    assert bindings.normalized_slots.get("index") == "wineventlog"
+    assert bindings.normalized_slots.get("event_code") == "4624"
+
+
+def test_multi_index_bindings_preserve_both_indexes() -> None:
+    bindings = build_user_constraint_bindings(T2_FIREWALL_PROBE)
+    assert "syslog" in bindings.explicit_indexes
+    assert "cisco_asa" in bindings.explicit_indexes
+
+
+def test_multi_index_partial_acceptance_records_non_allowlisted_index() -> None:
+    # Review-only drafts preserve every syntactically valid user-explicit index
+    # (symmetric with single-index preservation) and record any index outside the
+    # deployment allowlist as an unbound constraint rather than silently dropping it.
+    bindings = build_user_constraint_bindings(
+        "Look across syslog and not_allowed for permits from IT VLAN to OT DMZ on port 445."
+    )
+    assert "syslog" in bindings.explicit_indexes
+    assert "not_allowed" in bindings.explicit_indexes
+    assert bindings.normalized_slots.get("indexes") == "syslog,not_allowed"
+    assert bindings.validation_status.get("indexes") == "user_explicit_partial_preserved"
+    assert any(
+        item.get("slot") == "indexes"
+        and item.get("value") == "not_allowed"
+        and "not_allowlisted" in str(item.get("reason"))
+        for item in bindings.unbound_constraints
+    )
+
+
+def test_winevent_substation_uses_src_scope_not_allowlist() -> None:
+    slots = extract_natural_language_slots(T2_WINEVENT_PROBE)
+    assert slots.get("src_scope") == "substation_subnet"
+    assert slots.get("allowlist_semantic") is None

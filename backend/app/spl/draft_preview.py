@@ -26,6 +26,10 @@ from app.spl.source_profile_resolver import (
     substitute_placeholders,
 )
 from app.spl.source_profile_store import load_persisted_source_profile
+from app.spl.source_profile_bindings import build_source_profile_binding_slots
+from app.spl.template_compatibility import check_template_compatibility
+from app.spl.template_slot_bindings import build_user_bound_skeleton, skeleton_output_plan
+from app.spl.user_constraint_bindings import build_user_constraint_bindings
 
 _FIREWALL_LOG_FIELDS: tuple[str, ...] = (
     "index",
@@ -2643,9 +2647,40 @@ def has_strong_detection_family_match(user_query: str) -> bool:
     return bool(match_detection_family(user_query))
 
 
-def build_generic_live_data_spl_skeleton(user_query: str) -> dict[str, Any]:
+def _has_useful_bindings(bindings) -> bool:
+    return bool(
+        bindings.normalized_slots
+        or bindings.explicit_indexes
+        or bindings.explicit_event_codes
+        or bindings.explicit_users
+        or bindings.explicit_thresholds
+        or bindings.explicit_ports
+        or bindings.explicit_src_zones
+        or bindings.explicit_dest_zones
+        or bindings.explicit_action_semantics
+    )
+
+
+def build_generic_live_data_spl_skeleton(
+    user_query: str,
+    *,
+    llm_intent_advisory: dict[str, Any] | None = None,
+    query_understanding: Any | None = None,
+) -> dict[str, Any]:
     """Conservative review-only SPL scaffold when no family strongly matches."""
     normalized = " ".join((user_query or "").lower().split())
+    source_profile_result = build_source_profile_binding_slots(user_query)
+    bindings = build_user_constraint_bindings(
+        user_query,
+        llm_intent_advisory=llm_intent_advisory,
+        query_understanding=query_understanding,
+        extra_slots=source_profile_result.slots,
+        source_profile_trace=source_profile_result.trace(),
+    )
+    customization_meta: dict[str, Any] = {
+        "user_constraint_bindings": bindings.to_dict(),
+        **source_profile_result.trace(),
+    }
     binding_hints: list[str] = [
         "Confirm index and sourcetype from your Environment KB / source profile before review.",
         "Adjust earliest/latest to match the analyst observation window.",
@@ -2661,14 +2696,34 @@ def build_generic_live_data_spl_skeleton(user_query: str) -> dict[str, Any]:
             "For IT/OT boundary asks, bind firewall index/sourcetype and zone labels explicitly — "
             "do not assume a template family without a strong match."
         )
-    assumptions = (
-        "Unmapped live-data request: no strong detection-family match; generic skeleton only.",
-        "Not governed, not approved, not executed. Bind index/sourcetype/time before any future execution path.",
-        *binding_hints,
-    )
-    validation = validate_spl(build_generic_live_data_spl_skeleton_spl := _GENERIC_LIVE_DATA_SKELETON_SPL)
+
+    used_skeleton = False
+    if _has_useful_bindings(bindings):
+        draft_spl = build_user_bound_skeleton(bindings)
+        used_skeleton = True
+        customization_meta["used_user_bound_skeleton"] = True
+        customization_meta["generation_mode"] = "user_bound_skeleton"
+        _required, table_fields = skeleton_output_plan(bindings)
+        customization_meta["skeleton_table_fields"] = table_fields
+        assumptions = (
+            "Unmapped live-data request rendered from validated user constraints (review-only).",
+            "Not governed, not approved, not executed.",
+            *binding_hints,
+        )
+    else:
+        draft_spl = _GENERIC_LIVE_DATA_SKELETON_SPL
+        assumptions = (
+            "Unmapped live-data request: no strong detection-family match; generic skeleton only.",
+            "Not governed, not approved, not executed. Bind index/sourcetype/time before any future execution path.",
+            *binding_hints,
+        )
+
+    compatibility = check_template_compatibility(None, bindings)
+    customization_meta["template_compatibility"] = compatibility.to_dict()
+    customization_meta["unbound_constraints"] = list(bindings.unbound_constraints)
+    validation = validate_spl(draft_spl)
     return {
-        "draft_spl": build_generic_live_data_spl_skeleton_spl,
+        "draft_spl": draft_spl,
         "draft_status": DRAFT_STATUS,
         "draft_source": DRAFT_SOURCE,
         "quality_standard": STANDARD_ID,
@@ -2677,7 +2732,8 @@ def build_generic_live_data_spl_skeleton(user_query: str) -> dict[str, Any]:
         "review_type": "investigation_review",
         "review_type_display": "Investigation review — generic lab skeleton, bindings required, not executed",
         "assumptions": assumptions,
-        "customization_applied": False,
+        "customization_applied": used_skeleton,
+        "user_bound_skeleton": used_skeleton,
         "required_log_fields": ("_time", "src", "dest", "user", "action", "status"),
         "required_source_profile_fields": ("index", "sourcetype"),
         "required_source_fields": ("index", "sourcetype"),
@@ -2710,6 +2766,7 @@ def build_generic_live_data_spl_skeleton(user_query: str) -> dict[str, Any]:
         "warning": DRAFT_WARNING,
         "not_catalog_approved_notice": "Not catalog-approved / review required.",
         "template_match_strength": "none",
+        **customization_meta,
     }
 
 
@@ -2727,6 +2784,7 @@ def build_draft_preview(
     use_case_id: str | None = None,
     live_data_request: bool = False,
     llm_intent_advisory: dict[str, Any] | None = None,
+    query_understanding: Any | None = None,
 ) -> dict[str, Any] | None:
     """Build a lab-only draft preview dict when the flag is enabled and query matches.
 
@@ -2748,7 +2806,11 @@ def build_draft_preview(
             if keyword_family:
                 resolved_family = keyword_family
             else:
-                return build_generic_live_data_spl_skeleton(user_query)
+                return build_generic_live_data_spl_skeleton(
+                    user_query,
+                    llm_intent_advisory=llm_intent_advisory,
+                    query_understanding=query_understanding,
+                )
         else:
             pattern_family = (
                 PATTERN_TYPE_FAMILY_FALLBACK.get(pattern_type) if pattern_type else None

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import time
 
+import pytest
+
 from app.llm.turn_llm_budget import TurnLlmBudget
 
 
@@ -63,7 +65,7 @@ def test_sidecar_hop_blocked_on_insufficient_reserve(monkeypatch):
     time.sleep(0.10)
     role = "intent_shadow_classifier"
     assert b.sidecar_hop_blocked(role=role) == "insufficient_deadline_reserve"
-    assert hop_reserve_seconds(role) == 30.0
+    assert hop_reserve_seconds(role) == 12.0
 
 
 def test_narration_hop_blocked_when_count_exhausted():
@@ -114,3 +116,47 @@ def test_narration_hop_allowed_when_turn_budget_fits_capped_composer(monkeypatch
     b = TurnLlmBudget(deadline_seconds=75.0, max_narration_calls=1)
     assert b.capped_hop_timeout_seconds(role="governed_composer") is not None
     assert b.narration_hop_blocked(reserve_seconds=b.composer_reserve_seconds()) is None
+
+
+def test_intent_reserve_uses_protected_seconds(monkeypatch):
+    from app.llm.turn_llm_budget import hop_reserve_seconds, intent_advisor_reserve_seconds
+
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_intent_advisor_reserve_seconds", 12.0)
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_timeout_seconds", 120)
+    assert intent_advisor_reserve_seconds() == 12.0
+    assert hop_reserve_seconds("intent_shadow_classifier") == 12.0
+    assert hop_reserve_seconds("mitre_reasoner") == 120.0
+
+
+def test_tight_budget_allows_intent_blocks_full_sidecar_reserve(monkeypatch):
+    import time
+
+    from app.llm.intent_advisor_scheduler import intent_advisor_hop_blocked
+    from app.llm.turn_llm_budget import TurnLlmBudget, hop_reserve_seconds
+
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_intent_advisor_reserve_seconds", 12.0)
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_timeout_seconds", 120)
+    b = TurnLlmBudget(deadline_seconds=40.0)
+    b.started_at = time.monotonic() - 27.5
+    assert b.remaining_seconds() >= 12.0
+    assert intent_advisor_hop_blocked(b) is None
+    from app.llm.sidecar_clients import sidecar_timeout_seconds
+    from app.config import settings as cfg
+
+    full_intent_socket = min(
+        sidecar_timeout_seconds("intent_shadow_classifier"),
+        float(cfg.ai_soc_llm_timeout_seconds),
+    )
+    assert full_intent_socket >= 30.0
+    assert not b.can_start_call(reserve_seconds=full_intent_socket)
+    assert hop_reserve_seconds("intent_shadow_classifier") == 12.0
+
+
+def test_narration_blocked_when_remaining_below_min_seconds():
+    import time
+
+    from app.llm.turn_llm_budget import TurnLlmBudget
+
+    b = TurnLlmBudget(deadline_seconds=5.0)
+    b.started_at = time.monotonic() - 4.95
+    assert b.narration_hop_blocked() == "insufficient_deadline_reserve"

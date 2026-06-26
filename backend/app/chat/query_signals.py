@@ -21,6 +21,75 @@ _LOG_SEARCH_RE = re.compile(
     r"\b(?:search|find|look for)\b.{0,80}\b(?:logs?|firewall|proxy|endpoint|vpn|dns|powershell)\b",
     re.IGNORECASE,
 )
+
+_LOG_SEARCH_VERB_RE = re.compile(
+    r"\b(?:search|find|show|check|look\s+for|look\s+in|look\s+across|run\s+query)\b",
+    re.IGNORECASE,
+)
+_TELEMETRY_ANCHOR_RE = re.compile(
+    r"\b(?:wineventlog|win:eventlog|syslog|cisco_asa|ot_logs|"
+    r"firewall\s+logs?|vpn\s+logs?|index\s*=|sourcetype\s*=|"
+    r"event\s+id|eventcode|function\s+code)\b",
+    re.IGNORECASE,
+)
+_ENTITY_ANCHOR_RE = re.compile(
+    r"\b(?:user\s+\w+|host\s+\w+|\b\d{1,3}(?:\.\d{1,3}){3}\b|cidr|subnet)\b",
+    re.IGNORECASE,
+)
+_T2_SCOPE_ANCHOR_RE = re.compile(
+    r"\b(?:src|source|dest|destination|from|to|between|vlan|dmz|zone|substation|"
+    r"port\s+\d{1,5}|failed\s+login(?:s)?|event\s+id\s+\d+|eventcode\s*[=:]?\s*\d+)\b",
+    re.IGNORECASE,
+)
+_T2_THRESHOLD_OR_WINDOW_RE = re.compile(
+    r"\b(?:more\s+than|over|greater\s+than|at\s+least|>\s*\d+|\d+\+?)\b.{0,40}"
+    r"\b(?:failed\s+login(?:s)?|minutes?|hours?|days?)\b",
+    re.IGNORECASE,
+)
+_ANALYTICS_ENUM_RE = re.compile(
+    r"\b(?:top|list|which|highest|count)\b.{0,40}\b(?:users?|hosts?|failed\s+login(?:s)?|logon(?:s)?)\b",
+    re.IGNORECASE,
+)
+
+
+def _generic_explicit_log_search_floor(normalized: str) -> bool:
+    """Broad log-retrieval floor: imperative verb + bounded telemetry/entity anchor."""
+    if not _LOG_SEARCH_VERB_RE.search(normalized):
+        return False
+    if _TELEMETRY_ANCHOR_RE.search(normalized):
+        return True
+    if _ENTITY_ANCHOR_RE.search(normalized):
+        return True
+    return bool(_ANALYTICS_ENUM_RE.search(normalized))
+
+
+def _t2_data_source_count(normalized: str) -> int:
+    sources = (
+        "wineventlog",
+        "win:eventlog",
+        "syslog",
+        "cisco_asa",
+        "ot_logs",
+        "firewall",
+        "vpn",
+        "proxy",
+        "endpoint",
+        "dns",
+        "powershell",
+    )
+    return sum(1 for source in sources if source in normalized)
+
+
+def _meaningful_t2_entity_signal(normalized: str) -> bool:
+    """Concrete log/query constraints that make LLM slot binding worth the hop."""
+    anchors = 0
+    anchors += int(bool(_TELEMETRY_ANCHOR_RE.search(normalized)))
+    anchors += int(bool(_ENTITY_ANCHOR_RE.search(normalized)))
+    anchors += int(bool(_T2_SCOPE_ANCHOR_RE.search(normalized)))
+    anchors += int(bool(_T2_THRESHOLD_OR_WINDOW_RE.search(normalized)))
+    anchors += int(_t2_data_source_count(normalized) >= 2)
+    return anchors >= 2
+
 _ANALYTICS_SUBJECT_RE = re.compile(
     r"\b(?:which|what)\s+(?:hosts?|users?|accounts?|devices?|machines?|systems?|endpoints?|"
     r"domains?|rules?|assets?|source\s+ips?|destination\s+ips?|ips?)\b",
@@ -408,6 +477,12 @@ def extract_query_signals(
             "block this ip",
             "block the ip",
             "block ip ",
+            "block user ",
+            "block the user",
+            "block this user",
+            "block account",
+            "block the account",
+            "block this account",
             "block on the firewall",
             "push a firewall",
             "push firewall",
@@ -784,6 +859,64 @@ def extract_query_signals(
             and not spl_suppressed
         )
     )
+    if (
+        not guidance_request
+        and not sop_show_request
+        and not playbook_procedure
+        and not use_case_review_guidance
+        and _generic_explicit_log_search_floor(normalized)
+    ):
+        explicit_log_search = True
+        if not spl_suppressed and (
+            _TELEMETRY_ANCHOR_RE.search(normalized)
+            or _ENTITY_ANCHOR_RE.search(normalized)
+        ):
+            spl_generation = True
+        live_investigation_verbs = live_investigation_verbs or explicit_log_search
+        explicit_search_intent = bool(
+            spl_generation
+            or explicit_log_search
+            or use_case_review_guidance
+            or (
+                live_investigation_verbs
+                and not policy_terms
+                and not block_or_contain
+                and not spl_suppressed
+                and not sop_show_request
+            )
+        )
+        _projected_needs_spl = bool(
+            (spl_generation and not block_or_contain)
+            or (
+                live_investigation_verbs
+                and not policy_terms
+                and not block_or_contain
+                and not spl_suppressed
+            )
+        )
+
+    meaningful_t2_entities = bool(
+        not guidance_request
+        and not sop_show_request
+        and not playbook_procedure
+        and not use_case_review_guidance
+        and not policy_terms
+        and not non_soc_or_out_of_scope
+        and not block_or_contain
+        and not explicit_run_spl
+        and _meaningful_t2_entity_signal(normalized)
+    )
+    ambiguous_t2_query = bool(
+        meaningful_t2_entities
+        and (
+            "look across" in normalized
+            or "across " in normalized
+            or _t2_data_source_count(normalized) >= 2
+            or bool(re.search(r"\b(?:from|source|src)\b.{0,80}\b(?:to|dest|destination)\b", normalized))
+            or bool(re.search(r"\b(?:vlan|zone|dmz|substation)\b.{0,80}\b(?:port|permit|allow|deny)\b", normalized))
+        )
+    )
+
     live_data_request = bool(
         not block_or_contain
         and not explicit_run_spl
@@ -791,6 +924,7 @@ def extract_query_signals(
         and not mitre_evidence_threshold
         and not use_case_review_guidance
         and not conceptual_mitre_judgment
+        and not success_after_failure
         and (
             explicit_search_intent
             or soc_actionable_hunt
@@ -895,6 +1029,8 @@ def extract_query_signals(
         "cross_skill_investigation": cross_skill_investigation,
         "cve_focus_investigation": cve_focus_investigation,
         "live_data_request": live_data_request,
+        "ambiguous_t2_query": ambiguous_t2_query,
+        "meaningful_t2_entities": meaningful_t2_entities,
         "guidance_request": guidance_request,
         "soc_actionable_hunt": soc_actionable_hunt,
         "soc_detection_intent": soc_detection_intent,
