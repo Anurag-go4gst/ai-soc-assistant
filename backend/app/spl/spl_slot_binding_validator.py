@@ -76,6 +76,11 @@ _LLM_SLOT_KEY_ALIASES: dict[str, str] = {
 }
 
 
+def canonical_slot_key(slot: str) -> str:
+    """Map slot aliases (event_id, account, etc.) to canonical binding keys."""
+    return _LLM_SLOT_KEY_ALIASES.get(str(slot).strip().lower(), str(slot).strip().lower())
+
+
 def normalize_slot_key_aliases(slots: dict[str, Any]) -> dict[str, Any]:
     """Rename known LLM / NL slot aliases to canonical keys before validation."""
     normalized: dict[str, Any] = {}

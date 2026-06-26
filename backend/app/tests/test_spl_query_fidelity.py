@@ -989,3 +989,160 @@ def test_dedupe_keeps_richer_alias_list() -> None:
     result = dedupe_eval_lines([sparse, rich])
     assert result == [rich]
 
+
+
+# --- B2: LLM slot supplementation after deterministic validation failure ---
+
+
+def _minimal_understanding(**entity_kwargs) -> "QueryUnderstandingResult":
+    from app.query_understanding.models import (
+        OutputTemplate,
+        QueryEntities,
+        QueryUnderstandingResult,
+        RequestedOutputType,
+    )
+
+    return QueryUnderstandingResult(
+        raw_query="q",
+        normalized_query="q",
+        primary_intent="spl_generation",
+        requested_output_type=RequestedOutputType.SPL,
+        output_template=OutputTemplate.SPL_RESPONSE,
+        entities=QueryEntities(**entity_kwargs),
+        confidence=0.9,
+    )
+
+
+def test_b2_llm_supplements_after_deterministic_parse_failure() -> None:
+    advisory = LLMIntentAdvisory(entity_slots_candidate={"user": "jsmith"})
+    bindings = build_user_constraint_bindings(
+        "Show activity in scope.",
+        llm_intent_advisory=advisory,
+        query_understanding=_minimal_understanding(user=["bad user name"]),
+    )
+    assert bindings.normalized_slots.get("user") == "jsmith"
+    assert bindings.slot_sources.get("user") == "llm"
+
+
+def test_b2_llm_index_blocked_after_deterministic_allowlist_failure() -> None:
+    advisory = LLMIntentAdvisory(entity_slots_candidate={"index": "wineventlog"})
+    bindings = build_user_constraint_bindings(
+        "Search logons.",
+        llm_intent_advisory=advisory,
+        query_understanding=_minimal_understanding(index=["evil_index"]),
+    )
+    assert bindings.normalized_slots.get("index") != "wineventlog"
+    blocks = bindings.debug_trace.get("llm_supplement_blocks") or []
+    assert any(
+        item.get("slot") == "index"
+        and item.get("reason") == "llm_supplement_blocked_by_deterministic_rejection"
+        for item in blocks
+    )
+
+
+def test_b2_llm_blocked_after_deterministic_injection_failure() -> None:
+    advisory = LLMIntentAdvisory(entity_slots_candidate={"user": "jsmith"})
+    bindings = build_user_constraint_bindings(
+        "Search logons.",
+        llm_intent_advisory=advisory,
+        query_understanding=_minimal_understanding(user=["| delete"]),
+    )
+    assert bindings.normalized_slots.get("user") != "jsmith"
+    blocks = bindings.debug_trace.get("llm_supplement_blocks") or []
+    assert any(
+        item.get("slot") == "user"
+        and item.get("reason") == "llm_supplement_blocked_by_deterministic_rejection"
+        and "slot_injection_blocked" in str(item.get("deterministic_rejection"))
+        for item in blocks
+    )
+
+
+def test_b2_user_explicit_still_wins_over_llm_supplement() -> None:
+    advisory = LLMIntentAdvisory(entity_slots_candidate={"user": "llm_user"})
+    bindings = build_user_constraint_bindings(
+        "Search wineventlog for user=explicit_user over the last 7 days.",
+        llm_intent_advisory=advisory,
+        query_understanding=_minimal_understanding(user=["deterministic_user"]),
+    )
+    assert bindings.normalized_slots.get("user") != "llm_user"
+    assert bindings.slot_sources.get("user") == "user_explicit"
+
+
+def test_b2_user_explicit_injection_blocks_llm_with_debug_record() -> None:
+    advisory = LLMIntentAdvisory(entity_slots_candidate={"user": "jsmith"})
+    bindings = build_user_constraint_bindings(
+        'Search logons user="| delete"',
+        llm_intent_advisory=advisory,
+    )
+    assert bindings.normalized_slots.get("user") != "jsmith"
+    blocks = bindings.debug_trace.get("llm_supplement_blocks") or []
+    assert any(
+        item.get("slot") == "user"
+        and item.get("reason") == "llm_supplement_blocked_by_deterministic_rejection"
+        and "slot_injection_blocked" in str(item.get("deterministic_rejection"))
+        for item in blocks
+    )
+
+
+def test_b2_llm_does_not_overwrite_batch_validated_deterministic_slot() -> None:
+    advisory = LLMIntentAdvisory(entity_slots_candidate={"user": "llm_user"})
+    bindings = build_user_constraint_bindings(
+        "Show activity in scope.",
+        llm_intent_advisory=advisory,
+        query_understanding=_minimal_understanding(user=["deterministic_user"]),
+    )
+    assert bindings.normalized_slots.get("user") == "deterministic_user"
+    assert bindings.slot_sources.get("user") == "deterministic"
+
+
+# --- Generic scalar-slot semantic conflict cleanup ---
+
+
+def test_scalar_semantic_equality_matrix() -> None:
+    from app.spl.slot_binding_merge import filter_slot_conflicts, slot_values_semantically_equal
+
+    assert slot_values_semantically_equal("user", "jsmith", "JSMITH") is True
+    assert slot_values_semantically_equal("user", "jsmith", "admin") is False
+    assert slot_values_semantically_equal("event_code", "4624", 4624) is True
+    assert slot_values_semantically_equal("event_code", 4624, 4625) is False
+    assert slot_values_semantically_equal("function_code", ["5", "15"], [5, 15]) is True
+    assert slot_values_semantically_equal("function_code", 5, 15) is False
+    assert slot_values_semantically_equal("port", "445", 445) is True
+    assert slot_values_semantically_equal("port", 445, 3389) is False
+    assert slot_values_semantically_equal("time_window", "last 24 hours", "earliest=-24h latest=now") is True
+    assert slot_values_semantically_equal("time_window", "earliest=-24h latest=now", "earliest=-7d latest=now") is False
+    assert slot_values_semantically_equal("protocol", "MODBUS", "modbus") is True
+    assert slot_values_semantically_equal("protocol", "modbus", "dnp3") is False
+    assert slot_values_semantically_equal("action_semantic", "permit", "allow") is True
+    assert slot_values_semantically_equal("action_semantic", "permit", "deny") is False
+    assert slot_values_semantically_equal("index", "wineventlog", "pgcil_soc") is False
+
+    no_conflict = {
+        "slot": "event_code",
+        "reason": "conflicts_with_user_explicit_slot",
+        "kept_value": "4624",
+        "dropped_value": 4624,
+        "dropped_source": "llm",
+    }
+    assert filter_slot_conflicts([no_conflict], {}) == []
+
+
+def test_winevent_query_suppresses_same_value_user_event_llm_conflicts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
+    advisory = LLMIntentAdvisory(
+        entity_slots_candidate={"event_id": "4624", "account": "jsmith", "user": "jsmith"},
+    )
+    preview = build_draft_preview(T2_WINEVENT_PROBE, llm_intent_advisory=advisory, live_data_request=True)
+    assert preview is not None
+    conflict_rows = [
+        item
+        for item in (preview.get("unbound_constraints") or [])
+        if "conflict" in str(item.get("reason", "")).lower()
+        and item.get("slot") in {"user", "event_code"}
+    ]
+    assert conflict_rows == []
+    spl = preview["draft_spl"]
+    assert "event_code_norm IN (4624)" in spl
+    assert 'user_norm="jsmith"' in spl

@@ -10,6 +10,7 @@ from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.query_understanding.models import QueryEntities, QueryUnderstandingResult
 from app.spl.slot_binding_merge import (
     filter_slot_conflicts,
+    partition_slot_conflicts,
     slot_values_semantically_equal,
     supplement_accepted_llm_entity_slots,
 )
@@ -162,6 +163,10 @@ def build_user_constraint_bindings(
         llm_slots,
         allowed_indexes=effective_allowed_indexes,
         allowed_sourcetypes=allowed_sourcetypes,
+        validated=validated,
+        merged_raw=merged_raw,
+        slot_sources=slot_sources,
+        conflicts=conflicts,
     )
     # Multi-index user-explicit slots are owned by _preserve_user_explicit_indexes
     # (review-only preserve symmetric with single-index), so skip them here to avoid
@@ -224,9 +229,11 @@ def build_user_constraint_bindings(
             }
         )
 
-    for conflict in filter_slot_conflicts(conflicts, merged_raw):
+    filtered_conflicts, suppressed_conflicts = partition_slot_conflicts(conflicts, merged_raw)
+    for conflict in filtered_conflicts:
         bindings.unbound_constraints.append(conflict)
 
+    llm_supplement_blocks = list(bindings.debug_trace.get("llm_supplement_blocks") or [])
     bindings.debug_trace = {
         "extracted_by_source": {
             SLOT_SOURCE_USER_EXPLICIT: dict(user_explicit),
@@ -236,13 +243,16 @@ def build_user_constraint_bindings(
         },
         "accepted_slots": dict(validated.normalized_slots),
         "rejected_slots": dict(bindings.rejected_slots),
-        "slot_conflicts": list(conflicts),
+        "slot_conflicts": list(filtered_conflicts),
+        "same_value_suppressed_conflicts": list(suppressed_conflicts),
         "final_slot_precedence_decision": _final_slot_precedence_decisions(
             merged_raw,
             slot_sources,
-            conflicts,
+            filtered_conflicts,
         ),
     }
+    if llm_supplement_blocks:
+        bindings.debug_trace["llm_supplement_blocks"] = llm_supplement_blocks
     _append_scope_unbound_constraints(bindings, merged_raw, source_profile_slots)
     if source_profile_trace:
         bindings.debug_trace.update(source_profile_trace)
