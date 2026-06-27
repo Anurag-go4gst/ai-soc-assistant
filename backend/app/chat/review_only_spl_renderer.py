@@ -87,13 +87,31 @@ def _severity_text(analyst_response: Any) -> str:
     return label
 
 
-def _scope_line(analyst_response: Any, *, t2_source_profile: str | None = None) -> str:
+def _scope_line(
+    analyst_response: Any,
+    *,
+    t2_source_profile: str | None = None,
+    draft_preview: dict[str, Any] | None = None,
+) -> str:
     """Family-aware scope line; only assert the IT-to-OT framing on a strong match.
 
     A T1 SPL-native (T2) draft owns its own source profile (e.g. scada_perf), so a
     co-matched IT-to-OT use case's scenario label must not drive the scope. For T2
     the scope is profile-aware and never the firewall/boundary framing.
     """
+    if isinstance(draft_preview, dict):
+        scope_notice = str(draft_preview.get("scope_notice") or "").strip()
+        family = str(draft_preview.get("detection_family") or "")
+        if family in {"esp_it_to_ot_connection", "firewall_vendor_vpn_jump"}:
+            return _FIREWALL_SCOPE
+        if draft_preview.get("metadata_source") == "binding_derived" and scope_notice:
+            return scope_notice if scope_notice.startswith("Scope:") else f"Scope: {scope_notice}"
+        review_type = str(draft_preview.get("review_type_display") or "").strip()
+        if draft_preview.get("governed_template_missing") and review_type:
+            return (
+                "Scope: T1 SPL-generation review — lab draft only (no governed template bound); "
+                f"{review_type}. Nothing was executed."
+            )
     if t2_source_profile:
         return (
             f"Scope: Review-only SPL draft for source profile '{t2_source_profile}'; "
@@ -286,7 +304,7 @@ def render_review_only_spl_answer(
     lines.append(_EXECUTION_LINE)
     lines.append(_REVIEW_LINE)
     lines.append(_ANALYST_VALIDATION_LINE)
-    lines.append(f"Scope: {_scope_line(analyst_response, t2_source_profile=t2_source_profile).removeprefix('Scope: ')}")
+    lines.append(f"Scope: {_scope_line(analyst_response, t2_source_profile=t2_source_profile, draft_preview=draft_preview).removeprefix('Scope: ')}")
     lines.append("")
 
     lines.append(_REVIEW_ONLY_NOTICE)
@@ -415,7 +433,7 @@ def apply_review_only_spl_render(
         _EXECUTION_LINE,
         _REVIEW_LINE,
         _ANALYST_VALIDATION_LINE,
-        _scope_line(analyst_response, t2_source_profile=t2_source_profile),
+        _scope_line(analyst_response, t2_source_profile=t2_source_profile, draft_preview=draft_preview),
     ]
 
     updates: dict[str, Any] = {

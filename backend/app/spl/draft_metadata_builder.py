@@ -403,6 +403,22 @@ def _merge_resolved_scope_bindings(
         seen.add(slot)
     return rows
 
+
+
+def _is_windows_logon_off_shift_bindings(bindings: UserConstraintBindings) -> bool:
+    off_shift = any(
+        isinstance(item, dict) and item.get("constraint_type") == "off_shift_filter"
+        for item in (bindings.semantic_constraints or [])
+    )
+    if not off_shift:
+        return False
+    indexes = [str(item).lower() for item in (bindings.explicit_indexes or [])]
+    index = str(bindings.normalized_slots.get("index") or "").lower()
+    if "wineventlog" in index or any("winevent" in item for item in indexes):
+        return True
+    codes = [str(code) for code in (bindings.explicit_event_codes or [])]
+    return "4624" in codes or str(bindings.normalized_slots.get("event_code") or "") == "4624"
+
 def _scope_notice(
     bindings: UserConstraintBindings,
     family_id: str | None,
@@ -410,6 +426,11 @@ def _scope_notice(
     *,
     used_skeleton: bool,
 ) -> str:
+    if _is_windows_logon_off_shift_bindings(bindings):
+        return (
+            "Scope: Windows logon off-shift review — substation-scoped identity/logon activity "
+            "with fixed off-shift hour constraint (06:00–22:00 local); review-only, nothing executed."
+        )
     if used_skeleton:
         return (
             "Scope: Review-only user-bound SPL draft generated from validated query constraints; "

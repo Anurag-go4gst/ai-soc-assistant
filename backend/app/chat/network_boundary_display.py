@@ -56,10 +56,48 @@ _BOUNDARY_WORD_RE = re.compile(r"\b(?:ot|esp)\b")
 
 _ANALYTICS_RANK_RE = re.compile(r"\b(?:most|top|highest|largest|busiest)\b")
 
+_WINDOWS_LOGON_INDEX_RE = re.compile(r"\bwineventlog\b|\bwin:eventlog\b")
+_WINDOWS_LOGON_EVENT_RE = re.compile(
+    r"\bevent\s*(?:id|code)\s*(?:=)?\s*(?:4624|4625|4740)\b|\beventcode\s*=\s*(?:4624|4625|4740)\b"
+)
+
+
+def is_windows_identity_logon_query(user_query: str) -> bool:
+    """Windows security logon / Event ID asks are identity review, not firewall boundary."""
+    normalized = " ".join((user_query or "").lower().split())
+    if not normalized:
+        return False
+    if _WINDOWS_LOGON_INDEX_RE.search(normalized):
+        return True
+    if _WINDOWS_LOGON_EVENT_RE.search(normalized):
+        return True
+    if re.search(r"\b(?:successful\s+)?logon\b", normalized) and re.search(
+        r"\b4624\b|\bwineventlog\b", normalized
+    ):
+        return True
+    return False
+
+
+def windows_logon_scope_label(user_query: str) -> str:
+    """Analyst-facing label for Windows identity/logon review (not network boundary)."""
+    normalized = " ".join((user_query or "").lower().split())
+    if re.search(r"\b(?:outside|after)\s+(?:normal\s+)?shift\s+hours?\b", normalized) or re.search(
+        r"\boff[\s-]?shift\b|\bafter[\s-]?hours\b", normalized
+    ):
+        return (
+            "Windows logon off-shift review — substation-scoped identity/logon activity "
+            "(fixed off-shift hour constraint applied)"
+        )
+    if "substation" in normalized:
+        return "Windows logon review — substation-scoped identity/logon activity"
+    return "Windows security logon review"
+
 
 def is_firewall_boundary_query(user_query: str) -> bool:
     """Boundary review requires boundary context; protocol-only phrases such as
     bare "SMB traffic" or "RDP traffic" no longer imply an IT-to-OT review."""
+    if is_windows_identity_logon_query(user_query):
+        return False
     normalized = " ".join((user_query or "").lower().split())
     if any(term in normalized for term in _BOUNDARY_CONTEXT_TERMS):
         return True
@@ -89,6 +127,8 @@ def resolve_analyst_use_case_label(
     catalog_label: str | None,
     user_query: str,
 ) -> str | None:
+    if is_windows_identity_logon_query(user_query):
+        return windows_logon_scope_label(user_query)
     if use_case_id and use_case_id in NETWORK_USE_CASE_DISPLAY:
         return NETWORK_USE_CASE_DISPLAY[use_case_id]
     if catalog_label and _contains_auth_anomaly_label(catalog_label) and is_firewall_boundary_query(user_query):
