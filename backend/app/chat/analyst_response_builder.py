@@ -8,6 +8,7 @@ from typing import Any
 from app.config import settings
 from app.schemas.responses import AnalystResponseEnvelope
 from app.chat.contracts.answer_contract import build_answer_contract
+from app.spl.t2_generation import is_t2_spl_native_review
 from app.chat.final_answer_readability import (
     apply_draft_preview_readability,
     apply_final_answer_readability,
@@ -164,6 +165,15 @@ def _resolve_spl_surfaces_from_contract(
     resolved_draft = draft_spl_code
     table: list[dict[str, Any]] = []
 
+    cand = candidate_spl if isinstance(candidate_spl, dict) else {}
+    if (
+        is_t2_spl_native_review(spl_validation, cand)
+        and str(cand.get("candidate_spl") or "").strip()
+    ):
+        resolved_draft = _candidate_spl_text(candidate_spl, spl_validation, synthesis_draft)
+        resolved_spl = None
+        draft_preview = None
+
     if (
         contract is not None
         and getattr(contract, "run_contract_mirrored", False)
@@ -189,17 +199,6 @@ def _resolve_spl_surfaces_from_contract(
             resolved_spl = None
             resolved_draft = None
             draft_preview = None
-
-    # T1 SPL-native review-only draft has no spl_draft_preview channel; surface its
-    # candidate SPL as the draft so the review-only renderer can show it.
-    if (
-        resolved_draft is None
-        and isinstance(candidate_spl, dict)
-        and candidate_spl.get("generation_mode") == "t2_spl_native_review"
-        and str(candidate_spl.get("candidate_spl") or "").strip()
-    ):
-        resolved_draft = _candidate_spl_text(candidate_spl, spl_validation, synthesis_draft)
-        resolved_spl = None
 
     mirrored = contract is not None and getattr(contract, "run_contract_mirrored", False)
     if mirrored:

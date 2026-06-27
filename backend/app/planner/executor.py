@@ -17,9 +17,54 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
+from app.config import settings
 from app.planner.resource_registry import load_resource_registry
 
 State = dict[str, Any]
+
+_MCP_POSTURE_STATUSES = frozenset({"planned", "blocked_policy", "skipped", "executed", "failed"})
+
+
+def normalize_mcp_posture_status(raw_status: str | None) -> str:
+    """Map execution/plan statuses to the MCP posture vocabulary."""
+    status = str(raw_status or "planned").strip() or "planned"
+    if status in _MCP_POSTURE_STATUSES:
+        return status
+    if status in {"blocked", "requires_human_review"}:
+        return "blocked_policy"
+    if status in {"skipped_unavailable", "not_run"}:
+        return "skipped"
+    return "blocked_policy"
+
+
+def _preserved_block_reason(step: Mapping[str, Any]) -> str:
+    existing = str(step.get("status_reason") or "").strip()
+    if existing:
+        return existing
+    checks = [str(item) for item in step.get("policy_checks") or []]
+    if any("blocked_by_skill_contract" in check for check in checks):
+        return "skill_contract"
+    if any("mcp_not_allowed_by_evidence_plan" in check for check in checks):
+        return "mcp_not_allowed_by_evidence_plan"
+    return "blocked_policy"
+
+
+def mcp_composed_block_reason(step: Mapping[str, Any]) -> str | None:
+    """Composition-time MCP veto; wins over execution-gate block reasons."""
+    checks = [str(item) for item in step.get("policy_checks") or []]
+    if any("blocked_by_skill_contract" in check for check in checks):
+        return _preserved_block_reason(step)
+    if str(step.get("status_reason") or "") == "skill_contract":
+        return "skill_contract"
+    if any("mcp_not_allowed_by_evidence_plan" in check for check in checks):
+        return "mcp_not_allowed_by_evidence_plan"
+    if str(step.get("status") or "") == "blocked_policy":
+        preserved = _preserved_block_reason(step)
+        if preserved not in {"", "blocked_policy"}:
+            return preserved
+    return None
+
+
 Node = Callable[[State], State]
 
 
@@ -31,6 +76,7 @@ class DispatchHooks:
     rag_early: Node
     spl_source_resolve: Node
     workflow_spl: Node
+    ensure_workflow_plan: Node
     execution: Node
 
 
@@ -59,10 +105,29 @@ def _blocked_step_ids(state: State) -> set[str]:
     return blocked
 
 
+def _preblocked_policy_step_ids(state: State) -> set[str]:
+    """Steps already marked blocked_policy by composition (skill contract / plan)."""
+    plan = _resource_plan(state) or {}
+    blocked: set[str] = set()
+    for step in plan.get("steps", []):
+        step_id = str(step.get("step_id") or "")
+        if str(step.get("status") or "") == "blocked_policy":
+            blocked.add(step_id)
+            continue
+        checks = step.get("policy_checks") or []
+        if any("blocked_by_skill_contract" in str(check) for check in checks):
+            blocked.add(step_id)
+    return blocked
+
+
+def _dispatch_blocked_step_ids(state: State) -> set[str]:
+    return _blocked_step_ids(state) | _preblocked_policy_step_ids(state)
+
+
 def execute_plan_dispatch(state: State, hooks: DispatchHooks) -> State:
     """Walk the composed plan with the same control flow as the legacy
     dispatch block in `_build_live_chat_response_inner`."""
-    blocked_steps = _blocked_step_ids(state)
+    blocked_steps = _dispatch_blocked_step_ids(state)
     if hooks.uses_rag_only_path(state):
         state = hooks.prepare_rag_only(state)
         if "rag" not in blocked_steps:
@@ -76,6 +141,8 @@ def execute_plan_dispatch(state: State, hooks: DispatchHooks) -> State:
             state = hooks.spl_source_resolve(state)
         # The execution stage always runs on this branch: it owns the MCP
         # gate, block reasons, and HIL even when no MCP step exists.
+        if "spl" in blocked_steps and not state.get("workflow_plan"):
+            state = hooks.ensure_workflow_plan(state)
         state = hooks.execution(state)
     return _annotate_blocked(state, blocked_steps)
 
@@ -83,7 +150,13 @@ def execute_plan_dispatch(state: State, hooks: DispatchHooks) -> State:
 def _annotate_blocked(state: State, blocked_steps: set[str]) -> State:
     if not blocked_steps:
         return state
-    return annotate_step_statuses(state, only_steps=blocked_steps, force_status="blocked_policy")
+    registry_blocked = _blocked_step_ids(state)
+    return annotate_step_statuses(
+        state,
+        only_steps=blocked_steps,
+        force_status="blocked_policy",
+        registry_blocked_steps=registry_blocked,
+    )
 
 
 def annotate_step_statuses(
@@ -91,6 +164,7 @@ def annotate_step_statuses(
     *,
     only_steps: set[str] | None = None,
     force_status: str | None = None,
+    registry_blocked_steps: set[str] | None = None,
 ) -> State:
     """Resolve each plan step's outcome from stage results already in state.
 
@@ -108,12 +182,19 @@ def annotate_step_statuses(
             continue
         if force_status is not None:
             step["status"] = force_status
-            step["status_reason"] = "registry_resource_blocked"
+            if step_id in (registry_blocked_steps or set()):
+                step["status_reason"] = "registry_resource_blocked"
+            else:
+                step["status_reason"] = _preserved_block_reason(step)
+            if str(step.get("purpose") or "") == "mcp_execution":
+                step["mcp_step_metadata"] = _mcp_step_metadata(step, state)
             continue
         status, reason = _resolve_status(step, state)
         step["status"] = status
         if reason:
             step["status_reason"] = reason
+        if str(step.get("purpose") or "") == "mcp_execution":
+            step["mcp_step_metadata"] = _mcp_step_metadata(step, state)
 
     evidence_plan = dict(state.get("evidence_plan") or {})
     evidence_plan["resource_plan"] = {**plan, "steps": steps}
@@ -143,6 +224,9 @@ def _resolve_status(step: Mapping[str, Any], state: State) -> tuple[str, str | N
         return "executed", None
 
     if purpose == "mcp_execution":
+        composed_reason = mcp_composed_block_reason(step)
+        if composed_reason is not None:
+            return "blocked_policy", composed_reason
         execution = state.get("execution")
         if not isinstance(execution, Mapping):
             return "not_run", None
@@ -160,3 +244,45 @@ def _resolve_status(step: Mapping[str, Any], state: State) -> tuple[str, str | N
         return "not_run", None
 
     return "planned", None
+
+
+def _mcp_step_metadata(step: Mapping[str, Any], state: State) -> dict[str, Any]:
+    """Structured MCP posture for debug/RunContract projection (no execution)."""
+    execution = state.get("execution") if isinstance(state.get("execution"), dict) else {}
+    spl_validation = state.get("spl_validation") if isinstance(state.get("spl_validation"), dict) else {}
+    evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+
+    secondary: list[str] = []
+    if not settings.mcp_global_execution_enabled:
+        secondary.append("mcp_global_execution_disabled")
+    if str(step.get("status") or "") == "blocked_policy":
+        secondary.append(str(step.get("status_reason") or "blocked_policy"))
+    if evidence_plan.get("mcp_allowed") is not True:
+        secondary.append("mcp_not_allowed_by_evidence_plan")
+    if spl_validation and not spl_validation.get("approved"):
+        secondary.append("spl_not_approved")
+    if execution.get("requires_human_review"):
+        secondary.append("hil_required")
+
+    exec_status = str(execution.get("status") or step.get("status") or "planned")
+    exec_block = str(execution.get("block_reason") or "").strip()
+    composed_reason = mcp_composed_block_reason(step)
+    if composed_reason is not None:
+        primary = composed_reason
+        if exec_block and exec_block != composed_reason:
+            secondary.append(exec_block)
+    else:
+        primary = str(exec_block or step.get("status_reason") or exec_status)
+    if composed_reason is not None:
+        posture_status = str(step.get("status") or "blocked_policy")
+        execution_authorized = False
+    else:
+        posture_status = exec_status
+        execution_authorized = exec_status == "executed"
+    return {
+        "status": normalize_mcp_posture_status(posture_status),
+        "primary_reason": primary,
+        "secondary_reasons": secondary,
+        "selected_tool": execution.get("selected_mcp_tool"),
+        "execution_authorized": execution_authorized,
+    }

@@ -31,6 +31,7 @@ from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS
 from app.orchestration.workflow_planner import plan_workflow
+from app.query_understanding.soc_investigation_shape import detect_spl_artifact_request
 from app.query_understanding.semantic_intent import build_semantic_intent_envelope
 from app.query_understanding.parser import understand_query
 from app.routing.routing_provenance import degraded_query_understanding_from_failover
@@ -182,6 +183,9 @@ from app.connectors.mcp.mcp_tool_plan_shadow import (
     run_mcp_tool_plan_shadow,
 )
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
+from app.coverage.promotion_lifecycle import effective_promotion_status, can_skip_llm_for_t0
+from app.coverage.question_runtime_map import question_runtime_entry
+from app.coverage.row_authority import classify_runtime_row_authority, project_s3_authority_ready
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.llm.intent_advisor_scheduler import (
     build_intent_scheduling_trace,
@@ -193,9 +197,15 @@ from app.llm.intent_advisor_scheduler import (
 from app.chat.query_signals import extract_query_signals
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
+from app.use_cases.answer_packs import answer_pack_summary, reviewed_answer_pack
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
 from app.spl.template_compatibility import check_template_compatibility
 from app.spl.template_query_bindings import customize_template_spl_with_trace
+from app.spl.slot_constraint_projection import (
+    build_slot_constraint_projection,
+    merge_evidence_plan_spl_drift,
+    projection_from_bindings,
+)
 from app.spl.user_constraint_bindings import (
     SLOT_SOURCE_LLM,
     UserConstraintBindings,
@@ -631,19 +641,29 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     preliminary_signals = extract_query_signals(query_text, query_understanding)
     provider_configured = intent_advisor_provider_configured()
     primary_use_case_id = (candidate_mappings.get("use_case_ids") or [None])[0]
+    preplan_lifecycle = _preplan_promotion_lifecycle_for_llm_skip(qu, primary_use_case_id)
     skip_advisory, skip_reason = should_skip_sidecar(
         match_path=candidate_mappings.get("match_path"),
         registry_warnings=list(getattr(qu, "registry_warnings", None) or []) if qu is not None else None,
         catalog_row=catalog_authority_row(primary_use_case_id),
+        promotion_lifecycle_summary=preplan_lifecycle,
     )
-    if not skip_advisory and _high_confidence_registry_match_t0(qu):
+    if (
+        not skip_advisory
+        and _high_confidence_registry_match_t0(qu)
+        and can_skip_llm_for_t0(preplan_lifecycle)
+    ):
         skip_advisory = True
         skip_reason = "registry_backed_high_confidence_t0"
-    if skip_advisory and should_prioritize_intent_advisor(
+    if (
+        skip_advisory
+        and skip_reason not in {"deterministic_exact_match_t0", "registry_backed_high_confidence_t0"}
+        and should_prioritize_intent_advisor(
         query_text,
         qu,
         candidate_mappings,
         preliminary_signals,
+        )
     ):
         skip_advisory = False
         skip_reason = None
@@ -768,6 +788,42 @@ def _high_confidence_registry_match_t0(query_understanding: Any | None) -> bool:
     return isinstance(score, (int, float)) and float(score) >= 0.95
 
 
+def _preplan_promotion_lifecycle_for_llm_skip(
+    query_understanding: Any | None,
+    primary_use_case_id: Any,
+) -> dict[str, Any] | None:
+    """Read-only lifecycle projection for intent-advisor skip scheduling."""
+    if query_understanding is None:
+        return None
+    question_ref = getattr(query_understanding, "mapped_question_ref", None)
+    row_summary: dict[str, Any] | None = None
+    if isinstance(question_ref, str) and question_ref.strip():
+        entry = question_runtime_entry(question_ref.strip())
+        if entry is not None:
+            status, blockers = classify_runtime_row_authority(entry)
+            row_summary = {
+                "question_ref": str(entry.get("question_ref") or question_ref),
+                "row_authority_status": status,
+                "s3_authority_ready": project_s3_authority_ready(status),
+                "promotion_status": entry.get("promotion_status"),
+                "manifest_coverage_id": entry.get("manifest_coverage_id"),
+                "blockers": blockers,
+            }
+    pack = reviewed_answer_pack(
+        case_id=str(question_ref) if isinstance(question_ref, str) else None,
+        use_case_id=str(primary_use_case_id) if primary_use_case_id else None,
+    )
+    pack_summary = answer_pack_summary(pack) if pack is not None else None
+    lifecycle = effective_promotion_status(
+        stored_promotion_status=(row_summary or {}).get("promotion_status") if row_summary else None,
+        row_authority_summary=row_summary,
+        answer_pack_summary=pack_summary,
+    )
+    if lifecycle["stored_promotion_status"] or lifecycle["demotion_reasons"] or pack_summary:
+        return lifecycle
+    return None
+
+
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     # Stage 4B: on loop re-entry (after an mcp_call discovery hop or the gated
     # execution hop) the HUB only re-assesses + routes — it must NOT re-emit
@@ -812,6 +868,11 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case=state.get("selected_use_case"),
     )
     evidence_payload = plan.model_dump()
+    evidence_payload["mcp_allowed_normalized"] = _mcp_allowed_decision_from_plan(evidence_payload)
+    route_adjudication_payload = _route_adjudication_with_final_plan_drift(
+        state.get("route_adjudication"),
+        evidence_payload,
+    )
     planning = plan_path_and_tools(
         intent_classification=intent,
         evidence_plan=evidence_payload,
@@ -825,6 +886,7 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
             **state,
             "evidence_plan": evidence_payload,
             "planning_decision": planning.model_dump(),
+            "route_adjudication": route_adjudication_payload,
         }
     # Stage 4B: compose the reviewed discovery chronology once, so the HUB can
     # drive read-only mcp_call hops before the linear SPL/execution chain.
@@ -840,6 +902,7 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         **state,
         "evidence_plan": evidence_payload,
         "planning_decision": planning.model_dump(),
+        "route_adjudication": route_adjudication_payload,
         **loop_init,
         "mcp_loop_planner": loop_planner,
         "mcp_loop": assess_loop(loop_state).to_dict(),
@@ -880,11 +943,49 @@ def _loop_required_produces(evidence_payload: dict[str, Any] | None) -> list[str
     evidence-plan needs (so unservable needs like CVE surface as honest gaps)."""
     needs: list[str] = []
     plan = evidence_payload if isinstance(evidence_payload, dict) else {}
-    for key in ("missing_evidence", "evidence_needs", "required_produces"):
+    for key in ("missing_evidence", "evidence_needs", "required_produces", "missing_required_evidence"):
         value = plan.get(key)
         if isinstance(value, list):
             needs.extend(str(item) for item in value)
-    return needs
+    needs.extend(_row_authority_loop_requirements(plan.get("row_authority_summary")))
+    needs.extend(_source_profile_loop_requirements(plan.get("source_profile_binding_summary")))
+    return list(dict.fromkeys(item for item in needs if str(item).strip()))
+
+
+def _row_authority_loop_requirements(summary: Any) -> list[str]:
+    if not isinstance(summary, dict):
+        return []
+    status = str(summary.get("row_authority_status") or "")
+    by_status = {
+        "exact_known_needs_lookup": "lookup_dependency",
+        "exact_known_needs_detection_binding": "detection_binding",
+        "exact_known_needs_context_binding": "context_binding",
+        "exact_known_needs_clarification": "case_context",
+    }
+    requirement = by_status.get(status)
+    if requirement:
+        return [requirement]
+    requirements: list[str] = []
+    for blocker in summary.get("blockers") or []:
+        blocker_text = str(blocker)
+        if "lookup" in blocker_text:
+            requirements.append("lookup_dependency")
+        elif "detection" in blocker_text:
+            requirements.append("detection_binding")
+        elif "context" in blocker_text:
+            requirements.append("context_binding")
+        elif "clarification" in blocker_text:
+            requirements.append("case_context")
+    return list(dict.fromkeys(requirements))
+
+
+def _source_profile_loop_requirements(summary: Any) -> list[str]:
+    if not isinstance(summary, dict):
+        return []
+    missing = summary.get("source_profile_bindings_missing")
+    if isinstance(missing, list) and missing:
+        return ["source_profile"]
+    return []
 
 
 def _resolve_vulnerability_source_status(state: ChatPipelineState) -> dict[str, Any] | None:
@@ -900,12 +1001,94 @@ def _resolve_vulnerability_source_status(state: ChatPipelineState) -> dict[str, 
 def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[str, Any]) -> bool:
     if not settings.control_plane_enabled:
         return False
-    if evidence_payload.get("mcp_allowed") is False:
+    if _mcp_allowed_decision_from_plan(evidence_payload)["allowed"] is not True:
         return False
     provisional = {**state, "evidence_plan": evidence_payload}
     if _uses_rag_only_path(provisional):
         return False
     return True
+
+
+def _mcp_allowed_decision_from_plan(evidence_plan: dict[str, Any] | None) -> dict[str, Any]:
+    plan = evidence_plan if isinstance(evidence_plan, dict) else {}
+    if not settings.control_plane_enabled:
+        return {
+            "allowed": True,
+            "source": "control_plane_disabled",
+            "reason": "legacy_gate_bypass",
+        }
+    if plan.get("mcp_allowed") is True:
+        return {
+            "allowed": True,
+            "source": "evidence_plan",
+            "reason": "explicit_true",
+        }
+    if "mcp_allowed" not in plan:
+        return {
+            "allowed": False,
+            "source": "evidence_plan_missing",
+            "reason": "mcp_allowed_unset_fail_closed",
+        }
+    if plan.get("mcp_allowed") is None:
+        return {
+            "allowed": False,
+            "source": "evidence_plan_null",
+            "reason": "mcp_allowed_null_fail_closed",
+        }
+    return {
+        "allowed": False,
+        "source": "evidence_plan",
+        "reason": "explicit_false",
+    }
+
+
+def _route_adjudication_with_final_plan_drift(
+    route_adjudication: Any,
+    evidence_payload: dict[str, Any] | None,
+) -> Any:
+    if not isinstance(route_adjudication, dict):
+        return route_adjudication
+    plan = evidence_payload if isinstance(evidence_payload, dict) else {}
+    normalized = _mcp_allowed_decision_from_plan(plan)
+    narrowed: list[str] = []
+    if plan.get("needs_mcp") is True and normalized["allowed"] is not True:
+        narrowed.append("mcp_execution")
+    if plan.get("needs_spl") is True and plan.get("spl_allowed") is not True:
+        narrowed.append("spl_generation")
+    drift = {
+        "status": "capability_narrowed" if narrowed else "aligned",
+        "route_preserved": True,
+        "selected_route": route_adjudication.get("final_route") or route_adjudication.get("route"),
+        "route_family": _route_family(route_adjudication),
+        "final_plan_family": _plan_family(plan),
+        "capabilities_narrowed": narrowed,
+        "mcp_allowed_normalized": normalized,
+        "row_authority_status": (
+            (plan.get("row_authority_summary") or {}).get("row_authority_status")
+            if isinstance(plan.get("row_authority_summary"), dict)
+            else None
+        ),
+    }
+    updated = dict(route_adjudication)
+    updated["final_evidence_plan_drift"] = drift
+    return updated
+
+
+def _route_family(route_adjudication: dict[str, Any]) -> str | None:
+    route = route_adjudication.get("final_route") or route_adjudication.get("route")
+    if route is None:
+        return None
+    return str(route)
+
+
+def _plan_family(plan: dict[str, Any]) -> str:
+    if plan.get("needs_spl"):
+        return "spl_generation"
+    if plan.get("needs_mcp"):
+        return "live_investigation"
+    if plan.get("needs_rag"):
+        return "knowledge_recall"
+    return str(plan.get("answer_mode") or "unknown")
 
 
 def _resolve_loop_chronology(
@@ -1124,6 +1307,25 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
     state = graph_node_route_resolution(state)
     state = graph_node_route_contract(state)
     return graph_node_shadow_tail(state)
+
+
+
+
+def graph_node_ensure_workflow_plan(state: ChatPipelineState) -> ChatPipelineState:
+    """Plan-only slice of workflow_spl when composed dispatch skips SPL generation."""
+    if state.get("workflow_plan"):
+        return state
+    request = state["request"]
+    routed = state["routed"]
+    trace_id = state["trace_id"]
+    effective_skill = _effective_routing_skill(state)
+    workflow_plan = _routes_chat().plan_workflow(
+        selected_skill=effective_skill,
+        tool_plan=list(routed["tool_plan"]),
+        query=request.message,
+        trace_id=trace_id,
+    )
+    return {**state, "workflow_plan": workflow_plan}
 
 
 def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
@@ -1695,6 +1897,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     from app.chat.run_contract_builder import (  # circular: pipeline state
         build_final_evidence_gate,
         build_run_contract,
+        enrich_run_contract_payload,
     )
 
     emit_stage("checking_sufficiency")
@@ -1720,7 +1923,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     run_contract = build_run_contract(gate_state_input, route=route, gate=final_evidence_gate)
     state = {
         **state,
-        "run_contract": run_contract.model_dump_canonical(),
+        "run_contract": enrich_run_contract_payload(run_contract.model_dump_canonical(), gate_state_input),
         "source_evidence": source_evidence,
         "final_evidence_gate": gate_payload,
     }
@@ -1839,6 +2042,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision,
         allow_severity_assessment=run_contract.allow_severity_assessment,
     )
+    # A T1 SPL-native review-only draft is a pure SPL-artifact request: no
+    # collected evidence and no alert context. Severity must not be assigned even
+    # if a co-matched use-case (e.g. an IT-to-OT boundary row) carries a P-policy.
+    if _is_t2_review_only(state.get("candidate_spl"), spl_validation):
+        severity_decision = apply_gate_severity_cap(
+            severity_decision,
+            allow_severity_assessment=False,
+        )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,
         severity_decision.severity_label,
@@ -2032,6 +2243,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         # owns the visible message (the SPL is shown).
         human_review = _t2_review_only_review()
         note = "Review-only SPL draft produced; analyst validation required before any execution. Nothing was executed."
+        if path_type == "guided_investigation" and isinstance(candidate_spl, dict):
+            spl_text = str(candidate_spl.get("candidate_spl") or "").strip()
+            if spl_text and spl_text not in message:
+                spl_block = (
+                    "Review-only SPL draft (not executed):\n"
+                    f"```\n{spl_text}\n```"
+                )
+                message = f"{message.strip()}\n\n{spl_block}".strip()
     elif _is_spl_clarification_required(spl_validation):
         human_review = _spl_clarification_review(spl_validation)
         message = human_review["safe_message_for_user"]
@@ -2221,11 +2440,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         _intent_family = ""
         if isinstance(intent_classification, dict):
             _intent_family = str(intent_classification.get("intent_family") or "")
+        _registry_warnings, _catalog_row = _composer_skip_registry_context(state)
         _skip_comp, _skip_comp_reason = _skip_composer_fn(
             query=request.message,
             path_type=path_type,
             intent_family=_intent_family or None,
             use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
+            match_path=_match_path_from_state(state),
+            promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
+            registry_warnings=_registry_warnings,
+            catalog_row=_catalog_row,
         )
         _draft_preview_active = isinstance(spl_draft_preview, dict) and bool(
             str(spl_draft_preview.get("draft_spl") or "").strip()
@@ -2449,11 +2673,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     intent_family = ""
     if isinstance(state.get("intent_classification"), dict):
         intent_family = str(state["intent_classification"].get("intent_family") or "")
+    _registry_warnings, _catalog_row = _composer_skip_registry_context(state)
     skip_composer, skip_reason = should_skip_llm_composer(
         query=request.message,
         path_type=path_type,
         intent_family=intent_family or None,
         use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
+        match_path=_match_path_from_state(state),
+        promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
+        registry_warnings=_registry_warnings,
+        catalog_row=_catalog_row,
     )
     if (
         answer_contract is not None
@@ -2789,6 +3018,48 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         )
     skill_contribution_record: dict[str, Any] = skill_contribution.to_dict()
 
+    # WS0 T0.4 + SPL handoff: resolve final ResourcePlan step statuses and
+    # planning-vs-final drift before control-plane trace assembly so trace and
+    # response payloads agree on evidence_plan and run_contract.
+    state = annotate_step_statuses({**state, "mitre_decision": mitre_decision})
+    _handoff_candidate = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else None
+    _handoff_final_proj = (
+        _handoff_candidate.get("slot_constraint_projection")
+        if isinstance(_handoff_candidate, dict)
+        else None
+    )
+    _handoff_evidence_plan = (
+        state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
+    )
+    if isinstance(_handoff_final_proj, dict) and isinstance(_handoff_evidence_plan, dict):
+        state = {
+            **state,
+            "evidence_plan": merge_evidence_plan_spl_drift(_handoff_evidence_plan, _handoff_final_proj),
+        }
+    _handoff_gate_state = {
+        **state,
+        "human_review": human_review,
+        "source_evidence": source_evidence,
+        "answer_contract": answer_contract_payload,
+    }
+    final_evidence_gate = build_final_evidence_gate(_handoff_gate_state, route=route)
+    gate_payload = final_evidence_gate.to_dict()
+    structured_context["final_evidence_gate"] = gate_payload
+    run_contract = build_run_contract(_handoff_gate_state, route=route, gate=final_evidence_gate)
+    state = {
+        **state,
+        "run_contract": enrich_run_contract_payload(run_contract.model_dump_canonical(), _handoff_gate_state),
+        "final_evidence_gate": gate_payload,
+    }
+    if governance_trace is not None:
+        final_hil = run_contract.effective_hil_required
+        if isinstance(governance_trace, dict):
+            governance_trace = {**governance_trace, "effective_hil_required": final_hil}
+        else:
+            governance_trace = governance_trace.model_copy(
+                update={"effective_hil_required": final_hil}
+            )
+
     visibility: dict[str, Any] = {}
     control_plane_trace = None
     if settings.control_plane_enabled:
@@ -2903,33 +3174,6 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         final_answer_validation=final_answer_validation,
         analyst_response=analyst_response,
     )
-    # WS0 T0.4: resolve final plan-step statuses (incl. MITRE, resolved in
-    # this node) so the response's evidence_plan carries executed/fallback/
-    # blocked provenance for every composed step.
-    state = annotate_step_statuses({**state, "mitre_decision": mitre_decision})
-    from app.chat.run_contract_builder import (  # circular
-        build_final_evidence_gate as _build_final_evidence_gate_final,
-        build_run_contract as _build_run_contract_final,
-    )
-
-    # Recompute the gate against the final state (post composer / final validation
-    # / HIL changes) and pass it into the rebuild, so the exposed
-    # final_evidence_gate cannot drift from the final RunContract.
-    _final_gate_state = {
-        **state,
-        "human_review": human_review,
-        "source_evidence": source_evidence,
-        "answer_contract": answer_contract_payload,
-    }
-    final_evidence_gate = _build_final_evidence_gate_final(_final_gate_state, route=route)
-    run_contract = _build_run_contract_final(_final_gate_state, route=route, gate=final_evidence_gate)
-    gate_payload = final_evidence_gate.to_dict()
-    structured_context["final_evidence_gate"] = gate_payload
-    state = {
-        **state,
-        "run_contract": run_contract.model_dump_canonical(),
-        "final_evidence_gate": gate_payload,
-    }
     # Review-only SPL drafts: one dedicated renderer owns the visible answer (fixed
     # section order + labels) and suppresses the generic title/review-type/investigation
     # producers. Presentation only — RunContract/HIL/MCP/source-evidence are unchanged.
@@ -2938,6 +3182,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         analyst_response=analyst_response,
         message=message,
         draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+        candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
     )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,
@@ -3259,6 +3504,7 @@ def _dispatch_hooks() -> DispatchHooks:
         rag_early=graph_node_rag_early,
         spl_source_resolve=graph_node_spl_source_resolve,
         workflow_spl=graph_node_workflow_spl,
+        ensure_workflow_plan=graph_node_ensure_workflow_plan,
         execution=graph_node_execution,
     )
 
@@ -3330,6 +3576,36 @@ def _resource_decision_labels(state: ChatPipelineState) -> list[str]:
     return []
 
 
+def _promotion_lifecycle_for_composer_skip(state: ChatPipelineState) -> dict[str, Any] | None:
+    evidence_plan = state.get("evidence_plan")
+    if isinstance(evidence_plan, dict):
+        summary = evidence_plan.get("promotion_lifecycle_summary")
+        if isinstance(summary, dict):
+            return summary
+    use_case_id = None
+    q2i = state.get("query_to_intent") or {}
+    if isinstance(q2i, dict):
+        mappings = q2i.get("candidate_mappings") or {}
+        if isinstance(mappings, dict):
+            ids = mappings.get("use_case_ids") or []
+            if ids:
+                use_case_id = ids[0]
+    return _preplan_promotion_lifecycle_for_llm_skip(state.get("query_understanding"), use_case_id)
+
+
+def _composer_skip_registry_context(state: ChatPipelineState) -> tuple[list[str] | None, dict | None]:
+    q2i = state.get("query_to_intent") or {}
+    if not isinstance(q2i, dict):
+        return None, None
+    mappings = q2i.get("candidate_mappings") or {}
+    if not isinstance(mappings, dict):
+        return None, None
+    warnings = mappings.get("registry_warnings")
+    registry_warnings = [str(item) for item in warnings] if isinstance(warnings, list) else None
+    catalog_row = mappings.get("catalog_row") if isinstance(mappings.get("catalog_row"), dict) else None
+    return registry_warnings, catalog_row
+
+
 def _match_path_from_state(state: ChatPipelineState) -> str | None:
     evidence_plan = state.get("evidence_plan")
     if isinstance(evidence_plan, dict):
@@ -3371,7 +3647,7 @@ def _spl_allowed(state: ChatPipelineState) -> bool:
 def _mcp_allowed(state: ChatPipelineState) -> bool:
     if not settings.control_plane_enabled:
         return True
-    return _evidence_plan(state).get("mcp_allowed") is True
+    return _mcp_allowed_decision_from_plan(_evidence_plan(state))["allowed"] is True
 
 
 def _context_selected_skill(state: ChatPipelineState) -> str:
@@ -4154,12 +4430,26 @@ def _candidate_spl_stage(
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
-    if skill not in {"attack_discovery", "spl_generation"}:
+    guided_spl_rescue = (
+        skill == "guided_investigation"
+        and _guided_investigation_spl_rescue_eligible(user_query)
+    )
+    if skill not in {"attack_discovery", "spl_generation"} and not guided_spl_rescue:
         return None, None
 
     telemetry = _routes_chat().get_telemetry_connector()
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
     spl_governance = _runtime_spl_governance(use_case_id)
+    if guided_spl_rescue:
+        t2_native_candidate = _candidate_from_t2_spl_native(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+        )
+        return t2_native_candidate if t2_native_candidate is not None else (None, None)
     template = get_spl_template(template_id)
     governance_block_reason = _spl_governance_block_reason(template_id, template, spl_governance)
     if governance_block_reason is not None:
@@ -4172,6 +4462,19 @@ def _candidate_spl_stage(
             reason=governance_block_reason,
             spl_governance=spl_governance,
         )
+    runtime_profile = _t2_runtime_profile_for_query(user_query)
+    if runtime_profile is not None:
+        t2_early = _candidate_from_t2_spl_native(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+        )
+        if t2_early is not None:
+            return t2_early
+
     user_bindings = _spl_user_constraint_bindings(
         user_query,
         llm_intent_advisory=llm_intent_advisory,
@@ -4223,22 +4526,6 @@ def _candidate_spl_stage(
             policy_version=validation_payload["policy_version"],
         )
         return candidate_payload, validation_payload
-
-    # T1 SPL-native path: a runtime-source-profile query (scada_perf/cisco_asa)
-    # with no governed template gets a deterministic review-only draft (shape ->
-    # repair -> validate) before any clarification/LLM degrade. Narrowly gated on
-    # the runtime profile so other catalogue/105 paths are untouched. Always
-    # review-only (approved=false, normalized_spl=null, execution disabled).
-    t2_native_candidate = _candidate_from_t2_spl_native(
-        trace_id=trace_id,
-        skill=skill,
-        user_query=user_query,
-        telemetry=telemetry,
-        profile=profile,
-        spl_governance=spl_governance,
-    )
-    if t2_native_candidate is not None:
-        return t2_native_candidate
 
     llm_failover_enabled = _should_use_llm_spl_failover(skill)
     # B02: when LLM failover is enabled, do not short-circuit planned/missing
@@ -4526,6 +4813,10 @@ def _candidate_from_default_template(
         "template_id": template.template_id,
         "user_constraint_bindings": bindings.to_dict(),
         "spl_binding_trace": binding_trace,
+        "slot_constraint_projection": projection_from_bindings(
+            bindings,
+            built_at_stage="spl_generation",
+        ).to_dict(),
     }
     validation_payload = {
         "approved": validation["approved"],
@@ -4753,6 +5044,18 @@ def _should_use_llm_spl_failover(skill: str) -> bool:
     return skill in {"attack_discovery", "spl_generation"}
 
 
+def _guided_investigation_spl_rescue_eligible(user_query: str) -> bool:
+    """True when an out-of-registry guided turn still needs a review-only SPL draft.
+
+    Guided investigation is review-only guidance by default, but explicit SPL-native
+    asks (index-bound T2 profiles or SPL artifact phrasing) must still produce the
+    deterministic draft instead of prose-only baselining/hunt guidance.
+    """
+    if detect_spl_artifact_request(user_query):
+        return True
+    return _t2_runtime_profile_for_query(user_query) is not None
+
+
 def _t2_runtime_profile_for_query(user_query: str) -> Any | None:
     """Return the runtime source profile (scada_perf/cisco_asa) named in the
     query, or None.  Narrow gate for the T1 SPL-native path."""
@@ -4785,6 +5088,10 @@ def _candidate_from_t2_spl_native(
         return None
 
     artifact = generate_review_only_spl(user_query)
+    slot_projection = build_slot_constraint_projection(
+        user_query,
+        built_at_stage="spl_generation",
+    )
 
     # Unsafe candidate -> hard block, no renderable SPL.
     if artifact.blocked:
@@ -4880,8 +5187,10 @@ def _candidate_from_t2_spl_native(
         "detection_family": None,
         "review_only_renderable": True,
         "t2_spl_native": t2_block,
+        "slot_constraint_projection": slot_projection.to_dict(),
         **review_labels,
     }
+    t2_block["slot_constraint_projection"] = slot_projection.to_dict()
     validation_payload = {
         # Fail-closed: the analyst sees the draft, but approved/normalized_spl stay
         # false/null so the MCP execution gate can never run it.

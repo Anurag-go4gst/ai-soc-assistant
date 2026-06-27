@@ -2,13 +2,16 @@
 
 Report-only audit for the 105-question runtime map. `row_authority_status` is the reasoned enum; `s3_authority_ready` is the one-way projected readiness boolean.
 
-- Rows: **105**
+- Rows: **163**
+- 105-question rows: **105**
+- Catalogue rows: **58**
 - Projection mismatches against existing `s3_authority_ready`: **0**
 
 ## Status Counts
 
 | row_authority_status | rows |
 |---|---:|
+| `catalog_weak_needs_enrichment` | 58 |
 | `exact_known_needs_clarification` | 4 |
 | `exact_known_needs_detection_binding` | 28 |
 | `exact_known_needs_lookup` | 9 |

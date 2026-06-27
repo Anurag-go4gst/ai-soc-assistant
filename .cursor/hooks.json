@@ -25,6 +25,12 @@
         "matcher": "Write|ApplyPatch|EditNotebook",
         "failClosed": true
       }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": ".cursor/hooks/before-submit-verify-arm.sh",
+        "matcher": "UserPromptSubmit"
+      }
     ]
   }
 }

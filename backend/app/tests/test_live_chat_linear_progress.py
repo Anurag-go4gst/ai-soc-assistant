@@ -95,6 +95,33 @@ def test_unsafe_request_progress_ends_in_blocked_review_required() -> None:
     assert response.response_packaging_status == "blocked_review_required"
 
 
+def test_containment_banner_renders_from_canonical_blocked_action_state() -> None:
+    response = chat(ChatRequest(message="Disable the CEO's account right now."))
+
+    assert response.human_review is not None
+    assert response.human_review.reason == "unsafe_action_blocked"
+    assert response.execution is not None
+    assert response.execution.status != "executed"
+    assert response.execution.executed_spl is None
+    assert response.spl_validation is None or response.spl_validation.normalized_spl is None
+
+    contract = response.run_contract or {}
+    assert contract.get("execution_authorized") is False
+
+    state = response.blocked_action_state or {}
+    assert state.get("visible") is True
+    assert state.get("status") == "blocked"
+    assert state.get("block_class") == "policy_governance"
+    assert state.get("action_requested") == "containment_or_enforcement"
+    assert state.get("execution_authorized") is False
+    assert state.get("route_preserved") is True
+    assert state.get("canonical_skill") == (contract.get("routing") or {}).get("canonical_skill")
+    assert "run_contract" in (state.get("canonical_sources") or [])
+    assert "human_review" in (state.get("canonical_sources") or [])
+    assert "No containment or enforcement action was performed" in str(state.get("safe_message"))
+    assert (response.control_plane_trace or {}).get("blocked_action_state") == state
+
+
 def test_draft_spl_request_progress_shows_prepare_spl_not_execute_spl() -> None:
     source = PROGRESS_TS.read_text(encoding="utf-8")
     live_block = source.split("const LIVE_LINEAR_STEPS", 1)[1].split("const LIVE_OPTIONAL_STEP_IDS", 1)[0]

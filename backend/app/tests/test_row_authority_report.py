@@ -13,6 +13,7 @@ from scripts.build_row_authority_report import (
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _RUNTIME_MAP = _REPO_ROOT / "backend" / "app" / "coverage" / "question_runtime_map_v1.json"
 _MANIFEST = _REPO_ROOT / "backend" / "app" / "coverage" / "pattern_coverage_v1.json"
+_CATALOG = _REPO_ROOT / "backend" / "app" / "use_cases" / "catalog.json"
 _REPORT_JSON = _REPO_ROOT / "docs" / "evals" / "row_authority_report.json"
 _REPORT_MD = _REPO_ROOT / "docs" / "evals" / "row_authority_report.md"
 
@@ -21,6 +22,7 @@ def _report() -> dict:
     return build_report(
         json.loads(_RUNTIME_MAP.read_text(encoding="utf-8")),
         json.loads(_MANIFEST.read_text(encoding="utf-8")),
+        json.loads(_CATALOG.read_text(encoding="utf-8")),
     )
 
 
@@ -31,9 +33,10 @@ def _row(report: dict, question_ref: str) -> dict:
 def test_row_authority_report_has_all_105_rows_and_no_projection_mismatches() -> None:
     report = _report()
 
-    assert report["row_count"] == 105
+    assert report["question_105_count"] == 105
+    assert report["catalog_count"] > 0
     assert report["projection_mismatches"] == []
-    assert sum(report["status_counts"].values()) == 105
+    assert sum(report["status_counts"].values()) == report["row_count"]
 
 
 def test_row_authority_report_maps_q046_to_exact_known_weak_needs_enrichment() -> None:

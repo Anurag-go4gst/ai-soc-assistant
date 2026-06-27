@@ -31,7 +31,7 @@ Cross-cutting rules learned from review cycles. These apply to **every** task, n
     - Control plane / intent: `pytest` on affected tests + `scripts/eval_out_of_set_intent_probe.py --check` when intent changes
     - Broad backend: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest`
     - Governance: `./scripts/run_stage3_governance_regression.sh` before claiming control-plane work done
-    - Frontend: `cd frontend && npm run build` for any UI change; prod serves `frontend/dist` via Nginx
+    - Frontend: `cd frontend && npm run build` for any UI change; prod serves `frontend/dist` via Nginx (`postbuild` chmods `dist` so `www-data` can read — without it Nginx returns 403)
 13. **Probe with novel queries**, not only in-catalog golden rows. In-set 105/120 passing can hide out-of-registry clarification dumps.
 14. **Do not commit accidental eval baseline drift** (`soc_clean_answer_eval_*`, `langgraph_dual_parity_*`, etc.) unless the task was explicitly to refresh baselines.
 15. **Report what you verified** (commands run, pass/fail counts). "Should work" is not verification.
@@ -57,6 +57,7 @@ Cross-cutting rules learned from review cycles. These apply to **every** task, n
 | "Implement the plan" without reading code | Duplicates completed work | Grep + extend existing tests first |
 | One giant commit mixing concerns | Hard review, easy regressions | Stage-scoped commits per Commit Hygiene below |
 | Passing only in-set evals | Misses 29/50-style classification dumps | Use out-of-set probe harness + novel phrasing |
+| `npm run build` without readable `dist` perms | Nginx 403 on cisco-vai.vnudge.com | Rely on `postbuild` in `frontend/package.json`; manual fix: `chmod -R a+rX frontend/dist` |
 
 ### Good prompts for the user to give agents
 
@@ -169,7 +170,7 @@ For frontend or shared type changes:
 
 ```bash
 cd frontend
-npm run build
+npm run build   # postbuild: chmod -R a+rX dist (Nginx www-data readability)
 ```
 
 For harness independence:

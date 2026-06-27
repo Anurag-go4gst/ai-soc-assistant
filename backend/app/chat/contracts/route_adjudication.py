@@ -11,3 +11,8 @@ class RouteAdjudication(BaseModel):
     final_use_case_id: str | None = None
     authority_source: str
     reason: str
+    row_authority_status: str | None = None
+    row_authority_decision: str | None = None
+    row_authority_applied: bool = False
+    row_authority_note: str | None = None
+    row_authority_fallback_reason: str | None = None

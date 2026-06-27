@@ -6,8 +6,9 @@ from app.query_understanding.parser import understand_query
 
 
 def _plan(query: str):
-    q2i = build_query_to_intent(query=query, query_understanding=understand_query(query))
-    return plan_evidence(q2i.intent_classification, q2i.model_dump(), routed={})
+    understanding = understand_query(query)
+    q2i = build_query_to_intent(query=query, query_understanding=understanding)
+    return plan_evidence(q2i.intent_classification, q2i.model_dump(), routed={}, query_understanding=understanding)
 
 
 def test_policy_knowledge_is_rag_only_with_policy_context_required() -> None:
@@ -66,3 +67,92 @@ def test_mitre_mapping_clarification_skips_spl_and_mcp() -> None:
     assert plan.requires_hil is True
     assert plan.spl_allowed is False
     assert plan.mcp_allowed is False
+
+
+def test_evidence_plan_carries_known_weak_status_for_q046() -> None:
+    plan = _plan("Which users have excessive failed logins?")
+
+    assert plan.row_authority_summary is not None
+    assert plan.row_authority_summary["question_ref"] == "q0.q046"
+    assert plan.row_authority_summary["row_authority_status"] == "exact_known_weak_needs_enrichment"
+    assert plan.row_authority_summary["s3_authority_ready"] is False
+
+
+def test_evidence_plan_environment_kb_is_not_collected_telemetry() -> None:
+    plan = _plan("Show firewall traffic by src_zone and dest_zone on port 443")
+
+    assert plan.source_profile_binding_summary is not None
+    assert plan.source_profile_binding_summary["environment_kb_is_telemetry"] is False
+
+
+def test_normalized_slots_preserve_user_explicit_index_before_source_profile() -> None:
+    plan = _plan("Generate SPL for index=scada_perf by rtu_id over last 24h")
+
+    assert plan.normalized_slot_summary is not None
+    slots = plan.normalized_slot_summary["normalized_slots"]
+    sources = plan.normalized_slot_summary["slot_sources"]
+    assert slots["index"] == "scada_perf"
+    assert sources["index"] == "user_explicit"
+
+
+def test_answer_pack_raw_status_not_loaded_at_runtime(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.use_cases.answer_packs.load_answer_packs",
+        lambda: {
+            "q0.q046": {
+                "case_id": "q0.q046",
+                "review_status": "draft",
+                "required_evidence": ["raw_llm_only_field"],
+                "raw_llm_prose": "This prose must never become runtime authority.",
+            }
+        },
+    )
+
+    plan = _plan("Which users have excessive failed logins?")
+
+    assert plan.answer_pack_summary is None
+    assert "raw_llm_only_field" not in plan.required_evidence_keys
+
+
+def test_answer_pack_reviewed_status_enriches_evidence_plan(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.use_cases.answer_packs.load_answer_packs",
+        lambda: {
+            "q0.q046": {
+                "case_id": "q0.q046",
+                "review_status": "reviewed",
+                "required_evidence": ["failed_login_count", "user"],
+                "dependency_gaps": ["lookup_dependency"],
+                "mitre_candidates": ["T1110"],
+                "must_not_claim": ["account_compromise_without_success"],
+                "raw_llm_prose": "Ignored even after review.",
+            }
+        },
+    )
+
+    plan = _plan("Which users have excessive failed logins?")
+
+    assert plan.answer_pack_summary is not None
+    assert plan.answer_pack_summary["raw_llm_prose_loaded"] is False
+    assert "reviewed_answer_pack_projection" in plan.reasons
+    assert "failed_login_count" in plan.required_evidence_keys
+    assert "lookup_dependency" in plan.missing_required_evidence
+    assert "T1110" in plan.mitre_candidates_metadata_only
+    assert "account_compromise_without_success" in plan.unsupported_claims_avoid
+
+
+def test_answer_pack_cannot_override_environment_kb(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.chat.evidence_planner.reviewed_answer_pack",
+        lambda **_kwargs: {
+            "case_id": "q0.q046",
+            "review_status": "reviewed",
+            "source_profile_hints": {"index": "pack_index"},
+        },
+    )
+    plan = _plan("Generate SPL for index=scada_perf by rtu_id over last 24h")
+
+    assert plan.answer_pack_summary is not None
+    assert plan.normalized_slot_summary is not None
+    assert plan.normalized_slot_summary["normalized_slots"]["index"] == "scada_perf"
+    assert plan.normalized_slot_summary["slot_sources"]["index"] == "user_explicit"

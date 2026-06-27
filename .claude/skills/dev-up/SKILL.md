@@ -32,5 +32,6 @@ Bring up the full dev stack via Docker Compose and verify it's healthy.
 ## Notes
 
 - All service ports are bound to `127.0.0.1`. Don't suggest changing that without confirming — production access is via Nginx only.
+- Production UI is served from `frontend/dist` by Nginx (not the Vite dev container). After UI changes: `cd frontend && npm run build` — `postbuild` chmods `dist` for `www-data`. If the public site shows **403 Forbidden**, run `chmod -R a+rX frontend/dist` and check `/var/log/nginx/ai-soc-assistant.error.log`.
 - Backend runs uvicorn with `--reload`; code edits take effect without rebuild. Rebuild only for dependency changes (`pyproject.toml`, `package.json`) or Dockerfile edits.
 - For a clean reset: `docker compose down -v` drops volumes including Postgres data. Confirm with the user before running.

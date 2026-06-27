@@ -17,6 +17,7 @@ from typing import Any, Callable
 from app.spl.deterministic_spl_repair import repair_spl_candidate
 from app.spl.governed_llm_spl import parse_spl_candidate
 from app.spl.t2_pre_parse import pre_parse_spl_tokens
+from app.spl.t2_constraints import validate_constraint_coverage
 from app.spl.t2_shape import SplShape, extract_spl_shape
 
 
@@ -51,6 +52,17 @@ class T2SplArtifact:
             "llm_warnings": self.llm_warnings,
         }
 
+def is_t2_spl_native_review(
+    spl_validation: dict[str, Any] | None = None,
+    candidate_spl: dict[str, Any] | None = None,
+) -> bool:
+    """True when the live turn owns a T1 SPL-native review-only draft."""
+    if isinstance(candidate_spl, dict) and candidate_spl.get("generation_mode") == "t2_spl_native_review":
+        return True
+    if isinstance(spl_validation, dict):
+        return str(spl_validation.get("review_required_reason") or "") == "t2_spl_native_review_only"
+    return False
+
 
 def generate_review_only_spl(
     query: str,
@@ -82,15 +94,27 @@ def generate_review_only_spl(
     shape: SplShape = extract_spl_shape(query, tokens=tokens, llm_shape=llm_shape)
     repaired = repair_spl_candidate(shape, llm_candidate_spl=llm_candidate_spl)
 
+    constraints, missing_constraints = validate_constraint_coverage(
+        list(shape.constraints), repaired.candidate_spl
+    )
+    shape_dict = shape.to_dict()
+    shape_dict["constraints"] = constraints
+    shape_dict["missing_constraints"] = missing_constraints
+    coverage_notes: list[str] = []
+    if missing_constraints:
+        coverage_notes.append(
+            "Constraint coverage incomplete: " + ", ".join(missing_constraints)
+        )
+
     return T2SplArtifact(
         runtime_operation=shape.runtime_operation,
         source_profile=shape.source_profile,
-        shape=shape.to_dict(),
+        shape=shape_dict,
         candidate_spl=repaired.candidate_spl,
         renderable=bool(repaired.candidate_spl) and not repaired.blocked,
         blocked=repaired.blocked,
         repairs=repaired.repairs,
         block_reasons=repaired.block_reasons,
-        validation_notes=[*shape.assumptions, *repaired.validation_notes],
+        validation_notes=[*shape.assumptions, *repaired.validation_notes, *coverage_notes],
         llm_warnings=llm_warnings,
     )

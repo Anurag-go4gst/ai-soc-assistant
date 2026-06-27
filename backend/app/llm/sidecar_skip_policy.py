@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.coverage.promotion_lifecycle import can_skip_llm_for_t0
 from app.use_cases.routing_authority import sidecar_intent_is_t0
 
 # Sufficiency-gate modes (evidence stage) where policy/authority is fixed.
@@ -20,6 +21,7 @@ def should_skip_sidecar(
     hil_status: str | None = None,
     registry_warnings: list[str] | None = None,
     catalog_row: dict | None = None,
+    promotion_lifecycle_summary: dict | None = None,
 ) -> tuple[bool, str | None]:
     """Return (skip, reason) when no sidecar LLM call is permitted."""
     if match_path is not None:
@@ -28,7 +30,7 @@ def should_skip_sidecar(
             normalized_path,
             catalog_row=catalog_row,
             registry_warnings=list(registry_warnings or []),
-        ):
+        ) and can_skip_llm_for_t0(promotion_lifecycle_summary):
             return True, "deterministic_exact_match_t0"
     if sufficiency_mode and sufficiency_mode.strip().lower() in _T0_SUFFICIENCY_MODES:
         return True, f"t0_sufficiency_mode:{sufficiency_mode.strip().lower()}"

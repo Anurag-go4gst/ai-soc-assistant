@@ -48,13 +48,21 @@ def compose_resource_plan(
             spl_step = None
         if mcp_step is not None and not _skill_permits(contract, "mcp"):
             skill_vetoes.append("mcp_execution:skill_contract")
-            mcp_step = None
+            mcp_step.status = "blocked_policy"
+            mcp_step.status_reason = "skill_contract"
+            mcp_step.policy_checks.append("blocked_by_skill_contract")
         required = [str(item) for item in contract.get("required_evidence") or []]
         if required:
             check = "skill_required_evidence:" + ",".join(sorted(required))
             for step in (rag_step, spl_step, mcp_step):
                 if step is not None:
                     step.policy_checks.append(check)
+    if mcp_step is not None and getattr(evidence_plan, "mcp_allowed", False) is not True:
+        if mcp_step.status != "blocked_policy":
+            mcp_step.status = "blocked_policy"
+            mcp_step.status_reason = "mcp_not_allowed_by_evidence_plan"
+        if "mcp_not_allowed_by_evidence_plan" not in mcp_step.policy_checks:
+            mcp_step.policy_checks.append("mcp_not_allowed_by_evidence_plan")
     mitre_step = (
         PlanStep(
             step_id="mitre",

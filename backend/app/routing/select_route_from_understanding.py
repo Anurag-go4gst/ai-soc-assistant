@@ -240,9 +240,20 @@ def _route_out_of_registry(
 
     signals = extract_query_signals(query, understanding)
     action = bool(signals["action_or_containment_shaped"])
+    live_data = bool(signals.get("live_data_request"))
+    guidance = bool(signals.get("guidance_request"))
+    spl_native_floor = (
+        not action
+        and (
+            detect_spl_artifact_request(query)
+            or _detection_family_match(query)
+            or (live_data and not guidance)
+        )
+    )
 
     # T2 answer-shape floor — runs for containment decision-support asks too, but
-    # never for unsafe execution or explicit run-SPL.
+    # never for unsafe execution, explicit run-SPL, or concrete SPL-native asks
+    # (index/metric/entity SPL drafts must not collapse to baselining guidance).
     from app.config import settings as _settings
     from app.query_understanding.soc_investigation_shape import is_unsafe_execution
 
@@ -251,7 +262,11 @@ def _route_out_of_registry(
         # ``run_execution`` is the returned signal that captures explicit run-SPL
         # intent (``explicit_run_spl`` is internal-only and never returned, so the
         # old ``.get("explicit_run_spl")`` guard was always falsy / a no-op).
-        if not is_unsafe_execution(normalized) and not signals.get("run_execution"):
+        if (
+            not spl_native_floor
+            and not is_unsafe_execution(normalized)
+            and not signals.get("run_execution")
+        ):
             from app.chat.answer_shape_router import classify_answer_shape
 
             if classify_answer_shape(query).primary_shape != "hunt":
@@ -267,8 +282,6 @@ def _route_out_of_registry(
     # The family matcher is greedy (it fires on PMU/HMI nouns), so without this an
     # "evidence-led investigation plan" was being pulled into the SPL path. Genuine
     # knowledge-explanation openers are excluded inside the detector.
-    live_data = bool(signals.get("live_data_request"))
-    guidance = bool(signals.get("guidance_request"))
 
     if not action and detect_investigation_request(query) and not live_data:
         return _route_guided_investigation_rescue(

@@ -51,7 +51,7 @@ Certbot renewal is handled by the existing `certbot.timer` systemd timer. `certb
 ```bash
 cd /var/www/ai-soc-assistant/frontend
 npm install
-npm run build
+npm run build   # postbuild: chmod -R a+rX dist (Nginx www-data must read static files)
 
 nginx -t
 systemctl reload nginx

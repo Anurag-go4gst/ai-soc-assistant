@@ -45,6 +45,11 @@ class EvidencePlan(BaseModel):
     use_case_id: str | None = None
     runtime_support_status: str | None = None
     mitre_candidates_metadata_only: list[str] = Field(default_factory=list)
+    row_authority_summary: dict | None = None
+    normalized_slot_summary: dict | None = None
+    source_profile_binding_summary: dict | None = None
+    answer_pack_summary: dict | None = None
+    promotion_lifecycle_summary: dict | None = None
     # WS0 T0.2: composed step plan (None until the composer attaches one);
     # legacy booleans above remain the wire contract for existing consumers.
     resource_plan: dict | None = None

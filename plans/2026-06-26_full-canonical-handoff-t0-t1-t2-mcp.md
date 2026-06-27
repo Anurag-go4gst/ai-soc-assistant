@@ -43,7 +43,7 @@ todos:
     status: completed
   - id: followup-containment-banner
     content: Render containment/action-blocked banner from canonical blocked action state, not a parallel UI-only condition
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -52,6 +52,20 @@ isProject: false
 ## Status
 
 Proposed for review before implementation.
+
+Implementation progress / reality check:
+
+- Phase 1 has both report artifacts and runtime row-authority projection. It is no longer strictly report-only; runtime behavior must remain flag-gated where it can affect routing.
+- Phase 2/3 are partial. EvidencePlan carries optional `row_authority_summary`, `normalized_slot_summary`, and `source_profile_binding_summary`, but several plan-named end-to-end assertions are still missing.
+- Phase 4/7 are partial. ResourcePlan composition emits MCP steps, and skill-contract vetoes are represented; MCP-off live-investigation steps must be blocked on the same MCP step rather than omitted or route-replaced.
+- Phase 5 is partial. Drift tracing exists, and row-authority now narrows exact-105 registry authority when `route_authority_operation_authoritative_enabled=true`: weak exact rows fall through to the canonical EvidencePlan path, while authority-ready rows may preserve exact registry routing. Broader matrix and full `/chat` coverage remain pending.
+- Phase 6 is partial. Dependency-gap projection helpers exist, but loop coverage is mostly focused/unit level rather than broad end-to-end loop tests.
+- Phase 8 is partial. Reviewed answer-pack projection has a seeded `answer_packs.json`, a conservative offline builder, and runtime loader guards for raw prose / unvalidated SPL suggestions. Broader pack coverage and golden-gated promotion writes remain pending.
+- Phase 9 is partial. Promotion lifecycle summaries are visible; `can_skip_llm_for_t0` gates intent-advisor skip and governed-composer narration skip when authority-ready. Weak-row demotion records `row_authority_not_ready`. Golden-gated promotion writes remain pending.
+- WS8 healthy-contradiction suite added (`test_handoff_healthy_contradiction.py`): CP-off vs CP-on row-authority narrowing, MCP step preserved when blocked, T0 composer skip gated on promotion lifecycle.
+- Phase 10 has been revalidated manually in this session because the wrapper can stall in this environment. Backend pytest and downstream gates passed, but generated eval report drift remains uncommitted in the worktree.
+- The nullable `mcp_allowed` follow-up is implemented for execution-gate, evidence-loop, and RunContract consumers; `mcp_allowed_normalized` records fail-closed trace provenance.
+- The containment banner follow-up is implemented in API + frontend from canonical blocked-action state.
 
 ## Objective
 
@@ -866,6 +880,8 @@ Acceptance:
 - Analyst-visible workflow still shows the blocked MCP evidence step when live evidence was needed.
 
 ### 2. Containment Banner Consistency
+
+Status: implemented in API response read model + frontend banner; covered by `test_containment_banner_renders_from_canonical_blocked_action_state`.
 
 Problem: containment or response-action asks can degrade/deny correctly in policy while failing to show a clear analyst-facing containment banner.
 

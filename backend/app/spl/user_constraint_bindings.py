@@ -22,6 +22,7 @@ from app.spl.spl_slot_binding_validator import (
     normalize_slot_key_aliases,
     validate_slot_map,
 )
+from app.spl.t2_constraints import extract_semantic_constraints, resolve_shift_config_for_query
 
 SLOT_SOURCE_USER_EXPLICIT = "user_explicit"
 SLOT_SOURCE_DETERMINISTIC = "deterministic"
@@ -65,6 +66,8 @@ class UserConstraintBindings:
     unbound_constraints: list[dict[str, Any]] = field(default_factory=list)
     rejected_slots: dict[str, list[str]] = field(default_factory=dict)
     normalized_slots: dict[str, str] = field(default_factory=dict)
+    semantic_constraints: list[dict[str, Any]] = field(default_factory=list)
+    missing_constraints: list[str] = field(default_factory=list)
     debug_trace: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -94,6 +97,8 @@ class UserConstraintBindings:
             "unbound_constraints": list(self.unbound_constraints),
             "rejected_slots": dict(self.rejected_slots),
             "normalized_slots": dict(self.normalized_slots),
+            "semantic_constraints": list(self.semantic_constraints),
+            "missing_constraints": list(self.missing_constraints),
             "debug_trace": dict(self.debug_trace),
         }
 
@@ -254,10 +259,36 @@ def build_user_constraint_bindings(
     if llm_supplement_blocks:
         bindings.debug_trace["llm_supplement_blocks"] = llm_supplement_blocks
     _append_scope_unbound_constraints(bindings, merged_raw, source_profile_slots)
+    _attach_semantic_constraints(bindings, user_query, source_profile_slots)
     if source_profile_trace:
         bindings.debug_trace.update(source_profile_trace)
     return bindings
 
+
+
+def _attach_semantic_constraints(
+    bindings: UserConstraintBindings,
+    user_query: str,
+    source_profile_slots: dict[str, Any],
+) -> None:
+    shift_config = resolve_shift_config_for_query(
+        user_query,
+        source_profile_slots=source_profile_slots,
+    )
+    extracted = extract_semantic_constraints(user_query, shift_config=shift_config)
+    bindings.semantic_constraints = [item.to_dict() for item in extracted.constraints]
+    bindings.missing_constraints = list(extracted.missing_bindings)
+    for slot in extracted.missing_bindings:
+        if any(item.get("slot") == slot for item in bindings.unbound_constraints):
+            continue
+        bindings.unbound_constraints.append(
+            {
+                "slot": slot,
+                "value": None,
+                "reason": "missing_shift_hour_binding",
+                "source": "semantic_constraint",
+            }
+        )
 
 def _append_scope_unbound_constraints(
     bindings: UserConstraintBindings,

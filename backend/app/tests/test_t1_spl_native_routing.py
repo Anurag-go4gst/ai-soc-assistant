@@ -142,8 +142,18 @@ def test_asa_ioc_lookup_correlation() -> None:
 # --------------------------------------------------------------------------- #
 # D. Exact-105 preservation + unsafe/HIL precedence                            #
 # --------------------------------------------------------------------------- #
-def test_exact_105_still_skips_llm() -> None:
+_AUTHORITY_READY = {"effective_promotion_status": "authority_ready"}
+
+
+def test_exact_105_skips_llm_only_after_promotion_lifecycle_ready() -> None:
     skip, reason = should_skip_sidecar(match_path="exact_105_question")
+    assert skip is False
+    assert reason is None
+
+    skip, reason = should_skip_sidecar(
+        match_path="exact_105_question",
+        promotion_lifecycle_summary=_AUTHORITY_READY,
+    )
     assert skip is True
     assert reason == "deterministic_exact_match_t0"
 
@@ -160,7 +170,18 @@ def test_plain_catalog_row_intent_advisor_not_t0() -> None:
 def test_explicit_t0_authority_row_skips_advisor() -> None:
     # An explicit opt-in (t0_exact_authority=true) suppresses the advisor.
     explicit = {"t0_exact_authority": True, "t0_exact_authority_explicit": True}
-    skip, reason = should_skip_sidecar(match_path="use_case_catalog", catalog_row=explicit)
+    skip, reason = should_skip_sidecar(
+        match_path="use_case_catalog",
+        catalog_row=explicit,
+    )
+    assert skip is False
+    assert reason is None
+
+    skip, reason = should_skip_sidecar(
+        match_path="use_case_catalog",
+        catalog_row=explicit,
+        promotion_lifecycle_summary=_AUTHORITY_READY,
+    )
     assert skip is True
     assert reason == "deterministic_exact_match_t0"
     # Defaulted (non-explicit) true does NOT count as authoritative.

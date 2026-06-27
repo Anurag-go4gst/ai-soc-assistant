@@ -142,3 +142,23 @@ def test_unmatched_live_data_query_uses_clean_template_without_forced_title() ->
         assert "it-to-ot firewall boundary review" not in lowered
         assert lowered.count("soc review checklist") <= 1
         assert "live-backed" not in lowered
+
+SCADA_T2_QUERY = (
+    "Provide a complete review-only SPL query for index=scada_perf using earliest=-30d to "
+    "compute an eventstats stdev baseline by rtu_id and filter anomalies in the last 24h "
+    "using transmission_error_count."
+)
+
+
+def test_scada_t2_review_only_card_uses_profile_aware_gaps_not_auth_gaps() -> None:
+    response = build_live_chat_response(ChatRequest(message=SCADA_T2_QUERY))
+    card = response.analyst_response
+    assert card is not None
+    lim = " ".join(card.limitations or []).lower()
+    checklist = " ".join(card.analyst_checklist or []).lower()
+    for bad in ("privileged account", "mfa", "post-login", "post login"):
+        assert bad not in lim
+    assert "metric field validation missing" in lim
+    assert "operational baseline sign-off missing" in lim
+    assert "not threshold alert" not in checklist
+    assert "anomaly ranking" in checklist

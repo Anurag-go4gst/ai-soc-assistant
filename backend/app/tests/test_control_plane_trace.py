@@ -47,17 +47,12 @@ def test_control_plane_trace_contains_phase_outputs_and_redacts_secrets() -> Non
     assert trace["rag_trace"]["dsn"] if "dsn" in trace["rag_trace"] else True
     assert trace["spl_slot_binding"]["missing_bindings"] == ["last_24h"]
     assert trace["source_evidence_refs"] == ["src-1"]
-    assert trace["llm_advisory_trace"] == {
-        "llm_advisory_attempted": False,
-        "llm_called": False,
-        "llm_candidate_present": False,
-        "llm_advisory_used": False,
-        "llm_route_candidate": None,
-        "llm_intent_candidate": None,
-        "llm_dropped_reasons": [],
-        "llm_narration_used": False,
-        "llm_overridden_by_policy": False,
-    }
+    advisory = trace["llm_advisory_trace"]
+    assert advisory["authority_tier"] == "ADVISORY"
+    assert advisory["llm_advisory_attempted"] is False
+    assert advisory["llm_dropped_reasons"] == []
+    assert trace["trace_authority_index"]["route_adjudication"]["authority_tier"] == "AUTHORITATIVE"
+    assert trace["route_plan_shadow_authority"]["authority_tier"] == "DIAGNOSTIC"
 
 
 def test_llm_advisory_trace_records_policy_override_without_new_calls() -> None:
@@ -84,3 +79,49 @@ def test_chat_control_plane_trace_attaches_when_flag_on(monkeypatch) -> None:
     assert response.control_plane_trace["query_to_intent"] is not None
     assert response.control_plane_trace["evidence_plan"]["answer_mode"] == "rag_only"
     assert response.control_plane_trace["mitre_decision"] is not None
+
+
+def test_trace_authority_tiers_on_run_contract() -> None:
+    trace = build_control_plane_trace(
+        {
+            "run_contract": {"execution_authorized": False},
+            "final_evidence_gate": {"effective_hil_required": True},
+            "route_adjudication": {"final_route": "spl_generation"},
+        }
+    )
+    assert trace["run_contract"]["authority_tier"] == "AUTHORITATIVE"
+    assert trace["final_evidence_gate"]["authority_tier"] == "AUTHORITATIVE"
+    assert trace["trace_authority_index"]["evidence_plan"]["authority_tier"] == "PLANNING"
+
+def test_control_plane_trace_reflects_post_handoff_evidence_plan() -> None:
+    """Trace evidence_plan must match the post-annotate handoff state."""
+    from app.planner.executor import annotate_step_statuses
+
+    evidence_plan = {
+        "answer_mode": "live_investigation",
+        "resource_plan": {
+            "steps": [
+                {
+                    "step_id": "mcp",
+                    "purpose": "mcp_execution",
+                    "status": "blocked_policy",
+                    "status_reason": "skill_contract",
+                    "policy_checks": ["blocked_by_skill_contract"],
+                }
+            ]
+        },
+        "handoff_drift_from_final_spl": True,
+        "handoff_drift_details": ["normalized_slots.index"],
+    }
+    state = annotate_step_statuses(
+        {
+            "evidence_plan": evidence_plan,
+            "execution": {"status": "blocked", "block_reason": "mcp_global_execution_disabled"},
+        }
+    )
+    trace = build_control_plane_trace(state)
+    traced_plan = trace["evidence_plan"]
+    assert traced_plan["handoff_drift_from_final_spl"] is True
+    mcp = next(s for s in traced_plan["resource_plan"]["steps"] if s["step_id"] == "mcp")
+    assert mcp["status_reason"] == "skill_contract"
+

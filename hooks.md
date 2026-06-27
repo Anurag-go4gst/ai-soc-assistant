@@ -13,20 +13,50 @@ Cursor reloads `hooks.json` on save. If hooks do not fire, restart Cursor and ch
 
 | Event | Script | Purpose |
 |-------|--------|---------|
-| `stop` | `stop-verify-handoff.sh` | Writes [`.cursor/last-handoff.md`](.cursor/last-handoff.md) for Claude/Codex; optional one-turn verify follow-up (`loop_limit: 1`) |
-| `subagentStop` | `subagent-verify-handoff.sh` | After implementer/generalPurpose/shell subagents — nudge parent to review diff and run tests |
+| `beforeSubmitPrompt` | `before-submit-verify-arm.sh` | Arms verify follow-up **only** when your prompt contains **`test this`** (case-insensitive) |
+| `stop` | `stop-verify-handoff.sh` | Always updates [`.cursor/last-handoff.md`](.cursor/last-handoff.md). **Verify follow-up** (`loop_limit: 1`) only when you typed **`test this`** **and** uncommitted changes exist under `backend/`, `frontend/`, `scripts/`, or `test_harness/` |
+| `subagentStop` | `subagent-verify-handoff.sh` | Same opt-in gating as `stop` when meaningful code changes are present |
 | `beforeShellExecution` | `before-shell-guardrails.sh` | Block force-push to main/master, `git config` changes; ask on broad `git add` / public docker publish |
 | `preToolUse` (Write/ApplyPatch/EditNotebook) | `block-secret-paths.sh` | Deny writes to `.env`, credential-like paths (`failClosed: true`) |
 
-### Disable verify follow-up (keep handoff file)
+### Verify follow-up gating (opt-in via `test this`)
 
-Verification follow-ups on `stop` / `subagentStop` add one extra agent turn. To disable only that behavior while keeping `.cursor/last-handoff.md`:
+**Default: verify hooks are off.** No automatic verify loop after agent turns.
+
+To arm verification for one turn, type **`test this`** in your prompt (case-insensitive), for example:
+
+> test this — fix the wineventlog off-shift SPL and run pytest
+
+The `beforeSubmitPrompt` hook sets a one-shot flag. When the agent stops, `stop` / `subagentStop` run the verify follow-up **only if both**:
+
+1. You typed **`test this`** in that prompt, and
+2. The working tree has uncommitted changes under `backend/`, `frontend/`, `scripts/`, or `test_harness/`
+
+Normal Q&A, docs-only edits, and code changes without **`test this`** do **not** inject an extra verify loop.
+
+The handoff file still updates every stop (notes whether verify was armed).
+
+### Hard-disable all verify follow-ups (even with `test this`)
 
 ```bash
 touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
 ```
 
-Remove the file to re-enable follow-ups.
+Remove the file to allow opt-in **`test this`** arming again. Shared logic: `.cursor/hooks/lib/handoff-common.sh`.
+
+
+### Prod deploy steps (included in `test this` verify)
+
+When verify is armed, the handoff inspects changed paths and tells the agent which prod actions to run:
+
+| Action | When (changed paths) |
+|--------|----------------------|
+| `cd frontend && npm run build` | `frontend/src/`, `index.html`, Tailwind/Vite/PostCSS config |
+| `docker compose build && docker compose up -d` | `backend/pyproject.toml`, `Dockerfile`, `docker-compose*.yml`, `frontend/package.json` |
+| `docker compose restart backend` | `backend/` only (if reload looks stale; dev uses uvicorn `--reload`) |
+| `git push` | Branch ahead of upstream — remind only; **do not push unless user asks** |
+
+Public site (Nginx) serves `frontend/dist`; API proxies to the Docker backend on this host.
 
 ### Cross-agent handoff (Cursor → Claude Code / Codex)
 
@@ -54,6 +84,8 @@ What it does on `git commit`:
 - **Warn** on execution-boundary patterns (MCP exec flags, tool calling, etc.)
 - **Warn** (non-blocking) if fast backend smoke tests fail when `backend/` is staged
 - **Fail** if `frontend/` is staged and `npm run build` fails
+
+`npm run build` runs `postbuild` (`chmod -R a+rX dist`) so Nginx (`www-data`) can serve production static files — without it the public site returns 403.
 
 Uninstall: `rm .git/hooks/pre-commit`
 

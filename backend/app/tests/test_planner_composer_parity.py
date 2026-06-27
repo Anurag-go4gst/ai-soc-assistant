@@ -9,8 +9,10 @@ from __future__ import annotations
 import pytest
 
 from app.chat.evidence_planner import plan_evidence
+from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.intent_classifier import build_query_to_intent
 from app.evals.sentinel_eval import load_sentinel_rows
+from app.planner.composer import compose_resource_plan
 from app.planner.resource_plan import ResourcePlan, project_booleans
 from app.planner.resource_registry import load_resource_registry
 from app.query_understanding.parser import understand_query
@@ -67,3 +69,50 @@ def test_active_template_step_carries_lab_draft_fallback() -> None:
         assert step.on_unavailable, "active template must carry a lab-draft fallback"
         assert step.on_unavailable.startswith("spl_lab_draft_family:")
     assert "execution_eligible_false" in step.policy_checks
+
+
+def test_resource_plan_emits_blocked_mcp_step_when_mcp_off_but_needed() -> None:
+    plan = EvidencePlan(
+        answer_mode="live_investigation",
+        rag_phase="post_mcp",
+        needs_rag=False,
+        needs_spl=True,
+        needs_mcp=True,
+        needs_mitre=False,
+        spl_allowed=True,
+        mcp_allowed=False,
+        policy_context_required=False,
+        policy_context_recommended=False,
+    )
+
+    composed = compose_resource_plan(plan, intent_family="spl_generation_only", skill_id="spl_generation")
+    mcp_steps = [step for step in composed.steps if step.purpose == "mcp_execution"]
+
+    assert len(mcp_steps) == 1
+    assert mcp_steps[0].status == "blocked_policy"
+    assert mcp_steps[0].status_reason == "skill_contract"
+    assert "blocked_by_skill_contract" in mcp_steps[0].policy_checks
+    assert "mcp_not_allowed_by_evidence_plan" in mcp_steps[0].policy_checks
+
+
+def test_attack_discovery_keeps_mcp_step_blocked_when_global_mcp_off() -> None:
+    plan = EvidencePlan(
+        answer_mode="live_investigation",
+        rag_phase="post_mcp",
+        needs_rag=False,
+        needs_spl=True,
+        needs_mcp=True,
+        needs_mitre=False,
+        spl_allowed=True,
+        mcp_allowed=False,
+        policy_context_required=False,
+        policy_context_recommended=False,
+    )
+
+    composed = compose_resource_plan(plan, intent_family="live_investigation", skill_id="attack_discovery")
+    mcp = composed.step_by_id("mcp")
+
+    assert mcp is not None
+    assert mcp.status == "blocked_policy"
+    assert mcp.status_reason == "mcp_not_allowed_by_evidence_plan"
+    assert "mcp_not_allowed_by_evidence_plan" in mcp.policy_checks

@@ -17,6 +17,7 @@ from app.spl.final_spl_projection import (
     build_final_spl_projection,
     dedupe_spl_eval_lines,
 )
+from app.spl.t2_constraints import apply_constraints_to_projection, validate_constraint_coverage
 from app.spl.user_constraint_bindings import UserConstraintBindings
 
 _TIME_BOUNDS_RE = re.compile(r"\bearliest=[^\s|]+(?:\s+latest=[^\s|]+)?")
@@ -183,7 +184,13 @@ def build_user_bound_skeleton(
 ) -> str:
     slots = dict(slots or bindings.normalized_slots)
     projection = build_final_spl_projection(bindings, slots)
-    return assemble_skeleton_spl(bindings, slots, projection)
+    constraints = list(getattr(bindings, "semantic_constraints", None) or [])
+    updated = apply_constraints_to_projection(projection, constraints, slots)
+    spl = assemble_skeleton_spl(bindings, slots, projection)
+    serialized, missing = validate_constraint_coverage(updated, spl)
+    bindings.semantic_constraints = serialized
+    bindings.missing_constraints = missing
+    return spl
 
 
 

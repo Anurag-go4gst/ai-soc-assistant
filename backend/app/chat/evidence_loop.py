@@ -43,6 +43,11 @@ UNSERVABLE_REQUIREMENTS = frozenset(
         "vulnerability_source",
         "asset_context",
         "cmdb",
+        "lookup_dependency",
+        "source_profile",
+        "detection_binding",
+        "context_binding",
+        "case_context",
     }
 )
 

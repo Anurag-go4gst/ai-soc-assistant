@@ -70,3 +70,21 @@ from a contextvar set at chat entry; `-` outside a request). Include
 - All `/debug` output is redacted (no secrets, prompts-with-data, or raw events).
 - Telemetry writes are best-effort: a telemetry failure never breaks a chat turn.
 - The Experience Center fixture path emits no live traces.
+
+
+## Trace authority tiers (handoff discipline)
+
+`control_plane_trace` and governance panels label fields with `authority_tier` and
+`authority_note` so analysts can separate authoritative final-run state from planning,
+advisory, and diagnostic shadow data.
+
+| Tier | Examples |
+|------|----------|
+| **AUTHORITATIVE** | `run_contract`, `final_evidence_gate`, `route_adjudication`, final MCP execution decision |
+| **PLANNING** | `evidence_plan`, `resource_planner`, `slot_constraint_projection` |
+| **ADVISORY** | `llm_intent_advisory`, `llm_advisory_trace`, RAG hints, catalogue advisory matches |
+| **DIAGNOSTIC** | `route_plan_shadow`, validator reject details, dropped LLM candidates |
+
+`trace_authority_index` on `control_plane_trace` maps each section to its tier.
+LLM dropped reasons are **ADVISORY** — they are not final routing failure unless
+`route_adjudication` / `RunContract` says so.

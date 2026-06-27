@@ -209,12 +209,14 @@ _SPL_BUILD_VERBS = (
     "develop ",
     "produce ",
     "construct ",
+    "provide ",
 )
 # Direct Splunk-artifact phrasings (no build verb required).
 _SPL_DIRECT_MARKERS = (
     "splunk search",
     "splunk-oriented",
     "splunk query",
+    "review-only spl",
     "in splunk",
     "weekly metric",
     "metric for detecting",
