@@ -11,7 +11,11 @@ Implementation specs live here (versioned in git). **Agent rules** live in [`AGE
 | Final resolution (routing + answer quality) | `plans/` + branch `cp-final-resolution-answer-quality` | **Done** — focused 20-probe 100/100 mean (`fdc8fac`) |
 | Cross-stream FinalEvidenceGate | [`2026-06-25_final-evidence-gate-cross-stream.md`](2026-06-25_final-evidence-gate-cross-stream.md) | **Done** — gate computed in `graph_node_context_finalize()`, not as a new router edge |
 | SPL query fidelity | [`2026-06-25_spl-query-fidelity-completion.md`](2026-06-25_spl-query-fidelity-completion.md) | **Done** — user-constraint bindings, table-driven render, draft source-profile auto-fill |
-| Full canonical handoff T0/T1/T2 + MCP seam | [`2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md`](2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md) | **Proposed** — report-first; preserve shipped RouteContract/EvidencePlan/ResourcePlan/RunContract architecture |
+| **Handoff + T2 closure (SSOT)** | [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) | **Active** — supersedes three 2026-06-26 handoff/T2 plans |
+| Post-PR #38 prod smoke | consolidated plan §Batch 0 | **Branch-only** — [PR #40](https://github.com/Anurag-go4gst/ai-soc-assistant/pull/40); merge before Batch A |
+| Canonical handoff core | consolidated plan §Inventory shipped | **Shipped** on `master` (`e5a4d40`, PR #38) |
+| Deferred handoff closure | consolidated plan §Batch 0 | **Branch-only** — [PR #39](https://github.com/Anurag-go4gst/ai-soc-assistant/pull/39); merge after #40 |
+| Legacy: full handoff / discipline / T2 binding | `2026-06-26_*.md` | **Superseded** — see consolidated plan |
 | Master roadmap | [`AI_SOC_MASTER_PLAN.md`](AI_SOC_MASTER_PLAN.md) | Active |
 
 ## Canonical references

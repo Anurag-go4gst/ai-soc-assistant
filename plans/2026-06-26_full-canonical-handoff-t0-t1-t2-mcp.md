@@ -1,7 +1,7 @@
 ---
 name: Full canonical handoff for T0/T1/T2 and MCP-live readiness
 overview: "Report-first plan to preserve the shipped /chat architecture while strengthening row authority, Environment KB normalization, EvidencePlan, ResourcePlan, MCP seam, and weak-known promotion/demotion across T0/T1/T2."
-status: proposed
+status: in_progress
 dependencies:
   - plans/2026-06-24_run-contract-canonical-state.md
   - plans/2026-06-25_final-evidence-gate-cross-stream.md
@@ -16,56 +16,108 @@ todos:
     status: pending
   - id: phase3-evidence-plan-enrichment
     content: Enrich EvidencePlan with row authority and dependency summaries while avoiding duplicate finalize-only render permissions
-    status: pending
+    status: completed
   - id: phase4-resource-plan-consumption
     content: Wire execution/evidence consumers to read existing ResourcePlan steps in parity with EvidencePlan booleans
     status: pending
   - id: phase5-provisional-adjudication-enrichment
     content: Enrich route adjudication's provisional EvidencePlan inputs and add drift tracing against final EvidencePlan
-    status: pending
+    status: completed
   - id: phase6-loop-extension
     content: Extend the existing evidence_loop assessor for weak-known dependency gaps and RunContract parity
     status: pending
   - id: phase7-mcp-seam
     content: Prove MCP off/mock/live uses the same ResourcePlan MCP step through existing gates and envelopes
-    status: pending
+    status: completed
   - id: phase8-answer-pack-unification
     content: Define reviewed answer packs as an export/unification of content_enrichment/runtime-map/golden data, not a fourth parallel store
     status: pending
   - id: phase9-promotion-demotion
     content: Add auditable weak-known promotion/demotion lifecycle gated by review and golden tests
-    status: pending
+    status: completed
   - id: phase10-evals
     content: Run targeted and governance eval gates without committing accidental baseline drift
-    status: pending
+    status: completed
   - id: followup-mcp-allowed-none-normalization
     content: Normalize nullable MCP allowance into explicit blocked/allowed gate state before ResourcePlan or execution consumers
     status: completed
   - id: followup-containment-banner
     content: Render containment/action-blocked banner from canonical blocked action state, not a parallel UI-only condition
     status: completed
+  - id: followup-post-pr38-smoke-routing
+    content: Preserve near-105 attack_discovery route; detect block-the-source-IP before SPL meta; prod HTTP smoke via ask_chat.sh
+    status: completed
 isProject: false
 ---
+
+> **Superseded:** Use [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) as the single source of truth. This file is retained for history only.
 
 # Full Canonical Handoff for T0/T1/T2 and MCP-Live Readiness
 
 ## Status
 
-Proposed for review before implementation.
+**Overall:** Core canonical handoff **shipped** on `master` (`e5a4d40`, PR #38). Deferred closure slice in **PR #39** (open). Remaining phases are incremental hardening, not a parallel architecture.
 
-Implementation progress / reality check:
+### Shipped (PR #38 → `master`)
+
+- Phase 1 row-authority classifier + runtime projection (flag-gated exact-105 narrowing)
+- `SlotConstraintProjection` + evidence-plan / SPL handoff drift tracing
+- ResourcePlan MCP step `blocked_policy` + RunContract `mcp_posture` projection
+- Promotion lifecycle summaries (runtime read-only demotion; `can_skip_llm_for_t0`)
+- Reviewed answer-pack seed + EvidencePlan enrichment (`answer_packs.json`)
+- Debug trace authority tiers (`trace_authority_index`)
+- Canonical handoff e2e probes + healthy-contradiction suite
+- Phase 10 governance revalidation (pytest + harness + eval gates)
+
+### Shipped / open (PR #39 — deferred closure)
+
+- Operator-reviewed `promotion_status` write CLI (`scripts/apply_promotion_status_review.py`; dry-run default)
+- Row-authority report refresh policy (`--check`, `--refresh`, `projected_demotion_reasons`, `ARTIFACT_REFRESH_POLICY.md`)
+- Wineventlog shift-hour trace readability (`fixed_off_shift_hour_constraint_applied`)
+- MCP live-readiness checklist (docs + tests; execution remains off)
+
+### Pending (post PR #39)
+
+- COE-reviewed persistent promotion/demotion **apply** (dry-run rehearsal on `q0.q046`: not a promote candidate as-is)
+- Broader reviewed answer-pack coverage beyond `q0.q046` seed
+- SPL degrade-chain consolidation behind one review-only SPL artifact authority
+- Broader CP-on/off route matrix and full `/chat` coverage for weak-exact fallback
+- Evidence-loop end-to-end tests beyond focused/unit coverage
+- Live Splunk MCP activation (checklist only until COE)
+
+### Implementation progress / reality check (phases)
 
 - Phase 1 has both report artifacts and runtime row-authority projection. It is no longer strictly report-only; runtime behavior must remain flag-gated where it can affect routing.
 - Phase 2/3 are partial. EvidencePlan carries optional `row_authority_summary`, `normalized_slot_summary`, and `source_profile_binding_summary`, but several plan-named end-to-end assertions are still missing.
 - Phase 4/7 are partial. ResourcePlan composition emits MCP steps, and skill-contract vetoes are represented; MCP-off live-investigation steps must be blocked on the same MCP step rather than omitted or route-replaced.
 - Phase 5 is partial. Drift tracing exists, and row-authority now narrows exact-105 registry authority when `route_authority_operation_authoritative_enabled=true`: weak exact rows fall through to the canonical EvidencePlan path, while authority-ready rows may preserve exact registry routing. Broader matrix and full `/chat` coverage remain pending.
 - Phase 6 is partial. Dependency-gap projection helpers exist, but loop coverage is mostly focused/unit level rather than broad end-to-end loop tests.
-- Phase 8 is partial. Reviewed answer-pack projection has a seeded `answer_packs.json`, a conservative offline builder, and runtime loader guards for raw prose / unvalidated SPL suggestions. Broader pack coverage and golden-gated promotion writes remain pending.
-- Phase 9 is partial. Promotion lifecycle summaries are visible; `can_skip_llm_for_t0` gates intent-advisor skip and governed-composer narration skip when authority-ready. Weak-row demotion records `row_authority_not_ready`. Golden-gated promotion writes remain pending.
+- Phase 8 is partial. Reviewed answer-pack projection has a seeded `answer_packs.json`, offline builder, and runtime loader guards. **Promotion write CLI shipped in PR #39**; broader pack coverage remains pending.
+- Phase 9 runtime lifecycle **shipped** (read-only demotion, non-destructive). **Operator-reviewed persistent writes shipped in PR #39** (dry-run default). COE apply for pilot rows remains pending.
 - WS8 healthy-contradiction suite added (`test_handoff_healthy_contradiction.py`): CP-off vs CP-on row-authority narrowing, MCP step preserved when blocked, T0 composer skip gated on promotion lifecycle.
 - Phase 10 has been revalidated manually in this session because the wrapper can stall in this environment. Backend pytest and downstream gates passed, but generated eval report drift remains uncommitted in the worktree.
 - The nullable `mcp_allowed` follow-up is implemented for execution-gate, evidence-loop, and RunContract consumers; `mcp_allowed_normalized` records fail-closed trace provenance.
 - The containment banner follow-up is implemented in API + frontend from canonical blocked-action state.
+- Post-PR #38 prod smoke routing fix (near-105 + unsafe containment) is implemented, prod-verified, and open as PR #40.
+
+## Post-PR #38 prod smoke fix (shipped 2026-06-27)
+
+Separate from PR #38 (T2 SPL-native / handoff stabilization on `master`) and from PR #39 (operator-reviewed promotion writes).
+
+| Item | Status | Artifact | Notes |
+|------|--------|----------|-------|
+| Near-105 route preservation (Q5) | **Shipped** | PR [#40](https://github.com/Anurag-go4gst/ai-soc-assistant/pull/40), branch `fix/post-pr38-smoke-routing`, commit `64a7fe0` | Near-105 `q0.q010` SMB paraphrase keeps `attack_discovery`; registry legacy hint + adjudication; exact-105 analytics unchanged |
+| Unsafe containment over SPL meta (Q6) | **Shipped** | same PR | `block the source ip` / `block source ip` in `block_or_contain`; mixed SPL+action → `unsafe_blocked` / `unsafe_action_blocked` |
+| Prod HTTP validation harness | **Shipped** | `scripts/ask_chat.sh` (`fb84b9c`) | Authenticated nginx → `/chat`; documented in `AGENTS.md` / `CLAUDE.md` |
+| Regression tests | **Shipped** | `test_route_policy_smoke_fix.py` | Near-105, unsafe variants, negative safety (SPL-only / guidance-only) |
+| Prod verification | **Done** | trace IDs on cisco-vai.vnudge.com | Q5 `818477c3-…` attack_discovery; Q6 `9c893d1f-…` unsafe_blocked; SCADA/ASA pass; MCP blocked |
+
+**Root causes closed:** (1) near-105 had no `use_case_ids` so catalog rescue never ran; `explicit_search_intent`/`analytics_aggregation` fired first → `spl_generation_only`. (2) `block_or_contain` missed `"block the source ip"`.
+
+**Secondary partials (not in PR #40 scope):** Wineventlog off-shift SPL correct but scope framing may still say IT-to-OT boundary; generic SPL safe lab-draft but not pristine T1 meta cleanliness.
+
+**Pending:** merge PR #40 to `master`; optional rebase PR #39 after merge.
+
 
 ## Objective
 
