@@ -92,3 +92,36 @@ def test_trace_authority_tiers_on_run_contract() -> None:
     assert trace["run_contract"]["authority_tier"] == "AUTHORITATIVE"
     assert trace["final_evidence_gate"]["authority_tier"] == "AUTHORITATIVE"
     assert trace["trace_authority_index"]["evidence_plan"]["authority_tier"] == "PLANNING"
+
+def test_control_plane_trace_reflects_post_handoff_evidence_plan() -> None:
+    """Trace evidence_plan must match the post-annotate handoff state."""
+    from app.planner.executor import annotate_step_statuses
+
+    evidence_plan = {
+        "answer_mode": "live_investigation",
+        "resource_plan": {
+            "steps": [
+                {
+                    "step_id": "mcp",
+                    "purpose": "mcp_execution",
+                    "status": "blocked_policy",
+                    "status_reason": "skill_contract",
+                    "policy_checks": ["blocked_by_skill_contract"],
+                }
+            ]
+        },
+        "handoff_drift_from_final_spl": True,
+        "handoff_drift_details": ["normalized_slots.index"],
+    }
+    state = annotate_step_statuses(
+        {
+            "evidence_plan": evidence_plan,
+            "execution": {"status": "blocked", "block_reason": "mcp_global_execution_disabled"},
+        }
+    )
+    trace = build_control_plane_trace(state)
+    traced_plan = trace["evidence_plan"]
+    assert traced_plan["handoff_drift_from_final_spl"] is True
+    mcp = next(s for s in traced_plan["resource_plan"]["steps"] if s["step_id"] == "mcp")
+    assert mcp["status_reason"] == "skill_contract"
+

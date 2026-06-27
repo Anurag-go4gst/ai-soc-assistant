@@ -3008,6 +3008,40 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         )
     skill_contribution_record: dict[str, Any] = skill_contribution.to_dict()
 
+    # WS0 T0.4 + SPL handoff: resolve final ResourcePlan step statuses and
+    # planning-vs-final drift before control-plane trace assembly so trace and
+    # response payloads agree on evidence_plan and run_contract.
+    state = annotate_step_statuses({**state, "mitre_decision": mitre_decision})
+    _handoff_candidate = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else None
+    _handoff_final_proj = (
+        _handoff_candidate.get("slot_constraint_projection")
+        if isinstance(_handoff_candidate, dict)
+        else None
+    )
+    _handoff_evidence_plan = (
+        state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
+    )
+    if isinstance(_handoff_final_proj, dict) and isinstance(_handoff_evidence_plan, dict):
+        state = {
+            **state,
+            "evidence_plan": merge_evidence_plan_spl_drift(_handoff_evidence_plan, _handoff_final_proj),
+        }
+    _handoff_gate_state = {
+        **state,
+        "human_review": human_review,
+        "source_evidence": source_evidence,
+        "answer_contract": answer_contract_payload,
+    }
+    final_evidence_gate = build_final_evidence_gate(_handoff_gate_state, route=route)
+    gate_payload = final_evidence_gate.to_dict()
+    structured_context["final_evidence_gate"] = gate_payload
+    run_contract = build_run_contract(_handoff_gate_state, route=route, gate=final_evidence_gate)
+    state = {
+        **state,
+        "run_contract": enrich_run_contract_payload(run_contract.model_dump_canonical(), _handoff_gate_state),
+        "final_evidence_gate": gate_payload,
+    }
+
     visibility: dict[str, Any] = {}
     control_plane_trace = None
     if settings.control_plane_enabled:
@@ -3122,46 +3156,6 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         final_answer_validation=final_answer_validation,
         analyst_response=analyst_response,
     )
-    # WS0 T0.4: resolve final plan-step statuses (incl. MITRE, resolved in
-    # this node) so the response's evidence_plan carries executed/fallback/
-    # blocked provenance for every composed step.
-    state = annotate_step_statuses({**state, "mitre_decision": mitre_decision})
-    from app.chat.run_contract_builder import (  # circular
-        build_final_evidence_gate as _build_final_evidence_gate_final,
-        build_run_contract as _build_run_contract_final,
-    )
-
-    # Recompute the gate against the final state (post composer / final validation
-    # / HIL changes) and pass it into the rebuild, so the exposed
-    # final_evidence_gate cannot drift from the final RunContract.
-    _final_gate_state = {
-        **state,
-        "human_review": human_review,
-        "source_evidence": source_evidence,
-        "answer_contract": answer_contract_payload,
-    }
-    _candidate = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else None
-    _final_proj = _candidate.get("slot_constraint_projection") if isinstance(_candidate, dict) else None
-    _evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
-    if isinstance(_final_proj, dict) and isinstance(_evidence_plan, dict):
-        state = {
-            **state,
-            "evidence_plan": merge_evidence_plan_spl_drift(_evidence_plan, _final_proj),
-        }
-        _final_gate_state = {
-            **_final_gate_state,
-            "evidence_plan": state["evidence_plan"],
-        }
-
-    final_evidence_gate = _build_final_evidence_gate_final(_final_gate_state, route=route)
-    run_contract = _build_run_contract_final(_final_gate_state, route=route, gate=final_evidence_gate)
-    gate_payload = final_evidence_gate.to_dict()
-    structured_context["final_evidence_gate"] = gate_payload
-    state = {
-        **state,
-        "run_contract": enrich_run_contract_payload(run_contract.model_dump_canonical(), _final_gate_state),
-        "final_evidence_gate": gate_payload,
-    }
     # Review-only SPL drafts: one dedicated renderer owns the visible answer (fixed
     # section order + labels) and suppresses the generic title/review-type/investigation
     # producers. Presentation only — RunContract/HIL/MCP/source-evidence are unchanged.

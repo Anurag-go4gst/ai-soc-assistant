@@ -49,6 +49,22 @@ def _preserved_block_reason(step: Mapping[str, Any]) -> str:
     return "blocked_policy"
 
 
+def _mcp_composed_block_reason(step: Mapping[str, Any]) -> str | None:
+    """Composition-time MCP veto; wins over execution-gate block reasons."""
+    checks = [str(item) for item in step.get("policy_checks") or []]
+    if any("blocked_by_skill_contract" in check for check in checks):
+        return _preserved_block_reason(step)
+    if str(step.get("status_reason") or "") == "skill_contract":
+        return "skill_contract"
+    if any("mcp_not_allowed_by_evidence_plan" in check for check in checks):
+        return "mcp_not_allowed_by_evidence_plan"
+    if str(step.get("status") or "") == "blocked_policy":
+        preserved = _preserved_block_reason(step)
+        if preserved not in {"", "blocked_policy"}:
+            return preserved
+    return None
+
+
 Node = Callable[[State], State]
 
 
@@ -208,6 +224,9 @@ def _resolve_status(step: Mapping[str, Any], state: State) -> tuple[str, str | N
         return "executed", None
 
     if purpose == "mcp_execution":
+        composed_reason = _mcp_composed_block_reason(step)
+        if composed_reason is not None:
+            return "blocked_policy", composed_reason
         execution = state.get("execution")
         if not isinstance(execution, Mapping):
             return "not_run", None
@@ -246,11 +265,14 @@ def _mcp_step_metadata(step: Mapping[str, Any], state: State) -> dict[str, Any]:
         secondary.append("hil_required")
 
     exec_status = str(execution.get("status") or step.get("status") or "planned")
-    primary = str(
-        execution.get("block_reason")
-        or step.get("status_reason")
-        or exec_status
-    )
+    exec_block = str(execution.get("block_reason") or "").strip()
+    composed_reason = _mcp_composed_block_reason(step)
+    if composed_reason is not None:
+        primary = composed_reason
+        if exec_block and exec_block != composed_reason:
+            secondary.append(exec_block)
+    else:
+        primary = str(exec_block or step.get("status_reason") or exec_status)
     return {
         "status": normalize_mcp_posture_status(exec_status),
         "primary_reason": primary,

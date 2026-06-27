@@ -206,3 +206,58 @@ def test_mcp_step_metadata_normalizes_requires_human_review() -> None:
     meta = mcp.get("mcp_step_metadata") or {}
     assert meta.get("status") == "blocked_policy"
     assert meta.get("primary_reason") == "spl_validation_failed"
+
+def test_finalize_annotate_preserves_skill_contract_over_execution_gate() -> None:
+    state = _state_with_plan(
+        [
+            {
+                "step_id": "mcp",
+                "resource_id": "mcp_tool:splunk_run_query",
+                "purpose": "mcp_execution",
+                "status": "blocked_policy",
+                "status_reason": "skill_contract",
+                "policy_checks": ["blocked_by_skill_contract"],
+            }
+        ],
+        execution={
+            "status": "blocked",
+            "block_reason": "mcp_global_execution_disabled",
+            "selected_mcp_tool": "splunk_run_query",
+        },
+    )
+    result = annotate_step_statuses(state)
+    mcp = next(s for s in result["evidence_plan"]["resource_plan"]["steps"] if s["step_id"] == "mcp")
+    assert mcp["status"] == "blocked_policy"
+    assert mcp["status_reason"] == "skill_contract"
+    meta = mcp.get("mcp_step_metadata") or {}
+    assert meta.get("primary_reason") == "skill_contract"
+    assert "mcp_global_execution_disabled" in meta.get("secondary_reasons", [])
+
+
+def test_dispatch_then_finalize_annotate_preserves_skill_contract() -> None:
+    calls: list[str] = []
+    state = _state_with_plan(
+        [
+            {
+                "step_id": "mcp",
+                "resource_id": "mcp_tool:splunk_run_query",
+                "purpose": "mcp_execution",
+                "status": "blocked_policy",
+                "status_reason": "skill_contract",
+                "policy_checks": ["blocked_by_skill_contract"],
+            }
+        ],
+        execution={
+            "status": "blocked",
+            "block_reason": "mcp_global_execution_disabled",
+        },
+    )
+    dispatched = execute_plan_dispatch(state, _hooks(calls))
+    finalized = annotate_step_statuses(dispatched)
+    mcp = next(
+        s for s in finalized["evidence_plan"]["resource_plan"]["steps"] if s["step_id"] == "mcp"
+    )
+    assert mcp["status_reason"] == "skill_contract"
+    meta = mcp.get("mcp_step_metadata") or {}
+    assert meta.get("primary_reason") == "skill_contract"
+
