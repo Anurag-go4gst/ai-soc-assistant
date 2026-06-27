@@ -95,3 +95,23 @@ def _demotion_reasons(
     if mitre_validation_conflict:
         reasons.append("mitre_validation_conflict")
     return list(dict.fromkeys(reasons))
+
+
+def projected_demotion_reasons_for_row(
+    *,
+    row_authority_status: str | None,
+    source_profile_bindings_missing: bool = False,
+) -> list[str]:
+    """Offline/report helper mirroring runtime demotion triggers for a catalogue row."""
+    row_summary = {"row_authority_status": row_authority_status or ""}
+    binding_summary = (
+        {"source_profile_bindings_missing": [{"slot": "index"}]}
+        if source_profile_bindings_missing
+        else None
+    )
+    return _demotion_reasons(
+        row_authority_summary=row_summary,
+        source_profile_binding_summary=binding_summary,
+        golden_passed=None,
+        mitre_validation_conflict=False,
+    )

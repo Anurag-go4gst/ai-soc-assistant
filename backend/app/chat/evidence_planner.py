@@ -533,7 +533,10 @@ def _attach_canonical_handoff_summaries(
                 "normalized_slots": dict(bindings.normalized_slots),
                 "slot_sources": dict(bindings.slot_sources),
                 "validation_status": dict(bindings.validation_status),
-                "unbound_constraints": list(bindings.unbound_constraints),
+                "unbound_constraints": list(projection.unbound_constraints),
+                "shift_hour_binding_trace": dict(
+                    (bindings.debug_trace or {}).get("shift_hour_binding_trace") or {}
+                ),
             }
             updates["slot_constraint_projection_summary"] = {
                 **projection.to_dict(),

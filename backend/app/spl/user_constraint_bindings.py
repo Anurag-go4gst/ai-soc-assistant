@@ -260,6 +260,7 @@ def build_user_constraint_bindings(
         bindings.debug_trace["llm_supplement_blocks"] = llm_supplement_blocks
     _append_scope_unbound_constraints(bindings, merged_raw, source_profile_slots)
     _attach_semantic_constraints(bindings, user_query, source_profile_slots)
+    _reconcile_shift_hour_trace(bindings)
     if source_profile_trace:
         bindings.debug_trace.update(source_profile_trace)
     return bindings
@@ -289,6 +290,48 @@ def _attach_semantic_constraints(
                 "source": "semantic_constraint",
             }
         )
+
+
+def _reconcile_shift_hour_trace(bindings: UserConstraintBindings) -> None:
+    """Do not surface profile shift-hour slots as unsupported when off-shift SPL applies them."""
+    off_shift = next(
+        (
+            item
+            for item in bindings.semantic_constraints
+            if isinstance(item, dict) and item.get("constraint_type") == "off_shift_filter"
+        ),
+        None,
+    )
+    if not isinstance(off_shift, dict):
+        return
+    value = off_shift.get("value") if isinstance(off_shift.get("value"), dict) else {}
+    start = value.get("shift_start_hour")
+    end = value.get("shift_end_hour")
+    if start is None or end is None:
+        return
+
+    shift_slots = {"normal_shift_start_hour", "normal_shift_end_hour"}
+    bindings.unbound_constraints = [
+        item
+        for item in bindings.unbound_constraints
+        if not (
+            isinstance(item, dict)
+            and str(item.get("slot") or "") in shift_slots
+            and "unsupported_slot" in str(item.get("reason") or "")
+        )
+    ]
+    for slot in shift_slots:
+        bindings.rejected_slots.pop(slot, None)
+        bindings.validation_status.pop(slot, None)
+
+    off_shift["status"] = "implemented"
+    off_shift["trace_note"] = "fixed_off_shift_hour_constraint_applied"
+    bindings.debug_trace["shift_hour_binding_trace"] = {
+        "status": "fixed_off_shift_hour_constraint_applied",
+        "shift_start_hour": start,
+        "shift_end_hour": end,
+        "model": "fixed_off_shift_hour_constraint",
+    }
 
 def _append_scope_unbound_constraints(
     bindings: UserConstraintBindings,
