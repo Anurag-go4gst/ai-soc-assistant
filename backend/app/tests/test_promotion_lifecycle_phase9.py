@@ -31,6 +31,19 @@ def test_promotion_requires_reviewed_pack_and_passing_golden() -> None:
     assert allowed["promotion_allowed"] is True
 
 
+def test_demotion_on_weak_row_authority_enrichment() -> None:
+    summary = effective_promotion_status(
+        stored_promotion_status="in_manifest",
+        row_authority_summary={
+            "s3_authority_ready": False,
+            "row_authority_status": "exact_known_weak_needs_enrichment",
+        },
+    )
+
+    assert summary["effective_promotion_status"] == DEMOTED_THIS_TURN
+    assert "row_authority_not_ready" in summary["demotion_reasons"]
+
+
 def test_demotion_on_environment_mapping_drift() -> None:
     summary = effective_promotion_status(
         stored_promotion_status="in_manifest",

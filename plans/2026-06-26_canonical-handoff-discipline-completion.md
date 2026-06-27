@@ -145,6 +145,8 @@ This prevents operators from confusing row-authority trace or LLM hints with run
 
 ### WS6 LLM Advisor Hardening
 
+Status: partial — `can_skip_llm_for_t0` now gates intent-advisor and governed-composer narration via `should_skip_llm_composer` + `should_skip_sidecar`.
+
 Status: partial.
 
 Keep LLM output advisory:
@@ -183,7 +185,7 @@ Remaining:
 
 ### WS8 Healthy-Contradiction vs Bug Tests
 
-Status: pending.
+Status: partial — `test_handoff_healthy_contradiction.py` covers CP-off/CP-on row-authority narrowing, MCP step preservation, and T0 composer skip gating.
 
 Add tests distinguishing:
 

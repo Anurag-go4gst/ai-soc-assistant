@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.coverage.row_authority import WEAK_NEEDS_ENRICHMENT
+
 AUTHORITY_READY_EFFECTIVE = "authority_ready"
 DEMOTED_THIS_TURN = "demoted_this_turn"
 NOT_PROMOTED = "not_promoted"
@@ -80,6 +82,8 @@ def _demotion_reasons(
     if source_profile_binding_summary and source_profile_binding_summary.get("source_profile_bindings_missing"):
         reasons.append("environment_mapping_drift")
     row_status = str((row_authority_summary or {}).get("row_authority_status") or "")
+    if row_status == WEAK_NEEDS_ENRICHMENT or row_status.endswith("_needs_enrichment"):
+        reasons.append("row_authority_not_ready")
     if row_status.endswith("_needs_lookup"):
         reasons.append("lookup_dependency_unavailable")
     if row_status.endswith("_needs_detection_binding"):

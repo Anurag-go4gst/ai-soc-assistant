@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from app.llm.sidecar_skip_policy import should_skip_sidecar
+
 _CONCEPTUAL_MITRE_CONFIRM = re.compile(
     r"\b(enough to confirm|alone confirm|treated as lateral movement|prove valid account|prove compromise)\b",
     re.IGNORECASE,
@@ -352,8 +354,21 @@ def should_skip_llm_composer(
     path_type: str | None,
     intent_family: str | None,
     use_case_review_guidance: bool = False,
+    match_path: str | None = None,
+    promotion_lifecycle_summary: dict | None = None,
+    registry_warnings: list[str] | None = None,
+    catalog_row: dict | None = None,
 ) -> tuple[bool, str]:
     """Return whether governed composer must stay deterministic for this request."""
+    if match_path and promotion_lifecycle_summary is not None:
+        skip_t0, t0_reason = should_skip_sidecar(
+            match_path=match_path,
+            promotion_lifecycle_summary=promotion_lifecycle_summary,
+            registry_warnings=registry_warnings,
+            catalog_row=catalog_row,
+        )
+        if skip_t0 and t0_reason:
+            return True, f"t0_authority_ready:{t0_reason}"
     if is_unsafe_blocked_path(path_type):
         return True, "unsafe_blocked_deterministic_guidance"
     if is_explicit_run_spl_query(query):

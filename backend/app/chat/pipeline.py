@@ -2440,11 +2440,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         _intent_family = ""
         if isinstance(intent_classification, dict):
             _intent_family = str(intent_classification.get("intent_family") or "")
+        _registry_warnings, _catalog_row = _composer_skip_registry_context(state)
         _skip_comp, _skip_comp_reason = _skip_composer_fn(
             query=request.message,
             path_type=path_type,
             intent_family=_intent_family or None,
             use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
+            match_path=_match_path_from_state(state),
+            promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
+            registry_warnings=_registry_warnings,
+            catalog_row=_catalog_row,
         )
         _draft_preview_active = isinstance(spl_draft_preview, dict) and bool(
             str(spl_draft_preview.get("draft_spl") or "").strip()
@@ -2668,11 +2673,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     intent_family = ""
     if isinstance(state.get("intent_classification"), dict):
         intent_family = str(state["intent_classification"].get("intent_family") or "")
+    _registry_warnings, _catalog_row = _composer_skip_registry_context(state)
     skip_composer, skip_reason = should_skip_llm_composer(
         query=request.message,
         path_type=path_type,
         intent_family=intent_family or None,
         use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
+        match_path=_match_path_from_state(state),
+        promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
+        registry_warnings=_registry_warnings,
+        catalog_row=_catalog_row,
     )
     if (
         answer_contract is not None
@@ -3564,6 +3574,36 @@ def _resource_decision_labels(state: ChatPipelineState) -> list[str]:
     if isinstance(decisions, list):
         return [str(item) for item in decisions if isinstance(item, (str, int))]
     return []
+
+
+def _promotion_lifecycle_for_composer_skip(state: ChatPipelineState) -> dict[str, Any] | None:
+    evidence_plan = state.get("evidence_plan")
+    if isinstance(evidence_plan, dict):
+        summary = evidence_plan.get("promotion_lifecycle_summary")
+        if isinstance(summary, dict):
+            return summary
+    use_case_id = None
+    q2i = state.get("query_to_intent") or {}
+    if isinstance(q2i, dict):
+        mappings = q2i.get("candidate_mappings") or {}
+        if isinstance(mappings, dict):
+            ids = mappings.get("use_case_ids") or []
+            if ids:
+                use_case_id = ids[0]
+    return _preplan_promotion_lifecycle_for_llm_skip(state.get("query_understanding"), use_case_id)
+
+
+def _composer_skip_registry_context(state: ChatPipelineState) -> tuple[list[str] | None, dict | None]:
+    q2i = state.get("query_to_intent") or {}
+    if not isinstance(q2i, dict):
+        return None, None
+    mappings = q2i.get("candidate_mappings") or {}
+    if not isinstance(mappings, dict):
+        return None, None
+    warnings = mappings.get("registry_warnings")
+    registry_warnings = [str(item) for item in warnings] if isinstance(warnings, list) else None
+    catalog_row = mappings.get("catalog_row") if isinstance(mappings.get("catalog_row"), dict) else None
+    return registry_warnings, catalog_row
 
 
 def _match_path_from_state(state: ChatPipelineState) -> str | None:

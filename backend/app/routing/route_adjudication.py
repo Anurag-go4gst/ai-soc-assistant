@@ -353,7 +353,9 @@ def _row_authority_advisory_assessment(
     *,
     match_path: str,
 ) -> tuple[str, str | None, str | None]:
-    """Trace-only assessment; does not change route adjudication decisions."""
+    """Assess row authority for trace; when operation-authoritative mode is on,
+    ``row_authority_decision`` also gates exact-105 registry routing via
+    ``_row_authority_permits_exact_registry``."""
     use_case_id = _first_use_case_id(mappings)
 
     if match_path in _OUT_OF_REGISTRY_MATCH_PATHS:
@@ -399,14 +401,14 @@ def _row_authority_advisory_assessment(
         return (
             "exact_known_authority_ready",
             None,
-            "Runtime row is authority-ready (trace only; route adjudication unchanged).",
+            "Runtime row is authority-ready; exact-105 registry permitted when operation-authoritative mode is on.",
         )
 
     if status in _ROW_AUTHORITY_BLOCKS_EXACT_REGISTRY:
         return (
             "would_withhold_exact_registry",
             status,
-            f"Row authority status {status!r} would withhold exact-105 registry if enforced (trace only).",
+            f"Row authority status {status!r} withholds exact-105 registry when operation-authoritative mode is on.",
         )
 
     return (
