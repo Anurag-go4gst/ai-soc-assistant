@@ -5,9 +5,10 @@ from __future__ import annotations
 import pytest
 
 from app.chat.evidence_planner import plan_evidence
+from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.guidance_templates import should_skip_llm_composer
 from app.chat.intent_classifier import build_query_to_intent
-from app.chat.contracts.evidence_plan import EvidencePlan
+from app.chat.run_contract_builder import project_mcp_posture
 from app.config import settings
 from app.coverage.promotion_lifecycle import (
     AUTHORITY_READY_EFFECTIVE,
@@ -19,7 +20,6 @@ from app.planner.executor import annotate_step_statuses
 from app.query_understanding.parser import understand_query
 from app.routing.route_adjudication import adjudicate_route
 from app.routing.route_authority_allowlist import COV_Q046_PILOT_COVERAGE_ID
-from app.chat.run_contract_builder import project_mcp_posture
 
 _Q046 = "Which users have excessive failed logins?"
 
@@ -167,7 +167,11 @@ def test_mcp_off_and_mock_execution_use_same_resource_plan_step(
         for step in blocked["evidence_plan"]["resource_plan"]["steps"]
         if step["purpose"] == "mcp_execution"
     )
-    assert (blocked_mcp["step_id"], blocked_mcp["resource_id"], blocked_mcp["purpose"]) == planned_identity
+    assert (
+        blocked_mcp["step_id"],
+        blocked_mcp["resource_id"],
+        blocked_mcp["purpose"],
+    ) == planned_identity
     assert blocked_mcp["status"] == "blocked_policy"
     blocked_posture = project_mcp_posture(blocked)
     assert blocked_posture is not None
@@ -192,7 +196,11 @@ def test_mcp_off_and_mock_execution_use_same_resource_plan_step(
         for step in mock_executed["evidence_plan"]["resource_plan"]["steps"]
         if step["purpose"] == "mcp_execution"
     )
-    assert (mock_mcp["step_id"], mock_mcp["resource_id"], mock_mcp["purpose"]) == planned_identity
+    assert (
+        mock_mcp["step_id"],
+        mock_mcp["resource_id"],
+        mock_mcp["purpose"],
+    ) == planned_identity
     assert mock_mcp["status"] == "executed"
     mock_posture = project_mcp_posture(mock_executed)
     assert mock_posture is not None
