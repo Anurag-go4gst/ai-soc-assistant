@@ -80,6 +80,173 @@ class DispatchHooks:
     execution: Node
 
 
+_DISPATCHABLE_PURPOSES = frozenset({"knowledge_retrieval", "spl_artifact", "mcp_execution"})
+
+
+@dataclass(frozen=True)
+class PlanStepWalkResult:
+  """Ordered ResourcePlan walk: dispatchable steps plus skipped/blocked lineage."""
+
+  step_walk_order: list[str]
+  steps_in_order: list[dict[str, Any]]
+  dispatchable_step_ids: list[str]
+  skipped_step_reasons: dict[str, str]
+  blocked_step_ids: set[str]
+
+
+def walk_plan_steps(state: State) -> PlanStepWalkResult | None:
+  """Read composed ResourcePlan order; never classify intent or change route."""
+  plan = _resource_plan(state)
+  if plan is None:
+    return None
+
+  registry_blocked = _blocked_step_ids(state)
+  preblocked = _preblocked_policy_step_ids(state)
+  blocked = registry_blocked | preblocked
+
+  steps_in_order = [dict(step) for step in plan.get("steps", [])]
+  step_walk_order = [str(step.get("step_id") or "") for step in steps_in_order]
+  dispatchable: list[str] = []
+  skipped: dict[str, str] = {}
+
+  for step in steps_in_order:
+    step_id = str(step.get("step_id") or "")
+    if step_id in registry_blocked:
+      skipped[step_id] = "registry_resource_blocked"
+      continue
+    if step_id in preblocked:
+      skipped[step_id] = _preserved_block_reason(step)
+      continue
+    purpose = str(step.get("purpose") or "")
+    if purpose in _DISPATCHABLE_PURPOSES:
+      dispatchable.append(step_id)
+
+  return PlanStepWalkResult(
+    step_walk_order=step_walk_order,
+    steps_in_order=steps_in_order,
+    dispatchable_step_ids=dispatchable,
+    skipped_step_reasons=skipped,
+    blocked_step_ids=blocked,
+  )
+
+
+def derive_dispatch_booleans_from_plan(state: State) -> dict[str, Any]:
+  """Derive dispatch predicates from EvidencePlan + ResourcePlan projection."""
+  evidence = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+  planning = state.get("planning_decision") if isinstance(state.get("planning_decision"), dict) else {}
+  path_type = planning.get("path_type")
+
+  resource = _resource_plan(state)
+  if resource is not None:
+    from app.planner.resource_plan import ResourcePlan, project_booleans
+
+    projected = project_booleans(ResourcePlan.model_validate(resource))
+  else:
+    projected = {
+      "needs_rag": bool(evidence.get("needs_rag")),
+      "needs_spl": bool(evidence.get("needs_spl")),
+      "needs_mcp": bool(evidence.get("needs_mcp")),
+      "needs_mitre": bool(evidence.get("needs_mitre")),
+    }
+
+  rag_phase = str(evidence.get("rag_phase") or "")
+  answer_mode = str(evidence.get("answer_mode") or "")
+
+  uses_pre_mcp_rag = bool(projected.get("needs_rag")) and rag_phase == "pre_mcp"
+  uses_rag_only_path = path_type == "guided_investigation" or answer_mode in {
+    "rag_only",
+    "guided_investigation",
+  } or path_type == "generic_soc_guidance"
+  if not settings.control_plane_enabled:
+    uses_rag_only_path = False
+    uses_pre_mcp_rag = False
+
+  return {
+    "uses_rag_only_path": uses_rag_only_path,
+    "uses_pre_mcp_rag": uses_pre_mcp_rag,
+    "projected_needs": projected,
+  }
+
+
+def build_step_walk_dispatch_schedule(
+  state: State,
+  walk: PlanStepWalkResult,
+  hooks: DispatchHooks,
+) -> list[str]:
+  """Derive the stage-node schedule from a walked plan.
+
+  Composition order (e.g. pre_mcp RAG before SPL in the ResourcePlan) is
+  preserved in ``walk.step_walk_order`` for lineage, but dispatch still follows
+  the legacy stage pipeline until parity proves a safe reorder.
+  """
+  return _legacy_predicate_dispatch_schedule(state, hooks, walk.blocked_step_ids)
+
+
+def _legacy_predicate_dispatch_schedule(
+  state: State,
+  hooks: DispatchHooks,
+  blocked_steps: set[str],
+) -> list[str]:
+  if hooks.uses_rag_only_path(state):
+    schedule = ["prepare_rag_only"]
+    if "rag" not in blocked_steps:
+      schedule.append("rag_early")
+    return schedule
+
+  schedule: list[str] = []
+  if "spl" not in blocked_steps:
+    schedule.append("workflow_spl")
+  if hooks.uses_pre_mcp_rag(state) and "rag" not in blocked_steps:
+    schedule.append("rag_early")
+  if "spl" not in blocked_steps:
+    schedule.append("spl_source_resolve")
+  if "spl" in blocked_steps and not state.get("workflow_plan"):
+    schedule.append("ensure_workflow_plan")
+  schedule.append("execution")
+  return schedule
+
+
+_HOOK_BY_NAME = {
+  "prepare_rag_only": lambda hooks: hooks.prepare_rag_only,
+  "rag_early": lambda hooks: hooks.rag_early,
+  "spl_source_resolve": lambda hooks: hooks.spl_source_resolve,
+  "workflow_spl": lambda hooks: hooks.workflow_spl,
+  "ensure_workflow_plan": lambda hooks: hooks.ensure_workflow_plan,
+  "execution": lambda hooks: hooks.execution,
+}
+
+
+def _run_dispatch_schedule(state: State, hooks: DispatchHooks, schedule: list[str]) -> State:
+  for hook_name in schedule:
+    node = _HOOK_BY_NAME[hook_name](hooks)
+    state = node(state)
+  return state
+
+
+def build_plan_dispatch_trace(
+  state: State,
+  *,
+  walk: PlanStepWalkResult | None,
+  schedule: list[str],
+  hooks: DispatchHooks,
+  dispatch_source: str,
+) -> dict[str, Any]:
+  derived = derive_dispatch_booleans_from_plan(state)
+  trace: dict[str, Any] = {
+    "dispatch_source": dispatch_source,
+    "dispatch_schedule": schedule,
+    "dispatch_parity_projection": derived,
+  }
+  if walk is not None:
+    trace["step_walk_order"] = list(walk.step_walk_order)
+    trace["skipped_step_reasons"] = dict(walk.skipped_step_reasons)
+    trace["predicate_parity"] = {
+      "uses_rag_only_path": hooks.uses_rag_only_path(state) == derived.get("uses_rag_only_path"),
+      "uses_pre_mcp_rag": hooks.uses_pre_mcp_rag(state) == derived.get("uses_pre_mcp_rag"),
+    }
+  return trace
+
+
 def _resource_plan(state: State) -> dict[str, Any] | None:
     plan = state.get("evidence_plan")
     if isinstance(plan, Mapping):
@@ -125,25 +292,24 @@ def _dispatch_blocked_step_ids(state: State) -> set[str]:
 
 
 def execute_plan_dispatch(state: State, hooks: DispatchHooks) -> State:
-    """Walk the composed plan with the same control flow as the legacy
-    dispatch block in `_build_live_chat_response_inner`."""
-    blocked_steps = _dispatch_blocked_step_ids(state)
-    if hooks.uses_rag_only_path(state):
-        state = hooks.prepare_rag_only(state)
-        if "rag" not in blocked_steps:
-            state = hooks.rag_early(state)
+    """Dispatch via ResourcePlan step-walk; predicates remain parity-checked."""
+    walk = walk_plan_steps(state)
+    blocked_steps = walk.blocked_step_ids if walk is not None else _dispatch_blocked_step_ids(state)
+    if walk is not None:
+        schedule = build_step_walk_dispatch_schedule(state, walk, hooks)
+        dispatch_source = "resource_plan_step_walk"
     else:
-        if "spl" not in blocked_steps:
-            state = hooks.workflow_spl(state)
-        if hooks.uses_pre_mcp_rag(state) and "rag" not in blocked_steps:
-            state = hooks.rag_early(state)
-        if "spl" not in blocked_steps:
-            state = hooks.spl_source_resolve(state)
-        # The execution stage always runs on this branch: it owns the MCP
-        # gate, block reasons, and HIL even when no MCP step exists.
-        if "spl" in blocked_steps and not state.get("workflow_plan"):
-            state = hooks.ensure_workflow_plan(state)
-        state = hooks.execution(state)
+        schedule = _legacy_predicate_dispatch_schedule(state, hooks, blocked_steps)
+        dispatch_source = "legacy_predicate"
+    trace = build_plan_dispatch_trace(
+        state,
+        walk=walk,
+        schedule=schedule,
+        hooks=hooks,
+        dispatch_source=dispatch_source,
+    )
+    state = {**state, "plan_dispatch_trace": trace}
+    state = _run_dispatch_schedule(state, hooks, schedule)
     return _annotate_blocked(state, blocked_steps)
 
 

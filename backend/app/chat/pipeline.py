@@ -373,18 +373,30 @@ def _run_live_chat_pipeline(
     state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
     state = _timed_node(state, "shadow_tail", graph_node_shadow_tail)
     if has_composed_plan(state) and not _session_spl_refine_active(state):
-        # WS0 T0.4: composed-plan dispatch — same node calls, same predicates,
-        # plus per-step status/degrade-chain recording.
+        # WS0 T0.4 / Batch C: ResourcePlan step-walk dispatch with parity trace.
         state = _timed_node(state, "plan_dispatch", lambda s: execute_plan_dispatch(s, _dispatch_hooks()))
+    elif settings.control_plane_enabled and not _session_spl_refine_active(state):
+        state = _timed_node(
+            state,
+            "plan_dispatch_fallback",
+            lambda s: _run_legacy_dispatch_fallback(
+                s,
+                dispatch_source="cp_on_composed_plan_missing",
+                composed_plan_missing_reason=_composed_plan_missing_reason(s),
+            ),
+        )
     elif _uses_rag_only_path(state) and not _session_spl_refine_active(state):
-        state = _timed_node(state, "prepare_rag_only", graph_node_prepare_rag_only)
-        state = _timed_node(state, "rag_early", graph_node_rag_early)
+        state = _timed_node(
+            state,
+            "plan_dispatch_fallback",
+            lambda s: _run_legacy_dispatch_fallback(s, dispatch_source="cp_off_legacy"),
+        )
     else:
-        state = _timed_node(state, "workflow_spl", graph_node_workflow_spl)
-        if _uses_pre_mcp_rag(state):
-            state = _timed_node(state, "rag_early", graph_node_rag_early)
-        state = _timed_node(state, "spl_source_resolve", graph_node_spl_source_resolve)
-        state = _timed_node(state, "execution", graph_node_execution)
+        state = _timed_node(
+            state,
+            "plan_dispatch_fallback",
+            lambda s: _run_legacy_dispatch_fallback(s, dispatch_source="cp_off_legacy"),
+        )
     if settings.control_plane_enabled and loop_initialized(state):
         state = _timed_node(state, "evidence_planning_loop", graph_node_evidence_planning)
     state = _timed_node(state, "context_finalize", graph_node_context_finalize)
@@ -3102,6 +3114,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             control_plane_trace["missing_evidence_reasoning"] = missing_evidence_reasoning_trace
         if mitre_risk_rationale_trace is not None:
             control_plane_trace["mitre_risk_rationale"] = mitre_risk_rationale_trace
+        plan_dispatch_trace = state.get("plan_dispatch_trace")
+        if isinstance(plan_dispatch_trace, dict) and plan_dispatch_trace:
+            control_plane_trace["plan_dispatch"] = plan_dispatch_trace
         if resource_plan_shadow_trace is not None:
             control_plane_trace["resource_plan_shadow"] = resource_plan_shadow_trace
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
@@ -3494,6 +3509,52 @@ def _coverage_id_from_authority(route_authority: dict[str, object] | None) -> st
 def _evidence_plan(state: ChatPipelineState) -> dict[str, Any]:
     plan = state.get("evidence_plan")
     return plan if isinstance(plan, dict) else {}
+
+
+
+
+def _composed_plan_missing_reason(state: ChatPipelineState) -> str:
+    evidence_plan = state.get("evidence_plan")
+    if not isinstance(evidence_plan, dict):
+        return "evidence_plan_missing"
+    resource_plan = evidence_plan.get("resource_plan")
+    if not isinstance(resource_plan, dict):
+        return "resource_plan_not_attached"
+    if not resource_plan.get("steps"):
+        return "resource_plan_empty"
+    return "resource_plan_composition_failed"
+
+
+def _run_legacy_dispatch_fallback(
+    state: ChatPipelineState,
+    *,
+    dispatch_source: str,
+    composed_plan_missing_reason: str | None = None,
+) -> ChatPipelineState:
+    """Explicit legacy dispatch when composed plan is absent; traced, never silent."""
+    trace: dict[str, Any] = {
+        "dispatch_source": dispatch_source,
+        "dispatch_schedule": [],
+    }
+    if composed_plan_missing_reason:
+        trace["composed_plan_missing_reason"] = composed_plan_missing_reason
+    state = {**state, "plan_dispatch_trace": trace}
+    if _uses_rag_only_path(state):
+        state = graph_node_prepare_rag_only(state)
+        trace["dispatch_schedule"].append("prepare_rag_only")
+        state = graph_node_rag_early(state)
+        trace["dispatch_schedule"].append("rag_early")
+        return {**state, "plan_dispatch_trace": trace}
+    state = graph_node_workflow_spl(state)
+    trace["dispatch_schedule"].append("workflow_spl")
+    if _uses_pre_mcp_rag(state):
+        state = graph_node_rag_early(state)
+        trace["dispatch_schedule"].append("rag_early")
+    state = graph_node_spl_source_resolve(state)
+    trace["dispatch_schedule"].append("spl_source_resolve")
+    state = graph_node_execution(state)
+    trace["dispatch_schedule"].append("execution")
+    return {**state, "plan_dispatch_trace": trace}
 
 
 def _dispatch_hooks() -> DispatchHooks:
