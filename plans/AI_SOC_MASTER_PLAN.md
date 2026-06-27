@@ -1,8 +1,8 @@
 # AI SOC Assistant — Master Plan
 
 **Document:** `plans/AI_SOC_MASTER_PLAN.md` — **single canonical plan** for hardening, skill enrichment, pipeline/LangGraph, and GitHub skill intake tracking.  
-**Date:** 2026-06-06  
-**Status:** Active implementation roadmap — Batches 1 through 6 completed on `master`; Batch 7 plan-status review documented; next implementation phase requires explicit scope approval (see [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md)).  
+**Date:** 2026-06-06 (amended 2026-06-27)  
+**Status:** Active implementation roadmap — Batches 1 through 6 completed on `master`; Batch 7 plan-status review documented; **canonical handoff discipline shipped** (`e5a4d40`, PR #38); **deferred handoff closure** in PR #39 (operator-reviewed promotion writes, row-authority refresh policy, shift-hour trace, MCP checklist). Next implementation phase requires explicit scope approval (see [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md)).  
 **Canonical for:** Tracks A–D, pilot enrichments P1–P7, execution order, tracking table (§P)
 
 > **Single plan only.** Do not use `plans/2026-06-06_*.md` drafts (removed). All amendments live here.
@@ -97,6 +97,16 @@
 | **7** — Plan status review | **Done** | This doc commit | Docs only | Gap audit + recommended next phase | Implementation of backlog items |
 
 Full audit: [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md).
+
+### Recent shipments (2026-06-27)
+
+| Work | Status | Reference |
+|------|--------|-----------|
+| PR #38 — T2 SPL-native / handoff stabilization | **Merged** (`master` @ `e5a4d40`) | `feat/llm-lab-direct-ask` |
+| Post-PR #38 prod smoke — near-105 route + unsafe containment | **Shipped** (PR #40 open) | `fix/post-pr38-smoke-routing`; see handoff plan §Post-PR #38 smoke fix |
+| Operator-reviewed promotion writes + row-authority refresh | **Pending** | PR #39 (`feat/operator-reviewed-promotion-writes`) |
+| Full canonical handoff Phases 2–10 | **Pending** | [`2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md`](2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md) |
+
 
 ---
 
@@ -1206,6 +1216,25 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 ---
 
 ## M. Deferred items
+
+
+### M.1 Canonical handoff + deferred closure (2026-06-27)
+
+**SSOT for closure batches:** [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) (Batch 0 → A → B → C → D → E → F → Doc). Table below is summary; batch detail lives in the consolidated plan.
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Canonical graph handoff (EvidencePlan → ResourcePlan → FinalEvidenceGate → RunContract) | **Shipped** | `master` @ `e5a4d40` (PR #38): row authority (flag-gated), `SlotConstraintProjection`, MCP ResourcePlan `blocked_policy`, evidence-plan handoff drift, T0 composer skip, runtime promotion lifecycle (read-only), e2e probes |
+| Operator-reviewed `promotion_status` write path | **PR #39** (open) | Dry-run-by-default CLI; `--apply` gated; audit append-only; `/chat` stays read-only |
+| Row-authority report refresh policy | **PR #39** (open) | `projected_demotion_reasons`, `--check` / `--refresh`, `docs/evals/ARTIFACT_REFRESH_POLICY.md`; only `row_authority_report.json` intentionally refreshed |
+| Wineventlog shift-hour trace readability | **PR #39** (open) | `fixed_off_shift_hour_constraint_applied`; SPL/execution unchanged |
+| MCP live-readiness checklist | **PR #39** (open) | Docs + posture tests; no live MCP execution |
+| COE `q0.q046` promotion apply | **Pending** | Dry-run rehearsal: `already_in_target_status` + `s3_authority_ready_required`; no `--apply` until COE sign-off |
+| Broader reviewed answer-pack coverage | **Pending** | Seed pack only; extend `answer_packs.json` + offline builder |
+| SPL degrade-chain single artifact authority | **Pending** | Template / T2-native / lab / LLM failover still meet in `pipeline.py` |
+| Live Splunk MCP activation | **Deferred** | Readiness checklist exists; execution flags stay off until COE |
+
+### M.2 Original deferred list
 
 - Full skill enum unification
 - Importing 754 GitHub skills

@@ -1,7 +1,7 @@
 ---
 name: Canonical handoff discipline completion
-overview: "Complete T0/T1/T2 handoff discipline without replacing RouteContract / FinalEvidenceGate / RunContract. Each decision area gets exactly one authority; RunContract remains finalize-only public authority for execution, HIL, result claims, render permissions, and SPL lifecycle."
-status: proposed
+overview: "Canonical handoff discipline — shipped core (PR #38); deferred closure (PR #39). Complete remaining without replacing RouteContract / FinalEvidenceGate / RunContract. Each decision area gets exactly one authority; RunContract remains finalize-only public authority for execution, HIL, result claims, render permissions, and SPL lifecycle."
+status: partial
 date: 2026-06-26
 depends_on:
   - plans/2026-06-24_run-contract-canonical-state.md
@@ -11,10 +11,10 @@ depends_on:
 todos:
   - id: ws1-routing-row-authority
     content: "WS1: Wire row_authority_summary + catalog registry_tier into route adjudication; block weak-exact from exact_105_registry"
-    status: pending
+    status: completed
   - id: ws2-slot-constraint-projection
     content: "WS2: Introduce SlotConstraintProjection as SPL/planning artifact authority; unify EvidencePlan summary + SPL path + trace"
-    status: pending
+    status: completed
   - id: ws3-resourceplan-dispatch
     content: "WS3: Make execute_plan_dispatch step-driven; enforce skill-contract blocked_policy; legacy predicates become plan inputs only"
     status: pending
@@ -23,7 +23,7 @@ todos:
     status: pending
   - id: ws5-debug-trace-labeling
     content: "WS5: Label debug/governance panels AUTHORITATIVE / PLANNING / ADVISORY / DIAGNOSTIC"
-    status: pending
+    status: completed
   - id: ws6-llm-advisor-hardening
     content: "WS6: Compact intent advisory schema, graceful drop/repair, semantic constraint hints; deterministic pre-parse always wins"
     status: pending
@@ -32,15 +32,17 @@ todos:
     status: pending
   - id: ws8-healthy-vs-bug-tests
     content: "WS8: Add healthy-contradiction vs real-bug assertion suite and debug bundle checks"
-    status: pending
+    status: completed
 isProject: false
 ---
+
+> **Superseded:** Use [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) as the single source of truth. This file is retained for history only.
 
 # Canonical Handoff Discipline — Completion Plan
 
 ## Executive Summary
 
-Handoff discipline is partial, not complete. The shipped path remains:
+Core handoff discipline is **shipped** (PR #38). Deferred closure (PR #39) adds operator-reviewed promotion writes and artifact policy; remaining workstreams are incremental. The shipped path remains:
 
 ```text
 query -> query_to_intent -> route_adjudication -> route_contract
@@ -57,7 +59,7 @@ trace, or review-only artifacts, but they must flow through the same canonical h
 - Row-authority metadata is now visible in route adjudication as a trace-only advisory signal. It does not yet replace exact-105 routing authority.
 - ResourcePlan composition now keeps an MCP step present for live-evidence needs and marks it `blocked_policy` when `mcp_allowed=false`.
 - T2 SPL-native review-only generation is improved, but the SPL degrade chain remains mixed: template, T2 native, lab preview, and LLM failover still meet in `pipeline.py` and should be consolidated behind one SPL artifact authority.
-- Answer-pack promotion/demotion remains skeletal; no populated `answer_packs.json` is live authority.
+- Answer-pack seed is live for EvidencePlan enrichment only; operator-reviewed `promotion_status` writes ship in PR #39; broader pack coverage remains pending.
 
 ## Workstreams
 
@@ -132,7 +134,7 @@ Remaining:
 
 ### WS5 Debug / Governance Trace Labels
 
-Status: pending.
+Status: **done** (PR #38) — `trace_authority_index` tiers on control-plane trace.
 
 Every debug panel should label fields as one of:
 
@@ -181,7 +183,7 @@ Done:
 Remaining:
 
 - Broaden pack coverage beyond the initial auth failed-login seed.
-- Add golden-gated promotion writes; packs still enrich EvidencePlan only.
+- **Done (PR #39):** operator-reviewed promotion write CLI (dry-run default). **Pending:** broader pack coverage; COE apply for pilot rows.
 
 ### WS8 Healthy-Contradiction vs Bug Tests
 

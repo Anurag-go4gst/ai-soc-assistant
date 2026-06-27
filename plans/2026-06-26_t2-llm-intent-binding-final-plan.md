@@ -1,3 +1,5 @@
+> **Superseded:** Use [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) as the single source of truth. This file is retained for history only.
+
 # T2 LLM Intent + Binding Final Plan
 
 ## Status

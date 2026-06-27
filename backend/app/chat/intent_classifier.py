@@ -29,6 +29,11 @@ from app.use_cases.registry import load_use_case_catalog
 
 
 _CATALOG_MATCH_PATHS = frozenset({"use_case_catalog", "exact_105_plus_use_case_catalog"})
+_NEAR_105_MATCH_PATHS = frozenset({"near_105_question", "semantic_105_question"})
+_EXACT_105_MATCH_PATHS = frozenset(
+    {"exact_105_question", "exact_105_plus_use_case_catalog"}
+)
+_105_REGISTRY_MATCH_PATHS = _EXACT_105_MATCH_PATHS | _NEAR_105_MATCH_PATHS
 
 _SUMMARY_OUTPUT_MARKERS = (
     "summarize",
@@ -178,6 +183,24 @@ def _effective_match_path(
     return path
 
 
+def _registry_legacy_skill_hint(
+    query_understanding: QueryUnderstandingResult,
+) -> str | None:
+    path = query_understanding.deterministic_match_path or ""
+    if path not in _105_REGISTRY_MATCH_PATHS:
+        return None
+    ref = query_understanding.mapped_question_ref
+    if not ref:
+        return None
+    entry = question_runtime_entry(ref)
+    if not entry:
+        return None
+    hint = entry.get("legacy_router_intent_hint")
+    if isinstance(hint, str) and hint.strip():
+        return hint.strip()
+    return None
+
+
 def build_candidate_mappings(
     query_understanding: QueryUnderstandingResult | None,
     *,
@@ -191,6 +214,7 @@ def build_candidate_mappings(
             "match_path": "out_of_registry",
             "legacy_skill_hint": routed_skill,
         }
+    registry_hint = _registry_legacy_skill_hint(query_understanding) if query_understanding else None
     return {
         "question_ref": query_understanding.mapped_question_ref,
         "use_case_ids": list(query_understanding.mapped_use_case_ids or []),
@@ -199,7 +223,7 @@ def build_candidate_mappings(
             routed_skill=routed_skill,
             routing_provenance=routing_provenance,
         ),
-        "legacy_skill_hint": routed_skill or query_understanding.mapped_primary_skill,
+        "legacy_skill_hint": routed_skill or registry_hint or query_understanding.mapped_primary_skill,
     }
 
 
@@ -641,11 +665,18 @@ def classify_intent(
             requested_output_type=None,
         )
 
+    match_path = str(candidate_mappings.get("match_path") or "")
     if (
         signals.get("explicit_search_intent")
         and not signals.get("run_execution")
         and not signals.get("non_soc_or_out_of_scope")
-        and str(candidate_mappings.get("match_path") or "") not in {"", "out_of_registry", "semantic_out_of_registry"}
+        and match_path
+        not in {
+            "",
+            "out_of_registry",
+            "semantic_out_of_registry",
+            *_NEAR_105_MATCH_PATHS,
+        }
     ):
         goals: list[AnswerGoal] = ["spl_artifact"]
         if signals.get("investigation_triage_guidance") or signals.get("procedural_investigation"):
@@ -668,13 +699,12 @@ def classify_intent(
     # Sits below all knowledge/SOP/MITRE/unsafe branches so a 105 question
     # phrased as SOP/MITRE/containment keeps its existing path; this branch
     # rescues queries that would otherwise die in clarification.
-    exact_match = str(candidate_mappings.get("match_path") or "") in {
-        "exact_105_question",
-        "exact_105_plus_use_case_catalog",
-    }
+    exact_match = match_path in _EXACT_105_MATCH_PATHS
+    near_105_match = match_path in _NEAR_105_MATCH_PATHS
     registry_analytics = bool(signals.get("exact_105_analytics")) and exact_match
     registry_hunt = bool(signals.get("exact_105_hunt_spl")) and exact_match
-    if (registry_analytics or registry_hunt or signals.get("analytics_aggregation")) and not (
+    analytics_paraphrase = bool(signals.get("analytics_aggregation")) and not near_105_match
+    if (registry_analytics or registry_hunt or analytics_paraphrase) and not (
         signals.get("block_or_contain")
         or signals.get("explicit_run_spl")
         or signals.get("non_soc_or_out_of_scope")
@@ -715,9 +745,10 @@ def classify_intent(
         "semantic_105_question",
     }
     has_use_case = bool(candidate_mappings.get("use_case_ids"))
+    has_registry_anchor = has_use_case or bool(candidate_mappings.get("question_ref"))
     if (
         catalog_match
-        and has_use_case
+        and has_registry_anchor
         and not signals.get("block_or_contain")
         and not signals.get("explicit_run_spl")
     ):
@@ -748,6 +779,21 @@ def classify_intent(
             return _build_alert_summary_classification(
                 reason="Maps to a catalog use case with summary-output intent; alert-summary path (no SPL).",
                 confidence=0.8,
+            )
+        if skill_hint == "attack_discovery":
+            return _build_classification(
+                intent_family="live_investigation",
+                primary_intent="attack_discovery",
+                query_type="investigation_with_guidance",
+                answer_goal=["procedural_steps", "analyst_action_guidance"],
+                confidence=0.82,
+                requires_clarification=False,
+                action_mode="recommend_only",
+                reason=(
+                    "Maps to a catalog SOC analytics/investigation use case; preserve attack-discovery "
+                    "review path (SPL artifact may be review-only, execution disabled)."
+                ),
+                requested_output_type="INVESTIGATION",
             )
         if knowledge_shaped:
             return _build_classification(

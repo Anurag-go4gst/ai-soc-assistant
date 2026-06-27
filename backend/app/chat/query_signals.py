@@ -476,6 +476,8 @@ def extract_query_signals(
             "block suspicious",
             "block this ip",
             "block the ip",
+            "block the source ip",
+            "block source ip",
             "block ip ",
             "block user ",
             "block the user",

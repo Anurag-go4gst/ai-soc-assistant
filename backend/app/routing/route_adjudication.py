@@ -172,6 +172,19 @@ def adjudicate_route(
             reason="Exact 105 mapping with compatible intent and allowlisted registry authority.",
         )
 
+    if match_path in _OUT_OF_REGISTRY_MATCH_PATHS and match_path != "out_of_registry":
+        skill = _registry_skill_for_exact_105(mappings, query_understanding, deterministic_route)
+        if skill in {"attack_discovery", "alert_summary", "knowledge_recall"}:
+            return finish(
+                final_route=skill,
+                final_use_case_id=_first_use_case_id(mappings),
+                authority_source="near_105_registry_skill",
+                reason=(
+                    "Near-105 registry match preserves the 105/domain skill; SPL artifacts "
+                    "must not downgrade the canonical route."
+                ),
+            )
+
     if plan is not None and plan.answer_mode in {"hybrid", "live_investigation"}:
         skill = _skill_for_intent_family(intent.intent_family, deterministic_route)
         return finish(
