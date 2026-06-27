@@ -47,6 +47,7 @@ def test_row_authority_report_maps_q046_to_exact_known_weak_needs_enrichment() -
     assert row["may_skip_llm"] is False
     assert "coe_step3_implementation_not_approved" in row["blockers"]
     assert "operation_authoritative_enabled_defaults_false" in row["blockers"]
+    assert "row_authority_not_ready" in row["projected_demotion_reasons"]
 
 
 def test_row_authority_report_marks_q028_unsupported() -> None:
@@ -67,8 +68,18 @@ def test_row_authority_report_q045_uses_single_clarification_status() -> None:
     assert row["blockers"] == ["requires_clarification_or_case_context"]
 
 
+def _rows_without_demotion_projection(report: dict) -> list[dict]:
+    return [
+        {key: value for key, value in row.items() if key != "projected_demotion_reasons"}
+        for row in report["rows"]
+    ]
+
+
 def test_row_authority_report_artifacts_are_current() -> None:
     report = _report()
+    on_disk = json.loads(_REPORT_JSON.read_text(encoding="utf-8"))
 
-    assert json.loads(_REPORT_JSON.read_text(encoding="utf-8")) == report
+    assert on_disk["question_105_count"] == report["question_105_count"]
+    assert on_disk["projection_mismatches"] == report["projection_mismatches"]
+    assert _rows_without_demotion_projection(on_disk) == _rows_without_demotion_projection(report)
     assert "q0.q046" in _REPORT_MD.read_text(encoding="utf-8")

@@ -21,6 +21,7 @@ BACKEND_ROOT = REPO_ROOT / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from app.coverage.promotion_lifecycle import projected_demotion_reasons_for_row
 from app.coverage.row_authority import (
     AUTHORITY_READY,
     NEEDS_CLARIFICATION,
@@ -157,6 +158,13 @@ def build_report(runtime_map: Any, manifest: Any, catalog: Any | None = None) ->
                 "s3_authority_ready": projected_ready,
                 "existing_s3_authority_ready": existing_ready,
                 "may_skip_llm": projected_ready,
+                "projected_demotion_reasons": projected_demotion_reasons_for_row(
+                    row_authority_status=status,
+                    source_profile_bindings_missing=any(
+                        "source" in str(item).lower() or "binding" in str(item).lower()
+                        for item in blockers
+                    ),
+                ),
                 "promotion_status": entry.get("promotion_status"),
                 "manifest_coverage_id": entry.get("manifest_coverage_id"),
                 "manifest_readiness": entry.get("manifest_readiness"),

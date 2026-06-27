@@ -552,6 +552,12 @@ def _attach_canonical_handoff_summaries(
         row_authority_summary=row_summary,
         source_profile_binding_summary=updates.get("source_profile_binding_summary"),
         answer_pack_summary=plan.answer_pack_summary,
+        mcp_evidence_unavailable=(
+            plan.needs_mcp
+            and plan.mcp_allowed is False
+            and plan.answer_mode in {"live_investigation", "hybrid"}
+            and (row_summary or {}).get("promotion_status") == "in_manifest"
+        ),
     )
     if lifecycle["stored_promotion_status"] or lifecycle["demotion_reasons"]:
         updates["promotion_lifecycle_summary"] = lifecycle

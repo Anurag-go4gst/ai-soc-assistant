@@ -15,6 +15,8 @@ def promotion_gate_decision(
     reviewed_pack_loaded: bool,
     golden_passed: bool,
     s3_authority_ready: bool,
+    required_bindings_present: bool = True,
+    governed_template_or_validated_spl: bool = True,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     if not reviewed_pack_loaded:
@@ -23,6 +25,10 @@ def promotion_gate_decision(
         blockers.append("golden_test_required")
     if not s3_authority_ready:
         blockers.append("s3_authority_ready_required")
+    if not required_bindings_present:
+        blockers.append("required_bindings_missing")
+    if not governed_template_or_validated_spl:
+        blockers.append("governed_template_or_validated_spl_required")
     return {
         "stored_promotion_status": stored_promotion_status,
         "promotion_allowed": not blockers,
@@ -39,6 +45,7 @@ def effective_promotion_status(
     answer_pack_summary: dict[str, Any] | None = None,
     golden_passed: bool | None = None,
     mitre_validation_conflict: bool = False,
+    mcp_evidence_unavailable: bool = False,
 ) -> dict[str, Any]:
     """Return the per-turn effective status without mutating stored metadata."""
     stored = str(stored_promotion_status or "")
@@ -48,6 +55,7 @@ def effective_promotion_status(
         source_profile_binding_summary=source_profile_binding_summary,
         golden_passed=golden_passed,
         mitre_validation_conflict=mitre_validation_conflict,
+        mcp_evidence_unavailable=mcp_evidence_unavailable,
     )
     if stored == "in_manifest" and s3_ready and not reasons:
         effective = AUTHORITY_READY_EFFECTIVE
@@ -77,6 +85,7 @@ def _demotion_reasons(
     source_profile_binding_summary: dict[str, Any] | None,
     golden_passed: bool | None,
     mitre_validation_conflict: bool,
+    mcp_evidence_unavailable: bool = False,
 ) -> list[str]:
     reasons: list[str] = []
     if source_profile_binding_summary and source_profile_binding_summary.get("source_profile_bindings_missing"):
@@ -94,4 +103,27 @@ def _demotion_reasons(
         reasons.append("golden_test_failed")
     if mitre_validation_conflict:
         reasons.append("mitre_validation_conflict")
+    if mcp_evidence_unavailable:
+        reasons.append("mcp_evidence_unavailable")
     return list(dict.fromkeys(reasons))
+
+def projected_demotion_reasons_for_row(
+    *,
+    row_authority_status: str | None,
+    source_profile_bindings_missing: bool = False,
+) -> list[str]:
+    """Offline/report helper mirroring runtime demotion triggers for a catalogue row."""
+    row_summary = {"row_authority_status": row_authority_status or ""}
+    binding_summary = (
+        {"source_profile_bindings_missing": [{"slot": "index"}]}
+        if source_profile_bindings_missing
+        else None
+    )
+    return _demotion_reasons(
+        row_authority_summary=row_summary,
+        source_profile_binding_summary=binding_summary,
+        golden_passed=None,
+        mitre_validation_conflict=False,
+        mcp_evidence_unavailable=False,
+    )
+

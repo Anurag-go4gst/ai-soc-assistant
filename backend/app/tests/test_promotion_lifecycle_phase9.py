@@ -122,3 +122,81 @@ def test_evidence_plan_carries_runtime_demotion_trace() -> None:
     assert plan.promotion_lifecycle_summary is not None
     assert plan.promotion_lifecycle_summary["stored_status_mutated"] is False
     assert plan.promotion_lifecycle_summary["stored_promotion_status"] == "in_manifest"
+
+def test_promotion_requires_required_bindings() -> None:
+    blocked = promotion_gate_decision(
+        stored_promotion_status="not_in_manifest",
+        reviewed_pack_loaded=True,
+        golden_passed=True,
+        s3_authority_ready=True,
+        required_bindings_present=False,
+    )
+    assert blocked["promotion_allowed"] is False
+    assert "required_bindings_missing" in blocked["blockers"]
+
+
+def test_promotion_requires_governed_template_or_validated_spl() -> None:
+    blocked = promotion_gate_decision(
+        stored_promotion_status="not_in_manifest",
+        reviewed_pack_loaded=True,
+        golden_passed=True,
+        s3_authority_ready=True,
+        governed_template_or_validated_spl=False,
+    )
+    assert blocked["promotion_allowed"] is False
+    assert "governed_template_or_validated_spl_required" in blocked["blockers"]
+
+
+def test_demotion_on_missing_source_profile() -> None:
+    summary = effective_promotion_status(
+        stored_promotion_status="in_manifest",
+        row_authority_summary={"s3_authority_ready": True, "row_authority_status": "exact_known_authority_ready"},
+        source_profile_binding_summary={"source_profile_bindings_missing": [{"slot": "index"}]},
+    )
+    assert summary["effective_promotion_status"] == DEMOTED_THIS_TURN
+    assert "environment_mapping_drift" in summary["demotion_reasons"]
+
+
+def test_demotion_on_missing_lookup_dependency() -> None:
+    summary = effective_promotion_status(
+        stored_promotion_status="in_manifest",
+        row_authority_summary={
+            "s3_authority_ready": False,
+            "row_authority_status": "exact_known_needs_lookup",
+        },
+    )
+    assert summary["effective_promotion_status"] == DEMOTED_THIS_TURN
+    assert "lookup_dependency_unavailable" in summary["demotion_reasons"]
+
+
+def test_demotion_on_mcp_evidence_unavailable_for_promoted_row() -> None:
+    summary = effective_promotion_status(
+        stored_promotion_status="in_manifest",
+        row_authority_summary={"s3_authority_ready": True, "row_authority_status": "exact_known_authority_ready"},
+        mcp_evidence_unavailable=True,
+    )
+    assert summary["effective_promotion_status"] == DEMOTED_THIS_TURN
+    assert "mcp_evidence_unavailable" in summary["demotion_reasons"]
+
+
+def test_answer_pack_export_reflects_promotion_status_but_does_not_own_it() -> None:
+    import json
+
+    from app.use_cases.answer_packs import ANSWER_PACKS_PATH
+    from scripts import build_answer_packs as builder
+
+    assert "promotion_status" not in json.dumps(builder.PACKS)
+    payload = json.loads(ANSWER_PACKS_PATH.read_text(encoding="utf-8"))
+    for pack in (payload.get("packs") or {}).values():
+        assert "promotion_status" not in pack
+        assert pack.get("review_status") in {"reviewed", "approved", "runtime_reviewed"}
+
+
+def test_row_authority_report_includes_projected_demotion_reasons_for_weak_row() -> None:
+    from app.coverage.promotion_lifecycle import projected_demotion_reasons_for_row
+
+    reasons = projected_demotion_reasons_for_row(
+        row_authority_status="exact_known_weak_needs_enrichment",
+    )
+    assert "row_authority_not_ready" in reasons
+
