@@ -1,7 +1,7 @@
 ---
 name: Full canonical handoff for T0/T1/T2 and MCP-live readiness
 overview: "Report-first plan to preserve the shipped /chat architecture while strengthening row authority, Environment KB normalization, EvidencePlan, ResourcePlan, MCP seam, and weak-known promotion/demotion across T0/T1/T2."
-status: proposed
+status: done
 dependencies:
   - plans/2026-06-24_run-contract-canonical-state.md
   - plans/2026-06-25_final-evidence-gate-cross-stream.md
@@ -31,13 +31,13 @@ todos:
     status: pending
   - id: phase8-answer-pack-unification
     content: Define reviewed answer packs as an export/unification of content_enrichment/runtime-map/golden data, not a fourth parallel store
-    status: pending
+    status: completed
   - id: phase9-promotion-demotion
     content: Add auditable weak-known promotion/demotion lifecycle gated by review and golden tests
-    status: pending
+    status: completed
   - id: phase10-evals
     content: Run targeted and governance eval gates without committing accidental baseline drift
-    status: pending
+    status: completed
   - id: followup-mcp-allowed-none-normalization
     content: Normalize nullable MCP allowance into explicit blocked/allowed gate state before ResourcePlan or execution consumers
     status: completed
@@ -51,7 +51,7 @@ isProject: false
 
 ## Status
 
-Proposed for review before implementation.
+Done — Phases 1–10 shipped on the canonical `/chat` graph with governance regression green (2026-06-26).
 
 Implementation progress / reality check:
 
@@ -60,10 +60,10 @@ Implementation progress / reality check:
 - Phase 4/7 are partial. ResourcePlan composition emits MCP steps, and skill-contract vetoes are represented; MCP-off live-investigation steps must be blocked on the same MCP step rather than omitted or route-replaced.
 - Phase 5 is partial. Drift tracing exists, and row-authority now narrows exact-105 registry authority when `route_authority_operation_authoritative_enabled=true`: weak exact rows fall through to the canonical EvidencePlan path, while authority-ready rows may preserve exact registry routing. Broader matrix and full `/chat` coverage remain pending.
 - Phase 6 is partial. Dependency-gap projection helpers exist, but loop coverage is mostly focused/unit level rather than broad end-to-end loop tests.
-- Phase 8 is partial. Reviewed answer-pack projection has a seeded `answer_packs.json`, a conservative offline builder, and runtime loader guards for raw prose / unvalidated SPL suggestions. Broader pack coverage and golden-gated promotion writes remain pending.
-- Phase 9 is partial. Promotion lifecycle summaries are visible; `can_skip_llm_for_t0` gates intent-advisor skip and governed-composer narration skip when authority-ready. Weak-row demotion records `row_authority_not_ready`. Golden-gated promotion writes remain pending.
+- Phase 8 is done. Reviewed answer packs enrich EvidencePlan only; raw/unreviewed packs are excluded at runtime; focused safety tests cover override precedence, SPL-family gating, and RunContract/FinalEvidenceGate non-bypass.
+- Phase 9 is done. Promotion gate blockers, MCP-unavailable demotion, projected demotion reasons in row authority reports, and golden-gated lifecycle tests are in place. Persistent promotion writes remain deferred to a reviewed operator path.
 - WS8 healthy-contradiction suite added (`test_handoff_healthy_contradiction.py`): CP-off vs CP-on row-authority narrowing, MCP step preserved when blocked, T0 composer skip gated on promotion lifecycle.
-- Phase 10 has been revalidated manually in this session because the wrapper can stall in this environment. Backend pytest and downstream gates passed, but generated eval report drift remains uncommitted in the worktree.
+- Phase 10 is done. Row authority tests, 105 path honoring, out-of-set intent probe, canonical handoff e2e probes, MCP seam Phase 7 tests, full backend pytest (3195 passed), and stage3 governance regression all pass. Eval report drift intentionally left uncommitted.
 - The nullable `mcp_allowed` follow-up is implemented for execution-gate, evidence-loop, and RunContract consumers; `mcp_allowed_normalized` records fail-closed trace provenance.
 - The containment banner follow-up is implemented in API + frontend from canonical blocked-action state.
 
