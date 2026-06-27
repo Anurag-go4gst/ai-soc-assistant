@@ -69,6 +69,7 @@ def _runtime_projection(pack: dict[str, Any]) -> dict[str, Any]:
     allowed_keys = {
         "case_id",
         "use_case_id",
+        "answer_shape",
         "review_status",
         "provenance",
         "required_evidence",

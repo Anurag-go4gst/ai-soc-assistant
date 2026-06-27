@@ -18,6 +18,7 @@ from app.llm.clients.local_chat_errors import local_chat_error_code, user_messag
 from app.synthesis.live_narration import NarrationFailure, NarrationResult
 from app.chat.progress_events import live_synthesis_timeout_seconds
 from app.config import settings
+from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.llm.clients import LocalChatClient, build_synthesis_client_from_settings
 from app.synthesis.live_narration import narrate_analyst_summary
 from app.evidence.context_sufficiency import (
@@ -55,6 +56,10 @@ def run_governed_synthesis_lab(
     spl_validation: dict[str, Any] | None,
     human_review: dict[str, Any] | None,
     synthesis_client: LocalChatClient | None = None,
+    match_path: str | None = None,
+    promotion_lifecycle_summary: dict[str, Any] | None = None,
+    registry_warnings: list[str] | None = None,
+    catalog_row: dict[str, Any] | None = None,
 ) -> SynthesisLabResult:
     if not settings.ai_soc_llm_final_synthesis_enabled:
         return SynthesisLabResult(
@@ -134,8 +139,17 @@ def run_governed_synthesis_lab(
         and mode in _LAB_READY_MODES
         and not settings.control_plane_enabled
     ):
+        skip_narration, skip_reason = should_skip_sidecar(
+            match_path=match_path,
+            promotion_lifecycle_summary=promotion_lifecycle_summary,
+            registry_warnings=registry_warnings,
+            catalog_row=catalog_row,
+        )
+        if skip_narration and skip_reason:
+            reason = f"Final synthesis narration skipped ({skip_reason}); kept deterministic summary."
+            draft = {**draft, "final_synthesis_skip_reason": skip_reason}
         client = synthesis_client or build_synthesis_client_from_settings()
-        if client is not None:
+        if client is not None and not (skip_narration and skip_reason):
             narration, timed_out = _narrate_with_progress_and_timeout(
                 package=package,
                 deterministic_draft=draft,
