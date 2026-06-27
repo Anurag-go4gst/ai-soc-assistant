@@ -61,7 +61,7 @@ Implementation progress / reality check:
 - Phase 5 is partial. Drift tracing exists, and row-authority now narrows exact-105 registry authority when `route_authority_operation_authoritative_enabled=true`: weak exact rows fall through to the canonical EvidencePlan path, while authority-ready rows may preserve exact registry routing. Broader matrix and full `/chat` coverage remain pending.
 - Phase 6 is partial. Dependency-gap projection helpers exist, but loop coverage is mostly focused/unit level rather than broad end-to-end loop tests.
 - Phase 8 is not complete. Reviewed answer-pack projection is skeletal; there is no populated `answer_packs.json`, so the loader is empty unless tests monkeypatch data.
-- Phase 9 is trace-only. Promotion lifecycle summaries are visible, but `can_skip_llm_for_t0` is not wired into runtime synthesis/LLM scheduling authority.
+- Phase 9 is partial. Promotion lifecycle summaries are visible, and `can_skip_llm_for_t0` now gates intent-advisor skip scheduling so weak exact rows can still use LLM. Final synthesis/narration skip coverage remains pending.
 - Phase 10 has been revalidated manually in this session because the wrapper can stall in this environment. Backend pytest and downstream gates passed, but generated eval report drift remains uncommitted in the worktree.
 - The nullable `mcp_allowed` follow-up is implemented for execution-gate, evidence-loop, and RunContract consumers; `mcp_allowed_normalized` records fail-closed trace provenance.
 - The containment banner follow-up is implemented in API + frontend from canonical blocked-action state.

@@ -3,8 +3,20 @@ from __future__ import annotations
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 
 
-def test_exact_match_skips() -> None:
+_AUTHORITY_READY = {
+    "effective_promotion_status": "authority_ready",
+}
+
+
+def test_exact_match_skips_only_when_promotion_lifecycle_ready() -> None:
     skip, reason = should_skip_sidecar(match_path="exact_105_question")
+    assert skip is False
+    assert reason is None
+
+    skip, reason = should_skip_sidecar(
+        match_path="exact_105_question",
+        promotion_lifecycle_summary=_AUTHORITY_READY,
+    )
     assert skip is True
     assert reason == "deterministic_exact_match_t0"
 

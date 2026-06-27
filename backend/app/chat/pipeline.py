@@ -183,6 +183,9 @@ from app.connectors.mcp.mcp_tool_plan_shadow import (
     run_mcp_tool_plan_shadow,
 )
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
+from app.coverage.promotion_lifecycle import effective_promotion_status, can_skip_llm_for_t0
+from app.coverage.question_runtime_map import question_runtime_entry
+from app.coverage.row_authority import classify_runtime_row_authority, project_s3_authority_ready
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.llm.intent_advisor_scheduler import (
     build_intent_scheduling_trace,
@@ -194,6 +197,7 @@ from app.llm.intent_advisor_scheduler import (
 from app.chat.query_signals import extract_query_signals
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
+from app.use_cases.answer_packs import answer_pack_summary, reviewed_answer_pack
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
 from app.spl.template_compatibility import check_template_compatibility
 from app.spl.template_query_bindings import customize_template_spl_with_trace
@@ -637,19 +641,29 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     preliminary_signals = extract_query_signals(query_text, query_understanding)
     provider_configured = intent_advisor_provider_configured()
     primary_use_case_id = (candidate_mappings.get("use_case_ids") or [None])[0]
+    preplan_lifecycle = _preplan_promotion_lifecycle_for_llm_skip(qu, primary_use_case_id)
     skip_advisory, skip_reason = should_skip_sidecar(
         match_path=candidate_mappings.get("match_path"),
         registry_warnings=list(getattr(qu, "registry_warnings", None) or []) if qu is not None else None,
         catalog_row=catalog_authority_row(primary_use_case_id),
+        promotion_lifecycle_summary=preplan_lifecycle,
     )
-    if not skip_advisory and _high_confidence_registry_match_t0(qu):
+    if (
+        not skip_advisory
+        and _high_confidence_registry_match_t0(qu)
+        and can_skip_llm_for_t0(preplan_lifecycle)
+    ):
         skip_advisory = True
         skip_reason = "registry_backed_high_confidence_t0"
-    if skip_advisory and should_prioritize_intent_advisor(
+    if (
+        skip_advisory
+        and skip_reason not in {"deterministic_exact_match_t0", "registry_backed_high_confidence_t0"}
+        and should_prioritize_intent_advisor(
         query_text,
         qu,
         candidate_mappings,
         preliminary_signals,
+        )
     ):
         skip_advisory = False
         skip_reason = None
@@ -772,6 +786,42 @@ def _high_confidence_registry_match_t0(query_understanding: Any | None) -> bool:
         return False
     score = getattr(query_understanding, "question_registry_match_score", None)
     return isinstance(score, (int, float)) and float(score) >= 0.95
+
+
+def _preplan_promotion_lifecycle_for_llm_skip(
+    query_understanding: Any | None,
+    primary_use_case_id: Any,
+) -> dict[str, Any] | None:
+    """Read-only lifecycle projection for intent-advisor skip scheduling."""
+    if query_understanding is None:
+        return None
+    question_ref = getattr(query_understanding, "mapped_question_ref", None)
+    row_summary: dict[str, Any] | None = None
+    if isinstance(question_ref, str) and question_ref.strip():
+        entry = question_runtime_entry(question_ref.strip())
+        if entry is not None:
+            status, blockers = classify_runtime_row_authority(entry)
+            row_summary = {
+                "question_ref": str(entry.get("question_ref") or question_ref),
+                "row_authority_status": status,
+                "s3_authority_ready": project_s3_authority_ready(status),
+                "promotion_status": entry.get("promotion_status"),
+                "manifest_coverage_id": entry.get("manifest_coverage_id"),
+                "blockers": blockers,
+            }
+    pack = reviewed_answer_pack(
+        case_id=str(question_ref) if isinstance(question_ref, str) else None,
+        use_case_id=str(primary_use_case_id) if primary_use_case_id else None,
+    )
+    pack_summary = answer_pack_summary(pack) if pack is not None else None
+    lifecycle = effective_promotion_status(
+        stored_promotion_status=(row_summary or {}).get("promotion_status") if row_summary else None,
+        row_authority_summary=row_summary,
+        answer_pack_summary=pack_summary,
+    )
+    if lifecycle["stored_promotion_status"] or lifecycle["demotion_reasons"] or pack_summary:
+        return lifecycle
+    return None
 
 
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:

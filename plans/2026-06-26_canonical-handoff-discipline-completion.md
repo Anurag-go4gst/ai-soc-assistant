@@ -145,7 +145,7 @@ This prevents operators from confusing row-authority trace or LLM hints with run
 
 ### WS6 LLM Advisor Hardening
 
-Status: pending.
+Status: partial.
 
 Keep LLM output advisory:
 
@@ -153,6 +153,11 @@ Keep LLM output advisory:
 - Graceful drop/repair on malformed output.
 - Deterministic pre-parse and slot projection always win.
 - No LLM-to-MCP path.
+- Intent-advisor T0 skip is now gated by `can_skip_llm_for_t0`; weak exact rows no longer skip LLM solely because they matched exact-105.
+
+Remaining:
+
+- Extend the same promotion-aware skip contract to final synthesis/narration surfaces where applicable.
 
 ### WS7 Answer-Pack Lifecycle
 
