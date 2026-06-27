@@ -61,3 +61,26 @@ def test_final_plan_drift_narrows_mcp_without_route_replacement(monkeypatch) -> 
     assert drift["capabilities_narrowed"] == ["mcp_execution"]
     assert drift["mcp_allowed_normalized"]["source"] == "evidence_plan_null"
     assert drift["row_authority_status"] == "exact_known_weak_needs_enrichment"
+
+
+def test_final_evidence_plan_route_drift_is_recorded(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    adjudication = {
+        "final_route": "attack_discovery",
+        "authority_source": "evidence_plan_live_or_hybrid",
+    }
+    updated = _route_adjudication_with_final_plan_drift(
+        adjudication,
+        {
+            "answer_mode": "live_investigation",
+            "needs_spl": True,
+            "spl_allowed": True,
+            "needs_mcp": True,
+            "mcp_allowed": None,
+        },
+    )
+    drift = updated["final_evidence_plan_drift"]
+    assert drift["route_preserved"] is True
+    assert drift["selected_route"] == "attack_discovery"
+    assert drift["status"] in {"capability_narrowed", "aligned"}
+    assert "mcp_allowed_normalized" in drift

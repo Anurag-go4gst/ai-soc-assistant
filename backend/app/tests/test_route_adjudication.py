@@ -296,3 +296,113 @@ def test_row_authority_trace_out_of_registry_visibility() -> None:
     assert result.final_route == "guided_investigation"
     assert result.row_authority_decision == "out_of_registry"
     assert result.row_authority_applied is False
+
+from app.chat.contracts.evidence_plan import EvidencePlan
+
+
+def test_route_adjudication_rag_only_blocks_spl_and_mcp() -> None:
+    intent = {
+        "intent_family": "live_investigation",
+        "primary_intent": "attack_discovery",
+        "secondary_intents": [],
+        "query_type": "ask_for_live_results",
+        "answer_goal": ["live_results"],
+        "requested_output_type": "INVESTIGATION",
+        "confidence": 0.9,
+        "confidence_band": "high",
+        "requires_clarification": False,
+        "requires_hil": False,
+        "action_mode": None,
+        "reason": "test",
+    }
+    rag_plan = EvidencePlan(
+        answer_mode="rag_only",
+        rag_phase="rag_only",
+        needs_rag=True,
+        needs_spl=False,
+        needs_mcp=False,
+        needs_mitre=False,
+        spl_allowed=False,
+        mcp_allowed=False,
+        policy_context_required=False,
+        policy_context_recommended=False,
+    ).model_dump()
+    result = adjudicate_route(
+        deterministic_route="attack_discovery",
+        llm_advisory={"skill": "spl_generation"},
+        route_plan_shadow={"llm_shadow_skill": "spl_generation"},
+        evidence_plan=rag_plan,
+        intent_classification=intent,
+    )
+    assert result.final_route == "knowledge_recall"
+    assert result.authority_source == "evidence_plan_rag_only"
+    assert result.llm_suggested_route == "spl_generation"
+
+
+def test_route_adjudication_policy_intent_overrides_exact_analytics() -> None:
+    query = "Which hosts are generating the most SMB traffic?"
+    qu = understand_query(query)
+    q2i = build_query_to_intent(query=query, query_understanding=qu)
+    intent = q2i.intent_classification.model_dump()
+    intent["intent_family"] = "policy_knowledge"
+    intent["confidence_band"] = "high"
+    live_plan = EvidencePlan(
+        answer_mode="live_investigation",
+        rag_phase="post_mcp",
+        needs_rag=False,
+        needs_spl=True,
+        needs_mcp=True,
+        needs_mitre=False,
+        spl_allowed=True,
+        mcp_allowed=False,
+        policy_context_required=False,
+        policy_context_recommended=False,
+    ).model_dump()
+    result = adjudicate_route(
+        deterministic_route="attack_discovery",
+        route_plan_shadow={},
+        evidence_plan=live_plan,
+        intent_classification=intent,
+        query_understanding=qu,
+        query_to_intent=q2i.model_dump(),
+    )
+    assert result.final_route == "knowledge_recall"
+    assert result.authority_source == "intent_over_exact_105"
+
+
+def test_route_adjudication_ignores_raw_llm_route_when_evidence_plan_blocks() -> None:
+    intent = {
+        "intent_family": "spl_generation_only",
+        "primary_intent": "soc_generate_spl",
+        "secondary_intents": [],
+        "query_type": "ask_for_query_generation",
+        "answer_goal": ["spl_artifact"],
+        "requested_output_type": "INVESTIGATION",
+        "confidence": 0.9,
+        "confidence_band": "high",
+        "requires_clarification": False,
+        "requires_hil": False,
+        "action_mode": None,
+        "reason": "test",
+    }
+    rag_plan = EvidencePlan(
+        answer_mode="rag_only",
+        rag_phase="rag_only",
+        needs_rag=True,
+        needs_spl=False,
+        needs_mcp=False,
+        needs_mitre=False,
+        spl_allowed=False,
+        mcp_allowed=False,
+        policy_context_required=False,
+        policy_context_recommended=False,
+    ).model_dump()
+    result = adjudicate_route(
+        deterministic_route="spl_generation",
+        llm_advisory={"skill": "spl_generation"},
+        route_plan_shadow={"llm_shadow_skill": "attack_discovery"},
+        evidence_plan=rag_plan,
+        intent_classification=intent,
+    )
+    assert result.final_route == "knowledge_recall"
+    assert result.authority_source == "evidence_plan_rag_only"
