@@ -21,6 +21,7 @@ BACKEND_ROOT = REPO_ROOT / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from app.coverage.promotion_lifecycle import projected_demotion_reasons_for_row
 from app.coverage.row_authority import (
     AUTHORITY_READY,
     NEEDS_CLARIFICATION,
@@ -147,6 +148,12 @@ def build_report(runtime_map: Any, manifest: Any, catalog: Any | None = None) ->
                     "row_authority_status": status,
                 }
             )
+        projected_demotions = projected_demotion_reasons_for_row(
+            row_authority_status=status,
+            source_profile_bindings_missing=any(
+                blocker.startswith("manifest_readiness:") for blocker in blockers
+            ),
+        )
         rows.append(
             {
                 "row_kind": "question_105",
@@ -167,6 +174,7 @@ def build_report(runtime_map: Any, manifest: Any, catalog: Any | None = None) ->
                 "route_blocked": entry.get("route_blocked") is True,
                 "mitre_registry": entry.get("mitre_registry"),
                 "blockers": blockers,
+                "projected_demotion_reasons": projected_demotions,
             }
         )
 
@@ -240,14 +248,67 @@ def _write_outputs(report: dict[str, Any]) -> None:
     OUTPUT_MD_PATH.write_text(_serialize_markdown(report), encoding="utf-8")
 
 
+
+EVAL_DRIFT_PATHS = (
+    REPO_ROOT / "docs/evals/langgraph_dual_parity_report.json",
+    REPO_ROOT / "docs/evals/langgraph_dual_parity_summary.md",
+    REPO_ROOT / "docs/evals/soc_clean_answer_eval_report.json",
+    REPO_ROOT / "docs/evals/soc_clean_answer_eval_summary.md",
+    REPO_ROOT / "docs/evals/llm_template_audit_report.md",
+)
+
+
+def _eval_baseline_drift_warnings() -> list[str]:
+  """Detect accidental local drift in non-row-authority eval artifacts."""
+  import subprocess
+
+  warnings: list[str] = []
+  for rel in EVAL_DRIFT_PATHS:
+    try:
+      proc = subprocess.run(
+        ["git", "diff", "--quiet", "HEAD", "--", str(rel)],
+        cwd=REPO_ROOT,
+        check=False,
+      )
+    except OSError as exc:
+      warnings.append(f"cannot check {rel}: {exc}")
+      continue
+    if proc.returncode != 0:
+      warnings.append(f"unreviewed eval drift: {rel.relative_to(REPO_ROOT)}")
+  return warnings
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Fail if generated outputs differ from disk.")
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Intentionally rewrite row_authority_report artifacts (default without --check).",
+    )
+    parser.add_argument(
+        "--warn-eval-drift",
+        action="store_true",
+        help="Warn when unrelated eval baselines differ from HEAD.",
+    )
     args = parser.parse_args(argv)
+
+    drift_warnings = _eval_baseline_drift_warnings() if args.warn_eval_drift else []
+    if drift_warnings and args.check:
+        for warning in drift_warnings:
+            print(f"--check failed: {warning}", file=sys.stderr)
+        return 1
+    if drift_warnings:
+        for warning in drift_warnings:
+            print(f"warning: {warning}", file=sys.stderr)
 
     report = build_report(_load_json(RUNTIME_MAP_PATH), _load_json(MANIFEST_PATH), _load_json(CATALOG_PATH))
     rendered_json = _serialize_json(report)
     rendered_md = _serialize_markdown(report)
+
+    if args.refresh or (not args.check):
+        _write_outputs(report)
+        print(f"wrote {OUTPUT_JSON_PATH} and {OUTPUT_MD_PATH} ({report['row_count']} rows).")
+        return 0
 
     if args.check:
         failures: list[str] = []
@@ -266,9 +327,6 @@ def main(argv: list[str] | None = None) -> int:
         print("row authority report check ok")
         return 0
 
-    _write_outputs(report)
-    print(f"wrote {OUTPUT_JSON_PATH} and {OUTPUT_MD_PATH} ({report['row_count']} rows).")
-    return 0
 
 
 if __name__ == "__main__":
