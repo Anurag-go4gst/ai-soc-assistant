@@ -194,7 +194,11 @@
     "q0.q002": {
       "analyst_enabled_sections": [
         "analyst_action_guidance",
-        "draft_spl_preview"
+        "draft_spl_preview",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
@@ -202,7 +206,11 @@
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
       "enabled_sections": [
-        "analyst_action_guidance"
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
       ],
       "execution_eligible": false,
       "execution_status": "skipped",
@@ -249,7 +257,11 @@
     "q0.q006": {
       "analyst_enabled_sections": [
         "analyst_action_guidance",
-        "draft_spl_preview"
+        "draft_spl_preview",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
@@ -257,7 +269,11 @@
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
       "enabled_sections": [
-        "analyst_action_guidance"
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
       ],
       "execution_eligible": false,
       "execution_status": "skipped",
@@ -307,7 +323,11 @@
     "q0.q010": {
       "analyst_enabled_sections": [
         "analyst_action_guidance",
-        "draft_spl_preview"
+        "draft_spl_preview",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
       ],
       "answer_mode": "live_investigation",
       "candidate_spl_present": true,
@@ -315,7 +335,11 @@
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
       "enabled_sections": [
-        "analyst_action_guidance"
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
       ],
       "execution_eligible": false,
       "execution_status": "skipped",

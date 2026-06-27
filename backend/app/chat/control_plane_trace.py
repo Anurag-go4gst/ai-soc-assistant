@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.spl.spl_artifact_trace_projection import build_spl_artifact_handoff_summary
 from app.governance.trace_authority import (
     TIER_ADVISORY,
     TIER_DIAGNOSTIC,
@@ -45,6 +46,7 @@ def build_control_plane_trace(
     rag = state.get("soc_kb_retrieval") if isinstance(state.get("soc_kb_retrieval"), dict) else None
     spl_validation = state.get("spl_validation") if isinstance(state.get("spl_validation"), dict) else None
     candidate_spl = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else None
+    spl_draft_preview = state.get("spl_draft_preview") if isinstance(state.get("spl_draft_preview"), dict) else None
     execution = state.get("execution") if isinstance(state.get("execution"), dict) else None
     routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
     routing_provenance = (
@@ -70,6 +72,15 @@ def build_control_plane_trace(
         "mitre_decision": state.get("mitre_decision"),
         "rag_trace": _rag_trace(rag),
         "candidate_spl_generation": _candidate_spl_generation_trace(candidate_spl, spl_validation),
+        "spl_artifact_handoff_summary": attach_authority_tier(
+            build_spl_artifact_handoff_summary(
+                candidate_spl=candidate_spl,
+                spl_validation=spl_validation,
+                spl_draft_preview=spl_draft_preview,
+            ),
+            tier=TIER_DIAGNOSTIC,
+            note="SPL degrade-chain read model only; not execution authority.",
+        ),
         "spl_slot_binding": _spl_slot_binding_trace(spl_validation),
         "mcp_execution": _mcp_trace(execution),
         "sufficiency": context_sufficiency,

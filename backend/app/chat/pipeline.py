@@ -72,6 +72,7 @@ from app.spl.template_registry import QUERY_SHAPE_RAW_SEARCH, get_spl_template, 
 from app.splunk.capabilities import build_splunk_capability_profile
 from app.chat.network_boundary_display import resolve_analyst_use_case_label
 from app.chat.review_only_spl_renderer import apply_review_only_spl_render
+from app.spl.spl_artifact_trace_projection import build_spl_artifact_handoff_summary
 from app.spl.draft_preview import (
     DRAFT_PREVIEW_STATUS_MESSAGE,
     build_draft_preview,
@@ -2068,6 +2069,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         hil_required=run_contract.effective_hil_required,
     )
     emit_stage("generating_answer")
+    _skip_registry_warnings, _skip_catalog_row = _composer_skip_registry_context(state)
     synthesis_lab = run_governed_synthesis_lab(
         structured_context=structured_context,
         source_evidence=source_evidence,
@@ -2077,6 +2079,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_label=severity_decision.severity_label,
         spl_validation=spl_validation,
         human_review=human_review,
+        match_path=_match_path_from_state(state),
+        promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
+        registry_warnings=_skip_registry_warnings,
+        catalog_row=_skip_catalog_row,
     )
     synthesis_status = synthesis_lab.status
     context_sufficiency = apply_synthesis_allowed_to_sufficiency(
@@ -3192,12 +3198,18 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     # Review-only SPL drafts: one dedicated renderer owns the visible answer (fixed
     # section order + labels) and suppresses the generic title/review-type/investigation
     # producers. Presentation only — RunContract/HIL/MCP/source-evidence are unchanged.
+    _spl_handoff = build_spl_artifact_handoff_summary(
+        candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
+        spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+        spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+    )
     analyst_response, message = apply_review_only_spl_render(
         run_contract=run_contract,
         analyst_response=analyst_response,
         message=message,
         draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
         candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
+        spl_artifact_handoff=_spl_handoff,
     )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,

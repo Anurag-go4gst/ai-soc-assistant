@@ -284,12 +284,36 @@ def _resolved_scope_bindings(draft_preview: dict[str, Any] | None) -> list[str]:
         rows.append(format_profile_binding_line(item))
     return rows
 
+
+
+def _spl_artifact_handoff_trace_lines(handoff: dict[str, Any] | None) -> list[str]:
+    if not isinstance(handoff, dict) or not handoff:
+        return []
+    lines = ["SPL artifact status (trace only):"]
+    for key in (
+        "spl_artifact_status",
+        "spl_artifact_source",
+        "candidate_provider_reason",
+        "governed_template_bound",
+        "t2_native_shape",
+        "lab_preview_used",
+        "llm_failover_used",
+        "validator_status",
+        "review_only",
+        "must_not_execute_reason",
+    ):
+        value = handoff.get(key)
+        if value is not None and value != "":
+            lines.append(f"- {key}: {value}")
+    return lines
+
 def render_review_only_spl_answer(
     *,
     analyst_response: Any,
     draft_preview: dict[str, Any] | None,
     t2_source_profile: str | None = None,
     candidate_spl: dict[str, Any] | None = None,
+    spl_artifact_handoff: dict[str, Any] | None = None,
 ) -> str:
     """Compose the single clean visible answer for a review-only SPL draft.
 
@@ -366,6 +390,11 @@ def render_review_only_spl_answer(
         for item in assumptions:
             lines.append(f"- {item}")
 
+    handoff_lines = _spl_artifact_handoff_trace_lines(spl_artifact_handoff)
+    if handoff_lines:
+        lines.append("")
+        lines.extend(handoff_lines)
+
     lines.append("")
     lines.append(_HOW_PRODUCED)
 
@@ -379,6 +408,7 @@ def apply_review_only_spl_render(
     message: str,
     draft_preview: dict[str, Any] | None,
     candidate_spl: dict[str, Any] | None = None,
+    spl_artifact_handoff: dict[str, Any] | None = None,
 ) -> tuple[Any, str]:
     """For review-only SPL answers, own the visible answer and suppress competing producers.
 
@@ -421,6 +451,7 @@ def apply_review_only_spl_render(
         draft_preview=draft_preview,
         t2_source_profile=t2_source_profile,
         candidate_spl=candidate_spl,
+        spl_artifact_handoff=spl_artifact_handoff,
     )
 
     # Header text owned by the card summary (status block + scope only). The title is not

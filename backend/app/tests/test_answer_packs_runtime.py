@@ -66,3 +66,33 @@ def test_answer_pack_spl_family_suggestion_requires_template_or_validator(monkey
     pack = reviewed_answer_pack(case_id="case")
     assert pack is not None
     assert pack["spl_family_suggestion"] == "validated_family"
+
+
+def test_at_least_five_reviewed_weak_known_packs_load() -> None:
+    answer_packs.load_answer_packs.cache_clear()
+    packs = answer_packs.load_answer_packs()
+    reviewed_ids = [
+        key
+        for key, pack in packs.items()
+        if str(pack.get("review_status") or "").lower() == "reviewed" and key.startswith("q0.")
+    ]
+    assert len(reviewed_ids) >= 5
+    for case_id in ("q0.q004", "q0.q006", "q0.q002", "q0.q003", "q0.q010"):
+        assert reviewed_answer_pack(case_id=case_id) is not None
+
+
+def test_q004_lookup_pack_enriches_evidence_plan_only() -> None:
+    answer_packs.load_answer_packs.cache_clear()
+    from app.chat.evidence_planner import plan_evidence
+    from app.chat.intent_classifier import build_query_to_intent
+    from app.query_understanding.parser import understand_query
+
+    query = "Which hosts contacted known malicious IPs today?"
+    understanding = understand_query(query)
+    q2i = build_query_to_intent(query=query, query_understanding=understanding)
+    plan = plan_evidence(q2i.intent_classification, query_to_intent=q2i.model_dump(), query_understanding=understanding)
+    assert plan.answer_pack_summary is not None
+    assert "reviewed_answer_pack_projection" in plan.reasons
+    assert "T1071" in plan.mitre_candidates_metadata_only
+    assert "T1071" not in plan.present_evidence_keys
+    assert "raw_llm_prose" not in (plan.answer_pack_summary or {})
