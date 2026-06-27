@@ -595,7 +595,6 @@ def _apply_reviewed_answer_pack(
     updates: dict[str, Any] = {
         "answer_pack_summary": answer_pack_summary(pack),
         "reasons": list(dict.fromkeys([*plan.reasons, "reviewed_answer_pack_projection"])),
-        "enrichment_driven": True,
     }
     _merge_pack_list_field(updates, plan, pack, "required_evidence_keys", "required_evidence")
     _merge_pack_list_field(updates, plan, pack, "optional_evidence_keys", "optional_evidence")
