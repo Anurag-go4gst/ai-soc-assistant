@@ -54,3 +54,30 @@ def test_project_mcp_posture_prefers_skill_contract_metadata() -> None:
     assert posture["primary_reason"] == "skill_contract"
     assert posture["execution_authorized"] is False
 
+def test_project_mcp_posture_fallback_honors_skill_contract_without_metadata() -> None:
+    posture = project_mcp_posture(
+        {
+            "evidence_plan": {
+                "resource_plan": {
+                    "steps": [
+                        {
+                            "step_id": "mcp",
+                            "purpose": "mcp_execution",
+                            "status": "blocked_policy",
+                            "status_reason": "skill_contract",
+                            "policy_checks": ["blocked_by_skill_contract"],
+                        }
+                    ]
+                }
+            },
+            "execution": {
+                "status": "blocked",
+                "block_reason": "mcp_global_execution_disabled",
+            },
+        }
+    )
+    assert posture is not None
+    assert posture["primary_reason"] == "skill_contract"
+    assert posture["status"] == "blocked_policy"
+    assert posture["execution_authorized"] is False
+

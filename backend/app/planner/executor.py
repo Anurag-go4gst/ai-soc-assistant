@@ -49,7 +49,7 @@ def _preserved_block_reason(step: Mapping[str, Any]) -> str:
     return "blocked_policy"
 
 
-def _mcp_composed_block_reason(step: Mapping[str, Any]) -> str | None:
+def mcp_composed_block_reason(step: Mapping[str, Any]) -> str | None:
     """Composition-time MCP veto; wins over execution-gate block reasons."""
     checks = [str(item) for item in step.get("policy_checks") or []]
     if any("blocked_by_skill_contract" in check for check in checks):
@@ -224,7 +224,7 @@ def _resolve_status(step: Mapping[str, Any], state: State) -> tuple[str, str | N
         return "executed", None
 
     if purpose == "mcp_execution":
-        composed_reason = _mcp_composed_block_reason(step)
+        composed_reason = mcp_composed_block_reason(step)
         if composed_reason is not None:
             return "blocked_policy", composed_reason
         execution = state.get("execution")
@@ -266,17 +266,23 @@ def _mcp_step_metadata(step: Mapping[str, Any], state: State) -> dict[str, Any]:
 
     exec_status = str(execution.get("status") or step.get("status") or "planned")
     exec_block = str(execution.get("block_reason") or "").strip()
-    composed_reason = _mcp_composed_block_reason(step)
+    composed_reason = mcp_composed_block_reason(step)
     if composed_reason is not None:
         primary = composed_reason
         if exec_block and exec_block != composed_reason:
             secondary.append(exec_block)
     else:
         primary = str(exec_block or step.get("status_reason") or exec_status)
+    if composed_reason is not None:
+        posture_status = str(step.get("status") or "blocked_policy")
+        execution_authorized = False
+    else:
+        posture_status = exec_status
+        execution_authorized = exec_status == "executed"
     return {
-        "status": normalize_mcp_posture_status(exec_status),
+        "status": normalize_mcp_posture_status(posture_status),
         "primary_reason": primary,
         "secondary_reasons": secondary,
         "selected_tool": execution.get("selected_mcp_tool"),
-        "execution_authorized": exec_status == "executed",
+        "execution_authorized": execution_authorized,
     }

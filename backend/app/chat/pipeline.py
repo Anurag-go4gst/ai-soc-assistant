@@ -3041,6 +3041,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         "run_contract": enrich_run_contract_payload(run_contract.model_dump_canonical(), _handoff_gate_state),
         "final_evidence_gate": gate_payload,
     }
+    if governance_trace is not None:
+        final_hil = run_contract.effective_hil_required
+        if isinstance(governance_trace, dict):
+            governance_trace = {**governance_trace, "effective_hil_required": final_hil}
+        else:
+            governance_trace = governance_trace.model_copy(
+                update={"effective_hil_required": final_hil}
+            )
 
     visibility: dict[str, Any] = {}
     control_plane_trace = None

@@ -20,7 +20,7 @@ from app.evidence.source_evidence import build_candidate_artifact_refs
 from app.chat.pipeline import ChatPipelineState
 from app.chat.query_signals import is_guidance_request, is_live_data_request
 from app.config import settings
-from app.planner.executor import normalize_mcp_posture_status
+from app.planner.executor import mcp_composed_block_reason, normalize_mcp_posture_status
 
 _EXECUTION_AUTHORIZED_STATUSES = frozenset(
     {
@@ -434,15 +434,24 @@ def project_mcp_posture(state: ChatPipelineState) -> dict[str, Any] | None:
     if isinstance(metadata, dict) and metadata:
         return _normalize_mcp_posture_payload(metadata)
     if isinstance(mcp_step, dict):
+        composed_reason = mcp_composed_block_reason(mcp_step)
+        if composed_reason is not None:
+            posture_status = str(mcp_step.get("status") or "blocked_policy")
+            primary_reason = composed_reason
+            execution_authorized = False
+        else:
+            posture_status = str(mcp_step.get("status") or execution.get("status") or "planned")
+            primary_reason = str(
+                mcp_step.get("status_reason") or execution.get("block_reason") or "not_run"
+            )
+            execution_authorized = str(execution.get("status") or "") == "executed"
         return _normalize_mcp_posture_payload(
             {
-                "status": str(mcp_step.get("status") or execution.get("status") or "planned"),
-                "primary_reason": str(
-                    mcp_step.get("status_reason") or execution.get("block_reason") or "not_run"
-                ),
+                "status": posture_status,
+                "primary_reason": primary_reason,
                 "secondary_reasons": [str(item) for item in mcp_step.get("policy_checks") or []],
                 "selected_tool": execution.get("selected_mcp_tool"),
-                "execution_authorized": str(execution.get("status") or "") == "executed",
+                "execution_authorized": execution_authorized,
             }
         )
     return _normalize_mcp_posture_payload(
