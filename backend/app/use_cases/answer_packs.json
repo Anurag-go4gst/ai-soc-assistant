@@ -20,7 +20,7 @@
         "authentication_logs"
       ],
       "dependency_gaps": [
-        "coe_enrichment_required"
+        "row_authority_not_ready"
       ],
       "mitre_candidates": [
         "T1110"
@@ -30,7 +30,8 @@
         "confirmed_brute_force_without_threshold_context"
       ],
       "caveats": [
-        "Reviewed answer pack enriches EvidencePlan only; it does not authorize live result claims or SPL execution."
+        "Reviewed answer pack enriches EvidencePlan only; it does not authorize live result claims or SPL execution.",
+        "Auth index/sourcetype resolve from Environment KB; weak-exact row stays review-only until authority-ready gates pass."
       ],
       "spl_family_suggestion": "auth_failed_login_spike",
       "spl_template_id": "auth_failed_login_spike"
@@ -207,39 +208,40 @@
     },
     "q0.q010": {
       "case_id": "q0.q010",
-      "use_case_id": "auth_failed_login_spike",
+      "use_case_id": "network_smb_top_talkers",
       "review_status": "reviewed",
-      "provenance": "batch_d_weak_exact_spl_row",
-      "answer_shape": "weak_exact_spl_review",
+      "provenance": "coe_binding_fix_smb_top_talkers",
+      "answer_shape": "network_smb_top_talkers_review",
       "required_evidence": [
-        "failed_login_count",
-        "user",
-        "threshold",
+        "host",
+        "connection_count",
         "time_window"
       ],
       "optional_evidence": [
-        "src_ip",
-        "host"
+        "dest_ip",
+        "bytes",
+        "dest_port",
+        "sourcetype"
       ],
       "source_needs": [
-        "authentication_logs"
+        "network_traffic_logs"
       ],
       "dependency_gaps": [
-        "row_authority_not_ready",
-        "threshold_baseline_plus_source"
+        "row_authority_not_ready"
       ],
       "mitre_candidates": [
-        "T1110.001"
+        "T1021.002"
       ],
       "must_not_claim": [
-        "confirmed_brute_force_without_threshold_policy",
-        "password_spray_without_multi_user_context"
+        "lateral_movement_confirmed_without_peer_context",
+        "exfiltration_without_volume_baseline"
       ],
       "caveats": [
-        "Reviewed answer pack enriches EvidencePlan only; it does not authorize live result claims or SPL execution."
+        "Reviewed answer pack enriches EvidencePlan only; it does not authorize live result claims or SPL execution.",
+        "Bind network index/sourcetype from Environment KB before execution."
       ],
-      "spl_family_suggestion": "auth_failed_login_spike",
-      "spl_template_id": "auth_failed_login_spike"
+      "spl_family_suggestion": "network_smb_top_talkers",
+      "spl_validator_id": "network_top_talkers.v1"
     }
   }
 }

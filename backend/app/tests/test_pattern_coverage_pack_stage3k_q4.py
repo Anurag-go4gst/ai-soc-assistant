@@ -65,7 +65,7 @@ def test_coverage_ids_unique_and_count_in_range() -> None:
 
     ids = [entry.coverage_id for entry in entries]
     assert len(ids) == len(set(ids))
-    assert 8 <= len(entries) <= 10
+    assert 8 <= len(entries) <= 11
 
 
 def test_required_coverage_categories_present() -> None:

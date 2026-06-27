@@ -127,6 +127,7 @@ _STATIC_EVIDENCE_CONTRACT_REFS = frozenset(
         "raw_search_table:host:failed_logins",
         "multi_signal:dns_and_network_anomaly_flags",
         "ranked_entities:host:malicious_contact_count",
+        "ranked_entities:host:connection_count",
         "ranked_entities:host:malicious_domain_contact_count",
         "raw_events:notable_id:timeline",
     }

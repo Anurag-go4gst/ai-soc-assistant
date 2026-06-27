@@ -2333,7 +2333,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             from app.orchestration.human_review import human_review as build_human_review
 
             human_review = build_human_review(
-                "intent_clarification",
+                "spl_revision",
                 "lab_draft_preview_review_required",
                 "soc_analyst",
                 ["review_draft_spl", "confirm_source_profile", "cancel"],

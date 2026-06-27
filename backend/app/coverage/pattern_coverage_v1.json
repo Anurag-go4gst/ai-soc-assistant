@@ -17,20 +17,36 @@
         "pattern_id": "top_outbound_source_ips",
         "operation_type": "top_n",
         "source_class": "network_traffic",
-        "entities": ["src_ip"],
+        "entities": [
+          "src_ip"
+        ],
         "time_window": "last_24_hours",
         "parameters": {
-          "group_by": {"field": "src_ip", "source_class": "network_traffic"},
-          "metric": {"type": "count", "field": "connection_count"},
-          "sort": {"field": "metric_value", "direction": "desc"},
+          "group_by": {
+            "field": "src_ip",
+            "source_class": "network_traffic"
+          },
+          "metric": {
+            "type": "count",
+            "field": "connection_count"
+          },
+          "sort": {
+            "field": "metric_value",
+            "direction": "desc"
+          },
           "limit": 10,
           "time_window": "last_24_hours"
         },
         "evidence_needs": {
           "datamodel": "Network_Traffic",
           "dataset": "All_Traffic",
-          "group_by": ["src_ip"],
-          "metric": {"type": "count", "field": "connection_count"}
+          "group_by": [
+            "src_ip"
+          ],
+          "metric": {
+            "type": "count",
+            "field": "connection_count"
+          }
         }
       },
       "template_ref": "sample_network_top_outbound_src_tstats",
@@ -39,7 +55,9 @@
       "detection_ref": null,
       "evidence_contract_ref": "ranked_entities:src_ip:connection_count",
       "readiness": "coe_synthetic_fixture",
-      "clarification_required": ["time_window"],
+      "clarification_required": [
+        "time_window"
+      ],
       "expected_route_status": "route_ready",
       "expected_blockers": [],
       "governance": {
@@ -51,7 +69,77 @@
         "sample_only": true,
         "execution_eligible": false
       },
-      "notes": "Governed bridge: route plan → Q1C template match → Q1D render metadata → Q1E lineage. Sample CIM tstats only."
+      "notes": "Governed bridge: route plan \u2192 Q1C template match \u2192 Q1D render metadata \u2192 Q1E lineage. Sample CIM tstats only."
+    },
+    {
+      "coverage_id": "cov.q010.network_smb_top_talkers",
+      "question_ref": "q0.q010",
+      "question": "Which hosts are generating the most SMB traffic?",
+      "coverage_group": "template_only",
+      "primary_skill": "aggregate_and_rank",
+      "sub_invocations": [],
+      "route_plan_shape": {
+        "route_status": "route_ready",
+        "primary_skill": "aggregate_and_rank",
+        "pattern_id": "network_smb_top_talkers",
+        "operation_type": "top_n",
+        "source_class": "network_traffic",
+        "entities": [
+          "host"
+        ],
+        "time_window": "last_24_hours",
+        "parameters": {
+          "group_by": {
+            "field": "host",
+            "source_class": "network_traffic"
+          },
+          "metric": {
+            "type": "count",
+            "field": "connection_count"
+          },
+          "sort": {
+            "field": "metric_value",
+            "direction": "desc"
+          },
+          "limit": 10,
+          "time_window": "last_24_hours",
+          "event_filter": {
+            "dest_port": "smb"
+          }
+        },
+        "evidence_needs": {
+          "datamodel": "Network_Traffic",
+          "dataset": "All_Traffic",
+          "group_by": [
+            "host"
+          ],
+          "metric": {
+            "type": "count",
+            "field": "connection_count"
+          }
+        }
+      },
+      "template_ref": null,
+      "lookup_ref": null,
+      "detection_family": null,
+      "detection_ref": null,
+      "evidence_contract_ref": "ranked_entities:host:connection_count",
+      "readiness": "coe_synthetic_fixture",
+      "clarification_required": [
+        "time_window"
+      ],
+      "expected_route_status": "route_ready",
+      "expected_blockers": [],
+      "governance": {
+        "execution_authorized": false,
+        "spl_execution_enabled": false,
+        "mcp_execution_enabled": false,
+        "llm_final_synthesis_enabled": false,
+        "answer_guard_enabled": false,
+        "sample_only": true,
+        "execution_eligible": false
+      },
+      "notes": "Exact-105 SMB top-talkers analytics; lab draft family network_smb_top_talkers when no governed template is bound. Review-only."
     },
     {
       "coverage_id": "cov.q017.top_dns_query_hosts",
@@ -66,20 +154,36 @@
         "pattern_id": "top_dns_query_hosts",
         "operation_type": "top_n",
         "source_class": "dns_logs",
-        "entities": ["host"],
+        "entities": [
+          "host"
+        ],
         "time_window": "last_24_hours",
         "parameters": {
-          "group_by": {"field": "host", "source_class": "dns_logs"},
-          "metric": {"type": "count", "field": "query_count"},
-          "sort": {"field": "metric_value", "direction": "desc"},
+          "group_by": {
+            "field": "host",
+            "source_class": "dns_logs"
+          },
+          "metric": {
+            "type": "count",
+            "field": "query_count"
+          },
+          "sort": {
+            "field": "metric_value",
+            "direction": "desc"
+          },
           "limit": 10,
           "time_window": "last_24_hours"
         },
         "evidence_needs": {
           "datamodel": "Network_Resolution",
           "dataset": "DNS",
-          "group_by": ["host"],
-          "metric": {"type": "count", "field": "query_count"}
+          "group_by": [
+            "host"
+          ],
+          "metric": {
+            "type": "count",
+            "field": "query_count"
+          }
         }
       },
       "template_ref": "sample_dns_top_query_hosts_from_datamodel",
@@ -88,7 +192,9 @@
       "detection_ref": null,
       "evidence_contract_ref": "ranked_entities:host:query_count",
       "readiness": "coe_synthetic_fixture",
-      "clarification_required": ["time_window"],
+      "clarification_required": [
+        "time_window"
+      ],
       "expected_route_status": "route_ready",
       "expected_blockers": [],
       "governance": {
@@ -115,21 +221,39 @@
         "pattern_id": "top_failed_okta_login_users",
         "operation_type": "top_n",
         "source_class": "okta_authentication_logs",
-        "entities": ["user"],
+        "entities": [
+          "user"
+        ],
         "time_window": "last_24_hours",
         "parameters": {
-          "group_by": {"field": "user", "source_class": "okta_authentication_logs"},
-          "metric": {"type": "count", "field": "failed_login_count"},
-          "sort": {"field": "metric_value", "direction": "desc"},
+          "group_by": {
+            "field": "user",
+            "source_class": "okta_authentication_logs"
+          },
+          "metric": {
+            "type": "count",
+            "field": "failed_login_count"
+          },
+          "sort": {
+            "field": "metric_value",
+            "direction": "desc"
+          },
           "limit": 10,
           "time_window": "last_24_hours",
-          "event_filter": {"event_type": "failed_login"}
+          "event_filter": {
+            "event_type": "failed_login"
+          }
         },
         "evidence_needs": {
           "datamodel": "Authentication",
           "dataset": "Authentication",
-          "group_by": ["user"],
-          "metric": {"type": "count", "field": "failed_login_count"}
+          "group_by": [
+            "user"
+          ],
+          "metric": {
+            "type": "count",
+            "field": "failed_login_count"
+          }
         }
       },
       "template_ref": "sample_auth_failed_login_top_users_tstats",
@@ -138,7 +262,10 @@
       "detection_ref": null,
       "evidence_contract_ref": "ranked_entities:user:failed_login_count",
       "readiness": "coe_synthetic_fixture",
-      "clarification_required": ["threshold_ref", "time_window"],
+      "clarification_required": [
+        "threshold_ref",
+        "time_window"
+      ],
       "expected_route_status": "route_ready",
       "expected_blockers": [],
       "governance": {
@@ -165,16 +292,24 @@
         "pattern_id": "auth_failed_login_spike",
         "operation_type": "threshold_check",
         "source_class": "okta_authentication_logs",
-        "entities": ["host"],
+        "entities": [
+          "host"
+        ],
         "time_window": "last_1_hour",
         "parameters": {
-          "metric": {"type": "count", "field": "failed_logins"},
+          "metric": {
+            "type": "count",
+            "field": "failed_logins"
+          },
           "threshold_ref": "failed_login_spike_default",
           "time_window": "last_1_hour"
         },
         "evidence_needs": {
           "datamodel": "Authentication",
-          "metric": {"type": "count", "field": "failed_logins"}
+          "metric": {
+            "type": "count",
+            "field": "failed_logins"
+          }
         }
       },
       "template_ref": "auth_failed_login_spike",
@@ -183,7 +318,10 @@
       "detection_ref": null,
       "evidence_contract_ref": "raw_search_table:host:failed_logins",
       "readiness": "source_ready",
-      "clarification_required": ["threshold_ref", "time_window"],
+      "clarification_required": [
+        "threshold_ref",
+        "time_window"
+      ],
       "expected_route_status": "route_ready",
       "expected_blockers": [],
       "governance": {
@@ -210,7 +348,10 @@
         "pattern_id": "hosts_contacting_known_malicious_ips",
         "operation_type": "ioc_correlation",
         "source_class": "network_traffic",
-        "entities": ["host", "dest_ip"],
+        "entities": [
+          "host",
+          "dest_ip"
+        ],
         "time_window": "today",
         "parameters": {
           "lookup_ref": "known_bad_ip",
@@ -228,9 +369,13 @@
       "detection_ref": null,
       "evidence_contract_ref": "ranked_entities:host:malicious_contact_count",
       "readiness": "ioc_dependent",
-      "clarification_required": ["time_window"],
+      "clarification_required": [
+        "time_window"
+      ],
       "expected_route_status": "cannot_route_missing_lookup",
-      "expected_blockers": ["missing_configured_lookup:ioc"],
+      "expected_blockers": [
+        "missing_configured_lookup:ioc"
+      ],
       "governance": {
         "execution_authorized": false,
         "spl_execution_enabled": false,
@@ -255,7 +400,10 @@
         "pattern_id": "hosts_reaching_known_malicious_domains",
         "operation_type": "ioc_correlation",
         "source_class": "dns_logs",
-        "entities": ["host", "domain"],
+        "entities": [
+          "host",
+          "domain"
+        ],
         "time_window": "last_24_hours",
         "parameters": {
           "lookup_ref": "known_bad_domain",
@@ -273,9 +421,13 @@
       "detection_ref": null,
       "evidence_contract_ref": "ranked_entities:host:malicious_domain_contact_count",
       "readiness": "ioc_dependent",
-      "clarification_required": ["time_window"],
+      "clarification_required": [
+        "time_window"
+      ],
       "expected_route_status": "cannot_route_missing_lookup",
-      "expected_blockers": ["missing_configured_lookup:ioc"],
+      "expected_blockers": [
+        "missing_configured_lookup:ioc"
+      ],
       "governance": {
         "execution_authorized": false,
         "spl_execution_enabled": false,
@@ -300,7 +452,9 @@
         "pattern_id": "dga_dns_queries",
         "operation_type": "detection_binding",
         "source_class": "dns_logs",
-        "entities": ["domain"],
+        "entities": [
+          "domain"
+        ],
         "time_window": "last_24_hours",
         "parameters": {
           "detection_family": "dga",
@@ -317,9 +471,13 @@
       "detection_ref": "soc.dga.v1",
       "evidence_contract_ref": "ranked_entities_dga_v1",
       "readiness": "detection_dependent",
-      "clarification_required": ["time_window"],
+      "clarification_required": [
+        "time_window"
+      ],
       "expected_route_status": "cannot_route_missing_detection",
-      "expected_blockers": ["missing_vetted_detection:dga"],
+      "expected_blockers": [
+        "missing_vetted_detection:dga"
+      ],
       "governance": {
         "execution_authorized": false,
         "spl_execution_enabled": false,
@@ -344,7 +502,9 @@
         "pattern_id": "host_beaconing_candidates",
         "operation_type": "detection_binding",
         "source_class": "network_traffic",
-        "entities": ["host"],
+        "entities": [
+          "host"
+        ],
         "time_window": "last_24_hours",
         "parameters": {
           "detection_family": "beaconing",
@@ -361,9 +521,13 @@
       "detection_ref": "soc.beaconing.v1",
       "evidence_contract_ref": "ranked_entities_beaconing_v1",
       "readiness": "detection_dependent",
-      "clarification_required": ["time_window"],
+      "clarification_required": [
+        "time_window"
+      ],
       "expected_route_status": "cannot_route_missing_detection",
-      "expected_blockers": ["missing_vetted_detection:beaconing"],
+      "expected_blockers": [
+        "missing_vetted_detection:beaconing"
+      ],
       "governance": {
         "execution_authorized": false,
         "spl_execution_enabled": false,
@@ -385,14 +549,20 @@
         {
           "primary_skill": "threshold_anomaly",
           "parameters": {
-            "metric": {"type": "count", "field": "dns_anomaly_count"},
+            "metric": {
+              "type": "count",
+              "field": "dns_anomaly_count"
+            },
             "threshold_ref": "dns_anomaly_default"
           }
         },
         {
           "primary_skill": "threshold_anomaly",
           "parameters": {
-            "metric": {"type": "count", "field": "network_anomaly_count"},
+            "metric": {
+              "type": "count",
+              "field": "network_anomaly_count"
+            },
             "threshold_ref": "network_anomaly_default"
           }
         }
@@ -403,24 +573,37 @@
         "pattern_id": "correlate_dns_and_network_anomalies",
         "operation_type": "correlate_signals",
         "source_class": "identity_and_endpoint",
-        "entities": ["host"],
+        "entities": [
+          "host"
+        ],
         "time_window": "last_24_hours",
-        "parameters": {"time_window": "last_24_hours"},
+        "parameters": {
+          "time_window": "last_24_hours"
+        },
         "evidence_needs": {
-          "signals": ["dns_anomaly", "network_anomaly"]
+          "signals": [
+            "dns_anomaly",
+            "network_anomaly"
+          ]
         },
         "sub_invocations": [
           {
             "primary_skill": "threshold_anomaly",
             "parameters": {
-              "metric": {"type": "count", "field": "dns_anomaly_count"},
+              "metric": {
+                "type": "count",
+                "field": "dns_anomaly_count"
+              },
               "threshold_ref": "dns_anomaly_default"
             }
           },
           {
             "primary_skill": "threshold_anomaly",
             "parameters": {
-              "metric": {"type": "count", "field": "network_anomaly_count"},
+              "metric": {
+                "type": "count",
+                "field": "network_anomaly_count"
+              },
               "threshold_ref": "network_anomaly_default"
             }
           }
@@ -432,9 +615,14 @@
       "detection_ref": null,
       "evidence_contract_ref": "multi_signal:dns_and_network_anomaly_flags",
       "readiness": "dependency_missing",
-      "clarification_required": ["threshold_ref", "time_window"],
+      "clarification_required": [
+        "threshold_ref",
+        "time_window"
+      ],
       "expected_route_status": "clarification_required",
-      "expected_blockers": ["missing_threshold_or_baseline_policy"],
+      "expected_blockers": [
+        "missing_threshold_or_baseline_policy"
+      ],
       "governance": {
         "execution_authorized": false,
         "spl_execution_enabled": false,
@@ -444,7 +632,7 @@
         "sample_only": false,
         "execution_eligible": false
       },
-      "notes": "Multi-signal composition is valid; vetted per-signal detections and baselines are not fully seeded—readiness stays dependency_missing until SOC supplies them."
+      "notes": "Multi-signal composition is valid; vetted per-signal detections and baselines are not fully seeded\u2014readiness stays dependency_missing until SOC supplies them."
     },
     {
       "coverage_id": "cov.q045.notable_missing_context",
@@ -459,7 +647,9 @@
         "pattern_id": "notable_event_timeline",
         "operation_type": "timeline",
         "source_class": "notable_risk",
-        "entities": ["notable_id"],
+        "entities": [
+          "notable_id"
+        ],
         "time_window": "last_24_hours",
         "parameters": {},
         "evidence_needs": {}
@@ -470,9 +660,13 @@
       "detection_ref": null,
       "evidence_contract_ref": "raw_events:notable_id:timeline",
       "readiness": "blocked_missing_context",
-      "clarification_required": ["notable_id"],
+      "clarification_required": [
+        "notable_id"
+      ],
       "expected_route_status": "clarification_required",
-      "expected_blockers": ["missing_contextual_reference"],
+      "expected_blockers": [
+        "missing_contextual_reference"
+      ],
       "governance": {
         "execution_authorized": false,
         "spl_execution_enabled": false,

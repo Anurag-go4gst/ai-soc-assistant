@@ -220,7 +220,7 @@
     "planning_or_analytic_skill": "aggregate_and_rank",
     "query": "Which hosts are generating the most SMB traffic?",
     "question_id": "q0.q010",
-    "spl_template_status": "unavailable",
+    "spl_template_status": "active",
     "test_status": "unknown",
     "use_case_id": null
   },
