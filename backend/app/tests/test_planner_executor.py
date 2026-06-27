@@ -261,3 +261,29 @@ def test_dispatch_then_finalize_annotate_preserves_skill_contract() -> None:
     meta = mcp.get("mcp_step_metadata") or {}
     assert meta.get("primary_reason") == "skill_contract"
 
+
+
+from app.planner.executor import (
+    build_step_walk_dispatch_schedule,
+    derive_dispatch_booleans_from_plan,
+    walk_plan_steps,
+    _legacy_predicate_dispatch_schedule,
+)
+
+
+def test_walk_plan_steps_and_predicate_parity_on_live_plan() -> None:
+    calls: list[str] = []
+    state = _state_with_plan(
+        [
+            {"step_id": "spl", "resource_id": "skill:spl_generation", "purpose": "spl_artifact"},
+            {"step_id": "mcp", "resource_id": "mcp_tool:splunk_run_query", "purpose": "mcp_execution"},
+        ]
+    )
+    walk = walk_plan_steps(state)
+    assert walk is not None
+    hooks = _hooks(calls, pre_mcp=True)
+    legacy = _legacy_predicate_dispatch_schedule(state, hooks, walk.blocked_step_ids)
+    walked = build_step_walk_dispatch_schedule(state, walk, hooks)
+    assert walked == legacy
+    execute_plan_dispatch(state, hooks)
+    assert calls == walked
