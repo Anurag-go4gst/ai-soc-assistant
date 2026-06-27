@@ -161,7 +161,7 @@ Remaining:
 
 ### WS7 Answer-Pack Lifecycle
 
-Status: pending.
+Status: partial.
 
 Do not add a fourth answer engine. Answer packs may enrich EvidencePlan only after:
 
@@ -169,6 +169,17 @@ Do not add a fourth answer engine. Answer packs may enrich EvidencePlan only aft
 - Golden pass.
 - Row authority ready.
 - No raw LLM prose loaded as answer authority.
+
+Done:
+
+- Seeded `backend/app/use_cases/answer_packs.json` so runtime reviewed-pack projection is no longer empty by default.
+- Added `scripts/build_answer_packs.py` as the conservative offline export path.
+- Loader strips raw prose and drops SPL-family suggestions unless a template or validator marker is present.
+
+Remaining:
+
+- Broaden pack coverage beyond the initial auth failed-login seed.
+- Add golden-gated promotion writes; packs still enrich EvidencePlan only.
 
 ### WS8 Healthy-Contradiction vs Bug Tests
 

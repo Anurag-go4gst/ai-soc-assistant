@@ -44,7 +44,7 @@ def reviewed_answer_pack(*, case_id: str | None = None, use_case_id: str | None 
             continue
         pack = packs.get(str(key))
         if pack and _reviewed(pack):
-            return dict(pack)
+            return _runtime_projection(pack)
     return None
 
 
@@ -55,8 +55,40 @@ def answer_pack_summary(pack: dict[str, Any]) -> dict[str, Any]:
         "provenance": str(pack.get("provenance") or ""),
         "raw_llm_prose_loaded": False,
         "runtime_authority": "evidence_plan_enrichment_only",
+        "mitre_candidate_status": "candidate_only" if pack.get("mitre_candidates") else None,
+        "spl_family_suggestion_loaded": bool(pack.get("spl_family_suggestion")),
     }
 
 
 def _reviewed(pack: dict[str, Any]) -> bool:
     return str(pack.get("review_status") or "").strip().lower() in REVIEWED_STATUSES
+
+
+def _runtime_projection(pack: dict[str, Any]) -> dict[str, Any]:
+    """Return reviewed EvidencePlan-only fields; never raw prose or authority."""
+    allowed_keys = {
+        "case_id",
+        "use_case_id",
+        "review_status",
+        "provenance",
+        "required_evidence",
+        "optional_evidence",
+        "source_needs",
+        "caveats",
+        "must_not_claim",
+        "mitre_candidates",
+        "dependency_gaps",
+        "spl_family_suggestion",
+        "spl_template_id",
+        "spl_validator_id",
+    }
+    projected = {key: value for key, value in pack.items() if key in allowed_keys}
+    if projected.get("spl_family_suggestion") and not _spl_family_suggestion_allowed(projected):
+        projected.pop("spl_family_suggestion", None)
+    return projected
+
+
+def _spl_family_suggestion_allowed(pack: dict[str, Any]) -> bool:
+    return bool(str(pack.get("spl_template_id") or "").strip()) or bool(
+        str(pack.get("spl_validator_id") or "").strip()
+    )
