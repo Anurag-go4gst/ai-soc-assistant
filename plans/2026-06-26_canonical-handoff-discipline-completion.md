@@ -1,7 +1,7 @@
 ---
 name: Canonical handoff discipline completion
 overview: "Canonical handoff discipline — shipped core (PR #38); deferred closure (PR #39). Complete remaining without replacing RouteContract / FinalEvidenceGate / RunContract. Each decision area gets exactly one authority; RunContract remains finalize-only public authority for execution, HIL, result claims, render permissions, and SPL lifecycle."
-status: partial
+status: superseded
 date: 2026-06-26
 depends_on:
   - plans/2026-06-24_run-contract-canonical-state.md
@@ -37,6 +37,8 @@ isProject: false
 ---
 
 > **Superseded:** Use [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) as the single source of truth. This file is retained for history only.
+
+> **Superseded (2026-06-27):** Implementation complete on `master` @ `ca3249b`. Use [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) as the single source of truth. This file is retained for history only.
 
 # Canonical Handoff Discipline — Completion Plan
 

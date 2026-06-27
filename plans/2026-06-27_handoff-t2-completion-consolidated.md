@@ -1,9 +1,9 @@
 ---
 name: Handoff T2 Completion
-overview: "Single source of truth for closing the three June 26 handoff/T2 plans. Repo-verified inventory of shipped, branch-only, partial, and pending work. No feature implementation until Batch 0 completes."
-status: active
+overview: "Single source of truth for the June 26 handoff/T2 closure program. Batches 0–F implementation complete on master; operator rollout documented separately."
+status: completed
 date: 2026-06-27
-baseline_commit: e5a4d40
+baseline_commit: ca3249b
 supersedes:
   - plans/2026-06-26_canonical-handoff-discipline-completion.md
   - plans/2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md
@@ -35,20 +35,30 @@ todos:
     status: completed
   - id: doc-operator-checklist
     content: "Doc batch: Operator-only checklist (COE promotion, prod flags, live MCP, eval refresh)"
-    status: pending
+    status: completed
   - id: doc-supersede-sources
     content: "Doc batch: Mark three source plans superseded; update plans/README.md + AI_SOC_MASTER_PLAN §M.1"
-    status: pending
+    status: completed
 isProject: false
 ---
 
 # Consolidated Closure Plan — Single Source of Truth
 
-**Lock status:** ACTIVE — Batches A–F code complete on `master` @ `c6efc18`; doc batch pending.
+**Lock status:** **COMPLETE** — Batches 0–F merged to `master` @ `ca3249b` (2026-06-27). Operator rollout: [`2026-06-27_operator_closure_checklist.md`](2026-06-27_operator_closure_checklist.md).
 
-**Baseline:** `master` @ `e5a4d40` (PR #38 merged).
+**Merge range:** `a694805` (PR #39) → `ca3249b` (PR #45).
 
-**Current worktree:** `fix/post-pr38-smoke-routing` @ `64a7fe0` (includes PR #40 commits; not on `master`).
+| PR | Batch | Summary |
+|----|-------|---------|
+| [#40](https://github.com/Anurag-go4gst/ai-soc-assistant/pull/40) | 0 | Post-PR38 smoke routing, `ask_chat.sh` |
+| [#39](https://github.com/Anurag-go4gst/ai-soc-assistant/pull/39) | 0 | Operator-reviewed promotion CLI, row-authority refresh, MCP checklist |
+| [#41](https://github.com/Anurag-go4gst/ai-soc-assistant/pull/41) | A+B | T2 binding + canonical handoff E2E tests |
+| [#42](https://github.com/Anurag-go4gst/ai-soc-assistant/pull/42) | C | ResourcePlan step-walk dispatch parity |
+| [#43](https://github.com/Anurag-go4gst/ai-soc-assistant/pull/43) | E | Winevent/T1 meta cleanup |
+| [#44](https://github.com/Anurag-go4gst/ai-soc-assistant/pull/44) | D | Answer packs, SPL trace projection, synthesis skip |
+| [#45](https://github.com/Anurag-go4gst/ai-soc-assistant/pull/45) | F | Frontend authority-tier trace UI |
+
+**Current worktree:** `master` @ `ca3249b` — clean implementation closure.
 
 ---
 
@@ -77,7 +87,59 @@ query
 
 ---
 
-## Inventory: shipped on `master` (`e5a4d40`)
+## WS1–WS8 final status (post-closure)
+
+| WS | Final status | Closure proof |
+|----|--------------|---------------|
+| WS1 Row authority | **Shipped** | Flag-gated adjudication + expanded CP matrix (Batch B); PR #41 tests |
+| WS2 SlotConstraintProjection | **Shipped** | EvidencePlan wiring + drift E2E (Batch B) |
+| WS3 ResourcePlan dispatch | **Shipped** | Step-walk parity dispatch (Batch C, PR #42) |
+| WS4 MCP decision surface | **Shipped** | Normalization + parity checklist (Batch B) |
+| WS5 Debug authority tiers | **Shipped** | Backend trace index + frontend `TraceAuthorityPanel` (Batch F, PR #45) |
+| WS6 LLM advisor hardening | **Shipped** | Final synthesis skip policy (Batch D) |
+| WS7 Answer packs | **Shipped** | ≥5 weak-known packs + loader (Batch D) |
+| WS8 Healthy vs bug tests | **Shipped** | Healthy-contradiction + real-bug negatives (Batch B) |
+
+### Architecture boundaries (confirmed intact)
+
+- No parallel weak-case architecture introduced.
+- **RouteContract** remains canonical route authority.
+- **EvidencePlan** remains planning snapshot only.
+- **ResourcePlan** does not reclassify intent or override route.
+- **FinalEvidenceGate** caps evidence-derived permissions and live language.
+- **RunContract** remains finalize-only public authority for render, SPL lifecycle, and MCP posture.
+- SPL artifact handoff summary is **trace projection only** (Batch D); no competing runtime SPL authority type.
+
+---
+
+## Shipped vs operator-only vs future roadmap
+
+### Shipped implementation (on `master`)
+
+All items in §Inventory shipped (S1–S20) plus Batch 0 merges (#39/#40), Batches A–F (PRs #41–#45). See merge table above.
+
+### Operator-only deferrals (not automatic)
+
+Documented in [`2026-06-27_operator_closure_checklist.md`](2026-06-27_operator_closure_checklist.md):
+
+| Item | Owner |
+|------|-------|
+| Live Splunk MCP activation | COE |
+| `route_authority_operation_authoritative_enabled=true` in production | COE |
+| COE `apply_promotion_status_review.py --apply` for pilot rows | COE |
+| Eval baseline refresh | Eng (explicit request only) |
+| `CONTROL_PLANE_ENABLED` production rollout | COE |
+
+### Future roadmap (out of closure scope)
+
+- Full skill enum unification, bulk GitHub skill intake (see `AI_SOC_MASTER_PLAN.md` Tracks C–D)
+- True ResourcePlan-order execution dispatch (beyond parity-first step-walk tracing)
+- LLM SPL failover / synthesis in production (governance flags remain default-off)
+- Wazuh second MCP server (COE N4 in prior plans)
+
+---
+
+## Inventory: shipped on `master` (`ca3249b`)
 
 | ID | Item | Proof |
 |----|------|-------|
@@ -357,7 +419,7 @@ cd frontend && npm run build
 - [x] Shipped / branch-only / partial / pending inventories repo-verified
 - [x] WS8 corrected to Partial (real-bug tests pending)
 - [x] WS2 corrected to shipped wiring / pending drift E2E
-- [x] WS5 corrected to backend done / frontend pending
+- [x] WS5 backend + frontend complete (PR #45)
 - [x] WS5 frontend authority-tier rendering shipped (Batch F)
 - [x] WS4 parity checklist added
 - [x] Phase 5 missing route tests listed under Batch B
@@ -371,17 +433,17 @@ cd frontend && npm run build
 
 ### Code complete (after all batches)
 
-- PRs #40 and #39 merged
-- Every partial item (P1–P16) closed by its batch
-- Governance regression PASS
-- CP-off targeted suites PASS
-- No parallel architecture introduced
+- [x] PRs #40, #39, #41–#45 merged
+- [x] Every partial item (P1–P16) closed by its batch
+- [x] Governance regression PASS (final verification 2026-06-27)
+- [x] CP-off targeted suites PASS
+- [x] No parallel architecture introduced
 
 ### Documentation complete
 
-- Source plans superseded
-- Operator checklist published
-- `plans/README.md` points here as single source of truth
+- [x] Source plans superseded
+- [x] Operator checklist published (`2026-06-27_operator_closure_checklist.md`)
+- [x] `plans/README.md` + `AI_SOC_MASTER_PLAN.md` §M.1 point here
 
 ### Production rollout (operator — separate milestone)
 
@@ -402,5 +464,5 @@ cd frontend && npm run build
 | PR #40 smoke routing | Branch-only; Batch 0 |
 | Operator deferrals | Documented only |
 
-**After Batches 0–F + Doc:** zero code/test items remain from the three source plans.
+**After Batches 0–F + Doc (2026-06-27):** zero code/test items remain from the three source plans. Operator rollout is a separate COE milestone.
 

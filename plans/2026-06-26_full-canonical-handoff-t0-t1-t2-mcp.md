@@ -1,7 +1,7 @@
 ---
 name: Full canonical handoff for T0/T1/T2 and MCP-live readiness
 overview: "Report-first plan to preserve the shipped /chat architecture while strengthening row authority, Environment KB normalization, EvidencePlan, ResourcePlan, MCP seam, and weak-known promotion/demotion across T0/T1/T2."
-status: in_progress
+status: superseded
 dependencies:
   - plans/2026-06-24_run-contract-canonical-state.md
   - plans/2026-06-25_final-evidence-gate-cross-stream.md
@@ -51,6 +51,8 @@ isProject: false
 ---
 
 > **Superseded:** Use [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) as the single source of truth. This file is retained for history only.
+
+> **Superseded (2026-06-27):** Implementation complete on `master` @ `ca3249b`. Use [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) as the single source of truth. This file is retained for history only.
 
 # Full Canonical Handoff for T0/T1/T2 and MCP-Live Readiness
 
