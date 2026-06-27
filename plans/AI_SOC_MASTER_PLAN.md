@@ -1,8 +1,8 @@
 # AI SOC Assistant — Master Plan
 
-**Document:** `plans/AI_SOC_MASTER_PLAN.md` — **single canonical plan** for hardening, skill enrichment, pipeline/LangGraph, and GitHub skill intake tracking.  
-**Date:** 2026-06-06 (amended 2026-06-27)  
-**Status:** Active implementation roadmap — Batches 1 through 6 completed on `master`; Batch 7 plan-status review documented; **canonical handoff discipline shipped** (`e5a4d40`, PR #38); **deferred handoff closure** in PR #39 (operator-reviewed promotion writes, row-authority refresh policy, shift-hour trace, MCP checklist). Next implementation phase requires explicit scope approval (see [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md)).  
+**Document:** `plans/AI_SOC_MASTER_PLAN.md` — **single canonical plan** for hardening, skill enrichment, pipeline/LangGraph, and GitHub skill intake tracking.
+**Date:** 2026-06-06 (amended 2026-06-27)
+**Status:** Active implementation roadmap — Batches 1 through 6 completed on `master`; **consolidated handoff/T2 closure complete** (`ca3249b`, PRs #38–#45, Batches 0–F). Operator rollout documented in [`2026-06-27_operator_closure_checklist.md`](2026-06-27_operator_closure_checklist.md). Next implementation phase requires explicit scope approval (see [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md)).
 **Canonical for:** Tracks A–D, pilot enrichments P1–P7, execution order, tracking table (§P)
 
 > **Single plan only.** Do not use `plans/2026-06-06_*.md` drafts (removed). All amendments live here.
@@ -104,7 +104,7 @@ Full audit: [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../d
 |------|--------|-----------|
 | PR #38 — T2 SPL-native / handoff stabilization | **Merged** (`master` @ `e5a4d40`) | `feat/llm-lab-direct-ask` |
 | Post-PR #38 prod smoke — near-105 route + unsafe containment | **Shipped** (PR #40 open) | `fix/post-pr38-smoke-routing`; see handoff plan §Post-PR #38 smoke fix |
-| Operator-reviewed promotion writes + row-authority refresh | **Pending** | PR #39 (`feat/operator-reviewed-promotion-writes`) |
+| Operator-reviewed promotion writes + row-authority refresh | **Done** | PR #39 merged |
 | Full canonical handoff Phases 2–10 | **Pending** | [`2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md`](2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md) |
 
 
@@ -651,7 +651,7 @@ Keep `graph_node_init_routing` as orchestrator or deprecate gradually behind fla
 
 **Formalize `graph_node_build_evidence_plan`** (extends `graph_node_evidence_planning`):
 
-**Inputs:** use_case, planning skill, `content_enrichment`, session pins  
+**Inputs:** use_case, planning skill, `content_enrichment`, session pins
 **Outputs:** required/optional/missing evidence, SPL template candidates, RAG doc candidates, MITRE candidates, `hil_required_if_missing`
 
 Uses existing `chat/evidence_planner.py` + enrichment fields.
@@ -675,7 +675,7 @@ Today combined in `graph_node_workflow_spl` + `graph_node_execution`.
 
 **`graph_node_resolve_mitre_evidence_status`** (extract from `graph_node_context_finalize` / `_mitre_outputs_for_finalize`):
 
-**Inputs:** enrichment MITRE candidates, `structured_context`, preconditions, sufficiency  
+**Inputs:** enrichment MITRE candidates, `structured_context`, preconditions, sufficiency
 **Outputs:** per-technique status in vocabulary §A2
 
 ---
@@ -684,7 +684,7 @@ Today combined in `graph_node_workflow_spl` + `graph_node_execution`.
 
 **`graph_node_decide_severity`** — formalize existing `decide_severity()` call:
 
-**Inputs:** `severity_policy`, metrics, sufficiency — **not** raw MITRE alone  
+**Inputs:** `severity_policy`, metrics, sufficiency — **not** raw MITRE alone
 **Rule:** Insufficient evidence → conservative / review-required severity
 
 ---
@@ -693,8 +693,8 @@ Today combined in `graph_node_workflow_spl` + `graph_node_execution`.
 
 **`graph_node_retrieve_sop_context`** — formalize `graph_node_rag_early`:
 
-**Inputs:** `rag_doc_ids` from enrichment, query intent  
-**Outputs:** SOP snippets, escalation guidance, limitations  
+**Inputs:** `rag_doc_ids` from enrichment, query intent
+**Outputs:** SOP snippets, escalation guidance, limitations
 **Rule:** RAG = reference prose; skills = workflow metadata; deterministic rules decide execution.
 
 ---
@@ -982,8 +982,8 @@ Planning-time status for batch 1:
 | `rejected_github_skills.md` | Avoid rework | Security review; onboarding |
 | `skill_coverage_matrix.json` | 105-question truth | Golden tests; governance regression; “are we improving coverage?” |
 
-**Track B** implements accepted skills into `use_cases/catalog.json` `content_enrichment` blocks.  
-**Track D** never writes to runtime — it records decisions and links GitHub `github_skill_id` → `use_case_id` → `question_id`.  
+**Track B** implements accepted skills into `use_cases/catalog.json` `content_enrichment` blocks.
+**Track D** never writes to runtime — it records decisions and links GitHub `github_skill_id` → `use_case_id` → `question_id`.
 When a pilot moves to `content_added`, update D4 row, D1 `implementation_status`, and B9 matrix `implementation_status` / `test_status` together.
 
 ---
@@ -1218,21 +1218,26 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 ## M. Deferred items
 
 
-### M.1 Canonical handoff + deferred closure (2026-06-27)
+### M.1 Canonical handoff + T2 closure (2026-06-27) — **COMPLETE**
 
-**SSOT for closure batches:** [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) (Batch 0 → A → B → C → D → E → F → Doc). Table below is summary; batch detail lives in the consolidated plan.
+**SSOT:** [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md). **Operator rollout:** [`2026-06-27_operator_closure_checklist.md`](2026-06-27_operator_closure_checklist.md).
+
+**Merged to `master` @ `ca3249b`:** PRs #40, #39 (Batch 0); #41 (A+B); #42 (C); #43 (E); #44 (D); #45 (F).
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Canonical graph handoff (EvidencePlan → ResourcePlan → FinalEvidenceGate → RunContract) | **Shipped** | `master` @ `e5a4d40` (PR #38): row authority (flag-gated), `SlotConstraintProjection`, MCP ResourcePlan `blocked_policy`, evidence-plan handoff drift, T0 composer skip, runtime promotion lifecycle (read-only), e2e probes |
-| Operator-reviewed `promotion_status` write path | **PR #39** (open) | Dry-run-by-default CLI; `--apply` gated; audit append-only; `/chat` stays read-only |
-| Row-authority report refresh policy | **PR #39** (open) | `projected_demotion_reasons`, `--check` / `--refresh`, `docs/evals/ARTIFACT_REFRESH_POLICY.md`; only `row_authority_report.json` intentionally refreshed |
-| Wineventlog shift-hour trace readability | **PR #39** (open) | `fixed_off_shift_hour_constraint_applied`; SPL/execution unchanged |
-| MCP live-readiness checklist | **PR #39** (open) | Docs + posture tests; no live MCP execution |
-| COE `q0.q046` promotion apply | **Pending** | Dry-run rehearsal: `already_in_target_status` + `s3_authority_ready_required`; no `--apply` until COE sign-off |
-| Broader reviewed answer-pack coverage | **Pending** | Seed pack only; extend `answer_packs.json` + offline builder |
-| SPL degrade-chain single artifact authority | **Pending** | Template / T2-native / lab / LLM failover still meet in `pipeline.py` |
-| Live Splunk MCP activation | **Deferred** | Readiness checklist exists; execution flags stay off until COE |
+| Canonical graph handoff (EvidencePlan → ResourcePlan → FinalEvidenceGate → RunContract) | **Shipped** | PR #38 core + Batches A–F; no parallel architecture |
+| Operator-reviewed `promotion_status` write path | **Shipped** | PR #39; dry-run default; `--apply` operator-only |
+| Row-authority report refresh policy | **Shipped** | PR #39; `docs/evals/ARTIFACT_REFRESH_POLICY.md` |
+| Wineventlog shift-hour trace + T1 meta | **Shipped** | PR #39 trace + Batch E (PR #43) |
+| MCP live-readiness checklist | **Shipped** | PR #39 docs; execution flags default-off |
+| Answer-pack coverage (WS7) | **Shipped** | Batch D (PR #44); ≥5 weak-known packs |
+| SPL degrade-chain trace projection | **Shipped** | Batch D; trace-only `spl_artifact_handoff_summary` |
+| Frontend authority tiers (WS5) | **Shipped** | Batch F (PR #45); diagnostic UI only |
+| COE `q0.q046` promotion `--apply` | **Operator-only** | See operator checklist |
+| Live Splunk MCP activation | **Operator-only** | Checklist + contract; flags stay off until COE |
+| `route_authority_operation_authoritative_enabled` prod | **Operator-only** | After staging matrix sign-off |
+| Eval baseline refresh | **Operator-only** | Explicit request only; no accidental drift commits |
 
 ### M.2 Original deferred list
 
