@@ -244,6 +244,49 @@ def test_e2e_in_registry_analytics_gate_and_contract_agree() -> None:
         assert not re.match(r"^P[1-4]\b", label)
 
 
+
+
+def test_e2e_q010_manifest_binding_surfaces_review_only_spl_not_intent_clarification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """q0.q010 in-manifest weak binding must not collapse to intent_clarification."""
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    payload = _payload(_IN_REGISTRY_ANALYTICS)
+    _assert_gate_agrees_with_run_contract(payload)
+    _assert_canonical_route_authority(payload)
+    _assert_no_live_claims_without_collected_evidence(payload)
+
+    plan = _evidence_plan(payload)
+    row = plan.get("row_authority_summary") or {}
+    assert row.get("question_ref") == "q0.q010"
+    assert row.get("manifest_coverage_id") == "cov.q010.network_smb_top_talkers"
+    lifecycle = plan.get("promotion_lifecycle_summary") or {}
+    assert lifecycle.get("stored_promotion_status") == "in_manifest"
+    assert lifecycle.get("effective_promotion_status") == "demoted_this_turn"
+
+    review = payload.get("human_review") or {}
+    assert review.get("review_type") != "intent_clarification"
+    assert payload.get("response_mode") != "clarification_required"
+    analyst = payload.get("analyst_response") or {}
+    preview = analyst.get("spl_draft_preview") or {}
+    assert preview.get("detection_family") == "network_smb_top_talkers"
+    assert _run_contract(payload).get("execution_authorized") is False
+
+
+def test_e2e_q046_demotion_reason_is_row_authority_not_source_profile_gap() -> None:
+    payload = _payload(_Q046)
+    plan = _evidence_plan(payload)
+    lifecycle = plan.get("promotion_lifecycle_summary") or {}
+    assert lifecycle.get("effective_promotion_status") == "demoted_this_turn"
+    reasons = lifecycle.get("demotion_reasons") or []
+    assert "environment_mapping_drift" not in reasons
+    assert "row_authority_not_ready" in reasons
+    binding = plan.get("source_profile_binding_summary") or {}
+    assert not binding.get("source_profile_bindings_missing")
+    review = payload.get("human_review") or {}
+    assert review.get("review_type") == "spl_revision"
+
+
 def test_e2e_environment_kb_user_explicit_precedence() -> None:
     payload = _payload(_ENV_KB_USER_INDEX)
     _assert_gate_agrees_with_run_contract(payload)

@@ -26,6 +26,7 @@ Report-only audit for the 105-question runtime map. `row_authority_status` is th
 | `q0.q004` | `exact_known_needs_lookup` | false | manifest_readiness:ioc_dependent |
 | `q0.q007` | `exact_known_needs_detection_binding` | false | manifest_readiness:detection_dependent |
 | `q0.q008` | `exact_known_needs_detection_binding` | false | manifest_readiness:detection_dependent |
+| `q0.q010` | `exact_known_weak_needs_enrichment` | false | manifest_readiness:coe_synthetic_fixture |
 | `q0.q017` | `exact_known_weak_needs_enrichment` | false | manifest_readiness:coe_synthetic_fixture |
 | `q0.q028` | `exact_known_unsupported` | false | route_blocked, missing_proposed_primary_skill |
 | `q0.q032` | `exact_known_weak_needs_enrichment` | false | manifest_readiness:dependency_missing |

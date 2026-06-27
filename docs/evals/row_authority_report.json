@@ -536,13 +536,12 @@
     },
     {
       "blockers": [
-        "promotion_status:not_in_manifest",
-        "manifest_readiness:missing"
+        "manifest_readiness:coe_synthetic_fixture"
       ],
       "dependency_class": "source_binding",
       "existing_s3_authority_ready": false,
-      "manifest_coverage_id": null,
-      "manifest_readiness": null,
+      "manifest_coverage_id": "cov.q010.network_smb_top_talkers",
+      "manifest_readiness": "coe_synthetic_fixture",
       "may_skip_llm": false,
       "mitre_registry": {
         "answer_visibility_policy": "answer_if_supported",
@@ -584,7 +583,7 @@
         "environment_mapping_drift",
         "row_authority_not_ready"
       ],
-      "promotion_status": "not_in_manifest",
+      "promotion_status": "in_manifest",
       "proposed_operation_type": "top_n",
       "proposed_primary_skill": "aggregate_and_rank",
       "question": "Which hosts are generating the most SMB traffic?",

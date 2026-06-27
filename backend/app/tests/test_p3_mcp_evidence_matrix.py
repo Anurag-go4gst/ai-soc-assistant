@@ -20,7 +20,7 @@ def test_promoted_manifest_matrix_is_report_only_and_covers_10_rows() -> None:
     assert report["authority"] == "report_only"
     assert report["mcp_called"] is False
     assert report["execution_authorized"] is False
-    assert report["row_count"] == 10
+    assert report["row_count"] == 11
 
 
 def test_cov_q046_maps_to_metadata_and_gated_splunk_search() -> None:
@@ -51,8 +51,8 @@ def test_105_question_report_has_one_row_per_taxonomy_question() -> None:
     report = build_question_mcp_evidence_report()
     assert report["scope"] == "question_runtime_map_105"
     assert report["row_count"] == 105
-    assert report["source_counts"]["promoted_manifest"] == 10
-    assert report["source_counts"]["question_runtime_estimate"] == 95
+    assert report["source_counts"]["promoted_manifest"] == 11
+    assert report["source_counts"]["question_runtime_estimate"] == 94
 
 
 def test_llm_tool_suggestions_do_not_populate_mcp_tool_outputs() -> None:

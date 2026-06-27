@@ -6,7 +6,7 @@
   "manifest_source": "backend/app/coverage/pattern_coverage_v1.json",
   "question_count": 105,
   "supplemental_row_count": 0,
-  "manifest_row_count": 10,
+  "manifest_row_count": 11,
   "authority_pilot_question_ref": "q0.q046",
   "entries": [
     {
@@ -641,10 +641,10 @@
       "proposed_operation_type": "top_n",
       "dependency_class": "source_binding",
       "route_blocked": false,
-      "promotion_status": "not_in_manifest",
-      "manifest_coverage_id": null,
-      "manifest_primary_skill": null,
-      "manifest_readiness": null,
+      "promotion_status": "in_manifest",
+      "manifest_coverage_id": "cov.q010.network_smb_top_talkers",
+      "manifest_primary_skill": "aggregate_and_rank",
+      "manifest_readiness": "coe_synthetic_fixture",
       "authority_pilot_candidate": false,
       "s3_authority_ready": false,
       "skill_drift": false,

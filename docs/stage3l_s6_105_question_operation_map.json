@@ -4,7 +4,7 @@
   "runtime_map_artifact": "backend/app/coverage/question_runtime_map_v1.json",
   "taxonomy_source": "docs/soc_question_taxonomy_stage3k_q0.md",
   "question_count": 105,
-  "manifest_row_count": 10,
+  "manifest_row_count": 11,
   "provisional_disclaimer": "Provisional analysis only. Not coverage readiness. Not authority approval. Not live /chat support.",
   "entries": [
     {
@@ -127,9 +127,10 @@
       "source_class": "source_binding",
       "dependency_type": "template",
       "provisional_status": "likely_routable",
-      "notes": "",
-      "candidate_coverage_id": null,
-      "promoted_to_manifest": false
+      "notes": "Exact-105 SMB top-talkers; lab draft family network_smb_top_talkers; review-only.",
+      "candidate_coverage_id": "cov.q010.network_smb_top_talkers",
+      "promoted_to_manifest": true,
+      "manifest_readiness": "coe_synthetic_fixture"
     },
     {
       "question_ref": "q0.q011",

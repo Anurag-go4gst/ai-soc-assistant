@@ -20,9 +20,9 @@ def test_map_has_105_questions() -> None:
 
 def test_manifest_rows_linked() -> None:
     payload = load_question_runtime_map()
-    assert payload["manifest_row_count"] == 10
+    assert payload["manifest_row_count"] == 11
     in_manifest = [e for e in list_question_runtime_entries() if e["promotion_status"] == "in_manifest"]
-    assert len(in_manifest) == 10
+    assert len(in_manifest) == 11
     assert manifest_coverage_ids_from_map() == frozenset(
         e["manifest_coverage_id"] for e in in_manifest if e.get("manifest_coverage_id")
     )
