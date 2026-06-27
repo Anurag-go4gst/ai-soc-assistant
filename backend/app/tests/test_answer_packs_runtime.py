@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from app.chat.evidence_planner import plan_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.query_understanding.parser import understand_query
@@ -66,3 +68,72 @@ def test_answer_pack_spl_family_suggestion_requires_template_or_validator(monkey
     pack = reviewed_answer_pack(case_id="case")
     assert pack is not None
     assert pack["spl_family_suggestion"] == "validated_family"
+
+def test_answer_pack_cannot_override_user_explicit_bindings(monkeypatch) -> None:
+    from app.chat.evidence_planner import plan_evidence
+    from app.chat.intent_classifier import build_query_to_intent
+    from app.query_understanding.parser import understand_query
+
+    monkeypatch.setattr(
+        "app.use_cases.answer_packs.load_answer_packs",
+        lambda: {
+            "q0.q046": {
+                "case_id": "q0.q046",
+                "review_status": "reviewed",
+                "required_evidence": ["pack_only_field"],
+                "user_explicit_overrides": {"index": "pack_index"},
+            }
+        },
+    )
+    query = "Generate SPL for index=scada_perf by rtu_id over last 24h"
+    understanding = understand_query(query)
+    q2i = build_query_to_intent(query=query, query_understanding=understanding)
+    plan = plan_evidence(
+        q2i.intent_classification,
+        query_to_intent=q2i.model_dump(),
+        query_understanding=understanding,
+    )
+    assert plan.normalized_slot_summary is not None
+    assert plan.normalized_slot_summary["normalized_slots"]["index"] == "scada_perf"
+    assert plan.normalized_slot_summary["slot_sources"]["index"] == "user_explicit"
+
+
+def test_answer_pack_does_not_return_final_runtime_prose(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.use_cases.answer_packs.load_answer_packs",
+        lambda: {
+            "q0.q046": {
+                "case_id": "q0.q046",
+                "review_status": "reviewed",
+                "final_answer": "Pack prose must never render as runtime authority.",
+                "raw_llm_prose": "Also forbidden.",
+                "required_evidence": ["failed_login_count"],
+            }
+        },
+    )
+    pack = reviewed_answer_pack(case_id="q0.q046")
+    assert pack is not None
+    assert "final_answer" not in pack
+    assert "raw_llm_prose" not in pack
+
+
+def test_answer_pack_does_not_bypass_run_contract_or_final_gate(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.chat.pipeline import build_live_chat_response
+    from app.config import settings
+    from app.schemas.requests import ChatRequest
+
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    payload = build_live_chat_response(
+        ChatRequest(message="Which users have excessive failed logins?")
+    ).model_dump(mode="json")
+    contract = payload.get("run_contract") or {}
+    gate = (payload.get("structured_context") or {}).get("final_evidence_gate") or {}
+    assert payload.get("evidence_plan", {}).get("answer_pack_summary") is not None
+    assert contract.get("authority_holder") == "canonical_run_contract" or (
+        (contract.get("routing") or {}).get("authority_holder") == "canonical_run_contract"
+    )
+    assert contract.get("collected_evidence_count") == 0
+    assert contract.get("allow_live_result_language") is False
+    assert gate.get("collected_evidence_count") == contract.get("collected_evidence_count")
+    assert gate.get("allow_live_result_language") is contract.get("allow_live_result_language")
+
