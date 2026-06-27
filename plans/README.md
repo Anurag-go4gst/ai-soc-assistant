@@ -11,7 +11,7 @@ Implementation specs live here (versioned in git). **Agent rules** live in [`AGE
 | Final resolution (routing + answer quality) | `plans/` + branch `cp-final-resolution-answer-quality` | **Done** — focused 20-probe 100/100 mean (`fdc8fac`) |
 | Cross-stream FinalEvidenceGate | [`2026-06-25_final-evidence-gate-cross-stream.md`](2026-06-25_final-evidence-gate-cross-stream.md) | **Done** — gate computed in `graph_node_context_finalize()`, not as a new router edge |
 | SPL query fidelity | [`2026-06-25_spl-query-fidelity-completion.md`](2026-06-25_spl-query-fidelity-completion.md) | **Done** — user-constraint bindings, table-driven render, draft source-profile auto-fill |
-| Full canonical handoff T0/T1/T2 + MCP seam | [`2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md`](2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md) | **Proposed** — report-first; preserve shipped RouteContract/EvidencePlan/ResourcePlan/RunContract architecture |
+| Full canonical handoff T0/T1/T2 + MCP seam | [`2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md`](2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md) | **Done** — shipped on the canonical `/chat` graph; persistent promotion writes and row-authority report artifact refresh remain deferred |
 | Master roadmap | [`AI_SOC_MASTER_PLAN.md`](AI_SOC_MASTER_PLAN.md) | Active |
 
 ## Canonical references
