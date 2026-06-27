@@ -13,22 +13,22 @@ todos:
     status: completed
   - id: phase2-env-kb-binding-into-plan-inputs
     content: Feed Environment KB/source-profile and row metadata into existing canonical bindings/provisional plan inputs without recreating UserConstraintBindings
-    status: pending
+    status: completed
   - id: phase3-evidence-plan-enrichment
     content: Enrich EvidencePlan with row authority and dependency summaries while avoiding duplicate finalize-only render permissions
-    status: pending
+    status: completed
   - id: phase4-resource-plan-consumption
     content: Wire execution/evidence consumers to read existing ResourcePlan steps in parity with EvidencePlan booleans
-    status: pending
+    status: completed
   - id: phase5-provisional-adjudication-enrichment
     content: Enrich route adjudication's provisional EvidencePlan inputs and add drift tracing against final EvidencePlan
-    status: pending
+    status: completed
   - id: phase6-loop-extension
     content: Extend the existing evidence_loop assessor for weak-known dependency gaps and RunContract parity
-    status: pending
+    status: completed
   - id: phase7-mcp-seam
     content: Prove MCP off/mock/live uses the same ResourcePlan MCP step through existing gates and envelopes
-    status: pending
+    status: completed
   - id: phase8-answer-pack-unification
     content: Define reviewed answer packs as an export/unification of content_enrichment/runtime-map/golden data, not a fourth parallel store
     status: completed
@@ -53,19 +53,29 @@ isProject: false
 
 Done — Phases 1–10 shipped on the canonical `/chat` graph with governance regression green (2026-06-26).
 
-Implementation progress / reality check:
+Implementation progress / reality check (reconciled 2026-06-27):
 
-- Phase 1 has both report artifacts and runtime row-authority projection. It is no longer strictly report-only; runtime behavior must remain flag-gated where it can affect routing.
-- Phase 2/3 are partial. EvidencePlan carries optional `row_authority_summary`, `normalized_slot_summary`, and `source_profile_binding_summary`, but several plan-named end-to-end assertions are still missing.
-- Phase 4/7 are partial. ResourcePlan composition emits MCP steps, and skill-contract vetoes are represented; MCP-off live-investigation steps must be blocked on the same MCP step rather than omitted or route-replaced.
-- Phase 5 is partial. Drift tracing exists, and row-authority now narrows exact-105 registry authority when `route_authority_operation_authoritative_enabled=true`: weak exact rows fall through to the canonical EvidencePlan path, while authority-ready rows may preserve exact registry routing. Broader matrix and full `/chat` coverage remain pending.
-- Phase 6 is partial. Dependency-gap projection helpers exist, but loop coverage is mostly focused/unit level rather than broad end-to-end loop tests.
-- Phase 8 is done. Reviewed answer packs enrich EvidencePlan only; raw/unreviewed packs are excluded at runtime; focused safety tests cover override precedence, SPL-family gating, and RunContract/FinalEvidenceGate non-bypass.
-- Phase 9 is done. Promotion gate blockers, MCP-unavailable demotion, projected demotion reasons in row authority reports, and golden-gated lifecycle tests are in place. Persistent promotion writes remain deferred to a reviewed operator path.
-- WS8 healthy-contradiction suite added (`test_handoff_healthy_contradiction.py`): CP-off vs CP-on row-authority narrowing, MCP step preserved when blocked, T0 composer skip gated on promotion lifecycle.
-- Phase 10 is done. Row authority tests, 105 path honoring, out-of-set intent probe, canonical handoff e2e probes, MCP seam Phase 7 tests, full backend pytest (3195 passed), and stage3 governance regression all pass. Eval report drift intentionally left uncommitted.
-- The nullable `mcp_allowed` follow-up is implemented for execution-gate, evidence-loop, and RunContract consumers; `mcp_allowed_normalized` records fail-closed trace provenance.
-- The containment banner follow-up is implemented in API + frontend from canonical blocked-action state.
+**Shipped (Phases 1–10):** one canonical `/chat` graph for T0/T1/T2 with EvidencePlan authority, ResourcePlan projection, MCP seam gate-flip, reviewed answer-pack EvidencePlan enrichment, and golden-gated promotion/demotion **coverage** (classifier + per-turn demotion + tests). Proof: `test_canonical_handoff_e2e_probes.py`, `test_mcp_seam_phase7.py`, `test_handoff_healthy_contradiction.py`, `test_answer_packs_runtime.py`, `test_promotion_lifecycle_phase9.py`, governance regression green.
+
+- **Phase 1:** row authority classifier + report/trace projection (`scripts/build_row_authority_report.py`, `test_row_authority_report.py`).
+- **Phase 2:** Environment KB/source-profile fills blanks before LLM; user-explicit wins (`test_e2e_environment_kb_*`, `test_evidence_planner.py`).
+- **Phase 3:** EvidencePlan carries row authority, bindings, dependency summaries (`test_evidence_plan_*`, e2e lineage probes).
+- **Phase 4:** ResourcePlan composed from EvidencePlan; MCP step preserved when blocked (`test_planner_composer_parity.py`, `test_mcp_seam_phase7.py`).
+- **Phase 5:** adjudication uses provisional EvidencePlan + row authority; drift narrows capability, keeps route (`test_route_adjudication.py`, `test_handoff_healthy_contradiction.py`).
+- **Phase 6:** evidence loop missing lookup/source-profile/MCP degrades honestly; e2e + unit coverage (`b99aeab`, `test_evidence_loop_requirement_projection.py`, e2e probes).
+- **Phase 7:** MCP off/mock/live share the same ResourcePlan MCP step (`5c4155c`, `test_mcp_seam_phase7.py`).
+- **Phase 8:** reviewed answer packs enrich EvidencePlan only (`f083a3d`, answer-pack safety tests).
+- **Phase 9:** promotion gate blockers, runtime demotion trace-only/non-destructive, projected demotion reasons in builder (`fd6d201`, `test_promotion_lifecycle_phase9.py`).
+- **Phase 10:** eval/governance gates pass; eval report drift intentionally uncommitted (`fa459e4`).
+
+**Intentionally deferred (not missing phases):**
+
+- **Persistent promotion_status writes:** catalogue/runtime-map `promotion_status` is authority of record; runtime classifier reads but does not persistently write. Demotion at runtime sets per-turn `effective_promotion_status` + reason in trace only. Operator-reviewed write path + golden pass required to change stored status.
+- **Row authority report artifact refresh:** builder emits `projected_demotion_reasons` per row; committed `docs/evals/row_authority_report.json` refresh deferred pending COE/eval artifact review. Tests compare on-disk rows excluding that additive field until refresh is approved.
+- **Legacy boolean → ResourcePlan migration:** some execution paths still read legacy booleans during transition; parity tests prevent drift on covered probes.
+- **Live MCP activation:** same ResourcePlan MCP step; activation is config/gate flip only (no new route).
+
+Follow-ups already shipped outside phase numbering: nullable `mcp_allowed` normalization and containment banner from canonical blocked-action state.
 
 ## Objective
 
@@ -935,7 +945,7 @@ Phase 9  lifecycle   -> stays exact_known_weak_needs_enrichment until reviewed p
                         runtime demotion is per-turn/non-destructive to stored promotion_status
 ```
 
-## First Implementation Slice
+## First Implementation Slice (historical — superseded)
 
 Do not start by rewiring execution.
 
@@ -948,6 +958,23 @@ Recommended first PR:
 5. Produce a report of exact 105 rows split into authority-ready versus weak-known.
 
 No runtime behavior change until the report and tests prove the current handoff gaps.
+
+## Shipped vs Intentionally Deferred
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Canonical `/chat` graph T0/T1/T2 | **Shipped** | Same graph; tier differs by authority/readiness only |
+| EvidencePlan primary authority | **Shipped** | Route, SPL/MCP gates, RunContract inputs |
+| ResourcePlan projection | **Shipped** | Composed from EvidencePlan; not independent router |
+| MCP seam (off/mock/live) | **Shipped** | Same ResourcePlan MCP step; gate flip only |
+| Reviewed answer packs → EvidencePlan | **Shipped** | Raw/unreviewed excluded; no runtime prose authority |
+| Promotion lifecycle gates + runtime demotion | **Shipped** | Classifier, blockers, per-turn demotion in trace |
+| Persistent promotion_status writes | **Deferred** | Operator-reviewed path; runtime never mutates stored status |
+| Row authority JSON `projected_demotion_reasons` | **Deferred artifact** | Builder supports field; committed JSON refresh awaits COE approval |
+| Full execution consumer ResourcePlan-only reads | **Partial / deferred** | Parity tests green; legacy boolean reads remain on some paths |
+| Live MCP go-live | **Deferred ops** | Code seam ready; credentials + execution flags remain off |
+
+Promotion lifecycle wording: **“coverage/gates shipped”** means classifier reads, gate blockers, runtime per-turn demotion, and tests are in place. **“Persistent write path shipped”** means operator-reviewed catalogue/runtime-map updates — explicitly **not** included in this handoff.
 
 ## Success Definition
 

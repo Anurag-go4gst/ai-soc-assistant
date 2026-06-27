@@ -5,6 +5,12 @@ This is an offline artifact generator. It reads the existing runtime map and
 coverage manifest, derives one reasoned ``row_authority_status`` per known row,
 and projects that status back to the already-shipped ``s3_authority_ready``
 boolean. It does not import ``app.*`` modules and does not affect /chat.
+
+Since Phase 9, each row may include ``projected_demotion_reasons`` (offline
+projection from ``promotion_lifecycle.projected_demotion_reasons_for_row``).
+The committed ``docs/evals/row_authority_report.json`` refresh is intentionally
+deferred pending COE/eval artifact review. Until refresh, ``test_row_authority_report.py``
+compares on-disk rows excluding that additive field.
 """
 
 from __future__ import annotations
