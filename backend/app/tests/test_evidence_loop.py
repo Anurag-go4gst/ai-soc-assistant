@@ -109,6 +109,42 @@ def test_capability_gap_for_unservable_requirement() -> None:
     assert "vulnerability_source" in decision.capability_gaps
 
 
+def test_capability_gap_for_missing_lookup_dependency() -> None:
+    state = initialize_loop(
+        ["splunk_get_info", "splunk_get_metadata"],
+        required_produces=["server_version", "fields", "lookup_dependency"],
+    )
+    for tool in ["splunk_get_info", "splunk_get_metadata"]:
+        state = {**state, **record_hop(state, tool=tool, delivered=["server_version", "fields"])}
+
+    decision = assess_loop(state)
+
+    assert decision.route == ROUTE_CAPABILITY_GAP
+    assert decision.sufficiency == "capability_gap"
+    assert decision.proceed_with_available is False
+    assert decision.missing == []
+    assert decision.capability_gaps == ["lookup_dependency"]
+    assert "honest degrade" in decision.reason
+
+
+def test_capability_gap_for_missing_source_profile_dependency() -> None:
+    state = initialize_loop(
+        ["splunk_get_info", "splunk_get_metadata"],
+        required_produces=["server_version", "fields", "source_profile"],
+    )
+    for tool in ["splunk_get_info", "splunk_get_metadata"]:
+        state = {**state, **record_hop(state, tool=tool, delivered=["server_version", "fields"])}
+
+    decision = assess_loop(state)
+
+    assert decision.route == ROUTE_CAPABILITY_GAP
+    assert decision.sufficiency == "capability_gap"
+    assert decision.proceed_with_available is False
+    assert decision.missing == []
+    assert decision.capability_gaps == ["source_profile"]
+    assert "honest degrade" in decision.reason
+
+
 def test_bounded_termination_forces_exhausted() -> None:
     state = _init()
     state = {**state, "mcp_hops_done": MAX_MCP_HOPS}

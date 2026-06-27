@@ -14,6 +14,12 @@ import pytest
 
 from app.chat.pipeline import build_live_chat_response
 from app.config import settings
+from app.coverage.question_runtime_map import list_question_runtime_entries
+from app.coverage.row_authority import (
+    AUTHORITY_READY,
+    classify_runtime_row_authority,
+    project_s3_authority_ready,
+)
 from app.schemas.requests import ChatRequest
 
 _Q046 = "Which users have excessive failed logins?"
@@ -23,6 +29,8 @@ _T2_OUT_OF_SET = (
 )
 _ENV_KB_USER_INDEX = "Generate SPL for index=scada_perf by rtu_id over last 24h"
 _IN_REGISTRY_ANALYTICS = "Which hosts are generating the most SMB traffic?"
+_MISSING_LOOKUP_DEPENDENCY = "Which hosts contacted known malicious IPs today?"
+_MISSING_SOURCE_PROFILE_DEPENDENCY = "Which source IPs generated the most outbound connections?"
 
 _GATE_MIRRORED_FIELDS = (
     "collected_evidence_count",
@@ -75,6 +83,16 @@ def _evidence_plan(payload: dict) -> dict:
 
 def _resource_plan(payload: dict) -> dict:
     return (_evidence_plan(payload).get("resource_plan") or {})
+
+
+def _mcp_steps(payload: dict) -> list[dict]:
+    steps = _resource_plan(payload).get("steps") or []
+    return [
+        step
+        for step in steps
+        if isinstance(step, dict)
+        and (step.get("step_id") == "mcp" or step.get("purpose") == "mcp_execution")
+    ]
 
 
 def _assert_gate_agrees_with_run_contract(payload: dict) -> None:
@@ -135,8 +153,7 @@ def _assert_mcp_step_lineage_when_mcp_needed(payload: dict) -> None:
     contract = _run_contract(payload)
     if not plan.get("needs_mcp"):
         return
-    steps = _resource_plan(payload).get("steps") or []
-    mcp_steps = [step for step in steps if isinstance(step, dict) and step.get("step_id") == "mcp"]
+    mcp_steps = _mcp_steps(payload)
     assert mcp_steps, "needs_mcp=true but ResourcePlan has no mcp step"
     if plan.get("mcp_allowed") is False:
         assert contract.get("mcp_allowed") is False
@@ -158,12 +175,35 @@ def _assert_env_kb_not_collected_telemetry(payload: dict) -> None:
         assert int(contract.get("collected_evidence_count") or 0) == 0
 
 
+def _assert_mcp_posture_matches_resource_plan(payload: dict) -> None:
+    mcp_steps = _mcp_steps(payload)
+    posture = (_run_contract(payload).get("mcp_posture") or {})
+    assert isinstance(posture, dict), "run_contract.mcp_posture missing"
+    assert posture.get("execution_authorized") is False
+    if not mcp_steps:
+        assert posture.get("status") in {"blocked_policy", "skipped", "planned"}
+        return
+    step = mcp_steps[0]
+    metadata = step.get("mcp_step_metadata") or {}
+    expected_status = (metadata or step).get("status")
+    if expected_status:
+        assert posture.get("status") == expected_status
+    assert step.get("status") in {"blocked_policy", "blocked", "skipped", "not_run"}
+    reason = str(posture.get("primary_reason") or "")
+    assert reason
+    if step.get("status_reason"):
+        assert reason == step.get("status_reason") or step.get("status_reason") in (
+            posture.get("secondary_reasons") or []
+        )
+
+
 def test_e2e_weak_exact_q046_preserves_identity_and_lineage() -> None:
     payload = _payload(_Q046)
     _assert_gate_agrees_with_run_contract(payload)
     _assert_canonical_route_authority(payload)
     _assert_no_live_claims_without_collected_evidence(payload)
     _assert_mcp_step_lineage_when_mcp_needed(payload)
+    _assert_mcp_posture_matches_resource_plan(payload)
 
     plan = _evidence_plan(payload)
     row = plan.get("row_authority_summary") or {}
@@ -285,11 +325,55 @@ def test_e2e_selected_skill_matches_run_contract_not_legacy_routed() -> None:
 
 def test_e2e_mcp_posture_on_run_contract_when_mcp_disabled() -> None:
     payload = _payload(_Q046)
+    _assert_mcp_posture_matches_resource_plan(payload)
+
+
+def test_e2e_missing_lookup_dependency_degrades_without_live_claims() -> None:
+    payload = _payload(_MISSING_LOOKUP_DEPENDENCY)
+    _assert_gate_agrees_with_run_contract(payload)
+    _assert_canonical_route_authority(payload)
+    _assert_no_live_claims_without_collected_evidence(payload)
+    _assert_mcp_posture_matches_resource_plan(payload)
+
+    plan = _evidence_plan(payload)
+    row = plan.get("row_authority_summary") or {}
+    assert row.get("question_ref") == "q0.q004"
+    assert row.get("row_authority_status") == "exact_known_needs_lookup"
+    assert row.get("s3_authority_ready") is False
+    assert "manifest_readiness:ioc_dependent" in (row.get("blockers") or [])
+
     contract = _run_contract(payload)
-    posture = contract.get("mcp_posture")
-    assert isinstance(posture, dict), "run_contract.mcp_posture missing"
-    assert posture.get("execution_authorized") is False
-    assert posture.get("status") in {"blocked_policy", "blocked", "planned", "requires_human_review"}
+    routing = _routing(payload)
+    assert routing.get("canonical_skill") in {"attack_discovery", "spl_generation"}
+    assert routing.get("canonical_skill") != "knowledge_recall"
+    assert contract.get("execution_authorized") is False
+    assert contract.get("collected_evidence_count") == 0
+    assert contract.get("allow_live_result_language") is False
+    assert contract.get("allow_mitre_mapping") is False
+
+
+def test_e2e_missing_source_profile_dependency_stays_weak_and_review_only() -> None:
+    payload = _payload(_MISSING_SOURCE_PROFILE_DEPENDENCY)
+    _assert_gate_agrees_with_run_contract(payload)
+    _assert_canonical_route_authority(payload)
+    _assert_no_live_claims_without_collected_evidence(payload)
+
+    plan = _evidence_plan(payload)
+    row = plan.get("row_authority_summary") or {}
+    assert row.get("question_ref") == "q0.q002"
+    assert row.get("dependency_class") == "source_binding"
+    assert row.get("row_authority_status") == "exact_known_weak_needs_enrichment"
+    assert row.get("s3_authority_ready") is False
+
+    binding = plan.get("source_profile_binding_summary") or {}
+    if binding:
+        assert binding.get("environment_kb_is_telemetry") is False
+
+    contract = _run_contract(payload)
+    assert contract.get("execution_authorized") is False
+    assert contract.get("collected_evidence_count") == 0
+    assert contract.get("allow_live_result_language") is False
+    assert contract.get("allow_mitre_mapping") is False
 
 
 def test_e2e_cp_on_weak_exact_preserves_canonical_skill_not_parallel_path(
@@ -338,3 +422,24 @@ def test_e2e_environment_kb_fills_blank_slots_without_counting_as_telemetry() ->
         # When user did not specify index, binding may come from env kb / source profile.
         assert sources.get("index") != "user_explicit" or slots.get("index")
 
+
+def test_t0_authority_ready_path_fixture_only_when_no_runtime_rows_ready() -> None:
+    assert not any(entry.get("s3_authority_ready") is True for entry in list_question_runtime_entries())
+
+    fixture_row = {
+        "question_ref": "fixture.t0_authority_ready",
+        "question": "fixture-only authority ready row",
+        "proposed_primary_skill": "spl_generation",
+        "promotion_status": "in_manifest",
+        "manifest_readiness": "source_ready",
+        "dependency_class": "source_binding",
+        "s3_authority_ready": True,
+        "route_blocked": False,
+    }
+    fixture_manifest = {"governance": {"execution_eligible": True}}
+
+    status, blockers = classify_runtime_row_authority(fixture_row, fixture_manifest)
+
+    assert status == AUTHORITY_READY
+    assert blockers == []
+    assert project_s3_authority_ready(status) is True
