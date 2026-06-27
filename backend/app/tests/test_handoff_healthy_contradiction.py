@@ -250,3 +250,65 @@ def test_authority_ready_row_skips_governed_composer_narration() -> None:
     )
     assert skip is True
     assert reason == "t0_authority_ready:deterministic_exact_match_t0"
+
+
+from app.chat.pipeline import build_live_chat_response
+from app.schemas.requests import ChatRequest
+
+
+def test_real_bug_weak_exact_does_not_bypass_missing_bindings() -> None:
+    intent, evidence, shadow, q2i = _q046_adjudication_inputs()
+    row = evidence.get("row_authority_summary") or {}
+    assert row.get("s3_authority_ready") is False
+    lifecycle = evidence.get("promotion_lifecycle_summary") or {}
+    if lifecycle:
+        assert lifecycle.get("effective_promotion_status") != "authority_ready"
+    missing = evidence.get("missing_required_evidence") or []
+    assert missing or row.get("row_authority_status") == "exact_known_weak_needs_enrichment"
+
+
+def test_real_bug_no_live_language_without_mcp_evidence() -> None:
+    payload = build_live_chat_response(
+        ChatRequest(message=_Q046)
+    ).model_dump(mode="json")
+    contract = payload.get("run_contract") or {}
+    assert int(contract.get("collected_evidence_count") or 0) == 0
+    assert contract.get("allow_live_result_language") is False
+    gate = (payload.get("structured_context") or {}).get("final_evidence_gate") or {}
+    assert gate.get("allow_live_result_language") is False
+
+
+def test_real_bug_mcp_step_never_omitted_when_needs_mcp() -> None:
+    for skill in ("attack_discovery", "spl_generation", "alert_summary"):
+        plan = EvidencePlan(
+            answer_mode="live_investigation",
+            rag_phase="post_mcp",
+            needs_rag=False,
+            needs_spl=True,
+            needs_mcp=True,
+            needs_mitre=False,
+            spl_allowed=True,
+            mcp_allowed=False,
+            policy_context_required=False,
+            policy_context_recommended=False,
+        )
+        composed = compose_resource_plan(plan, intent_family="live_investigation", skill_id=skill)
+        assert composed.step_by_id("mcp") is not None
+
+
+def test_ws4_mcp_parity_checklist_across_layers(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    payload = build_live_chat_response(ChatRequest(message=_Q046)).model_dump(mode="json")
+    plan = payload.get("evidence_plan") or {}
+    contract = payload.get("run_contract") or {}
+    if not plan.get("needs_mcp"):
+        pytest.skip("probe did not require MCP")
+    assert plan.get("mcp_allowed_normalized") is not None or plan.get("mcp_allowed") is False
+    steps = (plan.get("resource_plan") or {}).get("steps") or []
+    mcp_steps = [s for s in steps if isinstance(s, dict) and s.get("step_id") == "mcp"]
+    assert mcp_steps
+    posture = contract.get("mcp_posture") or {}
+    assert posture.get("status") in {"blocked_policy", "blocked", "planned", "requires_human_review"}
+    assert posture.get("execution_authorized") is False
+    trace = payload.get("control_plane_trace") or {}
+    assert trace.get("run_contract") or contract

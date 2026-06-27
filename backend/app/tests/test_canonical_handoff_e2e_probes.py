@@ -338,3 +338,40 @@ def test_e2e_environment_kb_fills_blank_slots_without_counting_as_telemetry() ->
         # When user did not specify index, binding may come from env kb / source profile.
         assert sources.get("index") != "user_explicit" or slots.get("index")
 
+
+
+_T2_SCADA_CHAT = (
+    "Provide a complete review-only SPL query for index=scada_perf using earliest=-30d to "
+    "compute an eventstats stdev baseline by rtu_id and filter anomalies in the last 24h "
+    "using transmission_error_count."
+)
+
+
+def test_e2e_t2_scada_probe_gate_and_contract() -> None:
+    payload = _payload(_T2_SCADA_CHAT)
+    _assert_gate_agrees_with_run_contract(payload)
+    _assert_no_live_claims_without_collected_evidence(payload)
+    contract = _run_contract(payload)
+    assert contract.get("execution_authorized") is False
+    assert contract.get("allow_live_result_language") is False
+
+
+def test_e2e_run_contract_loop_requirements_match_evidence_plan_q046() -> None:
+    from app.chat.pipeline import _loop_required_produces
+
+    payload = _payload(_Q046)
+    plan = _evidence_plan(payload)
+    requirements = _loop_required_produces(plan)
+    missing = plan.get("missing_required_evidence") or []
+    if requirements:
+        assert all(req in missing or req in (plan.get("evidence_needs") or []) for req in requirements)
+    contract = _run_contract(payload)
+    assert int(contract.get("collected_evidence_count") or 0) == 0
+    loop = (payload.get("control_plane_trace") or {}).get("evidence_loop") or {}
+    if loop:
+        decision = loop.get("decision") or {}
+        assert decision.get("sufficiency") in {"needs_more", "insufficient", None} or decision.get("route") in {
+            "human_review",
+            "blocked",
+            "return_to_plan",
+        }

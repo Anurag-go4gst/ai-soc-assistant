@@ -62,3 +62,42 @@ def test_drift_merge_keeps_planning_and_final_summaries_separate() -> None:
     assert handoff["drift_from_final_spl"] is True
     assert handoff["planning_snapshot"]["projection_id"] == "plan-1"
     assert handoff["final_spl_projection"]["projection_id"] == "final-1"
+
+
+from app.chat.pipeline import build_live_chat_response
+from app.config import settings
+from app.schemas.requests import ChatRequest
+import pytest
+
+
+_SCADA_DRIFT_QUERY = (
+    "Provide a complete review-only SPL query for index=scada_perf using earliest=-30d to "
+    "compute an eventstats stdev baseline by rtu_id and filter anomalies in the last 24h "
+    "using transmission_error_count."
+)
+
+
+def test_chat_path_records_slot_handoff_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    payload = build_live_chat_response(ChatRequest(message=_SCADA_DRIFT_QUERY)).model_dump(mode="json")
+    plan = payload.get("evidence_plan") or {}
+    assert plan.get("slot_constraint_projection_summary") is not None
+    if "handoff_drift_from_final_spl" in plan:
+        assert isinstance(plan["handoff_drift_from_final_spl"], bool)
+    handoff = plan.get("slot_handoff_summary") or {}
+    if handoff:
+        assert "planning_snapshot" in handoff or "final_spl_projection" in handoff
+
+
+def test_ws2_drift_e2e_merge_preserves_route_authority(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    payload = build_live_chat_response(ChatRequest(message=_SCADA_DRIFT_QUERY)).model_dump(mode="json")
+    plan = payload.get("evidence_plan") or {}
+    routing = (payload.get("run_contract") or {}).get("routing") or {}
+    skill_before = routing.get("canonical_skill")
+    assert skill_before
+    if plan.get("handoff_drift_from_final_spl"):
+        drift = plan.get("slot_handoff_summary") or {}
+        assert drift.get("drift_from_final_spl") is True
+    assert routing.get("canonical_skill") == skill_before
+    assert payload.get("selected_skill") == skill_before
