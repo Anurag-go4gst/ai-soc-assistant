@@ -1,10 +1,12 @@
-import { AlertTriangle, Boxes, CheckCircle2, FileSearch, Library, ListChecks, Route, SearchCode, TerminalSquare, Wrench } from 'lucide-react';
+import { AlertTriangle, Boxes, CheckCircle2, FileSearch, Library, ListChecks, Route, SearchCode, Shield, TerminalSquare, Wrench } from 'lucide-react';
 import type React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/CopyButton';
 import { cn } from '@/lib/utils';
 import { ExperienceCenterGovernancePanels } from '@/components/ExperienceCenterGovernancePanels';
+import { TraceAuthorityPanel } from '@/components/TraceAuthorityPanel';
 import { resolveGovernanceTrace } from '@/lib/governanceTrace';
+import { hasTraceAuthorityData } from '@/lib/traceAuthority';
 import type { ExecutionEnvelope, HumanReviewEnvelope, PlaceholderResponse, SourceEvidenceEnvelope, SplValidationEnvelope, StructuredContextPackage, WorkflowPlan } from '@/types/api';
 
 interface Stage3DTracePanelProps {
@@ -48,6 +50,16 @@ export function Stage3DTracePanel({ trace }: Stage3DTracePanelProps) {
             sections={hasExperienceCenterPanels ? undefined : ['severity', 'skills', 'completion']}
           />
         </div>
+      ) : null}
+      {trace.control_plane_trace ? (
+        <details className="border-t border-slate-800/80">
+          <summary className="cursor-pointer list-none px-3 py-2 text-[11px] font-medium text-slate-500 transition hover:text-slate-300">
+            Trace authority tiers (diagnostic)
+          </summary>
+          <div className="border-t border-slate-800/80 px-3 py-3">
+            <TraceAuthorityPanel controlPlaneTrace={trace.control_plane_trace} compact />
+          </div>
+        </details>
       ) : null}
       <details className="border-t border-slate-800/80">
         <summary className="cursor-pointer list-none px-3 py-2 text-[11px] font-medium text-slate-500 transition hover:text-slate-300">
@@ -259,6 +271,12 @@ function RawDeveloperTracePanel({ trace }: Stage3DTracePanelProps) {
         </Badge>
       </div>
       {trace.trace_explanation?.length ? <ChipLine label="demo trace" values={trace.trace_explanation} variant="outline" /> : null}
+
+      {trace.control_plane_trace && hasTraceAuthorityData(trace.control_plane_trace) ? (
+        <TraceSection icon={<Shield className="h-3.5 w-3.5 text-cyan-300" />} title="Trace Authority Tier (Diagnostic)">
+          <TraceAuthorityPanel controlPlaneTrace={trace.control_plane_trace} />
+        </TraceSection>
+      ) : null}
 
       <TraceSection icon={<SearchCode className="h-3.5 w-3.5 text-cyan-300" />} title="Query Received">
         <p className="break-words text-slate-100">{safeText(trace.user_query ?? '') || 'No query text returned.'}</p>

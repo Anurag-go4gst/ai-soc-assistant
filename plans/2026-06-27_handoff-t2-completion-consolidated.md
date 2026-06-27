@@ -11,28 +11,28 @@ supersedes:
 todos:
   - id: batch-0-merge-pr40
     content: "Batch 0: Merge PR #40 (fix/post-pr38-smoke-routing) to master first"
-    status: pending
+    status: completed
   - id: batch-0-merge-pr39
     content: "Batch 0: Merge PR #39 (feat/operator-reviewed-promotion-writes) after #40 rebase"
-    status: pending
+    status: completed
   - id: batch-a-t2
     content: "Batch A: T2 renderer + LLM matrix + /chat smoke (phases 9-12)"
-    status: pending
+    status: completed
   - id: batch-b-handoff
     content: "Batch B: Handoff E2E, real-bug negatives, route tests, WS1/WS2/WS4/WS8 (ph 2/5/6)"
-    status: pending
+    status: completed
   - id: batch-c-dispatch
     content: "Batch C: Step-walk dispatch parity-first (WS3, ph 4, legacy elif gating)"
-    status: pending
+    status: completed
   - id: batch-d-packs
     content: "Batch D: Answer packs + SPL trace projection + synthesis skip (WS6/7, ph 8-9)"
-    status: pending
+    status: completed
   - id: batch-e-polish
     content: "Batch E: Winevent scope framing + T1 SPL-native meta cleanliness"
-    status: pending
+    status: completed
   - id: batch-f-ui
     content: "Batch F: Frontend authority_tier rendering (WS5 UI)"
-    status: pending
+    status: completed
   - id: doc-operator-checklist
     content: "Doc batch: Operator-only checklist (COE promotion, prod flags, live MCP, eval refresh)"
     status: pending
@@ -44,7 +44,7 @@ isProject: false
 
 # Consolidated Closure Plan — Single Source of Truth
 
-**Lock status:** ACTIVE — reconcile complete; Batch 0 may start after this doc is committed.
+**Lock status:** ACTIVE — Batches A–F code complete on `master` @ `c6efc18`; doc batch pending.
 
 **Baseline:** `master` @ `e5a4d40` (PR #38 merged).
 
@@ -150,9 +150,9 @@ Healthy-contradiction tests exist. **Real-bug negative tests are missing:**
 
 `slot_constraint_projection_summary` is set in `evidence_planner.py` during planning. `merge_evidence_plan_spl_drift` exists in `pipeline.py`. Unit tests exist in `test_evidence_plan_handoff_drift.py`. **Remaining:** full `/chat` E2E proving planning snapshot vs final SPL drift is traced — **not** new wiring.
 
-### WS5 — corrected status: **Backend done / frontend pending (Batch F)**
+### WS5 — corrected status: **Complete (backend + frontend)**
 
-Backend: `trace_authority_index`, per-section `authority_tier`. Frontend: no rendering. Batch F closes UI gap.
+Backend: `trace_authority_index`, per-section `authority_tier`. Frontend: `TraceAuthorityPanel` renders index + per-section tiers in `Stage3DTracePanel` (diagnostic wording; no execution authority).
 
 ---
 
@@ -358,6 +358,7 @@ cd frontend && npm run build
 - [x] WS8 corrected to Partial (real-bug tests pending)
 - [x] WS2 corrected to shipped wiring / pending drift E2E
 - [x] WS5 corrected to backend done / frontend pending
+- [x] WS5 frontend authority-tier rendering shipped (Batch F)
 - [x] WS4 parity checklist added
 - [x] Phase 5 missing route tests listed under Batch B
 - [x] Batch C parity-first migration rules documented
