@@ -13,6 +13,7 @@ from typing import Any, Literal
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.query_understanding.models import QueryUnderstandingResult
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
+from app.spl.template_registry import get_spl_template
 from app.spl.user_constraint_bindings import (
     SLOT_SOURCE_DETERMINISTIC,
     SLOT_SOURCE_LLM,
@@ -78,8 +79,6 @@ def build_slot_constraint_projection(
     planning_snapshot: dict[str, Any] | None = None,
     projection_id: str | None = None,
 ) -> SlotConstraintProjection:
-    from app.spl.template_registry import get_spl_template
-
     template = get_spl_template(template_id) if template_id else None
     policy_indexes = allowed_indexes
     policy_sourcetypes = allowed_sourcetypes
@@ -284,12 +283,24 @@ def merge_evidence_plan_spl_drift(
         ),
         planning_snapshot if isinstance(planning_snapshot, dict) else None,
     )
+    planning_summary = dict(plan.get("slot_constraint_projection_summary") or {})
+    if not planning_summary and isinstance(planning_snapshot, dict):
+        planning_summary = dict(planning_snapshot)
+    if planning_summary and planning_summary.get("planning_snapshot") is not True:
+        planning_summary = {**planning_summary, "planning_snapshot": True}
+
     plan["handoff_drift_from_final_spl"] = drift
     plan["handoff_drift_details"] = details
-    plan["final_spl_projection_summary"] = dict(final_projection)
-    plan["slot_constraint_projection_summary"] = {
-        **dict(plan.get("slot_constraint_projection_summary") or planning_snapshot),
-        "planning_snapshot": True,
+    if planning_summary:
+        plan["slot_constraint_projection_summary"] = planning_summary
+    plan["final_spl_projection_summary"] = {
+        **dict(final_projection),
+        "planning_snapshot": False,
+        "built_at_stage": final_projection.get("built_at_stage") or "spl_generation",
+    }
+    plan["slot_handoff_summary"] = {
+        "planning_snapshot": planning_summary,
+        "final_spl_projection": plan["final_spl_projection_summary"],
         "drift_from_final_spl": drift,
         "drift_details": details,
     }

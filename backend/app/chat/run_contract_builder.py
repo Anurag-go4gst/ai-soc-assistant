@@ -20,6 +20,7 @@ from app.evidence.source_evidence import build_candidate_artifact_refs
 from app.chat.pipeline import ChatPipelineState
 from app.chat.query_signals import is_guidance_request, is_live_data_request
 from app.config import settings
+from app.planner.executor import normalize_mcp_posture_status
 
 _EXECUTION_AUTHORIZED_STATUSES = frozenset(
     {
@@ -410,6 +411,13 @@ def _resolve_use_case_id(state: ChatPipelineState, intent: dict[str, Any]) -> st
     return None
 
 
+def _normalize_mcp_posture_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(payload)
+    normalized["status"] = normalize_mcp_posture_status(str(payload.get("status") or "planned"))
+    normalized["execution_authorized"] = bool(payload.get("execution_authorized"))
+    return normalized
+
+
 def project_mcp_posture(state: ChatPipelineState) -> dict[str, Any] | None:
     """Project MCP posture from composed ResourcePlan + execution evaluation."""
     evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
@@ -424,22 +432,28 @@ def project_mcp_posture(state: ChatPipelineState) -> dict[str, Any] | None:
         return None
     metadata = mcp_step.get("mcp_step_metadata") if isinstance(mcp_step, dict) else None
     if isinstance(metadata, dict) and metadata:
-        return dict(metadata)
+        return _normalize_mcp_posture_payload(metadata)
     if isinstance(mcp_step, dict):
-        return {
-            "status": str(mcp_step.get("status") or "planned"),
-            "primary_reason": str(mcp_step.get("status_reason") or execution.get("block_reason") or "not_run"),
-            "secondary_reasons": [str(item) for item in mcp_step.get("policy_checks") or []],
+        return _normalize_mcp_posture_payload(
+            {
+                "status": str(mcp_step.get("status") or execution.get("status") or "planned"),
+                "primary_reason": str(
+                    mcp_step.get("status_reason") or execution.get("block_reason") or "not_run"
+                ),
+                "secondary_reasons": [str(item) for item in mcp_step.get("policy_checks") or []],
+                "selected_tool": execution.get("selected_mcp_tool"),
+                "execution_authorized": str(execution.get("status") or "") == "executed",
+            }
+        )
+    return _normalize_mcp_posture_payload(
+        {
+            "status": str(execution.get("status") or "skipped"),
+            "primary_reason": str(execution.get("block_reason") or execution.get("status") or "no_mcp_step"),
+            "secondary_reasons": [],
             "selected_tool": execution.get("selected_mcp_tool"),
             "execution_authorized": str(execution.get("status") or "") == "executed",
         }
-    return {
-        "status": str(execution.get("status") or "skipped"),
-        "primary_reason": str(execution.get("block_reason") or execution.get("status") or "no_mcp_step"),
-        "secondary_reasons": [],
-        "selected_tool": execution.get("selected_mcp_tool"),
-        "execution_authorized": str(execution.get("status") or "") == "executed",
-    }
+    )
 
 
 def enrich_run_contract_payload(payload: dict[str, Any], state: ChatPipelineState) -> dict[str, Any]:

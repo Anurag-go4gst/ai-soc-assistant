@@ -21,6 +21,34 @@ from app.config import settings
 from app.planner.resource_registry import load_resource_registry
 
 State = dict[str, Any]
+
+_MCP_POSTURE_STATUSES = frozenset({"planned", "blocked_policy", "skipped", "executed", "failed"})
+
+
+def normalize_mcp_posture_status(raw_status: str | None) -> str:
+    """Map execution/plan statuses to the MCP posture vocabulary."""
+    status = str(raw_status or "planned").strip() or "planned"
+    if status in _MCP_POSTURE_STATUSES:
+        return status
+    if status in {"blocked", "requires_human_review"}:
+        return "blocked_policy"
+    if status in {"skipped_unavailable", "not_run"}:
+        return "skipped"
+    return "blocked_policy"
+
+
+def _preserved_block_reason(step: Mapping[str, Any]) -> str:
+    existing = str(step.get("status_reason") or "").strip()
+    if existing:
+        return existing
+    checks = [str(item) for item in step.get("policy_checks") or []]
+    if any("blocked_by_skill_contract" in check for check in checks):
+        return "skill_contract"
+    if any("mcp_not_allowed_by_evidence_plan" in check for check in checks):
+        return "mcp_not_allowed_by_evidence_plan"
+    return "blocked_policy"
+
+
 Node = Callable[[State], State]
 
 
@@ -106,7 +134,13 @@ def execute_plan_dispatch(state: State, hooks: DispatchHooks) -> State:
 def _annotate_blocked(state: State, blocked_steps: set[str]) -> State:
     if not blocked_steps:
         return state
-    return annotate_step_statuses(state, only_steps=blocked_steps, force_status="blocked_policy")
+    registry_blocked = _blocked_step_ids(state)
+    return annotate_step_statuses(
+        state,
+        only_steps=blocked_steps,
+        force_status="blocked_policy",
+        registry_blocked_steps=registry_blocked,
+    )
 
 
 def annotate_step_statuses(
@@ -114,6 +148,7 @@ def annotate_step_statuses(
     *,
     only_steps: set[str] | None = None,
     force_status: str | None = None,
+    registry_blocked_steps: set[str] | None = None,
 ) -> State:
     """Resolve each plan step's outcome from stage results already in state.
 
@@ -131,7 +166,12 @@ def annotate_step_statuses(
             continue
         if force_status is not None:
             step["status"] = force_status
-            step["status_reason"] = "registry_resource_blocked"
+            if step_id in (registry_blocked_steps or set()):
+                step["status_reason"] = "registry_resource_blocked"
+            else:
+                step["status_reason"] = _preserved_block_reason(step)
+            if str(step.get("purpose") or "") == "mcp_execution":
+                step["mcp_step_metadata"] = _mcp_step_metadata(step, state)
             continue
         status, reason = _resolve_status(step, state)
         step["status"] = status
@@ -212,9 +252,7 @@ def _mcp_step_metadata(step: Mapping[str, Any], state: State) -> dict[str, Any]:
         or exec_status
     )
     return {
-        "status": exec_status if exec_status in {"planned", "blocked_policy", "skipped", "executed", "failed"} else (
-            "blocked_policy" if exec_status in {"blocked", "requires_human_review"} else exec_status
-        ),
+        "status": normalize_mcp_posture_status(exec_status),
         "primary_reason": primary,
         "secondary_reasons": secondary,
         "selected_tool": execution.get("selected_mcp_tool"),

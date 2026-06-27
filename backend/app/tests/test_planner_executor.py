@@ -171,3 +171,38 @@ def test_mcp_step_metadata_attached_on_annotate() -> None:
     assert meta.get("primary_reason") == "mcp_global_execution_disabled"
     assert meta.get("selected_tool") == "splunk_run_query"
     assert meta.get("execution_authorized") is False
+
+
+def test_preblocked_mcp_preserves_skill_contract_reason_and_metadata() -> None:
+    calls: list[str] = []
+    state = _state_with_plan(
+        [
+            {
+                "step_id": "mcp",
+                "resource_id": "mcp_tool:splunk_run_query",
+                "purpose": "mcp_execution",
+                "status": "blocked_policy",
+                "status_reason": "skill_contract",
+                "policy_checks": ["blocked_by_skill_contract"],
+            }
+        ]
+    )
+    result = execute_plan_dispatch(state, _hooks(calls))
+    mcp = next(s for s in result["evidence_plan"]["resource_plan"]["steps"] if s["step_id"] == "mcp")
+    assert mcp["status_reason"] == "skill_contract"
+    meta = mcp.get("mcp_step_metadata") or {}
+    assert meta.get("status") == "blocked_policy"
+    assert meta.get("primary_reason") == "skill_contract"
+    assert "skill_contract" in meta.get("secondary_reasons", [])
+
+
+def test_mcp_step_metadata_normalizes_requires_human_review() -> None:
+    state = _state_with_plan(
+        [{"step_id": "mcp", "resource_id": "mcp_tool:splunk_run_query", "purpose": "mcp_execution"}],
+        execution={"status": "requires_human_review", "block_reason": "spl_validation_failed"},
+    )
+    result = annotate_step_statuses(state)
+    mcp = next(s for s in result["evidence_plan"]["resource_plan"]["steps"] if s["step_id"] == "mcp")
+    meta = mcp.get("mcp_step_metadata") or {}
+    assert meta.get("status") == "blocked_policy"
+    assert meta.get("primary_reason") == "spl_validation_failed"
