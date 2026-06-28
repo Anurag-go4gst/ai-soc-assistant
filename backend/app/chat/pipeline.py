@@ -28,6 +28,7 @@ from app.orchestration.broaden_orchestration import (
     should_attempt_broaden,
 )
 from app.orchestration.human_review import human_review, no_human_review
+from app.orchestration.spl_revision_hil import polish_spl_revision_human_review, resolve_spl_revision_hil_reason
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS
 from app.orchestration.workflow_planner import plan_workflow
@@ -1926,6 +1927,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         mcp_evidence=state.get("mcp_evidence"),
     )
     human_review = _attach_hil_soc_kb_guidance(state["human_review"], source_evidence)
+    human_review = polish_spl_revision_human_review(
+        human_review if isinstance(human_review, dict) else {},
+        spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+        candidate_spl=state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else None,
+    )
     # FinalEvidenceGate: single cross-stream authority for evidence classification
     # and evidence-derived permissions. Computed once here, then projected by
     # RunContract and honored by MITRE/severity/renderer downstream.
@@ -5920,7 +5926,10 @@ def _mark_spl_review_status(
 ) -> None:
     approved = bool(validation_payload.get("approved"))
     if reason is None and not approved:
-        reason = "spl_validation_failed"
+        reason = resolve_spl_revision_hil_reason(
+            validation_payload,
+            candidate_spl=candidate_payload,
+        )
     if reason is None:
         reason = "candidate_spl_review_only"
     fields = {

@@ -54,11 +54,15 @@ def test_runtime_governance_allows_catalog_template_when_enrichment_inactive() -
 
 def test_q046_live_path_renders_auth_failed_login_template() -> None:
     payload = _payload(_Q046)
-    review_type, _reason = _hil(payload)
+    review_type, reason = _hil(payload)
     spl = _spl(payload)
     assert review_type == "spl_revision"
+    assert reason == "template_review_required"
     assert len(spl) > 80
     assert payload.get("workflow_plan", {}).get("execution_enabled") is False
+    contract = payload.get("run_contract") or {}
+    assert contract.get("execution_authorized") is False
+    assert contract.get("mcp_allowed") is False
 
 
 def test_q010_live_path_review_only_smb_draft() -> None:

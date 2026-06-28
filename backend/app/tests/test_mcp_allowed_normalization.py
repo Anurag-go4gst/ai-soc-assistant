@@ -51,6 +51,18 @@ def test_run_contract_mcp_allowed_projection_fails_closed_for_none(monkeypatch) 
     assert _resolve_mcp_allowed({}, {"needs_mcp": True, "mcp_allowed": True}) is True
 
 
+def test_run_contract_mcp_allowed_false_when_spl_validation_not_approved(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+
+    assert (
+        _resolve_mcp_allowed(
+            {"spl_validation": {"approved": False, "reject_reasons": ["missing_binding:index"]}},
+            {"needs_mcp": True, "mcp_allowed": True},
+        )
+        is False
+    )
+
+
 def test_cp_off_run_contract_projection_only_reports_authorized_execution(monkeypatch) -> None:
     monkeypatch.setattr(settings, "control_plane_enabled", False)
 
