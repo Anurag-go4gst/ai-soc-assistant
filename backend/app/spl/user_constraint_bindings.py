@@ -103,6 +103,17 @@ class UserConstraintBindings:
         }
 
 
+
+
+def _infer_winevent_index_from_event_code(slots: dict[str, Any]) -> None:
+    """Windows security event codes imply wineventlog when no index is explicit."""
+    if slots.get("index") or slots.get("indexes"):
+        return
+    code = str(slots.get("event_code") or "").strip()
+    if code in {"4624", "4625"}:
+        slots["index"] = "wineventlog"
+
+
 def build_user_constraint_bindings(
     user_query: str,
     *,
@@ -118,6 +129,7 @@ def build_user_constraint_bindings(
     for key, value in extract_natural_language_slots(user_query).items():
         if key not in user_explicit:
             user_explicit[key] = value
+    _infer_winevent_index_from_event_code(user_explicit)
 
     deterministic: dict[str, Any] = {}
     if query_understanding is not None:

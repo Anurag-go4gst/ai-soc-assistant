@@ -5130,14 +5130,10 @@ def _guided_investigation_spl_rescue_eligible(user_query: str) -> bool:
 
 
 def _t2_runtime_profile_for_query(user_query: str) -> Any | None:
-    """Return the runtime source profile (scada_perf/cisco_asa) named in the
-    query, or None.  Narrow gate for the T1 SPL-native path."""
-    tokens = pre_parse_spl_tokens(user_query)
-    for index in tokens.indexes:
-        profile = resolve_profile_for_index(index)
-        if profile is not None:
-            return profile
-    return None
+    """Return the runtime source profile (scada_perf/cisco_asa) for the query."""
+    from app.spl.runtime_source_profiles import resolve_runtime_profile_for_query
+
+    return resolve_runtime_profile_for_query(user_query)
 
 
 def _candidate_from_t2_spl_native(
@@ -5813,14 +5809,25 @@ def _runtime_spl_governance(use_case_id: str | None) -> dict[str, Any] | None:
         if legacy_metadata is None:
             return None
         status = str(legacy_metadata.get("spl_template_status") or "unavailable")
+        allowed_templates = [
+            str(item) for item in legacy_metadata.get("allowed_spl_templates") or []
+        ]
+        # Curated-enrichment activation may be off while the catalogue still binds an
+        # active governed template (weak-exact rows). Preserve allowed templates and
+        # permit review-only template render; block enrichment context load only.
+        catalog_template_render_allowed = status == "active" and bool(allowed_templates)
+        governed_limitation = legacy_metadata.get("governed_limitation")
+        if catalog_template_render_allowed:
+            governed_limitation = None
+        elif not governed_limitation:
+            governed_limitation = _spl_status_block_reason(status)
         return {
             **legacy_metadata,
-            "allowed_spl_templates": [],
-            "governed_limitation": legacy_metadata.get("governed_limitation")
-            or _spl_status_block_reason(status),
+            "allowed_spl_templates": allowed_templates,
+            "governed_limitation": governed_limitation,
             "planner_runtime_activation_allowed": False,
             "governed_enrichment_load_allowed": False,
-            "runtime_spl_governance_allowed": False,
+            "runtime_spl_governance_allowed": catalog_template_render_allowed,
         }
     return enrichment_spl_governance(use_case_id)
 

@@ -2750,10 +2750,14 @@
         "give me spl to",
         "draft spl to detect",
         "draft spl to find",
-        "draft spl to summarize"
+        "draft spl to summarize",
+        "write me a spl query for",
+        "write me a spl for",
+        "write a spl query for"
       ],
       "example_queries": [
-        "Generate SPL for failed logins"
+        "Generate SPL for failed logins",
+        "Write me a SPL query for failed logins"
       ],
       "required_entities": [],
       "optional_entities": [

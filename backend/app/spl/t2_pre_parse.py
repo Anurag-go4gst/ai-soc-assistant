@@ -63,7 +63,7 @@ UNSAFE_SPL_COMMANDS: frozenset[str] = frozenset(
 # so short tokens cannot match inside unrelated words (e.g. "top" in "laptop",
 # "then" in "strengthen", "rank" in "frankly").
 _OPERATION_HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
-    ((r"baseline", r"stdev", r"std\s+dev", r"anomal\w*", r"z[-\s]?score", r"outlier\w*", r"deviation"), "threshold_anomaly"),
+    ((r"baseline", r"stdev", r"std\s+dev", r"anomal\w*", r"z[-\s]?score", r"outlier\w*", r"deviation", r"threshold", r"breach"), "threshold_anomaly"),
     ((r"ioc", r"indicator\w*", r"lookup", r"threat\s+feed", r"threat\s+intel\w*", r"correlat\w*"), "lookup_correlation"),
     ((r"top\s+talkers?", r"highest\s+volume", r"most\s+frequent", r"\brank\b", r"\btop\b"), "aggregate_and_rank"),
     ((r"timeline", r"sequence\s+over\s+time", r"chronolog\w*"), "entity_timeline"),
