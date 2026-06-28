@@ -127,7 +127,7 @@ from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
 from app.use_cases.content_enrichment import enrichment_spl_governance, enrichment_spl_governance_for_runtime
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
-from app.use_cases.routing_authority import catalog_authority_row
+from app.use_cases.routing_authority import catalog_authority_row, sidecar_intent_is_t0
 from app.chat.contracts.run_contract import RouteContract
 from app.chat.evidence_planner import plan_evidence, resolve_analyst_evidence_plan
 from app.planner.executor import (
@@ -627,6 +627,17 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
     }
 
 
+# Wall-clock cap for the advisory intent hop on a frozen-T0, review-only row
+# (exact-105 / exact-105 + catalogue / catalogue t0_exact_authority) that was
+# demoted only for answer-authority/enrichment reasons. The route is already
+# deterministic and the advisor cannot supply the missing SPL binding, so a
+# slow/timing-out call (q0.q046, ~100s) must fall back fast instead of consuming
+# the full turn deadline. Failover is also suppressed for this hop (a second
+# doomed retry would double the wall-clock), so the cap is the whole advisory
+# budget for the turn. Kept inside the live 1-3s target.
+_FROZEN_T0_INTENT_ADVISOR_BOUND_SECONDS = 2.0
+
+
 def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     """Passive query-to-intent stage (does not change routing when flag is off)."""
     emit_stage("classifying_intent")
@@ -658,11 +669,29 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     provider_configured = intent_advisor_provider_configured()
     primary_use_case_id = (candidate_mappings.get("use_case_ids") or [None])[0]
     preplan_lifecycle = _preplan_promotion_lifecycle_for_llm_skip(qu, primary_use_case_id)
+    catalog_row = catalog_authority_row(primary_use_case_id)
+    registry_warnings = (
+        list(getattr(qu, "registry_warnings", None) or []) if qu is not None else None
+    )
     skip_advisory, skip_reason = should_skip_sidecar(
         match_path=candidate_mappings.get("match_path"),
-        registry_warnings=list(getattr(qu, "registry_warnings", None) or []) if qu is not None else None,
-        catalog_row=catalog_authority_row(primary_use_case_id),
+        registry_warnings=registry_warnings,
+        catalog_row=catalog_row,
         promotion_lifecycle_summary=preplan_lifecycle,
+    )
+    # Frozen-T0 intent authority (exact-105, exact-105 + catalogue, or a catalogue
+    # row with t0_exact_authority) whose route cannot change. When such a row is
+    # demoted only for answer-authority/enrichment reasons (e.g.
+    # row_authority_not_ready), should_skip_sidecar keeps the advisor on the live
+    # path — and the intent advisor cannot supply the deterministic SPL binding a
+    # review-only template row is missing. Rather than skip the advisory hop
+    # outright (the weak-exact-105 row is still allowed to consult the LLM when it
+    # is fast), sharply bound its wall-clock so a slow/timing-out call (q0.q046,
+    # ~100s) falls back deterministically in a few seconds instead.
+    bound_intent_advisor = not skip_advisory and sidecar_intent_is_t0(
+        candidate_mappings.get("match_path"),
+        catalog_row=catalog_row,
+        registry_warnings=registry_warnings,
     )
     if detect_broad_hunt_guidance_request(query_text) or (
         routed_skill == "guided_investigation"
@@ -700,8 +729,9 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         *,
         fallback_reason: str | None,
         route_after_skip: str | None = None,
+        bound_reason: str | None = None,
     ) -> dict[str, Any]:
-        return build_intent_scheduling_trace(
+        trace = build_intent_scheduling_trace(
             budget=budget,
             skip_policy=skip_policy,
             provider_configured=provider_configured,
@@ -709,6 +739,12 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             fallback_reason_if_skipped=fallback_reason,
             route_selected_after_skip=route_after_skip,
         )
+        if bound_reason is not None:
+            trace["intent_advisor_bound_reason"] = bound_reason
+            trace["intent_advisor_bound_timeout_ms"] = int(
+                round(_FROZEN_T0_INTENT_ADVISOR_BOUND_SECONDS * 1000)
+            )
+        return trace
 
     if skip_advisory:
         fallback = skip_reason or "deterministic_exact_match_t0"
@@ -729,12 +765,21 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         )
     else:
         _intent_timeout = budget.capped_hop_timeout_seconds(role="intent_shadow_classifier")
+        _bound_reason = (
+            "exact_template_bound_intent_advisor_bounded" if bound_intent_advisor else None
+        )
+        if _intent_timeout is not None and bound_intent_advisor:
+            # Frozen-T0 review-only row: cap the advisory hop so a slow/timing-out
+            # call falls back deterministically in a few seconds (the advisor is
+            # advisory-only here and cannot change the deterministic route).
+            _intent_timeout = min(_intent_timeout, _FROZEN_T0_INTENT_ADVISOR_BOUND_SECONDS)
         if _intent_timeout is None:
             llm_advisory = LLMIntentAdvisory(
                 dropped_reasons=["insufficient_deadline_reserve"],
                 scheduling_trace=_scheduling_trace(
                     fallback_reason="insufficient_deadline_reserve",
                     route_after_skip=routed_skill,
+                    bound_reason=_bound_reason,
                 ),
             )
         else:
@@ -745,7 +790,8 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
                 candidate_mappings=candidate_mappings,
                 routed_skill=routed_skill,
                 timeout_seconds=_intent_timeout,
-                allow_failover=not budget.time_budget_exhausted(),
+                allow_failover=(not budget.time_budget_exhausted())
+                and not bound_intent_advisor,
             )
             if llm_advisory.llm_called:
                 outcome = "completed"
@@ -768,6 +814,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
                             else None
                         ),
                         route_after_skip=routed_skill,
+                        bound_reason=_bound_reason,
                     ),
                 }
             )
