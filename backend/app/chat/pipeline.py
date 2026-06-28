@@ -199,6 +199,12 @@ from app.llm.intent_advisor_scheduler import (
 from app.chat.query_signals import extract_query_signals
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
+from app.llm.t2_advisory_latency_policy import (
+    cap_turn_deadline_for_t2_advisory,
+    enrich_intent_advisory_trace,
+    should_bound_t2_intent_advisor,
+    t2_intent_advisor_bound_seconds,
+)
 from app.use_cases.answer_packs import answer_pack_summary, reviewed_answer_pack
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
 from app.spl.template_compatibility import check_template_compatibility
@@ -554,15 +560,28 @@ def _persist_live_chat_error(
 def _compute_turn_deadline_for_state(query_understanding: Any, routed: dict[str, Any]) -> float:
     """P2-B dynamic turn deadline from query shape and routed skill."""
     from app.llm.hybrid_role_graph import compute_turn_deadline_seconds
+    from app.use_cases.routing_authority import catalog_authority_row
 
     provenance = routed.get("routing_provenance") if isinstance(routed, dict) else {}
     match_path = provenance.get("deterministic_match_path") if isinstance(provenance, dict) else None
+    if match_path is None and query_understanding is not None:
+        match_path = getattr(query_understanding, "deterministic_match_path", None)
     selected_skill = str(routed.get("skill") or "knowledge_recall") if isinstance(routed, dict) else "knowledge_recall"
     soc_shaped = bool(getattr(query_understanding, "soc_investigation_shaped", False))
-    return compute_turn_deadline_seconds(
+    use_case_ids = list(getattr(query_understanding, "mapped_use_case_ids", None) or [])
+    catalog_row = catalog_authority_row(use_case_ids[0] if use_case_ids else None)
+    registry_warnings = list(getattr(query_understanding, "registry_warnings", None) or [])
+    base = compute_turn_deadline_seconds(
         match_path=match_path,
         selected_skill=selected_skill,
         soc_investigation_shaped=soc_shaped,
+    )
+    return cap_turn_deadline_for_t2_advisory(
+        match_path=match_path,
+        catalog_row=catalog_row,
+        registry_warnings=registry_warnings,
+        selected_skill=selected_skill,
+        base_deadline=base,
     )
 
 
@@ -723,6 +742,13 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         skip_advisory = False
         skip_reason = None
     skip_policy = skip_reason
+    bound_t2_intent_advisor, t2_bound_reason = should_bound_t2_intent_advisor(
+        match_path=candidate_mappings.get("match_path"),
+        catalog_row=catalog_row,
+        registry_warnings=registry_warnings,
+        skip_advisory=skip_advisory,
+        preliminary_signals=preliminary_signals,
+    )
     elapsed_before_call_ms = intent_elapsed_before_call_ms(budget)
 
     def _scheduling_trace(
@@ -730,6 +756,10 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         fallback_reason: str | None,
         route_after_skip: str | None = None,
         bound_reason: str | None = None,
+        bound_timeout_seconds: float | None = None,
+        dropped_reasons: list[str] | None = None,
+        llm_called: bool = False,
+        adjudication_status: str | None = None,
     ) -> dict[str, Any]:
         trace = build_intent_scheduling_trace(
             budget=budget,
@@ -739,12 +769,17 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             fallback_reason_if_skipped=fallback_reason,
             route_selected_after_skip=route_after_skip,
         )
-        if bound_reason is not None:
-            trace["intent_advisor_bound_reason"] = bound_reason
-            trace["intent_advisor_bound_timeout_ms"] = int(
-                round(_FROZEN_T0_INTENT_ADVISOR_BOUND_SECONDS * 1000)
-            )
-        return trace
+        effective_bound = bound_timeout_seconds
+        if bound_reason is not None and effective_bound is None:
+            effective_bound = _FROZEN_T0_INTENT_ADVISOR_BOUND_SECONDS
+        return enrich_intent_advisory_trace(
+            trace,
+            bound_reason=bound_reason,
+            bound_timeout_seconds=effective_bound,
+            dropped_reasons=dropped_reasons,
+            llm_called=llm_called,
+            adjudication_status=adjudication_status,
+        )
 
     if skip_advisory:
         fallback = skip_reason or "deterministic_exact_match_t0"
@@ -765,14 +800,19 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         )
     else:
         _intent_timeout = budget.capped_hop_timeout_seconds(role="intent_shadow_classifier")
-        _bound_reason = (
-            "exact_template_bound_intent_advisor_bounded" if bound_intent_advisor else None
-        )
-        if _intent_timeout is not None and bound_intent_advisor:
-            # Frozen-T0 review-only row: cap the advisory hop so a slow/timing-out
-            # call falls back deterministically in a few seconds (the advisor is
-            # advisory-only here and cannot change the deterministic route).
-            _intent_timeout = min(_intent_timeout, _FROZEN_T0_INTENT_ADVISOR_BOUND_SECONDS)
+        _bound_reason = None
+        _bound_timeout_seconds: float | None = None
+        if bound_intent_advisor:
+            _bound_reason = "exact_template_bound_intent_advisor_bounded"
+            _bound_timeout_seconds = _FROZEN_T0_INTENT_ADVISOR_BOUND_SECONDS
+        elif bound_t2_intent_advisor:
+            _bound_reason = t2_bound_reason
+            _bound_timeout_seconds = t2_intent_advisor_bound_seconds()
+        if _intent_timeout is not None and _bound_timeout_seconds is not None:
+            # Frozen-T0 and T2 review-only rows: cap the advisory hop so a slow or
+            # timing-out call falls back deterministically (advisory-only; route
+            # authority stays deterministic).
+            _intent_timeout = min(_intent_timeout, _bound_timeout_seconds)
         if _intent_timeout is None:
             llm_advisory = LLMIntentAdvisory(
                 dropped_reasons=["insufficient_deadline_reserve"],
@@ -791,7 +831,8 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
                 routed_skill=routed_skill,
                 timeout_seconds=_intent_timeout,
                 allow_failover=(not budget.time_budget_exhausted())
-                and not bound_intent_advisor,
+                and not bound_intent_advisor
+                and not bound_t2_intent_advisor,
             )
             if llm_advisory.llm_called:
                 outcome = "completed"
@@ -815,6 +856,10 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
                         ),
                         route_after_skip=routed_skill,
                         bound_reason=_bound_reason,
+                        bound_timeout_seconds=_bound_timeout_seconds,
+                        dropped_reasons=llm_advisory.dropped_reasons,
+                        llm_called=llm_advisory.llm_called,
+                        adjudication_status=llm_advisory.adjudication_status,
                     ),
                 }
             )

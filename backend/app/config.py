@@ -227,6 +227,10 @@ class Settings(BaseSettings):
     # stacked-sidecar latency on the slow on-prem model so a turn cannot hang 70-160s;
     # the deterministic answer always ships. 0 disables the gate.
     ai_soc_llm_turn_deadline_seconds: float = 75.0
+    # Non-frozen-T0 / T2 / out-of-registry review-only: cap intent advisor wall-clock
+    # and overall turn budget so a slow on-prem model cannot block /chat 60–120s.
+    ai_soc_llm_t2_intent_advisor_bound_seconds: float = 25.0
+    ai_soc_llm_t2_turn_deadline_seconds: float = 45.0
     ai_soc_llm_max_input_tokens: int = 8000
     ai_soc_llm_max_output_tokens: int = 1024
     ai_soc_llm_temperature: float = 0.2
