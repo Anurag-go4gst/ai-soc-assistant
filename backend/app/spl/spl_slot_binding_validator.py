@@ -200,6 +200,14 @@ _NL_HOST_RE = re.compile(
     r"\b(?:on|server|machine)\s+([A-Za-z0-9][A-Za-z0-9._:-]{0,253})\b",
     re.IGNORECASE,
 )
+# A date fragment such as "6/22" or "06-22" follows the host candidate when the
+# captured token is immediately followed by a date separator + digits. Real host
+# names always contain at least one letter, so a candidate made only of digits and
+# date/time separators ("6", "06-22", "06:00", "22") is a date/time/count fragment
+# ("on 6/22", "outside 06:00-22:00", "more than 5"), not a host, and must not bind
+# dest_host. Requiring an alphabetic character keeps real names (dc01, web-prod-01).
+_DATE_FRAGMENT_AFTER_HOST_RE = re.compile(r"^\s*[/.-]\d")
+_HOST_HAS_LETTER_RE = re.compile(r"[A-Za-z]")
 _NL_IP_PAIR_RE = re.compile(
     r"\bfrom\s+((?:\d{1,3}\.){3}\d{1,3})\s+to\s+((?:\d{1,3}\.){3}\d{1,3})\b",
     re.IGNORECASE,
@@ -251,7 +259,13 @@ def extract_natural_language_slots(user_query: str) -> dict[str, Any]:
     host = _NL_HOST_RE.search(normalized)
     if host and "host" not in slots:
         candidate = host.group(1)
-        if not candidate.lower().startswith(("port", "the", "last")):
+        trailing = normalized[host.end(1):]
+        is_date_fragment = bool(_DATE_FRAGMENT_AFTER_HOST_RE.match(trailing))
+        if (
+            bool(_HOST_HAS_LETTER_RE.search(candidate))
+            and not is_date_fragment
+            and not candidate.lower().startswith(("port", "the", "last"))
+        ):
             slots["host"] = candidate
 
     ip_pair = _NL_IP_PAIR_RE.search(normalized)
