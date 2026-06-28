@@ -541,6 +541,26 @@ def extract_query_signals(
     ) or bool(
         # destructive firewall/policy deletion without an explicit "block" verb
         re.search(r"\b(delete|remove|wipe|purge)\b[^.?!]{0,40}\bfirewall\b", normalized)
+    ) or bool(
+        # process-kill containment with words between verb and noun
+        # ("kill the malicious process", "terminate that process").
+        re.search(r"\b(kill|terminate)\b[^.?!]{0,30}\bprocess(es)?\b", normalized)
+    ) or bool(
+        # host/server power-off containment ("shut down the compromised server",
+        # "power off the endpoint"). Requires an explicit asset noun so it never
+        # trips on log/detection phrasing.
+        re.search(
+            r"\b(shut\s*down|shutdown|power\s*(off|down))\b[^.?!]{0,30}"
+            r"\b(server|host|machine|endpoint|system|box|device|workstation)\b",
+            normalized,
+        )
+    ) or bool(
+        # firewall-rule enforcement asks ("add a firewall rule to drop that
+        # traffic"). Matches firewall + a drop/deny/block verb in either order;
+        # "denied/dropped traffic" (adjective, ASA log queries) is unaffected
+        # because it lacks the "firewall" token paired with the imperative verb.
+        re.search(r"\b(add|create|insert|apply|push|configure)\b[^.?!]{0,30}\bfirewall\b", normalized)
+        or re.search(r"\bfirewall\b[^.?!]{0,30}\b(drop|deny|block)\b", normalized)
     )
     # Containment DECISION-SUPPORT (not an enforcement command): the analyst is
     # asking whether/how to contain, not ordering an action. These must reach the
