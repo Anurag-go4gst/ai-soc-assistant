@@ -35,6 +35,31 @@ def test_generate_spl_for_failed_logins_is_spl_generation_only() -> None:
     assert result.query_signals["projected_needs_mcp"] is False
 
 
+def test_write_splunk_query_paraphrase_preserves_spl_generation_intent() -> None:
+    result = _result("Write a Splunk query to find failed logins by source IP in the last 24 hours.")
+    intent = result.intent_classification
+    assert result.query_signals["spl_generation"] is True
+    assert intent.intent_family == "spl_generation_only"
+    assert "spl_artifact" in intent.answer_goal
+
+
+def test_review_only_spl_modifier_preserves_spl_generation_intent() -> None:
+    result = _result("Build review-only SPL for EventCode=4624 after-hours logons.")
+    intent = result.intent_classification
+    assert result.query_signals["spl_generation"] is True
+    assert intent.intent_family == "spl_generation_only"
+    assert "spl_artifact" in intent.answer_goal
+
+
+def test_runtime_profile_request_beats_guided_rescue_for_scada_review_only() -> None:
+    result = _result("Find SCADA error_count outliers by device_id and do not execute.")
+    intent = result.intent_classification
+    assert result.query_signals["runtime_spl_profile_request"] is True
+    assert intent.intent_family == "spl_generation_only"
+    assert intent.primary_intent == "spl_generation"
+    assert "spl_artifact" in intent.answer_goal
+
+
 def test_generate_spl_and_run_without_scope_is_generation_and_execution() -> None:
     result = _result("Generate SPL for successful login after failures and run")
     intent = result.intent_classification
@@ -125,6 +150,15 @@ def test_dga_domain_definition_is_knowledge_only() -> None:
     result = _result("What is a DGA domain?")
     intent = result.intent_classification
     assert intent.intent_family == "knowledge_only"
+
+
+def test_explain_detection_concept_is_knowledge_only_not_spl() -> None:
+    result = _result("Explain what DNS beaconing is and how analysts usually triage it.")
+    intent = result.intent_classification
+    assert result.query_signals["knowledge_definition"] is True
+    assert intent.intent_family == "knowledge_only"
+    assert intent.primary_intent == "knowledge_recall"
+    assert "spl_artifact" not in intent.answer_goal
 
 
 def test_investigate_dga_alerts_plus_playbook_is_hybrid_with_rag() -> None:

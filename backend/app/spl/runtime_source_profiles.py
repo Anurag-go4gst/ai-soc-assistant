@@ -104,14 +104,19 @@ def resolve_runtime_profile_for_query(query: str) -> RuntimeSourceProfile | None
             return profile
     text = " ".join((query or "").lower().split())
     if re.search(r"\bscada\b", text) and re.search(
-        r"\b(threshold|breach|analog|rtu|transmission[\s_-]?error|sensor)\b",
+        r"\b(threshold|breach|analog|rtu|transmission[\s_-]?error|error[\s_-]?count|"
+        r"outliers?|anomal(?:y|ies|ous)|sensor|device)\b",
         text,
     ):
         return get_runtime_source_profile("scada_perf")
-    if re.search(r"\bcisco\s+asa\b", text) or (
-        "cisco" in text and re.search(r"\basa\s+logs?\b", text)
-    ):
-        if re.search(r"\b(ioc|indicator|threat\s+feed|lookup|correlat)\b", text):
+    asa_context = bool(
+        re.search(r"\bcisco\s+asa\b", text)
+        or re.search(r"\basa\s+(?:firewall\s+)?logs?\b", text)
+        or re.search(r"\basa\s+firewall\b", text)
+        or ("cisco" in text and re.search(r"\basa\b", text))
+    )
+    if asa_context:
+        if re.search(r"\b(iocs?|indicators?|threat\s+feed|lookup|correlat)\b", text):
             return get_runtime_source_profile("cisco_asa")
     return None
 

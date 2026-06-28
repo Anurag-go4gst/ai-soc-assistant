@@ -12,6 +12,7 @@ from app.spl.deterministic_spl_repair import repair_spl_candidate
 from app.spl.governed_llm_spl import parse_spl_candidate
 from app.spl.t2_generation import generate_review_only_spl
 from app.spl.t2_shape import extract_spl_shape, normalize_runtime_operation
+from app.spl.runtime_source_profiles import resolve_runtime_profile_for_query
 from app.use_cases.routing_authority import catalog_authority_row, llm_advisory_recommended
 
 
@@ -94,6 +95,14 @@ def test_scada_threshold_anomaly_shape() -> None:
     assert "transmission_error_count" in shape.metric_fields
 
 
+def test_scada_outlier_paraphrase_resolves_source_profile() -> None:
+    profile = resolve_runtime_profile_for_query(
+        "Find SCADA error_count outliers by device_id and do not execute."
+    )
+    assert profile is not None
+    assert profile.source_profile_id == "scada_perf"
+
+
 def test_scada_threshold_anomaly_review_only_renderable_no_dns_rejection() -> None:
     artifact = generate_review_only_spl(_SCADA_QUERY)
     assert artifact.execution_eligible is False
@@ -137,6 +146,14 @@ def test_asa_ioc_lookup_correlation() -> None:
     # action/actions alias mismatch repaired: table references `actions`.
     assert "values(action) as actions" in spl
     assert "table src_ip dest_ip action " not in spl
+
+
+def test_asa_threat_feed_paraphrase_resolves_source_profile() -> None:
+    profile = resolve_runtime_profile_for_query(
+        "Correlate ASA firewall logs with the threat feed for suspicious destination IPs."
+    )
+    assert profile is not None
+    assert profile.source_profile_id == "cisco_asa"
 
 
 # --------------------------------------------------------------------------- #
