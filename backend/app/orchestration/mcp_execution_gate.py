@@ -16,6 +16,7 @@ from app.orchestration.execution_confirmation import (
 from app.orchestration.human_review import human_review, no_human_review
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS, select_mcp_tool
+from app.orchestration.spl_revision_hil import resolve_spl_revision_hil_reason
 
 RESULT_PREVIEW_CAP = 5
 
@@ -283,7 +284,8 @@ def _gate_review(
     if selected_skill not in EXECUTION_ELIGIBLE_SKILLS:
         return _review("tool_selection_review", "skill_not_execution_eligible")
     if not spl_validation or spl_validation.get("approved") is not True:
-        return _review("spl_revision", "spl_validation_failed", "analyst", ["regenerate_spl", "edit_spl", "reject_execution"])
+        reason = resolve_spl_revision_hil_reason(spl_validation)
+        return _review("spl_revision", reason, "analyst", ["regenerate_spl", "edit_spl", "reject_execution"])
     if spl_validation.get("normalized_spl") is None:
         return _review("spl_revision", "normalized_spl_null", "analyst", ["regenerate_spl", "edit_spl", "reject_execution"])
     normalized_spl = str(spl_validation.get("normalized_spl") or "")

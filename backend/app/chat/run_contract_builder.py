@@ -295,6 +295,9 @@ def _resolve_mcp_allowed(
     """
     if not settings.control_plane_enabled or not evidence_plan:
         return bool(execution_authorized)
+    spl_validation = state.get("spl_validation") if isinstance(state, dict) else None
+    if isinstance(spl_validation, dict) and spl_validation.get("approved") is not True:
+        return False
     return evidence_plan.get("mcp_allowed") is True
 
 def _query_signals_from_state(state: ChatPipelineState) -> dict[str, Any] | None:
