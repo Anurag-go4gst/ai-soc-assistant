@@ -192,7 +192,18 @@ def build_composer_prompt(
     if not limitations:
         limitations = [str(item) for item in projection.get("limitations") or [] if item]
 
-    lines = ["GOVERNED ANSWER CONTRACT:"]
+    lines = [
+        "GOVERNED ANSWER CONTRACT:",
+        (
+            "- Authority hierarchy: AnswerContract, RunContract, FinalEvidenceGate, deterministic "
+            "extraction, Environment KB/source-profile, and catalogue/manual bindings win; narration "
+            "fills blanks only when facts are provided."
+        ),
+        (
+            "- Review-only safety: Do not claim live results, query execution, action authorization, "
+            "confirmed severity, or technique support unless the contract explicitly says so."
+        ),
+    ]
     # Front-load the required out-of-catalog notice so the model can copy it (the 8B
     # cannot echo a sentence it was never given — this was the top guard-block cause).
     notice = str(getattr(contract, "out_of_catalog_notice", "") or "").strip()

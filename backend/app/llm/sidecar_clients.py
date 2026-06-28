@@ -8,7 +8,11 @@ from typing import Any, Callable
 from app.config import settings
 from app.llm.clients.endpoint_resolver import build_failover_chat_client
 from app.llm.clients.failover_client import FailoverChatClient
-from app.llm.prompts import PROMPT_CONTRACTS
+from app.llm.prompts import (
+    AUTHORITY_HIERARCHY_RULES,
+    PROMPT_CONTRACTS,
+    REVIEW_ONLY_SAFETY_RULES,
+)
 from app.llm.sidecar_governance import (
     REASONING_REJECTION_MATCHING,
     resolve_sidecar_role_status,
@@ -233,10 +237,37 @@ def build_intent_advisory_prompt(
         "Use canonical slot names: event_id/eventid -> event_code, account/username -> user, "
         "src_subnet/source_subnet -> src_scope, dest_subnet/destination_subnet -> dest_scope."
     )
+    authority = "Authority hierarchy:\n" + "\n".join(
+        f"- {rule}" for rule in AUTHORITY_HIERARCHY_RULES
+    )
+    safety = "Review-only safety:\n" + "\n".join(
+        f"- {rule}" for rule in REVIEW_ONLY_SAFETY_RULES
+    )
+    few_shots = (
+        "Few-shot coverage hints (copy the pattern, not the literal values):\n"
+        "- Windows failed logins: `Which users have excessive failed logins?` -> "
+        "authentication evidence, aggregate by user, no invented source profile.\n"
+        "- Off-shift logon: `Find Event 4624 logons after 10 PM` -> event_code=4624 "
+        "and time_window/after-hours hint; do not treat the date or hour as a host.\n"
+        "- Cisco ASA IOC lookup: `Check Cisco ASA hits to known bad IPs` -> firewall/network "
+        "evidence and lookup/IOC hints only when supplied; do not pivot to asset inventory.\n"
+        "- SCADA threshold anomaly: `Show SCADA threshold anomalies` -> OT/SCADA source "
+        "and threshold/function-code hints; do not recast as authentication logs.\n"
+        "- SMB top talkers: `Which hosts have most SMB traffic?` -> network traffic "
+        "aggregation by the requested host/src/dest entity; no lateral-movement claim.\n"
+        "- Conceptual knowledge: `Explain MITRE T1021.002` -> knowledge recall; no SPL "
+        "or live-result claim.\n"
+        "- Unsafe containment: `Block the source IP` -> human-review/unsafe-action hint; "
+        "never authorize block, isolate, disable, contain, or execute.\n"
+        "- Ambiguous investigation: `Investigate this alert` with no context -> clarification."
+    )
     return (
         f"{context_block}\n\n"
         f"Analyst query:\n{query}\n\n"
         f"{instructions}\n\n"
+        f"{authority}\n\n"
+        f"{safety}\n\n"
+        f"{few_shots}\n\n"
         "Return ONE JSON object matching this shape (no markdown):\n"
         f"{json.dumps(schema, indent=2)}"
     )

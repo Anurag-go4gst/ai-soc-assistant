@@ -5,8 +5,14 @@ import subprocess
 import sys
 
 from app.config import Settings
-from app.llm.prompts import PROMPT_CONTRACTS
+from app.llm.prompts import (
+    AUTHORITY_HIERARCHY_RULES,
+    PROMPT_CONTRACTS,
+    REVIEW_ONLY_SAFETY_RULES,
+    SOC_FEW_SHOT_COVERAGE,
+)
 from app.llm.registry_settings import ROLE_DEFAULTS, build_llm_governance_status
+from app.llm.sidecar_clients import build_intent_advisory_prompt
 
 
 def test_prompt_contracts_cover_registry_roles() -> None:
@@ -28,6 +34,11 @@ def test_intent_shadow_classifier_prompt_contract_requires_clarification_for_dei
     assert "`this alert`" in instruction
     assert "requested_output_type must be clarification" in instruction
     assert "Deterministic clarification guard remains authoritative" in instruction
+    assert "Authority hierarchy" in instruction
+    assert "Review-only safety" in instruction
+    assert contract["authority_hierarchy"] == AUTHORITY_HIERARCHY_RULES
+    assert contract["review_only_safety"] == REVIEW_ONLY_SAFETY_RULES
+    assert contract["few_shot_coverage"] == SOC_FEW_SHOT_COVERAGE
     assert "Confidence is advisory metadata only" in consumption
 
 
@@ -82,8 +93,47 @@ def test_spl_advisory_prompt_contract_is_candidate_only() -> None:
     assert "Do not invent index, sourcetype, or fields" in instruction
     assert "Use SCD field map only" in instruction
     assert "Raw candidate_spl never reaches MCP" in instruction
+    assert "Environment KB/source-profile values win" in instruction
+    assert "Do not claim live results" in instruction
     assert contract["output_schema"]["execution_eligible"] is False
     assert "Adapter forces execution_eligible=false" in consumption
+
+
+def test_llm_prompt_contracts_include_authority_and_review_only_rules_for_advisory_roles() -> None:
+    for role in (
+        "template_render_parameter_assist",
+        "template_match_semantic_assist",
+        "route_plan_candidate_generator",
+    ):
+        contract = PROMPT_CONTRACTS[role]
+        instruction = contract["system_instruction"]
+
+        assert contract["authority_hierarchy"] == AUTHORITY_HIERARCHY_RULES
+        assert contract["review_only_safety"] == REVIEW_ONLY_SAFETY_RULES
+        assert "Fill blanks only" in instruction
+        assert "Environment KB/source-profile" in instruction
+        assert "SPL" in instruction or "execution" in instruction
+
+
+def test_runtime_intent_advisory_prompt_carries_authority_safety_and_few_shots() -> None:
+    prompt = build_intent_advisory_prompt(
+        query="Check Cisco ASA hits to known bad IPs",
+        context_block="Context: deterministic source profile is firewall_logs.",
+    )
+
+    assert "Authority hierarchy:" in prompt
+    assert "User-explicit values win" in prompt
+    assert "Environment KB/source-profile values win" in prompt
+    assert "LLM output fills blanks only" in prompt
+    assert "Review-only safety:" in prompt
+    assert "never authorize execution" in prompt
+    assert "Do not claim live results" in prompt
+    assert "Cisco ASA IOC lookup" in prompt
+    assert "SCADA threshold anomaly" in prompt
+    assert "SMB top talkers" in prompt
+    assert "Off-shift logon" in prompt
+    assert "Unsafe containment" in prompt
+    assert "Return ONE JSON object" in prompt
 
 
 def test_role_suitability_matches_foundation_sec_observed_behavior() -> None:
