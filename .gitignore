@@ -42,3 +42,7 @@ docs/evals/live_efficacy_transport*/
 
 # Shared LLM-control queue (runtime sentinels; created by docker-compose bind mount)
 .llm-control/
+
+# Operator artifacts — env smoke backups and rollout snapshots (may hold secrets; never commit)
+.env.smoke-backup-*
+docs/coe/rollout-snapshots/
