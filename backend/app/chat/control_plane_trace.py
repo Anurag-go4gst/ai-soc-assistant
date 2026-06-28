@@ -218,6 +218,11 @@ def _llm_advisory_trace(state: dict[str, Any]) -> dict[str, Any]:
             or state.get("answer_guard", {}).get("guard_status") == "blocked"
         )
     )
+    scheduling = (
+        intent_advisory.get("scheduling_trace")
+        if isinstance(intent_advisory.get("scheduling_trace"), dict)
+        else {}
+    )
     payload = {
         "llm_advisory_attempted": attempted,
         "llm_called": llm_called,
@@ -228,6 +233,15 @@ def _llm_advisory_trace(state: dict[str, Any]) -> dict[str, Any]:
         "llm_dropped_reasons": dropped_reasons,
         "llm_narration_used": narration_used,
         "llm_overridden_by_policy": overridden,
+        "llm_advisory_status": scheduling.get("llm_advisory_status"),
+        "llm_advisory_timed_out": scheduling.get("llm_advisory_timed_out"),
+        "llm_advisory_deferred": scheduling.get("llm_advisory_deferred"),
+        "llm_advisory_budget_ms": scheduling.get("llm_advisory_budget_ms"),
+        "llm_advisory_fallback_reason": scheduling.get("llm_advisory_fallback_reason"),
+        "advisory_classification_source": scheduling.get("advisory_classification_source"),
+        "deterministic_fallback_used": scheduling.get("deterministic_fallback_used"),
+        "intent_advisor_bound_reason": scheduling.get("intent_advisor_bound_reason"),
+        "intent_advisor_bound_timeout_ms": scheduling.get("intent_advisor_bound_timeout_ms"),
     }
     return attach_authority_tier(
         payload,
