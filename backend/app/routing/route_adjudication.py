@@ -175,15 +175,22 @@ def adjudicate_route(
     if match_path in _OUT_OF_REGISTRY_MATCH_PATHS and match_path != "out_of_registry":
         skill = _registry_skill_for_exact_105(mappings, query_understanding, deterministic_route)
         if skill in {"attack_discovery", "alert_summary", "knowledge_recall"}:
-            return finish(
-                final_route=skill,
-                final_use_case_id=_first_use_case_id(mappings),
-                authority_source="near_105_registry_skill",
-                reason=(
-                    "Near-105 registry match preserves the 105/domain skill; SPL artifacts "
-                    "must not downgrade the canonical route."
-                ),
+            stale_knowledge_hint = bool(
+                skill == "knowledge_recall"
+                and intent.intent_family not in _POLICY_INTENT_FAMILIES
+                and plan is not None
+                and plan.answer_mode in {"hybrid", "live_investigation"}
             )
+            if not stale_knowledge_hint:
+                return finish(
+                    final_route=skill,
+                    final_use_case_id=_first_use_case_id(mappings),
+                    authority_source="near_105_registry_skill",
+                    reason=(
+                        "Near-105 registry match preserves the 105/domain skill; SPL artifacts "
+                        "must not downgrade the canonical route."
+                    ),
+                )
 
     if plan is not None and plan.answer_mode in {"hybrid", "live_investigation"}:
         skill = _skill_for_intent_family(intent.intent_family, deterministic_route)

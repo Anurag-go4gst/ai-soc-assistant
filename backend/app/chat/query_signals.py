@@ -51,6 +51,14 @@ _ANALYTICS_ENUM_RE = re.compile(
     r"\b(?:top|list|which|highest|count)\b.{0,40}\b(?:users?|hosts?|failed\s+login(?:s)?|logon(?:s)?)\b",
     re.IGNORECASE,
 )
+_KNOWLEDGE_DEFINITION_PREFIX_RE = re.compile(
+    r"^(?:what\s+(?:is|are)|explain\s+(?:what|how|why))\b",
+    re.IGNORECASE,
+)
+_KNOWLEDGE_TRIAGE_PREFIX_RE = re.compile(
+    r"^(?:how\s+(?:do|should)\s+analysts?\s+(?:usually\s+)?triage|how\s+to\s+triage)\b",
+    re.IGNORECASE,
+)
 
 
 def _generic_explicit_log_search_floor(normalized: str) -> bool:
@@ -138,7 +146,15 @@ def _explicit_log_search_requested(normalized: str) -> bool:
             "draft a splunk search",
             "draft splunk search",
             "draft spl",
+            "review-only spl",
+            "review only spl",
             "write spl",
+            "write a splunk query",
+            "write splunk query",
+            "create a splunk query",
+            "create splunk query",
+            "build a splunk query",
+            "build splunk query",
             "search logs",
             "search firewall logs",
             "search proxy logs",
@@ -461,11 +477,15 @@ def extract_query_signals(
         term in normalized
         for term in ("playbook", "runbook", "sop", "standard operating procedure", "procedure steps", "checklist")
     )
-    # A definition asks "what is/are <concept>" wanting an explanation. A ranked or
-    # aggregated data ask ("what are the top 5 source IPs by DNS volume") is analytics,
-    # not a definition — don't let the knowledge branch swallow it into knowledge_recall.
+    # A definition asks "what is/are/explain what <concept>" wanting an
+    # explanation. A ranked or aggregated data ask ("what are the top 5 source
+    # IPs by DNS volume") is analytics, not a definition — don't let the
+    # knowledge branch swallow it into knowledge_recall.
     knowledge_definition = (
-        (normalized.startswith("what is ") or normalized.startswith("what are "))
+        (
+            bool(_KNOWLEDGE_DEFINITION_PREFIX_RE.search(normalized))
+            or bool(_KNOWLEDGE_TRIAGE_PREFIX_RE.search(normalized))
+        )
         and not _ANALYTICS_RANK_RE.search(normalized)
         and not _ANALYTICS_SUBJECT_RE.search(normalized)
     )
@@ -1229,11 +1249,19 @@ def _spl_generation_requested(normalized: str) -> bool:
     explicit_verbs = (
         "generate spl",
         "write spl",
+        "write a splunk query",
+        "write splunk query",
         "create spl",
+        "create a splunk query",
+        "create splunk query",
         "produce spl",
         "build spl",
+        "build a splunk query",
+        "build splunk query",
         "spl query",
         "draft spl",
+        "review-only spl",
+        "review only spl",
         "draft a splunk search",
         "draft splunk search",
     )

@@ -312,6 +312,26 @@ def classify_intent(
         )
 
     if (
+        str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+        and signals.get("runtime_spl_profile_request")
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+    ):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.64,
+            requires_clarification=False,
+            reason=(
+                "Runtime source-profile SPL request; review-only T1 SPL-native path "
+                "(execution disabled)."
+            ),
+            requested_output_type="SPL",
+        )
+
+    if (
         (
             signals.get("investigation_hypothesis_guidance")
             or (
@@ -754,20 +774,36 @@ def classify_intent(
     ):
         use_case_ids = [str(item).lower() for item in (candidate_mappings.get("use_case_ids") or [])]
         skill_hint = str(candidate_mappings.get("legacy_skill_hint") or "").lower()
+        data_shaped = bool(
+            not signals.get("knowledge_definition")
+            and not signals.get("sop_show_request")
+            and not (signals.get("playbook_procedure") and not signals.get("live_investigation_verbs"))
+            and (
+                signals.get("live_data_request")
+                or signals.get("explicit_search_intent")
+                or signals.get("soc_detection_intent")
+                or signals.get("analytics_aggregation")
+                or signals.get("runtime_spl_profile_request")
+            )
+        )
         # Note: explicit_mitre_context is NOT a knowledge signal — failed-login and
         # other alert queries carry MITRE context too. Use the conceptual-judgment
         # signal and knowledge-shaped use-case ids only.
         knowledge_shaped = (
-            signals.get("conceptual_mitre_judgment")
-            or skill_hint in {"knowledge_recall", "retrieve_approved_context"}
-            or any(
-                tok in uc
-                for uc in use_case_ids
-                for tok in ("mitre", "map_alert", "sop", "policy", "knowledge")
+            not data_shaped
+            and (
+                signals.get("conceptual_mitre_judgment")
+                or skill_hint in {"knowledge_recall", "retrieve_approved_context"}
+                or any(
+                    tok in uc
+                    for uc in use_case_ids
+                    for tok in ("mitre", "map_alert", "sop", "policy", "knowledge")
+                )
             )
         )
         spl_shaped = (
             signals.get("analytics_aggregation")
+            or data_shaped
             or skill_hint in {"spl_search", "spl_generation", "aggregate_and_rank", "threshold_anomaly"}
         )
         if _is_github_investigation_request(query, signals):

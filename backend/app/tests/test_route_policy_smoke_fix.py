@@ -77,6 +77,23 @@ def test_near_105_smb_preserves_attack_discovery_route() -> None:
     assert q2i["candidate_mappings"]["legacy_skill_hint"] == "attack_discovery"
 
 
+def test_semantic_smb_live_data_beats_stale_knowledge_hint() -> None:
+    query = "List top talkers for SMB connections hitting q0.q010 over the past day."
+    understanding = understand_query(query)
+    assert understanding.deterministic_match_path == "semantic_105_question"
+    assert understanding.mapped_question_ref == "q0.q010"
+
+    q2i, adj = _adjudicate(query, deterministic_route="knowledge_recall")
+    intent = q2i["intent_classification"]
+    assert q2i["candidate_mappings"]["legacy_skill_hint"] == "knowledge_recall"
+    assert q2i["query_signals"]["live_data_request"] is True
+    assert q2i["query_signals"]["soc_detection_intent"] is True
+    assert intent["intent_family"] == "spl_generation_only"
+    assert intent["primary_intent"] == "spl_generation"
+    assert adj["final_route"] == "spl_generation"
+    assert adj["authority_source"] == "evidence_plan_live_or_hybrid"
+
+
 def test_exact_105_smb_still_uses_registry_analytics_intent() -> None:
     understanding = understand_query(EXACT_105_SMB)
     assert understanding.deterministic_match_path == "exact_105_question"

@@ -11,6 +11,37 @@ from typing import Any
 
 SYSTEM_PLACEHOLDER = "AI SOC Assistant placeholder prompt. Production prompts are not implemented yet."
 
+AUTHORITY_HIERARCHY_RULES = [
+    "User-explicit values win over LLM inference.",
+    "Deterministic extraction and route-plan values win over LLM inference.",
+    "Environment KB/source-profile values win over LLM inference.",
+    "Catalogue/manual bindings win over LLM inference.",
+    "LLM output fills blanks only and must not override higher-authority bindings.",
+    "When values conflict, report ambiguity or missing evidence instead of guessing.",
+]
+
+REVIEW_ONLY_SAFETY_RULES = [
+    "Review-only posture: never authorize execution, containment, writes, or destructive actions.",
+    "Do not claim live results, row counts, compromise, severity, or MITRE support unless provided by governed evidence.",
+    "Do not execute SPL or imply candidate SPL is approved or execution eligible.",
+    "Return uncertainty, missing evidence, or clarification when facts are unavailable.",
+]
+
+SOC_FEW_SHOT_COVERAGE = [
+    "Windows failed logins: map failed-logon/count-by-user paraphrases to authentication evidence; do not invent index/sourcetype.",
+    "Off-shift logon: preserve explicit Event 4624 and after-hours window such as 22:00-06:00; do not convert dates into hostnames.",
+    "Cisco ASA IOC lookup: use firewall/network evidence hints and IOC/lookup slots only when supplied; do not pivot to asset inventory.",
+    "SCADA threshold anomaly: preserve industrial/OT threshold/function-code wording; do not recast as auth logs.",
+    "SMB top talkers: map to network traffic aggregation by host/src/dest as asked; do not assert lateral movement without evidence.",
+    "Generic SPL request: produce review-only candidate guidance with placeholders when source profile is unknown.",
+    "Conceptual knowledge question: answer as knowledge recall; do not generate SPL or live investigation claims.",
+    "Unsafe containment request: classify as review/HIL guidance only; never authorize block/isolate/disable/contain actions.",
+    "Ambiguous investigation: ask for the missing alert/entity/time/source detail instead of fabricating it.",
+]
+
+_AUTHORITY_PROMPT = " Authority hierarchy: " + " ".join(AUTHORITY_HIERARCHY_RULES)
+_REVIEW_ONLY_PROMPT = " Review-only safety: " + " ".join(REVIEW_ONLY_SAFETY_RULES)
+
 PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
     "intent_shadow_classifier": {
         "model_family": "Foundation-sec-8B-Instruct",
@@ -24,7 +55,12 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
             "or similar and no context is provided, set clarification_needed=true. "
             "If clarification_needed=true, requested_output_type must be clarification. "
             "Deterministic clarification guard remains authoritative."
+            f"{_AUTHORITY_PROMPT}"
+            f"{_REVIEW_ONLY_PROMPT}"
         ),
+        "authority_hierarchy": AUTHORITY_HIERARCHY_RULES,
+        "review_only_safety": REVIEW_ONLY_SAFETY_RULES,
+        "few_shot_coverage": SOC_FEW_SHOT_COVERAGE,
         "include": [
             "raw_query",
             "allowed primary_intent values",
@@ -147,7 +183,10 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
             "facts positively or negatively. Do not mention privileged-account status, "
             "asset criticality, source ownership, post-login activity, or compromise "
             "unless evidence is supplied. Do not expose internal terms or developer trace."
+            f"{_REVIEW_ONLY_PROMPT}"
         ),
+        "authority_hierarchy": AUTHORITY_HIERARCHY_RULES,
+        "review_only_safety": REVIEW_ONLY_SAFETY_RULES,
         "include": [
             "fixed severity",
             "fixed finding type",
@@ -199,7 +238,14 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
             "only. Do not include alert, sendemail, write, delete, collect, outputlookup, "
             "or other write/remediation commands. Do not invent index, sourcetype, or fields. "
             "Raw candidate_spl never reaches MCP."
+            f"{_AUTHORITY_PROMPT}"
+            f"{_REVIEW_ONLY_PROMPT}"
         ),
+        "authority_hierarchy": AUTHORITY_HIERARCHY_RULES,
+        "review_only_safety": REVIEW_ONLY_SAFETY_RULES,
+        "few_shot_coverage": [
+            item for item in SOC_FEW_SHOT_COVERAGE if item.startswith(("Generic SPL", "Windows", "Cisco", "SCADA", "SMB"))
+        ],
         "include": [
             "use_case_id",
             "SCD field map",
@@ -231,8 +277,13 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
         "max_input_tokens": "2000",
         "system_instruction": (
             "Return JSON only. Extract host/user/src_ip/dest_ip/result_limit/time_window values. "
-            "Never emit SPL, template_id, datamodel, detection_ref, or lookup_name."
+            "Never emit SPL, template_id, datamodel, detection_ref, or lookup_name. "
+            "Fill blanks only; route-plan parameters, user-explicit values, Environment KB/source-profile, "
+            "and catalogue/manual bindings are higher authority. On conflict, keep the higher-authority "
+            "value and let the adapter record the disagreement."
         ),
+        "authority_hierarchy": AUTHORITY_HIERARCHY_RULES,
+        "review_only_safety": REVIEW_ONLY_SAFETY_RULES,
         "include": ["user_query", "matched_template_id", "route_plan_time_window"],
         "output_schema": {
             "extracted_parameters": {
@@ -255,8 +306,11 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
         "system_instruction": (
             "Return JSON only. Advisory semantic hints for template matching. "
             "Never pick template_id, never emit SPL, never authorize execution, "
-            "and never use confidence as authority."
+            "and never use confidence as authority. Fill blanks only; deterministic matcher, "
+            "Environment KB/source-profile, and catalogue/manual bindings win on every disagreement."
         ),
+        "authority_hierarchy": AUTHORITY_HIERARCHY_RULES,
+        "review_only_safety": REVIEW_ONLY_SAFETY_RULES,
         "include": ["user_query", "normalized_route_plan", "approved_datamodels", "cim_field_allowlists"],
         "output_schema": {
             "llm_semantic_hints": {
@@ -304,8 +358,12 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
         "system_instruction": (
             "Return JSON only. Propose primary_skill, operation_type, source_class, and evidence_needs. "
             "Never emit SPL, MCP tools, lookup_name, or detection_ref. Use detection_family only when needed. "
-            "Never authorize execution or use confidence as authority."
+            "Never authorize execution or use confidence as authority. Fill blanks only; deterministic routing, "
+            "Environment KB/source-profile, and catalogue/manual bindings win on every disagreement."
         ),
+        "authority_hierarchy": AUTHORITY_HIERARCHY_RULES,
+        "review_only_safety": REVIEW_ONLY_SAFETY_RULES,
+        "few_shot_coverage": SOC_FEW_SHOT_COVERAGE,
         "include": ["user_query", "preflight_status", "missing_slots", "runtime_skill_catalog"],
         "output_schema": {
             "primary_skill": "aggregate_and_rank",

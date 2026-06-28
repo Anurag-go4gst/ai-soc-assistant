@@ -147,6 +147,8 @@ def test_prompt_uses_answer_contract_and_projection_only() -> None:
     contract = _contract()
     prompt = build_composer_prompt(contract, _projection())
 
+    assert "AnswerContract, RunContract, FinalEvidenceGate" in prompt
+    assert "Do not claim live results" in prompt
     assert "Missing evidence: mfa_status" in prompt
     assert "Do not claim account compromise" in prompt
     assert "Candidate MITRE (metadata only; never evidence-supported): T1078 (Valid Accounts)" in prompt
@@ -178,6 +180,8 @@ def test_sop_prompt_omits_live_investigation_fields() -> None:
 
     prompt = build_composer_prompt(contract, {"analyst_checklist": ["Review approved SOP steps."]})
 
+    assert "AnswerContract, RunContract, FinalEvidenceGate" in prompt
+    assert "Do not claim live results" in prompt
     assert "Answer mode: governed SOP / knowledge recall." in prompt
     assert "Severity" not in prompt
     assert "MITRE" not in prompt
