@@ -653,6 +653,8 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         records=list(prior_budget.records),
     )
     preliminary_signals = extract_query_signals(query_text, query_understanding)
+    from app.query_understanding.soc_investigation_shape import detect_broad_hunt_guidance_request
+
     provider_configured = intent_advisor_provider_configured()
     primary_use_case_id = (candidate_mappings.get("use_case_ids") or [None])[0]
     preplan_lifecycle = _preplan_promotion_lifecycle_for_llm_skip(qu, primary_use_case_id)
@@ -662,6 +664,12 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         catalog_row=catalog_authority_row(primary_use_case_id),
         promotion_lifecycle_summary=preplan_lifecycle,
     )
+    if detect_broad_hunt_guidance_request(query_text) or (
+        routed_skill == "guided_investigation"
+        and preliminary_signals.get("guidance_request")
+    ):
+        skip_advisory = True
+        skip_reason = "guided_hunt_deterministic_routing"
     if (
         not skip_advisory
         and _high_confidence_registry_match_t0(qu)
@@ -671,7 +679,11 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         skip_reason = "registry_backed_high_confidence_t0"
     if (
         skip_advisory
-        and skip_reason not in {"deterministic_exact_match_t0", "registry_backed_high_confidence_t0"}
+        and skip_reason not in {
+            "deterministic_exact_match_t0",
+            "registry_backed_high_confidence_t0",
+            "guided_hunt_deterministic_routing",
+        }
         and should_prioritize_intent_advisor(
         query_text,
         qu,
@@ -2856,6 +2868,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 analyst_response = apply_draft_preview_readability(analyst_response)
         if llm_turn_budget_trace is not None:
             llm_turn_budget_trace = budget.to_trace_dict()
+    if path_type == "guided_investigation":
+        composer_trace = {
+            **composer_trace,
+            "deterministic_guided_fallback": True,
+            "guided_fallback_used": not bool(composer_trace.get("llm_composer_used")),
+        }
     elif answer_contract is not None and skip_composer and analyst_response is not None:
         composer_trace = {
             **composer_trace,
@@ -5482,6 +5500,33 @@ def _candidate_from_llm_fallback(
             )
     if not settings.ai_soc_llm_spl_fallback_enabled:
         return None
+
+    from app.query_understanding.soc_investigation_shape import detect_broad_hunt_guidance_request
+
+    if detect_broad_hunt_guidance_request(user_query):
+        lab_draft_candidate = _candidate_from_lab_draft(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+            pattern_type=(llm_context or {}).get("pattern_type"),
+            use_case_id=(llm_context or {}).get("use_case_id"),
+            llm_fallback_reason="broad_hunt_guidance_deterministic_fallback",
+            llm_intent_advisory=(llm_context or {}).get("llm_intent_advisory"),
+        )
+        if lab_draft_candidate is not None:
+            return lab_draft_candidate
+        return _candidate_clarification(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            reason="broad_hunt_guidance_no_llm_spl",
+            spl_governance=spl_governance,
+        )
 
     # LLM-primary with a relevance gate: generate, structurally check the SPL
     # answers the question, and regenerate once with the mismatch feedback before

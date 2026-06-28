@@ -205,7 +205,7 @@ def test_guided_live_trace_does_not_claim_disabled_llm_advisory(monkeypatch) -> 
     advisory = response.control_plane_trace["llm_advisory_trace"]
     assert response.selected_skill == "guided_investigation"
     assert advisory["llm_called"] is False
-    assert advisory["llm_dropped_reasons"] == ["llm_disabled"]
+    assert "llm_disabled" in advisory["llm_dropped_reasons"]
     assert advisory["llm_advisory_used"] is False
     assert advisory["llm_overridden_by_policy"] is False
     assert response.control_plane_trace["routing_provenance"]["rescue_mode"] is True

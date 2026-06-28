@@ -282,6 +282,39 @@ _HUNT_HYPOTHESIS_GUARD = (
     "what evidence should i collect",
 )
 
+# Broad hunt-guidance asks ("hunt for X indicators across our environment") are
+# review-only investigation planning, not concrete Splunk artifact retrieval.
+_BROAD_HUNT_GUIDANCE_GUARDS = (
+    "indicators across",
+    "signs of a ",
+    "signs of ",
+    "compromise indicators",
+    "supply-chain compromise",
+    "supply chain compromise",
+    "across our environment",
+    "across the environment",
+    "across our ci/cd",
+    "across our build",
+)
+
+
+def detect_broad_hunt_guidance_request(query: str) -> bool:
+    """Broad hunt/triage guidance that must not enter the SPL+LLM producer path."""
+    normalized = " ".join((query or "").lower().split())
+    if not normalized:
+        return False
+    if any(guard in normalized for guard in _HUNT_HYPOTHESIS_GUARD):
+        return True
+    if any(guard in normalized for guard in _BROAD_HUNT_GUIDANCE_GUARDS):
+        return True
+    if "hunt for" in normalized and any(
+        scope in normalized
+        for scope in ("across our", "across the", "across all", "indicators", "signs of")
+    ):
+        if not any(imperative in normalized for imperative in _SPL_ENUMERATION_IMPERATIVES):
+            return True
+    return False
+
 
 def detect_investigation_request(query: str) -> bool:
     """Out-of-registry analyst investigation/triage/evidence framing.
@@ -304,7 +337,7 @@ def detect_spl_artifact_request(query: str) -> bool:
         return False
     if any(opener in normalized for opener in _KNOWLEDGE_EXPLANATION_OPENERS):
         return False
-    if any(guard in normalized for guard in _HUNT_HYPOTHESIS_GUARD):
+    if detect_broad_hunt_guidance_request(query):
         return False
     if "spl" in normalized and any(verb in normalized for verb in _SPL_BUILD_VERBS):
         return True
@@ -417,5 +450,4 @@ def detect_soc_investigation_shape(query: str, *, exact_105_match: bool = False)
 
 def detect_hunt_hypothesis_guidance_phrasing(query: str) -> bool:
     """Triage/hypothesis phrasing that must not be treated as live-data retrieval."""
-    normalized = " ".join((query or "").lower().split())
-    return any(guard in normalized for guard in _HUNT_HYPOTHESIS_GUARD)
+    return detect_broad_hunt_guidance_request(query)
