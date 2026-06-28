@@ -174,21 +174,31 @@ def _is_remote_access_context(user_query: str, *, family_id: str | None) -> bool
 
 def _is_winevent_context(user_query: str) -> bool:
     text = user_query.lower()
-    return bool(re.search(r"\bwineventlog\b|\bevent\s*id\s*\d", text))
+    return bool(
+        re.search(r"\bwineventlog\b", text)
+        or re.search(r"\bevent\s*(?:id\s*)?\d{3,5}\b", text)
+        or re.search(r"\beventcode\s*[=:]?\s*\d{3,5}\b", text)
+    )
 
 
 def _is_firewall_context(user_query: str) -> bool:
     text = user_query.lower()
+    if re.search(r"\bcisco\s+asa\b", text) and re.search(
+        r"\b(ioc|indicator|lookup|correlat)\b", text
+    ):
+        return True
     return bool(
         re.search(r"\b(syslog|cisco_asa|firewall|permit|permits)\b", text)
-        and re.search(r"\b(port|zone|vlan|dmz|traffic)\b", text)
+        and re.search(r"\b(port|zone|vlan|dmz|traffic|logs?)\b", text)
     )
 
 
 def _is_off_shift_context(user_query: str) -> bool:
     text = (user_query or "").lower()
-    return bool(re.search(r"\b(?:outside|after)\s+(?:normal\s+)?shift\s+hours?\b", text)) or bool(
-        re.search(r"\boff[\s-]?shift\b|\bafter[\s-]?hours\b", text)
+    return bool(
+        re.search(r"\b(?:outside|after)\s+(?:normal\s+)?(?:shift|business)\s+hours?\b", text)
+    ) or bool(
+        re.search(r"\boff[\s-]?shift\b|\bafter[\s-]?hours\b|\boutside\s+business\s+hours\b", text)
     )
 
 

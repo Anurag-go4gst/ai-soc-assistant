@@ -21,7 +21,7 @@ _EXPLICIT_SHIFT_RANGE_RE = re.compile(
     re.I,
 )
 
-_EVENT_CODE_RE = re.compile(r"\bevent\s*(?:id|code)\s*[:#=]?\s*(\d{3,5})\b", re.I)
+_EVENT_CODE_RE = re.compile(r"\bevent\s*(?:id|code)?\s*[:#=]?\s*(\d{3,5})\b", re.I)
 _SUBNET_RE = re.compile(r"\bsubstation\s+subnet", re.I)
 
 

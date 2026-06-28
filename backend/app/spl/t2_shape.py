@@ -16,6 +16,7 @@ from app.spl.runtime_source_profiles import (
     RUNTIME_OPERATIONS,
     RuntimeSourceProfile,
     resolve_profile_for_index,
+    resolve_runtime_profile_for_query,
 )
 from app.spl.t2_pre_parse import PreParsedSplTokens, pre_parse_spl_tokens
 
@@ -97,6 +98,8 @@ def extract_spl_shape(
     an LLM-proposed shape.  Hard tokens win; the LLM shape only fills gaps."""
     tokens = tokens or pre_parse_spl_tokens(query)
     profile = resolve_profile_for_index(tokens.indexes[0] if tokens.indexes else None)
+    if profile is None:
+        profile = resolve_runtime_profile_for_query(query)
 
     shape = SplShape()
     shape.source_profile = profile.source_profile_id if profile else None
@@ -109,6 +112,25 @@ def extract_spl_shape(
 
     shape.entity_fields = _select_fields(tokens, profile, kind="entity")
     shape.metric_fields = _select_fields(tokens, profile, kind="metric")
+    if profile is not None and shape.runtime_operation == "threshold_anomaly":
+        if not shape.entity_fields and profile.entity_fields:
+            shape.entity_fields = [profile.entity_fields[0]]
+        if not shape.metric_fields and profile.metric_fields:
+            shape.metric_fields = [profile.metric_fields[0]]
+        if not shape.baseline_window:
+            shape.baseline_window = "30d"
+        if not shape.detection_window:
+            shape.detection_window = "24h"
+    if profile is not None and shape.runtime_operation == "lookup_correlation":
+        if not shape.lookup_name:
+            shape.lookup_name = "power_sector_iocs.csv"
+            shape.assumptions.append("lookup_file_defaulted_for_review_only_ioc_correlation")
+        if not shape.log_match_field:
+            shape.log_match_field = "dest_ip"
+        if not shape.lookup_match_field and profile.lookup_fields:
+            shape.lookup_match_field = profile.lookup_fields[0]
+        if not shape.detection_window:
+            shape.detection_window = "24h"
 
     # Time windows.  ``earliest=-30d`` -> baseline; "last 24h" -> detection.
     if tokens.earliest:

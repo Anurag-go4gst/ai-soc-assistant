@@ -893,6 +893,21 @@ def classify_intent(
             ),
         )
 
+    if signals.get("runtime_spl_profile_request"):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.64,
+            requires_clarification=False,
+            reason=(
+                "Runtime source-profile SPL request; review-only T1 SPL-native path "
+                "(execution disabled)."
+            ),
+            requested_output_type="SPL",
+        )
+
     if signals.get("soc_detection_intent"):
         return _build_classification(
             intent_family="spl_generation_only",

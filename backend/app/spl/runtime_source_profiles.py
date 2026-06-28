@@ -10,6 +10,7 @@ These are review-only metadata.  They never make any SPL executable.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 # Canonical runtime operation enum (mirrors the LLM/T2 contract).
@@ -90,6 +91,29 @@ def resolve_profile_for_index(index_name: str | None) -> RuntimeSourceProfile | 
         return None
     profile_id = _INDEX_TO_PROFILE.get(str(index_name).strip().lower())
     return _RUNTIME_SOURCE_PROFILES.get(profile_id) if profile_id else None
+
+
+def resolve_runtime_profile_for_query(query: str) -> RuntimeSourceProfile | None:
+    """Resolve a T1 runtime profile from explicit index tokens or probe phrasing."""
+    from app.spl.t2_pre_parse import pre_parse_spl_tokens
+
+    tokens = pre_parse_spl_tokens(query)
+    if tokens.indexes:
+        profile = resolve_profile_for_index(tokens.indexes[0])
+        if profile is not None:
+            return profile
+    text = " ".join((query or "").lower().split())
+    if re.search(r"\bscada\b", text) and re.search(
+        r"\b(threshold|breach|analog|rtu|transmission[\s_-]?error|sensor)\b",
+        text,
+    ):
+        return get_runtime_source_profile("scada_perf")
+    if re.search(r"\bcisco\s+asa\b", text) or (
+        "cisco" in text and re.search(r"\basa\s+logs?\b", text)
+    ):
+        if re.search(r"\b(ioc|indicator|threat\s+feed|lookup|correlat)\b", text):
+            return get_runtime_source_profile("cisco_asa")
+    return None
 
 
 def known_runtime_index(index_name: str | None) -> bool:

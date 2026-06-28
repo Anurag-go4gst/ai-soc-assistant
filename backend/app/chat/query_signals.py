@@ -14,6 +14,7 @@ from app.query_understanding.soc_investigation_shape import (
     detect_soc_investigation_shape,
 )
 from app.query_understanding.success_after_failure import detect_success_after_failure
+from app.spl.runtime_source_profiles import resolve_runtime_profile_for_query
 
 _TECHNIQUE_ID_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
 _MAP_TO_MITRE_RE = re.compile(r"\bmap\b.{0,120}\b(?:mitre|att&ck)\b", re.IGNORECASE)
@@ -29,7 +30,7 @@ _LOG_SEARCH_VERB_RE = re.compile(
 _TELEMETRY_ANCHOR_RE = re.compile(
     r"\b(?:wineventlog|win:eventlog|syslog|cisco_asa|ot_logs|"
     r"firewall\s+logs?|vpn\s+logs?|index\s*=|sourcetype\s*=|"
-    r"event\s+id|eventcode|function\s+code)\b",
+    r"event\s+id|event\s+\d{3,5}|eventcode|function\s+code)\b",
     re.IGNORECASE,
 )
 _ENTITY_ANCHOR_RE = re.compile(
@@ -919,6 +920,8 @@ def extract_query_signals(
         )
     )
 
+    runtime_spl_profile_request = resolve_runtime_profile_for_query(query) is not None
+
     live_data_request = bool(
         not block_or_contain
         and not explicit_run_spl
@@ -931,6 +934,7 @@ def extract_query_signals(
             explicit_search_intent
             or soc_actionable_hunt
             or _projected_needs_spl
+            or runtime_spl_profile_request
         )
     )
 
@@ -941,6 +945,7 @@ def extract_query_signals(
             or soc_actionable_hunt
             or explicit_search_intent
             or _DETECTION_TECHNIQUE_RE.search(normalized)
+            or runtime_spl_profile_request
         )
         and not knowledge_definition
         and not playbook_procedure
@@ -1030,6 +1035,7 @@ def extract_query_signals(
         "github_investigation_shaped": github_investigation_shaped,
         "cross_skill_investigation": cross_skill_investigation,
         "cve_focus_investigation": cve_focus_investigation,
+        "runtime_spl_profile_request": runtime_spl_profile_request,
         "live_data_request": live_data_request,
         "ambiguous_t2_query": ambiguous_t2_query,
         "meaningful_t2_entities": meaningful_t2_entities,

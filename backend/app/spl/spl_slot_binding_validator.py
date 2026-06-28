@@ -205,7 +205,7 @@ _NL_IP_PAIR_RE = re.compile(
     re.IGNORECASE,
 )
 _NL_PORT_RE = re.compile(r"\b(?:on\s+)?port\s+(\d{1,5})\b", re.IGNORECASE)
-_NL_EVENT_CODE_RE = re.compile(r"\b(?:event\s*(?:id|code)|eventcode)\s*[=:]?\s*(\d{3,5})\b", re.IGNORECASE)
+_NL_EVENT_CODE_RE = re.compile(r"\b(?:event\s*(?:id|code)?|eventcode)\s*[=:]?\s*(\d{3,5})\b", re.IGNORECASE)
 _NL_FUNCTION_CODE_RE = re.compile(
     r"\b(?:modbus|dnp3)?\s*function\s+code(?:s)?\s+((?:\d+\s*(?:or|/|,)\s*)*\d+)\b",
     re.IGNORECASE,
