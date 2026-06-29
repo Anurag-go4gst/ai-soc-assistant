@@ -71,6 +71,7 @@ def build_utility_postprocessor_context(
     user_index = str(bindings.normalized_slots.get("index") or "").strip()
     if not user_index and bindings.explicit_indexes:
         user_index = str(bindings.explicit_indexes[0]).strip()
+    user_sourcetype = str(bindings.normalized_slots.get("sourcetype") or "").strip()
 
     profile_doc = load_persisted_source_profile_document()
     profile = load_persisted_source_profile()
@@ -95,8 +96,14 @@ def build_utility_postprocessor_context(
         "deterministic_generated": not llm_generated,
         "execution_authorized": False,
         "user_explicit_index": user_index or None,
+        "user_explicit_sourcetype": user_sourcetype or None,
         "coe_environment_index": coe_contextual_index or None,
         "source_profile_index": source_profile_index or None,
+        "source_profile_sourcetype": str(profile.get("sourcetype") or "").strip() or None,
+        "coe_generic_utility_default_sourcetype": str(
+            profile.get("utility_spl_default_sourcetype") or ""
+        ).strip()
+        or None,
         "coe_generic_utility_default_index": utility_default_index,
         "coe_generic_utility_default_source": utility_default_source,
         "source_profile_resolution_trace": {

@@ -37,6 +37,106 @@ _INDEX_TOKEN_RE = re.compile(r"index\s*=\s*([^\s|]+)", re.IGNORECASE)
 _EARLIEST_TOKEN_RE = re.compile(r"earliest\s*=\s*[^\s|]+", re.IGNORECASE)
 _LATEST_TOKEN_RE = re.compile(r"latest\s*=\s*[^\s|]+", re.IGNORECASE)
 
+_SOURCETYPE_TOKEN_RE = re.compile(r"sourcetype\s*=\s*([^\s|]+)", re.IGNORECASE)
+_COMMENT_LINE_RE = re.compile(r"^\s*(?:#|//|/\*)")
+
+
+def _resolve_universal_sourcetype(context: dict[str, Any]) -> str | None:
+    """Return a sourcetype only when explicitly configured — never invent one."""
+    for key in (
+        "user_explicit_sourcetype",
+        "source_profile_sourcetype",
+        "coe_generic_utility_default_sourcetype",
+    ):
+        value = str(context.get(key) or "").strip()
+        if value:
+            return value
+    return None
+
+
+def _is_universal_weekend_timestamp_spl(spl: str) -> bool:
+    lowered = spl.lower()
+    has_hour = "hour_of_day" in lowered or "%h" in lowered
+    has_dow = "day_of_week_num" in lowered or "%w" in lowered
+    has_weekend = (
+        '("0","6")' in lowered
+        or "weekend" in lowered
+        or "saturday" in lowered
+        or "sunday" in lowered
+    )
+    return has_hour and has_dow and has_weekend
+
+
+def _build_canonical_universal_weekend_spl(
+    resolved_index: str,
+    *,
+    sourcetype: str | None,
+    earliest: str,
+    latest: str,
+) -> str:
+    prefix = f"index={resolved_index} {earliest} {latest}"
+    if sourcetype:
+        prefix += f" sourcetype={sourcetype}"
+    return "\n".join(
+        [
+            prefix,
+            '| eval hour_of_day=strftime(_time,"%H")',
+            '| eval day_of_week_num=strftime(_time,"%w")',
+            '| eval day_of_week=strftime(_time,"%A")',
+            '| where day_of_week_num IN ("0","6")',
+            "| head 100",
+            "| table _time hour_of_day day_of_week sourcetype host",
+        ]
+    )
+
+
+def _polish_universal_utility_spl_shape(
+    spl: str,
+    *,
+    resolved_index: str,
+    context: dict[str, Any],
+    trace: dict[str, Any],
+) -> str:
+    if not context.get("is_universal_spl") or not _is_universal_weekend_timestamp_spl(spl):
+        return spl
+
+    # Strip inline comments and a leading `search` keyword for clean utility output.
+    cleaned_lines: list[str] = []
+    for line in spl.splitlines():
+        if _COMMENT_LINE_RE.match(line):
+            continue
+        cleaned_lines.append(line)
+    spl = "\n".join(cleaned_lines).strip()
+    spl = re.sub(r"^search\s+", "", spl, count=1, flags=re.IGNORECASE)
+
+    user_time = bool(context.get("user_explicit_time_window"))
+    earliest_match = _EARLIEST_TOKEN_RE.search(spl)
+    latest_match = _LATEST_TOKEN_RE.search(spl)
+    earliest = earliest_match.group(0) if earliest_match else f"earliest={_DEFAULT_EARLIEST}"
+    latest = latest_match.group(0) if latest_match else f"latest={_DEFAULT_LATEST}"
+    if not user_time:
+        earliest = f"earliest={_DEFAULT_EARLIEST}"
+        latest = f"latest={_DEFAULT_LATEST}"
+
+    resolved_sourcetype = _resolve_universal_sourcetype(context)
+    # Drop LLM-invented sourcetype unless resolver provided one.
+    if _SOURCETYPE_TOKEN_RE.search(spl) and not resolved_sourcetype:
+        spl = _SOURCETYPE_TOKEN_RE.sub("", spl, count=1)
+        spl = re.sub(r"\s{2,}", " ", spl).strip()
+
+    polished = _build_canonical_universal_weekend_spl(
+        resolved_index,
+        sourcetype=resolved_sourcetype,
+        earliest=earliest,
+        latest=latest,
+    )
+    trace["utility_spl_shape_polish_applied"] = polished != spl
+    trace["utility_spl_shape"] = "canonical_weekend_timestamp"
+    if resolved_sourcetype:
+        trace["resolved_sourcetype"] = resolved_sourcetype
+    return polished
+
+
 # Family wording → trusted index gating. We only accept a concrete (non
 # placeholder) index when the requested log family supports it.
 _FAMILY_INDEX_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -243,6 +343,13 @@ def normalize_review_only_spl(
             count=1,
             flags=re.IGNORECASE,
         )
+
+    spl = _polish_universal_utility_spl_shape(
+        spl,
+        resolved_index=resolved_index,
+        context=ctx,
+        trace=trace,
+    )
 
     trace["final_spl_authority"] = "deterministic_postprocessor"
 

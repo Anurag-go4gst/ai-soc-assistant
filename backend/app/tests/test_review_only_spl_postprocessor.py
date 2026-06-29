@@ -14,6 +14,17 @@ search index=<your_index> earliest=-24h latest=now
 | head 100
 """.strip()
 
+_CANONICAL_WEEKEND_UTILITY = """
+index=<your_index> earliest=-24h latest=now
+| eval hour_of_day=strftime(_time,"%H")
+| eval day_of_week_num=strftime(_time,"%w")
+| eval day_of_week=strftime(_time,"%A")
+| where day_of_week_num IN ("0","6")
+| head 100
+| table _time hour_of_day day_of_week sourcetype host
+""".strip()
+
+
 
 def _ctx(**over):
     base = {
@@ -33,11 +44,30 @@ def test_non_authoring_context_is_noop():
     assert out.trace["deterministic_postprocessor_applied"] is False
 
 
-def test_clean_skeleton_is_idempotent():
+def test_clean_skeleton_polished_to_canonical_weekend_shape():
     out = normalize_review_only_spl(_CLEAN_SKELETON, _ctx())
-    assert out.normalized_spl == _CLEAN_SKELETON
+    assert out.normalized_spl == _CANONICAL_WEEKEND_UTILITY
+    assert out.normalized_spl.startswith("index=<your_index> earliest=-24h latest=now")
+    assert not out.normalized_spl.lower().startswith("search index=")
     assert out.trace["resolved_index"] == "<your_index>"
-    assert out.trace["index_rewrite_applied"] is False
+    assert out.trace["utility_spl_shape_polish_applied"] is True
+    assert out.trace["utility_spl_shape"] == "canonical_weekend_timestamp"
+    assert '"%H"' in out.normalized_spl
+    assert '"%w"' in out.normalized_spl
+    assert '"%A"' in out.normalized_spl
+    assert 'day_of_week_num IN ("0","6")' in out.normalized_spl
+    assert out.normalized_spl.index("| head 100") < out.normalized_spl.index("| table")
+    assert "sort 0" not in out.normalized_spl
+    assert "sourcetype=" not in out.normalized_spl.splitlines()[0]
+
+
+def test_pgcil_soc_weekend_utility_shape_polish():
+    out = normalize_review_only_spl(
+        _CLEAN_SKELETON.replace("<your_index>", "pgcil_soc"),
+        _ctx(coe_generic_utility_default_index="pgcil_soc"),
+    )
+    assert out.normalized_spl.startswith("index=pgcil_soc earliest=-24h latest=now")
+    assert "sourcetype=" not in out.normalized_spl.splitlines()[0]
 
 
 def test_placeholder_used_when_no_index_mapping():
