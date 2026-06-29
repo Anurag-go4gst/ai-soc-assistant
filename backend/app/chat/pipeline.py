@@ -128,6 +128,7 @@ from app.use_cases.content_enrichment import enrichment_spl_governance, enrichme
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
 from app.use_cases.routing_authority import catalog_authority_row, sidecar_intent_is_t0
+from app.chat.contracts.pipeline_dispatch import build_pipeline_dispatch
 from app.chat.contracts.run_contract import RouteContract
 from app.chat.evidence_planner import plan_evidence, resolve_analyst_evidence_plan
 from app.planner.executor import (
@@ -297,6 +298,7 @@ class ChatPipelineState(TypedDict, total=False):
     intent_classification: dict[str, Any] | None
     evidence_plan: dict[str, Any] | None
     planning_decision: dict[str, Any] | None
+    pipeline_dispatch: dict[str, Any] | None
     route_adjudication: dict[str, Any] | None
     route_contract: dict[str, Any] | None
     run_contract: dict[str, Any] | None
@@ -1078,6 +1080,27 @@ def _preplan_promotion_lifecycle_for_llm_skip(
     return None
 
 
+def _attach_pipeline_dispatch_if_enabled(
+    state: ChatPipelineState,
+    *,
+    evidence_plan: dict[str, Any] | None,
+    planning_decision: dict[str, Any] | None,
+) -> ChatPipelineState:
+    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        return state
+    dispatch = build_pipeline_dispatch(
+        evidence_plan=evidence_plan,
+        route_contract=state.get("route_contract"),
+        query_to_intent=state.get("query_to_intent"),
+        intent_classification=state.get("intent_classification"),
+        query_understanding=state.get("query_understanding"),
+        routed=state.get("routed"),
+        selected_use_case=state.get("selected_use_case"),
+        planning_decision=planning_decision,
+    )
+    return {**state, "pipeline_dispatch": dispatch.model_dump(mode="json")}
+
+
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     # Stage 4B: on loop re-entry (after an mcp_call discovery hop or the gated
     # execution hop) the HUB only re-assesses + routes — it must NOT re-emit
@@ -1102,7 +1125,13 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
             selected_use_case=state.get("selected_use_case"),
             llm_intent_advisory=state.get("llm_intent_advisory"),
         )
-        return {**state, "evidence_plan": None, "planning_decision": planning.model_dump()}
+        planning_payload = planning.model_dump()
+        next_state = {**state, "evidence_plan": None, "planning_decision": planning_payload}
+        return _attach_pipeline_dispatch_if_enabled(
+            next_state,
+            evidence_plan=None,
+            planning_decision=planning_payload,
+        )
     intent = state.get("intent_classification")
     if not isinstance(intent, dict):
         planning = plan_path_and_tools(
@@ -1113,7 +1142,13 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
             selected_use_case=state.get("selected_use_case"),
             llm_intent_advisory=state.get("llm_intent_advisory"),
         )
-        return {**state, "evidence_plan": None, "planning_decision": planning.model_dump()}
+        planning_payload = planning.model_dump()
+        next_state = {**state, "evidence_plan": None, "planning_decision": planning_payload}
+        return _attach_pipeline_dispatch_if_enabled(
+            next_state,
+            evidence_plan=None,
+            planning_decision=planning_payload,
+        )
     plan = plan_evidence(
         intent,
         query_to_intent=state.get("query_to_intent"),
@@ -1141,13 +1176,19 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case=state.get("selected_use_case"),
         llm_intent_advisory=state.get("llm_intent_advisory"),
     )
+    planning_payload = planning.model_dump()
     if not _mcp_evidence_loop_enabled(state, evidence_payload):
-        return {
+        next_state = {
             **state,
             "evidence_plan": evidence_payload,
-            "planning_decision": planning.model_dump(),
+            "planning_decision": planning_payload,
             "route_adjudication": route_adjudication_payload,
         }
+        return _attach_pipeline_dispatch_if_enabled(
+            next_state,
+            evidence_plan=evidence_payload,
+            planning_decision=planning_payload,
+        )
     # Stage 4B: compose the reviewed discovery chronology once, so the HUB can
     # drive read-only mcp_call hops before the linear SPL/execution chain.
     chronology, loop_planner = _resolve_loop_chronology(state, spl_approved=False)
@@ -1158,15 +1199,20 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     loop_state = {**loop_init}
     if loop_planner is not None:
         loop_state["mcp_loop_planner"] = loop_planner
-    return {
+    next_state = {
         **state,
         "evidence_plan": evidence_payload,
-        "planning_decision": planning.model_dump(),
+        "planning_decision": planning_payload,
         "route_adjudication": route_adjudication_payload,
         **loop_init,
         "mcp_loop_planner": loop_planner,
         "mcp_loop": assess_loop(loop_state).to_dict(),
     }
+    return _attach_pipeline_dispatch_if_enabled(
+        next_state,
+        evidence_plan=evidence_payload,
+        planning_decision=planning_payload,
+    )
 
 
 def graph_node_mcp_call(state: ChatPipelineState) -> ChatPipelineState:

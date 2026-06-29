@@ -13,7 +13,7 @@ todos:
     status: done
   - id: phase2a-dispatch-shell
     content: PipelineDispatchState shell incl dispatch_cursor; next_stage_after(); stage_schedule + llm_hops; project_dispatch_flags(); wire graph_node_evidence_planning + CP-off stub
-    status: pending
+    status: done
   - id: phase3-postprocessor
     content: Shared finalize_review_only_spl hook; postprocessor hash trace; governed-template byte-identity; postprocessor_evaluated/applied invariant (spl_plan_compiler telemetry deferred to Phase 4D)
     status: pending
@@ -472,6 +472,11 @@ Record `scheduling_trace.consumed_by` on advisory: `["evidence_plan_handoff", "s
 
 **Tests:** unit tests for `project_dispatch_flags` round-trip; flag-off path unchanged.
 
+**Implementation note (2026-06-29):** repo state already had the Phase 2A shell in
+[`chat/contracts/pipeline_dispatch.py`](backend/app/chat/contracts/pipeline_dispatch.py)
+from Phase 0, so Phase 2A extended that existing contract surface instead of
+adding a parallel `pipeline_dispatch_builder.py`.
+
 ---
 
 ## Phase 3 — Mandatory Node 6.5 postprocessor (all SPL sources)
@@ -859,4 +864,3 @@ Each iteration (one phase = one PR-sized commit):
 - `record_step(..., "node.finalize_response", ...)` with output summary
 - [`DebugPage.tsx`](frontend/src/pages/DebugPage.tsx): show full final answer from `final_output`
 - Update [`docs/observability/debugging.md`](docs/observability/debugging.md)
-
