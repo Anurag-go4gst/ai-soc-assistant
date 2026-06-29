@@ -322,6 +322,11 @@ def test_live_response_surfaces_utility_mode_and_postprocessor_trace(
     assert payload.get("note") == "Review-only universal SPL utility draft; no MCP execution was run."
     cp = payload.get("control_plane_trace") or {}
     assert (cp.get("rag_trace") or {}).get("rag_skipped_for_spl_utility_authoring") is True
+    analyst = payload.get("analyst_response") or {}
+    assert analyst.get("draft_spl_code")
+    assert analyst.get("spl_status_detail") is None
+    assert "index=pgcil_soc" in str(analyst.get("draft_spl_code") or "")
+    assert "index=pgcil_soc" not in str(analyst.get("direct_answer_summary") or "")
     spl_trace = cp.get("candidate_spl_generation") or {}
     assert spl_trace.get("llm_spl_draft_enabled") is False
     assert spl_trace.get("llm_spl_draft_requested") is False
@@ -330,13 +335,11 @@ def test_live_response_surfaces_utility_mode_and_postprocessor_trace(
     assert spl_trace.get("final_spl_authority") == "deterministic_postprocessor"
     assert spl_trace.get("review_only_spl_postprocessor_trace")
     assert payload.get("spl_draft_preview") is None
-    analyst = payload.get("analyst_response") or {}
     assert analyst.get("spl_draft_preview") is None
-    assert analyst.get("draft_spl_code") in {None, ""}
     assert "Unresolved source bindings" not in str(analyst)
     assert "missing source profile" not in str(analyst).lower()
     assert "index=<your_index>" not in str(analyst)
-    assert "index=pgcil_soc" in str(analyst.get("direct_answer_summary") or "")
+    assert "pgcil_soc" in str(analyst.get("direct_answer_summary") or "")
     assert (payload.get("execution") or {}).get("status") != "executed"
 
 
@@ -432,3 +435,70 @@ def test_q046_unchanged_reference_in_explicit_spl_authoring(
     assert hr.get("reason") == "template_review_required"
     candidate = payload.get("candidate_spl") or {}
     assert candidate.get("template_id") or "auth_failed" in str(candidate.get("candidate_spl", "")).lower()
+
+def test_run_contract_utility_spl_no_live_execution_needed(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
+    contract = payload.get("run_contract") or {}
+    assert contract.get("mcp_needed_for_live_answer") is False
+    assert contract.get("execution_needed_for_answer") is False
+    assert contract.get("execution_authorized") is False
+    assert contract.get("mcp_allowed") is False
+    assert contract.get("spl_candidate_present") is True
+
+
+def test_build_source_evidence_skips_rag_for_utility_skip() -> None:
+    from app.chat.pipeline import _utility_spl_rag_skipped_payload
+    from app.evidence.source_evidence import build_source_evidence
+
+    evidence = build_source_evidence(
+        trace_id="t-rag-skip",
+        query=_WEEKEND_QUERY,
+        selected_skill="spl_generation",
+        spl_validation={"approved": False},
+        execution={"status": "skipped"},
+        soc_kb_retrieval=_utility_spl_rag_skipped_payload(),
+    )
+    assert not any(item.get("source_type") == "rag" for item in evidence)
+
+
+def test_resolve_trace_answer_mode_from_payload() -> None:
+    from app.chat.pipeline import _resolve_trace_answer_mode
+
+    payload = {
+        "candidate_spl": {"detection_family": "universal_timestamp_spl"},
+        "spl_validation": {"review_required_reason": "universal_spl_authoring_review_only"},
+    }
+    assert _resolve_trace_answer_mode(payload) == "spl_utility_authoring"
+
+
+def test_debug_summary_review_only_postprocessor_applied(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.chat.debug_summary import build_debug_summary
+
+    monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
+    summary = build_debug_summary(payload=payload)
+    spl = summary.get("spl") or {}
+    assert spl.get("review_only_postprocessor_applied") is True
+    assert spl.get("postprocessor_applied") is True
+    assert spl.get("final_spl_authority") == "deterministic_postprocessor"
+    assert spl.get("normalized_spl") is False
+    assert spl.get("review_only_spl_postprocessor_trace")
+
+
+def test_coe_index_resolution_trace_fields(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
+    post = (payload.get("candidate_spl") or {}).get("review_only_spl_postprocessor_trace") or {}
+    assert post.get("index_resolution_source") == "source_profile_resolver"
+    assert post.get("placeholder_used") is False
+    assert post.get("resolved_index") == "pgcil_soc"

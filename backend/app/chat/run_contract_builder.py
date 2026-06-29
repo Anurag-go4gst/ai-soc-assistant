@@ -145,6 +145,17 @@ def build_final_evidence_gate(
     )
 
 
+
+def _is_spl_utility_authoring(state: ChatPipelineState, evidence_plan: dict[str, Any]) -> bool:
+    if evidence_plan.get("answer_mode") == "spl_utility_authoring":
+        return True
+    candidate = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else {}
+    if candidate.get("detection_family") == "universal_timestamp_spl":
+        return True
+    spl_validation = state.get("spl_validation") if isinstance(state.get("spl_validation"), dict) else {}
+    return str(spl_validation.get("review_required_reason") or "") == "universal_spl_authoring_review_only"
+
+
 def build_run_contract(
     state: ChatPipelineState,
     *,
@@ -159,16 +170,21 @@ def build_run_contract(
     """
     if gate is None:
         gate = build_final_evidence_gate(state, route=route)
+    evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+    utility_spl_authoring = _is_spl_utility_authoring(state, evidence_plan)
     signals = _query_signals_from_state(state) or {}
     live_data_request = is_live_data_request(signals)
-    execution_needed = live_data_request and route.canonical_skill in _LIVE_ANSWER_SKILLS
-    mcp_needed = execution_needed
+    if utility_spl_authoring:
+        execution_needed = False
+        mcp_needed = False
+    else:
+        execution_needed = live_data_request and route.canonical_skill in _LIVE_ANSWER_SKILLS
+        mcp_needed = execution_needed
 
     execution = state.get("execution") if isinstance(state.get("execution"), dict) else {}
     execution_status = str(execution.get("status") or "skipped")
     execution_authorized = execution_status.lower() in _EXECUTION_AUTHORIZED_STATUSES
 
-    evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
     mcp_allowed = _resolve_mcp_allowed(state, evidence_plan, execution_authorized=execution_authorized)
 
     collected_evidence_count = gate.collected_evidence_count

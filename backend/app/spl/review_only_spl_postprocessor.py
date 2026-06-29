@@ -143,6 +143,7 @@ def normalize_review_only_spl(
         original_index=original_index or None,
         resolved_index=resolved_index,
         index_resolution_source=resolution_source,
+        placeholder_used=resolved_index == "<your_index>",
         raw_llm_index_dropped=False,
         raw_llm_index_dropped_reason=None,
     )

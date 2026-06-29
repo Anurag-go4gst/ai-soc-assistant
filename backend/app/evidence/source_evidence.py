@@ -78,7 +78,11 @@ def build_source_evidence(
     include_skipped_mcp_placeholder: bool = True,
 ) -> list[dict[str, Any]]:
     evidence: list[dict[str, Any]] = []
-    if soc_kb_retrieval is not None and soc_kb_retrieval.get("retrieval_status") != "disabled":
+    if (
+        soc_kb_retrieval is not None
+        and soc_kb_retrieval.get("retrieval_status") != "disabled"
+        and not soc_kb_retrieval.get("rag_skipped_for_spl_utility_authoring")
+    ):
         kb_item = soc_kb_source_evidence(trace_id, query, soc_kb_retrieval)
         kb_item.setdefault("plan_step_ref", "rag")
         evidence.append(kb_item)

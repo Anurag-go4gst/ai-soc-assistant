@@ -243,14 +243,71 @@ def _sql_kind(sql: str) -> str:
     return head[0].upper() if head else "UNKNOWN"
 
 
+_METADATA_PRIORITY_KEYS = (
+    "answer_mode",
+    "selected_skill",
+    "turn_id",
+    "user_id",
+    "question_preview",
+    "answer_preview",
+    "llm_used",
+    "llm_live_calls",
+    "mcp_used",
+    "debug_summary",
+    "control_plane_trace",
+    "run_contract",
+    "match_path",
+    "use_case_id",
+    "question_ref",
+    "matched_pattern",
+    "spl_path",
+    "governance_trace",
+    "lineage_summary",
+    "llm_sidecars",
+    "llm_call_count",
+    "session_role",
+)
+
+
+def _slim_control_plane_trace(control_plane_trace: dict[str, Any]) -> dict[str, Any]:
+    keep = (
+        "rag_trace",
+        "candidate_spl_generation",
+        "evidence_plan",
+        "route_adjudication",
+        "planning_decision",
+        "query_to_intent",
+        "spl_artifact_handoff_summary",
+        "llm_calls",
+        "llm_turn_budget",
+        "llm_composer",
+        "mcp_execution",
+    )
+    return {key: control_plane_trace[key] for key in keep if key in control_plane_trace}
+
+
+def _priority_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    out = {key: metadata[key] for key in _METADATA_PRIORITY_KEYS if key in metadata}
+    cp = out.get("control_plane_trace")
+    if isinstance(cp, dict):
+        out["control_plane_trace"] = _slim_control_plane_trace(cp)
+    return out
+
+
 def _json(value: Any) -> str:
-    serialized = json.dumps(value, separators=(",", ":"), sort_keys=True, default=str)
-    if len(serialized.encode("utf-8")) > MAX_SERIALIZED_PAYLOAD_BYTES:
-        return json.dumps(
-            {"__truncated__": True, "preview": serialized[:512] + "..."},
-            separators=(",", ":"),
-        )
-    return serialized
+    minimized = _minimize(value)
+    serialized = json.dumps(minimized, separators=(",", ":"), sort_keys=True, default=str)
+    if len(serialized.encode("utf-8")) <= MAX_SERIALIZED_PAYLOAD_BYTES:
+        return serialized
+    if isinstance(minimized, dict):
+        priority = _priority_metadata(minimized)
+        priority_serialized = json.dumps(priority, separators=(",", ":"), sort_keys=True, default=str)
+        if len(priority_serialized.encode("utf-8")) <= MAX_SERIALIZED_PAYLOAD_BYTES:
+            return priority_serialized
+    return json.dumps(
+        {"__truncated__": True, "preview": serialized[:512] + "..."},
+        separators=(",", ":"),
+    )
 
 
 # Backwards-compatible internal aliases (other modules import these names).

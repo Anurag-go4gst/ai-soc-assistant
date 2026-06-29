@@ -63,3 +63,19 @@ def test_non_universal_keeps_full_soc_render():
     )
     assert "Severity:" in out
     assert "SOC review checklist" in out
+
+def test_universal_card_summary_excludes_spl_block():
+    from app.chat.review_only_spl_renderer import render_universal_spl_utility_summary
+
+    candidate = {
+        "detection_family": "universal_timestamp_spl",
+        "candidate_spl": _UNIVERSAL_SPL,
+        "review_only_spl_postprocessor_trace": {
+            "resolved_index": "pgcil_soc",
+            "index_resolution_source": "source_profile_resolver",
+        },
+    }
+    summary = render_universal_spl_utility_summary(candidate_spl=candidate)
+    assert "index=<your_index>" not in summary
+    assert "pgcil_soc" in summary
+    assert "How to use:" in summary

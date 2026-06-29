@@ -498,6 +498,57 @@ def finalize_chat_trace_from_state(
     )
 
 
+
+def _resolve_trace_answer_mode(payload: dict[str, Any]) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    sufficiency = payload.get("context_sufficiency")
+    answer_mode = payload.get("answer_mode") or (
+        sufficiency.get("answer_mode") if isinstance(sufficiency, dict) else None
+    )
+    if answer_mode:
+        return str(answer_mode)
+    evidence_plan = payload.get("evidence_plan")
+    if isinstance(evidence_plan, dict) and evidence_plan.get("answer_mode"):
+        return str(evidence_plan["answer_mode"])
+    candidate_spl = payload.get("candidate_spl")
+    spl_validation = payload.get("spl_validation")
+    if _is_universal_spl_authoring_review(
+        candidate_spl if isinstance(candidate_spl, dict) else None,
+        spl_validation if isinstance(spl_validation, dict) else None,
+    ):
+        return "spl_utility_authoring"
+    return None
+
+
+def _strip_rag_from_workflow_plan(workflow_plan: dict[str, Any]) -> dict[str, Any]:
+    steps: list[dict[str, Any]] = []
+    for step in workflow_plan.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        step_copy = dict(step)
+        connectors = [
+            str(item)
+            for item in step_copy.get("required_connectors") or []
+            if str(item) != "rag"
+        ]
+        step_copy["required_connectors"] = connectors
+        steps.append(step_copy)
+    required_connectors = sorted(
+        {connector for step in steps for connector in step.get("required_connectors") or []}
+    )
+    return {
+        **workflow_plan,
+        "steps": steps,
+        "required_connectors": required_connectors,
+        "required_sources": [
+            str(item)
+            for item in workflow_plan.get("required_sources") or []
+            if not str(item).startswith("rag:")
+        ],
+    }
+
+
 def _persist_live_chat_telemetry(
     state: ChatPipelineState,
     response: PlaceholderResponse,
@@ -518,10 +569,7 @@ def _persist_live_chat_telemetry(
         if not trace_id:
             return
         payload = response.model_dump(mode="json")
-        sufficiency = payload.get("context_sufficiency")
-        answer_mode = (
-            sufficiency.get("answer_mode") if isinstance(sufficiency, dict) else None
-        ) or payload.get("answer_mode")
+        answer_mode = _resolve_trace_answer_mode(payload)
         run_status = "human_review" if payload.get("human_review") else "completed"
         telemetry.start_trace(
             trace_id,
@@ -533,7 +581,6 @@ def _persist_live_chat_telemetry(
         )
         budget = state.get("llm_turn_budget")
         records = budget.records if isinstance(budget, TurnLlmBudget) else []
-        debug_summary = build_debug_summary(payload=payload, llm_budget_records=records)
         for record in records:
             telemetry.record_llm_call(
                 trace_id,
@@ -553,11 +600,6 @@ def _persist_live_chat_telemetry(
                 "selected_skill": payload.get("selected_skill"),
                 "llm_call_count": len(records),
                 "llm_live_calls": sum(1 for item in records if item.get("outcome") == "completed"),
-                "debug_summary": debug_summary,
-                "control_plane_trace": payload.get("control_plane_trace"),
-                "governance_trace": payload.get("governance_trace"),
-                "lineage_summary": payload.get("investigation_lineage"),
-                "llm_sidecars": payload.get("llm_sidecars"),
             },
         )
         _telemetry_metrics.increment(
@@ -1063,6 +1105,12 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     )
     evidence_payload = plan.model_dump()
     evidence_payload["mcp_allowed_normalized"] = _mcp_allowed_decision_from_plan(evidence_payload)
+    workflow_plan = state.get("workflow_plan")
+    if (
+        evidence_payload.get("answer_mode") == "spl_utility_authoring"
+        and isinstance(workflow_plan, dict)
+    ):
+        state = {**state, "workflow_plan": _strip_rag_from_workflow_plan(workflow_plan)}
     route_adjudication_payload = _route_adjudication_with_final_plan_drift(
         state.get("route_adjudication"),
         evidence_payload,
@@ -1835,6 +1883,18 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
     query_understanding = state.get("query_understanding")
     utility_signals = extract_query_signals(query_text, query_understanding)
     if is_universal_utility_spl_authoring(query_text, utility_signals):
+        trace_id = str(state.get("trace_id") or "")
+        if trace_id:
+            try:
+                _routes_chat().get_telemetry_connector().record_rag_retrieval(
+                    trace_id,
+                    collection=None,
+                    status="skipped",
+                    result_count=0,
+                    evidence_origin="rag_skipped_for_spl_utility_authoring",
+                )
+            except Exception:  # noqa: BLE001 - telemetry must never break chat
+                logger.warning("utility_spl_rag_skip_telemetry_failed", exc_info=True)
         return {**state, "soc_kb_retrieval": _utility_spl_rag_skipped_payload()}
     workflow_plan = state["workflow_plan"]
     execution = state["execution"] if "execution" in state else {"block_reason": None}
@@ -3093,7 +3153,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                         "synthesis_readiness": False,
                     }
                     response_mode = _response_mode(context_sufficiency, human_review, spl_validation)
-            if spl_draft_preview and isinstance(spl_draft_preview, dict) and analyst_response is not None:
+            if (
+                spl_draft_preview
+                and isinstance(spl_draft_preview, dict)
+                and analyst_response is not None
+                and not _is_universal_spl_authoring_review(
+                    candidate_spl if isinstance(candidate_spl, dict) else None,
+                    spl_validation if isinstance(spl_validation, dict) else None,
+                )
+            ):
                 from app.chat.final_answer_readability import apply_draft_preview_readability
 
                 analyst_response = apply_draft_preview_readability(analyst_response)
@@ -3187,7 +3255,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         isinstance(state.get("planning_decision"), dict)
         and state["planning_decision"].get("path_type") == "guided_investigation"
     )
-    if settings.control_plane_enabled or guided_without_control_plane:
+    utility_without_control_plane = _is_universal_spl_authoring_review(
+        candidate_spl if isinstance(candidate_spl, dict) else None,
+        spl_validation if isinstance(spl_validation, dict) else None,
+    )
+    if settings.control_plane_enabled or guided_without_control_plane or utility_without_control_plane:
         validation = validate_final_answer(
             analyst_response=analyst_response,
             answer_contract=answer_contract_payload,
@@ -3353,7 +3425,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             severity_decision=severity_decision,
             session_context_resolution=session_resolution if isinstance(session_resolution, SessionContextResolution) else None,
         )
-    if settings.control_plane_enabled or guided_without_control_plane:
+    if settings.control_plane_enabled or guided_without_control_plane or utility_without_control_plane:
         trace_state = {
             **state,
             "mitre_decision": mitre_decision,
@@ -3448,6 +3520,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if isinstance(state.get("evidence_plan"), dict)
         else None
     )
+    if not answer_mode and _is_universal_spl_authoring_review(
+        candidate_spl if isinstance(candidate_spl, dict) else None,
+        spl_validation if isinstance(spl_validation, dict) else None,
+    ):
+        answer_mode = "spl_utility_authoring"
     response_packaging_status = _response_packaging_status(
         synthesis_status=synthesis_status,
         composer_trace=composer_trace,
@@ -3518,7 +3595,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         answer_mode=answer_mode,
         response_mode=response_mode,
         synthesis_mode=synthesis_mode,
-        workflow_plan=state["workflow_plan"],
+        workflow_plan=(
+            _strip_rag_from_workflow_plan(state["workflow_plan"])
+            if answer_mode == "spl_utility_authoring" and isinstance(state.get("workflow_plan"), dict)
+            else state["workflow_plan"]
+        ),
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
         spl_draft_preview=visible_spl_draft_preview if isinstance(visible_spl_draft_preview, dict) else None,
@@ -6788,6 +6869,16 @@ def _context_stage(
         utility_signals = extract_query_signals(query)
         if is_universal_utility_spl_authoring(query, utility_signals):
             soc_kb_retrieval = _utility_spl_rag_skipped_payload()
+            try:
+                telemetry.record_rag_retrieval(
+                    trace_id,
+                    collection=None,
+                    status="skipped",
+                    result_count=0,
+                    evidence_origin="rag_skipped_for_spl_utility_authoring",
+                )
+            except Exception:  # noqa: BLE001 - telemetry must never break chat
+                logger.warning("utility_spl_rag_skip_telemetry_failed", exc_info=True)
         else:
             soc_kb_retrieval = retrieve_soc_kb(
                 query=query,

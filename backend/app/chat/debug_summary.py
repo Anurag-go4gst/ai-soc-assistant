@@ -209,14 +209,16 @@ def _spl_block(
         post = spl_validation.get("review_only_spl_postprocessor_trace")
     post = post if isinstance(post, dict) else utility_trace.get("review_only_spl_postprocessor_trace")
     post = post if isinstance(post, dict) else {}
+    postprocessor_applied = bool(
+        utility_trace.get("postprocessor_applied") or post.get("postprocessor_applied")
+    )
     return {
         "template_id": candidate_spl.get("template_id"),
         "approved": spl_validation.get("approved"),
         "reject_reasons": [str(item) for item in reject_reasons[:6]],
         "normalized_spl": bool(spl_validation.get("normalized_spl") or spl_gen.get("normalized_spl_available")),
-        "postprocessor_applied": bool(
-            utility_trace.get("postprocessor_applied") or post.get("postprocessor_applied")
-        ),
+        "postprocessor_applied": postprocessor_applied,
+        "review_only_postprocessor_applied": postprocessor_applied,
         "review_only_spl_postprocessor_trace": post or None,
         "final_spl_authority": utility_trace.get("final_spl_authority")
         or post.get("final_spl_authority"),
