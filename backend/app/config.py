@@ -370,6 +370,9 @@ class Settings(BaseSettings):
     ai_soc_langgraph_shadow_enabled: bool = False
     # Chat control plane rollout gate. Default false until golden tests pass.
     control_plane_enabled: bool = False
+    # Two-stage pipeline dispatch authority (intent_dispatch + pipeline_dispatch).
+    # Default false until Phase 8 green; operator .env may set true for on-host probes.
+    ai_soc_pipeline_dispatch_v2_enabled: bool = False
     # Batch 5 — lightweight investigation session pins (structured only, no transcript).
     ai_soc_session_context_enabled: bool = True
     ai_soc_session_context_ttl_minutes: int = 30

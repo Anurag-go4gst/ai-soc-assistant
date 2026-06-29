@@ -544,6 +544,7 @@ def _attach_canonical_handoff_summaries(
         try:
             bindings = build_user_constraint_bindings(
                 raw_query,
+                llm_intent_advisory=(query_to_intent or {}).get("llm_intent_advisory"),
                 query_understanding=query_understanding,
                 extra_slots=source_profile.slots,
                 source_profile_trace=source_profile_trace,

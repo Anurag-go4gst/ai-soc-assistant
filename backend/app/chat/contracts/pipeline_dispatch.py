@@ -1,0 +1,163 @@
+from __future__ import annotations
+
+from enum import Enum
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
+from app.chat.contracts.slot_handoff import SlotHandoffSummary
+
+
+class PipelineStage(str, Enum):
+    """Ordered execution stages — the sole routing surface (Phase 2B+)."""
+
+    rag_early = "rag_early"
+    pre_spl_mcp_discovery = "pre_spl_mcp_discovery"
+    workflow_spl = "workflow_spl"
+    spl_postprocessor = "spl_postprocessor"
+    spl_source_resolve = "spl_source_resolve"
+    mcp_execution = "mcp_execution"
+    mitre_finalize = "mitre_finalize"
+    cve_adapter = "cve_adapter"
+
+
+class LlmHop(str, Enum):
+    """Post-evidence LLM hops only — 2C is excluded (see IntentDispatchDecision)."""
+
+    mcp_tool_planner = "mcp_tool_planner"
+    spl_plan_compiler = "spl_plan_compiler"
+    narration = "narration"
+
+
+RequestMode = Literal[
+    "spl_authoring",
+    "spl_and_run",
+    "live_investigation",
+    "knowledge",
+    "mitre_knowledge",
+    "cve_review",
+    "hybrid",
+    "clarification",
+    "utility_spl",
+]
+
+
+class PipelineDispatchContract(BaseModel):
+    """Stage-2 dispatch authority — built post evidence planning.
+
+    Owns ``stage_schedule`` (ordered) and post-evidence ``llm_hops``. No parallel
+    ``run_*`` / ``call_*`` booleans live here; legacy consumers derive them via
+    :func:`project_dispatch_flags`.
+    """
+
+    schema_version: Literal["v1"] = "v1"
+    request_mode: RequestMode = "clarification"
+    stage_schedule: list[PipelineStage] = Field(default_factory=list)
+    llm_hops: list[LlmHop] = Field(default_factory=list)
+    slot_handoff: SlotHandoffSummary = Field(default_factory=SlotHandoffSummary)
+    dispatch_reasons: list[str] = Field(default_factory=list)
+    authority_holder: str = "pipeline_dispatch_v1"
+
+
+class McpDiscoveryContext(BaseModel):
+    indexes: list[str] = Field(default_factory=list)
+    sourcetypes: list[str] = Field(default_factory=list)
+    field_hints: dict[str, str] = Field(default_factory=dict)
+    discovery_hops: list[dict[str, Any]] = Field(default_factory=list)
+    populated_at_stage: str | None = None
+
+
+class LlmSplPlanSnapshot(BaseModel):
+    """Redacted detection plan the LLM chose before compile — advisory, not authority."""
+
+    index: str | None = None
+    sourcetype: str | None = None
+    data_domain: str | None = None
+    required_fields: list[str] = Field(default_factory=list)
+    filters: list[str] = Field(default_factory=list)
+    threshold: dict[str, Any] | None = None
+    detection_family: str | None = None
+    consumed_by: list[str] = Field(default_factory=list)
+    scheduling_trace: dict[str, Any] = Field(default_factory=dict)
+
+
+class PipelineRuntimeContext(BaseModel):
+    mcp_discovery_context: McpDiscoveryContext | None = None
+    llm_spl_plan: LlmSplPlanSnapshot | None = None
+    dispatch_cursor: PipelineStage | None = None  # last completed stage; None = not started
+    mcp_phase: Literal["pre_spl", "post_spl", "none"] = "none"
+    scheduling_trace: dict[str, Any] = Field(default_factory=dict)
+
+
+class PipelineDispatchState(BaseModel):
+    decision: PipelineDispatchContract
+    runtime_context: PipelineRuntimeContext = Field(default_factory=PipelineRuntimeContext)
+
+
+def project_dispatch_flags(decision: PipelineDispatchContract) -> dict[str, bool]:
+    """Sole bridge from the contract to legacy ``run_*`` / ``call_*`` booleans.
+
+    ``call_2c_llm`` is NEVER projected here — it lives on IntentDispatchDecision.
+    """
+    stages = set(decision.stage_schedule)
+    hops = set(decision.llm_hops)
+    return {
+        "run_rag_early": PipelineStage.rag_early in stages,
+        "run_pre_spl_mcp_discovery": PipelineStage.pre_spl_mcp_discovery in stages,
+        "run_workflow_spl": PipelineStage.workflow_spl in stages,
+        "run_spl_postprocessor": PipelineStage.spl_postprocessor in stages,
+        "run_spl_source_resolve": PipelineStage.spl_source_resolve in stages,
+        "run_mcp_execution": PipelineStage.mcp_execution in stages,
+        "run_mitre_finalize": PipelineStage.mitre_finalize in stages,
+        "run_cve_adapter": PipelineStage.cve_adapter in stages,
+        "call_mcp_tool_planner": LlmHop.mcp_tool_planner in hops,
+        "call_spl_llm": LlmHop.spl_plan_compiler in hops,
+        "call_narration_llm": LlmHop.narration in hops,
+    }
+
+
+def next_stage_after(
+    schedule: list[PipelineStage], current: PipelineStage | None
+) -> PipelineStage | None:
+    """Return the next scheduled stage after ``current`` (first when ``current`` is None).
+
+    Cursor-driven routing helper (Phase 6) — never branch on ``stage in schedule``
+    membership without position.
+    """
+    if not schedule:
+        return None
+    if current is None:
+        return schedule[0]
+    try:
+        idx = schedule.index(current)
+    except ValueError:
+        return None
+    nxt = idx + 1
+    return schedule[nxt] if nxt < len(schedule) else None
+
+
+def build_pipeline_dispatch(
+    *,
+    evidence_plan: dict[str, Any] | None = None,
+    **_: Any,
+) -> PipelineDispatchState:
+    """Phase 0 stub — empty schedule, slot handoff coerced from the evidence plan.
+
+    Full ``request_mode`` / ``stage_schedule`` / ``llm_hops`` derivation lands in
+    Phase 2A (shell) and Phase 2B (authority). Returning an empty schedule keeps
+    the flag-off path inert: no node reads ``pipeline_dispatch`` until the master
+    flag is on and the builder is complete.
+    """
+    from app.chat.contracts.slot_handoff import slot_handoff_from_normalized_summary
+
+    summary = (evidence_plan or {}).get("normalized_slot_summary") if isinstance(evidence_plan, dict) else None
+    handoff = slot_handoff_from_normalized_summary(summary if isinstance(summary, dict) else None)
+    return PipelineDispatchState(
+        decision=PipelineDispatchContract(
+            request_mode="clarification",
+            stage_schedule=[],
+            llm_hops=[],
+            slot_handoff=handoff,
+            dispatch_reasons=["pipeline_dispatch_stub_phase0"],
+        )
+    )
