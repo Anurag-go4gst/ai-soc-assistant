@@ -20,6 +20,7 @@ from app.spl.draft_metadata_builder import (
 )
 from app.spl.draft_preview_customization import customize_draft_preview_for_query
 from app.spl.draft_quality import STANDARD_ID, evaluate_draft_quality
+from app.spl.review_only_spl_postprocessor import normalize_review_only_spl
 from app.spl.source_profile_catalog import canonical_source_profile_slot
 from app.spl.source_profile_resolver import (
     extract_placeholder_slots,
@@ -260,17 +261,19 @@ _CORE_DETECTION_FAMILIES: tuple[DetectionFamily, ...] = (
             r"extract\s+day\s+of",
         ),
         draft_spl="""
-search index=* earliest=-7d latest=now
-| sort 0 -_time
-| eval hour=strftime(_time,"%H"), dow=strftime(_time,"%w")
-| where dow IN ("0","6")
-| table _time hour dow sourcetype host
+search index=<your_index> earliest=-24h latest=now
+| sort 100 -_time
+| eval hour_of_day=strftime(_time,"%H")
+| eval day_of_week_num=strftime(_time,"%w")
+| eval day_of_week=strftime(_time,"%A")
+| where day_of_week_num IN ("0","6")
+| table _time hour_of_day day_of_week sourcetype host
 | head 100
 """,
         assumptions=(
-            "Universal/template-free review-only SPL using index=*; not tied to a company template registry.",
-            "Splunk %w: 0=Sunday, 6=Saturday for weekend filtering.",
-            "Adjust index and time bounds to your environment before any future execution review.",
+            "Universal/template-free review-only SPL using a <your_index> placeholder; not tied to a company template registry.",
+            "Splunk %w (0=Sunday, 6=Saturday) drives the weekend filter; %A (day name) is display only.",
+            "Replace <your_index> and adjust the time window to your environment before any future execution review.",
         ),
         required_log_fields=("_time", "sourcetype", "host"),
         scope_notice="Template-free universal SPL block for analyst review only; execution disabled.",
@@ -2892,6 +2895,24 @@ def build_draft_preview(
         assumptions=family.assumptions,
         llm_intent_advisory=llm_intent_advisory,
     )
+    # Review-only SPL utility hygiene: normalize index/lookback/locale/ordering
+    # for the universal/template-free authoring family. Idempotent on an
+    # already-clean skeleton; never authorizes execution or invents an index.
+    if family.family_id == "universal_timestamp_spl":
+        normalized = normalize_review_only_spl(
+            draft_spl,
+            {
+                "is_explicit_spl_authoring": True,
+                "is_universal_spl": True,
+                "is_template_free": True,
+                "deterministic_generated": True,
+                "execution_authorized": False,
+            },
+        )
+        draft_spl = normalized.normalized_spl
+        customization_meta["review_only_spl_postprocessor_trace"] = normalized.trace
+        if normalized.warnings:
+            customization_meta["review_only_spl_postprocessor_warnings"] = normalized.warnings
     source_profile = load_persisted_source_profile()
     original_placeholders = extract_placeholder_slots(draft_spl)
     draft_spl, source_profile_missing_slots = substitute_placeholders(draft_spl, source_profile)
