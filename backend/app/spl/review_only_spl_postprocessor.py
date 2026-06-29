@@ -19,6 +19,7 @@ path (idempotent on an already-clean skeleton) and on mocked-LLM draft paths.
 
 from __future__ import annotations
 
+from hashlib import sha256
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -153,6 +154,140 @@ class NormalizedSplResult:
     normalized_spl: str
     trace: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+
+
+def _spl_hash(spl: str) -> str:
+    return sha256((spl or "").encode("utf-8")).hexdigest()[:16]
+
+
+def _coerce_slot_handoff(slot_handoff: Any) -> dict[str, str]:
+    if slot_handoff is None:
+        return {}
+    if hasattr(slot_handoff, "normalized_slots"):
+        raw = getattr(slot_handoff, "normalized_slots", None)
+    elif isinstance(slot_handoff, dict) and isinstance(slot_handoff.get("normalized_slots"), dict):
+        raw = slot_handoff.get("normalized_slots")
+    elif isinstance(slot_handoff, dict):
+        raw = slot_handoff
+    else:
+        raw = {}
+    return {str(k): str(v) for k, v in dict(raw or {}).items() if v is not None and str(v).strip()}
+
+
+def _changes_from_trace(trace: dict[str, Any], raw_spl: str, normalized_spl: str) -> list[str]:
+    changes: list[str] = []
+    if trace.get("index_rewrite_applied"):
+        changes.append("index_placeholder_hygiene")
+    if trace.get("lookback_rewrite_applied"):
+        changes.append("time_bound_injected")
+    if trace.get("command_reorder_applied"):
+        changes.append("command_hygiene")
+    if trace.get("locale_normalization_applied"):
+        changes.append("locale_weekend_filter")
+    if trace.get("utility_spl_shape_polish_applied"):
+        changes.append("utility_shape_polish")
+    if raw_spl.strip() != normalized_spl.strip() and not changes:
+        changes.append("spl_text_normalized")
+    return changes
+
+
+def _default_finalize_context(
+    *,
+    family: str | None,
+    slot_handoff: Any,
+    llm_generated: bool,
+    mcp_discovery_context: Any,
+) -> dict[str, Any]:
+    normalized_slots = _coerce_slot_handoff(slot_handoff)
+    family_name = str(family or "").strip()
+    discovery = mcp_discovery_context if isinstance(mcp_discovery_context, dict) else {}
+    indexes = discovery.get("indexes") if isinstance(discovery.get("indexes"), list) else []
+    sourcetypes = discovery.get("sourcetypes") if isinstance(discovery.get("sourcetypes"), list) else []
+    return {
+        "is_explicit_spl_authoring": family_name != "governed_template",
+        "is_universal_spl": family_name in {"universal_timestamp_spl", "universal_spl"},
+        "is_template_free": family_name != "governed_template",
+        "llm_generated": bool(llm_generated),
+        "deterministic_generated": not bool(llm_generated),
+        "execution_authorized": False,
+        "user_explicit_index": normalized_slots.get("index"),
+        "user_explicit_sourcetype": normalized_slots.get("sourcetype"),
+        "source_profile_index": str(indexes[0]).strip() if indexes else None,
+        "source_profile_sourcetype": str(sourcetypes[0]).strip() if sourcetypes else None,
+        "target_log_family": family_name,
+        "user_explicit_time_window": bool(
+            normalized_slots.get("earliest")
+            or normalized_slots.get("latest")
+            or normalized_slots.get("time_window")
+        ),
+    }
+
+
+def finalize_review_only_spl(
+    raw_spl: str,
+    *,
+    query: str,
+    family: str | None,
+    slot_handoff: Any = None,
+    llm_generated: bool = False,
+    mcp_discovery_context: Any = None,
+    postprocessor_context: dict[str, Any] | None = None,
+) -> NormalizedSplResult:
+    """Evaluate the mandatory review-only SPL postprocessor and stamp hashes.
+
+    Governed templates deliberately pass through this wrapper with a no-op trace:
+    the hook proves it evaluated the SPL but must not rewrite template bytes.
+    """
+    raw_text = str(raw_spl or "")
+    family_name = str(family or "")
+    raw = raw_text if family_name == "governed_template" else raw_text.strip()
+    ctx = _default_finalize_context(
+        family=family,
+        slot_handoff=slot_handoff,
+        llm_generated=llm_generated,
+        mcp_discovery_context=mcp_discovery_context,
+    )
+    if isinstance(postprocessor_context, dict):
+        ctx.update(postprocessor_context)
+    ctx["llm_generated"] = bool(llm_generated)
+    ctx["deterministic_generated"] = not bool(llm_generated)
+    ctx.setdefault("target_log_family", str(family or ""))
+    if family_name == "governed_template":
+        normalized = NormalizedSplResult(
+            normalized_spl=raw,
+            trace={
+                "deterministic_postprocessor_applied": False,
+                "skipped_reason": "template_already_normalized",
+                "final_spl_authority": "governed_template",
+            },
+            warnings=[],
+        )
+    else:
+        normalized = normalize_review_only_spl(raw, ctx)
+    normalized_spl = normalized.normalized_spl
+    trace = dict(normalized.trace)
+    changes = _changes_from_trace(trace, raw, normalized_spl)
+    applied = bool(changes)
+    trace.update(
+        postprocessor_evaluated=True,
+        postprocessor_applied=applied,
+        raw_spl_hash=_spl_hash(raw),
+        normalized_spl_hash=_spl_hash(normalized_spl),
+        changes=changes,
+        postprocessor_family=str(family or ""),
+        query_hash=_spl_hash(query or ""),
+    )
+    if not applied:
+        trace["no_op_reason"] = (
+            "template_already_normalized"
+            if str(family or "") == "governed_template"
+            else trace.get("skipped_reason") or "already_normalized"
+        )
+    return NormalizedSplResult(
+        normalized_spl=normalized_spl,
+        trace=trace,
+        warnings=list(normalized.warnings),
+    )
 
 
 def _is_placeholder(index_value: str) -> bool:

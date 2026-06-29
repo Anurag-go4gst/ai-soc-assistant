@@ -18,7 +18,7 @@ from app.spl.llm_fallback import (
     generate_llm_spl_fallback,
     spl_advisory_prompts,
 )
-from app.spl.review_only_spl_postprocessor import normalize_review_only_spl
+from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
 from app.spl.source_profile_store import (
     load_persisted_source_profile,
@@ -66,6 +66,8 @@ def build_utility_postprocessor_context(
     user_query: str,
     *,
     llm_generated: bool,
+    target_log_family: str | None = "universal_timestamp_spl",
+    is_universal_spl: bool = True,
 ) -> dict[str, Any]:
     bindings = build_user_constraint_bindings(user_query)
     user_index = str(bindings.normalized_slots.get("index") or "").strip()
@@ -90,7 +92,7 @@ def build_utility_postprocessor_context(
 
     return {
         "is_explicit_spl_authoring": True,
-        "is_universal_spl": True,
+        "is_universal_spl": is_universal_spl,
         "is_template_free": True,
         "llm_generated": llm_generated,
         "deterministic_generated": not llm_generated,
@@ -114,6 +116,7 @@ def build_utility_postprocessor_context(
             "source_profile_updated_at": profile_doc.get("updated_at"),
         },
         "user_explicit_time_window": user_time,
+        "target_log_family": target_log_family,
     }
 
 
@@ -318,22 +321,33 @@ def candidate_from_universal_utility_authoring(
         spl_draft_trace["final_raw_spl_source"] = "llm_draft"
         spl_draft_trace["deterministic_skeleton_used"] = False
         ctx = build_utility_postprocessor_context(user_query, llm_generated=True)
-        normalized = normalize_review_only_spl(raw_spl, ctx)
+        normalized = finalize_review_only_spl(
+            raw_spl,
+            query=user_query,
+            family="universal_timestamp_spl",
+            llm_generated=True,
+            postprocessor_context=ctx,
+        )
         final_spl = normalized.normalized_spl
         postprocessor_trace = dict(normalized.trace)
         postprocessor_warnings = list(normalized.warnings)
     else:
         spl_draft_trace["deterministic_skeleton_used"] = True
         ctx = build_utility_postprocessor_context(user_query, llm_generated=False)
-        normalized = normalize_review_only_spl(skeleton_spl, ctx)
+        normalized = finalize_review_only_spl(
+            skeleton_spl,
+            query=user_query,
+            family="universal_timestamp_spl",
+            llm_generated=False,
+            postprocessor_context=ctx,
+        )
         final_spl = normalized.normalized_spl
         postprocessor_trace = dict(normalized.trace)
         postprocessor_warnings = list(normalized.warnings)
 
-    postprocessor_trace["postprocessor_applied"] = True
     postprocessor_trace.setdefault("final_spl_authority", "deterministic_postprocessor")
     spl_draft_trace["final_spl_authority"] = postprocessor_trace.get("final_spl_authority")
-    spl_draft_trace["postprocessor_applied"] = True
+    spl_draft_trace["postprocessor_applied"] = bool(postprocessor_trace.get("postprocessor_applied"))
     spl_draft_trace["review_only_spl_postprocessor_trace"] = postprocessor_trace
 
     lab_labels = {

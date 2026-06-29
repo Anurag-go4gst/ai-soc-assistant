@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from app.spl.review_only_spl_postprocessor import normalize_review_only_spl
+import pytest
+
+from app.config import settings
+from app.chat.pipeline import _candidate_from_lab_draft
+from app.spl.review_only_spl_postprocessor import finalize_review_only_spl, normalize_review_only_spl
+from app.splunk.capabilities import build_splunk_capability_profile
 
 _CLEAN_SKELETON = """
 search index=<your_index> earliest=-24h latest=now
@@ -201,3 +206,68 @@ def test_sort_hundred_before_filter_removed():
     out = normalize_review_only_spl(spl, _ctx())
     assert "sort 100" not in out.normalized_spl
     assert out.trace["command_reorder_applied"] is True
+
+
+def test_postprocessor_trace_hashes_prove_diff():
+    out = finalize_review_only_spl(
+        "search index=* earliest=-7d latest=now | head 100",
+        query="Generate review-only SPL for recent weekend activity",
+        family="universal_timestamp_spl",
+        llm_generated=False,
+        postprocessor_context=_ctx(),
+    )
+    assert out.trace["postprocessor_evaluated"] is True
+    assert out.trace["postprocessor_applied"] is True
+    assert out.trace["raw_spl_hash"] != out.trace["normalized_spl_hash"]
+    assert "index_placeholder_hygiene" in out.trace["changes"]
+    assert "time_bound_injected" in out.trace["changes"]
+
+
+def test_governed_template_postprocessor_byte_identity():
+    raw = "index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now | stats count by user\n"
+    out = finalize_review_only_spl(
+        raw,
+        query="Which users have excessive failed logins?",
+        family="governed_template",
+        llm_generated=False,
+    )
+    assert out.normalized_spl == raw
+    assert out.trace["postprocessor_evaluated"] is True
+    assert out.trace["postprocessor_applied"] is False
+    assert out.trace["changes"] == []
+    assert out.trace["raw_spl_hash"] == out.trace["normalized_spl_hash"]
+    assert out.trace["no_op_reason"] == "template_already_normalized"
+
+
+class _Telemetry:
+    def record_step(self, *args, **kwargs):
+        return None
+
+    def record_spl_validation(self, *args, **kwargs):
+        return None
+
+
+def test_lab_draft_outbound_spike_gets_coe_index_hygiene(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
+    candidate, validation = _candidate_from_lab_draft(
+        trace_id="t-phase3-lab",
+        skill="spl_generation",
+        user_query="Which source IPs generated the most outbound connections?",
+        telemetry=_Telemetry(),
+        profile=build_splunk_capability_profile(required_saia_tool="saia_generate_spl"),
+        spl_governance=None,
+        pattern_type=None,
+        use_case_id=None,
+        llm_fallback_reason="phase3_lab_draft_regression",
+        live_data_request=True,
+    )
+    assert candidate is not None
+    assert validation is not None
+    assert "index=pgcil_soc" in candidate["candidate_spl"]
+    post = candidate.get("review_only_spl_postprocessor_trace") or {}
+    assert post.get("postprocessor_evaluated") is True
+    assert post.get("postprocessor_applied") is True
+    assert post.get("index_resolution_source") == "source_profile_resolver"
+    assert post.get("changes") == ["index_placeholder_hygiene"]

@@ -16,7 +16,7 @@ todos:
     status: done
   - id: phase3-postprocessor
     content: Shared finalize_review_only_spl hook; postprocessor hash trace; governed-template byte-identity; postprocessor_evaluated/applied invariant (spl_plan_compiler telemetry deferred to Phase 4D)
-    status: pending
+    status: done
   - id: phase4-spl-path
     content: 4A compiler inputs; 4B SplCandidateStageResult + persist_llm_spl_plan; 4C postprocessor; 4D llm_turn_budget thread + dual spl_plan_compiler telemetry; remove lab-draft short-circuit
     status: pending

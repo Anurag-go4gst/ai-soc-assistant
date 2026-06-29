@@ -83,6 +83,7 @@ from app.spl.draft_preview import (
 from app.llm.clients.local_chat_client import LocalChatError
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.spl.llm_plan_compiler import generate_llm_spl_via_plan
+from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
 from app.spl.spl_relevance_check import check_spl_relevance
 from app.spl.mcp_loop_discovery import execute_loop_discovery_hop
 from app.spl.mcp_source_discovery import run_mcp_source_discovery
@@ -5339,6 +5340,15 @@ def _candidate_from_default_template(
         user_query=user_query,
         template_profile=template.validation_rules,
     )
+    postprocessed = finalize_review_only_spl(
+        final_spl,
+        query=user_query,
+        family="governed_template",
+        slot_handoff=bindings.to_dict(),
+        llm_generated=False,
+    )
+    postprocessor_trace = postprocessed.trace
+    final_spl = postprocessed.normalized_spl
     candidate_payload = {
         "trace_id": trace_id,
         "skill": skill,
@@ -5362,6 +5372,8 @@ def _candidate_from_default_template(
             bindings,
             built_at_stage="spl_generation",
         ).to_dict(),
+        "postprocessor_applied": False,
+        "review_only_spl_postprocessor_trace": postprocessor_trace,
     }
     validation_payload = {
         "approved": validation["approved"],
@@ -5386,6 +5398,7 @@ def _candidate_from_default_template(
         "optimization_revalidation_approved": optimization["revalidation_approved"],
         "capability_profile": profile.model_dump(),
         "template_id": template.template_id,
+        "review_only_spl_postprocessor_trace": postprocessor_trace,
     }
     _merge_spl_governance(
         candidate_payload,
@@ -5815,6 +5828,25 @@ def _candidate_from_lab_draft(
     draft_spl = (draft or {}).get("draft_spl")
     if not draft or not isinstance(draft_spl, str) or not draft_spl.strip():
         return None
+    family = str(draft.get("detection_family") or "")
+    from app.spl.utility_spl_authoring import build_utility_postprocessor_context
+
+    context = build_utility_postprocessor_context(
+        user_query,
+        llm_generated=False,
+        target_log_family=family or None,
+        is_universal_spl=family == "universal_timestamp_spl",
+    )
+    postprocessed = finalize_review_only_spl(
+        draft_spl,
+        query=user_query,
+        family=family or "lab_draft",
+        llm_generated=False,
+        postprocessor_context=context,
+    )
+    final_spl = postprocessed.normalized_spl
+    postprocessor_trace = dict(postprocessed.trace)
+    postprocessor_warnings = list(postprocessed.warnings)
 
     lab_labels = {
         "governed": False,
@@ -5827,7 +5859,7 @@ def _candidate_from_lab_draft(
         "trace_id": trace_id,
         "skill": skill,
         "user_query": user_query,
-        "candidate_spl": draft_spl,
+        "candidate_spl": final_spl,
         "generation_mode": "deterministic_lab_draft",
         "confidence": 0.5,
         "assumptions": list(draft.get("assumptions") or [])
@@ -5859,8 +5891,12 @@ def _candidate_from_lab_draft(
         "exposure_tier": "lab_candidate",
         "lab_tier_exposure": True,
         "detection_family": draft.get("detection_family"),
+        "postprocessor_applied": bool(postprocessor_trace.get("postprocessor_applied")),
+        "review_only_spl_postprocessor_trace": postprocessor_trace,
         **lab_labels,
     }
+    if postprocessor_warnings:
+        candidate_payload["review_only_spl_postprocessor_warnings"] = postprocessor_warnings
     validation_payload = {
         # Fail-closed: the analyst sees the draft, but approved/normalized_spl stay
         # false/null so the MCP execution gate can never run a placeholder draft.
@@ -5901,8 +5937,11 @@ def _candidate_from_lab_draft(
         "llm_fallback_used": True,
         "llm_fallback_status": "lab_draft_fallback",
         "llm_fallback_reason": llm_fallback_reason,
+        "review_only_spl_postprocessor_trace": postprocessor_trace,
         **lab_labels,
     }
+    if postprocessor_warnings:
+        validation_payload["review_only_spl_postprocessor_warnings"] = postprocessor_warnings
     _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
     _mark_spl_review_status(candidate_payload, validation_payload)
     telemetry.record_step(
