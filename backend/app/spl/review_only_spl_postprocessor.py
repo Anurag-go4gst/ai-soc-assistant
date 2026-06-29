@@ -193,7 +193,7 @@ def normalize_review_only_spl(
         stripped = ln.strip().lstrip("|").strip()
         # Drop an unnecessary leading `sort 0 ...` before any filter; cheap utility
         # drafts do not need a full sort, and it must not precede `where`.
-        if re.match(r"sort\s+0\b", stripped, re.IGNORECASE):
+        if re.match(r"sort\s+\d+\b", stripped, re.IGNORECASE):
             removed.append(stripped)
             continue
         kept.append(ln)
@@ -209,16 +209,36 @@ def normalize_review_only_spl(
     # If a filter keys off the %A day name (e.g. where day_of_week="Saturday"),
     # normalize the *filter* to numeric %w while preserving %A as a display eval.
     name_filter = re.search(
-        r"where[^|]*\b(day_of_week|dow|day)\b\s*(?:=|IN)\s*\(?[\"']?"
+        r"where[^|\n]*\b(day_of_week|dow|day)\b\s*(?:=|IN)\s*\(?[\"']?"
         r"(saturday|sunday)",
         spl,
         re.IGNORECASE,
     )
     trace["display_field_preserved"] = '"%A"' in spl or "%A" in spl
-    if name_filter and '"%w"' not in spl and "%w" not in spl:
+    if name_filter:
         trace["locale_normalization_applied"] = True
         trace["original_day_filter"] = name_filter.group(0)
         trace["normalized_day_filter"] = 'where day_of_week_num IN ("0","6")'
         warnings.append("locale_filter_normalized_to_pct_w")
+        if "day_of_week_num" not in spl:
+            insert = '| eval day_of_week_num=strftime(_time,"%w")\n'
+            if "| where" in spl:
+                spl = spl.replace("| where", insert + "| where", 1)
+            else:
+                spl = spl.rstrip() + "\n" + insert
+        spl = re.sub(
+            r"\|?\s*where[^|\n]*\b(day_of_week|dow|day)\b\s*(?:=|IN)\s*\(?[\"']?"
+            r"(?:saturday|sunday)[^|\n]*",
+            '| where day_of_week_num IN ("0","6")',
+            spl,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+
+    trace["final_spl_authority"] = (
+        "deterministic_postprocessor"
+        if ctx.get("deterministic_generated")
+        else ("llm_draft_normalized" if ctx.get("llm_generated") else "review_only_postprocessor")
+    )
 
     return NormalizedSplResult(normalized_spl=spl.strip(), trace=trace, warnings=warnings)

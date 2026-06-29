@@ -144,6 +144,8 @@ def test_locale_name_filter_normalized_to_pct_w():
     out = normalize_review_only_spl(spl, _ctx(llm_generated=True))
     assert out.trace["locale_normalization_applied"] is True
     assert out.trace["display_field_preserved"] is True
+    assert 'day_of_week_num IN ("0","6")' in out.normalized_spl
+    assert 'where day_of_week="Saturday"' not in out.normalized_spl
 
 
 def test_pct_a_display_preserved_when_pct_w_present():
@@ -156,3 +158,16 @@ def test_execution_never_authorized_field_untouched():
     out = normalize_review_only_spl(_CLEAN_SKELETON, _ctx())
     # postprocessor never emits an execution-authorizing claim
     assert "execution_authorized" not in out.normalized_spl.lower()
+
+
+def test_sort_hundred_before_filter_removed():
+    spl = (
+        "search index=<your_index> earliest=-24h latest=now\n"
+        "| sort 100 -_time\n"
+        '| eval day_of_week_num=strftime(_time,"%w")\n'
+        '| where day_of_week_num IN ("0","6")\n'
+        "| head 100"
+    )
+    out = normalize_review_only_spl(spl, _ctx())
+    assert "sort 100" not in out.normalized_spl
+    assert out.trace["command_reorder_applied"] is True
