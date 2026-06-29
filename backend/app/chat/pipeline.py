@@ -896,6 +896,23 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         )
         return enriched
 
+    # Stage-1 dispatch decision — mirrors the deterministic skip outcome so flag-on
+    # gating introduces no divergence; the only flag-on effect is the mode-specific
+    # 2C prompt. Always recorded for observability; authoritative only when the
+    # pipeline-dispatch flag is on.
+    from app.chat.contracts.intent_dispatch import build_intent_dispatch
+
+    intent_dispatch = build_intent_dispatch(
+        skip_advisory=bool(skip_advisory),
+        skip_reason=skip_reason,
+        routed_skill=routed_skill,
+        signals=preliminary_signals if isinstance(preliminary_signals, dict) else {},
+        requires_clarification=bool(getattr(qu, "requires_clarification", False)),
+    )
+    state["intent_dispatch"] = intent_dispatch.model_dump()
+    dispatch_v2_on = bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False))
+    _intent_prompt_mode = intent_dispatch.prompt_mode if dispatch_v2_on else None
+
     if skip_advisory:
         fallback = skip_reason or "deterministic_exact_match_t0"
         llm_advisory = LLMIntentAdvisory(
@@ -951,6 +968,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
                 allow_failover=(not budget.time_budget_exhausted())
                 and not bound_intent_advisor
                 and not bound_t2_intent_advisor,
+                prompt_mode=_intent_prompt_mode,
             )
             if llm_advisory.llm_called:
                 outcome = "completed"

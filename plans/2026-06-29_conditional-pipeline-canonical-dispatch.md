@@ -10,7 +10,7 @@ todos:
     status: done
   - id: phase1a-intent-dispatch
     content: Table-driven 2C prompt modes (skip, spl_slot_extraction, catalogue_promotion, clarification) with per-mode JSON schemas; IntentDispatchDecision gating in graph_node_query_to_intent
-    status: pending
+    status: done
   - id: phase2a-dispatch-shell
     content: PipelineDispatchState shell incl dispatch_cursor; next_stage_after(); stage_schedule + llm_hops; project_dispatch_flags(); wire graph_node_evidence_planning + CP-off stub
     status: pending

@@ -73,10 +73,11 @@ def test_handoff_without_advisory_has_no_llm_source() -> None:
     assert "host" not in summary.get("normalized_slots", {})
 
 
-def test_build_intent_dispatch_stub_skips() -> None:
-    decision = build_intent_dispatch({})
+def test_build_intent_dispatch_skip_when_advisory_skipped() -> None:
+    decision = build_intent_dispatch(skip_advisory=True, skip_reason="deterministic_exact_match_t0")
     assert decision.call_2c_llm is False
     assert decision.prompt_mode is IntentPromptMode.skip
+    assert decision.skip_reasons == ["deterministic_exact_match_t0"]
 
 
 def test_build_pipeline_dispatch_stub_is_empty_and_coerces_handoff() -> None:
