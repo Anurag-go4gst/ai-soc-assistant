@@ -1,6 +1,6 @@
 # SPL Utility Answer Quality + Context-Aware Postprocessor (PR56 follow-up)
 
-**Status:** In Progress (branch `fix/spl-utility-answer-quality-postprocessor`)
+**Status:** Done (core + renderer) — PR #57, branch `fix/spl-utility-answer-quality-postprocessor`. Phases 2/3/4/5/6/7/9/10/11 shipped + gates green. Deferred: Phase 8 pipeline LLM-boundary trace wiring (postprocessor already records its own trace), Phase 12 live `ask_chat` (live LLM not a success condition), CLAUDE.md plans-table row.
 **Date:** 2026-06-29
 **Baseline:** PR #56 (merged `9eb4880`) — explicit SPL authoring route fix, `app/chat/spl_authoring_intent.py`, `universal_spl_phrasing()`, `source_profile_required_for_authoring()=false` for universal asks, lighter `universal_spl_authoring_review_only` HIL, `/chat/stream` trace lifecycle.
 
