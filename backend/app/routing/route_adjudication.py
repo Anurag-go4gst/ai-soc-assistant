@@ -51,6 +51,14 @@ _OUT_OF_REGISTRY_MATCH_PATHS = frozenset(
 )
 
 
+
+def _query_signals(query_to_intent: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(query_to_intent, dict):
+        return {}
+    signals = query_to_intent.get("query_signals")
+    return dict(signals) if isinstance(signals, dict) else {}
+
+
 def adjudicate_route(
     *,
     deterministic_route: str,
@@ -86,6 +94,25 @@ def adjudicate_route(
             shadow_plan_status=shadow_status,
             **row_trace,
             **kwargs,
+        )
+
+    signals = _query_signals(query_to_intent)
+    if (
+        intent.requires_clarification
+        and signals.get("explicit_spl_authoring")
+        and deterministic_route == "spl_generation"
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+        and intent.primary_intent != "human_review"
+    ):
+        return finish(
+            final_route="spl_generation",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="explicit_spl_authoring",
+            reason=(
+                "Explicit SPL text/snippet request; review-only SPL generation "
+                "without clarification override."
+            ),
         )
 
     if intent.requires_clarification:

@@ -324,10 +324,11 @@ def build_live_chat_response(
     *,
     progress: ProgressReporter | None = None,
     session_role: str | None = None,
+    entrypoint: str = "chat",
 ) -> PlaceholderResponse:
     token = bind_progress_reporter(progress) if progress is not None else None
     try:
-        return _build_live_chat_response_inner(request, session_role=session_role)
+        return _build_live_chat_response_inner(request, session_role=session_role, entrypoint=entrypoint)
     finally:
         if token is not None:
             reset_progress_reporter(token)
@@ -338,6 +339,7 @@ def _build_live_chat_response_inner(
     request: ChatRequest,
     *,
     session_role: str | None = None,
+    entrypoint: str = "chat",
 ) -> PlaceholderResponse:
     started_at = datetime.now(UTC)
     state: ChatPipelineState | None = None
@@ -353,7 +355,7 @@ def _build_live_chat_response_inner(
     if response is None:
         raise RuntimeError("chat pipeline did not produce a response")
     _persist_live_chat_telemetry(
-        state, response, started_at=started_at, session_role=session_role
+        state, response, started_at=started_at, session_role=session_role, entrypoint=entrypoint
     )
     return response
 
@@ -455,12 +457,50 @@ def _record_node_timing(
         logger.warning("node_timing_persist_failed", exc_info=True)
 
 
+
+def persist_chat_admission(trace_id: str, user: object, *, entrypoint: str = "chat") -> None:
+    """Persist a running trace admission row before pipeline work (best-effort)."""
+    try:
+        session_role = user.get("role") if isinstance(user, dict) else None
+        connector = _routes_chat().get_telemetry_connector()
+        connector.start_trace(
+            trace_id,
+            entrypoint=entrypoint,
+            status="running",
+            started_at=datetime.now(UTC),
+            user_id=session_role,
+            metadata={"admission": True, "session_role": session_role},
+        )
+        connector.reap_stale_running_runs()
+    except Exception:  # noqa: BLE001 - admission telemetry must never break chat
+        logger.warning("chat_admission_record_failed trace_id=%s", trace_id, exc_info=True)
+
+
+def finalize_chat_trace_from_state(
+    state: ChatPipelineState,
+    response: PlaceholderResponse,
+    *,
+    started_at: datetime,
+    session_role: str | None,
+    entrypoint: str = "chat",
+) -> None:
+    """Close the durable trace spine for LangGraph and stream parity paths."""
+    _persist_live_chat_telemetry(
+        state,
+        response,
+        started_at=started_at,
+        session_role=session_role,
+        entrypoint=entrypoint,
+    )
+
+
 def _persist_live_chat_telemetry(
     state: ChatPipelineState,
     response: PlaceholderResponse,
     *,
     started_at: datetime,
     session_role: str | None,
+    entrypoint: str = "chat",
 ) -> None:
     """Phase 0/1: persist the durable trace spine + per-turn LLM-call ledger.
 
@@ -479,7 +519,7 @@ def _persist_live_chat_telemetry(
         run_status = "human_review" if payload.get("human_review") else "completed"
         telemetry.start_trace(
             trace_id,
-            entrypoint="chat",
+            entrypoint=entrypoint,
             status="running",
             started_at=started_at,
             user_id=session_role,
@@ -2379,6 +2419,20 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                     f"```\n{spl_text}\n```"
                 )
                 message = f"{message.strip()}\n\n{spl_block}".strip()
+    elif _is_universal_spl_authoring_review(candidate_spl, spl_validation):
+        human_review = _universal_spl_authoring_review()
+        note = (
+            "Universal/template-free review-only SPL draft produced; analyst validation required "
+            "before any execution. Nothing was executed."
+        )
+        if isinstance(candidate_spl, dict):
+            spl_text = str(candidate_spl.get("candidate_spl") or "").strip()
+            if spl_text:
+                spl_block = (
+                    "Review-only universal SPL draft (template-free, not executed):\n"
+                    f"```\n{spl_text}\n```"
+                )
+                message = spl_block
     elif _is_spl_clarification_required(spl_validation):
         human_review = _spl_clarification_review(spl_validation)
         message = human_review["safe_message_for_user"]
@@ -4176,6 +4230,30 @@ def _is_t2_review_only(
     )
 
 
+
+def _is_universal_spl_authoring_review(
+    candidate_spl: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+) -> bool:
+    cs = candidate_spl if isinstance(candidate_spl, dict) else {}
+    sv = spl_validation if isinstance(spl_validation, dict) else {}
+    if cs.get("detection_family") == "universal_timestamp_spl":
+        return True
+    return str(sv.get("review_required_reason") or "") == "universal_spl_authoring_review_only"
+
+
+def _universal_spl_authoring_review() -> dict:
+    return human_review(
+        "spl_review_required",
+        "universal_spl_authoring_review_only",
+        "soc_analyst",
+        ["review_draft_spl", "cancel"],
+        "Universal/template-free review-only SPL draft. Splunk %w uses 0=Sunday and 6=Saturday "
+        "for weekend filtering. Nothing was executed; validate before any future execution path.",
+        required=True,
+    )
+
+
 def _t2_review_only_review() -> dict:
     return human_review(
         "spl_review_required",
@@ -4625,6 +4703,27 @@ def _candidate_spl_stage(
     )
     if skill not in {"attack_discovery", "spl_generation"} and not guided_spl_rescue:
         return None, None
+
+    signals = query_signals if isinstance(query_signals, dict) else {}
+    if signals.get("explicit_spl_authoring"):
+        telemetry = _routes_chat().get_telemetry_connector()
+        profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
+        spl_governance = _runtime_spl_governance(use_case_id)
+        authoring_draft = _candidate_from_lab_draft(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+            pattern_type=mapped_pattern_type,
+            use_case_id=use_case_id,
+            llm_fallback_reason="explicit_spl_authoring_deterministic_draft",
+            live_data_request=bool(signals.get("explicit_spl_authoring")),
+            llm_intent_advisory=llm_intent_advisory,
+        )
+        if authoring_draft is not None:
+            return authoring_draft
 
     telemetry = _routes_chat().get_telemetry_connector()
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
@@ -5474,12 +5573,22 @@ def _candidate_from_lab_draft(
         "candidate_spl": draft_spl,
         "generation_mode": "deterministic_lab_draft",
         "confidence": 0.5,
-        "assumptions": [
-            *list(draft.get("assumptions") or []),
-            "Deterministic lab SPL draft — not governed, not catalog-approved, not executable.",
-            "Placeholder index/sourcetype require a source profile before validation or execution.",
-        ],
-        "warnings": ["lab_draft_requires_source_profile"],
+        "assumptions": list(draft.get("assumptions") or [])
+        + (
+            [
+                "Deterministic lab SPL draft — not governed, not catalog-approved, not executable.",
+            ]
+            if draft.get("detection_family") == "universal_timestamp_spl"
+            else [
+                "Deterministic lab SPL draft — not governed, not catalog-approved, not executable.",
+                "Placeholder index/sourcetype require a source profile before validation or execution.",
+            ]
+        ),
+        "warnings": (
+            ["review_only_universal_spl"]
+            if draft.get("detection_family") == "universal_timestamp_spl"
+            else ["lab_draft_requires_source_profile"]
+        ),
         "selected_candidate_spl_provider": "deterministic_lab_draft",
         "fallback_required": True,
         "candidate_spl_generated": True,
@@ -5502,8 +5611,21 @@ def _candidate_from_lab_draft(
         "normalized_spl": None,
         "exposure_tier": "lab_candidate",
         "lab_tier_exposure": True,
-        "reject_reasons": list(draft.get("validator_reject_reasons") or ["lab_draft_source_profile_missing"]),
-        "warnings": ["lab_draft_requires_source_profile"],
+        "reject_reasons": (
+            ["universal_spl_authoring_review_only"]
+            if draft.get("detection_family") == "universal_timestamp_spl"
+            else list(draft.get("validator_reject_reasons") or ["lab_draft_source_profile_missing"])
+        ),
+        "review_required_reason": (
+            "universal_spl_authoring_review_only"
+            if draft.get("detection_family") == "universal_timestamp_spl"
+            else None
+        ),
+        "warnings": (
+            ["review_only_universal_spl"]
+            if draft.get("detection_family") == "universal_timestamp_spl"
+            else ["lab_draft_requires_source_profile"]
+        ),
         "enforced_limits": validate_spl("").get("enforced_limits") or {},
         "policy_version": validate_spl("").get("policy_version"),
         "selected_candidate_spl_provider": "deterministic_lab_draft",
@@ -6301,7 +6423,10 @@ def _is_spl_clarification_required(spl_validation: dict[str, Any] | None) -> boo
     # A T1 SPL-native review-only draft is a renderable review state, not a
     # clarification, even though it carries review-level findings (e.g. missing
     # sourcetype) that otherwise map to the clarification reason set.
-    if str(spl_validation.get("review_required_reason") or "") == "t2_spl_native_review_only":
+    if str(spl_validation.get("review_required_reason") or "") in {
+        "t2_spl_native_review_only",
+        "universal_spl_authoring_review_only",
+    }:
         return False
     if spl_validation.get("llm_fallback_status") == "clarification_required":
         return True

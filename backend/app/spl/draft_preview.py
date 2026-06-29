@@ -102,6 +102,11 @@ FAMILY_PRESENTATION: dict[str, dict[str, str]] = {
         "review_type": "investigation_review",
         "review_type_display": "Investigation review — lab draft SPL, auth source profile required, not executed",
     },
+    "universal_timestamp_spl": {
+        "title": "Universal timestamp feature extraction (review-only)",
+        "review_type": "spl_authoring_review",
+        "review_type_display": "Review-only universal SPL — template-free, not executed",
+    },
     "auth_failed_login_threshold": {
         "title": "Failed-login threshold hunt",
         "review_type": "investigation_review",
@@ -241,6 +246,35 @@ def _family(
 
 
 _CORE_DETECTION_FAMILIES: tuple[DetectionFamily, ...] = (
+    _family(
+        "universal_timestamp_spl",
+        pattern_texts=(
+            r"weekend\s+events?",
+            r"day\s+of\s+(?:the\s+)?week",
+            r"hour\s+of\s+(?:the\s+)?day",
+            r"universal\s+spl\s+block",
+            r"standard\s+universal\s+spl",
+            r"template[-\s]?free\s+spl",
+            r"without.*company\s+templates?",
+            r"extract\s+hour",
+            r"extract\s+day\s+of",
+        ),
+        draft_spl="""
+search index=* earliest=-7d latest=now
+| sort 0 -_time
+| eval hour=strftime(_time,"%H"), dow=strftime(_time,"%w")
+| where dow IN ("0","6")
+| table _time hour dow sourcetype host
+| head 100
+""",
+        assumptions=(
+            "Universal/template-free review-only SPL using index=*; not tied to a company template registry.",
+            "Splunk %w: 0=Sunday, 6=Saturday for weekend filtering.",
+            "Adjust index and time bounds to your environment before any future execution review.",
+        ),
+        required_log_fields=("_time", "sourcetype", "host"),
+        scope_notice="Template-free universal SPL block for analyst review only; execution disabled.",
+    ),
     _family(
         "windows_privileged_group_changes",
         pattern_texts=(
@@ -2420,6 +2454,14 @@ def match_detection_family(user_query: str) -> str | None:
     if not text:
         return None
     normalized = " ".join(text.lower().split())
+    if re.search(r"weekend", normalized) and re.search(
+        r"strftime|hour|day\s+of\s+(?:the\s+)?week|spl\s+block|universal\s+spl", normalized
+    ):
+        return "universal_timestamp_spl"
+    if re.search(r"universal\s+spl\s+block|standard\s+universal\s+spl|template[-\s]?free\s+spl", normalized):
+        return "universal_timestamp_spl"
+    if re.search(r"extract\s+hour", normalized) and re.search(r"day\s+of\s+(?:the\s+)?week|weekend", normalized):
+        return "universal_timestamp_spl"
     if re.search(
         r"\b(?:external connections?|remote access(?:\s+sessions?)?|vpn sessions?)\b",
         normalized,

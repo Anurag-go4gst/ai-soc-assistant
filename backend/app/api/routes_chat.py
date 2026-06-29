@@ -12,6 +12,7 @@ from app.connectors.telemetry.log_context import (
     set_trace_id,
 )
 from app.chat.pipeline import (
+    persist_chat_admission,
     _attach_hil_soc_kb_guidance,
     _context_stage,
     _route_plan_shadow_candidate,
@@ -68,7 +69,7 @@ def chat(
     set_trace_id(trace_id)
     if response is not None:
         response.headers[TRACE_ID_HEADER] = trace_id
-    _persist_admission_record(trace_id, user)
+    persist_chat_admission(trace_id, user)
     try:
         return _chat_impl(request, user)
     except Exception as exc:
@@ -87,31 +88,6 @@ def chat(
             pass
         raise
 
-
-def _persist_admission_record(trace_id: str, user: object) -> None:
-    """Persist a ``running`` trace row before pipeline work begins (best-effort).
-
-    This is what makes a transport-timed-out or client-disconnected turn queryable:
-    the row exists under the client-known trace id even if the pipeline never
-    finishes. The pipeline's own ``start_trace``/``end_trace`` later UPSERTs the
-    same row to its terminal status. Never breaks chat.
-    """
-    try:
-        session_role = user.get("role") if isinstance(user, dict) else None
-        connector = get_telemetry_connector()
-        connector.start_trace(
-            trace_id,
-            entrypoint="chat",
-            status="running",
-            started_at=datetime.now(UTC),
-            user_id=session_role,
-            metadata={"admission": True, "session_role": session_role},
-        )
-        # Opportunistic sweep: close out runs that crashed or were interrupted
-        # mid-pipeline and never reached end_trace, so the debug list stays honest.
-        connector.reap_stale_running_runs()
-    except Exception:  # noqa: BLE001 - admission telemetry must never break chat
-        logger.warning("chat_admission_record_failed trace_id=%s", trace_id, exc_info=True)
 
 
 def _chat_impl(request: ChatRequest, user: object) -> PlaceholderResponse:

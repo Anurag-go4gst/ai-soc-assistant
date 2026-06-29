@@ -291,6 +291,26 @@ def classify_intent(
         )
 
     if (
+        signals.get("explicit_spl_authoring")
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+        and not signals.get("run_execution")
+    ):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.88,
+            requires_clarification=False,
+            reason=(
+                "Explicit SPL text/snippet/block request; universal review-only SPL "
+                "authoring without source-profile clarification."
+            ),
+            requested_output_type="SPL",
+        )
+
+    if (
         str(candidate_mappings.get("match_path") or "") == "out_of_registry"
         and signals.get("live_data_request")
         and not signals.get("guidance_request")
