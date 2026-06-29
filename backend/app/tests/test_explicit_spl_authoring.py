@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.chat.evidence_planner import plan_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.query_signals import extract_query_signals
@@ -128,3 +129,108 @@ def test_unsafe_spl_action_still_blocked(spl_authoring_flags: None) -> None:
     execution = response.execution
     if execution is not None:
         assert getattr(execution, "status", None) != "executed"
+
+
+def _llm_spl_authoring_advisory(**overrides) -> LLMIntentAdvisory:
+    base = dict(
+        spl_authoring_request=True,
+        requires_source_profile=False,
+        intent_family_candidate="spl_generation_only",
+        llm_called=True,
+        adjudication_status="accepted",
+        confidence_metadata={"confidence": 0.9},
+    )
+    base.update(overrides)
+    return LLMIntentAdvisory(**base)
+
+
+def test_deterministic_only_mode_catches_universal_spl_block(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", False)
+    qu = understand_query(_WEEKEND_QUERY)
+    routed = route_skill(_WEEKEND_QUERY)
+    q2i = build_query_to_intent(
+        query=_WEEKEND_QUERY,
+        query_understanding=qu,
+        routed_skill=routed["skill"],
+        routing_provenance=routed.get("routing_provenance"),
+    )
+    assert q2i.intent_classification.intent_family == "spl_generation_only"
+    trace = q2i.query_signals.get("spl_authoring_trace") or {}
+    assert trace.get("explicit_spl_authoring_detected") is True
+    assert trace.get("spl_authoring_source") == "deterministic"
+    assert trace.get("source_profile_required") is False
+
+
+def test_mock_llm_rescues_universal_spl_when_deterministic_misses(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.chat.query_signals._explicit_spl_authoring_requested",
+        lambda _normalized: False,
+    )
+    qu = understand_query(_WEEKEND_QUERY)
+    routed = route_skill(_WEEKEND_QUERY)
+    q2i = build_query_to_intent(
+        query=_WEEKEND_QUERY,
+        query_understanding=qu,
+        routed_skill=routed["skill"],
+        routing_provenance=routed.get("routing_provenance"),
+        llm_intent_advisory=_llm_spl_authoring_advisory(),
+    )
+    assert q2i.intent_classification.intent_family == "spl_generation_only"
+    trace = q2i.query_signals.get("spl_authoring_trace") or {}
+    assert trace.get("spl_authoring_source") == "llm_advisory"
+    adj = adjudicate_route(
+        deterministic_route="spl_generation",
+        evidence_plan=plan_evidence(
+            q2i.intent_classification.model_dump(),
+            query_to_intent=q2i.model_dump(),
+            query_understanding=qu,
+        ).model_dump(),
+        intent_classification=q2i.intent_classification.model_dump(),
+        query_understanding=qu,
+        message=_WEEKEND_QUERY,
+        query_to_intent=q2i.model_dump(),
+    )
+    assert adj.final_route == "spl_generation"
+
+
+def test_llm_timeout_still_falls_back_to_spl_generation(spl_authoring_flags: None) -> None:
+    qu = understand_query(_WEEKEND_QUERY)
+    routed = route_skill(_WEEKEND_QUERY)
+    timed_out = LLMIntentAdvisory(llm_called=True, dropped_reasons=["llm_timed_out"])
+    q2i = build_query_to_intent(
+        query=_WEEKEND_QUERY,
+        query_understanding=qu,
+        routed_skill=routed["skill"],
+        routing_provenance=routed.get("routing_provenance"),
+        llm_intent_advisory=timed_out,
+    )
+    assert q2i.intent_classification.intent_family == "spl_generation_only"
+    trace = q2i.query_signals.get("spl_authoring_trace") or {}
+    assert trace.get("spl_authoring_source") == "deterministic"
+
+
+def test_llm_conflicting_output_cannot_override_explicit_spl_authoring(
+    spl_authoring_flags: None,
+) -> None:
+    qu = understand_query(_WEEKEND_QUERY)
+    routed = route_skill(_WEEKEND_QUERY)
+    conflicting = _llm_spl_authoring_advisory(
+        spl_authoring_request=False,
+        intent_family_candidate="knowledge_only",
+    )
+    q2i = build_query_to_intent(
+        query=_WEEKEND_QUERY,
+        query_understanding=qu,
+        routed_skill=routed["skill"],
+        routing_provenance=routed.get("routing_provenance"),
+        llm_intent_advisory=conflicting,
+    )
+    assert q2i.intent_classification.intent_family == "spl_generation_only"
+    trace = q2i.query_signals.get("spl_authoring_trace") or {}
+    assert trace.get("spl_authoring_source") == "deterministic"

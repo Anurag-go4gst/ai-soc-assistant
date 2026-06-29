@@ -59,6 +59,17 @@ def _query_signals(query_to_intent: dict[str, Any] | None) -> dict[str, Any]:
     return dict(signals) if isinstance(signals, dict) else {}
 
 
+def llm_advisory_indicates_spl_authoring_from_dict(advisory: dict[str, Any] | None) -> bool:
+    if not isinstance(advisory, dict) or advisory.get("dropped_reasons"):
+        return False
+    if advisory.get("adjudication_status") == "rejected":
+        return False
+    if advisory.get("spl_authoring_request"):
+        return True
+    family = str(advisory.get("intent_family_candidate") or "").strip().lower()
+    return family in {"spl_generation", "spl_generation_only"}
+
+
 def adjudicate_route(
     *,
     deterministic_route: str,
@@ -97,21 +108,38 @@ def adjudicate_route(
         )
 
     signals = _query_signals(query_to_intent)
+    spl_trace = signals.get("spl_authoring_trace") if isinstance(signals.get("spl_authoring_trace"), dict) else {}
+    q2i_llm_advisory: dict[str, Any] | None = None
+    if isinstance(query_to_intent, dict):
+        raw_adv = query_to_intent.get("llm_intent_advisory")
+        if isinstance(raw_adv, dict):
+            q2i_llm_advisory = raw_adv
+        elif hasattr(raw_adv, "model_dump"):
+            q2i_llm_advisory = raw_adv.model_dump()
+    spl_authoring_detected = bool(
+        signals.get("explicit_spl_authoring")
+        or spl_trace.get("explicit_spl_authoring_detected")
+        or llm_advisory_indicates_spl_authoring_from_dict(q2i_llm_advisory)
+    )
     if (
         intent.requires_clarification
-        and signals.get("explicit_spl_authoring")
+        and spl_authoring_detected
         and deterministic_route == "spl_generation"
         and not signals.get("block_or_contain")
         and not signals.get("explicit_run_spl")
+        and not signals.get("run_execution")
         and intent.primary_intent != "human_review"
     ):
+        source = spl_trace.get("spl_authoring_source") or (
+            "explicit_spl_authoring" if signals.get("explicit_spl_authoring") else "llm_advisory"
+        )
         return finish(
             final_route="spl_generation",
             final_use_case_id=_first_use_case_id(mappings),
             authority_source="explicit_spl_authoring",
             reason=(
                 "Explicit SPL text/snippet request; review-only SPL generation "
-                "without clarification override."
+                f"without clarification override (source={source})."
             ),
         )
 
