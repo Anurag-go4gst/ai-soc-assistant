@@ -7,7 +7,7 @@ todos:
     status: done
   - id: phase05-final-output
     content: build_final_output_trace + merge into trace metadata; fix answer_preview; expose explainability.final_output in debug bundle
-    status: pending
+    status: done
   - id: phase1a-intent-dispatch
     content: Table-driven 2C prompt modes (skip, spl_slot_extraction, catalogue_promotion, clarification) with per-mode JSON schemas; IntentDispatchDecision gating in graph_node_query_to_intent
     status: pending

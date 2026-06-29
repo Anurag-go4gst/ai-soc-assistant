@@ -133,18 +133,37 @@ def _link_trace_to_turn(
     control_plane_trace = payload.get("control_plane_trace")
     if isinstance(control_plane_trace, dict) and control_plane_trace:
         metadata["control_plane_trace"] = control_plane_trace
+    # Final analyst-visible output snapshot (redacted) so the bundle shows the
+    # answer the analyst saw, not just routing/SPL explainability.
+    try:
+        from app.chat.final_output_trace import (
+            build_final_output_trace,
+            final_output_answer_preview,
+        )
+
+        final_output = build_final_output_trace(payload)
+        if final_output:
+            metadata["final_output"] = final_output
+        # Prefer the real answer text for the trace-list preview over the canned
+        # RunContract template string.
+        real_preview = final_output_answer_preview(payload)
+        if real_preview:
+            metadata["answer_preview"] = real_preview
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        pass
     run_contract = payload.get("run_contract")
     if isinstance(run_contract, dict):
         metadata["run_contract"] = run_contract
-        try:
-            from app.chat.contracts.run_contract import RunContract
-            from app.chat.run_contract_builder import build_answer_preview
+        if "answer_preview" not in metadata:
+            try:
+                from app.chat.contracts.run_contract import RunContract
+                from app.chat.run_contract_builder import build_answer_preview
 
-            preview = build_answer_preview(RunContract.model_validate(run_contract))
-            if preview:
-                metadata["answer_preview"] = preview
-        except Exception:  # noqa: BLE001 - telemetry must never break chat
-            pass
+                preview = build_answer_preview(RunContract.model_validate(run_contract))
+                if preview:
+                    metadata["answer_preview"] = preview
+            except Exception:  # noqa: BLE001 - telemetry must never break chat
+                pass
     if "answer_preview" not in metadata:
         metadata["answer_preview"] = _preview(payload.get("message"))
     try:

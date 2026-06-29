@@ -101,6 +101,7 @@ def fetch_trace_bundle(trace_id: str, *, max_events: int | None = None) -> dict[
             "governance_trace": metadata.get("governance_trace"),
             "lineage_summary": metadata.get("lineage_summary"),
             "llm_sidecars": metadata.get("llm_sidecars"),
+            "final_output": metadata.get("final_output"),
         },
         "turn_id": metadata.get("turn_id"),
         "event_truncated": bool(timeline.get("event_truncated")),
