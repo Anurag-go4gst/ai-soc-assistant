@@ -307,6 +307,55 @@ def _spl_artifact_handoff_trace_lines(handoff: dict[str, Any] | None) -> list[st
             lines.append(f"- {key}: {value}")
     return lines
 
+_UNIVERSAL_UTILITY_TITLE = "Review-only universal SPL draft. This was not executed."
+_UNIVERSAL_UTILITY_FAMILY = "universal_timestamp_spl"
+
+
+def _is_universal_spl_utility(
+    draft_preview: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None,
+) -> bool:
+    """True only for the universal/template-free SPL authoring family.
+
+    Strictly gated so analytics, q046, T2 SCADA/Cisco/Winevent, and investigation
+    answers keep the full governance-framed SOC rendering.
+    """
+    dp = draft_preview if isinstance(draft_preview, dict) else {}
+    cs = candidate_spl if isinstance(candidate_spl, dict) else {}
+    return (
+        dp.get("detection_family") == _UNIVERSAL_UTILITY_FAMILY
+        or cs.get("detection_family") == _UNIVERSAL_UTILITY_FAMILY
+    )
+
+
+def render_universal_spl_utility_answer(
+    *,
+    analyst_response: Any,
+    draft_preview: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None = None,
+) -> str:
+    """Concise SPL-first answer for explicit universal/template-free SPL authoring.
+
+    No severity line, no long SOC checklist, no source-profile clarification, no
+    compromise caveat — those stay in the governance trace. Just the not-executed
+    notice, the SPL block, and a short usage explanation.
+    """
+    draft_spl = _draft_spl_text(analyst_response, draft_preview, candidate_spl=candidate_spl)
+    lines: list[str] = [_UNIVERSAL_UTILITY_TITLE, ""]
+    if draft_spl:
+        lines.append(draft_spl)
+        lines.append("")
+    lines.append("How to use:")
+    lines.append("- Replace `<your_index>` with your index (or bind a source profile).")
+    lines.append("- `%H` extracts the hour of day.")
+    lines.append("- `%w` is the weekday number (0=Sunday, 6=Saturday) and drives the weekend filter.")
+    lines.append("- `%A` is the display-only day name.")
+    lines.append("- Adjust `earliest`/`latest` to your time window.")
+    lines.append("")
+    lines.append(_HOW_PRODUCED)
+    return "\n".join(lines).strip()
+
+
 def render_review_only_spl_answer(
     *,
     analyst_response: Any,
@@ -322,6 +371,13 @@ def render_review_only_spl_answer(
     optional "How this answer was produced" line. The renderer never emits live-result
     language, severity priority prefixes, or a competing title/review-type banner.
     """
+    if _is_universal_spl_utility(draft_preview, candidate_spl):
+        return render_universal_spl_utility_answer(
+            analyst_response=analyst_response,
+            draft_preview=draft_preview,
+            candidate_spl=candidate_spl,
+        )
+
     lines: list[str] = [_MAIN_TITLE, ""]
 
     lines.append(f"Severity: {_severity_text(analyst_response)}")
@@ -453,6 +509,26 @@ def apply_review_only_spl_render(
         candidate_spl=candidate_spl,
         spl_artifact_handoff=spl_artifact_handoff,
     )
+
+    # Concise SPL-first card for explicit universal/template-free authoring only.
+    # Governance fields on the run_contract are untouched; this only suppresses the
+    # SOC-investigation card sections for this narrow utility mode.
+    if _is_universal_spl_utility(draft_preview, candidate_spl):
+        updates = {
+            "finding_title": _UNIVERSAL_UTILITY_TITLE,
+            "scenario_label": None,
+            "response_profile": "spl_only",
+            "investigation_steps": [],
+            "recommended_actions": [],
+            "severity_rationale": None,
+            "severity_safety_note": None,
+            "direct_answer_summary": _UNIVERSAL_UTILITY_TITLE,
+            "analyst_checklist": [],
+        }
+        overlays = t2_card_overlays(candidate_spl)
+        if overlays:
+            updates.update(overlays)
+        return analyst_response.model_copy(update=updates), composed
 
     # Header text owned by the card summary (status block + scope only). The title is not
     # repeated here (the card renders ``finding_title`` as its heading), and the lab-only
