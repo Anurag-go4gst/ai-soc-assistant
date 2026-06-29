@@ -536,15 +536,22 @@ def apply_review_only_spl_render(
     # SOC-investigation card sections for this narrow utility mode.
     if _is_universal_spl_utility(draft_preview, candidate_spl):
         updates = {
-            "finding_title": _UNIVERSAL_UTILITY_TITLE,
+            "finding_title": None,
             "scenario_label": None,
             "response_profile": "spl_only",
             "investigation_steps": [],
             "recommended_actions": [],
+            "severity_label": None,
             "severity_rationale": None,
             "severity_safety_note": None,
-            "direct_answer_summary": "Review-only SPL utility draft prepared; no live query was executed.",
+            "direct_answer_summary": composed,
+            "one_sentence_finding": composed,
             "analyst_checklist": [],
+            "spl_code": None,
+            "draft_spl_code": None,
+            "spl_draft_preview": None,
+            "spl_unbound_constraints": [],
+            "review_notice": None,
         }
         overlays = t2_card_overlays(candidate_spl)
         if overlays:

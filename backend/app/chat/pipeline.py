@@ -3471,6 +3471,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
         spl_artifact_handoff=_spl_handoff,
     )
+    visible_spl_draft_preview = (
+        None
+        if _is_universal_spl_authoring_review(candidate_spl, spl_validation)
+        else spl_draft_preview
+    )
     action_capability = action_capability_for(
         response_use_case.use_case_id if response_use_case else None,
         severity_decision.severity_label,
@@ -3507,7 +3512,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         note=note,
         analyst_summary=(
             None
-            if spl_draft_preview and isinstance(spl_draft_preview, dict)
+            if visible_spl_draft_preview and isinstance(visible_spl_draft_preview, dict)
             else analyst_summary_from_lab
         ),
         answer_mode=answer_mode,
@@ -3516,7 +3521,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         workflow_plan=state["workflow_plan"],
         candidate_spl=candidate_spl,
         spl_validation=spl_validation,
-        spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
+        spl_draft_preview=visible_spl_draft_preview if isinstance(visible_spl_draft_preview, dict) else None,
         llm_spl_candidate=llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None,
         execution=execution,
         human_review=human_review,

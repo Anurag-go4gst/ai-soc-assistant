@@ -329,6 +329,14 @@ def test_live_response_surfaces_utility_mode_and_postprocessor_trace(
     assert spl_trace.get("postprocessor_applied") is True
     assert spl_trace.get("final_spl_authority") == "deterministic_postprocessor"
     assert spl_trace.get("review_only_spl_postprocessor_trace")
+    assert payload.get("spl_draft_preview") is None
+    analyst = payload.get("analyst_response") or {}
+    assert analyst.get("spl_draft_preview") is None
+    assert analyst.get("draft_spl_code") in {None, ""}
+    assert "Unresolved source bindings" not in str(analyst)
+    assert "missing source profile" not in str(analyst).lower()
+    assert "index=<your_index>" not in str(analyst)
+    assert "index=pgcil_soc" in str(analyst.get("direct_answer_summary") or "")
     assert (payload.get("execution") or {}).get("status") != "executed"
 
 
