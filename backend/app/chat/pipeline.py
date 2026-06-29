@@ -197,6 +197,10 @@ from app.llm.intent_advisor_scheduler import (
     should_prioritize_intent_advisor,
 )
 from app.chat.query_signals import extract_query_signals
+from app.chat.spl_authoring_intent import (
+    is_universal_utility_spl_authoring,
+    should_skip_intent_for_universal_utility_spl,
+)
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory
 from app.llm.t2_advisory_latency_policy import (
@@ -765,6 +769,19 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     ):
         skip_advisory = True
         skip_reason = "registry_backed_high_confidence_t0"
+    intent_advisory_not_required_for_universal_utility_route = False
+    intent_advisor_skip_reason: str | None = None
+    budget_reallocated_to_spl_drafting = False
+    utility_skip, utility_skip_reason = should_skip_intent_for_universal_utility_spl(
+        query_text,
+        preliminary_signals,
+    )
+    if utility_skip:
+        skip_advisory = True
+        skip_reason = utility_skip_reason
+        intent_advisory_not_required_for_universal_utility_route = True
+        intent_advisor_skip_reason = utility_skip_reason
+        budget_reallocated_to_spl_drafting = True
     if (
         skip_advisory
         and skip_reason not in {
@@ -800,6 +817,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         dropped_reasons: list[str] | None = None,
         llm_called: bool = False,
         adjudication_status: str | None = None,
+        proceeded_without_intent_wait: bool = False,
     ) -> dict[str, Any]:
         trace = build_intent_scheduling_trace(
             budget=budget,
@@ -812,7 +830,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         effective_bound = bound_timeout_seconds
         if bound_reason is not None and effective_bound is None:
             effective_bound = _FROZEN_T0_INTENT_ADVISOR_BOUND_SECONDS
-        return enrich_intent_advisory_trace(
+        enriched = enrich_intent_advisory_trace(
             trace,
             bound_reason=bound_reason,
             bound_timeout_seconds=effective_bound,
@@ -820,6 +838,19 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             llm_called=llm_called,
             adjudication_status=adjudication_status,
         )
+        enriched.update(
+            {
+                "deterministic_route_proceeded_without_waiting_for_intent": (
+                    proceeded_without_intent_wait
+                ),
+                "intent_advisory_not_required_for_universal_utility_route": (
+                    intent_advisory_not_required_for_universal_utility_route
+                ),
+                "intent_advisor_skip_reason": intent_advisor_skip_reason,
+                "budget_reallocated_to_spl_drafting": budget_reallocated_to_spl_drafting,
+            }
+        )
+        return enriched
 
     if skip_advisory:
         fallback = skip_reason or "deterministic_exact_match_t0"
@@ -828,6 +859,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             scheduling_trace=_scheduling_trace(
                 fallback_reason=fallback,
                 route_after_skip=routed_skill,
+                proceeded_without_intent_wait=True,
             ),
         )
     elif (hop_block := intent_advisor_hop_blocked(budget)):
@@ -836,6 +868,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             scheduling_trace=_scheduling_trace(
                 fallback_reason=hop_block,
                 route_after_skip=routed_skill,
+                proceeded_without_intent_wait=True,
             ),
         )
     else:
@@ -860,6 +893,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
                     fallback_reason="insufficient_deadline_reserve",
                     route_after_skip=routed_skill,
                     bound_reason=_bound_reason,
+                    proceeded_without_intent_wait=True,
                 ),
             )
         else:
@@ -1794,6 +1828,25 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
 def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("retrieving_knowledge")
     request = state["request"]
+    query_text = state.get("effective_query") or request.message
+    query_understanding = state.get("query_understanding")
+    utility_signals = extract_query_signals(query_text, query_understanding)
+    if is_universal_utility_spl_authoring(query_text, utility_signals):
+        retrieval = {
+            "retrieved_entries": [],
+            "retrieval_status": "skipped",
+            "ambiguity_status": "clear",
+            "ambiguity_assist": None,
+            "confidence": 0.0,
+            "reasons": ["rag_skipped_for_spl_utility_authoring"],
+            "warnings": [],
+            "rag_skipped_for_spl_utility_authoring": True,
+            "selected_collections": [],
+            "collection_selection": {},
+            "direct_to_llm": False,
+            "llm_selection_enabled": False,
+        }
+        return {**state, "soc_kb_retrieval": retrieval}
     workflow_plan = state["workflow_plan"]
     execution = state["execution"] if "execution" in state else {"block_reason": None}
     retrieval = retrieve_soc_kb(
@@ -4709,6 +4762,20 @@ def _candidate_spl_stage(
         telemetry = _routes_chat().get_telemetry_connector()
         profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
         spl_governance = _runtime_spl_governance(use_case_id)
+        if is_universal_utility_spl_authoring(user_query, signals):
+            from app.spl.utility_spl_authoring import candidate_from_universal_utility_authoring
+
+            utility_draft = candidate_from_universal_utility_authoring(
+                trace_id=trace_id,
+                skill=skill,
+                user_query=user_query,
+                telemetry=telemetry,
+                profile=profile,
+                spl_governance=spl_governance,
+                llm_intent_advisory=llm_intent_advisory,
+            )
+            if utility_draft is not None:
+                return utility_draft
         authoring_draft = _candidate_from_lab_draft(
             trace_id=trace_id,
             skill=skill,

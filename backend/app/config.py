@@ -272,6 +272,14 @@ class Settings(BaseSettings):
     ai_soc_llm_spl_advisory_provider: str = ""
     ai_soc_llm_spl_advisory_model: str = ""
     ai_soc_llm_spl_fallback_enabled: bool = False
+    # PR #58 — bounded SPL draft for explicit universal/template-free utility authoring
+    # only (not global SPL failover). Scoped hop; deterministic skeleton fallback.
+    ai_soc_llm_utility_spl_draft_enabled: bool = True
+    # Slow on-prem VPS: sub-10s timeouts are ineffective; 90s is the operator default.
+    ai_soc_llm_utility_spl_draft_timeout_seconds: float = 90.0
+    ai_soc_llm_utility_spl_draft_failover_enabled: bool = False
+    # When false, universal utility SPL still runs intent advisor (use if route unsure).
+    ai_soc_llm_utility_skip_intent_advisor: bool = True
     # Regenerate-once on the SPL failover relevance gate. Default off: one LLM call
     # per failover turn so slow on-prem hardware does not double worst-case latency.
     ai_soc_llm_spl_failover_retry_enabled: bool = False

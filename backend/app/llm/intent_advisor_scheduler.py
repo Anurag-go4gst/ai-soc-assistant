@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from app.chat.spl_authoring_intent import is_universal_utility_spl_authoring
 from app.config import settings
 from app.llm.sidecar_clients import INTENT_ROLE, build_failover_client_for_role
 from app.llm.turn_llm_budget import (
@@ -31,13 +32,15 @@ def should_prioritize_intent_advisor(
     preliminary_signals: dict[str, Any],
 ) -> bool:
     """Override Tier-T0 skip when live log retrieval needs entity-slot assistance."""
-    del query, query_understanding  # reserved for future shape checks
     if preliminary_signals.get("guidance_request"):
         return False
     if preliminary_signals.get("non_soc_or_out_of_scope"):
         return False
     if preliminary_signals.get("action_or_containment_shaped"):
         return False
+    if is_universal_utility_spl_authoring(query, preliminary_signals):
+        return False
+    del query_understanding  # reserved for future shape checks
     match_path = str(candidate_mappings.get("match_path") or "").strip()
     if match_path not in {"", "out_of_registry", "llm_promoted_with_registry_validation"}:
         return False

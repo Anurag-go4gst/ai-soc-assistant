@@ -63,6 +63,7 @@ def generate_llm_spl_fallback(
     context: dict[str, Any] | None = None,
     relevance_feedback: list[str] | None = None,
     correctness_mode: bool = False,
+    utility_authoring: bool = False,
 ) -> LlmSplFallbackResult | None:
     """Generate candidate SPL from LLM advisory fallback (default-off, never governed).
 
@@ -70,7 +71,7 @@ def generate_llm_spl_fallback(
     execution eligibility is forced false by the adapter contract, SPL must pass
     deterministic validation and SOC-STD-SPL-001 quality lint before exposure.
     """
-    if not settings.ai_soc_llm_spl_fallback_enabled:
+    if not utility_authoring and not settings.ai_soc_llm_spl_fallback_enabled:
         return _clarification(CLARIFICATION_LLM_DISABLED)
     if settings.ai_soc_llm_mode.strip().lower() == "disabled" or not settings.ai_soc_llm_enabled:
         return _clarification(CLARIFICATION_LLM_DISABLED)
@@ -84,12 +85,17 @@ def generate_llm_spl_fallback(
         active_client = client or build_synthesis_client_from_settings()
         if active_client is None:
             return _clarification(CLARIFICATION_NO_CLIENT)
+        system_prompt, user_prompt = spl_advisory_prompts(
+            user_query,
+            utility_authoring=utility_authoring,
+            correctness_mode=correctness_mode,
+            context=context,
+            relevance_feedback=relevance_feedback,
+        )
         try:
             completion = active_client.generate(
-                system_prompt=_system_prompt(correctness_mode=correctness_mode),
-                user_prompt=_user_prompt(
-                    user_query, context=context, relevance_feedback=relevance_feedback
-                ),
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 # Raised from 400: the full advisory schema needs ~500 tokens; 400
                 # truncated mid-JSON (finish_reason=length) on live probes.
                 max_tokens=_spl_max_output_tokens(),
@@ -111,10 +117,8 @@ def generate_llm_spl_fallback(
             if "http_400" in str(exc):
                 try:
                     completion = active_client.generate(
-                        system_prompt=_system_prompt(correctness_mode=correctness_mode),
-                        user_prompt=_user_prompt(
-                            user_query, context=context, relevance_feedback=relevance_feedback
-                        ),
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
                         max_tokens=_spl_max_output_tokens(),
                         temperature=0.0,
                     )
@@ -303,6 +307,39 @@ def generate_llm_spl_fallback(
                 quality_findings=quality_findings,
                 hard_fail_count=quality.hard_fail_count,
             )
+    if (
+        utility_authoring
+        and candidate_spl
+        and status == "candidate_generated"
+        and quality.hard_fail_count == 0
+        and _utility_authoring_review_eligible(validation)
+    ):
+        lab = validate_spl_lab_candidate(candidate_spl)
+        return LlmSplFallbackResult(
+            candidate_spl=candidate_spl,
+            approved=True,
+            lab_tier=True,
+            validation={**lab, "approved": False, "normalized_spl": None},
+            status="candidate_generated",
+            confidence_score=confidence_score,
+            confidence_label=confidence_label,
+            detection_family=detection_family,
+            assumptions=assumptions,
+            required_fields=required_fields,
+            missing_details=missing_details,
+            clarifying_questions=clarifying_questions,
+            validation_notes=validation_notes,
+            soc_std_rules_applied=soc_std_rules_applied,
+            risk_notes=risk_notes,
+            model=model,
+            latency_ms=latency_ms,
+            clarification_required=False,
+            clarification_reason=None,
+            quality_standard=STANDARD_ID,
+            quality_status=quality_payload["quality_status"],
+            quality_findings=quality_findings,
+            hard_fail_count=quality.hard_fail_count,
+        )
     if not approved:
         return LlmSplFallbackResult(
             candidate_spl="",
@@ -354,6 +391,20 @@ def generate_llm_spl_fallback(
         hard_fail_count=quality.hard_fail_count,
     )
 
+
+
+
+def _utility_authoring_review_eligible(validation: dict[str, Any]) -> bool:
+    """Utility universal drafts may expose through postprocessor despite lab-only validator rejects."""
+    rejects = [str(item) for item in (validation.get("reject_reasons") or [])]
+    if validation.get("blocked_commands_found"):
+        return False
+    for reason in rejects:
+        if reason.startswith(("blocked_command:", "disallowed_command:")):
+            return False
+        if reason in {"credential_or_secret_pattern", "empty_spl", "spl_validation_disabled"}:
+            return False
+    return True
 
 def _clarification(
     reason: str,
@@ -563,6 +614,49 @@ SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
     },
     "required": ["status", "candidate_spl", "execution_eligible", "governed", "catalog_approved"],
 }
+
+
+def _utility_authoring_system_append() -> str:
+    """Narrow utility-authoring guidance + weekend few-shot (not global authority constants)."""
+    return (
+        "\n\nUniversal utility SPL authoring (review-only, template-free):\n"
+        "- Draft a clean SPL block that matches the user's utility request exactly.\n"
+        "- Use index=<your_index> when no trusted index is provided; never invent company indexes.\n"
+        "- No inline // comments; no execution or findings claims.\n"
+        "- Use %w (0=Sunday, 6=Saturday) for weekend filter logic; %A is display-only.\n"
+        "Weekend hour/day extraction few-shot:\n"
+        '{"status": "candidate_generated", "confidence_score": 0.72, "confidence_label": "medium", '
+        '"detection_family": "universal_timestamp_spl", "candidate_spl": "search index=<your_index> '
+        "earliest=-24h latest=now\\n| eval hour_of_day=strftime(_time,\\\"%H\\\")\\n"
+        '| eval day_of_week_num=strftime(_time,\\\"%w\\\")\\n'
+        '| eval day_of_week=strftime(_time,\\\"%A\\\")\\n'
+        '| where day_of_week_num IN (\\\"0\\\",\\\"6\\\")\\n'
+        '| table _time hour_of_day day_of_week sourcetype host\\n| head 100", '
+        '"assumptions": ["<your_index> is a placeholder index for review-only preview"], '
+        '"required_fields": ["_time", "index"], "missing_details": [], '
+        '"clarifying_questions": [], "validation_notes": ["Review-only utility draft"], '
+        '"soc_std_rules_applied": ["coalesce_normalization"], "risk_notes": ["Not executed"], '
+        '"execution_eligible": false, "governed": false, "catalog_approved": false}'
+    )
+
+
+def spl_advisory_prompts(
+    user_query: str,
+    *,
+    utility_authoring: bool = False,
+    correctness_mode: bool = False,
+    context: dict[str, Any] | None = None,
+    relevance_feedback: list[str] | None = None,
+) -> tuple[str, str]:
+    system_prompt = _system_prompt(correctness_mode=correctness_mode)
+    if utility_authoring:
+        system_prompt += _utility_authoring_system_append()
+    user_prompt = _user_prompt(
+        user_query,
+        context=context,
+        relevance_feedback=relevance_feedback,
+    )
+    return system_prompt, user_prompt
 
 
 def _system_prompt(correctness_mode: bool = False) -> str:
