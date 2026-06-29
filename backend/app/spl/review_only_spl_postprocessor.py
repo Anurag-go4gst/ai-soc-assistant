@@ -6,7 +6,8 @@ never authorizes execution, never invents an approved index, and never claims
 findings. Safety/authority stay with RunContract / FinalEvidenceGate / the
 deterministic validator; this module only normalizes draft hygiene:
 
-* index resolution (user > COE > source-profile > ``<your_index>`` placeholder)
+* index resolution (user > COE family > source-profile > COE utility default >
+  ``<your_index>`` placeholder)
 * lookback hardening for placeholder/wildcard index drafts
 * removal of an unnecessary pre-filter ``sort 0`` (dependency-aware)
 * locale-safe weekend filtering (``%w`` logic, ``%A`` display preserved)
@@ -75,8 +76,9 @@ def _family_supports_index(target_log_family: str | None, index_value: str) -> b
 def _resolve_index(context: dict[str, Any], original_index: str) -> tuple[str, str]:
     """Return (resolved_index, resolution_source) per the fixed precedence.
 
-    1 user explicit, 2 COE Environment KB, 3 source-profile single approved,
-    4 ``<your_index>`` placeholder, 5 preserve wildcard (caller adds warning).
+    1 user explicit, 2 COE target/source-family mapping, 3 source-profile
+    single approved index, 4 explicitly configured COE generic utility default,
+    5 ``<your_index>`` placeholder. A user-explicit wildcard is preserved.
     """
     user_index = (context.get("user_explicit_index") or "").strip()
     if user_index:
@@ -89,6 +91,12 @@ def _resolve_index(context: dict[str, Any], original_index: str) -> tuple[str, s
     profile_index = (context.get("source_profile_index") or "").strip()
     if profile_index:
         return profile_index, "source_profile_resolver"
+
+    utility_default = (context.get("coe_generic_utility_default_index") or "").strip()
+    if utility_default:
+        return utility_default, str(
+            context.get("coe_generic_utility_default_source") or "coe_generic_utility_default"
+        )
 
     target_family = context.get("target_log_family")
     if _family_supports_index(target_family, original_index):
@@ -235,10 +243,6 @@ def normalize_review_only_spl(
             flags=re.IGNORECASE,
         )
 
-    trace["final_spl_authority"] = (
-        "deterministic_postprocessor"
-        if ctx.get("deterministic_generated")
-        else ("llm_draft_normalized" if ctx.get("llm_generated") else "review_only_postprocessor")
-    )
+    trace["final_spl_authority"] = "deterministic_postprocessor"
 
     return NormalizedSplResult(normalized_spl=spl.strip(), trace=trace, warnings=warnings)

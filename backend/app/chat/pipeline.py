@@ -519,7 +519,9 @@ def _persist_live_chat_telemetry(
             return
         payload = response.model_dump(mode="json")
         sufficiency = payload.get("context_sufficiency")
-        answer_mode = sufficiency.get("answer_mode") if isinstance(sufficiency, dict) else None
+        answer_mode = (
+            sufficiency.get("answer_mode") if isinstance(sufficiency, dict) else None
+        ) or payload.get("answer_mode")
         run_status = "human_review" if payload.get("human_review") else "completed"
         telemetry.start_trace(
             trace_id,
@@ -1582,6 +1584,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             mapped_pattern_type=candidate_mapped_pattern,
             llm_intent_advisory=state.get("llm_intent_advisory"),
             query_understanding=query_understanding,
+            llm_turn_budget=state.get("llm_turn_budget"),
         )
     exact_105_pattern = candidate_mapped_pattern
     mapped_use_case_ids = (
@@ -1832,21 +1835,7 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
     query_understanding = state.get("query_understanding")
     utility_signals = extract_query_signals(query_text, query_understanding)
     if is_universal_utility_spl_authoring(query_text, utility_signals):
-        retrieval = {
-            "retrieved_entries": [],
-            "retrieval_status": "skipped",
-            "ambiguity_status": "clear",
-            "ambiguity_assist": None,
-            "confidence": 0.0,
-            "reasons": ["rag_skipped_for_spl_utility_authoring"],
-            "warnings": [],
-            "rag_skipped_for_spl_utility_authoring": True,
-            "selected_collections": [],
-            "collection_selection": {},
-            "direct_to_llm": False,
-            "llm_selection_enabled": False,
-        }
-        return {**state, "soc_kb_retrieval": retrieval}
+        return {**state, "soc_kb_retrieval": _utility_spl_rag_skipped_payload()}
     workflow_plan = state["workflow_plan"]
     execution = state["execution"] if "execution" in state else {"block_reason": None}
     retrieval = retrieve_soc_kb(
@@ -1863,6 +1852,23 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
     return updated
 
 
+def _utility_spl_rag_skipped_payload() -> dict[str, Any]:
+    return {
+        "retrieved_entries": [],
+        "retrieval_status": "skipped",
+        "ambiguity_status": "clear",
+        "ambiguity_assist": None,
+        "confidence": 0.0,
+        "reasons": ["rag_skipped_for_spl_utility_authoring"],
+        "warnings": [],
+        "rag_skipped_for_spl_utility_authoring": True,
+        "selected_collections": [],
+        "collection_selection": {},
+        "direct_to_llm": False,
+        "llm_selection_enabled": False,
+    }
+
+
 def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState:
     evidence_plan = state.get("evidence_plan")
     if isinstance(evidence_plan, dict) and evidence_plan.get("needs_spl") is False:
@@ -1871,6 +1877,25 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
     validation = state.get("spl_validation")
     if not isinstance(candidate, dict) or not isinstance(validation, dict):
         return state
+
+    if candidate.get("detection_family") == "universal_timestamp_spl":
+        post = candidate.get("review_only_spl_postprocessor_trace")
+        post = post if isinstance(post, dict) else {}
+        resolved_index = str(post.get("resolved_index") or "").strip()
+        resolution_source = str(post.get("index_resolution_source") or "").strip()
+        return {
+            **state,
+            "spl_source_resolve": {
+                "skipped": True,
+                "reason": "universal_spl_utility_placeholder_allowed",
+                "placeholder_index": resolved_index == "<your_index>",
+                "resolved_slots": {},
+                "missing_slots": [],
+                "tiers_used": [resolution_source] if resolution_source else [],
+                "slot_sources": {},
+                "fully_resolved": bool(resolved_index and resolved_index != "<your_index>"),
+            },
+        }
 
     spl = str(candidate.get("candidate_spl") or "").strip()
     if not spl or "<" not in spl:
@@ -2123,6 +2148,10 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         evidence_plan=state.get("evidence_plan"),
         mcp_evidence=state.get("mcp_evidence"),
     )
+    if not isinstance(state.get("soc_kb_retrieval"), dict):
+        utility_signals = extract_query_signals(state.get("effective_query") or request.message)
+        if is_universal_utility_spl_authoring(state.get("effective_query") or request.message, utility_signals):
+            state = {**state, "soc_kb_retrieval": _utility_spl_rag_skipped_payload()}
     human_review = _attach_hil_soc_kb_guidance(state["human_review"], source_evidence)
     human_review = polish_spl_revision_human_review(
         human_review if isinstance(human_review, dict) else {},
@@ -2537,10 +2566,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             pass
         else:
             message = draft_block
-        note = (
-            "Governed template SPL was not produced. HIL/SOC review is required. "
-            "No MCP execution was run."
-        )
+        if isinstance(spl_draft_preview, dict) and spl_draft_preview.get("detection_family") == "universal_timestamp_spl":
+            note = "Review-only universal SPL utility draft; no MCP execution was run."
+        else:
+            note = (
+                "Governed template SPL was not produced. HIL/SOC review is required. "
+                "No MCP execution was run."
+            )
         if (
             not human_review.get("required")
             and human_review.get("review_type") != "spl_source_profile_clarification"
@@ -3411,6 +3443,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         session_context_status = SessionContextStatusEnvelope(**session_resolution.status.model_dump())
 
     partial_fallback = synthesis_status.status == "partial_timeout"
+    answer_mode = (
+        state.get("evidence_plan", {}).get("answer_mode")
+        if isinstance(state.get("evidence_plan"), dict)
+        else None
+    )
     response_packaging_status = _response_packaging_status(
         synthesis_status=synthesis_status,
         composer_trace=composer_trace,
@@ -3473,6 +3510,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             if spl_draft_preview and isinstance(spl_draft_preview, dict)
             else analyst_summary_from_lab
         ),
+        answer_mode=answer_mode,
         response_mode=response_mode,
         synthesis_mode=synthesis_mode,
         workflow_plan=state["workflow_plan"],
@@ -4747,6 +4785,7 @@ def _candidate_spl_stage(
     mapped_pattern_type: str | None = None,
     llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
     query_understanding: Any | None = None,
+    llm_turn_budget: Any | None = None,
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
@@ -4773,6 +4812,7 @@ def _candidate_spl_stage(
                 profile=profile,
                 spl_governance=spl_governance,
                 llm_intent_advisory=llm_intent_advisory,
+                llm_turn_budget=llm_turn_budget,
             )
             if utility_draft is not None:
                 return utility_draft
@@ -6740,14 +6780,18 @@ def _context_stage(
 ) -> tuple[list[dict], dict, dict]:
     telemetry = _routes_chat().get_telemetry_connector()
     if soc_kb_retrieval is None:
-        soc_kb_retrieval = retrieve_soc_kb(
-            query=query,
-            selected_skill=selected_skill,
-            workflow_stage="context",
-            workflow_plan=workflow_plan,
-            required_sources=list(workflow_plan.get("required_sources") or []),
-            execution_block_reason=execution.get("block_reason"),
-        )
+        utility_signals = extract_query_signals(query)
+        if is_universal_utility_spl_authoring(query, utility_signals):
+            soc_kb_retrieval = _utility_spl_rag_skipped_payload()
+        else:
+            soc_kb_retrieval = retrieve_soc_kb(
+                query=query,
+                selected_skill=selected_skill,
+                workflow_stage="context",
+                workflow_plan=workflow_plan,
+                required_sources=list(workflow_plan.get("required_sources") or []),
+                execution_block_reason=execution.get("block_reason"),
+            )
     source_evidence = build_source_evidence(
         trace_id=trace_id,
         query=query,
@@ -6799,6 +6843,11 @@ def _context_stage(
         soc_kb_retrieval=soc_kb_retrieval,
         source_evidence=source_evidence,
     )
+    if isinstance(evidence_plan, dict) and evidence_plan.get("answer_mode"):
+        context_sufficiency = {
+            **context_sufficiency,
+            "answer_mode": evidence_plan.get("answer_mode"),
+        }
     telemetry.record_step(
         trace_id,
         "context_sufficiency_checked",

@@ -6,6 +6,7 @@ hop, deterministic skeleton fallback, and the existing review-only postprocessor
 
 from __future__ import annotations
 
+import time
 from typing import Any, Callable
 
 from app.config import settings
@@ -18,8 +19,34 @@ from app.spl.llm_fallback import (
     spl_advisory_prompts,
 )
 from app.spl.review_only_spl_postprocessor import normalize_review_only_spl
-from app.spl.source_profile_store import load_persisted_source_profile
+from app.spl.source_profile_bindings import build_source_profile_binding_slots
+from app.spl.source_profile_store import (
+    load_persisted_source_profile,
+    load_persisted_source_profile_document,
+)
 from app.spl.user_constraint_bindings import build_user_constraint_bindings
+
+
+def _single_approved_profile_index(profile: dict[str, str]) -> str | None:
+    indexes = {
+        str(value).strip()
+        for key, value in profile.items()
+        if str(key).endswith("_index") and str(value).strip()
+    }
+    if len(indexes) == 1:
+        return next(iter(indexes))
+    return None
+
+
+def _explicit_generic_utility_index(profile: dict[str, str]) -> tuple[str | None, str | None]:
+    configured = str(settings.ai_soc_utility_spl_default_index or "").strip()
+    if configured:
+        return configured, "coe_generic_utility_default"
+    for key in ("utility_spl_default_index", "generic_utility_default_index"):
+        value = str(profile.get(key) or "").strip()
+        if value:
+            return value, "coe_generic_utility_default"
+    return None, None
 
 
 def utility_spl_draft_enabled() -> bool:
@@ -45,8 +72,14 @@ def build_utility_postprocessor_context(
     if not user_index and bindings.explicit_indexes:
         user_index = str(bindings.explicit_indexes[0]).strip()
 
+    profile_doc = load_persisted_source_profile_document()
     profile = load_persisted_source_profile()
+    contextual_bindings = build_source_profile_binding_slots(user_query)
+    coe_contextual_index = str(contextual_bindings.slots.get("index") or "").strip()
     source_profile_index = str(profile.get("index") or "").strip()
+    if not source_profile_index:
+        source_profile_index = _single_approved_profile_index(profile) or ""
+    utility_default_index, utility_default_source = _explicit_generic_utility_index(profile)
 
     user_time = bool(
         bindings.normalized_slots.get("earliest")
@@ -62,7 +95,17 @@ def build_utility_postprocessor_context(
         "deterministic_generated": not llm_generated,
         "execution_authorized": False,
         "user_explicit_index": user_index or None,
+        "coe_environment_index": coe_contextual_index or None,
         "source_profile_index": source_profile_index or None,
+        "coe_generic_utility_default_index": utility_default_index,
+        "coe_generic_utility_default_source": utility_default_source,
+        "source_profile_resolution_trace": {
+            "contextual_bindings": contextual_bindings.trace(),
+            "single_approved_index_used": bool(source_profile_index)
+            and not coe_contextual_index
+            and not str(profile.get("index") or "").strip(),
+            "source_profile_updated_at": profile_doc.get("updated_at"),
+        },
         "user_explicit_time_window": user_time,
     }
 
@@ -80,11 +123,14 @@ def attempt_bounded_utility_spl_llm_draft(
     )
     failover_enabled = utility_spl_draft_failover_enabled()
     trace: dict[str, Any] = {
+        "llm_spl_draft_enabled": utility_spl_draft_enabled(),
         "llm_spl_draft_requested": True,
         "llm_spl_draft_completed": False,
         "llm_spl_draft_timed_out": False,
         "llm_spl_draft_used": False,
         "llm_spl_draft_dropped_reason": None,
+        "llm_spl_draft_skipped_reason": None,
+        "llm_spl_draft_provider_label": None,
         "budget_reallocated_to_spl_drafting": True,
         "utility_spl_draft_timeout_seconds": effective_timeout,
         "utility_spl_draft_failover_enabled": failover_enabled,
@@ -93,18 +139,22 @@ def attempt_bounded_utility_spl_llm_draft(
     if not utility_spl_draft_enabled():
         trace["llm_spl_draft_requested"] = False
         trace["llm_spl_draft_dropped_reason"] = "utility_spl_draft_disabled"
+        trace["llm_spl_draft_skipped_reason"] = "utility_spl_draft_disabled"
         return None, trace
 
     if llm_raw_output_provider is not None:
+        started = time.monotonic()
         result = generate_llm_spl_fallback(
             user_query=user_query,
             utility_authoring=True,
             llm_raw_output_provider=llm_raw_output_provider,
         )
+        trace["llm_spl_draft_latency_ms"] = int((time.monotonic() - started) * 1000)
         if result is None or result.clarification_required or not result.candidate_spl.strip():
             trace["llm_spl_draft_dropped_reason"] = (
                 result.clarification_reason if result else "llm_spl_fallback_unavailable"
             )
+            trace["llm_spl_draft_skipped_reason"] = trace["llm_spl_draft_dropped_reason"]
             return None, trace
         trace["llm_spl_draft_completed"] = True
         trace["llm_spl_draft_used"] = True
@@ -112,10 +162,12 @@ def attempt_bounded_utility_spl_llm_draft(
 
     if not settings.ai_soc_llm_enabled or settings.ai_soc_llm_mode.strip().lower() == "disabled":
         trace["llm_spl_draft_dropped_reason"] = "llm_disabled"
+        trace["llm_spl_draft_skipped_reason"] = "llm_disabled"
         trace["llm_spl_draft_requested"] = False
         return None, trace
 
     system_prompt, user_prompt = spl_advisory_prompts(user_query, utility_authoring=True)
+    started = time.monotonic()
     raw_output, timed_out, _label = invoke_sidecar_role(
         role=SPL_ADVISORY_ROLE,
         user_prompt=user_prompt,
@@ -125,12 +177,16 @@ def attempt_bounded_utility_spl_llm_draft(
         temperature=0.0,
         allow_failover=failover_enabled,
     )
+    trace["llm_spl_draft_latency_ms"] = int((time.monotonic() - started) * 1000)
+    trace["llm_spl_draft_provider_label"] = _label
     if timed_out:
         trace["llm_spl_draft_timed_out"] = True
         trace["llm_spl_draft_dropped_reason"] = "llm_timed_out"
+        trace["llm_spl_draft_skipped_reason"] = "llm_timed_out"
         return None, trace
     if not raw_output:
         trace["llm_spl_draft_dropped_reason"] = "no_provider_configured"
+        trace["llm_spl_draft_skipped_reason"] = "no_provider_configured"
         return None, trace
 
     result = generate_llm_spl_fallback(
@@ -142,6 +198,7 @@ def attempt_bounded_utility_spl_llm_draft(
         trace["llm_spl_draft_dropped_reason"] = (
             result.clarification_reason if result else "llm_spl_fallback_parse_failed"
         )
+        trace["llm_spl_draft_skipped_reason"] = trace["llm_spl_draft_dropped_reason"]
         return None, trace
 
     trace["llm_spl_draft_completed"] = True
@@ -168,6 +225,41 @@ def _deterministic_universal_skeleton(
     return draft
 
 
+def _utility_assumptions(
+    *,
+    postprocessor_trace: dict[str, Any],
+    final_raw_spl_source: str,
+) -> list[str]:
+    resolved_index = str(postprocessor_trace.get("resolved_index") or "").strip()
+    resolution_source = str(postprocessor_trace.get("index_resolution_source") or "").strip()
+    if resolution_source == "placeholder" or not resolved_index or resolved_index == "<your_index>":
+        index_note = (
+            "Universal/template-free review-only SPL using a <your_index> placeholder; "
+            "not tied to a company template registry."
+        )
+        window_note = (
+            "Replace <your_index> and adjust the time window to your environment before any future execution review."
+        )
+    else:
+        index_note = (
+            f"Universal/template-free review-only SPL using COE-resolved index `{resolved_index}`; "
+            "not tied to a company template registry."
+        )
+        window_note = "Adjust `earliest`/`latest` to your review time window before any future execution review."
+
+    source_note = (
+        "Bounded LLM SPL draft normalized by deterministic postprocessor; not executed."
+        if final_raw_spl_source == "llm_draft"
+        else "Deterministic lab SPL draft normalized by deterministic postprocessor; not executed."
+    )
+    return [
+        index_note,
+        "Splunk %w (0=Sunday, 6=Saturday) drives the weekend filter; %A (day name) is display only.",
+        window_note,
+        source_note,
+    ]
+
+
 def candidate_from_universal_utility_authoring(
     *,
     trace_id: str,
@@ -178,6 +270,7 @@ def candidate_from_universal_utility_authoring(
     spl_governance: dict[str, Any] | None,
     llm_intent_advisory: Any | None = None,
     llm_raw_output_provider: Callable[[], str] | None = None,
+    llm_turn_budget: Any | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     draft = _deterministic_universal_skeleton(
         user_query,
@@ -200,6 +293,18 @@ def candidate_from_universal_utility_authoring(
         llm_raw_output_provider=llm_raw_output_provider,
     )
     spl_draft_trace.update(llm_trace)
+    if llm_turn_budget is not None and spl_draft_trace.get("llm_spl_draft_requested"):
+        outcome = "completed" if spl_draft_trace.get("llm_spl_draft_completed") else "dropped"
+        if spl_draft_trace.get("llm_spl_draft_timed_out"):
+            outcome = "timed_out"
+        record = getattr(llm_turn_budget, "record_sidecar", None)
+        if callable(record):
+            record(
+                role=SPL_ADVISORY_ROLE,
+                provider_label=spl_draft_trace.get("llm_spl_draft_provider_label"),
+                outcome=outcome,
+                latency_ms=spl_draft_trace.get("llm_spl_draft_latency_ms"),
+            )
 
     if llm_result is not None and llm_result.candidate_spl.strip():
         raw_spl = llm_result.candidate_spl.strip()
@@ -220,6 +325,7 @@ def candidate_from_universal_utility_authoring(
 
     postprocessor_trace["postprocessor_applied"] = True
     postprocessor_trace.setdefault("final_spl_authority", "deterministic_postprocessor")
+    spl_draft_trace["final_spl_authority"] = postprocessor_trace.get("final_spl_authority")
     spl_draft_trace["postprocessor_applied"] = True
     spl_draft_trace["review_only_spl_postprocessor_trace"] = postprocessor_trace
 
@@ -245,13 +351,9 @@ def candidate_from_universal_utility_authoring(
         "candidate_spl": final_spl,
         "generation_mode": generation_mode,
         "confidence": 0.55 if final_raw_spl_source == "llm_draft" else 0.5,
-        "assumptions": list(draft.get("assumptions") or [])
-        + (
-            ["Bounded LLM SPL draft normalized by deterministic postprocessor — not executed."]
-            if final_raw_spl_source == "llm_draft"
-            else [
-                "Deterministic lab SPL draft — not governed, not catalog-approved, not executable.",
-            ]
+        "assumptions": _utility_assumptions(
+            postprocessor_trace=postprocessor_trace,
+            final_raw_spl_source=final_raw_spl_source,
         ),
         "warnings": ["review_only_universal_spl"],
         "selected_candidate_spl_provider": provider,

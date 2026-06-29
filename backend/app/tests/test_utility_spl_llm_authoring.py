@@ -134,6 +134,14 @@ def test_universal_spl_authoring_uses_mock_llm_spl_draft_when_available(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile",
+        lambda: {},
+    )
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile_document",
+        lambda: {"values": {}, "field_sources": {}},
+    )
+    monkeypatch.setattr(
         "app.chat.pipeline._routes_chat",
         lambda: type("_Routes", (), {"get_telemetry_connector": staticmethod(lambda: _Telemetry())})(),
     )
@@ -158,7 +166,7 @@ def test_universal_spl_authoring_uses_mock_llm_spl_draft_when_available(
     assert "index=<your_index>" in candidate["candidate_spl"]
     post = candidate.get("review_only_spl_postprocessor_trace") or {}
     assert post.get("postprocessor_applied") is True
-    assert post.get("final_spl_authority") == "llm_draft_normalized"
+    assert post.get("final_spl_authority") == "deterministic_postprocessor"
     assert validation.get("approved") is False
 
 
@@ -166,6 +174,14 @@ def test_universal_spl_authoring_falls_back_to_deterministic_skeleton_on_llm_tim
     spl_authoring_flags: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile",
+        lambda: {},
+    )
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile_document",
+        lambda: {"values": {}, "field_sources": {}},
+    )
     monkeypatch.setattr(
         "app.spl.utility_spl_authoring.invoke_sidecar_role",
         lambda **_: ("", True, "timed_out"),
@@ -195,7 +211,18 @@ def test_universal_spl_authoring_falls_back_to_deterministic_skeleton_on_llm_tim
     assert "index=<your_index>" in candidate["candidate_spl"]
 
 
-def test_llm_draft_index_invention_is_dropped(spl_authoring_flags: None) -> None:
+def test_llm_draft_index_invention_is_dropped(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile",
+        lambda: {},
+    )
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile_document",
+        lambda: {"values": {}, "field_sources": {}},
+    )
     payload = _weekend_llm_payload(invented_index="wineventlog")
     candidate, _validation = candidate_from_universal_utility_authoring(
         trace_id="t-index-drop",
@@ -276,6 +303,93 @@ def test_rag_skipped_for_universal_spl_utility(spl_authoring_flags: None) -> Non
     assert retrieval.get("rag_skipped_for_spl_utility_authoring") is True
     assert retrieval.get("retrieval_status") == "skipped"
     assert not retrieval.get("retrieved_entries")
+
+
+def test_live_response_surfaces_utility_mode_and_postprocessor_trace(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
+    message = payload.get("message") or ""
+    assert payload.get("answer_mode") == "spl_utility_authoring"
+    assert (payload.get("context_sufficiency") or {}).get("answer_mode") == "spl_utility_authoring"
+    assert message.count("Review-only universal SPL draft. This was not executed.") == 1
+    assert "Unresolved source bindings" not in message
+    assert "missing source profile" not in message.lower()
+    assert "Severity:" not in message
+    assert "SOC review checklist" not in message
+    assert payload.get("note") == "Review-only universal SPL utility draft; no MCP execution was run."
+    cp = payload.get("control_plane_trace") or {}
+    assert (cp.get("rag_trace") or {}).get("rag_skipped_for_spl_utility_authoring") is True
+    spl_trace = cp.get("candidate_spl_generation") or {}
+    assert spl_trace.get("llm_spl_draft_enabled") is False
+    assert spl_trace.get("llm_spl_draft_requested") is False
+    assert spl_trace.get("llm_spl_draft_skipped_reason") == "utility_spl_draft_disabled"
+    assert spl_trace.get("postprocessor_applied") is True
+    assert spl_trace.get("final_spl_authority") == "deterministic_postprocessor"
+    assert spl_trace.get("review_only_spl_postprocessor_trace")
+    assert (payload.get("execution") or {}).get("status") != "executed"
+
+
+def test_placeholder_not_unresolved_when_no_coe_index(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile",
+        lambda: {},
+    )
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile_document",
+        lambda: {"values": {}, "field_sources": {}},
+    )
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.build_source_profile_binding_slots",
+        lambda *_args, **_kwargs: type(
+            "_Binding",
+            (),
+            {"slots": {}, "trace": staticmethod(lambda: {"source_profile_bindings_missing": []})},
+        )(),
+    )
+    monkeypatch.setattr(settings, "ai_soc_utility_spl_default_index", "")
+    monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
+    message = payload.get("message") or ""
+    assert "index=<your_index>" in message
+    assert "`<your_index>` is a placeholder" in message
+    assert "Unresolved source bindings" not in message
+    assert "missing source profile" not in message.lower()
+
+
+def test_coe_single_approved_index_wins_over_placeholder(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
+    message = payload.get("message") or ""
+    candidate = payload.get("candidate_spl") or {}
+    post = candidate.get("review_only_spl_postprocessor_trace") or {}
+    assert "index=pgcil_soc" in str(candidate.get("candidate_spl") or message)
+    assert post.get("index_resolution_source") == "source_profile_resolver"
+    assert "Using COE-resolved index `pgcil_soc`." in message
+    assumptions = "\n".join(candidate.get("assumptions") or [])
+    assert "using COE-resolved index `pgcil_soc`" in assumptions
+    assert "using a <your_index> placeholder" not in assumptions
+
+
+def test_unsafe_execute_delete_is_not_utility_authoring(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    query = _WEEKEND_QUERY + " Then execute it and pipe to delete."
+    payload = build_live_chat_response(ChatRequest(message=query)).model_dump(mode="json")
+    assert payload.get("answer_mode") != "spl_utility_authoring"
+    assert "delete" not in str((payload.get("candidate_spl") or {}).get("candidate_spl") or "").lower()
+    execution = payload.get("execution") or {}
+    assert execution.get("status") != "executed"
 
 
 def test_candidate_spl_stage_routes_universal_utility_through_budgeted_path(

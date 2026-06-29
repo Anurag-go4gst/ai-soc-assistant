@@ -69,6 +69,9 @@ class CandidateSplEnvelope(BaseModel):
     detection_family: str | None = None
     user_constraint_bindings: dict[str, object] | None = None
     spl_binding_trace: dict[str, object] | None = None
+    utility_spl_draft_trace: dict[str, object] | None = None
+    review_only_spl_postprocessor_trace: dict[str, object] | None = None
+    review_only_spl_postprocessor_warnings: list[str] | None = None
     # T1 SPL-native (T2 shape) review-only artifact.  Present only for the
     # runtime-source-profile SPL-native path; review-only and never executable.
     t2_spl_native: dict[str, object] | None = None
@@ -277,6 +280,7 @@ class StructuredContextPackage(BaseModel):
 
 class ContextSufficiencyEnvelope(BaseModel):
     status: str
+    answer_mode: str | None = None
     synthesis_allowed: bool
     synthesis_readiness: bool = False
     reasons: list[str]
@@ -461,6 +465,7 @@ class PlaceholderResponse(BaseModel):
     fallback_active: bool | None = None
     response_packaging_status: str | None = None
     analyst_summary: str | None = None
+    answer_mode: str | None = None
     response_mode: str | None = None
     synthesis_mode: str | None = None
     trace_explanation: list[str] = []

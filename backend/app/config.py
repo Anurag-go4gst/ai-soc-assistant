@@ -280,6 +280,8 @@ class Settings(BaseSettings):
     ai_soc_llm_utility_spl_draft_failover_enabled: bool = False
     # When false, universal utility SPL still runs intent advisor (use if route unsure).
     ai_soc_llm_utility_skip_intent_advisor: bool = True
+    # Optional explicit COE default for generic/template-free utility SPL.
+    ai_soc_utility_spl_default_index: str = ""
     # Regenerate-once on the SPL failover relevance gate. Default off: one LLM call
     # per failover turn so slow on-prem hardware does not double worst-case latency.
     ai_soc_llm_spl_failover_retry_enabled: bool = False

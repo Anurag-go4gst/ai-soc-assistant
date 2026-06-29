@@ -155,6 +155,10 @@ def _draft_spl_text(
     *,
     candidate_spl: dict[str, Any] | None = None,
 ) -> str:
+    if _is_universal_spl_utility(draft_preview, candidate_spl):
+        utility_spl = str((candidate_spl or {}).get("candidate_spl") or "").strip()
+        if utility_spl:
+            return utility_spl
     if (
         isinstance(candidate_spl, dict)
         and candidate_spl.get("generation_mode") == "t2_spl_native_review"
@@ -341,12 +345,29 @@ def render_universal_spl_utility_answer(
     notice, the SPL block, and a short usage explanation.
     """
     draft_spl = _draft_spl_text(analyst_response, draft_preview, candidate_spl=candidate_spl)
+    post = (candidate_spl or {}).get("review_only_spl_postprocessor_trace")
+    post = post if isinstance(post, dict) else {}
+    resolved_index = str(post.get("resolved_index") or "").strip()
+    index_source = str(post.get("index_resolution_source") or "").strip()
     lines: list[str] = [_UNIVERSAL_UTILITY_TITLE, ""]
     if draft_spl:
         lines.append(draft_spl)
         lines.append("")
+    if resolved_index and resolved_index != "<your_index>":
+        if index_source in {
+            "coe_environment_kb",
+            "source_profile_resolver",
+            "coe_generic_utility_default",
+        }:
+            lines.append(f"Using COE-resolved index `{resolved_index}`.")
+        else:
+            lines.append(f"Using resolved index `{resolved_index}`.")
+    else:
+        lines.append("`<your_index>` is a placeholder; replace it with the correct index before review.")
+    lines.append("")
     lines.append("How to use:")
-    lines.append("- Replace `<your_index>` with your index (or bind a source profile).")
+    if not resolved_index or resolved_index == "<your_index>":
+        lines.append("- Replace `<your_index>` with your index (or bind a source profile).")
     lines.append("- `%H` extracts the hour of day.")
     lines.append("- `%w` is the weekday number (0=Sunday, 6=Saturday) and drives the weekend filter.")
     lines.append("- `%A` is the display-only day name.")
@@ -522,7 +543,7 @@ def apply_review_only_spl_render(
             "recommended_actions": [],
             "severity_rationale": None,
             "severity_safety_note": None,
-            "direct_answer_summary": _UNIVERSAL_UTILITY_TITLE,
+            "direct_answer_summary": "Review-only SPL utility draft prepared; no live query was executed.",
             "analyst_checklist": [],
         }
         overlays = t2_card_overlays(candidate_spl)

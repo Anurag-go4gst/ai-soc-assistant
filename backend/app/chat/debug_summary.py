@@ -200,11 +200,27 @@ def _spl_block(
     reject_reasons = spl_validation.get("reject_reasons") or []
     if not isinstance(reject_reasons, list):
         reject_reasons = []
+    utility_trace = candidate_spl.get("utility_spl_draft_trace")
+    if not isinstance(utility_trace, dict):
+        utility_trace = spl_validation.get("utility_spl_draft_trace")
+    utility_trace = utility_trace if isinstance(utility_trace, dict) else {}
+    post = candidate_spl.get("review_only_spl_postprocessor_trace")
+    if not isinstance(post, dict):
+        post = spl_validation.get("review_only_spl_postprocessor_trace")
+    post = post if isinstance(post, dict) else utility_trace.get("review_only_spl_postprocessor_trace")
+    post = post if isinstance(post, dict) else {}
     return {
         "template_id": candidate_spl.get("template_id"),
         "approved": spl_validation.get("approved"),
         "reject_reasons": [str(item) for item in reject_reasons[:6]],
         "normalized_spl": bool(spl_validation.get("normalized_spl") or spl_gen.get("normalized_spl_available")),
+        "postprocessor_applied": bool(
+            utility_trace.get("postprocessor_applied") or post.get("postprocessor_applied")
+        ),
+        "review_only_spl_postprocessor_trace": post or None,
+        "final_spl_authority": utility_trace.get("final_spl_authority")
+        or post.get("final_spl_authority"),
+        "final_raw_spl_source": utility_trace.get("final_raw_spl_source"),
     }
 
 
@@ -253,6 +269,9 @@ def _spl_path_label(generation_mode: Any, candidate_spl: dict[str, Any]) -> str:
 
 def _spl_live_called(spl_validation: dict[str, Any], records: list[dict[str, Any]]) -> bool:
     if spl_validation.get("llm_model"):
+        return True
+    utility_trace = spl_validation.get("utility_spl_draft_trace")
+    if isinstance(utility_trace, dict) and utility_trace.get("llm_spl_draft_completed"):
         return True
     for item in records:
         if item.get("outcome") != "completed":

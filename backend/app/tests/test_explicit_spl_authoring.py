@@ -82,7 +82,7 @@ def test_universal_spl_weekend_block_routes_spl_generation(spl_authoring_flags: 
     assert response.selected_skill == "spl_generation"
     spl = response.candidate_spl.candidate_spl if response.candidate_spl else ""
     assert spl
-    assert "index=<your_index>" in spl
+    assert "index=pgcil_soc" in spl
     assert "earliest=-24h latest=now" in spl
     assert 'strftime(_time,"%H")' in spl
     assert 'strftime(_time,"%w")' in spl
