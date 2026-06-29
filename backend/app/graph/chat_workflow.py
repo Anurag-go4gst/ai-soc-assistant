@@ -24,9 +24,14 @@ from app.chat.evidence_loop import (
     assess_loop,
     loop_initialized,
 )
+from app.chat.progress_context import bind_progress_reporter, emit_stage, reset_progress_reporter
+from app.chat.progress_events import ProgressReporter
+from datetime import UTC, datetime
+
 from app.chat.pipeline import (
     ChatPipelineState,
     build_live_chat_response,
+    finalize_chat_trace_from_state,
     graph_node_composed_dispatch,
     graph_node_context_finalize,
     graph_node_evidence_planning,
@@ -202,24 +207,44 @@ def _after_rag_early(state: ChatPipelineState) -> str:
 def run_chat_via_langgraph(
     request: ChatRequest,
     *,
+    progress: ProgressReporter | None = None,
     session_role: str | None = None,
+    entrypoint: str = "chat",
 ) -> PlaceholderResponse:
     """Run the same staged pipeline through LangGraph; behavior must match imperative path."""
-    if settings.control_plane_enabled:
-        compiled = _compiled_chat_graph_cp()
-        config = {"recursion_limit": _CP_RECURSION_LIMIT}
-    else:
-        compiled = _compiled_chat_graph()
-        config = {}
-    final_state = compiled.invoke(
-        {"request": request, "session_role": session_role},
-        config,
-    )
-    response = final_state.get("response")
-    if response is None:
-        return build_live_chat_response(request, session_role=session_role)
-    note = response.note or ""
-    suffix = "Orchestration: langgraph (parity mode)."
-    if suffix not in note:
-        response = response.model_copy(update={"note": f"{note} {suffix}".strip()})
-    return response
+    token = bind_progress_reporter(progress) if progress is not None else None
+    started_at = datetime.now(UTC)
+    try:
+        emit_stage("queued")
+        if settings.control_plane_enabled:
+            compiled = _compiled_chat_graph_cp()
+            config = {"recursion_limit": _CP_RECURSION_LIMIT}
+        else:
+            compiled = _compiled_chat_graph()
+            config = {}
+        final_state = compiled.invoke(
+            {"request": request, "session_role": session_role},
+            config,
+        )
+        response = final_state.get("response")
+        if response is None:
+            return build_live_chat_response(
+                request,
+                progress=progress,
+                session_role=session_role,
+            )  # build_live_chat_response finalizes telemetry
+        note = response.note or ""
+        suffix = "Orchestration: langgraph (parity mode)."
+        if suffix not in note:
+            response = response.model_copy(update={"note": f"{note} {suffix}".strip()})
+        finalize_chat_trace_from_state(
+            final_state,
+            response,
+            started_at=started_at,
+            session_role=session_role,
+            entrypoint=entrypoint,
+        )
+        return response
+    finally:
+        if token is not None:
+            reset_progress_reporter(token)

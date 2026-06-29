@@ -46,6 +46,8 @@ def should_prioritize_intent_advisor(
         or preliminary_signals.get("live_data_request")
         or preliminary_signals.get("ambiguous_t2_query")
         or preliminary_signals.get("meaningful_t2_entities")
+        or preliminary_signals.get("explicit_spl_authoring")
+        or preliminary_signals.get("spl_authoring_shaped")
     )
 
 

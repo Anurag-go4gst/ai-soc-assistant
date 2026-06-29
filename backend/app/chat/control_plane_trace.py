@@ -97,6 +97,7 @@ def build_control_plane_trace(
         "precondition_evaluation": route_shadow.get("precondition_evaluation"),
         "resource_planner": _resource_planner_trace(state),
         "llm_advisory_trace": _llm_advisory_trace(state),
+        "spl_authoring_trace": _spl_authoring_trace(state),
     }
     run_contract = state.get("run_contract") if isinstance(state.get("run_contract"), dict) else None
     final_evidence_gate = (
@@ -134,6 +135,21 @@ def build_control_plane_trace(
     if node_trace:
         trace["node_trace"] = node_trace
     return _redact(trace)
+
+
+
+
+def _spl_authoring_trace(state: dict[str, Any]) -> dict[str, Any] | None:
+    q2i = state.get("query_to_intent") if isinstance(state.get("query_to_intent"), dict) else {}
+    signals = q2i.get("query_signals") if isinstance(q2i.get("query_signals"), dict) else {}
+    trace = signals.get("spl_authoring_trace")
+    if not isinstance(trace, dict) or not trace:
+        return None
+    return attach_authority_tier(
+        trace,
+        tier=TIER_PLANNING,
+        note="Explicit SPL authoring detection and clarification override trace.",
+    )
 
 
 def _resource_planner_trace(state: dict[str, Any]) -> dict[str, Any] | None:

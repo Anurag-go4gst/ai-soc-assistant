@@ -15,6 +15,12 @@ from app.main import app
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
 
+class _MockHttpRequest:
+    class state:
+        trace_id = "test-trace"
+
+
+
 
 @pytest.fixture
 def authed_client() -> TestClient:
@@ -104,7 +110,7 @@ def test_chat_stream_waits_for_slow_worker(
 ) -> None:
     from app.api import routes_chat_stream as stream_mod
 
-    def fake_build(request: ChatRequest, progress=None) -> PlaceholderResponse:
+    def fake_build(request: ChatRequest, progress=None, session_role=None, entrypoint="chat", **kwargs) -> PlaceholderResponse:
         reporter = progress
         assert reporter is not None
         reporter.stage("queued")
@@ -116,7 +122,7 @@ def test_chat_stream_waits_for_slow_worker(
     monkeypatch.setattr(stream_mod.settings, "ai_soc_live_chat_ec_parity_enabled", False)
     monkeypatch.setattr(stream_mod.settings, "langgraph_orchestration_enabled", False)
     bridge = QueueProgressBridge()
-    stream_mod._run_chat_with_progress(ChatRequest(message="slow"), bridge)
+    stream_mod._run_chat_with_progress(ChatRequest(message="slow"), bridge, trace_id="slow-trace", user={"role": "analyst"})
     events = _bridge_events(bridge)
     final = next(event for event in events if event.get("type") == "final")
     assert final["response"]["trace_id"] == "slow"
@@ -125,7 +131,7 @@ def test_chat_stream_waits_for_slow_worker(
 def test_chat_stream_clear_command() -> None:
     from app.api import routes_chat_stream as stream_mod
 
-    response = asyncio.run(stream_mod.chat_stream(ChatRequest(message="/clear")))
+    response = asyncio.run(stream_mod.chat_stream(ChatRequest(message="/clear"), _MockHttpRequest()))
     events = asyncio.run(_collect_response_events(response))
     assert any(event.get("type") == "final" and event.get("stage") == "completed" for event in events)
 
@@ -137,7 +143,7 @@ def test_chat_stream_clear_command_deletes_session_pins() -> None:
     assert get_session_pins("stream-clear-session") is not None
 
     response = asyncio.run(
-        stream_mod.chat_stream(ChatRequest(message="/clear", session_id="stream-clear-session"))
+        stream_mod.chat_stream(ChatRequest(message="/clear", session_id="stream-clear-session"), _MockHttpRequest())
     )
 
     events = asyncio.run(_collect_response_events(response))
@@ -152,7 +158,7 @@ def test_chat_stream_emits_progress_before_final(
 
     seen: list[str] = []
 
-    def fake_build(request: ChatRequest, progress=None) -> PlaceholderResponse:
+    def fake_build(request: ChatRequest, progress=None, session_role=None, entrypoint="chat", **kwargs) -> PlaceholderResponse:
         reporter = progress
         assert reporter is not None
         reporter.stage("understanding_query")
@@ -166,7 +172,7 @@ def test_chat_stream_emits_progress_before_final(
     monkeypatch.setattr(stream_mod.settings, "langgraph_orchestration_enabled", False)
 
     bridge = QueueProgressBridge()
-    stream_mod._run_chat_with_progress(ChatRequest(message="hello"), bridge)
+    stream_mod._run_chat_with_progress(ChatRequest(message="hello"), bridge, trace_id="hello-trace", user={"role": "analyst"})
     events = _bridge_events(bridge)
     stages: list[str] = []
     for payload in events:
@@ -177,3 +183,65 @@ def test_chat_stream_emits_progress_before_final(
     assert "understanding_query" in stages
     assert "generating_answer" in stages
     assert seen == ["final"]
+
+def test_chat_stream_langgraph_emits_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.api import routes_chat_stream as stream_mod
+
+    def fake_langgraph(
+        request: ChatRequest,
+        *,
+        progress=None,
+        session_role=None,
+        entrypoint="chat_stream",
+        **kwargs,
+    ) -> PlaceholderResponse:
+        assert progress is not None
+        progress.stage("understanding_query")
+        progress.stage("classifying_intent")
+        progress.stage("planning_evidence")
+        return PlaceholderResponse(trace_id="lg-progress", message="done", note="n")
+
+    monkeypatch.setattr(
+        "app.graph.chat_workflow.run_chat_via_langgraph",
+        fake_langgraph,
+    )
+    monkeypatch.setattr(stream_mod, "_finalize_stream_response", lambda request, response: response)
+    monkeypatch.setattr(stream_mod.settings, "ai_soc_live_chat_ec_parity_enabled", False)
+    monkeypatch.setattr(stream_mod.settings, "langgraph_orchestration_enabled", True)
+
+    bridge = QueueProgressBridge()
+    stream_mod._run_chat_with_progress(ChatRequest(message="hello"), bridge, trace_id="hello-trace", user={"role": "analyst"})
+    events = _bridge_events(bridge)
+    stages = [event["stage"] for event in events if event.get("type") == "progress"]
+    assert "understanding_query" in stages
+    assert "classifying_intent" in stages
+    assert "planning_evidence" in stages
+    assert any(event.get("type") == "final" for event in events)
+
+
+def test_langgraph_invoke_forwards_pipeline_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.config import settings
+    from app.graph.chat_workflow import run_chat_via_langgraph
+
+    monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_live_chat_ec_parity_enabled", False)
+    monkeypatch.setattr(settings, "telemetry_mode", "none")
+    monkeypatch.setattr(settings, "ai_soc_telemetry_sink", "none")
+    monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", False)
+
+    events: list[dict] = []
+    reporter = ProgressReporter(on_event=events.append)
+    run_chat_via_langgraph(
+        ChatRequest(message="Show SOP for brute-force investigation"),
+        progress=reporter,
+    )
+    stages = [event["stage"] for event in events if event.get("type") == "progress"]
+    assert "queued" in stages
+    assert "understanding_query" in stages
+    assert "classifying_intent" in stages
+    assert "route_adjudication" in stages

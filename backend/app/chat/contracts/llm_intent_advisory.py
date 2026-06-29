@@ -26,6 +26,8 @@ class LLMIntentAdvisory(BaseModel):
     adapter_warnings: list[str] = Field(default_factory=list)
     adjudication_status: LlmIntentAdjudicationStatus = "skipped"
     adjudication_reason: str | None = None
+    spl_authoring_request: bool = False
+    requires_source_profile: bool | None = None
     provider_label: str | None = None
     scheduling_trace: dict[str, Any] = Field(default_factory=dict)
 

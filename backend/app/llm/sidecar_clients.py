@@ -226,6 +226,8 @@ def build_intent_advisory_prompt(
         "entity_slot_confidence": {},
         "entity_slot_reasons": {},
         "confidence_metadata": {"confidence": 0.0},
+        "spl_authoring_request": False,
+        "requires_source_profile": None,
     }
     instructions = (
         "Extract entity_slots_candidate only for values explicitly present or strongly implied "
@@ -259,7 +261,10 @@ def build_intent_advisory_prompt(
         "or live-result claim.\n"
         "- Unsafe containment: `Block the source IP` -> human-review/unsafe-action hint; "
         "never authorize block, isolate, disable, contain, or execute.\n"
-        "- Ambiguous investigation: `Investigate this alert` with no context -> clarification."
+        "- Ambiguous investigation: `Investigate this alert` with no context -> clarification.\n"
+        "- Universal SPL authoring: `Without using any company template, write a universal SPL block "
+        "to extract hour and day of week and filter weekends.` -> spl_generation_only, "
+        "spl_authoring_request=true, requires_source_profile=false; review-only SPL text, no live investigation."
     )
     return (
         f"{context_block}\n\n"

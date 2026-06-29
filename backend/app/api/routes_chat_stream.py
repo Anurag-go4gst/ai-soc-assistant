@@ -5,14 +5,17 @@ from __future__ import annotations
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import AsyncIterator
+from datetime import UTC, datetime
+from typing import Any, AsyncIterator
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from app.auth.session import require_auth
-from app.chat.pipeline import build_live_chat_response
+from functools import partial
+
+from app.chat.pipeline import build_live_chat_response, persist_chat_admission
 from app.quality.store import post_chat_response
 from app.chat.session_context import clear_session
 from app.chat.progress_events import (
@@ -26,6 +29,7 @@ from app.config import settings
 from app.demo.scenarios import resolve_demo_scenario_id_for_query, run_demo_scenario
 from app.llm.clients.local_chat_errors import local_chat_error_code, user_message_for_local_chat_error
 from app.schemas.requests import ChatRequest
+from app.connectors.telemetry.log_context import TRACE_ID_HEADER, reset_trace_id, set_trace_id
 from app.schemas.responses import PlaceholderResponse
 
 logger = logging.getLogger(__name__)
@@ -50,9 +54,19 @@ def _finalize_stream_response(request: ChatRequest, response: PlaceholderRespons
     return post_chat_response(response, request, entrypoint="chat_stream")
 
 
-def _run_chat_with_progress(request: ChatRequest, bridge: QueueProgressBridge) -> None:
+def _run_chat_with_progress(
+    request: ChatRequest,
+    bridge: QueueProgressBridge,
+    *,
+    trace_id: str,
+    user: object,
+) -> None:
     reporter = bridge.reporter()
+    session_role = user.get("role") if isinstance(user, dict) else None
+    started_at = datetime.now(UTC)
+    token = set_trace_id(trace_id)
     try:
+        persist_chat_admission(trace_id, user, entrypoint="chat_stream")
         if settings.ai_soc_live_chat_ec_parity_enabled:
             scenario_id = resolve_demo_scenario_id_for_query(request.message)
             if scenario_id:
@@ -66,11 +80,14 @@ def _run_chat_with_progress(request: ChatRequest, bridge: QueueProgressBridge) -
         if settings.langgraph_orchestration_enabled:
             from app.graph.chat_workflow import run_chat_via_langgraph
 
-            response = _finalize_stream_response(request, run_chat_via_langgraph(request))
+            response = _finalize_stream_response(
+                request,
+                run_chat_via_langgraph(request, progress=reporter, session_role=session_role, entrypoint="chat_stream"),
+            )
             reporter.final(response)
             return
 
-        response = _finalize_stream_response(request, build_live_chat_response(request, progress=reporter))
+        response = _finalize_stream_response(request, build_live_chat_response(request, progress=reporter, session_role=session_role, entrypoint="chat_stream"))
         status = getattr(response.synthesis_status, "status", None) if response.synthesis_status else None
         if status == "partial_timeout":
             reporter.partial_timeout(
@@ -95,6 +112,7 @@ def _run_chat_with_progress(request: ChatRequest, bridge: QueueProgressBridge) -
         )
         reporter.failed(message, code=code, recoverable=True)
     finally:
+        reset_trace_id(token)
         bridge.close()
 
 
@@ -111,10 +129,18 @@ def _drain_remaining(bridge: QueueProgressBridge) -> list[dict]:
     return remaining
 
 
-async def _sse_event_stream(request: ChatRequest) -> AsyncIterator[str]:
+async def _sse_event_stream(
+    request: ChatRequest,
+    *,
+    trace_id: str,
+    user: object,
+) -> AsyncIterator[str]:
     bridge = QueueProgressBridge()
     loop = asyncio.get_running_loop()
-    worker = loop.run_in_executor(_executor, _run_chat_with_progress, request, bridge)
+    worker = loop.run_in_executor(
+        _executor,
+        partial(_run_chat_with_progress, request, bridge, trace_id=trace_id, user=user),
+    )
 
     polls = 0
     try:
@@ -159,7 +185,11 @@ async def _sse_event_stream(request: ChatRequest) -> AsyncIterator[str]:
 
 
 @router.post("/chat/stream", dependencies=[Depends(require_auth)])
-async def chat_stream(request: ChatRequest) -> StreamingResponse:
+async def chat_stream(
+    request: ChatRequest,
+    http_request: Request,
+    user: dict[str, Any] = Depends(require_auth),
+) -> StreamingResponse:
     if is_clear_chat_command(request.message):
         clear_session(request.session_id)
         payload = _clear_response(request).model_dump(mode="json")
@@ -170,12 +200,14 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
 
         return StreamingResponse(clear_events(), media_type="text/event-stream")
 
+    trace_id = str(getattr(getattr(http_request, "state", None), "trace_id", "") or uuid4())
     return StreamingResponse(
-        _sse_event_stream(request),
+        _sse_event_stream(request, trace_id=trace_id, user=user),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
+            TRACE_ID_HEADER: trace_id,
         },
     )

@@ -149,6 +149,12 @@ def _explicit_log_search_requested(normalized: str) -> bool:
             "review-only spl",
             "review only spl",
             "write spl",
+            "write a spl block",
+            "write a standard spl",
+            "write a universal spl",
+            "universal spl block",
+            "spl snippet",
+            "spl block",
             "write a splunk query",
             "write splunk query",
             "create a splunk query",
@@ -317,8 +323,12 @@ def extract_query_signals(
     )
     spl_suppressed = _spl_generation_suppressed(normalized) or sop_show_request
     explicit_log_search = _explicit_log_search_requested(normalized)
+    explicit_spl_authoring = _explicit_spl_authoring_requested(normalized) and not spl_suppressed
     spl_generation = (not spl_suppressed) and (
-        _spl_generation_requested(normalized) or explicit_log_search or explicit_run_spl
+        explicit_spl_authoring
+        or _spl_generation_requested(normalized)
+        or explicit_log_search
+        or explicit_run_spl
     )
     run_execution = explicit_run_spl or any(
         term in normalized
@@ -1083,7 +1093,8 @@ def extract_query_signals(
         "soc_actionable_hunt": soc_actionable_hunt,
         "soc_detection_intent": soc_detection_intent,
         "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),
-        "spl_authoring_shaped": bool(spl_generation and not run_execution),
+        "explicit_spl_authoring": explicit_spl_authoring,
+        "spl_authoring_shaped": bool(explicit_spl_authoring),
         "alert_summary_shaped": bool(alert_context_present and not spl_generation),
         "action_or_containment_shaped": bool(block_or_contain or explicit_run_spl),
         "non_soc_or_out_of_scope": non_soc_or_out_of_scope,
@@ -1227,6 +1238,85 @@ def _has_security_telemetry_subject(normalized: str) -> bool:
     return any(term in padded for term in _SECURITY_SUBJECT_TERMS)
 
 
+
+_EXPLICIT_SPL_AUTHORING_RE = re.compile(
+    r"\b(?:write|draft|create|build|generate|produce|give me)\b.{0,60}\b(?:spl|splunk)\b",
+    re.IGNORECASE,
+)
+
+
+def _spl_authoring_scope_disqualified(normalized: str) -> bool:
+    """Scoped or run-intent SPL requests are not universal authoring."""
+    if re.search(r"\bindex\s*=|\bsourcetype\s*=", normalized):
+        return True
+    run_terms = (
+        " and run",
+        " then run",
+        "run it",
+        "run this",
+        "execute it",
+        "execute this",
+        "run on ",
+        "run in ",
+    )
+    if any(term in normalized for term in run_terms):
+        return True
+    return bool(
+        re.search(
+            r"\b(run the spl|run spl|run this spl|execute the spl|execute spl|execute this search)\b",
+            normalized,
+        )
+    )
+
+
+def _explicit_spl_authoring_requested(normalized: str) -> bool:
+    """True when the user asks for SPL text/snippet/block only (review-only authoring)."""
+    if "spl" not in normalized and "splunk" not in normalized:
+        return False
+    if _spl_authoring_scope_disqualified(normalized):
+        return False
+    if re.search(r"^what (?:is|are|does)\b", normalized) and not _EXPLICIT_SPL_AUTHORING_RE.search(
+        normalized
+    ):
+        return False
+    if _EXPLICIT_SPL_AUTHORING_RE.search(normalized):
+        return True
+    authoring_terms = (
+        "write a spl block",
+        "write a standard spl",
+        "write a universal spl",
+        "write standard spl",
+        "write universal spl",
+        "universal spl block",
+        "standard universal spl",
+        "standard spl block",
+        "template-free spl",
+        "template free spl",
+        "generic spl",
+        "spl snippet",
+        "spl block",
+        "splunk block",
+        "without company templates",
+        "without specific company templates",
+        "without using any specific company templates",
+        "extract hour of the day",
+        "extract hour of day",
+        "extract day of the week",
+        "extract day of week",
+        "hour of the day",
+        "day of the week",
+        "weekend events",
+        "weekend event",
+        "weekday/weekend",
+        "weekday weekend filter",
+        "filter only for weekend",
+        "filter weekend",
+        "business hours filter",
+        "off-hours filter",
+    )
+    return any(term in normalized for term in authoring_terms)
+
+
 def _spl_generation_suppressed(normalized: str) -> bool:
     if not ("spl" in normalized or "query" in normalized):
         return False
@@ -1246,9 +1336,14 @@ def _spl_generation_suppressed(normalized: str) -> bool:
 
 
 def _spl_generation_requested(normalized: str) -> bool:
+    if _explicit_spl_authoring_requested(normalized):
+        return True
     explicit_verbs = (
         "generate spl",
         "write spl",
+        "write a spl block",
+        "write a standard spl",
+        "write a universal spl",
         "write a splunk query",
         "write splunk query",
         "create spl",
@@ -1259,6 +1354,9 @@ def _spl_generation_requested(normalized: str) -> bool:
         "build a splunk query",
         "build splunk query",
         "spl query",
+        "spl snippet",
+        "spl block",
+        "universal spl block",
         "draft spl",
         "review-only spl",
         "review only spl",

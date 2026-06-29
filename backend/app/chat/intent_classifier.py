@@ -14,6 +14,7 @@ from app.chat.contracts.intent_classification import (
 )
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.chat.llm_intent_advisor import adjudicate_llm_intent_advisory, apply_advisory_promotion
+from app.chat.spl_authoring_intent import reconcile_spl_authoring_intent
 from app.chat.query_signals import (
     extract_query_signals,
     is_cross_skill_investigation_query,
@@ -288,6 +289,26 @@ def classify_intent(
         return _build_github_investigation_classification(
             reason="GitHub PAT/workflow/commit investigation; governed review-only guidance.",
             confidence=0.78,
+        )
+
+    if (
+        signals.get("explicit_spl_authoring")
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+        and not signals.get("run_execution")
+    ):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact"],
+            confidence=0.88,
+            requires_clarification=False,
+            reason=(
+                "Explicit SPL text/snippet/block request; universal review-only SPL "
+                "authoring without source-profile clarification."
+            ),
+            requested_output_type="SPL",
         )
 
     if (
@@ -988,6 +1009,21 @@ def classify_intent(
     )
 
 
+
+def _build_explicit_spl_authoring_classification(*, reason: str) -> IntentClassification:
+    return _build_classification(
+        intent_family="spl_generation_only",
+        primary_intent="spl_generation",
+        query_type="ask_for_query_generation",
+        answer_goal=["spl_artifact"],
+        confidence=0.88,
+        requires_clarification=False,
+        reason=reason,
+        requested_output_type="SPL",
+    )
+
+
+
 def build_query_to_intent(
     *,
     query: str,
@@ -1013,6 +1049,14 @@ def build_query_to_intent(
         query_understanding=query_understanding,
         candidate_mappings=candidate_mappings,
     )
+    intent, spl_authoring_trace = reconcile_spl_authoring_intent(
+        intent=intent,
+        signals=signals,
+        advisory=adjudicated_advisory,
+        query=query,
+        build_spl_generation_classification=_build_explicit_spl_authoring_classification,
+    )
+    signals = {**signals, "spl_authoring_trace": spl_authoring_trace}
     # WS1 T1.3: out_of_registry intake may adopt a registry-validated advisory
     # candidate; deterministic rungs and unsafe/clarification outcomes always win.
     # Veto scope: explicit human-review outcomes (unsafe action, run-SPL
