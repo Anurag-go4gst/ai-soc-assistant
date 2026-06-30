@@ -19,7 +19,7 @@ todos:
     status: done
   - id: phase4-spl-path
     content: 4A compiler inputs; 4B SplCandidateStageResult + persist_llm_spl_plan; 4C postprocessor; 4D llm_turn_budget thread + dual spl_plan_compiler telemetry; remove lab-draft short-circuit
-    status: pending
+    status: done
   - id: phase2b-dispatch-authority
     content: Full build_pipeline_dispatch from RouteContract + EvidencePlan + QueryToIntent; request_mode table with pinned source fields; split MCP discovery-need vs execution-need; authority read sweep
     status: pending

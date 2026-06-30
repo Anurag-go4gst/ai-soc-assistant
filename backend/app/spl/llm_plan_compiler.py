@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 from typing import Any, Callable
 
 from app.config import settings
@@ -161,8 +162,62 @@ def _plan_system_prompt() -> str:
     )
 
 
-def _plan_user_prompt(user_query: str) -> str:
-    return f"Investigation request:\n{user_query}\n\nReturn only the detection plan JSON."
+def _grounding_block(
+    *,
+    slot_handoff: Any,
+    mcp_discovery_context: Any,
+    llm_intent_advisory: Any,
+) -> str:
+    """Render redacted planning context (slots, discovery, 2C advisory) for the prompt.
+
+    Phase 4A — closes the input-preservation gap: previously only the raw query
+    reached the planner. All values are bounded and advisory; the compiler still
+    forces placeholders/governance.
+    """
+    lines: list[str] = []
+
+    def _slots(obj: Any) -> dict[str, Any]:
+        if obj is None:
+            return {}
+        if hasattr(obj, "normalized_slots"):
+            return dict(getattr(obj, "normalized_slots", {}) or {})
+        if isinstance(obj, dict):
+            inner = obj.get("normalized_slots")
+            return dict(inner) if isinstance(inner, dict) else dict(obj)
+        return {}
+
+    slots = _slots(slot_handoff)
+    if slots:
+        rendered = ", ".join(f"{k}={str(v)[:40]}" for k, v in list(slots.items())[:12] if v)
+        if rendered:
+            lines.append(f"Resolved slots (advisory): {rendered}")
+
+    discovery = mcp_discovery_context if isinstance(mcp_discovery_context, dict) else (
+        mcp_discovery_context.model_dump() if hasattr(mcp_discovery_context, "model_dump") else {}
+    )
+    if isinstance(discovery, dict):
+        idx = [str(x) for x in (discovery.get("indexes") or [])][:5]
+        st = [str(x) for x in (discovery.get("sourcetypes") or [])][:5]
+        if idx:
+            lines.append(f"Discovered indexes (advisory): {', '.join(idx)}")
+        if st:
+            lines.append(f"Discovered sourcetypes (advisory): {', '.join(st)}")
+
+    advisory = llm_intent_advisory if isinstance(llm_intent_advisory, dict) else {}
+    candidate = advisory.get("entity_slots_candidate") if isinstance(advisory, dict) else None
+    if isinstance(candidate, dict) and candidate:
+        rendered = ", ".join(f"{k}={str(v)[:40]}" for k, v in list(candidate.items())[:8] if v)
+        if rendered:
+            lines.append(f"Intent slot candidates (advisory): {rendered}")
+
+    return "\n".join(lines)
+
+
+def _plan_user_prompt(user_query: str, grounding: str = "") -> str:
+    base = f"Investigation request:\n{user_query}"
+    if grounding:
+        base += f"\n\nPlanning context (advisory; do not invent beyond it):\n{grounding}"
+    return base + "\n\nReturn only the detection plan JSON."
 
 
 def get_detection_plan(
@@ -171,6 +226,7 @@ def get_detection_plan(
     client: LocalChatClient | None = None,
     seed: int = SPL_PLAN_SEED,
     llm_raw_output_provider: Callable[[], str] | None = None,
+    grounding: str = "",
 ) -> tuple[dict[str, Any] | None, list[str]]:
     """Ask the LLM for a small detection plan; parse it tolerantly. Returns (plan, errors)."""
     if llm_raw_output_provider is not None:
@@ -182,7 +238,7 @@ def get_detection_plan(
         try:
             completion = active_client.generate(
                 system_prompt=_plan_system_prompt(),
-                user_prompt=_plan_user_prompt(user_query),
+                user_prompt=_plan_user_prompt(user_query, grounding),
                 max_tokens=_spl_max_output_tokens(),
                 temperature=0.0,
                 seed=seed,
@@ -198,21 +254,59 @@ def get_detection_plan(
     return payload, errors
 
 
+def _redacted_detection_plan(plan: dict[str, Any]) -> dict[str, Any]:
+    """Snapshot of the LLM-chosen plan for downstream nodes (no raw query echo)."""
+    domain = str(plan.get("data_domain") or "")
+    index_ph, sourcetype_ph = _DOMAIN_PLACEHOLDERS.get(domain, ("<index>", "<sourcetype>"))
+    filters = [
+        f"{_safe_field(f.get('field'))}={_safe_value(f.get('match'))}"
+        for f in (plan.get("filters") or [])
+        if isinstance(f, dict) and _safe_field(f.get("field")) and _safe_value(f.get("match"))
+    ]
+    return {
+        "index": index_ph,
+        "sourcetype": sourcetype_ph,
+        "data_domain": domain or None,
+        "required_fields": [str(x) for x in (plan.get("required_fields") or [])][:12],
+        "filters": filters[:12],
+        "threshold": plan.get("threshold") if isinstance(plan.get("threshold"), dict) else None,
+        "detection_family": str(plan.get("detection_family") or "") or None,
+    }
+
+
 def generate_llm_spl_via_plan(
     *,
     user_query: str,
+    slot_handoff: Any = None,
+    mcp_discovery_context: Any = None,
+    llm_intent_advisory: Any = None,
     client: LocalChatClient | None = None,
     seed: int = SPL_PLAN_SEED,
     plan_raw_output_provider: Callable[[], str] | None = None,
 ) -> LlmSplFallbackResult | None:
-    """Plan -> compile -> feed through the existing governed producer (gates unchanged)."""
+    """Plan -> compile -> feed through the existing governed producer (gates unchanged).
+
+    Phase 4A: ``slot_handoff`` / ``mcp_discovery_context`` / ``llm_intent_advisory``
+    are threaded into the planner prompt so the LLM plans against resolved context
+    instead of only the raw query. Phase 4B: the chosen plan is returned (redacted)
+    on ``detection_plan`` so the workflow node can persist it for downstream nodes.
+    """
     if not settings.ai_soc_llm_spl_fallback_enabled:
         return _clarification("llm_spl_fallback_disabled")
     if settings.ai_soc_llm_mode.strip().lower() == "disabled" or not settings.ai_soc_llm_enabled:
         return _clarification("llm_spl_fallback_disabled")
 
+    grounding = _grounding_block(
+        slot_handoff=slot_handoff,
+        mcp_discovery_context=mcp_discovery_context,
+        llm_intent_advisory=llm_intent_advisory,
+    )
     plan, errors = get_detection_plan(
-        user_query, client=client, seed=seed, llm_raw_output_provider=plan_raw_output_provider
+        user_query,
+        client=client,
+        seed=seed,
+        llm_raw_output_provider=plan_raw_output_provider,
+        grounding=grounding,
     )
     if plan is None:
         return _clarification(CLARIFICATION_INVALID_SCHEMA, adapter_errors=errors)
@@ -241,6 +335,9 @@ def generate_llm_spl_via_plan(
             "catalog_approved": False,
         }
     )
-    return generate_llm_spl_fallback(
+    result = generate_llm_spl_fallback(
         user_query=user_query, llm_raw_output_provider=lambda: producer_payload
     )
+    if result is not None:
+        result = replace(result, detection_plan=_redacted_detection_plan(plan))
+    return result

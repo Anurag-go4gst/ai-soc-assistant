@@ -300,6 +300,7 @@ class ChatPipelineState(TypedDict, total=False):
     evidence_plan: dict[str, Any] | None
     planning_decision: dict[str, Any] | None
     pipeline_dispatch: dict[str, Any] | None
+    llm_spl_plan: dict[str, Any] | None
     route_adjudication: dict[str, Any] | None
     route_contract: dict[str, Any] | None
     run_contract: dict[str, Any] | None
@@ -1699,6 +1700,11 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             query_understanding=query_understanding,
             llm_turn_budget=state.get("llm_turn_budget"),
         )
+    # Phase 4B: persist the LLM detection plan (if any) onto canonical state so
+    # downstream nodes prefer it over re-parsing the query. Node-only persistence;
+    # the compiler/fallback never write state.
+    if isinstance(candidate_spl, dict) and candidate_spl.get("detection_plan"):
+        state = persist_llm_spl_plan(state, candidate_spl.get("detection_plan"))
     exact_105_pattern = candidate_mapped_pattern
     mapped_use_case_ids = (
         getattr(query_understanding, "mapped_use_case_ids", None) or []
@@ -4923,6 +4929,42 @@ def _spl_user_constraint_bindings(
         allowed_sourcetypes=policy_sourcetypes,
     )
 
+def persist_llm_spl_plan(
+    state: ChatPipelineState, detection_plan: dict[str, Any] | None
+) -> ChatPipelineState:
+    """Persist the LLM-chosen detection plan onto canonical state (Phase 4B).
+
+    Maps the redacted plan to ``LlmSplPlanSnapshot`` on ``state["llm_spl_plan"]``
+    and, when present, ``pipeline_dispatch.runtime_context.llm_spl_plan`` so
+    downstream nodes (source-resolve, MCP, MITRE, narration) prefer it over
+    re-parsing the query. Advisory only — never execution authority.
+    """
+    if not isinstance(detection_plan, dict) or not detection_plan:
+        return state
+    from app.chat.contracts.pipeline_dispatch import LlmSplPlanSnapshot
+
+    snapshot = LlmSplPlanSnapshot(
+        index=detection_plan.get("index"),
+        sourcetype=detection_plan.get("sourcetype"),
+        data_domain=detection_plan.get("data_domain"),
+        required_fields=[str(x) for x in (detection_plan.get("required_fields") or [])],
+        filters=[str(x) for x in (detection_plan.get("filters") or [])],
+        threshold=detection_plan.get("threshold") if isinstance(detection_plan.get("threshold"), dict) else None,
+        detection_family=detection_plan.get("detection_family"),
+        consumed_by=["spl_source_resolve", "mcp_execution", "mitre_finalize", "narration"],
+    )
+    snapshot_dump = snapshot.model_dump(mode="json")
+    next_state: ChatPipelineState = {**state, "llm_spl_plan": snapshot_dump}
+    dispatch = next_state.get("pipeline_dispatch")
+    if isinstance(dispatch, dict):
+        dispatch = dict(dispatch)
+        runtime = dict(dispatch.get("runtime_context") or {})
+        runtime["llm_spl_plan"] = snapshot_dump
+        dispatch["runtime_context"] = runtime
+        next_state["pipeline_dispatch"] = dispatch
+    return next_state
+
+
 def _candidate_spl_stage(
     trace_id: str,
     skill: str,
@@ -4967,21 +5009,26 @@ def _candidate_spl_stage(
             )
             if utility_draft is not None:
                 return utility_draft
-        authoring_draft = _candidate_from_lab_draft(
-            trace_id=trace_id,
-            skill=skill,
-            user_query=user_query,
-            telemetry=telemetry,
-            profile=profile,
-            spl_governance=spl_governance,
-            pattern_type=mapped_pattern_type,
-            use_case_id=use_case_id,
-            llm_fallback_reason="explicit_spl_authoring_deterministic_draft",
-            live_data_request=bool(signals.get("explicit_spl_authoring")),
-            llm_intent_advisory=llm_intent_advisory,
-        )
-        if authoring_draft is not None:
-            return authoring_draft
+        # Phase 4.0: the unconditional lab-draft short-circuit for explicit SPL
+        # authoring is removed when dispatch v2 is on, so authoring flows through
+        # the template -> LLM plan-compiler -> lab-draft failover chain (LLM SPL no
+        # longer bypassed). Flag-off keeps the legacy short-circuit byte-identical.
+        if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+            authoring_draft = _candidate_from_lab_draft(
+                trace_id=trace_id,
+                skill=skill,
+                user_query=user_query,
+                telemetry=telemetry,
+                profile=profile,
+                spl_governance=spl_governance,
+                pattern_type=mapped_pattern_type,
+                use_case_id=use_case_id,
+                llm_fallback_reason="explicit_spl_authoring_deterministic_draft",
+                live_data_request=bool(signals.get("explicit_spl_authoring")),
+                llm_intent_advisory=llm_intent_advisory,
+            )
+            if authoring_draft is not None:
+                return authoring_draft
 
     telemetry = _routes_chat().get_telemetry_connector()
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
@@ -5143,11 +5190,23 @@ def _candidate_spl_stage(
         profile=profile,
         spl_governance=spl_governance,
         request_enabled=llm_failover_enabled,
+        llm_turn_budget=llm_turn_budget,
         llm_context={
             "primary_skill": skill,
             "use_case_id": use_case_id,
             "pattern_type": (spl_governance or {}).get("pattern_type") or mapped_pattern_type,
             "required_sources": (spl_governance or {}).get("required_sources"),
+            # Phase 4A: 2C advisory threaded into the plan compiler (input
+            # preservation). The grounding block extracts entity_slots_candidate.
+            # slot_handoff / mcp_discovery_context are wired from canonical state in
+            # Phase 2B / Phase 5 when they exist at Node 6.
+            "slot_handoff": None,
+            "mcp_discovery_context": None,
+            "llm_intent_advisory": (
+                llm_intent_advisory.model_dump()
+                if isinstance(llm_intent_advisory, LLMIntentAdvisory)
+                else llm_intent_advisory
+            ),
             # R1: when keyword routing is ambiguous (>1 family matches), give the
             # LLM the candidate family list so it disambiguates rather than the
             # deterministic first-match silently winning.
@@ -5976,6 +6035,7 @@ def _candidate_from_llm_fallback(
     spl_governance: dict[str, Any] | None = None,
     request_enabled: bool = False,
     llm_context: dict[str, Any] | None = None,
+    llm_turn_budget: "TurnLlmBudget | None" = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     """Governed LLM SPL advisory used only when no deterministic template matched.
 
@@ -6051,8 +6111,22 @@ def _candidate_from_llm_fallback(
     # Expected provider failures degrade to the deterministic path. Programming
     # errors (TypeError/signature drift, ValueError, etc.) intentionally propagate
     # to the sanitized P0-0 error envelope so they remain visible and diagnosable.
+    # Phase 4A: thread the canonical slot handoff + MCP discovery context + 2C
+    # advisory into the plan-compiler so the LLM plans against resolved context,
+    # not just the raw query.
+    _ctx = llm_context or {}
+    _plan_t0 = time.monotonic()
+    plan_compiler_used = False
     try:
-        result = generate_llm_spl_via_plan(user_query=user_query)
+        result = generate_llm_spl_via_plan(
+            user_query=user_query,
+            slot_handoff=_ctx.get("slot_handoff"),
+            mcp_discovery_context=_ctx.get("mcp_discovery_context"),
+            llm_intent_advisory=_ctx.get("llm_intent_advisory"),
+        )
+        plan_compiler_used = result is not None and bool(
+            str(getattr(result, "candidate_spl", "") or "").strip()
+        )
         if result is None or not str(getattr(result, "candidate_spl", "") or "").strip():
             result = generate_llm_spl_fallback(
                 user_query=user_query, context=llm_context, correctness_mode=True
@@ -6076,6 +6150,43 @@ def _candidate_from_llm_fallback(
         return None
     if result is None:
         return None
+    # Phase 4D: dual telemetry for the spl_plan_compiler hop (previously only the
+    # failure step was recorded). record_llm_call surfaces it in the control-plane
+    # llm_calls list; budget.record_sidecar surfaces it in the turn budget records.
+    if plan_compiler_used:
+        _plan_latency_ms = int((time.monotonic() - _plan_t0) * 1000)
+        _spl_compiler_telemetry = {
+            "role": "spl_plan_compiler",
+            "outcome": "completed",
+            "latency_ms": _plan_latency_ms,
+            "model": getattr(result, "model", None),
+            "provider_label": getattr(result, "provider", "llm_spl_advisory"),
+        }
+        try:
+            telemetry.record_llm_call(
+                trace_id,
+                kind="sidecar",
+                role="spl_plan_compiler",
+                provider_label=getattr(result, "provider", "llm_spl_advisory"),
+                outcome="completed",
+                latency_ms=_plan_latency_ms,
+                model=getattr(result, "model", None),
+            )
+        except Exception:  # noqa: BLE001 - telemetry must never break chat
+            logger.warning("spl_plan_compiler_telemetry_failed", exc_info=True)
+        if llm_turn_budget is not None:
+            try:
+                llm_turn_budget.record_sidecar(
+                    role="spl_plan_compiler",
+                    provider_label=getattr(result, "provider", "llm_spl_advisory"),
+                    outcome="completed",
+                    latency_ms=_plan_latency_ms,
+                    model=getattr(result, "model", None),
+                )
+            except Exception:  # noqa: BLE001 - telemetry must never break chat
+                logger.warning("spl_plan_compiler_budget_record_failed", exc_info=True)
+    else:
+        _spl_compiler_telemetry = {}
     relevance = _gate_llm_spl_relevance(result, user_query)
     # Regenerate-once is OFF by default (ai_soc_llm_spl_failover_retry_enabled) to
     # keep one LLM call per failover turn — on slow on-prem hardware a second call
@@ -6168,6 +6279,23 @@ def _candidate_from_llm_fallback(
         except Exception:  # noqa: BLE001 - telemetry must never break chat
             logger.warning("llm_spl_rejected_telemetry_failed", exc_info=True)
 
+    # Phase 4C: the LLM SPL candidate must never bypass the review-only
+    # postprocessor. Apply hygiene (index placeholders, time bound, command order)
+    # to the exposed candidate and stamp the evaluated/applied + hash trace.
+    postprocessor_trace_llm: dict[str, Any] = {}
+    final_candidate_spl = result.candidate_spl if expose_spl else ""
+    _dispatch_v2_on = bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False))
+    if _dispatch_v2_on and expose_spl and final_candidate_spl.strip():
+        pp = finalize_review_only_spl(
+            final_candidate_spl,
+            query=user_query,
+            family=str(getattr(result, "detection_family", "") or "llm_spl_advisory"),
+            slot_handoff=_ctx.get("slot_handoff"),
+            llm_generated=True,
+            mcp_discovery_context=_ctx.get("mcp_discovery_context"),
+        )
+        final_candidate_spl = pp.normalized_spl
+        postprocessor_trace_llm = pp.trace
     llm_lab_labels = {
         "governed": False,
         "catalog_approved": False,
@@ -6179,7 +6307,15 @@ def _candidate_from_llm_fallback(
         "trace_id": trace_id,
         "skill": skill,
         "user_query": user_query,
-        "candidate_spl": result.candidate_spl if expose_spl else "",
+        "candidate_spl": final_candidate_spl,
+        # Phase 4B: redacted LLM detection plan, carried on the candidate so the
+        # workflow node can persist it (persist_llm_spl_plan) for downstream nodes.
+        "detection_plan": getattr(result, "detection_plan", None),
+        "review_only_spl_postprocessor_trace": postprocessor_trace_llm,
+        "review_only_spl_postprocessor_applied": bool(
+            postprocessor_trace_llm.get("postprocessor_applied")
+        ),
+        "spl_plan_compiler_telemetry": _spl_compiler_telemetry,
         "generation_mode": "llm_spl_advisory_fallback",
         "confidence": 0.6 if expose_spl else 0.0,
         "assumptions": [

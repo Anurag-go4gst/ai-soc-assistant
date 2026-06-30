@@ -53,6 +53,10 @@ class LlmSplFallbackResult:
     quality_findings: list[dict[str, Any]] = field(default_factory=list)
     hard_fail_count: int = 0
     lab_tier: bool = False
+    # Phase 4B — redacted detection plan the LLM chose before compile (plan-plus-
+    # compiler path only). Advisory, not authority; persisted by the workflow node
+    # so downstream source-resolve/MITRE/narration prefer it over re-parsing.
+    detection_plan: dict[str, Any] | None = None
 
 
 def generate_llm_spl_fallback(
