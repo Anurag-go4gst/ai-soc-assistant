@@ -5178,8 +5178,16 @@ def _candidate_spl_stage(
             reason=governance_block_reason,
             spl_governance=spl_governance,
         )
+    # Phase 7: retire the SCADA/Cisco T2-native early return when dispatch v2 is on
+    # — those queries flow through the governed template -> LLM plan-compiler -> lab
+    # draft failover chain (Phase 4) instead of short-circuiting to a runtime-profile
+    # draft. runtime_source_profiles still supplies validator profiles downstream.
+    # Promoting scada_perf/cisco_asa to enabled catalogue templates is deferred until
+    # a live Splunk schema exists (Wave-3 posture: templates stay enabled=false until
+    # physical lookups are confirmed; avoids eval-green/live-red sourcetype drift).
+    _dispatch_v2_on = bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False))
     runtime_profile = _t2_runtime_profile_for_query(user_query)
-    if runtime_profile is not None:
+    if runtime_profile is not None and not _dispatch_v2_on:
         t2_early = _candidate_from_t2_spl_native(
             trace_id=trace_id,
             skill=skill,

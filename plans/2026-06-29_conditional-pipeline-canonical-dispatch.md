@@ -34,7 +34,7 @@ todos:
     status: done
   - id: phase7-catalogue-scada-cisco
     content: Move scada_perf/cisco_asa to catalogue; remove T2 native early return; update routing tests
-    status: pending
+    status: done
   - id: phase8-bundle-regression
     content: RunContract bundle tests F–J for MITRE/CVE/knowledge/hybrid/SPL-meta; eval_pipeline_dispatch_matrix.py; authority read sweep test
     status: pending
