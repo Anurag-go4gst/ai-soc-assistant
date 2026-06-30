@@ -33,3 +33,8 @@ def test_t2_native_early_return_is_flag_gated() -> None:
 def test_t2_native_helper_still_available_for_legacy_path() -> None:
     # Flag-off legacy path still relies on the helper; it must not be removed.
     assert callable(chat_pipeline._candidate_from_t2_spl_native)
+
+
+def test_guided_spl_rescue_t2_native_is_flag_gated() -> None:
+    src = inspect.getsource(chat_pipeline._candidate_spl_stage)
+    assert "guided_spl_rescue and not _dispatch_v2_on" in src

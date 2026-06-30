@@ -18,6 +18,16 @@ from app.chat.evidence_planner import build_catalog_display_evidence_plan, plan_
 from app.config import settings
 
 
+_MCP_DISCOVERY_HINT_MARKERS = frozenset(
+    {
+        "splunk_index_metadata",
+        "mcp_index_discovery",
+        "index_metadata",
+        "source_metadata",
+    }
+)
+
+
 _SPL_CHAIN: tuple[PipelineStage, ...] = (
     PipelineStage.workflow_spl,
     PipelineStage.spl_postprocessor,
@@ -155,7 +165,29 @@ def _ambiguous_index_handoff(handoff: SlotHandoffSummary) -> bool:
     return False
 
 
-def _needs_pre_spl_mcp_discovery(plan: EvidencePlan, handoff: SlotHandoffSummary) -> bool:
+def _evidence_hints_want_mcp_discovery(
+    query_to_intent: dict[str, Any] | None,
+    intent_classification: dict[str, Any] | IntentClassification | None,
+) -> bool:
+    hints: list[str] = []
+    if isinstance(query_to_intent, dict):
+        advisory = query_to_intent.get("llm_intent_advisory")
+        if isinstance(advisory, dict):
+            hints.extend(str(h) for h in (advisory.get("evidence_need_hints") or []))
+        hints.extend(str(h) for h in (query_to_intent.get("evidence_need_hints") or []))
+    if isinstance(intent_classification, dict):
+        hints.extend(str(h) for h in (intent_classification.get("evidence_need_hints") or []))
+    lowered = {h.lower() for h in hints}
+    return bool(lowered & {m.lower() for m in _MCP_DISCOVERY_HINT_MARKERS})
+
+
+def _needs_pre_spl_mcp_discovery(
+    plan: EvidencePlan,
+    handoff: SlotHandoffSummary,
+    *,
+    query_to_intent: dict[str, Any] | None = None,
+    intent_classification: dict[str, Any] | IntentClassification | None = None,
+) -> bool:
     """Discovery-need is separate from execution-need (spl_generation_only live-data case).
 
     ``live_data_request_mcp_needed_but_not_allowed`` marks execution denial, not an
@@ -166,6 +198,8 @@ def _needs_pre_spl_mcp_discovery(plan: EvidencePlan, handoff: SlotHandoffSummary
     if _slots_missing_for_spl(handoff):
         return True
     if _ambiguous_index_handoff(handoff) and settings.mcp_discovery_enabled:
+        return True
+    if _evidence_hints_want_mcp_discovery(query_to_intent, intent_classification):
         return True
     return False
 
@@ -179,8 +213,15 @@ def _spl_subgraph(
     plan: EvidencePlan,
     handoff: SlotHandoffSummary,
     force_pre_mcp: bool = False,
+    query_to_intent: dict[str, Any] | None = None,
+    intent_classification: dict[str, Any] | IntentClassification | None = None,
 ) -> list[PipelineStage]:
-    include_pre = force_pre_mcp or _needs_pre_spl_mcp_discovery(plan, handoff)
+    include_pre = force_pre_mcp or _needs_pre_spl_mcp_discovery(
+        plan,
+        handoff,
+        query_to_intent=query_to_intent,
+        intent_classification=intent_classification,
+    )
     stages: list[PipelineStage] = []
     if include_pre:
         stages.append(PipelineStage.pre_spl_mcp_discovery)
@@ -231,6 +272,8 @@ def _build_stage_schedule(
     plan: EvidencePlan,
     handoff: SlotHandoffSummary,
     family: str | None,
+    query_to_intent: dict[str, Any] | None = None,
+    intent_classification: dict[str, Any] | IntentClassification | None = None,
 ) -> list[PipelineStage]:
     if request_mode == "clarification":
         if plan.needs_rag:
@@ -258,7 +301,7 @@ def _build_stage_schedule(
         return list(_SPL_CHAIN)
 
     if request_mode == "spl_authoring":
-        return _spl_subgraph(plan=plan, handoff=handoff)
+        return _spl_subgraph(plan=plan, handoff=handoff, query_to_intent=query_to_intent, intent_classification=intent_classification)
 
     if request_mode == "spl_and_run":
         return _spl_subgraph(plan=plan, handoff=handoff, force_pre_mcp=True)
@@ -267,13 +310,13 @@ def _build_stage_schedule(
         stages: list[PipelineStage] = []
         if plan.needs_rag:
             stages.append(PipelineStage.rag_early)
-        stages.extend(_spl_subgraph(plan=plan, handoff=handoff))
+        stages.extend(_spl_subgraph(plan=plan, handoff=handoff, query_to_intent=query_to_intent, intent_classification=intent_classification))
         if plan.needs_mitre:
             stages.append(PipelineStage.mitre_finalize)
         return stages
 
     if request_mode == "live_investigation":
-        stages = _spl_subgraph(plan=plan, handoff=handoff)
+        stages = _spl_subgraph(plan=plan, handoff=handoff, query_to_intent=query_to_intent, intent_classification=intent_classification)
         if plan.needs_mitre and PipelineStage.mitre_finalize not in stages:
             stages.append(PipelineStage.mitre_finalize)
         return stages
@@ -333,6 +376,8 @@ def build_pipeline_dispatch(
         plan=plan,
         handoff=handoff,
         family=family,
+        query_to_intent=query_to_intent,
+        intent_classification=intent_classification,
     )
     include_pre_mcp = PipelineStage.pre_spl_mcp_discovery in stage_schedule
     llm_hops = _build_llm_hops(
@@ -345,7 +390,9 @@ def build_pipeline_dispatch(
     reasons: list[str] = [f"request_mode:{request_mode}"]
     if family:
         reasons.append(f"intent_family:{family}")
-    if _needs_pre_spl_mcp_discovery(plan, handoff) and not _needs_mcp_execution(plan):
+    if _needs_pre_spl_mcp_discovery(
+        plan, handoff, query_to_intent=query_to_intent, intent_classification=intent_classification
+    ) and not _needs_mcp_execution(plan):
         reasons.append("pre_spl_mcp_discovery_without_execution")
     if plan.reasons:
         reasons.extend(plan.reasons[:4])

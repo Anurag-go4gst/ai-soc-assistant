@@ -47,6 +47,8 @@ from app.chat.pipeline import (
     graph_node_shadow_tail,
     graph_node_spl_source_resolve,
     graph_node_workflow_spl,
+    dispatch_v2_route_after_shadow_tail,
+    dispatch_v2_route_after_workflow_spl,
 )
 from app.config import settings
 from app.planner.executor import has_composed_plan
@@ -63,7 +65,7 @@ def _add_linear_chain(graph: StateGraph) -> None:
     graph.add_conditional_edges(
         "shadow_tail",
         _after_shadow_tail,
-        {"rag_only": "prepare_rag_only", "workflow_spl": "workflow_spl", "composed_dispatch": "composed_dispatch"},
+        {"rag_only": "prepare_rag_only", "rag_early": "rag_early", "workflow_spl": "workflow_spl", "composed_dispatch": "composed_dispatch", "spl_source_resolve": "spl_source_resolve"},
     )
     graph.add_edge("prepare_rag_only", "rag_early")
     # Non-rag-only path mirrors the imperative order: SPL → [pre-MCP RAG] →
@@ -183,6 +185,9 @@ def _hub_route(state: ChatPipelineState) -> str:
 
 
 def _after_shadow_tail(state: ChatPipelineState) -> str:
+    v2_route = dispatch_v2_route_after_shadow_tail(state)
+    if v2_route is not None:
+        return v2_route
     if _evidence_plan(state).get("answer_mode") == "rag_only":
         return "rag_only"
     if has_composed_plan(state):
@@ -191,6 +196,9 @@ def _after_shadow_tail(state: ChatPipelineState) -> str:
 
 
 def _after_workflow_spl(state: ChatPipelineState) -> str:
+    v2_route = dispatch_v2_route_after_workflow_spl(state)
+    if v2_route is not None:
+        return v2_route
     plan = _evidence_plan(state)
     if bool(plan.get("needs_rag")) and plan.get("rag_phase") == "pre_mcp":
         return "rag_early"

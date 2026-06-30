@@ -134,3 +134,27 @@ def test_utility_spl_mode_omits_pre_mcp() -> None:
             PipelineStage.spl_source_resolve,
         )
     )
+
+
+def test_evidence_need_hints_schedule_pre_spl_mcp() -> None:
+    plan = EvidencePlan(
+        answer_mode="hybrid",
+        rag_phase="pre_mcp",
+        needs_rag=False,
+        needs_spl=True,
+        needs_mcp=False,
+        needs_mitre=False,
+        spl_allowed=True,
+        mcp_allowed=False,
+        policy_context_required=False,
+        policy_context_recommended=False,
+        normalized_slot_summary={"normalized_slots": {"index": "main", "sourcetype": "syslog"}},
+    )
+    dispatch = build_pipeline_dispatch(
+        evidence_plan=plan.model_dump(),
+        intent_classification={"intent_family": "spl_authoring"},
+        query_to_intent={
+            "llm_intent_advisory": {"evidence_need_hints": ["splunk_index_metadata"]},
+        },
+    )
+    assert PipelineStage.pre_spl_mcp_discovery in dispatch.decision.stage_schedule

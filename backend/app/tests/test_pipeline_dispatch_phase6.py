@@ -1,10 +1,10 @@
 """Phase 6 — cursor-driven ordered progression + schedule parity.
 
-The dedicated LangGraph node extraction (separate compiled spl_postprocessor /
-pre_spl_mcp_discovery nodes + rerouted conditional edges) is deferred: the
-LangGraph path is shadow/parity-only and the inline hooks (Phases 3–5) already
-enforce stage ordering. These tests lock the cursor-routing LOGIC + exact stage
-order so the deferred topology change has a contract to satisfy.
+Dedicated LangGraph nodes for spl_postprocessor / pre_spl_mcp_discovery remain
+deferred; cursor-driven conditional routing is partially wired in
+``chat_workflow._after_shadow_tail`` / ``_after_workflow_spl`` when dispatch v2
+is on. Inline hooks in the imperative path enforce stage ordering. These tests
+lock cursor-routing logic + exact stage order for the deferred topology change.
 """
 
 from __future__ import annotations
@@ -91,3 +91,39 @@ def test_advance_cursor_ignores_unscheduled_stage(monkeypatch) -> None:
     }
     out = advance_dispatch_cursor(state, PipelineStage.mcp_execution)
     assert out["pipeline_dispatch"]["runtime_context"].get("dispatch_cursor") is None
+
+
+def test_cannot_skip_pre_spl_when_advancing_workflow_spl(monkeypatch) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_pipeline_dispatch_v2_enabled", True)
+    state = {
+        "pipeline_dispatch": {
+            "decision": {
+                "stage_schedule": [
+                    PipelineStage.pre_spl_mcp_discovery.value,
+                    PipelineStage.workflow_spl.value,
+                    PipelineStage.spl_postprocessor.value,
+                ]
+            },
+            "runtime_context": {"dispatch_cursor": None},
+        }
+    }
+    out = advance_dispatch_cursor(state, PipelineStage.workflow_spl)
+    assert out["pipeline_dispatch"]["runtime_context"].get("dispatch_cursor") is None
+
+
+def test_dispatch_v2_route_after_shadow_tail_prefers_workflow_for_pre_spl(monkeypatch) -> None:
+    from app.chat.pipeline import dispatch_v2_route_after_shadow_tail
+
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_pipeline_dispatch_v2_enabled", True)
+    state = {
+        "pipeline_dispatch": {
+            "decision": {
+                "stage_schedule": [
+                    PipelineStage.pre_spl_mcp_discovery.value,
+                    PipelineStage.workflow_spl.value,
+                ]
+            },
+            "runtime_context": {},
+        }
+    }
+    assert dispatch_v2_route_after_shadow_tail(state) == "workflow_spl"

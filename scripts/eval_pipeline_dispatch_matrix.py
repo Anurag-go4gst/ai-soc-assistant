@@ -78,6 +78,20 @@ _CASES = [
         and PipelineStage.workflow_spl in d.stage_schedule
         and PipelineStage.mitre_finalize in d.stage_schedule,
     ),
+    (
+        "spl_authoring_bound_slots",
+        _plan(
+            answer_mode="live_investigation",
+            needs_spl=True,
+            spl_allowed=True,
+            normalized_slot_summary={"normalized_slots": {"index": "scada_perf", "sourcetype": "perf"}},
+        ),
+        "spl_generation_only",
+        lambda d: d.request_mode == "spl_authoring"
+        and PipelineStage.pre_spl_mcp_discovery not in d.stage_schedule
+        and PipelineStage.workflow_spl in d.stage_schedule
+        and PipelineStage.mcp_execution not in d.stage_schedule,
+    ),
 ]
 
 

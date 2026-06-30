@@ -129,7 +129,12 @@ from app.use_cases.content_enrichment import enrichment_spl_governance, enrichme
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import match_use_cases
 from app.use_cases.routing_authority import catalog_authority_row, sidecar_intent_is_t0
-from app.chat.contracts.pipeline_dispatch import build_pipeline_dispatch
+from app.chat.contracts.pipeline_dispatch import (
+    McpDiscoveryContext,
+    PipelineStage,
+    build_pipeline_dispatch,
+    next_stage_after,
+)
 from app.chat.contracts.run_contract import RouteContract
 from app.chat.evidence_planner import plan_evidence, resolve_analyst_evidence_plan
 from app.planner.executor import (
@@ -1651,34 +1656,56 @@ def graph_node_ensure_workflow_plan(state: ChatPipelineState) -> ChatPipelineSta
     return {**state, "workflow_plan": workflow_plan}
 
 
-def advance_dispatch_cursor(
-    state: ChatPipelineState, stage: "Any"
-) -> ChatPipelineState:
-    """Advance pipeline_dispatch.runtime_context.dispatch_cursor to ``stage`` (Phase 6).
+def _dispatch_schedule_and_cursor(
+    dispatch: dict[str, Any],
+) -> tuple[list[PipelineStage], PipelineStage | None]:
+    decision = dispatch.get("decision") or {}
+    schedule = [
+        PipelineStage(s)
+        for s in (decision.get("stage_schedule") or [])
+        if s in PipelineStage._value2member_map_
+    ]
+    runtime = dispatch.get("runtime_context") or {}
+    cursor_raw = runtime.get("dispatch_cursor") if isinstance(runtime, dict) else None
+    cursor = PipelineStage(cursor_raw) if cursor_raw in PipelineStage._value2member_map_ else None
+    return schedule, cursor
 
-    Cursor-driven progression marker — flag-gated and no-op when dispatch is
-    absent. Only advances forward (to a stage at or after the current cursor in
-    the schedule) so re-entry can't rewind the cursor.
+
+def _record_dispatch_stage_skip(runtime: dict[str, Any], stage: PipelineStage, reason: str) -> dict[str, Any]:
+    trace = dict(runtime.get("scheduling_trace") or {})
+    skips = list(trace.get("skipped_stages") or [])
+    skips.append({"stage": stage.value, "reason": reason})
+    trace["skipped_stages"] = skips
+    runtime["scheduling_trace"] = trace
+    return runtime
+
+
+def advance_dispatch_cursor(
+    state: ChatPipelineState, stage: PipelineStage | str
+) -> ChatPipelineState:
+    """Advance dispatch cursor only when ``stage`` is the next scheduled stage.
+
+    Sequential enforcement prevents skipping ``pre_spl_mcp_discovery`` when
+    advancing ``workflow_spl``. Records ``cursor_path`` for audit parity.
     """
     if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
         return state
     dispatch = state.get("pipeline_dispatch")
     if not isinstance(dispatch, dict):
         return state
-    from app.chat.contracts.pipeline_dispatch import PipelineStage
-
     stage_value = stage.value if isinstance(stage, PipelineStage) else str(stage)
     if stage_value not in PipelineStage._value2member_map_:
         return state
-    decision = dispatch.get("decision") or {}
-    schedule = [s for s in (decision.get("stage_schedule") or []) if s in PipelineStage._value2member_map_]
-    if stage_value not in schedule:
+    schedule, cursor = _dispatch_schedule_and_cursor(dispatch)
+    if not schedule:
+        return state
+    stage_enum = PipelineStage(stage_value)
+    if stage_enum not in schedule:
+        return state
+    expected = next_stage_after(schedule, cursor)
+    if expected is not stage_enum:
         return state
     runtime = dict(dispatch.get("runtime_context") or {})
-    current = runtime.get("dispatch_cursor")
-    # Forward-only: ignore a stage that precedes the current cursor.
-    if current in schedule and schedule.index(stage_value) < schedule.index(current):
-        return state
     runtime["dispatch_cursor"] = stage_value
     trace = dict(runtime.get("scheduling_trace") or {})
     visited = list(trace.get("cursor_path") or [])
@@ -1689,44 +1716,83 @@ def advance_dispatch_cursor(
     return {**state, "pipeline_dispatch": {**dispatch, "runtime_context": runtime}}
 
 
+def dispatch_v2_route_after_shadow_tail(state: ChatPipelineState) -> str | None:
+    """Cursor-driven shadow-tail routing when dispatch v2 is on (Phase 6 partial)."""
+    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        return None
+    dispatch = state.get("pipeline_dispatch")
+    if not isinstance(dispatch, dict):
+        return None
+    schedule, cursor = _dispatch_schedule_and_cursor(dispatch)
+    if not schedule:
+        return None
+    nxt = next_stage_after(schedule, cursor)
+    if nxt is None:
+        return None
+    if nxt is PipelineStage.rag_early:
+        plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+        return "rag_only" if plan.get("answer_mode") == "rag_only" else "rag_early"
+    if nxt in {
+        PipelineStage.pre_spl_mcp_discovery,
+        PipelineStage.workflow_spl,
+        PipelineStage.spl_postprocessor,
+    }:
+        return "workflow_spl"
+    if nxt in {PipelineStage.spl_source_resolve, PipelineStage.mcp_execution}:
+        return "spl_source_resolve"
+    return None
+
+
+def dispatch_v2_route_after_workflow_spl(state: ChatPipelineState) -> str | None:
+    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        return None
+    dispatch = state.get("pipeline_dispatch")
+    if not isinstance(dispatch, dict):
+        return None
+    schedule, cursor = _dispatch_schedule_and_cursor(dispatch)
+    nxt = next_stage_after(schedule, cursor)
+    if nxt is PipelineStage.rag_early:
+        return "rag_early"
+    if nxt in {PipelineStage.spl_source_resolve, PipelineStage.mcp_execution}:
+        return "spl_source_resolve"
+    return None
+
+
 def graph_node_pre_spl_mcp_discovery(state: ChatPipelineState) -> ChatPipelineState:
     """Read-only MCP source discovery before SPL generation (Phase 5).
 
     Runs only when dispatch v2 is on AND ``pre_spl_mcp_discovery`` is the next
-    scheduled stage (cursor-driven). Calls discovery-only tools (never
-    ``splunk_run_query``), maps the result into
-    ``pipeline_dispatch.runtime_context.mcp_discovery_context``, advances the
-    dispatch cursor, and sets ``mcp_phase="pre_spl"``. Best-effort: any failure
-    leaves state unchanged so the SPL path still runs.
+    scheduled stage (cursor-driven). Discovery failures and disabled MCP are
+    recorded as skipped stages, then the cursor advances so SPL generation can
+    proceed without skipping ahead in ``cursor_path``.
     """
     if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
         return state
     dispatch = state.get("pipeline_dispatch")
     if not isinstance(dispatch, dict):
         return state
-    from app.chat.contracts.pipeline_dispatch import (
-        McpDiscoveryContext,
-        PipelineStage,
-        next_stage_after,
-    )
 
-    decision = dispatch.get("decision") or {}
-    runtime = dict(dispatch.get("runtime_context") or {})
-    schedule = [PipelineStage(s) for s in (decision.get("stage_schedule") or []) if s in PipelineStage._value2member_map_]
-    cursor_raw = runtime.get("dispatch_cursor")
-    cursor = PipelineStage(cursor_raw) if cursor_raw in PipelineStage._value2member_map_ else None
+    schedule, cursor = _dispatch_schedule_and_cursor(dispatch)
     if next_stage_after(schedule, cursor) is not PipelineStage.pre_spl_mcp_discovery:
         return state
-    if not bool(getattr(settings, "mcp_discovery_enabled", False)):
-        return state
 
-    handoff = (decision.get("slot_handoff") or {}).get("normalized_slots") or {}
-    required = [k for k in ("index", "sourcetype") if not handoff.get(k)]
+    runtime = dict(dispatch.get("runtime_context") or {})
+    if not bool(getattr(settings, "mcp_discovery_enabled", False)):
+        runtime = _record_dispatch_stage_skip(runtime, PipelineStage.pre_spl_mcp_discovery, "mcp_discovery_disabled")
+        state = {**state, "pipeline_dispatch": {**dispatch, "runtime_context": runtime}}
+        return advance_dispatch_cursor(state, PipelineStage.pre_spl_mcp_discovery)
+
+    handoff = (dispatch.get("decision") or {}).get("slot_handoff") or {}
+    slots = handoff.get("normalized_slots") if isinstance(handoff, dict) else {}
+    slots = slots if isinstance(slots, dict) else {}
+    required = [k for k in ("index", "sourcetype") if not slots.get(k)]
     try:
         profile, trace = run_mcp_source_discovery(required_slots=required or None)
     except Exception:  # noqa: BLE001 - discovery must never break the SPL path
         logger.warning("pre_spl_mcp_discovery_failed", exc_info=True)
-        return state
+        runtime = _record_dispatch_stage_skip(runtime, PipelineStage.pre_spl_mcp_discovery, "discovery_failed")
+        state = {**state, "pipeline_dispatch": {**dispatch, "runtime_context": runtime}}
+        return advance_dispatch_cursor(state, PipelineStage.pre_spl_mcp_discovery)
 
     indexes = [profile["index"]] if profile.get("index") else []
     sourcetypes = [profile["sourcetype"]] if profile.get("sourcetype") else []
@@ -1738,10 +1804,9 @@ def graph_node_pre_spl_mcp_discovery(state: ChatPipelineState) -> ChatPipelineSt
         populated_at_stage="pre_spl_mcp_discovery",
     )
     runtime["mcp_discovery_context"] = discovery_ctx.model_dump(mode="json")
-    runtime["dispatch_cursor"] = PipelineStage.pre_spl_mcp_discovery.value
     runtime["mcp_phase"] = "pre_spl"
-    next_dispatch = {**dispatch, "runtime_context": runtime}
-    return {**state, "pipeline_dispatch": next_dispatch}
+    state = {**state, "pipeline_dispatch": {**dispatch, "runtime_context": runtime}}
+    return advance_dispatch_cursor(state, PipelineStage.pre_spl_mcp_discovery)
 
 
 def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
@@ -1823,10 +1888,8 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     # Phase 6: advance the dispatch cursor through the SPL stages this node owns
     # (workflow_spl, then the inline spl_postprocessor) so the cursor path records
     # exact ordered progression. Flag-gated; no-op when dispatch is absent.
-    from app.chat.contracts.pipeline_dispatch import PipelineStage as _PStage
-
-    state = advance_dispatch_cursor(state, _PStage.workflow_spl)
-    state = advance_dispatch_cursor(state, _PStage.spl_postprocessor)
+    state = advance_dispatch_cursor(state, PipelineStage.workflow_spl)
+    state = advance_dispatch_cursor(state, PipelineStage.spl_postprocessor)
     exact_105_pattern = candidate_mapped_pattern
     mapped_use_case_ids = (
         getattr(query_understanding, "mapped_use_case_ids", None) or []
@@ -5156,7 +5219,8 @@ def _candidate_spl_stage(
     telemetry = _routes_chat().get_telemetry_connector()
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
     spl_governance = _runtime_spl_governance(use_case_id)
-    if guided_spl_rescue:
+    _dispatch_v2_on = bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False))
+    if guided_spl_rescue and not _dispatch_v2_on:
         t2_native_candidate = _candidate_from_t2_spl_native(
             trace_id=trace_id,
             skill=skill,
@@ -5185,7 +5249,6 @@ def _candidate_spl_stage(
     # Promoting scada_perf/cisco_asa to enabled catalogue templates is deferred until
     # a live Splunk schema exists (Wave-3 posture: templates stay enabled=false until
     # physical lookups are confirmed; avoids eval-green/live-red sourcetype drift).
-    _dispatch_v2_on = bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False))
     runtime_profile = _t2_runtime_profile_for_query(user_query)
     if runtime_profile is not None and not _dispatch_v2_on:
         t2_early = _candidate_from_t2_spl_native(

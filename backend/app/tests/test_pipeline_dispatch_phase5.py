@@ -48,7 +48,7 @@ def test_runs_discovery_and_writes_context(monkeypatch: pytest.MonkeyPatch) -> N
     assert rc["mcp_phase"] == "pre_spl"
 
 
-def test_discovery_failure_is_best_effort(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_discovery_failure_records_skip_and_advances_cursor(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_pipeline_dispatch_v2_enabled", True)
     monkeypatch.setattr("app.chat.pipeline.settings.mcp_discovery_enabled", True)
 
@@ -56,5 +56,23 @@ def test_discovery_failure_is_best_effort(monkeypatch: pytest.MonkeyPatch) -> No
         raise RuntimeError("connector down")
 
     monkeypatch.setattr("app.chat.pipeline.run_mcp_source_discovery", _boom)
-    state = _state_with_schedule([PipelineStage.pre_spl_mcp_discovery.value])
-    assert graph_node_pre_spl_mcp_discovery(state) is state
+    state = _state_with_schedule(
+        [PipelineStage.pre_spl_mcp_discovery.value, PipelineStage.workflow_spl.value]
+    )
+    out = graph_node_pre_spl_mcp_discovery(state)
+    rc = out["pipeline_dispatch"]["runtime_context"]
+    assert rc["dispatch_cursor"] == PipelineStage.pre_spl_mcp_discovery.value
+    assert rc["scheduling_trace"]["skipped_stages"][-1]["reason"] == "discovery_failed"
+    assert rc["scheduling_trace"]["cursor_path"] == [PipelineStage.pre_spl_mcp_discovery.value]
+
+
+def test_mcp_discovery_disabled_records_skip(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_pipeline_dispatch_v2_enabled", True)
+    monkeypatch.setattr("app.chat.pipeline.settings.mcp_discovery_enabled", False)
+    state = _state_with_schedule(
+        [PipelineStage.pre_spl_mcp_discovery.value, PipelineStage.workflow_spl.value]
+    )
+    out = graph_node_pre_spl_mcp_discovery(state)
+    rc = out["pipeline_dispatch"]["runtime_context"]
+    assert rc["scheduling_trace"]["skipped_stages"][-1]["reason"] == "mcp_discovery_disabled"
+    assert rc["dispatch_cursor"] == PipelineStage.pre_spl_mcp_discovery.value
