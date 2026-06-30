@@ -145,3 +145,66 @@ def build_pipeline_dispatch(
     from app.chat.pipeline_dispatch_builder import build_pipeline_dispatch as _build
 
     return _build(evidence_plan=evidence_plan, **kwargs)
+
+def decision_from_state(state: dict[str, Any] | None) -> PipelineDispatchContract | None:
+    """Parse ``pipeline_dispatch.decision`` from chat state when present."""
+    if not isinstance(state, dict):
+        return None
+    dispatch = state.get("pipeline_dispatch")
+    if not isinstance(dispatch, dict):
+        return None
+    decision = dispatch.get("decision")
+    if not isinstance(decision, dict):
+        return None
+    try:
+        return PipelineDispatchContract.model_validate(decision)
+    except Exception:
+        return None
+
+
+def projected_flags_from_state(state: dict[str, Any] | None) -> dict[str, bool] | None:
+    """Project dispatch contract flags when dispatch v2 is enabled and decision exists."""
+    from app.config import settings
+
+    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        return None
+    decision = decision_from_state(state)
+    if decision is None:
+        return None
+    return project_dispatch_flags(decision)
+
+
+def imperative_hook_schedule_from_state(state: dict[str, Any] | None) -> list[str] | None:
+    """Map ``stage_schedule`` to imperative pipeline hook names (REV5-A)."""
+    from app.config import settings
+
+    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        return None
+    decision = decision_from_state(state)
+    if decision is None or not decision.stage_schedule:
+        return None
+
+    hooks: list[str] = []
+    for stage in decision.stage_schedule:
+        if stage is PipelineStage.rag_early:
+            if not hooks:
+                hooks.append("prepare_rag_only")
+            if "rag_early" not in hooks:
+                hooks.append("rag_early")
+        elif stage is PipelineStage.pre_spl_mcp_discovery:
+            continue
+        elif stage is PipelineStage.workflow_spl:
+            if "workflow_spl" not in hooks:
+                hooks.append("workflow_spl")
+        elif stage is PipelineStage.spl_postprocessor:
+            continue
+        elif stage is PipelineStage.spl_source_resolve:
+            if "spl_source_resolve" not in hooks:
+                hooks.append("spl_source_resolve")
+        elif stage is PipelineStage.mcp_execution:
+            if "execution" not in hooks:
+                hooks.append("execution")
+        elif stage in {PipelineStage.mitre_finalize, PipelineStage.cve_adapter}:
+            continue
+    return hooks
+

@@ -31,12 +31,25 @@ todos:
     status: done
   - id: phase6-graph-executor
     content: LangGraph/executor dispatch_cursor + next_stage_after (ordered schedule); CP hub pre_spl vs post_spl phase; exact-order parity tests
-    status: done
+    status: partial
   - id: phase7-catalogue-scada-cisco
     content: Move scada_perf/cisco_asa to catalogue; remove T2 native early return; update routing tests
     status: done
   - id: phase8-bundle-regression
     content: RunContract bundle tests F–J for MITRE/CVE/knowledge/hybrid/SPL-meta; eval_pipeline_dispatch_matrix.py; authority read sweep test
+    status: done
+
+  - id: rev5-authority-wiring
+    content: Wire project_dispatch_flags into imperative dispatch, executor, and LLM SPL gates (REV5-A)
+    status: done
+  - id: rev5-slot-handoff-llm
+    content: Thread pipeline_dispatch.decision.slot_handoff into LLM plan-compiler context (REV5-B)
+    status: done
+  - id: rev5-postprocessor-universal
+    content: finalize_review_only_spl on all exposable SPL paths; fix postprocessor_applied invariant (REV5-C)
+    status: done
+  - id: rev5-live-bundle-fj
+    content: Live /chat RunContract bundle tests F–J; promote matrix eval after REV5-A (REV5-E)
     status: done
 isProject: false
 ---
@@ -837,6 +850,68 @@ Each iteration (one phase = one PR-sized commit):
 | CP-off dispatch | Phase 2B fallback required before claiming CP-on/off parity |
 | Code default vs `.env` | Code default `false` for dispatch v2; operator `.env` `true` for on-host probes |
 | Governance | Flag-off pytest byte-identical; full regression Phase 8 |
+
+
+## REV 5 — Objective completion audit (2026-06-29)
+
+**Verdict:** Phases 0–8 delivered contracts, builders, partial wiring, and tests. The plan **overview objective is not met** until REV5 remediation ships: with `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=true`, runtime must route and gate LLM/SPL work through `pipeline_dispatch.decision` (`stage_schedule` + `llm_hops`), not parallel legacy predicates alone.
+
+### Pillar scorecard
+
+| Pillar | Status | Notes |
+|--------|--------|-------|
+| Two-stage dispatch contracts | **Met** | `IntentDispatchDecision` + `PipelineDispatchState` exist and attach when v2 on |
+| Sole routing surface | **Not met → REV5-A** | `_run_legacy_dispatch_fallback` and executor still used legacy booleans; `project_dispatch_flags` was test-only |
+| Gated LLM hops | **Not met → REV5-A** | `_should_use_llm_spl_failover` ignored `llm_hops` |
+| Mandatory postprocessor | **Partial → REV5-C** | Template/lab/LLM paths covered; T2-native and `postprocessor_applied` invariant gaps |
+| Pre-SPL MCP | **Mostly met** | Inline in `workflow_spl`; `mcp_tool_planner` hop advisory only |
+| SPL input preservation | **Partial → REV5-B** | `slot_handoff: None` in LLM fallback context |
+| Catalogue SCADA/Cisco | **Not met → REV5-D** | Templates + catalogue-first routing deferred from Phase 7 |
+| Bundle gates F–J | **Not met → REV5-E** | `test_run_contract_bundle.py` stopped at A–E; matrix builder-only |
+| Debug completeness | **Partial** | `output`/`intent`/`dispatch` blocks exist; incomplete when v2 off or LLM slots missing |
+| Flag-off governance | **Met** | Code default `false`; regression byte-identity preserved |
+
+### Architecture gap (pre-REV5)
+
+```mermaid
+flowchart LR
+  subgraph target [Objective]
+    PDS[pipeline_dispatch.decision]
+    PDS --> SS[stage_schedule]
+    PDS --> LH[llm_hops]
+    SS --> ExecNodes[Execute stages in order]
+    LH --> LlmGates[Gate LLM hops]
+  end
+  subgraph actual [Pre_REV5_runtime]
+    EP[evidence_plan booleans]
+    GS[ai_soc_llm_spl_fallback_enabled]
+    EP --> Legacy[_run_legacy_dispatch_fallback]
+    GS --> SplFailover[_should_use_llm_spl_failover]
+    PDS -.->|observability only| Debug[debug_summary]
+  end
+```
+
+### REV5 remediation track
+
+| ID | Scope |
+|----|-------|
+| REV5-A | Wire `project_dispatch_flags` into `_run_legacy_dispatch_fallback`, `executor._legacy_predicate_dispatch_schedule`, `_should_use_llm_spl_failover` |
+| REV5-B | Thread `decision.slot_handoff` into `_candidate_from_llm_fallback` / plan compiler |
+| REV5-C | `finalize_review_only_spl` on all exposable SPL; fix governed-template `postprocessor_applied` |
+| REV5-D | Promote `scada_perf` / `cisco_asa` catalogue templates; catalogue-first when v2 on |
+| REV5-E | Add live `/chat` bundle tests F–J; authority wiring regression |
+
+### Acceptance (flags-on dev/staging)
+
+Prove on live `/chat` with `CONTROL_PLANE_ENABLED=true`, `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=true`, `AI_SOC_LLM_SPL_FALLBACK_ENABLED=true`, `MCP_DISCOVERY_ENABLED=true`, `MCP_GLOBAL_EXECUTION_ENABLED=false`:
+
+1. MITRE explain → `mitre_knowledge` schedule, no SPL stages
+2. SPL authoring bound index → SPL chain, postprocessor trace present
+3. Missing slots → `pre_spl_mcp_discovery` in schedule + honest skip audit
+4. SCADA/Cisco → catalogue template before T2-native / LLM when template active
+5. `/debug/traces/{id}` shows `dispatch`, `intent`, `output`, postprocessor hashes
+6. Governance regression PASS with v2 flag-off unchanged
+
 
 ## Out of scope (explicit deferrals)
 

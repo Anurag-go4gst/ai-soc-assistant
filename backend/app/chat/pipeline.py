@@ -133,7 +133,9 @@ from app.chat.contracts.pipeline_dispatch import (
     McpDiscoveryContext,
     PipelineStage,
     build_pipeline_dispatch,
+    imperative_hook_schedule_from_state,
     next_stage_after,
+    projected_flags_from_state,
 )
 from app.chat.contracts.run_contract import RouteContract
 from app.chat.evidence_planner import plan_evidence, resolve_analyst_evidence_plan
@@ -1772,6 +1774,9 @@ def graph_node_pre_spl_mcp_discovery(state: ChatPipelineState) -> ChatPipelineSt
     if not isinstance(dispatch, dict):
         return state
 
+    flags = projected_flags_from_state(state)
+    if flags is not None and not flags.get("run_pre_spl_mcp_discovery"):
+        return state
     schedule, cursor = _dispatch_schedule_and_cursor(dispatch)
     if next_stage_after(schedule, cursor) is not PipelineStage.pre_spl_mcp_discovery:
         return state
@@ -1855,6 +1860,13 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     if session_refined is not None:
         candidate_spl, spl_validation = session_refined
     else:
+        _dispatch_flags = projected_flags_from_state(state)
+        _slot_handoff = None
+        _pd = state.get("pipeline_dispatch")
+        if isinstance(_pd, dict):
+            _dec = _pd.get("decision")
+            if isinstance(_dec, dict) and isinstance(_dec.get("slot_handoff"), dict):
+                _slot_handoff = _dec.get("slot_handoff")
         candidate_spl, spl_validation = _candidate_spl_stage(
             trace_id=trace_id,
             skill=effective_skill,
@@ -1879,6 +1891,8 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             mcp_discovery_context=(
                 (state.get("pipeline_dispatch") or {}).get("runtime_context") or {}
             ).get("mcp_discovery_context"),
+            slot_handoff=_slot_handoff,
+            dispatch_flags=_dispatch_flags,
         )
     # Phase 4B: persist the LLM detection plan (if any) onto canonical state so
     # downstream nodes prefer it over re-parsing the query. Node-only persistence;
@@ -4140,20 +4154,57 @@ def _composed_plan_missing_reason(state: ChatPipelineState) -> str:
     return "resource_plan_composition_failed"
 
 
+_RUNTIME_PROFILE_CATALOGUE_TEMPLATES: dict[str, str] = {
+    "scada_perf": "scada_perf_threshold_anomaly",
+    "cisco_asa": "cisco_asa_ioc_lookup",
+}
+
+
 def _run_legacy_dispatch_fallback(
     state: ChatPipelineState,
     *,
     dispatch_source: str,
     composed_plan_missing_reason: str | None = None,
 ) -> ChatPipelineState:
-    """Explicit legacy dispatch when composed plan is absent; traced, never silent."""
+    """Dispatch stages when composed plan is absent; traced, never silent.
+
+    When dispatch v2 is on and ``pipeline_dispatch`` is present, ``stage_schedule``
+    is the sole routing authority (REV5-A). Otherwise legacy evidence_plan booleans.
+    """
     trace: dict[str, Any] = {
         "dispatch_source": dispatch_source,
         "dispatch_schedule": [],
     }
     if composed_plan_missing_reason:
         trace["composed_plan_missing_reason"] = composed_plan_missing_reason
+    projected = projected_flags_from_state(state)
+    if projected is not None:
+        trace["dispatch_authority"] = "pipeline_dispatch_v2"
+        trace["projected_flags"] = projected
     state = {**state, "plan_dispatch_trace": trace}
+
+    v2_hooks = imperative_hook_schedule_from_state(state)
+    if v2_hooks is not None:
+        hook_nodes = {
+            "prepare_rag_only": graph_node_prepare_rag_only,
+            "rag_early": graph_node_rag_early,
+            "workflow_spl": graph_node_workflow_spl,
+            "spl_source_resolve": graph_node_spl_source_resolve,
+            "execution": graph_node_execution,
+        }
+        for hook_name in v2_hooks:
+            node = hook_nodes.get(hook_name)
+            if node is None:
+                continue
+            state = node(state)
+            trace["dispatch_schedule"].append(hook_name)
+        # SPL/hybrid schedules omit ``mcp_execution`` from stage_schedule but still
+        # need the execution gate stub (legacy path always ran execution after SPL).
+        if "execution" not in state:
+            state = graph_node_execution(state)
+            trace["dispatch_schedule"].append("execution")
+        return {**state, "plan_dispatch_trace": trace}
+
     if _uses_rag_only_path(state):
         state = graph_node_prepare_rag_only(state)
         trace["dispatch_schedule"].append("prepare_rag_only")
@@ -5165,6 +5216,8 @@ def _candidate_spl_stage(
     query_understanding: Any | None = None,
     llm_turn_budget: Any | None = None,
     mcp_discovery_context: dict[str, Any] | None = None,
+    slot_handoff: dict[str, Any] | None = None,
+    dispatch_flags: dict[str, bool] | None = None,
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
@@ -5268,6 +5321,28 @@ def _candidate_spl_stage(
         query_understanding=query_understanding,
         template_id=template_id,
     )
+    if runtime_profile is not None and _dispatch_v2_on:
+        catalogue_template_id = _RUNTIME_PROFILE_CATALOGUE_TEMPLATES.get(
+            getattr(runtime_profile, "source_profile_id", "") or ""
+        )
+        if catalogue_template_id:
+            catalogue_candidate = _candidate_from_default_template(
+                trace_id=trace_id,
+                skill=skill,
+                user_query=user_query,
+                template_id=catalogue_template_id,
+                spl_governance=spl_governance,
+                telemetry=telemetry,
+                profile=profile,
+                slot_source=(
+                    "llm"
+                    if any(source == SLOT_SOURCE_LLM for source in user_bindings.slot_sources.values())
+                    else "user"
+                ),
+                user_constraint_bindings=user_bindings,
+            )
+            if catalogue_candidate is not None:
+                return catalogue_candidate
     template_candidate = _candidate_from_default_template(
         trace_id=trace_id,
         skill=skill,
@@ -5314,7 +5389,7 @@ def _candidate_spl_stage(
         )
         return candidate_payload, validation_payload
 
-    llm_failover_enabled = _should_use_llm_spl_failover(skill)
+    llm_failover_enabled = _should_use_llm_spl_failover(skill, dispatch_flags=dispatch_flags)
     # B02: when LLM failover is enabled, do not short-circuit planned/missing
     # template rows to clarification — let the LLM generate, then the relevance +
     # validation gates decide. Without failover, preserve the prior clarification.
@@ -5394,7 +5469,7 @@ def _candidate_spl_stage(
             # preservation). The grounding block extracts entity_slots_candidate.
             # slot_handoff wired from canonical state in a later pass; the Phase 5
             # pre-SPL MCP discovery context is threaded here when present.
-            "slot_handoff": None,
+            "slot_handoff": slot_handoff,
             "mcp_discovery_context": mcp_discovery_context,
             "llm_intent_advisory": (
                 llm_intent_advisory.model_dump()
@@ -5625,7 +5700,7 @@ def _candidate_from_default_template(
             bindings,
             built_at_stage="spl_generation",
         ).to_dict(),
-        "postprocessor_applied": False,
+        "postprocessor_applied": bool(postprocessor_trace.get("postprocessor_applied")),
         "review_only_spl_postprocessor_trace": postprocessor_trace,
     }
     validation_payload = {
@@ -5846,10 +5921,20 @@ def _build_t2_grounding_block(user_query: str) -> str | None:
         return None
 
 
-def _should_use_llm_spl_failover(skill: str) -> bool:
-    """LLM-primary failover is available when the flag is on and the skill is an
-    SPL-producing skill. The relevance + validation gates downstream keep any
-    output non-executable and on-question."""
+def _should_use_llm_spl_failover(
+    skill: str,
+    *,
+    dispatch_flags: dict[str, bool] | None = None,
+) -> bool:
+    """LLM-primary failover when dispatch authorizes ``spl_plan_compiler`` (REV5-A).
+
+    With dispatch v2 on, ``call_spl_llm`` from projected flags is required (fail
+    closed when flags absent). Flag-off keeps legacy global-flag + skill gate.
+    """
+    if dispatch_flags is not None:
+        return bool(dispatch_flags.get("call_spl_llm"))
+    if bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        return False
     if not settings.ai_soc_llm_spl_fallback_enabled:
         return False
     return skill in {"attack_discovery", "spl_generation"}
@@ -5975,6 +6060,18 @@ def _candidate_from_t2_spl_native(
         "execution_eligible": False,
         "review_required": True,
     }
+    final_spl = artifact.candidate_spl
+    postprocessor_trace: dict[str, Any] = {}
+    if bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        postprocessed = finalize_review_only_spl(
+            artifact.candidate_spl,
+            query=user_query,
+            family=str(artifact.runtime_operation or "t2_spl_native"),
+            llm_generated=False,
+        )
+        final_spl = postprocessed.normalized_spl
+        postprocessor_trace = dict(postprocessed.trace)
+
     review_labels = {
         "governed": False,
         "catalog_approved": False,
@@ -5986,7 +6083,7 @@ def _candidate_from_t2_spl_native(
         "trace_id": trace_id,
         "skill": skill,
         "user_query": user_query,
-        "candidate_spl": artifact.candidate_spl,
+        "candidate_spl": final_spl,
         "generation_mode": "t2_spl_native_review",
         "confidence": 0.6,
         "assumptions": [
@@ -6012,6 +6109,11 @@ def _candidate_from_t2_spl_native(
         "slot_constraint_projection": slot_projection.to_dict(),
         **review_labels,
     }
+    if postprocessor_trace:
+        candidate_payload["postprocessor_applied"] = bool(
+            postprocessor_trace.get("postprocessor_applied")
+        )
+        candidate_payload["review_only_spl_postprocessor_trace"] = postprocessor_trace
     t2_block["slot_constraint_projection"] = slot_projection.to_dict()
     validation_payload = {
         # Fail-closed: the analyst sees the draft, but approved/normalized_spl stay
@@ -6036,6 +6138,7 @@ def _candidate_from_t2_spl_native(
         "template_id": None,
         "validation_notes": validation_notes,
         "t2_spl_native": t2_block,
+        "review_only_spl_postprocessor_trace": postprocessor_trace,
         **review_labels,
     }
     _merge_spl_governance(candidate_payload, validation_payload, spl_governance)

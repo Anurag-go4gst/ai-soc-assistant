@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
+from app.chat.contracts.pipeline_dispatch import imperative_hook_schedule_from_state
 from app.config import settings
 from app.planner.resource_registry import load_resource_registry
 
@@ -187,6 +188,23 @@ def _legacy_predicate_dispatch_schedule(
   hooks: DispatchHooks,
   blocked_steps: set[str],
 ) -> list[str]:
+  v2_schedule = imperative_hook_schedule_from_state(state)
+  if v2_schedule is not None:
+    if "spl" in blocked_steps:
+      v2_schedule = [h for h in v2_schedule if h not in {"workflow_spl", "spl_source_resolve"}]
+    if "rag" in blocked_steps:
+      v2_schedule = [h for h in v2_schedule if h not in {"prepare_rag_only", "rag_early"}]
+    if not v2_schedule and "spl" in blocked_steps and not state.get("workflow_plan"):
+      return ["ensure_workflow_plan"]
+    rag_only = bool(
+      v2_schedule
+      and "workflow_spl" not in v2_schedule
+      and all(h in {"prepare_rag_only", "rag_early"} for h in v2_schedule)
+    )
+    if not rag_only and "execution" not in v2_schedule:
+      v2_schedule = [*v2_schedule, "execution"]
+    return v2_schedule
+
   if hooks.uses_rag_only_path(state):
     schedule = ["prepare_rag_only"]
     if "rag" not in blocked_steps:
