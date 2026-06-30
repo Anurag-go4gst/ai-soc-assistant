@@ -5920,6 +5920,21 @@ def _candidate_from_t2_spl_native(
     if not artifact.renderable or not artifact.candidate_spl.strip():
         return None
 
+    # Deferral 3: when dispatch v2 is on, author the SCADA/Cisco draft as
+    # tenant-portable TOKEN SPL (placeholders + coalesce + analyst-guiding
+    # fallback) instead of a hardcoded shape. It stays review-only (placeholders
+    # are not allowlisted) and resolves per-environment through
+    # graph_node_spl_source_resolve (query -> COE env KB -> MCP -> placeholder).
+    # Flag-off keeps the existing shape draft byte-identical (cisco-50 eval).
+    if bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        from app.spl.tenant_token_spl import token_spl_for_validator_profile
+
+        token_spl = token_spl_for_validator_profile(
+            getattr(runtime_profile, "validator_profile", None)
+        )
+        if token_spl:
+            artifact.candidate_spl = token_spl
+
     # Wire the runtime source profile into the validator so a known index
     # (scada_perf/cisco_asa) is not falsely rejected.  ``_profile_tuple`` only
     # honours list values, so these MUST be lists.

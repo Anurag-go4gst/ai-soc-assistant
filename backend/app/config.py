@@ -287,6 +287,9 @@ class Settings(BaseSettings):
     ai_soc_llm_spl_failover_retry_enabled: bool = False
     # Optional JSON map of placeholder stem -> index/sourcetype value for Phase H0.
     ai_soc_source_profile_map: str = ""
+    # Per-tenant SPL allowlist overlay (JSON: {tenant_id: {indexes:[], sourcetypes:[]}}).
+    # Empty -> single-tenant global SPL_ALLOWED_* policy applies (byte-identical).
+    ai_soc_tenant_sourcetype_map: str = ""
     # Persisted COE source profile map (Settings UI). Empty = backend/data/source_profile_map.json
     ai_soc_source_profile_store_path: str = ""
     ai_soc_asset_registry_store_path: str = ""
