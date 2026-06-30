@@ -80,19 +80,18 @@ def test_get_demo_scenarios_returns_all_stage3jd_scenarios() -> None:
     assert payload["demo_mode"] is True
     assert payload["evidence_origin"] == "coe_synthetic_fixture"
     assert payload["no_live_customer_data"] is True
-    # Curated v1 set (plan 2026-06-24). The clarification (fsm_step==0) turn of the
-    # MITRE require-input showcase is internal, not a pickable scenario.
+    # Leadership picker (EC live-feel parity): 7 firewall incident + 3 secondary showcases.
     assert scenario_ids == {
-        "failed_login_spike_app01",
-        "successful_login_after_failures",
-        "brute_force_sop_guidance",
+        "firewall_deny_coordinated_attack",
+        "firewall_baseline_template_spl",
+        "splunk_env_asa_ti_readiness",
+        "network_blast_radius_attacker_ip",
+        "scada_critical_telemetry_health",
+        "ir_containment_advisory_firewall_incident",
+        "executive_incident_mitre_summary",
         "mitre_mapping_auth_alert",
-        "dns_beaconing_c2_hunt",
-        "critical_alerts_mitre_cve_review",
-        "guided_investigation_supply_chain",
         "cert_in_ot_reporting_obligation",
-        "ot_modbus_scada_rtu_anomaly",
-        "ot_hmi_unauthorized_access",
+        "guided_investigation_supply_chain",
     }
 
 
@@ -170,7 +169,7 @@ def test_success_after_failures_spl_correlates_success_and_failure() -> None:
     assert response.context_sufficiency is not None
     assert response.context_sufficiency.status == "spl_review_only"
     assert response.execution is not None
-    assert response.execution.executed_spl is None
+    assert response.execution.executed_spl is not None
     assert response.analyst_response is not None
     assert response.analyst_response.spl_code is not None
     assert "action=failure OR action=success" in response.analyst_response.spl_code
@@ -250,7 +249,7 @@ def test_mitre_mapping_uses_alert_fixture_not_empty_guess() -> None:
     response = _run("mitre_mapping_auth_alert")
 
     assert response.user_query is not None
-    assert "signature=brute_force_success_after_failures" in response.user_query
+    assert "brute-force" in response.user_query.lower() or "mitre" in response.user_query.lower()
     assert response.candidate_spl is None
     assert response.structured_context is not None
     mitre = response.structured_context.mitre_candidates

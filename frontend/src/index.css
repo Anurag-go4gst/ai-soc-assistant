@@ -42,6 +42,8 @@
 
   html, body, #root {
     height: 100%;
+    width: 100%;
+    overflow-x: clip;
   }
 
   body {
@@ -49,6 +51,7 @@
     font-family: var(--font-display);
     font-size: 14px;
     line-height: 1.5;
+    min-height: 100dvh;
   }
 
   code, pre, .font-mono {
@@ -102,5 +105,73 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: rgba(71, 85, 105, 0.55);
     border-radius: 999px;
+  }
+
+  /* --- Chat page UI polish (additive, presentational only) --- */
+
+  /* Atmospheric depth behind the message stream so cards read as floating
+     surfaces over a SOC console, not a flat panel. */
+  .soc-chat-canvas {
+    background:
+      radial-gradient(120% 60% at 12% -10%, rgba(34, 211, 238, 0.06), transparent 60%),
+      radial-gradient(90% 50% at 100% 0%, rgba(59, 130, 246, 0.05), transparent 55%),
+      linear-gradient(180deg, rgba(11, 18, 32, 0) 0%, rgba(11, 18, 32, 0.35) 100%);
+  }
+
+  /* Gentle staggered entrance for newly mounted messages. Same-key updates
+     (streaming/progress) do not remount, so this never re-fires mid-stream. */
+  @keyframes soc-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .soc-stream > * {
+    animation: soc-rise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .soc-stream > * {
+      animation: none;
+    }
+  }
+
+  /* Title lockup — refined gradient wordmark for the chat header. */
+  .soc-chat-title {
+    background: linear-gradient(92deg, hsl(210 32% 96%) 0%, hsl(192 88% 78%) 130%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    letter-spacing: -0.01em;
+  }
+
+  /* Composer affordance: a hairline cyan glow above the input dock + a focus
+     ring that signals "ready" without changing layout. */
+  .soc-composer {
+    background:
+      linear-gradient(180deg, rgba(34, 211, 238, 0.04), transparent 14px),
+      rgba(2, 6, 16, 0.82);
+    box-shadow: inset 0 1px 0 rgba(34, 211, 238, 0.10);
+  }
+
+  .soc-composer:focus-within {
+    box-shadow:
+      inset 0 1px 0 rgba(34, 211, 238, 0.22),
+      0 -8px 28px -18px rgba(34, 211, 238, 0.45);
+  }
+
+  /* Pill toggle for the lab draft-mode switch (keeps the native checkbox). */
+  .soc-toggle-pill {
+    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .soc-toggle-pill:hover {
+    border-color: rgba(251, 191, 36, 0.45);
+    background-color: rgba(245, 158, 11, 0.09);
   }
 }

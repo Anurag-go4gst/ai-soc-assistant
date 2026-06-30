@@ -432,7 +432,7 @@ export function AnalystResponseCard({
   }
 
   return (
-    <div className="max-w-[1120px] rounded-xl border border-cyan-500/20 bg-slate-950/70 px-6 py-5 text-[15px] text-slate-100 shadow-sm">
+    <div className="w-full min-w-0 max-w-full rounded-xl border border-cyan-500/20 bg-slate-950/70 px-4 py-5 text-[15px] text-slate-100 shadow-sm sm:px-6 xl:max-w-[1120px]">
       <div className="flex flex-wrap items-center gap-2">
         {response.severity_label && !isKnowledgeRecall && !isReviewOnlySplDraft ? (
           <SeverityBadge label={response.severity_label} />

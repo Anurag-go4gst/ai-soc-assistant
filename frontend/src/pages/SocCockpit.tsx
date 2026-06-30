@@ -17,7 +17,7 @@ export function SocCockpit() {
   const [lastTrace, setLastTrace] = useState<PlaceholderResponse | null>(null);
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-4 p-4 lg:grid-cols-[19rem_minmax(0,1fr)_22rem] lg:p-5">
+    <div className="grid h-full min-h-0 w-full min-w-0 max-w-full grid-cols-1 gap-4 overflow-hidden p-4 lg:grid-cols-[19rem_minmax(0,1fr)_22rem] lg:p-5">
       {/* Left column: alerts + scenario state */}
       <ScrollArea className="hidden h-full lg:block">
         <div className="space-y-4 pr-2">
@@ -46,7 +46,7 @@ export function SocCockpit() {
       </ScrollArea>
 
       {/* Center column: chat + trace summary */}
-      <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden">
         <div className="min-h-0 flex-1">
           <ChatPanel onTrace={setLastTrace} onClear={() => setLastTrace(null)} compactHeader />
         </div>

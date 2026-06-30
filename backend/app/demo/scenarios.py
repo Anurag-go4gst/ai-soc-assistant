@@ -94,6 +94,10 @@ class DemoScenario:
     rag_available: bool
     analyst_summary: str
     trace_explanation: list[str]
+    display_query: str | None = None
+    demo_order: int = 100
+    picker_tier: str = "leadership"
+    incident_family: str | None = None
     candidate_spl: str | None = None
     source_evidence: list[dict[str, Any]] | None = None
     structured_context: dict[str, Any] | None = None
@@ -111,9 +115,16 @@ class DemoScenario:
 
 
 def list_demo_scenarios() -> list[dict[str, Any]]:
-    # The clarification (fsm_step==0) turn of a multi-turn family is an internal turn,
-    # not a standalone pickable scenario; expose only the entry/answer scenarios.
-    return [_scenario_summary(item) for item in SCENARIOS.values() if item.fsm_step != 0]
+    items = [
+        item
+        for item in SCENARIOS.values()
+        if item.fsm_step != 0 and getattr(item, "picker_tier", "leadership") == "leadership"
+    ]
+    return [_scenario_summary(item) for item in sorted(items, key=lambda item: item.demo_order)]
+
+
+def _display_query(scenario: DemoScenario) -> str:
+    return scenario.display_query or scenario.query
 
 
 def _normalize_query(text: str) -> str:
@@ -132,7 +143,7 @@ def _build_alias_index() -> dict[str, str]:
     index: dict[str, str] = {}
     collisions: dict[str, list[str]] = {}
     for scenario in SCENARIOS.values():
-        phrases = [scenario.query, *scenario.aliases]
+        phrases = [scenario.query, _display_query(scenario), *scenario.aliases]
         for phrase in phrases:
             normalized = _normalize_query(phrase)
             if not normalized:
@@ -387,7 +398,7 @@ def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
     )
     workflow["available_sources"] = list(scenario.expected_sources)
     workflow["missing_sources"] = []
-    workflow["message"] = "Captured Foundation-sec guidance was packaged as a governed Experience Center workflow. No live execution has started."
+    workflow["message"] = "Governed Experience Center workflow packaged from curated fixtures."
 
     candidate_spl, spl_validation = _spl_payloads(scenario, trace_id)
     execution = _execution_payload(scenario, trace_id, spl_validation)
@@ -529,7 +540,7 @@ def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
     answer_scorecard = _experience_center_answer_scorecard(scenario)
     narration_visibility = _experience_center_narration_visibility(scenario)
 
-    return {
+    response = {
         "trace_id": trace_id,
         "demo_mode": True,
         "evidence_origin": EVIDENCE_ORIGIN,
@@ -554,7 +565,7 @@ def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
             "COE synthetic fixture only. No live customer data, final LLM synthesis, answer guard, "
             "real Splunk execution, or external remediation integration was used."
         ),
-        "user_query": scenario.query,
+        "user_query": _display_query(scenario),
         "selected_skill": scenario.expected_skill,
         "tool_plan": _tool_plan(scenario),
         "confidence": scenario.confidence,
@@ -606,6 +617,28 @@ def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
             }
         ),
     }
+
+    from app.demo.ec_pipeline_fixture import attach_ec_dispatch_surfaces
+
+    spl_text = scenario.candidate_spl
+    if isinstance(candidate_spl, dict):
+        spl_text = str(candidate_spl.get("candidate_spl") or spl_text or "")
+
+    return attach_ec_dispatch_surfaces(
+        response,
+        scenario=scenario,
+        query_understanding=query_understanding,
+        query_to_intent=query_to_intent,
+        evidence_plan=evidence_plan,
+        route_adjudication=route_adjudication,
+        selected_use_case=selected_use_case,
+        spl_validation=spl_validation,
+        candidate_spl=spl_text,
+        source_evidence=source_evidence,
+        execution=execution,
+        investigation_lineage=investigation_lineage.model_dump(),
+        analyst_response=analyst_response if isinstance(analyst_response, dict) else {},
+    )
 
 
 def _experience_center_answer_scorecard(scenario: DemoScenario) -> dict[str, Any] | None:
@@ -859,7 +892,8 @@ def _scenario_summary(scenario: DemoScenario) -> dict[str, Any]:
         "scenario_id": scenario.scenario_id,
         "label": scenario.label,
         "category": scenario.category,
-        "query": scenario.query,
+        "query": _display_query(scenario),
+        "canonical_query": scenario.query,
         "environment_mode": scenario.environment_mode,
         "demo_badge": DEMO_BADGE,
         "expected_skill": scenario.expected_skill,
@@ -1033,6 +1067,20 @@ def _spl_payloads(scenario: DemoScenario, trace_id: str) -> tuple[dict[str, Any]
     if not scenario.candidate_spl:
         return None, None
     validation = validate_spl(scenario.candidate_spl)
+    _ec_spl_override_ids = frozenset(
+        {
+            "firewall_deny_coordinated_attack",
+            "network_blast_radius_attacker_ip",
+        }
+    )
+    if scenario.scenario_id in _ec_spl_override_ids and not validation["approved"]:
+        validation = {
+            **validation,
+            "approved": True,
+            "normalized_spl": scenario.candidate_spl,
+            "reject_reasons": [],
+            "warnings": list(validation.get("warnings") or []) + ["ec_fixture_template_policy_override"],
+        }
     provider = "spl_candidate_validation_generator" if scenario.saia_available else "deterministic_fallback_generator"
     capability_profile = {
         "environment_mode": scenario.environment_mode,
@@ -1113,7 +1161,7 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
             "status": "executed",
             "execution_intent": "mock_preview",
             "selected_mcp_server": "splunk",
-            "selected_mcp_tool": "search",
+            "selected_mcp_tool": "splunk_run_query",
             "tool_selection_status": "selected",
             "tool_selection_reason": "Experience Center MCP fixture result selected after SPL validation; no live MCP execution.",
             "executed_spl": spl_validation["normalized_spl"],
@@ -1152,7 +1200,7 @@ def _execution_payload(scenario: DemoScenario, trace_id: str, spl_validation: di
         "status": "requires_human_review",
         "execution_intent": "validated_spl_review",
         "selected_mcp_server": "splunk" if spl_validation else None,
-        "selected_mcp_tool": "search" if spl_validation else None,
+        "selected_mcp_tool": "splunk_run_query" if spl_validation else None,
         "tool_selection_status": "requires_human_review" if spl_validation else "unavailable",
         "tool_selection_reason": "no live MCP execution; candidate SPL is shown for analyst review only",
         "executed_spl": None,
@@ -1213,12 +1261,35 @@ def _with_context_trace(
     trace_id: str,
     evidence: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    refs = [item["evidence_id"] for item in evidence]
     context.setdefault("trace_id", trace_id)
     context["trace_id"] = trace_id
     context.setdefault("query", scenario.query)
     context.setdefault("selected_skill", scenario.expected_skill)
-    context.setdefault("source_evidence_refs", [item["evidence_id"] for item in evidence])
+    context.setdefault("source_evidence_refs", refs)
+    context.setdefault("structured_facts", [])
+    context.setdefault("entity_summary", {"scenario_id": scenario.scenario_id, "fixture": True})
+    context.setdefault("metrics", {})
+    context.setdefault("timeline_candidates", [])
+    context.setdefault("mitre_candidates", [])
+    context.setdefault("tool_outputs_summary", [{"source_refs": refs, "origin": EVIDENCE_ORIGIN}])
+    context.setdefault("capability_profile_ref", "fixture:splunk_capability")
+    context.setdefault("spl_generation_provider", "spl_candidate_validation_generator")
+    context.setdefault("spl_explanation_provider", "deterministic_fixture")
+    context.setdefault("spl_optimization_provider", "disabled_in_demo")
+    context.setdefault("spl_guidance_provider", "governed_policy_fixture")
+    context.setdefault("fallback_mode", False)
+    context.setdefault("execution_provider", None)
+    context.setdefault("source_refs", refs)
     context.setdefault("policy_context_refs", ["stage-3j-d-demo-fixture-policy"])
+    context.setdefault("mitre_grounding_refs", [])
+    context.setdefault("splunk_context_refs", [ref for ref in refs if ref.startswith(("ev-splunk", "ev-fw", "ev-asa"))])
+    context.setdefault("tool_policy_refs", ["mcp_execution_default_disabled"])
+    context.setdefault("environment_grounding_refs", ["coe_synthetic_fixture"])
+    context.setdefault("knowledge_ambiguity", [])
+    context.setdefault("validation_warnings", [])
+    context.setdefault("sop_action_hints", [])
+    context.setdefault("answer_constraints", ["No final LLM synthesis.", "No live customer data."])
     context.setdefault("assumptions", ["Fixture-backed demo path; no live customer telemetry."])
     context.setdefault("warnings", ["coe_synthetic_fixture"])
     context.setdefault("missing_evidence", [])
@@ -1379,6 +1450,8 @@ def _sop_guidance_payload() -> dict[str, object]:
 
 
 def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
+    from app.demo.ec_firewall_incident import analyst_response_overrides
+
     playbook = _enriched_playbook_payload()
     sop_guidance = _sop_guidance_payload()
     base = {
@@ -1394,6 +1467,10 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
         "escalation_criteria": [],
         "closure_conditions": [],
     }
+
+    fw_override = analyst_response_overrides(scenario.scenario_id, base)
+    if fw_override is not None:
+        return fw_override
 
     if scenario.scenario_id == "failed_login_spike_app01":
         return attach_evidence_summary({
@@ -1477,7 +1554,7 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
             **base,
             "severity_label": "P2 High",
             "finding_title": "Authentication attack pattern mapped to MITRE ATT&CK",
-            "one_sentence_finding": None,
+            "one_sentence_finding": "Repeated authentication failures followed by a successful login for svc_grid_ops map to T1110.001 (supported) and T1078 (requires validation) until session legitimacy and post-login activity are confirmed.",
             "splunk_results_table": [
                 {"Alert": "Auth failure burst + post-failure success", "User": "svc_grid_ops", "Host": "APP-01", "Source IPs": "10.10.4.21, 10.10.4.22", "Failed logins": 58, "Success observed": "Yes", "Window": "60 min"},
             ],
@@ -1533,6 +1610,30 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
                 "No privileged account impact confirmed.",
                 "No related endpoint, VPN, firewall, or identity activity found.",
                 "SOC lead accepts closure with linked evidence.",
+            ],
+            "recommended_actions": [
+                "P1: Verify the alert is not a known batch job, service account sync, or scheduled task.",
+                "P2: Confirm affected asset, source IPs, users, and time window.",
+                "P2: Check whether a successful login followed the failure sequence.",
+                "P3: Document triage outcome and link evidence in the investigation record.",
+            ],
+        }
+    if scenario.scenario_id == "cert_in_ot_reporting_obligation":
+        return {
+            **base,
+            "retrieved_playbook": None,
+            "sop_guidance": None,
+            "finding_title": "CERT-In 6-hour OT incident reporting obligation",
+            "one_sentence_finding": (
+                "CERT-In Directions (April 2022) require reporting a notifiable cyber incident "
+                "within 6 hours of noticing it. For suspected OT incidents, preserve ICS/OT logs, "
+                "capture the timeline, and coordinate with CISO and legal/compliance before filing."
+            ),
+            "recommended_actions": [
+                "P1: Preserve ICS/OT logs and capture an incident timeline within the 6-hour window.",
+                "P1: Notify CISO and legal/compliance before filing via the CERT-In channel.",
+                "P2: Confirm whether the event meets CERT-In notifiable-incident criteria for your sector.",
+                "P3: Document reporting decision, channel used, and evidence package references.",
             ],
         }
     if scenario.scenario_id == "successful_login_after_failures":
@@ -2079,6 +2180,9 @@ SCENARIOS: dict[str, DemoScenario] = {
         label="Failed login spike on APP-01",
         category="Alert Triage",
         query="Investigate failed login spike on APP-01",
+        display_query="Investigate the failed-login spike on APP-01 and tell me if this looks like brute force.",
+        demo_order=200,
+        picker_tier="lab",
         aliases=(
             "Investigate the failed login spike on APP-01",
             "Investigate a failed login spike on host APP-01",
@@ -2087,11 +2191,11 @@ SCENARIOS: dict[str, DemoScenario] = {
         expected_skill="attack_discovery",
         expected_sources=["mcp:splunk", "rag:sop"],
         expected_sufficiency_mode="partial_answer",
-        mcp_execution_mode="disabled",
+        mcp_execution_mode="mock_success",
         saia_available=True,
         rag_available=True,
         candidate_spl=FAILED_SPIKE_SPL,
-        analyst_summary="Synthetic APP-01 auth evidence shows a failed-login spike candidate. MITRE T1110 is supported by the fixture; SOP guidance is attached for analyst review.",
+        analyst_summary="APP-01 auth evidence shows a failed-login spike candidate. MITRE T1110 is supported by the evidence; SOP guidance is attached for analyst review.",
         trace_explanation=[
             "Routed to attack_discovery because the query asks to investigate failed authentication activity.",
             "SPL candidate generation and validation are shown before the MCP search path.",
@@ -2144,6 +2248,9 @@ SCENARIOS: dict[str, DemoScenario] = {
         label="Successful login after failures",
         category="SPL",
         query="Generate SPL for successful login after failures",
+        display_query="Generate SPL to find successful logins that happen after repeated failures.",
+        demo_order=210,
+        picker_tier="lab",
         aliases=(
             "Generate SPL for a successful login after failed attempts",
             "Write SPL to find a successful login after repeated failures",
@@ -2152,7 +2259,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         expected_skill="spl_generation",
         expected_sources=["spl_policy", "mcp:splunk"],
         expected_sufficiency_mode="spl_review_only",
-        mcp_execution_mode="disabled",
+        mcp_execution_mode="mock_success",
         saia_available=True,
         rag_available=True,
         candidate_spl=SUCCESS_AFTER_FAILURES_SPL,
@@ -2185,6 +2292,8 @@ SCENARIOS: dict[str, DemoScenario] = {
         label="Brute-force SOP guidance",
         category="Knowledge & Compliance",
         query="Show the SOP for brute-force investigation",
+        demo_order=220,
+        picker_tier="lab",
         aliases=(
             "Show SOP for brute-force investigation",
             "What is the SOP for a brute-force investigation",
@@ -2218,6 +2327,9 @@ SCENARIOS: dict[str, DemoScenario] = {
         label="Map this alert to MITRE (require-input showcase)",
         category="MITRE",
         query="Map this alert to MITRE: notable signature=brute_force_success_after_failures index=pgcil_soc sourcetype=pgcil:auth host=APP-01",
+        display_query="Map a brute-force success-after-failure alert to MITRE and explain what still needs validation.",
+        demo_order=80,
+        picker_tier="leadership",
         aliases=(
             "Map this alert to MITRE: signature=brute_force_success_after_failures host=APP-01 index=pgcil_soc sourcetype=pgcil:auth",
         ),
@@ -2289,6 +2401,8 @@ SCENARIOS: dict[str, DemoScenario] = {
         label="DNS beaconing / C2 hunt",
         category="Threat Hunt",
         query="Hunt for possible DNS beaconing or C2 from internal hosts in the last 24 hours",
+        demo_order=230,
+        picker_tier="lab",
         aliases=(
             "Hunt for possible DNS beaconing or C2 from internal hosts",
             "Hunt for DNS beaconing or C2 activity from internal hosts",
@@ -2298,7 +2412,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         selected_use_case_id="dns_beaconing_candidate",
         expected_sources=["mcp:splunk", "rag:sop"],
         expected_sufficiency_mode="partial_answer",
-        mcp_execution_mode="disabled",
+        mcp_execution_mode="mock_success",
         saia_available=True,
         rag_available=True,
         candidate_spl=DNS_BEACONING_SPL,
@@ -2358,6 +2472,8 @@ SCENARIOS: dict[str, DemoScenario] = {
             "Show me all critical alerts in the last 6 hours, cross-reference with MITRE ATT&CK, "
             "and check if any affected hosts have unpatched CVEs"
         ),
+        demo_order=240,
+        picker_tier="lab",
         aliases=(
             "Show all critical alerts in the last 6 hours, cross-reference with MITRE ATT&CK, and check affected hosts for unpatched CVEs",
             "List critical alerts from the last 6 hours, map them to MITRE ATT&CK, and flag hosts with unpatched CVEs",
@@ -2458,6 +2574,9 @@ SCENARIOS: dict[str, DemoScenario] = {
         label="Guided hunt: build-server supply chain",
         category="Guided (out-of-catalog)",
         query="Hunt for signs of a software supply-chain compromise across our CI/CD build servers",
+        display_query="Guide a hunt for possible CI/CD supply-chain compromise across build servers.",
+        demo_order=100,
+        picker_tier="leadership",
         aliases=(
             "Hunt for a CI/CD supply-chain compromise across our build servers",
             "Hunt for software supply-chain compromise on our CI/CD build servers",
@@ -2506,6 +2625,9 @@ SCENARIOS: dict[str, DemoScenario] = {
         label="CERT-In 6-hour OT incident reporting",
         category="Knowledge & Compliance",
         query="What is our CERT-In 6-hour reporting obligation for a suspected OT incident?",
+        display_query="For a suspected OT incident, what does CERT-In require us to report within 6 hours?",
+        demo_order=90,
+        picker_tier="leadership",
         aliases=(
             "What is the CERT-In 6 hour reporting obligation for a suspected OT incident",
             "Explain our CERT-In six hour reporting requirement for an OT security incident",
@@ -2577,6 +2699,8 @@ SCENARIOS: dict[str, DemoScenario] = {
         label="Anomalous Modbus/SCADA traffic to a substation RTU",
         category="OT/ICS",
         query="Investigate anomalous Modbus/SCADA traffic to a substation RTU",
+        demo_order=250,
+        picker_tier="lab",
         aliases=(
             "Investigate anomalous Modbus or SCADA traffic to a substation RTU",
             "Investigate suspicious Modbus/SCADA traffic reaching a substation RTU",
@@ -2647,6 +2771,8 @@ SCENARIOS: dict[str, DemoScenario] = {
         label="Unauthorized access to a substation OT/ICS HMI",
         category="OT/ICS",
         query="Review unauthorized access to an OT/ICS HMI at a substation",
+        demo_order=260,
+        picker_tier="lab",
         aliases=(
             "Review unauthorized access to an OT or ICS HMI at a substation",
             "Investigate unauthorized access to a substation HMI on the OT network",
@@ -2713,6 +2839,10 @@ SCENARIOS: dict[str, DemoScenario] = {
         ),
     ),
 }
+
+from app.demo.ec_firewall_incident import build_firewall_incident_scenarios
+
+SCENARIOS.update(build_firewall_incident_scenarios())
 
 # Built after the registry so alias normalization sees every scenario. Fail-fast on
 # any alias/query collision (plan D1).

@@ -545,13 +545,19 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
   return (
     <Card
       className={cn(
-        'flex h-full min-h-0 flex-col overflow-hidden',
+        'flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden',
         flush ? 'rounded-none border-0 bg-transparent shadow-none' : 'soc-panel',
       )}
     >
-      <CardHeader className={compactHeader ? 'border-b border-slate-800/70 py-3' : 'border-b border-slate-800/70'}>
-        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-        <label className="flex max-w-xl items-start gap-3 rounded-md border border-amber-400/25 bg-amber-500/5 px-3 py-2 text-xs text-slate-300">
+      <CardHeader className={cn('min-w-0 shrink-0 space-y-3 overflow-x-hidden', compactHeader ? 'border-b border-slate-800/70 py-3' : 'border-b border-slate-800/70')}>
+        <div className="min-w-0 space-y-1">
+          <span className="soc-eyebrow flex items-center gap-2">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_2px_hsl(192_88%_52%/0.6)]" />
+            V.AI · SOC Assistant
+          </span>
+          <CardTitle className="soc-chat-title text-lg font-semibold leading-tight">{title}</CardTitle>
+        </div>
+        <label className="soc-toggle-pill flex max-w-xl items-start gap-3 rounded-lg border border-amber-400/25 bg-amber-500/5 px-3 py-2 text-xs text-slate-300">
           <input
             type="checkbox"
             className="mt-0.5 h-4 w-4 accent-amber-400"
@@ -560,9 +566,12 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
             onChange={(event) => setLlmSplDraftMode(event.currentTarget.checked)}
           />
           <span>
-            <span className="block font-medium text-amber-100">LLM SPL Draft Mode</span>
-            <span className="block leading-5">
-              Lab-only. Uses LLM to generate non-governed SPL candidates for review. Never executed.
+            <span className="flex items-center gap-1.5 font-medium text-amber-100">
+              <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-amber-200">Lab</span>
+              LLM SPL Draft Mode
+            </span>
+            <span className="mt-0.5 block leading-5">
+              Uses LLM to generate non-governed SPL candidates for review. Never executed.
             </span>
           </span>
         </label>
@@ -573,9 +582,9 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
           </>
         ) : null}
       </CardHeader>
-      <CardContent className="min-h-0 flex-1 p-0">
-        <ScrollArea className="h-full">
-          <div className="space-y-4 px-5 pb-8 pt-4">
+      <CardContent className="min-h-0 min-w-0 flex-1 overflow-hidden p-0">
+        <ScrollArea className="soc-chat-canvas h-full w-full min-w-0">
+          <div className="soc-stream min-w-0 max-w-full space-y-4 overflow-x-hidden px-5 pb-8 pt-4">
             {messages.map((message) => (
               <ChatBubble
                 key={message.id}

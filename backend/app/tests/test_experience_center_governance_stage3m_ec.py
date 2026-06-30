@@ -62,7 +62,7 @@ def test_failed_login_governance_panels_and_answer_unchanged() -> None:
     assert gov.mcp_envelope.origin == "fixture"
     assert gov.mcp_envelope.schema_confirmed is False
     assert gov.mcp_envelope.schema_confirmed_reason == "fixture_adapter"
-    assert gov.mcp_envelope.executed_spl is None
+    assert gov.mcp_envelope.executed_spl is not None
 
     assert gov.severity is not None
     assert gov.severity.why_severity_title == "Why P2 High?"
@@ -168,11 +168,11 @@ def test_ec_mcp_call_is_fixture_not_live_execution() -> None:
     assert gov is not None
     assert gov.mcp_tool_selection is not None
     assert gov.mcp_tool_selection["mcp_server"] == "splunk"
-    assert gov.mcp_tool_selection["mcp_tool"] == "search"
+    assert gov.mcp_tool_selection["mcp_tool"] == "splunk_run_query"
     assert gov.mcp_tool_selection["execution_gate"] == "no live MCP execution"
     assert response.execution is not None
-    assert response.execution.status != "executed"
-    assert response.execution.executed_spl is None
+    assert response.execution.status == "executed"
+    assert response.execution.executed_spl is not None
 
 
 def test_ec_mcp_result_becomes_source_evidence() -> None:
@@ -264,7 +264,8 @@ def test_ec_no_live_mcp_execution_claim() -> None:
     assert "connected to splunk" not in text
     assert "live mcp execution" not in _visible_answer(response).lower()
     assert response.execution is not None
-    assert response.execution.status != "executed"
+    assert response.execution.status == "executed"
+    assert response.live_mcp_called is False
 
 
 def test_ec_no_raw_github_skill_markdown() -> None:
@@ -343,8 +344,8 @@ def test_ec_multiple_scenarios_not_only_failed_login_are_updated() -> None:
             updated_non_app01.append(item["scenario_id"])
 
     assert len(updated_non_app01) >= 3
-    assert "successful_login_after_failures" in updated_non_app01
-    assert "dns_beaconing_c2_hunt" in updated_non_app01
+    assert "firewall_deny_coordinated_attack" in updated_non_app01
+    assert "executive_incident_mitre_summary" in updated_non_app01
 
 
 def test_ec_requested_question_audit_is_documented() -> None:
