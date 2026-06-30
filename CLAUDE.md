@@ -6,9 +6,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Canonical rules for all coding agents:** [`AGENTS.md`](AGENTS.md)
 
-Claude Code must follow `AGENTS.md` in full — especially **Agent Execution Playbook** (repo-first research, end-to-end tracing, validation gates, common mistakes, and prompt patterns). This file adds project context, stack, gotchas, and plan index; it does not override safety boundaries or operating rules in `AGENTS.md`.
+Claude Code must follow `AGENTS.md` in full — especially **Agent Execution Playbook** (repo-first research, end-to-end tracing, **plan discipline**, validation gates, common mistakes, and prompt patterns). This file adds project context, stack, gotchas, and plan index; it does not override safety boundaries or operating rules in `AGENTS.md`.
 
 **Active work:** see [`plans/README.md`](plans/README.md) and the **Active work** section in `AGENTS.md`.
+
+## Plan discipline (all agents)
+
+Canonical rules: [`AGENTS.md` § Plan discipline](AGENTS.md#plan-discipline-authoring-and-execution). Applies when **creating** or **executing** any plan under `plans/`.
+
+1. **Decompose** prose into atomic checklist items with **Do / Verify / Depends on / Evidence** — template: [`.cursor/templates/plan-checklist-template.md`](.cursor/templates/plan-checklist-template.md).
+2. **Audit** before coding: `.cursor/hooks/audit-plan-discipline.sh plans/<file>.md` — fix every `GAP:`.
+3. **Execute loop:** implement → verify → check off with evidence → next item; stop on decision-needed, gate fails twice, or all items done.
+4. **Re-audit** all checkmarks before declaring the plan complete.
+
+**To start execution**, user says: `loop-asap — execute plans/<file>.md` (or use [`plans/LOOP_RUNNER_TEMPLATE.md`](plans/LOOP_RUNNER_TEMPLATE.md)).
+
+**Cursor-only automation:** [`.cursor/rules/plan-discipline.mdc`](.cursor/rules/plan-discipline.mdc) + hooks in [`hooks.md`](hooks.md) (`loop-asap` follow-up, plan-edit reminders). Claude Code follows the same discipline manually from `AGENTS.md`.
+
+**Post-code verification (Cursor):** type **`test this`** in the prompt to arm verify + deploy handoff ([`hooks.md`](hooks.md)).
 
 ## Project
 

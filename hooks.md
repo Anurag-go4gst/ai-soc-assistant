@@ -14,8 +14,12 @@ Cursor reloads `hooks.json` on save. If hooks do not fire, restart Cursor and ch
 | Event | Script | Purpose |
 |-------|--------|---------|
 | `beforeSubmitPrompt` | `before-submit-verify-arm.sh` | Arms verify follow-up **only** when your prompt contains **`test this`** (case-insensitive) |
+| `beforeSubmitPrompt` | `before-submit-plan-discipline-arm.sh` | Arms **`loop-asap`** when prompt contains `loop-asap` / `loop asap`; arms **plan-create** when prompt asks to create/write/draft a plan |
 | `stop` | `stop-verify-handoff.sh` | Always updates [`.cursor/last-handoff.md`](.cursor/last-handoff.md). **Verify follow-up** (`loop_limit: 1`) only when you typed **`test this`** **and** uncommitted changes exist under `backend/`, `frontend/`, `scripts/`, or `test_harness/` |
+| `stop` | `stop-loop-asap-handoff.sh` | **Plan loop follow-up** (`loop_limit: 5`) when you typed **`loop-asap`** — audits checklist gaps, continues implement→verify→check-off loop |
 | `subagentStop` | `subagent-verify-handoff.sh` | Same opt-in gating as `stop` when meaningful code changes are present |
+| `subagentStop` | `stop-loop-asap-handoff.sh` | Same **`loop-asap`** follow-up for implementer/generalPurpose/shell subagents |
+| `postToolUse` (Write/ApplyPatch) | `post-plan-edit-reminder.sh` | Injects checklist-discipline context after editing `plans/*.md` |
 | `beforeShellExecution` | `before-shell-guardrails.sh` | Block force-push to main/master, `git config` changes; ask on broad `git add` / public docker publish |
 | `preToolUse` (Write/ApplyPatch/EditNotebook) | `block-secret-paths.sh` | Deny writes to `.env`, credential-like paths (`failClosed: true`) |
 
@@ -44,6 +48,35 @@ touch .cursor/hooks/DISABLE_VERIFY_ON_STOP
 
 Remove the file to allow opt-in **`test this`** arming again. Shared logic: `.cursor/hooks/lib/handoff-common.sh`.
 
+### Plan discipline (`loop-asap` + plan creation)
+
+**Rule:** [`.cursor/rules/plan-discipline.mdc`](.cursor/rules/plan-discipline.mdc) (always on).  
+**Template:** [`.cursor/templates/plan-checklist-template.md`](.cursor/templates/plan-checklist-template.md).  
+**Audit script:** `.cursor/hooks/audit-plan-discipline.sh <plan-path>`.
+
+When **creating a plan**, the agent must decompose into atomic checklist items, attach a **Verify** method to each, sequence by dependency, and document stop conditions — before writing code. Editing `plans/*.md` triggers `post-plan-edit-reminder.sh`.
+
+When a plan is ready to execute, type **`loop-asap`** **with the plan path** (recommended):
+
+> loop-asap — execute `plans/2026-06-29_conditional-pipeline-canonical-dispatch.md`
+
+If you omit the path, the hook falls back to the most recently edited file under `plans/` (excluding `LOOP_RUNNER_*` and `*_TEMPLATE.md`).
+
+The agent will:
+
+1. Run the audit script and fix checklist gaps in the plan.
+2. Loop: implement → verify (stated method) → check off with evidence → next item.
+3. Stop only on decision-needed, same gate fails twice, or all items checked with evidence.
+
+If the agent stops mid-loop, `stop-loop-asap-handoff.sh` injects up to **5** follow-up turns to continue.
+
+**Hard-disable loop-asap follow-ups:**
+
+```bash
+touch .cursor/hooks/DISABLE_LOOP_ASAP_ON_STOP
+```
+
+Generic loop runner prompt pattern: [`plans/LOOP_RUNNER_TEMPLATE.md`](plans/LOOP_RUNNER_TEMPLATE.md).
 
 ### Prod deploy steps (included in `test this` verify)
 
@@ -164,6 +197,8 @@ Use concise imperative messages:
 | Layer | Scope | When it runs |
 |-------|-------|--------------|
 | `AGENTS.md` playbook | All agents | Every session (read manually) |
+| `AGENTS.md` § Plan discipline | All agents | Creating or executing `plans/`; canonical for Claude/Codex |
+| `.cursor/rules/plan-discipline.mdc` | Cursor agent | Always — mirrors playbook; `loop-asap` |
 | Cursor hooks | Cursor agent | During edit / shell / stop |
 | Git pre-commit | Any client | On `git commit` (optional) |
 | CI / PR checks | Remote | On push (existing repo CI) |

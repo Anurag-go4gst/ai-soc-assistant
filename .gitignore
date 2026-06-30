@@ -46,3 +46,4 @@ docs/evals/live_efficacy_transport*/
 # Operator artifacts — env smoke backups and rollout snapshots (may hold secrets; never commit)
 .env.smoke-backup-*
 docs/coe/rollout-snapshots/
+.cursor/hooks/.loop-asap-requested

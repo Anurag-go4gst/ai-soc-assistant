@@ -8,6 +8,31 @@ Guidance for coding agents working in this repository.
 
 Cross-cutting rules learned from review cycles. These apply to **every** task, not only the current plan.
 
+### Plan discipline (authoring and execution)
+
+**Do not implement against prose.** When creating or executing a plan in `plans/`, follow this loop. Cursor enforces it via [`.cursor/rules/plan-discipline.mdc`](.cursor/rules/plan-discipline.mdc) and hooks ([`hooks.md`](hooks.md)); Claude Code and other agents follow this section directly.
+
+| Principle | Requirement |
+|-----------|-------------|
+| **Decompose** | Break work into atomic items where "done" is unambiguous (function shipped, test green, behavior traced). If the plan is prose-only, restructure into a checklist ([`.cursor/templates/plan-checklist-template.md`](.cursor/templates/plan-checklist-template.md) or `plans/LOOP_RUNNER_<slug>.md`) **before** writing code. |
+| **Verify per item** | Every checklist item needs **Do**, **Verify** (exact test command, trace, or file/line), **Depends on**, and **Evidence** when done. "Looks correct" is not verification. Flag gaps before proceeding. |
+| **Sequence by dependency** | Order by what blocks what, not document order. State dependencies explicitly; propose an order if unsure. |
+| **Loop discipline** | implement → verify (stated method) → check off with evidence → next item. Continue without waiting unless you hit a genuine decision point (tradeoff, ambiguity, plan-marked deferral). |
+| **Evidence on check-off** | Record what you verified and how (test name, command output, traced path). Never mark done from "code was written" alone. |
+| **Re-audit before complete** | Re-walk every item against its **Verify** field with skepticism — including inherited checkmarks. |
+| **Surface drift** | Wrong premise, redundant item, or scope change → stop and tell the user before continuing. Do not silently adapt or skip hard items. |
+| **Explicit stop** | Loop ends only when every item is checked with evidence, the same gate fails twice on one item, or you need user input. |
+
+**Audit before coding or on `loop-asap`:**
+
+```bash
+.cursor/hooks/audit-plan-discipline.sh plans/<your-plan>.md
+```
+
+Fix every `GAP:` before implementation. Generic loop runner: [`plans/LOOP_RUNNER_TEMPLATE.md`](plans/LOOP_RUNNER_TEMPLATE.md).
+
+**User triggers:** `loop-asap — execute plans/<file>.md` starts audit → execute loop. Cursor also arms [`hooks.md`](hooks.md) `loop-asap` stop follow-ups (up to 5 turns). Verification after code changes: type **`test this`** in the prompt (Cursor only).
+
 ### Before writing code
 
 1. **Read the repo, not just the plan.** Grep for existing loaders, tests, flags, and seam functions. Plans go stale; the tree is authoritative for what exists.
@@ -55,6 +80,7 @@ Cross-cutting rules learned from review cycles. These apply to **every** task, n
 | MCP discovery overriding COE slots | Wrong index/sourcetype in production SPL | COE/manual wins; MCP fills missing only |
 | Metadata hygiene returning hunt SPL or fake live rows | Misleading analyst card | `planned` / `configured_unavailable` / live sanitized only when enabled |
 | "Implement the plan" without reading code | Duplicates completed work | Grep + extend existing tests first |
+| Implementing against prose-only plans | False "done" status; untestable scope | Decompose into checklist with **Verify** per item; run audit script first |
 | One giant commit mixing concerns | Hard review, easy regressions | Stage-scoped commits per Commit Hygiene below |
 | Passing only in-set evals | Misses 29/50-style classification dumps | Use out-of-set probe harness + novel phrasing |
 | `npm run build` without readable `dist` perms | Nginx 403 on cisco-vai.vnudge.com | Rely on `postbuild` in `frontend/package.json`; manual fix: `chmod -R a+rX frontend/dist` |
@@ -64,6 +90,7 @@ Cross-cutting rules learned from review cycles. These apply to **every** task, n
 **Effective:**
 
 - "Implement Batch 1 PR #1 from `plans/…` addendum §D only. Grep for existing Cisco loader first. Run governance regression + probe eval before done."
+- "loop-asap — execute `plans/…` per AGENTS.md plan discipline; audit checklist gaps first."
 - "Fix the bug where X; add a regression test; do not change unrelated routing."
 - "Review my implementation against AGENTS.md playbook items 1–3 and report gaps."
 
@@ -79,7 +106,11 @@ Cross-cutting rules learned from review cycles. These apply to **every** task, n
 | File | Purpose |
 |------|---------|
 | [`AGENTS.md`](AGENTS.md) | **This file** — rules, safety, playbook, verification |
-| [`hooks.md`](hooks.md) | Cursor hooks + optional Git pre-commit |
+| [`hooks.md`](hooks.md) | Cursor hooks (`loop-asap`, `test this`, plan-edit reminders) + optional Git pre-commit |
+| [`.cursor/rules/plan-discipline.mdc`](.cursor/rules/plan-discipline.mdc) | Cursor always-on plan loop rule (mirrors playbook §Plan discipline) |
+| [`.cursor/templates/plan-checklist-template.md`](.cursor/templates/plan-checklist-template.md) | Checklist skeleton for new plans |
+| [`plans/LOOP_RUNNER_TEMPLATE.md`](plans/LOOP_RUNNER_TEMPLATE.md) | Generic loop-runner prompt per plan |
+| [`.cursor/hooks/audit-plan-discipline.sh`](.cursor/hooks/audit-plan-discipline.sh) | Audit a plan for checklist/verify/stop-condition gaps |
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code entry — stack, gotchas, plan index (links here for rules) |
 | [`plans/README.md`](plans/README.md) | Active work pointers |
 | [`plans/`](plans/) | Versioned implementation specs |

@@ -3,10 +3,10 @@
 set -euo pipefail
 
 input="$(cat)"
-tool="$(echo "$input" | jq -r '.tool_name // .tool // empty')"
 path="$(echo "$input" | jq -r '.tool_input.path // .tool_input.file_path // .tool_input.target_notebook // empty')"
 
 if [[ -z "$path" ]]; then
+  echo '{"permission": "allow"}'
   exit 0
 fi
 
@@ -25,4 +25,5 @@ case "$path" in
     ;;
 esac
 
+echo '{"permission": "allow"}'
 exit 0
