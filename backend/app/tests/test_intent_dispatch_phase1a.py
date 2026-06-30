@@ -83,3 +83,16 @@ def test_build_user_prompt_uses_mode_when_provided() -> None:
     legacy = build_intent_advisory_prompt(query="q", context_block="CTX")
     assert mode_prompt != legacy
     assert "clarification_draft" in mode_prompt
+
+
+def test_intent_dispatch_is_a_declared_state_channel() -> None:
+    """Regression: intent_dispatch must be a ChatPipelineState channel.
+
+    LangGraph's StateGraph drops keys not declared on the state schema, so an
+    undeclared intent_dispatch silently vanished from control_plane_trace on the
+    LangGraph path (imperative path kept it). Declaring the channel keeps Stage-1
+    dispatch observable on both orchestrations.
+    """
+    from app.chat.pipeline import ChatPipelineState
+
+    assert "intent_dispatch" in ChatPipelineState.__annotations__

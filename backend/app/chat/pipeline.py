@@ -133,6 +133,7 @@ from app.chat.contracts.pipeline_dispatch import (
     McpDiscoveryContext,
     PipelineStage,
     build_pipeline_dispatch,
+    build_plan_dispatch_trace_from_pipeline_dispatch,
     imperative_hook_schedule_from_state,
     next_stage_after,
     projected_flags_from_state,
@@ -306,6 +307,7 @@ class ChatPipelineState(TypedDict, total=False):
     intent_classification: dict[str, Any] | None
     evidence_plan: dict[str, Any] | None
     planning_decision: dict[str, Any] | None
+    intent_dispatch: dict[str, Any] | None
     pipeline_dispatch: dict[str, Any] | None
     llm_spl_plan: dict[str, Any] | None
     route_adjudication: dict[str, Any] | None
@@ -3845,6 +3847,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if mitre_risk_rationale_trace is not None:
             control_plane_trace["mitre_risk_rationale"] = mitre_risk_rationale_trace
         plan_dispatch_trace = state.get("plan_dispatch_trace")
+        if not isinstance(plan_dispatch_trace, dict) or not plan_dispatch_trace:
+            plan_dispatch_trace = build_plan_dispatch_trace_from_pipeline_dispatch(state)
         if isinstance(plan_dispatch_trace, dict) and plan_dispatch_trace:
             control_plane_trace["plan_dispatch"] = plan_dispatch_trace
         if resource_plan_shadow_trace is not None:
