@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { runDemoScenario } from '@/api/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FlaskConical } from 'lucide-react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatBubble, type SocChatMessage } from './ChatBubble';
 import { ChatInput } from './ChatInput';
@@ -559,31 +560,35 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
       )}
     >
       <CardHeader className={cn('min-w-0 shrink-0 space-y-3 overflow-x-hidden', compactHeader ? 'border-b border-slate-800/70 py-3' : 'border-b border-slate-800/70')}>
-        <div className="min-w-0 space-y-1">
+        <div className="flex min-w-0 items-center justify-between gap-3">
           <span className="soc-eyebrow flex items-center gap-2">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_2px_hsl(192_88%_52%/0.6)]" />
             V.AI · SOC Assistant
           </span>
-          <CardTitle className="soc-chat-title text-lg font-semibold leading-tight">{title}</CardTitle>
-        </div>
-        <label className="soc-toggle-pill flex max-w-xl items-start gap-3 rounded-lg border border-amber-400/25 bg-amber-500/5 px-3 py-2 text-xs text-slate-300">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-4 w-4 accent-amber-400"
-            checked={llmSplDraftMode}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={llmSplDraftMode}
             disabled={loading}
-            onChange={(event) => setLlmSplDraftMode(event.currentTarget.checked)}
-          />
-          <span>
-            <span className="flex items-center gap-1.5 font-medium text-amber-100">
-              <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-amber-200">Lab</span>
-              LLM SPL Draft Mode
-            </span>
-            <span className="mt-0.5 block leading-5">
-              Uses LLM to generate non-governed SPL candidates for review. Never executed.
-            </span>
-          </span>
-        </label>
+            onClick={() => setLlmSplDraftMode(!llmSplDraftMode)}
+            title="Lab-only: LLM generates non-governed SPL candidates for review. Never executed."
+            className={cn(
+              'soc-toggle-pill inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.7rem] font-medium transition disabled:cursor-not-allowed disabled:opacity-60',
+              llmSplDraftMode
+                ? 'border-amber-400/50 bg-amber-400/15 text-amber-100'
+                : 'border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-600 hover:text-slate-200',
+            )}
+          >
+            <FlaskConical className="h-3.5 w-3.5" />
+            Lab draft
+            <span
+              className={cn(
+                'ml-0.5 h-1.5 w-1.5 rounded-full',
+                llmSplDraftMode ? 'bg-amber-400 shadow-[0_0_6px_1px_rgba(251,191,36,0.7)]' : 'bg-slate-600',
+              )}
+            />
+          </button>
+        </div>
         {!conversationStarted ? (
           <>
             <StarterPrompts disabled={loading} onPick={handleSend} />

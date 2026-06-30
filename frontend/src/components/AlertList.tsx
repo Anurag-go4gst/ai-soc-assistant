@@ -1,4 +1,4 @@
-import { Activity, Database, Factory } from 'lucide-react';
+import { Activity, BellRing, Database, Factory } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -30,14 +30,17 @@ const scenarios = [
 export function AlertList() {
   return (
     <Card className="soc-panel">
-      <CardHeader>
-        <CardTitle>Alert / Scenario Rail</CardTitle>
+      <CardHeader className="py-3">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+          <BellRing className="h-4 w-4 text-cyan-400" />
+          Alert / Scenario Rail
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {scenarios.map((scenario) => {
           const Icon = scenario.icon;
           return (
-            <button key={scenario.title} type="button" className={cn('w-full rounded-xl border p-3 text-left transition hover:border-cyan-400/60', scenario.className)}>
+            <button key={scenario.title} type="button" className={cn('w-full rounded-xl border p-3 text-left transition duration-150 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:shadow-lg hover:shadow-cyan-500/5', scenario.className)}>
               <div className="flex items-start gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950/50">
                   <Icon className="h-4 w-4" />
