@@ -21,6 +21,12 @@ interface DemoScenarioPickerProps {
   onRun: (scenario: DemoScenarioSummary) => void;
 }
 
+// Backend labels are prefixed with a sequence tag ("Q1 · ", "Q2 · "). Strip it so
+// the dropdown reads as a plain, understandable summary of the scenario.
+function scenarioSummary(label: string): string {
+  return (label || '').replace(/^Q\d+\s*[·.:\-)]\s*/i, '').trim() || label;
+}
+
 export function DemoScenarioPicker({ disabled, onRun }: DemoScenarioPickerProps) {
   const [scenarios, setScenarios] = useState<DemoScenarioSummary[]>([]);
   const [selected, setSelected] = useState('');
@@ -79,7 +85,7 @@ export function DemoScenarioPicker({ disabled, onRun }: DemoScenarioPickerProps)
             <optgroup key={group.category} label={group.category}>
               {group.scenarios.map((scenario) => (
                 <option key={scenario.scenario_id} value={scenario.scenario_id} title={scenario.query}>
-                  {scenario.label}
+                  {scenarioSummary(scenario.label)}
                 </option>
               ))}
             </optgroup>
@@ -98,7 +104,7 @@ export function DemoScenarioPicker({ disabled, onRun }: DemoScenarioPickerProps)
       {selectedScenario ? (
         <p className="mt-2 break-words rounded-md border border-slate-800/80 bg-slate-950/50 px-3 py-2.5 text-sm leading-6 text-slate-200 sm:text-base sm:leading-7">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-cyan-300/90">
-            {selectedScenario.label}
+            {scenarioSummary(selectedScenario.label)}
           </span>
           {selectedScenario.query}
         </p>

@@ -46,6 +46,14 @@ interface HighlightPrompt {
   category: string;
   icon: typeof Search;
   prompt: string;
+  summary: string;
+}
+
+// Backend labels carry a sequence tag ("Q1 · …"); strip it for a clean, short
+// summary shown on the card. The full query is still what gets sent on click.
+function scenarioSummary(label: string, fallback: string): string {
+  const stripped = (label || '').replace(/^Q\d+\s*[·.:\-)]\s*/i, '').trim();
+  return stripped || fallback;
 }
 
 function buildHighlights(scenarios: DemoScenarioSummary[]): HighlightPrompt[] {
@@ -68,6 +76,7 @@ function buildHighlights(scenarios: DemoScenarioSummary[]): HighlightPrompt[] {
       category,
       icon: CATEGORY_ICON[category] ?? Sparkles,
       prompt: scenario.query,
+      summary: scenarioSummary(scenario.label, scenario.query),
     };
   });
 }
@@ -114,13 +123,14 @@ export function StarterPrompts({ disabled, onPick }: StarterPromptsProps) {
               type="button"
               disabled={disabled}
               onClick={() => onPick(highlight.prompt)}
+              title={highlight.prompt}
               className="block w-full text-left"
             >
               <Badge
                 variant="outline"
-                className="w-full cursor-pointer justify-start whitespace-normal py-1 text-left font-normal leading-tight hover:border-cyan-400/60 hover:text-cyan-100"
+                className="line-clamp-2 w-full cursor-pointer justify-start whitespace-normal py-1.5 text-left font-normal leading-snug hover:border-cyan-400/60 hover:text-cyan-100"
               >
-                {highlight.prompt}
+                {highlight.summary}
               </Badge>
             </button>
           </div>
