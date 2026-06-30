@@ -172,7 +172,27 @@ class SplTemplateDefinition(BaseModel):
 @lru_cache(maxsize=1)
 def load_spl_templates() -> list[SplTemplateDefinition]:
     payload = json.loads(TEMPLATES_PATH.read_text(encoding="utf-8"))
-    return [SplTemplateDefinition(**item) for item in payload.get("templates", [])]
+    items = [SplTemplateDefinition(**item) for item in payload.get("templates", [])]
+    # WS2: templates store <stem> placeholders for index/sourcetype; resolve them
+    # from Environment Knowledge once at load so every consumer (renderer,
+    # validator, audit, tests) sees the deployment-bound concrete SPL. The map is a
+    # global static profile, so load-time resolution is correct; no-op on templates
+    # without placeholders. Flag-gated (default on once templates are abstracted).
+    from app.config import settings
+
+    if bool(getattr(settings, "ai_soc_template_env_binding_enabled", False)):
+        from app.spl.source_profile_resolver import apply_template_env_bindings
+
+        bound: list[SplTemplateDefinition] = []
+        for item in items:
+            spl = item.spl_text or ""
+            if "<" in spl:
+                resolved, _trace = apply_template_env_bindings(spl)
+                if resolved != spl:
+                    item = item.model_copy(update={"spl_text": resolved})
+            bound.append(item)
+        items = bound
+    return items
 
 
 def get_spl_template(template_id: str | None) -> SplTemplateDefinition | None:

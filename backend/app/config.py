@@ -290,9 +290,12 @@ class Settings(BaseSettings):
     # WS2 prototype: resolve <stem> placeholders in governed template SPL from the
     # Environment Knowledge map (load_static_source_profile) at render time, so
     # index/sourcetype come from Environment Knowledge instead of being hardcoded.
-    # Default false -> templates render exactly as authored (byte-identical). No-op
-    # on templates that carry no <placeholder>.
-    ai_soc_template_env_binding_enabled: bool = False
+    # Activated (WS2): governed templates carry <stem> placeholders that resolve to
+    # index/sourcetype from Environment Knowledge at render time, so the deployment
+    # map is the single source of truth. Resolution yields the same SPL the
+    # templates emitted when hardcoded (verified byte-identical round-trip). No-op
+    # on templates without placeholders (aws/tstats/scada/cisco stay concrete).
+    ai_soc_template_env_binding_enabled: bool = True
     # Persisted COE source profile map (Settings UI). Empty = backend/data/source_profile_map.json
     ai_soc_source_profile_store_path: str = ""
     ai_soc_asset_registry_store_path: str = ""

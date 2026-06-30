@@ -55,8 +55,15 @@ def test_unmapped_stem_stays_placeholder(_env_map) -> None:
     assert any("nonexistent" in s for s in trace["unresolved_slots"])
 
 
-def test_flag_default_off_keeps_render_unchanged() -> None:
+def test_env_binding_flag_active_and_templates_resolve_to_concrete() -> None:
+    """Activated: templates load with <stem> resolved to deployment index/sourcetype."""
     from app.config import settings
+    from app.spl.template_registry import get_spl_template
 
-    # Prototype ships default-off so governed templates render exactly as authored.
-    assert settings.ai_soc_template_env_binding_enabled is False
+    assert settings.ai_soc_template_env_binding_enabled is True
+    t = get_spl_template("auth_failed_login_spike")
+    assert t is not None
+    # Loader resolved the abstracted <auth_index>/<auth_sourcetype> from Env Knowledge.
+    assert "index=pgcil_soc" in t.spl_text
+    assert "sourcetype=pgcil:auth" in t.spl_text
+    assert "<" not in t.spl_text.split("|")[0]  # no unresolved placeholder in base search
