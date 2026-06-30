@@ -28,6 +28,24 @@ DROP_LLM_TIMED_OUT = "llm_timed_out"
 DROP_ADVISOR_DISABLED = "llm_intent_advisor_disabled"
 
 
+def _build_user_prompt(*, query: str, context_block: str, prompt_mode: Any | None) -> str:
+    """Mode-specific prompt when a non-skip IntentPromptMode is supplied; else legacy.
+
+    Falls back to the legacy monolithic prompt if the mode has no builder, so a
+    misclassification can never drop the 2C call.
+    """
+    from app.chat.contracts.intent_dispatch import IntentPromptMode
+
+    if isinstance(prompt_mode, IntentPromptMode) and prompt_mode is not IntentPromptMode.skip:
+        try:
+            from app.llm.intent_prompt_modes import build_mode_prompt
+
+            return build_mode_prompt(prompt_mode, query=query, context_block=context_block)
+        except ValueError:
+            pass
+    return build_intent_advisory_prompt(query=query, context_block=context_block)
+
+
 def generate_llm_intent_advisory(
     query: str,
     *,
@@ -37,12 +55,17 @@ def generate_llm_intent_advisory(
     allow_failover: bool = True,
     candidate_mappings: dict[str, Any] | None = None,
     routed_skill: str | None = None,
+    prompt_mode: Any | None = None,
 ) -> LLMIntentAdvisory:
     """Return a non-authoritative intent advisory.
 
     Production path uses Qwen/local primary with Foundation-Sec Instruct failover.
     Tests may inject ``llm_raw_output_provider``; otherwise a governed sidecar client
     is used when configured.
+
+    ``prompt_mode`` (IntentPromptMode) selects a table-driven, focused prompt when
+    the pipeline-dispatch flag is on; ``None`` keeps the legacy monolithic prompt
+    (flag-off byte-identical).
     """
     if not settings.ai_soc_llm_intent_advisor_enabled:
         return LLMIntentAdvisory(dropped_reasons=[DROP_ADVISOR_DISABLED])
@@ -60,9 +83,10 @@ def generate_llm_intent_advisory(
             candidate_mappings=candidate_mappings,
             routed_skill=routed_skill,
         )
-        user_prompt = build_intent_advisory_prompt(
+        user_prompt = _build_user_prompt(
             query=query,
             context_block=context.to_prompt_block(),
+            prompt_mode=prompt_mode,
         )
         effective_timeout = (
             timeout_seconds

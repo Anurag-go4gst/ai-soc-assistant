@@ -22,6 +22,7 @@ from app.spl.mcp_source_discovery import run_mcp_source_discovery
 from app.spl.rag_source_profile_bridge import extract_rag_source_profile
 from app.spl.source_profile_catalog import canonical_source_profile_slot
 from app.spl.source_profile_resolver import (
+    _explicit_profile_map,
     build_policy_derived_profile,
     extract_placeholder_slots,
     merge_profiles,
@@ -123,6 +124,12 @@ def resolve_spl_source_profile(
     if policy_profile:
         tiers_used.append("policy_env")
 
+    # Environment Knowledge (COE) map from AI_SOC_SOURCE_PROFILE_MAP — admin-entered
+    # bindings consulted at chat time. Authoritative over automated discovery.
+    coe_env_profile = _explicit_profile_map()
+    if coe_env_profile:
+        tiers_used.append("coe_env")
+
     persisted_sources = dict(load_persisted_source_profile_document().get("field_sources") or {})
     persisted = load_persisted_source_profile()
     if persisted:
@@ -150,9 +157,12 @@ def resolve_spl_source_profile(
     if asset_profile:
         tiers_used.append("asset_registry")
 
-    # COE/manual persisted values are authoritative. MCP discovery fills blanks
-    # only in the effective merge and must not override analyst-entered slots.
-    profile = merge_profiles(policy_profile, rag_profile, session_profile, mcp_profile, asset_profile, persisted)
+    # COE values (env map + manual persisted store) are authoritative. MCP/asset
+    # discovery fills blanks only — later args win in merge_profiles, so the COE
+    # tiers are placed last and override discovery guesses for the same slot.
+    profile = merge_profiles(
+        policy_profile, rag_profile, session_profile, mcp_profile, asset_profile, coe_env_profile, persisted
+    )
 
     resolved_slots = {
         slot: value

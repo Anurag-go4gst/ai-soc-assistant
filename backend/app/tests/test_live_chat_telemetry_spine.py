@@ -82,13 +82,25 @@ def test_live_chat_opens_and_closes_a_trace_run(capturing: CapturingTelemetry) -
     end = capturing.end_calls[0]
     assert end["trace_id"] == response.trace_id
     assert end["status"] in {"completed", "human_review"}
-    # Explainability is carried on the run so the debug bundle is not hollow.
-    assert "control_plane_trace" in end["metadata"]
+    # Spine fields close on end_trace; explainability merges after post_chat_response.
     assert "selected_skill" in end["metadata"]
     assert "llm_call_count" in end["metadata"]
-    assert "debug_summary" in end["metadata"]
-    assert isinstance(end["metadata"]["debug_summary"], dict)
-    assert "routing" in end["metadata"]["debug_summary"]
+
+    finalized = post_chat_response(
+        response,
+        ChatRequest(message="summarize the alert for failed logins on host srv1", session_id="s-spine"),
+        entrypoint="chat",
+        user={"username": "alice"},
+    )
+    assert finalized.turn_id
+    assert len(capturing.merge_calls) == 1
+    merge = capturing.merge_calls[0]
+    assert merge["trace_id"] == response.trace_id
+    assert "debug_summary" in merge["metadata"]
+    assert isinstance(merge["metadata"]["debug_summary"], dict)
+    assert "routing" in merge["metadata"]["debug_summary"]
+    if response.control_plane_trace:
+        assert "control_plane_trace" in merge["metadata"]
 
 
 def test_llm_call_records_persisted_from_turn_budget(capturing: CapturingTelemetry) -> None:

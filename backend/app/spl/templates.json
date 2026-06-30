@@ -1711,6 +1711,111 @@
       },
       "severity_inputs": [],
       "answer_sections_supported": []
+    },
+    {
+      "template_id": "scada_perf_threshold_anomaly",
+      "status": "active",
+      "use_case_id": "scada_perf_threshold_anomaly",
+      "query_shape": "raw_search",
+      "enabled": true,
+      "production_ready": true,
+      "sample_only": false,
+      "required_entities": [],
+      "default_time_window": "earliest=-30d latest=now",
+      "spl_text": "search index=scada_perf sourcetype=ot:scada earliest=-30d latest=now rtu_id=* transmission_error_count=* | bin _time span=1h | stats avg(transmission_error_count) as hourly_metric by _time rtu_id | eval is_recent=if(_time>=relative_time(now(), \"-24h\"), 1, 0) | eventstats avg(eval(if(is_recent=0, hourly_metric, null()))) as baseline_avg stdev(eval(if(is_recent=0, hourly_metric, null()))) as baseline_stdev by rtu_id | eval z_score=if(baseline_stdev>0, (hourly_metric-baseline_avg)/baseline_stdev, null()) | where is_recent=1 AND z_score>=3 | table _time rtu_id hourly_metric baseline_avg baseline_stdev z_score | sort -z_score | head 100",
+      "returned_fields": [
+        "_time",
+        "rtu_id",
+        "hourly_metric",
+        "baseline_avg",
+        "baseline_stdev",
+        "z_score"
+      ],
+      "validation_rules": {
+        "allowed_indexes": [
+          "scada_perf"
+        ],
+        "allowed_sourcetypes": [
+          "ot:scada"
+        ],
+        "allowed_commands": [
+          "search",
+          "bin",
+          "stats",
+          "eval",
+          "eventstats",
+          "where",
+          "table",
+          "sort",
+          "head"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "rtu_id",
+        "z_score"
+      ],
+      "answer_sections_supported": [
+        "spl_code",
+        "recommended_actions"
+      ]
+    },
+    {
+      "template_id": "cisco_asa_ioc_lookup",
+      "status": "active",
+      "use_case_id": "cisco_asa_ioc_lookup",
+      "query_shape": "raw_search",
+      "enabled": true,
+      "production_ready": true,
+      "sample_only": false,
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=cisco_asa sourcetype=cisco:asa earliest=-24h latest=now dest_ip=* | lookup power_sector_iocs.csv indicator_ip as dest_ip OUTPUT indicator_ip as matched_ioc | where isnotnull(matched_ioc) | stats count as event_count values(action) as actions by src_ip dest_ip matched_ioc | table src_ip dest_ip actions event_count matched_ioc | sort -event_count | head 100",
+      "returned_fields": [
+        "src_ip",
+        "dest_ip",
+        "actions",
+        "event_count",
+        "matched_ioc"
+      ],
+      "validation_rules": {
+        "allowed_indexes": [
+          "cisco_asa"
+        ],
+        "allowed_sourcetypes": [
+          "cisco:asa"
+        ],
+        "allowed_commands": [
+          "search",
+          "lookup",
+          "where",
+          "stats",
+          "table",
+          "sort",
+          "head"
+        ],
+        "allowed_lookups": [
+          "power_sector_iocs.csv"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "dest_ip",
+        "matched_ioc",
+        "event_count"
+      ],
+      "answer_sections_supported": [
+        "spl_code",
+        "recommended_actions"
+      ]
     }
   ]
 }

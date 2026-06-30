@@ -98,6 +98,12 @@ def build_control_plane_trace(
         "resource_planner": _resource_planner_trace(state),
         "llm_advisory_trace": _llm_advisory_trace(state),
         "spl_authoring_trace": _spl_authoring_trace(state),
+        "intent_dispatch": state.get("intent_dispatch")
+        if isinstance(state.get("intent_dispatch"), dict)
+        else None,
+        "pipeline_dispatch": state.get("pipeline_dispatch")
+        if isinstance(state.get("pipeline_dispatch"), dict)
+        else None,
     }
     run_contract = state.get("run_contract") if isinstance(state.get("run_contract"), dict) else None
     final_evidence_gate = (
@@ -274,7 +280,9 @@ def _candidate_spl_generation_trace(
         return None
     validation = spl_validation or {}
     candidate = candidate_spl or {}
-    return {
+    utility_trace = candidate.get("utility_spl_draft_trace") or validation.get("utility_spl_draft_trace")
+    utility_trace = utility_trace if isinstance(utility_trace, dict) else {}
+    payload = {
         "generation_mode": candidate.get("generation_mode"),
         "selected_candidate_spl_provider": validation.get("selected_candidate_spl_provider")
         or candidate.get("selected_candidate_spl_provider"),
@@ -291,6 +299,27 @@ def _candidate_spl_generation_trace(
         "approved": validation.get("approved"),
         "normalized_spl_available": bool(validation.get("normalized_spl")),
     }
+    for key in (
+        "llm_spl_draft_enabled",
+        "llm_spl_draft_requested",
+        "llm_spl_draft_completed",
+        "llm_spl_draft_timed_out",
+        "llm_spl_draft_used",
+        "llm_spl_draft_skipped_reason",
+        "utility_spl_draft_timeout_seconds",
+        "final_raw_spl_source",
+        "deterministic_skeleton_used",
+        "final_spl_authority",
+        "postprocessor_applied",
+        "review_only_spl_postprocessor_trace",
+    ):
+        if key in utility_trace:
+            payload[key] = utility_trace.get(key)
+    if "llm_spl_draft_skipped_reason" not in payload and utility_trace.get("llm_spl_draft_dropped_reason"):
+        payload["llm_spl_draft_skipped_reason"] = utility_trace.get("llm_spl_draft_dropped_reason")
+    if candidate.get("review_only_spl_postprocessor_trace") is not None:
+        payload["review_only_spl_postprocessor_trace"] = candidate.get("review_only_spl_postprocessor_trace")
+    return payload
 
 
 def _tool_plan(state: dict[str, Any]) -> dict[str, Any] | None:
@@ -317,7 +346,10 @@ def _rag_trace(rag: dict[str, Any] | None) -> dict[str, Any]:
     if not rag:
         return {"match_status": "not_run"}
     return {
-        "match_status": rag.get("match_status") or rag.get("status"),
+        "match_status": rag.get("match_status") or rag.get("status") or rag.get("retrieval_status"),
+        "retrieval_status": rag.get("retrieval_status"),
+        "rag_skipped_for_spl_utility_authoring": rag.get("rag_skipped_for_spl_utility_authoring"),
+        "reasons": rag.get("reasons"),
         "retrieval_backend": rag.get("retrieval_backend"),
         "collection_ids": rag.get("collection_ids"),
         "evidence_refs": rag.get("evidence_refs"),

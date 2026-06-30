@@ -6,7 +6,8 @@ never authorizes execution, never invents an approved index, and never claims
 findings. Safety/authority stay with RunContract / FinalEvidenceGate / the
 deterministic validator; this module only normalizes draft hygiene:
 
-* index resolution (user > COE > source-profile > ``<your_index>`` placeholder)
+* index resolution (user > COE family > source-profile > COE utility default >
+  ``<your_index>`` placeholder)
 * lookback hardening for placeholder/wildcard index drafts
 * removal of an unnecessary pre-filter ``sort 0`` (dependency-aware)
 * locale-safe weekend filtering (``%w`` logic, ``%A`` display preserved)
@@ -18,6 +19,7 @@ path (idempotent on an already-clean skeleton) and on mocked-LLM draft paths.
 
 from __future__ import annotations
 
+from hashlib import sha256
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -36,6 +38,106 @@ _INDEX_TOKEN_RE = re.compile(r"index\s*=\s*([^\s|]+)", re.IGNORECASE)
 _EARLIEST_TOKEN_RE = re.compile(r"earliest\s*=\s*[^\s|]+", re.IGNORECASE)
 _LATEST_TOKEN_RE = re.compile(r"latest\s*=\s*[^\s|]+", re.IGNORECASE)
 
+_SOURCETYPE_TOKEN_RE = re.compile(r"sourcetype\s*=\s*([^\s|]+)", re.IGNORECASE)
+_COMMENT_LINE_RE = re.compile(r"^\s*(?:#|//|/\*)")
+
+
+def _resolve_universal_sourcetype(context: dict[str, Any]) -> str | None:
+    """Return a sourcetype only when explicitly configured — never invent one."""
+    for key in (
+        "user_explicit_sourcetype",
+        "source_profile_sourcetype",
+        "coe_generic_utility_default_sourcetype",
+    ):
+        value = str(context.get(key) or "").strip()
+        if value:
+            return value
+    return None
+
+
+def _is_universal_weekend_timestamp_spl(spl: str) -> bool:
+    lowered = spl.lower()
+    has_hour = "hour_of_day" in lowered or "%h" in lowered
+    has_dow = "day_of_week_num" in lowered or "%w" in lowered
+    has_weekend = (
+        '("0","6")' in lowered
+        or "weekend" in lowered
+        or "saturday" in lowered
+        or "sunday" in lowered
+    )
+    return has_hour and has_dow and has_weekend
+
+
+def _build_canonical_universal_weekend_spl(
+    resolved_index: str,
+    *,
+    sourcetype: str | None,
+    earliest: str,
+    latest: str,
+) -> str:
+    prefix = f"index={resolved_index} {earliest} {latest}"
+    if sourcetype:
+        prefix += f" sourcetype={sourcetype}"
+    return "\n".join(
+        [
+            prefix,
+            '| eval hour_of_day=strftime(_time,"%H")',
+            '| eval day_of_week_num=strftime(_time,"%w")',
+            '| eval day_of_week=strftime(_time,"%A")',
+            '| where day_of_week_num IN ("0","6")',
+            "| head 100",
+            "| table _time hour_of_day day_of_week sourcetype host",
+        ]
+    )
+
+
+def _polish_universal_utility_spl_shape(
+    spl: str,
+    *,
+    resolved_index: str,
+    context: dict[str, Any],
+    trace: dict[str, Any],
+) -> str:
+    if not context.get("is_universal_spl") or not _is_universal_weekend_timestamp_spl(spl):
+        return spl
+
+    # Strip inline comments and a leading `search` keyword for clean utility output.
+    cleaned_lines: list[str] = []
+    for line in spl.splitlines():
+        if _COMMENT_LINE_RE.match(line):
+            continue
+        cleaned_lines.append(line)
+    spl = "\n".join(cleaned_lines).strip()
+    spl = re.sub(r"^search\s+", "", spl, count=1, flags=re.IGNORECASE)
+
+    user_time = bool(context.get("user_explicit_time_window"))
+    earliest_match = _EARLIEST_TOKEN_RE.search(spl)
+    latest_match = _LATEST_TOKEN_RE.search(spl)
+    earliest = earliest_match.group(0) if earliest_match else f"earliest={_DEFAULT_EARLIEST}"
+    latest = latest_match.group(0) if latest_match else f"latest={_DEFAULT_LATEST}"
+    if not user_time:
+        earliest = f"earliest={_DEFAULT_EARLIEST}"
+        latest = f"latest={_DEFAULT_LATEST}"
+
+    resolved_sourcetype = _resolve_universal_sourcetype(context)
+    # Drop LLM-invented sourcetype unless resolver provided one.
+    if _SOURCETYPE_TOKEN_RE.search(spl) and not resolved_sourcetype:
+        spl = _SOURCETYPE_TOKEN_RE.sub("", spl, count=1)
+        spl = re.sub(r"\s{2,}", " ", spl).strip()
+
+    polished = _build_canonical_universal_weekend_spl(
+        resolved_index,
+        sourcetype=resolved_sourcetype,
+        earliest=earliest,
+        latest=latest,
+    )
+    trace["utility_spl_shape_polish_applied"] = polished != spl
+    trace["utility_spl_shape"] = "canonical_weekend_timestamp"
+    if resolved_sourcetype:
+        trace["resolved_sourcetype"] = resolved_sourcetype
+    return polished
+
+
 # Family wording → trusted index gating. We only accept a concrete (non
 # placeholder) index when the requested log family supports it.
 _FAMILY_INDEX_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -52,6 +154,140 @@ class NormalizedSplResult:
     normalized_spl: str
     trace: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+
+
+def _spl_hash(spl: str) -> str:
+    return sha256((spl or "").encode("utf-8")).hexdigest()[:16]
+
+
+def _coerce_slot_handoff(slot_handoff: Any) -> dict[str, str]:
+    if slot_handoff is None:
+        return {}
+    if hasattr(slot_handoff, "normalized_slots"):
+        raw = getattr(slot_handoff, "normalized_slots", None)
+    elif isinstance(slot_handoff, dict) and isinstance(slot_handoff.get("normalized_slots"), dict):
+        raw = slot_handoff.get("normalized_slots")
+    elif isinstance(slot_handoff, dict):
+        raw = slot_handoff
+    else:
+        raw = {}
+    return {str(k): str(v) for k, v in dict(raw or {}).items() if v is not None and str(v).strip()}
+
+
+def _changes_from_trace(trace: dict[str, Any], raw_spl: str, normalized_spl: str) -> list[str]:
+    changes: list[str] = []
+    if trace.get("index_rewrite_applied"):
+        changes.append("index_placeholder_hygiene")
+    if trace.get("lookback_rewrite_applied"):
+        changes.append("time_bound_injected")
+    if trace.get("command_reorder_applied"):
+        changes.append("command_hygiene")
+    if trace.get("locale_normalization_applied"):
+        changes.append("locale_weekend_filter")
+    if trace.get("utility_spl_shape_polish_applied"):
+        changes.append("utility_shape_polish")
+    if raw_spl.strip() != normalized_spl.strip() and not changes:
+        changes.append("spl_text_normalized")
+    return changes
+
+
+def _default_finalize_context(
+    *,
+    family: str | None,
+    slot_handoff: Any,
+    llm_generated: bool,
+    mcp_discovery_context: Any,
+) -> dict[str, Any]:
+    normalized_slots = _coerce_slot_handoff(slot_handoff)
+    family_name = str(family or "").strip()
+    discovery = mcp_discovery_context if isinstance(mcp_discovery_context, dict) else {}
+    indexes = discovery.get("indexes") if isinstance(discovery.get("indexes"), list) else []
+    sourcetypes = discovery.get("sourcetypes") if isinstance(discovery.get("sourcetypes"), list) else []
+    return {
+        "is_explicit_spl_authoring": family_name != "governed_template",
+        "is_universal_spl": family_name in {"universal_timestamp_spl", "universal_spl"},
+        "is_template_free": family_name != "governed_template",
+        "llm_generated": bool(llm_generated),
+        "deterministic_generated": not bool(llm_generated),
+        "execution_authorized": False,
+        "user_explicit_index": normalized_slots.get("index"),
+        "user_explicit_sourcetype": normalized_slots.get("sourcetype"),
+        "source_profile_index": str(indexes[0]).strip() if indexes else None,
+        "source_profile_sourcetype": str(sourcetypes[0]).strip() if sourcetypes else None,
+        "target_log_family": family_name,
+        "user_explicit_time_window": bool(
+            normalized_slots.get("earliest")
+            or normalized_slots.get("latest")
+            or normalized_slots.get("time_window")
+        ),
+    }
+
+
+def finalize_review_only_spl(
+    raw_spl: str,
+    *,
+    query: str,
+    family: str | None,
+    slot_handoff: Any = None,
+    llm_generated: bool = False,
+    mcp_discovery_context: Any = None,
+    postprocessor_context: dict[str, Any] | None = None,
+) -> NormalizedSplResult:
+    """Evaluate the mandatory review-only SPL postprocessor and stamp hashes.
+
+    Governed templates deliberately pass through this wrapper with a no-op trace:
+    the hook proves it evaluated the SPL but must not rewrite template bytes.
+    """
+    raw_text = str(raw_spl or "")
+    family_name = str(family or "")
+    raw = raw_text if family_name == "governed_template" else raw_text.strip()
+    ctx = _default_finalize_context(
+        family=family,
+        slot_handoff=slot_handoff,
+        llm_generated=llm_generated,
+        mcp_discovery_context=mcp_discovery_context,
+    )
+    if isinstance(postprocessor_context, dict):
+        ctx.update(postprocessor_context)
+    ctx["llm_generated"] = bool(llm_generated)
+    ctx["deterministic_generated"] = not bool(llm_generated)
+    ctx.setdefault("target_log_family", str(family or ""))
+    if family_name == "governed_template":
+        normalized = NormalizedSplResult(
+            normalized_spl=raw,
+            trace={
+                "deterministic_postprocessor_applied": False,
+                "skipped_reason": "template_already_normalized",
+                "final_spl_authority": "governed_template",
+            },
+            warnings=[],
+        )
+    else:
+        normalized = normalize_review_only_spl(raw, ctx)
+    normalized_spl = normalized.normalized_spl
+    trace = dict(normalized.trace)
+    changes = _changes_from_trace(trace, raw, normalized_spl)
+    applied = bool(changes)
+    trace.update(
+        postprocessor_evaluated=True,
+        postprocessor_applied=applied,
+        raw_spl_hash=_spl_hash(raw),
+        normalized_spl_hash=_spl_hash(normalized_spl),
+        changes=changes,
+        postprocessor_family=str(family or ""),
+        query_hash=_spl_hash(query or ""),
+    )
+    if not applied:
+        trace["no_op_reason"] = (
+            "template_already_normalized"
+            if str(family or "") == "governed_template"
+            else trace.get("skipped_reason") or "already_normalized"
+        )
+    return NormalizedSplResult(
+        normalized_spl=normalized_spl,
+        trace=trace,
+        warnings=list(normalized.warnings),
+    )
 
 
 def _is_placeholder(index_value: str) -> bool:
@@ -75,8 +311,9 @@ def _family_supports_index(target_log_family: str | None, index_value: str) -> b
 def _resolve_index(context: dict[str, Any], original_index: str) -> tuple[str, str]:
     """Return (resolved_index, resolution_source) per the fixed precedence.
 
-    1 user explicit, 2 COE Environment KB, 3 source-profile single approved,
-    4 ``<your_index>`` placeholder, 5 preserve wildcard (caller adds warning).
+    1 user explicit, 2 COE target/source-family mapping, 3 source-profile
+    single approved index, 4 explicitly configured COE generic utility default,
+    5 ``<your_index>`` placeholder. A user-explicit wildcard is preserved.
     """
     user_index = (context.get("user_explicit_index") or "").strip()
     if user_index:
@@ -89,6 +326,12 @@ def _resolve_index(context: dict[str, Any], original_index: str) -> tuple[str, s
     profile_index = (context.get("source_profile_index") or "").strip()
     if profile_index:
         return profile_index, "source_profile_resolver"
+
+    utility_default = (context.get("coe_generic_utility_default_index") or "").strip()
+    if utility_default:
+        return utility_default, str(
+            context.get("coe_generic_utility_default_source") or "coe_generic_utility_default"
+        )
 
     target_family = context.get("target_log_family")
     if _family_supports_index(target_family, original_index):
@@ -135,6 +378,7 @@ def normalize_review_only_spl(
         original_index=original_index or None,
         resolved_index=resolved_index,
         index_resolution_source=resolution_source,
+        placeholder_used=resolved_index == "<your_index>",
         raw_llm_index_dropped=False,
         raw_llm_index_dropped_reason=None,
     )
@@ -235,10 +479,13 @@ def normalize_review_only_spl(
             flags=re.IGNORECASE,
         )
 
-    trace["final_spl_authority"] = (
-        "deterministic_postprocessor"
-        if ctx.get("deterministic_generated")
-        else ("llm_draft_normalized" if ctx.get("llm_generated") else "review_only_postprocessor")
+    spl = _polish_universal_utility_spl_shape(
+        spl,
+        resolved_index=resolved_index,
+        context=ctx,
+        trace=trace,
     )
+
+    trace["final_spl_authority"] = "deterministic_postprocessor"
 
     return NormalizedSplResult(normalized_spl=spl.strip(), trace=trace, warnings=warnings)

@@ -272,6 +272,16 @@ class Settings(BaseSettings):
     ai_soc_llm_spl_advisory_provider: str = ""
     ai_soc_llm_spl_advisory_model: str = ""
     ai_soc_llm_spl_fallback_enabled: bool = False
+    # PR #58 — bounded SPL draft for explicit universal/template-free utility authoring
+    # only (not global SPL failover). Scoped hop; deterministic skeleton fallback.
+    ai_soc_llm_utility_spl_draft_enabled: bool = True
+    # Slow on-prem VPS: sub-10s timeouts are ineffective; 90s is the operator default.
+    ai_soc_llm_utility_spl_draft_timeout_seconds: float = 90.0
+    ai_soc_llm_utility_spl_draft_failover_enabled: bool = False
+    # When false, universal utility SPL still runs intent advisor (use if route unsure).
+    ai_soc_llm_utility_skip_intent_advisor: bool = True
+    # Optional explicit COE default for generic/template-free utility SPL.
+    ai_soc_utility_spl_default_index: str = ""
     # Regenerate-once on the SPL failover relevance gate. Default off: one LLM call
     # per failover turn so slow on-prem hardware does not double worst-case latency.
     ai_soc_llm_spl_failover_retry_enabled: bool = False
@@ -360,6 +370,9 @@ class Settings(BaseSettings):
     ai_soc_langgraph_shadow_enabled: bool = False
     # Chat control plane rollout gate. Default false until golden tests pass.
     control_plane_enabled: bool = False
+    # Two-stage pipeline dispatch authority (intent_dispatch + pipeline_dispatch).
+    # Default false until Phase 8 green; operator .env may set true for on-host probes.
+    ai_soc_pipeline_dispatch_v2_enabled: bool = False
     # Batch 5 — lightweight investigation session pins (structured only, no transcript).
     ai_soc_session_context_enabled: bool = True
     ai_soc_session_context_ttl_minutes: int = 30

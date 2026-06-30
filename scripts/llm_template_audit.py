@@ -26,7 +26,7 @@ CATALOG_PATH = BACKEND / "app" / "use_cases" / "catalog.json"
 REPORT_MD = ROOT / "docs" / "evals" / "llm_template_audit_report.md"
 
 from app.safeguards.spl_validator import validate_spl  # noqa: E402
-from app.spl.policy import SplValidationPolicy, load_spl_policy  # noqa: E402
+from app.spl.policy import SplValidationPolicy, load_spl_policy, policy_with_template_profile  # noqa: E402
 from app.spl.spl_relevance_check import check_spl_relevance  # noqa: E402
 from app.spl.template_registry import load_spl_templates  # noqa: E402
 
@@ -62,7 +62,7 @@ def _policy_for_template(template: dict[str, Any]) -> SplValidationPolicy:
             return tuple(str(item).strip().lower() for item in raw if str(item).strip())
         return fallback
 
-    return SplValidationPolicy(
+    interim = SplValidationPolicy(
         enabled=base.enabled,
         allowed_indexes=_tuple_field("allowed_indexes", base.allowed_indexes),
         allowed_sourcetypes=_tuple_field("allowed_sourcetypes", base.allowed_sourcetypes),
@@ -77,6 +77,7 @@ def _policy_for_template(template: dict[str, Any]) -> SplValidationPolicy:
         allow_external_calls=base.allow_external_calls,
         policy_version=base.policy_version,
     )
+    return policy_with_template_profile(interim, rules)
 
 
 def _deterministic_critique(template: dict[str, Any], use_case: dict[str, Any] | None) -> dict[str, Any]:

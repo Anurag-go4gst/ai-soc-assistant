@@ -142,6 +142,7 @@ def soc_kb_source_evidence(trace_id: str, query: str, retrieval: dict[str, Any])
         "no_match": "no_match",
         "ambiguous": "ambiguous",
         "disabled": "skipped",
+        "skipped": "skipped",
         "failed": "failed",
     }.get(str(status), "failed")
     preview_rows = [_preview_row(item) for item in entries]

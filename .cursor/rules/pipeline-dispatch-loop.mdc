@@ -1,0 +1,66 @@
+---
+description: Autonomous phase-loop runner for the Conditional Pipeline Canonical Dispatch plan. Load when implementing plans/2026-06-29_conditional-pipeline-canonical-dispatch.md.
+globs:
+  - "backend/app/chat/**"
+  - "backend/app/spl/**"
+  - "backend/app/graph/**"
+  - "backend/app/llm/**"
+  - "plans/2026-06-29_conditional-pipeline-canonical-dispatch.md"
+alwaysApply: false
+---
+
+# Pipeline Dispatch — autonomous phase loop
+
+Canonical plan: `plans/2026-06-29_conditional-pipeline-canonical-dispatch.md`.
+Read it in full before any edit. This rule mirrors its **Autonomous loop protocol** so it survives across agent turns.
+
+## Iteration contract (one phase = one commit)
+
+Phase order (`todos` array order):
+`0 → 0.5 → 1A → 2A → 3 → 4 → 2B → 2C → 5 → 6 → 7 → 8`
+
+Each iteration:
+1. Re-read the plan. Pick the first phase whose work is not yet committed (track via the plan `todos` frontmatter `status` field).
+2. Implement ONLY that phase. No scope bleed into later phases.
+3. Run validation gates (plan "Validation gates" section).
+4. Green → one scoped commit; flip that todo `status: done` in the plan frontmatter; update the CLAUDE.md plans table.
+5. Red → fix within phase scope. Blocked / ambiguous / decision needed → STOP and report.
+6. **STOP after each phase and report** before starting the next (Cursor/Codex have no auto-reschedule; the human re-prompts `continue`).
+
+## Hard rules
+
+- Code default `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` stays `false` until Phase 8 green (governance byte-identity, 105/50 baseline). Operator `.env` may set it `true` for on-host probes — never commit `.env`.
+- One commit per phase (one commit per class). Never combine phases.
+- Commit message footer: `Co-Authored-By: <your agent identity>`.
+- Stay on branch `feat/pipeline-dispatch-v2` unless told otherwise.
+- Keep `AI_SOC_TESTS_ALLOW_LIVE_LLM` unset (suite uses the live-LLM guard, not the real llama-server).
+- Cost: targeted pytest per phase; full `./scripts/run_stage3_governance_regression.sh` only on Phase 8 (or any phase touching a flag-off path).
+
+## Pre-commit gate — anti-patterns (from plan)
+
+Reject the commit if any hold:
+- `IntentDispatchDecision` reads `RouteContract`/adjudicated skill (those run AFTER 2C — use `routed` + `query_understanding` only).
+- Phase 4 gates LLM SPL solely on empty `llm_hops` before 2B — use `ai_soc_llm_spl_fallback_enabled` until 2B fills schedules.
+- SPL candidate returned without `postprocessor_evaluated=true`; or `postprocessor_applied=false` without `no_op_reason`.
+- LLM SPL path skips `finalize_review_only_spl`.
+- `generate_llm_spl_via_plan` called without `slot_handoff` when handoff present; or detection plan discarded after compile (must flow `LlmSplFallbackResult.detection_plan` → `SplCandidateStageResult` → `persist_llm_spl_plan`).
+- Compiler writes `state`/`runtime_context` directly (caller persists).
+- `spl_plan_compiler` telemetry via `record_llm_call` only (must also `llm_turn_budget.record_sidecar`); or budget telemetry attempted in Phase 3 (Phase 4D only).
+- `stage_schedule` routing by membership without `dispatch_cursor` / `next_stage_after`.
+- `build_pipeline_dispatch` only on CP-on path without CP-off fallback.
+- `run_*`/`call_*` booleans written as authority on any contract (project via `project_dispatch_flags` for legacy only).
+
+## Validation commands
+
+```bash
+cd backend && PYTHONPATH=../backend:.. python3 -m pytest \
+  app/tests/test_evidence_plan_handoff_drift.py \
+  app/tests/test_canonical_binding_handoff.py \
+  app/tests/test_intent_dispatch*.py \
+  app/tests/test_pipeline_dispatch*.py \
+  app/tests/test_review_only_spl_postprocessor.py \
+  app/tests/test_langgraph_shadow_phase12.py \
+  app/tests/test_planner_executor.py
+# Phase 8 / flag-off-touching phases only:
+./scripts/run_stage3_governance_regression.sh
+```

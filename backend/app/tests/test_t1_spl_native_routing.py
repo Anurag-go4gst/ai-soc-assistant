@@ -249,3 +249,33 @@ def test_normalize_runtime_operation_labels() -> None:
     assert normalize_runtime_operation("threat feed correlation") == "lookup_correlation"
     assert normalize_runtime_operation("top talkers") == "aggregate_and_rank"
     assert normalize_runtime_operation("bogus") == "unknown"
+
+
+def test_scada_catalogue_template_when_dispatch_v2_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config import settings
+    from app.spl.template_registry import get_spl_template
+
+    monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
+    template = get_spl_template("scada_perf_threshold_anomaly")
+    assert template is not None
+    assert template.status == "active"
+
+def test_scada_catalogue_first_live_chat_when_dispatch_v2_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """REV5-D: SCADA runtime profile resolves to governed catalogue template, not T2-native."""
+    from app.chat.pipeline import build_live_chat_response
+    from app.config import settings
+    from app.schemas.requests import ChatRequest
+
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
+
+    query = (
+        "Provide a complete SPL query for index=scada_perf using earliest=-30d "
+        "to compute eventstats stdev baseline by rtu_id and filter anomalies in "
+        "last 24h using transmission_error_count"
+    )
+    payload = build_live_chat_response(ChatRequest(message=query)).model_dump(mode="json")
+    candidate = payload.get("candidate_spl") or {}
+    assert candidate.get("template_id") == "scada_perf_threshold_anomaly"
+    assert candidate.get("generation_mode") in {"template", "deterministic_template_render"}
+

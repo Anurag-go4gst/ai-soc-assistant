@@ -112,29 +112,58 @@ def _link_trace_to_turn(
     debug_summary = build_debug_summary(payload=payload)
     llm_block = debug_summary.get("llm") if isinstance(debug_summary.get("llm"), dict) else {}
     llm_live_calls = int(llm_block.get("live_calls") or 0)
+    sufficiency = payload.get("context_sufficiency")
+    answer_mode = payload.get("answer_mode") or (
+        sufficiency.get("answer_mode") if isinstance(sufficiency, dict) else None
+    )
+    if not answer_mode and isinstance(payload.get("evidence_plan"), dict):
+        answer_mode = payload["evidence_plan"].get("answer_mode")
     metadata: dict[str, Any] = {
         "turn_id": response.turn_id,
         "user_id": _user_id(user),
         "question_preview": _preview(request.message),
         "selected_skill": payload.get("selected_skill"),
+        "answer_mode": answer_mode,
         "llm_used": _llm_used(payload),
         "llm_live_calls": llm_live_calls,
         "mcp_used": bool(execution.get("selected_mcp_tool")) if isinstance(execution, dict) else False,
         "debug_summary": debug_summary,
         **routing_list_fields(debug_summary),
     }
+    control_plane_trace = payload.get("control_plane_trace")
+    if isinstance(control_plane_trace, dict) and control_plane_trace:
+        metadata["control_plane_trace"] = control_plane_trace
+    # Final analyst-visible output snapshot (redacted) so the bundle shows the
+    # answer the analyst saw, not just routing/SPL explainability.
+    try:
+        from app.chat.final_output_trace import (
+            build_final_output_trace,
+            final_output_answer_preview,
+        )
+
+        final_output = build_final_output_trace(payload)
+        if final_output:
+            metadata["final_output"] = final_output
+        # Prefer the real answer text for the trace-list preview over the canned
+        # RunContract template string.
+        real_preview = final_output_answer_preview(payload)
+        if real_preview:
+            metadata["answer_preview"] = real_preview
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        pass
     run_contract = payload.get("run_contract")
     if isinstance(run_contract, dict):
         metadata["run_contract"] = run_contract
-        try:
-            from app.chat.contracts.run_contract import RunContract
-            from app.chat.run_contract_builder import build_answer_preview
+        if "answer_preview" not in metadata:
+            try:
+                from app.chat.contracts.run_contract import RunContract
+                from app.chat.run_contract_builder import build_answer_preview
 
-            preview = build_answer_preview(RunContract.model_validate(run_contract))
-            if preview:
-                metadata["answer_preview"] = preview
-        except Exception:  # noqa: BLE001 - telemetry must never break chat
-            pass
+                preview = build_answer_preview(RunContract.model_validate(run_contract))
+                if preview:
+                    metadata["answer_preview"] = preview
+            except Exception:  # noqa: BLE001 - telemetry must never break chat
+                pass
     if "answer_preview" not in metadata:
         metadata["answer_preview"] = _preview(payload.get("message"))
     try:

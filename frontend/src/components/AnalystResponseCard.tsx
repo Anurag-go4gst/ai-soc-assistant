@@ -102,6 +102,8 @@ export function AnalystResponseCard({
   // investigation-steps phase is the SOC review checklist (not a competing "Analyst
   // workflow" heading).
   const isReviewOnlySplDraft = splOnly && Boolean(draftSplCode);
+  const isUniversalUtilitySplDraft =
+    isReviewOnlySplDraft && !response.spl_status_detail && !response.spl_code;
   const llmSplCandidate = response.llm_spl_candidate;
   const showLlmSplCandidate = Boolean(llmSplCandidate);
   const showSpl = Boolean(response.spl_code && (renderSections.spl_artifact ?? true));
@@ -239,10 +241,12 @@ export function AnalystResponseCard({
   if (showSpl || showDraftSpl || response.spl_status_detail) {
     phases.push({
       key: 'spl',
-      label: wasExecuted ? 'Executed detection' : showDraftSpl && !showSpl ? 'Draft SPL preview' : 'SPL status',
+      label: wasExecuted ? 'Executed detection' : isUniversalUtilitySplDraft ? 'Universal SPL draft' : showDraftSpl && !showSpl ? 'Draft SPL preview' : 'SPL status',
       icon: <Terminal className="h-3.5 w-3.5" />,
       accent: showDraftSpl && !showSpl ? 'amber' : 'cyan',
-      chips: showDraftSpl && !showSpl
+      chips: isUniversalUtilitySplDraft
+        ? [{ text: 'Template-free', variant: 'outline' as const }, { text: 'Review only', variant: 'warning' as const }]
+        : showDraftSpl && !showSpl
         ? [
             { text: 'Lab only', variant: 'warning' as const },
             { text: 'Not catalog-approved', variant: 'outline' as const },
@@ -259,6 +263,7 @@ export function AnalystResponseCard({
           ) : null}
           {showDraftSpl ? (
             <>
+              {!isUniversalUtilitySplDraft ? (
               <p
                 className={cn(
                   'text-sm leading-6 text-amber-100/95',
@@ -268,6 +273,7 @@ export function AnalystResponseCard({
                 {draftPreview?.not_catalog_approved_notice ?? 'Not catalog-approved / review required.'}{' '}
                 {response.review_notice ?? draftPreview?.warning}
               </p>
+              ) : null}
               {draftPreview?.assumptions?.length ? (
                 <div className="mt-3">
                   <SectionTitle>Assumptions and placeholders</SectionTitle>

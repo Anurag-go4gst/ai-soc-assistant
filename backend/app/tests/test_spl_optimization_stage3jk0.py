@@ -77,7 +77,7 @@ def test_provider_pipeline_returns_optimized_candidate_and_normalized_spl(monkey
     monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", False)
     monkeypatch.setattr(chat_pipeline, "_runtime_spl_governance", lambda _use_case_id: None)
-    monkeypatch.setattr(chat_pipeline, "_should_use_llm_spl_failover", lambda _skill: False)
+    monkeypatch.setattr(chat_pipeline, "_should_use_llm_spl_failover", lambda _skill, **_: False)
     monkeypatch.setattr(
         chat_pipeline,
         "generate_candidate_spl_with_provider",

@@ -5,6 +5,7 @@ from typing import Any
 from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.intent_classification import IntentClassification
 from app.chat.query_signals import is_live_data_request
+from app.chat.spl_authoring_intent import is_universal_utility_spl_authoring
 from app.config import settings
 from app.chat.planning_decision import _apply_completeness_floor
 from app.chat.multi_leg_evidence import compose_multi_leg_evidence
@@ -313,6 +314,30 @@ def plan_evidence(
 
     if family == "spl_generation_only":
         signals = (query_to_intent or {}).get("query_signals") if isinstance(query_to_intent, dict) else {}
+        raw_query = str(getattr(query_understanding, "raw_query", "") or "")
+        if isinstance(signals, dict) and is_universal_utility_spl_authoring(raw_query, signals):
+            return with_enrichment(
+                EvidencePlan(
+                    answer_mode="spl_utility_authoring",
+                    rag_phase="post_mcp",
+                    needs_rag=False,
+                    needs_spl=True,
+                    needs_mcp=False,
+                    needs_mitre=False,
+                    spl_allowed=True,
+                    mcp_allowed=False,
+                    policy_context_required=False,
+                    policy_context_recommended=False,
+                    requires_hil=False,
+                    action_mode="recommend_only",
+                    reasons=["universal_spl_utility_authoring"],
+                    answer_rules=[
+                        "render_spl_first",
+                        "governance_trace_only",
+                        "no_source_profile_clarification_for_placeholder",
+                    ],
+                )
+            )
         live_data_request = is_live_data_request(signals if isinstance(signals, dict) else {})
         return with_enrichment(
             EvidencePlan(
@@ -519,6 +544,7 @@ def _attach_canonical_handoff_summaries(
         try:
             bindings = build_user_constraint_bindings(
                 raw_query,
+                llm_intent_advisory=(query_to_intent or {}).get("llm_intent_advisory"),
                 query_understanding=query_understanding,
                 extra_slots=source_profile.slots,
                 source_profile_trace=source_profile_trace,

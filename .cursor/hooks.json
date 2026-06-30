@@ -5,6 +5,10 @@
       {
         "command": ".cursor/hooks/stop-verify-handoff.sh",
         "loop_limit": 1
+      },
+      {
+        "command": ".cursor/hooks/stop-loop-asap-handoff.sh",
+        "loop_limit": 5
       }
     ],
     "subagentStop": [
@@ -12,6 +16,11 @@
         "command": ".cursor/hooks/subagent-verify-handoff.sh",
         "matcher": "implementer|generalPurpose|shell",
         "loop_limit": 1
+      },
+      {
+        "command": ".cursor/hooks/stop-loop-asap-handoff.sh",
+        "matcher": "implementer|generalPurpose|shell",
+        "loop_limit": 5
       }
     ],
     "beforeShellExecution": [
@@ -30,6 +39,16 @@
       {
         "command": ".cursor/hooks/before-submit-verify-arm.sh",
         "matcher": "UserPromptSubmit"
+      },
+      {
+        "command": ".cursor/hooks/before-submit-plan-discipline-arm.sh",
+        "matcher": "UserPromptSubmit"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": ".cursor/hooks/post-plan-edit-reminder.sh",
+        "matcher": "Write|ApplyPatch"
       }
     ]
   }

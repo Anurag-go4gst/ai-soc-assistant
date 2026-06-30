@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.chat.final_output_trace import build_final_output_trace
+
 _MAX_SKIPPED_ROLES = 7
 
 
@@ -57,12 +59,19 @@ def build_debug_summary(
     mcp_block = _mcp_block(execution, cp, run_contract)
     hil_block = _hil_block(human_review, run_contract, spl_validation)
 
+    output_block = build_final_output_trace(base) if base else {}
+    intent_block = _intent_block(base, cp)
+    dispatch_block = _dispatch_block(base, cp)
+
     return {
         "routing": routing,
         "llm": llm_block,
         "spl": spl_block,
         "mcp": mcp_block,
         "hil": hil_block,
+        "output": output_block,
+        "intent": intent_block,
+        "dispatch": dispatch_block,
     }
 
 
@@ -200,11 +209,53 @@ def _spl_block(
     reject_reasons = spl_validation.get("reject_reasons") or []
     if not isinstance(reject_reasons, list):
         reject_reasons = []
+    utility_trace = candidate_spl.get("utility_spl_draft_trace")
+    if not isinstance(utility_trace, dict):
+        utility_trace = spl_validation.get("utility_spl_draft_trace")
+    utility_trace = utility_trace if isinstance(utility_trace, dict) else {}
+    post = candidate_spl.get("review_only_spl_postprocessor_trace")
+    if not isinstance(post, dict):
+        post = spl_validation.get("review_only_spl_postprocessor_trace")
+    post = post if isinstance(post, dict) else utility_trace.get("review_only_spl_postprocessor_trace")
+    post = post if isinstance(post, dict) else {}
+    postprocessor_evaluated = bool(
+        post.get("postprocessor_evaluated")
+        or utility_trace.get("postprocessor_evaluated")
+        or candidate_spl.get("review_only_spl_postprocessor_applied") is not None
+    )
+    postprocessor_applied = bool(
+        utility_trace.get("postprocessor_applied") or post.get("postprocessor_applied")
+    )
+    detection_plan = candidate_spl.get("detection_plan")
+    redacted_plan = None
+    if isinstance(detection_plan, dict):
+        redacted_plan = {
+            key: detection_plan.get(key)
+            for key in (
+                "index",
+                "sourcetype",
+                "data_domain",
+                "detection_family",
+                "required_fields",
+            )
+            if detection_plan.get(key) is not None
+        } or None
     return {
         "template_id": candidate_spl.get("template_id"),
         "approved": spl_validation.get("approved"),
         "reject_reasons": [str(item) for item in reject_reasons[:6]],
         "normalized_spl": bool(spl_validation.get("normalized_spl") or spl_gen.get("normalized_spl_available")),
+        "postprocessor_evaluated": postprocessor_evaluated,
+        "postprocessor_applied": postprocessor_applied,
+        "no_op_reason": post.get("no_op_reason") or utility_trace.get("no_op_reason"),
+        "spl_raw_hash": post.get("spl_raw_hash") or utility_trace.get("spl_raw_hash"),
+        "spl_post_hash": post.get("spl_post_hash") or utility_trace.get("spl_post_hash"),
+        "review_only_postprocessor_applied": postprocessor_applied,
+        "review_only_spl_postprocessor_trace": post or None,
+        "detection_plan": redacted_plan,
+        "final_spl_authority": utility_trace.get("final_spl_authority")
+        or post.get("final_spl_authority"),
+        "final_raw_spl_source": utility_trace.get("final_raw_spl_source"),
     }
 
 
@@ -254,6 +305,9 @@ def _spl_path_label(generation_mode: Any, candidate_spl: dict[str, Any]) -> str:
 def _spl_live_called(spl_validation: dict[str, Any], records: list[dict[str, Any]]) -> bool:
     if spl_validation.get("llm_model"):
         return True
+    utility_trace = spl_validation.get("utility_spl_draft_trace")
+    if isinstance(utility_trace, dict) and utility_trace.get("llm_spl_draft_completed"):
+        return True
     for item in records:
         if item.get("outcome") != "completed":
             continue
@@ -274,3 +328,44 @@ def _spl_outcome(spl_validation: dict[str, Any], candidate_spl: dict[str, Any]) 
     if candidate_spl.get("candidate_spl_generated"):
         return "candidate_generated"
     return None
+
+def _intent_block(payload: dict[str, Any], control_plane_trace: dict[str, Any]) -> dict[str, Any]:
+    intent_dispatch = payload.get("intent_dispatch")
+    if not isinstance(intent_dispatch, dict):
+        intent_dispatch = control_plane_trace.get("intent_dispatch")
+    intent_dispatch = intent_dispatch if isinstance(intent_dispatch, dict) else {}
+    advisory = payload.get("llm_intent_advisory")
+    if not isinstance(advisory, dict):
+        advisory = control_plane_trace.get("llm_intent_advisory")
+    advisory = advisory if isinstance(advisory, dict) else {}
+    slots = advisory.get("entity_slots_candidate")
+    q2i = payload.get("query_to_intent")
+    return {
+        "call_2c_llm": intent_dispatch.get("call_2c_llm"),
+        "prompt_mode": intent_dispatch.get("prompt_mode"),
+        "skip_reasons": list(intent_dispatch.get("skip_reasons") or [])[:4],
+        "intent_family_candidate": advisory.get("intent_family_candidate") or advisory.get("intent_family"),
+        "entity_slots": slots if isinstance(slots, dict) else {},
+        "llm_intent_assist_status": q2i.get("llm_intent_assist_status") if isinstance(q2i, dict) else None,
+    }
+
+
+def _dispatch_block(payload: dict[str, Any], control_plane_trace: dict[str, Any]) -> dict[str, Any]:
+    pipeline_dispatch = payload.get("pipeline_dispatch")
+    if not isinstance(pipeline_dispatch, dict):
+        pipeline_dispatch = control_plane_trace.get("pipeline_dispatch")
+    pipeline_dispatch = pipeline_dispatch if isinstance(pipeline_dispatch, dict) else {}
+    decision = pipeline_dispatch.get("decision")
+    decision = decision if isinstance(decision, dict) else {}
+    stage_schedule = decision.get("stage_schedule")
+    llm_hops = decision.get("llm_hops")
+    runtime = pipeline_dispatch.get("runtime_context")
+    runtime = runtime if isinstance(runtime, dict) else {}
+    return {
+        "request_mode": decision.get("request_mode"),
+        "stage_schedule": list(stage_schedule) if isinstance(stage_schedule, list) else [],
+        "llm_hops": list(llm_hops) if isinstance(llm_hops, list) else [],
+        "dispatch_reasons": list(decision.get("dispatch_reasons") or [])[:6],
+        "dispatch_cursor": runtime.get("dispatch_cursor"),
+    }
+

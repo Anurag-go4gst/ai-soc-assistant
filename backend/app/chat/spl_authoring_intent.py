@@ -6,6 +6,8 @@ from typing import Any
 
 from app.chat.contracts.intent_classification import IntentClassification
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
+from app.config import settings
+from app.spl.draft_preview import match_detection_family
 
 _SPL_AUTHORING_INTENT_FAMILIES = frozenset({"spl_generation", "spl_generation_only"})
 
@@ -37,6 +39,51 @@ def llm_advisory_indicates_spl_authoring(advisory: LLMIntentAdvisory | None) -> 
 def universal_spl_phrasing(query: str) -> bool:
     normalized = (query or "").strip().lower()
     return any(term in normalized for term in _UNIVERSAL_SPL_PHRASES)
+
+
+_INTENT_SKIP_REASON_UNIVERSAL_UTILITY = "intent_advisory_not_required_for_universal_utility_route"
+
+
+def _spl_authoring_unsafe_signals(signals: dict[str, Any]) -> bool:
+    return bool(
+        signals.get("block_or_contain")
+        or signals.get("explicit_run_spl")
+        or signals.get("run_execution")
+    )
+
+
+def is_universal_utility_spl_authoring(query: str, signals: dict[str, Any]) -> bool:
+    """Explicit universal/template-free SPL utility authoring (PR #58 scope)."""
+    if not signals.get("explicit_spl_authoring"):
+        return False
+    if not universal_spl_phrasing(query):
+        return False
+    if _spl_authoring_unsafe_signals(signals):
+        return False
+    return True
+
+
+def universal_utility_skeleton_confirmed(query: str) -> bool:
+    """True when the deterministic lab family for this query is universal_timestamp_spl."""
+    return match_detection_family(query) == "universal_timestamp_spl"
+
+
+def should_skip_intent_for_universal_utility_spl(
+    query: str,
+    signals: dict[str, Any],
+) -> tuple[bool, str | None]:
+    """Skip intent wait only when universal utility route is deterministic and confirmed.
+
+    If the skeleton family does not match, intent advisory remains eligible so the
+    LLM can help disambiguate — fail-open to intent when unsure.
+    """
+    if not settings.ai_soc_llm_utility_skip_intent_advisor:
+        return False, None
+    if not is_universal_utility_spl_authoring(query, signals):
+        return False, None
+    if not universal_utility_skeleton_confirmed(query):
+        return False, None
+    return True, _INTENT_SKIP_REASON_UNIVERSAL_UTILITY
 
 
 def source_profile_required_for_authoring(

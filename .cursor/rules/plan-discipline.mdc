@@ -1,0 +1,52 @@
+---
+description: Plan authoring and execution loop discipline — decompose, verify, sequence, loop with evidence. Load for plans/ work or when user says loop-asap.
+globs:
+  - "plans/**/*.md"
+  - ".cursor/templates/plan-checklist-template.md"
+alwaysApply: true
+---
+
+# Plan discipline — authoring and execution
+
+Canonical template: `.cursor/templates/plan-checklist-template.md`.
+Repo playbook: `AGENTS.md` Agent Execution Playbook (repo-first, targeted tests, governance gates).
+
+## When creating or restructuring a plan
+
+**Do not implement against prose.** Before writing code:
+
+1. **Decompose** — Break work into atomic, independently verifiable items. Each item's "done" must be unambiguous (function implemented, test passing, behavior traced).
+2. **Checklist file** — If the plan lacks this granularity, add or restructure into a checklist section (or companion `LOOP_RUNNER_<slug>.md`). Use the template frontmatter + item table.
+3. **Verification per item** — Every item needs *how* you'll know it's done: a specific test command, trace path, file/line to inspect. "Looks correct" is not verification. Flag gaps before proceeding.
+4. **Sequence by dependency** — Order items by what blocks what, not document order. State dependencies explicitly. If unsure, say so and propose an order.
+5. **Stop conditions** — Document when the loop ends: all items checked with evidence, gate fails twice, or decision needed.
+
+## When executing a plan (handover or `loop-asap`)
+
+1. **Read the plan fully** — `grep` the repo; do not recreate shipped work.
+2. **Materialize checklist** — If only prose exists, convert to checklist first (no code until checklist exists).
+3. **Pick first unchecked item** in dependency order.
+4. **Loop**: implement → verify (stated method) → check off with evidence → next item. Continue without waiting unless you hit a genuine decision point (tradeoff, ambiguous requirement, plan-marked optional/deferral).
+5. **Evidence on check-off** — State what you verified and how (test name, command output, traced behavior). Never mark done from "code was written" alone.
+6. **Surface drift** — Wrong premise, redundant item, or scope change → stop and tell the user before continuing. Do not silently adapt or skip hard items.
+7. **Re-audit before declaring complete** — Re-walk every item against its verification method with skepticism (including inherited checkmarks).
+
+## `loop-asap` trigger
+
+When the user prompt contains **`loop-asap`** (case-insensitive):
+
+1. Identify the target plan (from prompt, open file, or `plans/README.md` active work).
+2. **Audit first** — Run `.cursor/hooks/audit-plan-discipline.sh <plan-path>`; fix every reported gap in the plan/checklist.
+3. **Then execute** the loop above until stop condition.
+
+Hooks arm `loop-asap` for stop-time continuation when the agent ends mid-loop.
+
+## Checklist item format (required)
+
+```markdown
+- [ ] **ID** — Short title
+  - **Do:** one atomic change
+  - **Verify:** exact command or trace (e.g. `pytest app/tests/test_foo.py -k bar`, `grep X backend/app/`)
+  - **Depends on:** none | item IDs
+  - **Evidence:** _(filled when done — command output or observation)_
+```

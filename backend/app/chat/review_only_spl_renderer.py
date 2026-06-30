@@ -155,6 +155,10 @@ def _draft_spl_text(
     *,
     candidate_spl: dict[str, Any] | None = None,
 ) -> str:
+    if _is_universal_spl_utility(draft_preview, candidate_spl):
+        utility_spl = str((candidate_spl or {}).get("candidate_spl") or "").strip()
+        if utility_spl:
+            return utility_spl
     if (
         isinstance(candidate_spl, dict)
         and candidate_spl.get("generation_mode") == "t2_spl_native_review"
@@ -328,6 +332,46 @@ def _is_universal_spl_utility(
     )
 
 
+def _universal_utility_index_and_usage_lines(
+    candidate_spl: dict[str, Any] | None,
+) -> list[str]:
+    post = (candidate_spl or {}).get("review_only_spl_postprocessor_trace")
+    post = post if isinstance(post, dict) else {}
+    resolved_index = str(post.get("resolved_index") or "").strip()
+    index_source = str(post.get("index_resolution_source") or "").strip()
+    lines: list[str] = []
+    if resolved_index and resolved_index != "<your_index>":
+        if index_source in {
+            "coe_environment_kb",
+            "source_profile_resolver",
+            "coe_generic_utility_default",
+        }:
+            lines.append(f"Using COE-resolved index `{resolved_index}`.")
+        else:
+            lines.append(f"Using resolved index `{resolved_index}`.")
+    else:
+        lines.append("`<your_index>` is a placeholder; replace it with the correct index before review.")
+    lines.append("")
+    lines.append("How to use:")
+    if not resolved_index or resolved_index == "<your_index>":
+        lines.append("- Replace `<your_index>` with your index (or bind a source profile).")
+    lines.append("- `%H` extracts the hour of day.")
+    lines.append("- `%w` is the weekday number (0=Sunday, 6=Saturday) and drives the weekend filter.")
+    lines.append("- `%A` is the display-only day name.")
+    lines.append("- Adjust `earliest`/`latest` to your time window.")
+    lines.append("")
+    lines.append(_HOW_PRODUCED)
+    return lines
+
+
+def render_universal_spl_utility_summary(
+    *,
+    candidate_spl: dict[str, Any] | None = None,
+) -> str:
+    """Card header text for universal utility SPL (index + usage; SPL lives in draft_spl_code)."""
+    return "\n".join(_universal_utility_index_and_usage_lines(candidate_spl)).strip()
+
+
 def render_universal_spl_utility_answer(
     *,
     analyst_response: Any,
@@ -345,14 +389,7 @@ def render_universal_spl_utility_answer(
     if draft_spl:
         lines.append(draft_spl)
         lines.append("")
-    lines.append("How to use:")
-    lines.append("- Replace `<your_index>` with your index (or bind a source profile).")
-    lines.append("- `%H` extracts the hour of day.")
-    lines.append("- `%w` is the weekday number (0=Sunday, 6=Saturday) and drives the weekend filter.")
-    lines.append("- `%A` is the display-only day name.")
-    lines.append("- Adjust `earliest`/`latest` to your time window.")
-    lines.append("")
-    lines.append(_HOW_PRODUCED)
+    lines.extend(_universal_utility_index_and_usage_lines(candidate_spl))
     return "\n".join(lines).strip()
 
 
@@ -492,6 +529,9 @@ def apply_review_only_spl_render(
     ) or bool(str(getattr(analyst_response, "draft_spl_code", "") or "").strip()) or (
         is_t2_spl_native_candidate(candidate_spl)
         and str((candidate_spl or {}).get("candidate_spl") or "").strip()
+    ) or (
+        _is_universal_spl_utility(draft_preview, candidate_spl)
+        and str((candidate_spl or {}).get("candidate_spl") or "").strip()
     )
     if not has_lab_draft:
         return analyst_response, message
@@ -514,16 +554,37 @@ def apply_review_only_spl_render(
     # Governance fields on the run_contract are untouched; this only suppresses the
     # SOC-investigation card sections for this narrow utility mode.
     if _is_universal_spl_utility(draft_preview, candidate_spl):
+        utility_spl = _draft_spl_text(analyst_response, draft_preview, candidate_spl=candidate_spl)
+        card_summary = render_universal_spl_utility_summary(candidate_spl=candidate_spl)
         updates = {
             "finding_title": _UNIVERSAL_UTILITY_TITLE,
             "scenario_label": None,
             "response_profile": "spl_only",
             "investigation_steps": [],
             "recommended_actions": [],
+            "severity_label": None,
             "severity_rationale": None,
             "severity_safety_note": None,
-            "direct_answer_summary": _UNIVERSAL_UTILITY_TITLE,
+            "direct_answer_summary": card_summary,
+            "one_sentence_finding": None,
             "analyst_checklist": [],
+            "spl_code": None,
+            "draft_spl_code": utility_spl or None,
+            "spl_draft_preview": None,
+            "spl_status_detail": None,
+            "spl_status": "review_required",
+            "spl_unbound_constraints": [],
+            "review_notice": None,
+            "render_sections": {
+                "spl_artifact": True,
+                "draft_spl_preview": True,
+                "live_results": False,
+                "mitre_mapping": False,
+                "not_claimed": False,
+                "policy_citation": False,
+                "investigation_guidance": False,
+                "limitations": False,
+            },
         }
         overlays = t2_card_overlays(candidate_spl)
         if overlays:

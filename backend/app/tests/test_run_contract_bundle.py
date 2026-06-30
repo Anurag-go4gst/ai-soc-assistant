@@ -162,3 +162,73 @@ def test_bundle_f_run_contract_gate4_required_fields_present() -> None:
         "authority_holder",
     ):
         assert field in routing
+
+
+@pytest.fixture
+def _dispatch_v2_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_llm_spl_fallback_enabled", True)
+
+
+def _dispatch_decision(payload: dict) -> dict:
+    dispatch = payload.get("pipeline_dispatch") or {}
+    if not dispatch:
+        cpt = payload.get("control_plane_trace") or {}
+        dispatch = cpt.get("pipeline_dispatch") if isinstance(cpt, dict) else {}
+    dispatch = dispatch if isinstance(dispatch, dict) else {}
+    decision = dispatch.get("decision") if isinstance(dispatch, dict) else {}
+    return decision if isinstance(decision, dict) else {}
+
+
+def test_bundle_dispatch_f_mitre_knowledge(_dispatch_v2_on: None) -> None:
+    payload = _run_chat("Explain MITRE technique T1021 in the context of remote services")
+    decision = _dispatch_decision(payload)
+    stages = decision.get("stage_schedule") or []
+    assert decision.get("request_mode") == "mitre_knowledge"
+    assert "workflow_spl" not in stages
+    assert "mitre_finalize" in stages
+
+
+def test_bundle_dispatch_g_cve_review(_dispatch_v2_on: None) -> None:
+    payload = _run_chat(
+        "Review CVE-2024-1234 vulnerability exposure for VPN appliances without live scanning"
+    )
+    decision = _dispatch_decision(payload)
+    stages = decision.get("stage_schedule") or []
+    assert decision.get("request_mode") == "cve_review"
+    assert "cve_adapter" in stages
+
+
+def test_bundle_dispatch_h_sop_knowledge(_dispatch_v2_on: None) -> None:
+    payload = _run_chat("What is the SOP for ransomware incident response?")
+    decision = _dispatch_decision(payload)
+    assert decision.get("request_mode") == "knowledge"
+    assert decision.get("stage_schedule") == ["rag_early"]
+
+
+def test_bundle_dispatch_i_spl_authoring_meta(_dispatch_v2_on: None) -> None:
+    query = (
+        "Generate SPL for outbound DNS volume spike by src_ip over last 24h "
+        "for index=pgcil_soc sourcetype=dns"
+    )
+    payload = _run_chat(query)
+    decision = _dispatch_decision(payload)
+    assert decision.get("request_mode") in {"spl_authoring", "hybrid", "live_investigation"}
+    assert "workflow_spl" in (decision.get("stage_schedule") or [])
+    candidate = payload.get("candidate_spl") or {}
+    trace = candidate.get("review_only_spl_postprocessor_trace") if isinstance(candidate, dict) else {}
+    if isinstance(trace, dict) and trace:
+        assert trace.get("postprocessor_evaluated") is True
+
+
+def test_bundle_dispatch_j_hybrid_alert(_dispatch_v2_on: None) -> None:
+    payload = _run_chat(
+        "For alert ALT-2024-0891 (failed logins followed by a successful login from the same user "
+        "in the last hour), what's the severity, MITRE mapping with status, and a governed SPL "
+        "I can review—but not execute"
+    )
+    decision = _dispatch_decision(payload)
+    stages = decision.get("stage_schedule") or []
+    if decision.get("request_mode") == "hybrid":
+        assert "workflow_spl" in stages
+        assert "mitre_finalize" in stages

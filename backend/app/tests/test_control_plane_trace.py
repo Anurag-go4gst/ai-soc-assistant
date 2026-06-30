@@ -125,3 +125,25 @@ def test_control_plane_trace_reflects_post_handoff_evidence_plan() -> None:
     mcp = next(s for s in traced_plan["resource_plan"]["steps"] if s["step_id"] == "mcp")
     assert mcp["status_reason"] == "skill_contract"
 
+
+
+def test_control_plane_trace_includes_dispatch_projection() -> None:
+    trace = build_control_plane_trace(
+        {
+            "intent_dispatch": {
+                "call_2c_llm": False,
+                "prompt_mode": "skip",
+                "skip_reasons": ["deterministic_exact_match_t0"],
+            },
+            "pipeline_dispatch": {
+                "decision": {
+                    "request_mode": "spl_authoring",
+                    "stage_schedule": ["workflow_spl", "spl_postprocessor", "spl_source_resolve"],
+                    "llm_hops": ["spl_plan_compiler"],
+                },
+                "runtime_context": {"dispatch_cursor": None},
+            },
+        }
+    )
+    assert trace["intent_dispatch"]["prompt_mode"] == "skip"
+    assert trace["pipeline_dispatch"]["decision"]["request_mode"] == "spl_authoring"

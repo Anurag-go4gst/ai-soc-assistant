@@ -498,6 +498,56 @@ function TurnSummaryCard({ summary }: { summary: DebugSummary | null | undefined
         value={hil.required ? `yes — ${hil.kind ?? hil.reason ?? 'required'}` : 'no'}
         emptyHint="not captured"
       />
+      {summary.intent?.prompt_mode ? (
+        <SummaryRow
+          label="2C intent"
+          value={`${summary.intent.prompt_mode}${summary.intent.call_2c_llm === false ? ' (skipped)' : ''}`}
+          emptyHint="not captured"
+        />
+      ) : null}
+      {summary.dispatch?.request_mode ? (
+        <SummaryRow
+          label="Dispatch"
+          value={`${summary.dispatch.request_mode} → ${(summary.dispatch.stage_schedule ?? []).join(' → ') || 'no stages'}`}
+          emptyHint="not captured"
+        />
+      ) : null}
+      {summary.spl?.postprocessor_evaluated ? (
+        <SummaryRow
+          label="SPL postprocessor"
+          value={
+            summary.spl.postprocessor_applied
+              ? `applied (${summary.spl.spl_raw_hash ?? '?'} → ${summary.spl.spl_post_hash ?? '?'})`
+              : `evaluated, no-op: ${summary.spl.no_op_reason ?? 'unknown'}`
+          }
+          emptyHint="not captured"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function FinalOutputCard({
+  finalOutput,
+}: {
+  finalOutput?: import('@/types/api').DebugFinalOutput | null;
+}) {
+  if (!finalOutput?.message && !finalOutput?.analyst_summary) {
+    return null;
+  }
+  return (
+    <div className="space-y-2 rounded-md border border-cyan-900/40 bg-cyan-950/20 p-3 text-xs">
+      <p className="text-[0.65rem] uppercase tracking-wide text-cyan-400/90">Final analyst answer</p>
+      <SummaryRow label="Message" value={finalOutput.message} emptyHint="not captured" />
+      {finalOutput.analyst_summary && finalOutput.analyst_summary !== finalOutput.message ? (
+        <SummaryRow label="Analyst summary" value={finalOutput.analyst_summary} emptyHint="not captured" />
+      ) : null}
+      <div className="flex flex-wrap gap-1.5 pt-1">
+        {finalOutput.severity_label ? <MetaChip text={`severity: ${finalOutput.severity_label}`} /> : null}
+        {finalOutput.mitre_status ? <MetaChip text={`MITRE: ${finalOutput.mitre_status}`} /> : null}
+        {finalOutput.hil_required ? <MetaChip text="HIL required" /> : null}
+        {finalOutput.guard_status ? <MetaChip text={`guard: ${finalOutput.guard_status}`} /> : null}
+      </div>
     </div>
   );
 }
@@ -535,6 +585,9 @@ function BundlePanel({ bundle }: { bundle: DebugTraceBundle | null }) {
           <p className="text-xs text-slate-500">Bundle JSON appears here for the selected trace (COE handoff artifact).</p>
         ) : (
           <div className="space-y-3">
+            <FinalOutputCard
+              finalOutput={bundle.explainability.final_output ?? bundle.explainability.debug_summary?.output}
+            />
             <div>
               <p className="mb-2 text-[0.65rem] uppercase tracking-wide text-slate-500">Turn summary</p>
               <TurnSummaryCard summary={bundle.explainability.debug_summary} />
