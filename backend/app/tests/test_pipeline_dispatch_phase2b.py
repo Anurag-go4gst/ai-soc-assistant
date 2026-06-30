@@ -1,0 +1,136 @@
+"""Phase 2B — full pipeline dispatch builder authority."""
+
+from __future__ import annotations
+
+import pytest
+
+from app.chat.contracts.evidence_plan import EvidencePlan
+from app.chat.contracts.pipeline_dispatch import LlmHop, PipelineStage, build_pipeline_dispatch, project_dispatch_flags
+from app.chat.evidence_planner import plan_evidence
+from app.chat.intent_classifier import build_query_to_intent
+from app.chat.pipeline import graph_node_evidence_planning
+from app.config import settings
+from app.query_understanding.parser import understand_query
+from app.schemas.requests import ChatRequest
+
+
+def _dispatch_for_query(query: str, *, routed_skill: str = "spl_generation"):
+    qu = understand_query(query)
+    q2i = build_query_to_intent(
+        query=query,
+        query_understanding=qu,
+        routed_skill=routed_skill,
+    )
+    plan = plan_evidence(
+        q2i.intent_classification,
+        q2i.model_dump(),
+        routed={"skill": routed_skill},
+        query_understanding=qu,
+    )
+    return build_pipeline_dispatch(
+        evidence_plan=plan.model_dump(),
+        intent_classification=q2i.intent_classification.model_dump(),
+        query_to_intent=q2i.model_dump(mode="json"),
+    )
+
+
+def test_knowledge_only_schedules_rag_early() -> None:
+    state = _dispatch_for_query("What is a DGA domain?", routed_skill="knowledge_recall")
+    assert state.decision.request_mode == "knowledge"
+    assert state.decision.stage_schedule == [PipelineStage.rag_early]
+    assert state.decision.llm_hops == []
+
+
+def test_mitre_explanation_schedules_rag_and_finalize() -> None:
+    state = _dispatch_for_query("Explain MITRE technique T1021", routed_skill="knowledge_recall")
+    assert state.decision.request_mode == "mitre_knowledge"
+    assert state.decision.stage_schedule == [
+        PipelineStage.rag_early,
+        PipelineStage.mitre_finalize,
+    ]
+
+
+def test_spl_authoring_with_index_skips_pre_mcp_but_includes_spl_chain() -> None:
+    state = _dispatch_for_query("Generate SPL for index=scada_perf by rtu_id over last 24h")
+    assert state.decision.request_mode == "spl_authoring"
+    assert state.decision.stage_schedule == [
+        PipelineStage.workflow_spl,
+        PipelineStage.spl_postprocessor,
+        PipelineStage.spl_source_resolve,
+    ]
+    flags = project_dispatch_flags(state.decision)
+    assert flags["run_mcp_execution"] is False
+    assert flags["run_pre_spl_mcp_discovery"] is False
+
+
+def test_live_data_spl_authoring_schedules_pre_mcp_not_execution() -> None:
+    state = _dispatch_for_query("Generate SPL for failed logins")
+    assert state.decision.request_mode == "spl_authoring"
+    assert PipelineStage.pre_spl_mcp_discovery in state.decision.stage_schedule
+    assert PipelineStage.mcp_execution not in state.decision.stage_schedule
+    assert PipelineStage.pre_spl_mcp_discovery in state.decision.stage_schedule
+
+
+def test_spl_plan_compiler_hop_when_fallback_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_llm_spl_fallback_enabled", True)
+    state = _dispatch_for_query("Generate SPL for index=scada_perf by rtu_id over last 24h")
+    assert LlmHop.spl_plan_compiler in state.decision.llm_hops
+
+
+def test_cp_off_synthetic_evidence_plan_builds_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", False)
+    monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
+    query = "Generate SPL for index=scada_perf by rtu_id over last 24h"
+    qu = understand_query(query)
+    q2i = build_query_to_intent(
+        query=query,
+        query_understanding=qu,
+        routed_skill="spl_generation",
+    )
+    state = graph_node_evidence_planning(
+        {
+            "request": ChatRequest(message=query),
+            "query_understanding": qu,
+            "routed": {"skill": "spl_generation"},
+            "query_to_intent": q2i.model_dump(mode="json"),
+            "intent_classification": q2i.intent_classification.model_dump(mode="json"),
+            "selected_use_case": None,
+        }
+    )
+    dispatch = state["pipeline_dispatch"]["decision"]
+    assert dispatch["request_mode"] == "spl_authoring"
+    assert dispatch["stage_schedule"] == [
+        PipelineStage.workflow_spl.value,
+        PipelineStage.spl_postprocessor.value,
+        PipelineStage.spl_source_resolve.value,
+    ]
+
+
+def test_utility_spl_mode_omits_pre_mcp() -> None:
+    plan = EvidencePlan(
+        answer_mode="spl_utility_authoring",
+        rag_phase="post_mcp",
+        needs_rag=False,
+        needs_spl=True,
+        needs_mcp=False,
+        needs_mitre=False,
+        spl_allowed=True,
+        mcp_allowed=False,
+        policy_context_required=False,
+        policy_context_recommended=False,
+        reasons=["universal_spl_utility_authoring"],
+    )
+    state = build_pipeline_dispatch(
+        evidence_plan=plan.model_dump(),
+        intent_classification={"intent_family": "spl_generation_only"},
+    )
+    assert state.decision.request_mode == "utility_spl"
+    assert state.decision.stage_schedule == list(
+        (
+            PipelineStage.workflow_spl,
+            PipelineStage.spl_postprocessor,
+            PipelineStage.spl_source_resolve,
+        )
+    )

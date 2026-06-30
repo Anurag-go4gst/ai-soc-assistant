@@ -139,25 +139,9 @@ def next_stage_after(
 def build_pipeline_dispatch(
     *,
     evidence_plan: dict[str, Any] | None = None,
-    **_: Any,
+    **kwargs: Any,
 ) -> PipelineDispatchState:
-    """Phase 0 stub — empty schedule, slot handoff coerced from the evidence plan.
+    """Build post-evidence dispatch authority (delegates to Phase 2B builder)."""
+    from app.chat.pipeline_dispatch_builder import build_pipeline_dispatch as _build
 
-    Full ``request_mode`` / ``stage_schedule`` / ``llm_hops`` derivation lands in
-    Phase 2A (shell) and Phase 2B (authority). Returning an empty schedule keeps
-    the flag-off path inert: no node reads ``pipeline_dispatch`` until the master
-    flag is on and the builder is complete.
-    """
-    from app.chat.contracts.slot_handoff import slot_handoff_from_normalized_summary
-
-    summary = (evidence_plan or {}).get("normalized_slot_summary") if isinstance(evidence_plan, dict) else None
-    handoff = slot_handoff_from_normalized_summary(summary if isinstance(summary, dict) else None)
-    return PipelineDispatchState(
-        decision=PipelineDispatchContract(
-            request_mode="clarification",
-            stage_schedule=[],
-            llm_hops=[],
-            slot_handoff=handoff,
-            dispatch_reasons=["pipeline_dispatch_stub_phase0"],
-        )
-    )
+    return _build(evidence_plan=evidence_plan, **kwargs)

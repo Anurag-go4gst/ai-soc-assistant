@@ -22,7 +22,7 @@ todos:
     status: done
   - id: phase2b-dispatch-authority
     content: Full build_pipeline_dispatch from RouteContract + EvidencePlan + QueryToIntent; request_mode table with pinned source fields; split MCP discovery-need vs execution-need; authority read sweep
-    status: pending
+    status: done
   - id: phase2c-debug-traces
     content: final_output in debug bundle; extend debug_summary (output/intent/dispatch); fix answer_preview; DebugPage final answer panel
     status: pending

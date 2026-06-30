@@ -41,9 +41,12 @@ def test_pipeline_dispatch_attached_after_cp_on_evidence_planning(
 
     dispatch = state.get("pipeline_dispatch")
     assert isinstance(dispatch, dict)
-    assert dispatch["decision"]["stage_schedule"] == []
-    assert dispatch["decision"]["llm_hops"] == []
-    assert dispatch["decision"]["dispatch_reasons"] == ["pipeline_dispatch_stub_phase0"]
+    assert dispatch["decision"]["request_mode"] == "spl_authoring"
+    assert dispatch["decision"]["stage_schedule"] == [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+    ]
     assert dispatch["runtime_context"]["dispatch_cursor"] is None
     assert dispatch["decision"]["slot_handoff"]["normalized_slots"] == (
         state["evidence_plan"]["normalized_slot_summary"]["normalized_slots"]
@@ -61,8 +64,9 @@ def test_pipeline_dispatch_cp_off_stub_attached_when_v2_enabled(
     assert state["evidence_plan"] is None
     dispatch = state.get("pipeline_dispatch")
     assert isinstance(dispatch, dict)
-    assert dispatch["decision"]["stage_schedule"] == []
-    assert dispatch["decision"]["slot_handoff"]["normalized_slots"] == {}
+    assert dispatch["decision"]["request_mode"] == "spl_authoring"
+    assert "workflow_spl" in dispatch["decision"]["stage_schedule"]
+    assert dispatch["decision"]["slot_handoff"]["normalized_slots"]["index"] == "scada_perf"
 
 
 def test_pipeline_dispatch_not_attached_when_v2_flag_off(

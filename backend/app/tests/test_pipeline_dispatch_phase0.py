@@ -80,12 +80,12 @@ def test_build_intent_dispatch_skip_when_advisory_skipped() -> None:
     assert decision.skip_reasons == ["deterministic_exact_match_t0"]
 
 
-def test_build_pipeline_dispatch_stub_is_empty_and_coerces_handoff() -> None:
+def test_build_pipeline_dispatch_coerces_handoff_without_evidence_plan() -> None:
     state = build_pipeline_dispatch(
         evidence_plan={"normalized_slot_summary": {"normalized_slots": {"index": "pgcil_soc"}}}
     )
+    assert state.decision.request_mode == "clarification"
     assert state.decision.stage_schedule == []
-    assert state.decision.llm_hops == []
     assert state.decision.slot_handoff.normalized_slots == {"index": "pgcil_soc"}
 
 
@@ -137,6 +137,7 @@ def test_pipeline_dispatch_authority_read_sweep() -> None:
         base / "pipeline_dispatch.py",
         base / "slot_handoff.py",
         base / "spl_candidate.py",
+        base.parent / "pipeline_dispatch_builder.py",
     ]
     for module in dispatch_modules:
         text = module.read_text(encoding="utf-8")
