@@ -5858,6 +5858,15 @@ def _candidate_from_default_template(
         force_user_skeleton=force_skeleton,
     )
     binding_trace["template_compatibility"] = compatibility.to_dict()
+    # WS2 prototype: resolve any <stem> placeholders in the rendered template SPL
+    # from Environment Knowledge so index/sourcetype are deployment-driven, not
+    # hardcoded. Flag-gated + no-op on templates without placeholders -> hardcoded
+    # templates render byte-identically (governance unchanged).
+    if bool(getattr(settings, "ai_soc_template_env_binding_enabled", False)):
+        from app.spl.source_profile_resolver import apply_template_env_bindings
+
+        rendered_spl, env_binding_trace = apply_template_env_bindings(rendered_spl)
+        binding_trace["environment_knowledge_binding"] = env_binding_trace
     validation = validate_spl(rendered_spl, template_profile=template.validation_rules)
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
     final_spl, validation, optimization = merge_post_validation_optimization(

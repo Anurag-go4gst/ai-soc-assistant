@@ -191,6 +191,29 @@ def load_static_source_profile(*, session_slots: dict[str, str] | None = None) -
     return profile
 
 
+def apply_template_env_bindings(spl: str) -> tuple[str, dict[str, Any]]:
+    """Resolve ``<stem>`` placeholders in template SPL from Environment Knowledge.
+
+    WS2 prototype helper. Reuses the existing Environment Knowledge resolver
+    (``load_static_source_profile`` = policy allowlist + COE explicit map + COE
+    persisted store) and ``substitute_placeholders``. A template with no ``<…>``
+    placeholder is returned unchanged (no-op), so hardcoded templates are
+    byte-identical. Returns ``(resolved_spl, trace)``; ``trace`` records which
+    stems resolved vs remain unresolved so an abstracted template with an unmapped
+    stem stays a placeholder (caller keeps it review-only / HIL).
+    """
+    text = spl or ""
+    if "<" not in text:
+        return text, {"applied": False, "reason": "no_placeholders"}
+    profile = load_static_source_profile()
+    resolved, missing = substitute_placeholders(text, profile)
+    return resolved, {
+        "applied": resolved != text,
+        "resolved_from": "environment_knowledge",
+        "unresolved_slots": missing,
+    }
+
+
 def resolve_static_slots(
     required_slots: list[str],
     *,

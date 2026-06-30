@@ -287,6 +287,12 @@ class Settings(BaseSettings):
     ai_soc_llm_spl_failover_retry_enabled: bool = False
     # Optional JSON map of placeholder stem -> index/sourcetype value for Phase H0.
     ai_soc_source_profile_map: str = ""
+    # WS2 prototype: resolve <stem> placeholders in governed template SPL from the
+    # Environment Knowledge map (load_static_source_profile) at render time, so
+    # index/sourcetype come from Environment Knowledge instead of being hardcoded.
+    # Default false -> templates render exactly as authored (byte-identical). No-op
+    # on templates that carry no <placeholder>.
+    ai_soc_template_env_binding_enabled: bool = False
     # Persisted COE source profile map (Settings UI). Empty = backend/data/source_profile_map.json
     ai_soc_source_profile_store_path: str = ""
     ai_soc_asset_registry_store_path: str = ""
