@@ -96,3 +96,36 @@ def test_intent_dispatch_is_a_declared_state_channel() -> None:
     from app.chat.pipeline import ChatPipelineState
 
     assert "intent_dispatch" in ChatPipelineState.__annotations__
+
+
+def test_intent_advisory_coercion_accepts_8b_type_quirks() -> None:
+    """8B emits bool-as-string + confidence-as-word; coercion must rescue them.
+
+    The JSON extractor parses the object; strict pydantic then dropped these as
+    schema_invalid. Coercion normalizes the known quirks so a well-formed advisory
+    is accepted (still non-authoritative) instead of lost.
+    """
+    from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
+    from app.chat.llm_intent_advisor import _coerce_intent_advisory_payload
+
+    quirk = {
+        "spl_authoring_request": "true",
+        "paraphrase_detected": "no",
+        "requires_source_profile": "false",
+        "entity_slots_candidate": {"user": "admin"},
+        "entity_slot_confidence": {"user": "high"},
+        "extra_unknown": "ignored",
+    }
+    # Strict validate on the raw quirk fails (the schema_invalid we observed live).
+    import pytest as _pytest
+
+    with _pytest.raises(Exception):
+        LLMIntentAdvisory.model_validate(quirk)
+
+    payload, warnings = _coerce_intent_advisory_payload(quirk)
+    adv = LLMIntentAdvisory.model_validate(payload)
+    assert adv.spl_authoring_request is True
+    assert adv.paraphrase_detected is False
+    assert adv.requires_source_profile is False
+    assert adv.entity_slot_confidence == {"user": 0.9}
+    assert any("coerced" in w for w in warnings)
