@@ -37,7 +37,7 @@ todos:
     status: done
   - id: phase8-bundle-regression
     content: RunContract bundle tests F–J for MITRE/CVE/knowledge/hybrid/SPL-meta; eval_pipeline_dispatch_matrix.py; authority read sweep test
-    status: pending
+    status: done
 isProject: false
 ---
 

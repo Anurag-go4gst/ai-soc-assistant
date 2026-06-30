@@ -143,5 +143,9 @@ AI_SOC_DISABLE_DOTENV=1 AI_SOC_SPL_DRAFT_PREVIEW_ENABLED=false \
 python3 scripts/run_cisco_powergrid_question_eval.py --profile deterministic --min-wave wave3 --check \
   || fail "cisco power-grid catalogue eval"
 
+section "Pipeline dispatch matrix (Phase 8 — non-gating observation)"
+python3 scripts/eval_pipeline_dispatch_matrix.py --check \
+  || echo "WARN: pipeline_dispatch_matrix --check failed (non-gating)"
+
 section "done"
 echo "stage3_governance_regression: PASS"
