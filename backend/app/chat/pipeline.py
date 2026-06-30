@@ -1795,8 +1795,29 @@ def graph_node_spl_postprocessor(state: ChatPipelineState) -> ChatPipelineState:
         }
         if postprocessed.warnings:
             updated_validation["review_only_spl_postprocessor_warnings"] = list(postprocessed.warnings)
+        # An approved (non-template) candidate carries a validated normalized_spl that
+        # the MCP execution gate trusts. If the postprocessor MUTATED the SPL, the old
+        # normalized_spl no longer matches what was validated — re-validate the
+        # postprocessed SPL before trusting it, and fail closed if it no longer passes
+        # so a mutated query can never reach the execution gate as "approved".
         if family != "governed_template" and spl_validation.get("normalized_spl"):
-            updated_validation["normalized_spl"] = final_spl
+            if not bool(trace.get("postprocessor_applied")):
+                updated_validation["normalized_spl"] = final_spl
+            else:
+                revalidation = validate_spl(final_spl)
+                if revalidation.get("approved") and revalidation.get("normalized_spl"):
+                    updated_validation["normalized_spl"] = revalidation.get("normalized_spl")
+                    updated_validation["postprocessor_revalidated"] = True
+                else:
+                    updated_validation["approved"] = False
+                    updated_validation["normalized_spl"] = None
+                    updated_validation["postprocessor_revalidated"] = False
+                    updated_validation["review_required_reason"] = "postprocessor_mutation_revalidation_failed"
+                    reject = list(updated_validation.get("reject_reasons") or [])
+                    if "postprocessor_mutation_revalidation_failed" not in reject:
+                        reject.append("postprocessor_mutation_revalidation_failed")
+                    updated_validation["reject_reasons"] = reject
+                    updated_candidate["execution_eligible"] = False
 
     out: ChatPipelineState = {
         **state,
@@ -5582,7 +5603,13 @@ def _candidate_spl_stage(
     # mapped pattern, prefer the deterministic review-only draft over the slow
     # advisory LLM fallback. This keeps candidate SPL non-executable while
     # avoiding timeout-prone model calls for known Cisco catalogue paraphrases.
-    if mapped_pattern_type and not template_id:
+    # v2-off: prefer the deterministic catalogue/live-data lab draft over the slow
+    # advisory LLM (latency optimization for known paraphrases). v2-on: dispatch
+    # owns the schedule — when it scheduled the spl_plan_compiler hop, honor it by
+    # falling through to _candidate_from_llm_fallback (which still degrades to the
+    # lab draft internally if the LLM produces nothing), so the contract, persisted
+    # plan, and LLM telemetry stay consistent with the dispatch decision.
+    if mapped_pattern_type and not template_id and not _dispatch_v2_on:
         lab_draft_candidate = _candidate_from_lab_draft(
             trace_id=trace_id,
             skill=skill,
@@ -5599,7 +5626,7 @@ def _candidate_spl_stage(
             return lab_draft_candidate
 
     signals = query_signals if isinstance(query_signals, dict) else {}
-    if signals.get("live_data_request"):
+    if signals.get("live_data_request") and not _dispatch_v2_on:
         from app.spl.draft_preview import has_strong_detection_family_match
 
         if has_strong_detection_family_match(user_query):
@@ -6923,7 +6950,10 @@ def _candidate_from_llm_fallback_tuple(
     telemetry.record_spl_validation(
         trace_id,
         stage="spl_validation_result",
-        approved=expose_spl,
+        # Record the runtime authority, not exposure. Lab-tier candidates are
+        # exposed for review but approved=False (fail-closed); telemetry must not
+        # say "approved" for SPL the execution gate blocks.
+        approved=bool(validation_payload["approved"]),
         reject_reasons=reject_reasons,
         warnings=validation_payload["warnings"],
         policy_version=validation_payload["policy_version"],
