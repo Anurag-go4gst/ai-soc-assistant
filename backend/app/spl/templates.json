@@ -6,7 +6,7 @@
       "use_case_id": "auth_failed_login_spike",
       "required_entities": [],
       "default_time_window": "earliest=-60m latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now action=failure | stats count as failed_logins dc(user) as distinct_users min(_time) as first_seen max(_time) as last_seen values(action) as action by host, src | where failed_logins >= 25 | sort -failed_logins | head 100",
+      "spl_text": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-60m latest=now action=failure | stats count as failed_logins dc(user) as distinct_users min(_time) as first_seen max(_time) as last_seen values(action) as action by host, src | where failed_logins >= 25 | sort -failed_logins | head 100",
       "returned_fields": [
         "host",
         "src",
@@ -54,7 +54,7 @@
       "use_case_id": "auth_success_after_failure",
       "required_entities": [],
       "default_time_window": "earliest=-60m latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now (action=failure OR action=success) | stats count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips values(host) as hosts min(eval(if(action=\"failure\", _time, null()))) as first_failure max(eval(if(action=\"success\", _time, null()))) as last_success max(_time) as last_event by user | where fail_count >= 5 AND success_count >= 1 | eval risk=\"P2 review - successful login after repeated failures\" | table user hosts source_ips fail_count success_count first_failure last_success last_event risk | sort -fail_count | head 100",
+      "spl_text": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-60m latest=now (action=failure OR action=success) | stats count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips values(host) as hosts min(eval(if(action=\"failure\", _time, null()))) as first_failure max(eval(if(action=\"success\", _time, null()))) as last_success max(_time) as last_event by user | where fail_count >= 5 AND success_count >= 1 | eval risk=\"P2 review - successful login after repeated failures\" | table user hosts source_ips fail_count success_count first_failure last_success last_event risk | sort -fail_count | head 100",
       "returned_fields": [
         "user",
         "hosts",
@@ -107,7 +107,7 @@
       "use_case_id": "auth_new_source_ip_login",
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now action=success | stats count as login_count min(_time) as first_seen max(_time) as last_seen values(action) as action by user, host, src | where NOT cidrmatch(\"10.0.0.0/8\", src) | sort -login_count | head 100",
+      "spl_text": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now action=success | stats count as login_count min(_time) as first_seen max(_time) as last_seen values(action) as action by user, host, src | where NOT cidrmatch(\"10.0.0.0/8\", src) | sort -login_count | head 100",
       "returned_fields": [
         "user",
         "host",
@@ -155,7 +155,7 @@
       "use_case_id": "auth_account_lockout_trend",
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now signature=account_locked | timechart span=1h count as lockout_count | head 100",
+      "spl_text": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now signature=account_locked | timechart span=1h count as lockout_count | head 100",
       "returned_fields": [
         "_time",
         "lockout_count"
@@ -415,7 +415,7 @@
       "sample_only": false,
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now action=failure NOT (user=\"svc_*\" OR user=\"service_*\" OR user=\"*_svc\") | stats count as fail_count values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | sort -fail_count | head 100",
+      "spl_text": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now action=failure NOT (user=\"svc_*\" OR user=\"service_*\" OR user=\"*_svc\") | stats count as fail_count values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | sort -fail_count | head 100",
       "returned_fields": [
         "user",
         "fail_count",
@@ -506,7 +506,7 @@
         "recommended_actions",
         "spl_code"
       ],
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now (action=success OR action=failure) (user=\"*admin*\" OR user=\"*_adm\" OR user=\"administrator\" OR user=\"root\") NOT (user=\"svc_*\" OR user=\"service_*\" OR user=\"*_svc\") | stats count as event_count count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips values(host) as hosts min(_time) as first_seen max(_time) as last_seen by user | sort -event_count | head 100",
+      "spl_text": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (action=success OR action=failure) (user=\"*admin*\" OR user=\"*_adm\" OR user=\"administrator\" OR user=\"root\") NOT (user=\"svc_*\" OR user=\"service_*\" OR user=\"*_svc\") | stats count as event_count count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips values(host) as hosts min(_time) as first_seen max(_time) as last_seen by user | sort -event_count | head 100",
       "validation_rules": {
         "allowed_commands": [
           "search",
@@ -577,7 +577,7 @@
         "recommended_actions",
         "spl_code"
       ],
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now (action=success OR action=failure) | where (date_hour<7) OR (date_hour>=19) | stats count as after_hours_logins dc(host) as distinct_hosts values(host) as hosts values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | sort -after_hours_logins | head 100",
+      "spl_text": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (action=success OR action=failure) | where (date_hour<7) OR (date_hour>=19) | stats count as after_hours_logins dc(host) as distinct_hosts values(host) as hosts values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | sort -after_hours_logins | head 100",
       "validation_rules": {
         "allowed_commands": [
           "search",
@@ -643,7 +643,7 @@
         "mitre_mappings",
         "recommended_actions"
       ],
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:vpn earliest=-24h latest=now action=failure | stats count as failed_vpn_logins dc(src) as distinct_sources values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | where failed_vpn_logins >= 10 | sort -failed_vpn_logins | head 100",
+      "spl_text": "search index=<vpn_index> sourcetype=<vpn_sourcetype> earliest=-24h latest=now action=failure | stats count as failed_vpn_logins dc(src) as distinct_sources values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | where failed_vpn_logins >= 10 | sort -failed_vpn_logins | head 100",
       "validation_rules": {
         "allowed_commands": [
           "search",
@@ -712,7 +712,7 @@
         "splunk_results_table",
         "recommended_actions"
       ],
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:firewall earliest=-24h latest=now action=deny | stats count as deny_count dc(dest_port) as distinct_ports values(dest_port) as dest_ports values(app) as apps min(_time) as first_seen max(_time) as last_seen by src, dest | where deny_count >= 50 | sort -deny_count | head 100",
+      "spl_text": "search index=<firewall_index> sourcetype=<firewall_sourcetype> earliest=-24h latest=now action=deny | stats count as deny_count dc(dest_port) as distinct_ports values(dest_port) as dest_ports values(app) as apps min(_time) as first_seen max(_time) as last_seen by src, dest | where deny_count >= 50 | sort -deny_count | head 100",
       "validation_rules": {
         "allowed_commands": [
           "search",
@@ -759,7 +759,7 @@
       "sample_only": false,
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:dns earliest=-24h latest=now | stats count as DNS_query_count values(query) as domain values(dest) as dest values(bytes_out) as bytes_out dc(query) as distinct_domains min(_time) as first_seen max(_time) as last_seen by src | eval observation_window=last_seen-first_seen | eval periodicity=if(DNS_query_count>1,round(observation_window/(DNS_query_count-1),2),null()) | eval jitter=\"requires_review\" | eval rare_domain_indicator=if(distinct_domains<=3 AND DNS_query_count>=20,\"review\",\"unknown\") | eval user_host_association=src | where DNS_query_count >= 20 | table src dest domain DNS_query_count periodicity jitter bytes_out rare_domain_indicator user_host_association first_seen last_seen | sort -DNS_query_count | head 100",
+      "spl_text": "search index=<dns_index> sourcetype=<dns_sourcetype> earliest=-24h latest=now | stats count as DNS_query_count values(query) as domain values(dest) as dest values(bytes_out) as bytes_out dc(query) as distinct_domains min(_time) as first_seen max(_time) as last_seen by src | eval observation_window=last_seen-first_seen | eval periodicity=if(DNS_query_count>1,round(observation_window/(DNS_query_count-1),2),null()) | eval jitter=\"requires_review\" | eval rare_domain_indicator=if(distinct_domains<=3 AND DNS_query_count>=20,\"review\",\"unknown\") | eval user_host_association=src | where DNS_query_count >= 20 | table src dest domain DNS_query_count periodicity jitter bytes_out rare_domain_indicator user_host_association first_seen last_seen | sort -DNS_query_count | head 100",
       "returned_fields": [
         "src",
         "dest",
@@ -831,7 +831,7 @@
       "sample_only": false,
       "required_entities": [],
       "default_time_window": "earliest=-6h latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:edr earliest=-6h latest=now | eval rule_name=coalesce(rule_name,process_name,\"edr_detection\") | eval mitre_technique=coalesce(mitre_technique_id,\"T1059.001\") | eval mitre_tactic=coalesce(mitre_tactic,\"Execution\") | eval urgency=case(match(severity,\"(?i)critical\"),\"critical\",match(severity,\"(?i)high\"),\"high\",true(),\"medium\") | stats count as alert_count values(rule_name) as rule_name values(mitre_technique) as mitre_technique values(mitre_tactic) as mitre_tactic values(urgency) as urgency values(severity) as severity min(_time) as first_seen max(_time) as last_seen by host | where urgency IN (\"critical\",\"high\") | sort -alert_count | head 100",
+      "spl_text": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-6h latest=now | eval rule_name=coalesce(rule_name,process_name,\"edr_detection\") | eval mitre_technique=coalesce(mitre_technique_id,\"T1059.001\") | eval mitre_tactic=coalesce(mitre_tactic,\"Execution\") | eval urgency=case(match(severity,\"(?i)critical\"),\"critical\",match(severity,\"(?i)high\"),\"high\",true(),\"medium\") | stats count as alert_count values(rule_name) as rule_name values(mitre_technique) as mitre_technique values(mitre_tactic) as mitre_tactic values(urgency) as urgency values(severity) as severity min(_time) as first_seen max(_time) as last_seen by host | where urgency IN (\"critical\",\"high\") | sort -alert_count | head 100",
       "returned_fields": [
         "host",
         "rule_name",
@@ -930,7 +930,7 @@
         "recommended_actions",
         "spl_code"
       ],
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:edr earliest=-24h latest=now (process_name=\"rundll32.exe\" OR process_name=\"regsvr32.exe\" OR process_name=\"mshta.exe\" OR process_name=\"wscript.exe\" OR process_name=\"cscript.exe\" OR process_name=\"certutil.exe\" OR process_name=\"bitsadmin.exe\" OR process_name=\"msbuild.exe\" OR command_line=\"*-enc*\" OR command_line=\"*downloadstring*\") | stats count as event_count values(command_line) as command_line values(parent_process) as parent_process values(process_path) as process_path values(signature_status) as signature_status values(dest) as network_connection min(_time) as first_seen max(_time) as last_seen by host,user,process_name | sort -event_count | head 100",
+      "spl_text": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now (process_name=\"rundll32.exe\" OR process_name=\"regsvr32.exe\" OR process_name=\"mshta.exe\" OR process_name=\"wscript.exe\" OR process_name=\"cscript.exe\" OR process_name=\"certutil.exe\" OR process_name=\"bitsadmin.exe\" OR process_name=\"msbuild.exe\" OR command_line=\"*-enc*\" OR command_line=\"*downloadstring*\") | stats count as event_count values(command_line) as command_line values(parent_process) as parent_process values(process_path) as process_path values(signature_status) as signature_status values(dest) as network_connection min(_time) as first_seen max(_time) as last_seen by host,user,process_name | sort -event_count | head 100",
       "validation_rules": {
         "allowed_commands": [
           "search",
@@ -975,7 +975,7 @@
       "sample_only": false,
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=pgcil:edr earliest=-24h latest=now (process_name=powershell.exe OR process_name=pwsh.exe OR command_line=\"*powershell*\" OR script_block_text=\"*\") | eval encoded_command_flag=if(match(command_line,\"(?i)(-enc|-encodedcommand)\"),\"true\",\"false\") | stats count as event_count values(command_line) as command_line values(script_block_text) as script_block_text values(parent_process) as parent_process values(process_name) as process_name values(event_id) as event_id values(encoded_command_flag) as encoded_command_flag values(dest) as network_connection min(_time) as first_seen max(_time) as last_seen by host,user | sort -event_count | head 100",
+      "spl_text": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now (process_name=powershell.exe OR process_name=pwsh.exe OR command_line=\"*powershell*\" OR script_block_text=\"*\") | eval encoded_command_flag=if(match(command_line,\"(?i)(-enc|-encodedcommand)\"),\"true\",\"false\") | stats count as event_count values(command_line) as command_line values(script_block_text) as script_block_text values(parent_process) as parent_process values(process_name) as process_name values(event_id) as event_id values(encoded_command_flag) as encoded_command_flag values(dest) as network_connection min(_time) as first_seen max(_time) as last_seen by host,user | sort -event_count | head 100",
       "returned_fields": [
         "host",
         "user",

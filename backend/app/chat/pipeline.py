@@ -5881,6 +5881,8 @@ def _candidate_from_default_template(
         force_user_skeleton=force_skeleton,
     )
     binding_trace["template_compatibility"] = compatibility.to_dict()
+    # Env-Knowledge <stem> resolution happens once at template load
+    # (load_spl_templates), so template.spl_text is already deployment-bound here.
     validation = validate_spl(rendered_spl, template_profile=template.validation_rules)
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
     final_spl, validation, optimization = merge_post_validation_optimization(

@@ -81,6 +81,8 @@ def _policy_for_template(template: dict[str, Any]) -> SplValidationPolicy:
 
 
 def _deterministic_critique(template: dict[str, Any], use_case: dict[str, Any] | None) -> dict[str, Any]:
+    # Templates are loaded with Env-Knowledge <stem> resolution already applied
+    # (load_spl_templates), so spl_text is concrete here.
     spl = str(template.get("spl_text") or "")
     query = ""
     required_sources: list[str] = []
