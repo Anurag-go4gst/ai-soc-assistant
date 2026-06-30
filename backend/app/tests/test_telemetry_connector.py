@@ -59,3 +59,17 @@ def test_harness_result_can_be_recorded(monkeypatch) -> None:
     assert len(calls) == 2
     assert "harness_test_runs" in calls[0][0]
     assert "harness_test_case_results" in calls[1][0]
+
+
+def test_slim_control_plane_trace_keeps_plan_dispatch() -> None:
+    from app.connectors.telemetry.db import _slim_control_plane_trace
+
+    trace = {
+        "rag_trace": {"hits": 1},
+        "plan_dispatch": {"dispatch_authority": "pipeline_dispatch_v2", "dispatch_schedule": ["rag_early"]},
+        "pipeline_dispatch": {"decision": {"stage_schedule": ["rag_early"]}},
+        "secret_blob": "drop-me",
+    }
+    slim = _slim_control_plane_trace(trace)
+    assert slim["plan_dispatch"]["dispatch_authority"] == "pipeline_dispatch_v2"
+    assert "secret_blob" not in slim

@@ -209,3 +209,28 @@ def imperative_hook_schedule_from_state(state: dict[str, Any] | None) -> list[st
             continue
     return hooks
 
+
+def build_plan_dispatch_trace_from_pipeline_dispatch(
+    state: dict[str, Any] | None,
+    *,
+    dispatch_source: str = "langgraph_v2_cursor",
+) -> dict[str, Any] | None:
+    """Synthesize ``plan_dispatch`` trace when LangGraph v2 cursor routing skips executor dispatch."""
+    from app.config import settings
+
+    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        return None
+    decision = decision_from_state(state)
+    if decision is None:
+        return None
+    projected = project_dispatch_flags(decision)
+    schedule = list(imperative_hook_schedule_from_state(state) or [])
+    # Mirror imperative fallback: SPL schedules still run the execution gate stub.
+    if "workflow_spl" in schedule and "execution" not in schedule:
+        schedule.append("execution")
+    return {
+        "dispatch_source": dispatch_source,
+        "dispatch_schedule": schedule,
+        "dispatch_authority": "pipeline_dispatch_v2",
+        "projected_flags": projected,
+    }
