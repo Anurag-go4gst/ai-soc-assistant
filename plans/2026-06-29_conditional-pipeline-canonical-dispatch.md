@@ -28,7 +28,7 @@ todos:
     status: done
   - id: phase5-pre-spl-mcp
     content: graph_node_pre_spl_mcp_discovery + optional mcp_tool_planner LlmHop; update mcp_discovery_context on PipelineRuntimeContext
-    status: pending
+    status: done
   - id: phase6-graph-executor
     content: LangGraph/executor dispatch_cursor + next_stage_after (ordered schedule); CP hub pre_spl vs post_spl phase; exact-order parity tests
     status: pending

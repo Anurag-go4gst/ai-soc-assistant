@@ -1651,8 +1651,67 @@ def graph_node_ensure_workflow_plan(state: ChatPipelineState) -> ChatPipelineSta
     return {**state, "workflow_plan": workflow_plan}
 
 
+def graph_node_pre_spl_mcp_discovery(state: ChatPipelineState) -> ChatPipelineState:
+    """Read-only MCP source discovery before SPL generation (Phase 5).
+
+    Runs only when dispatch v2 is on AND ``pre_spl_mcp_discovery`` is the next
+    scheduled stage (cursor-driven). Calls discovery-only tools (never
+    ``splunk_run_query``), maps the result into
+    ``pipeline_dispatch.runtime_context.mcp_discovery_context``, advances the
+    dispatch cursor, and sets ``mcp_phase="pre_spl"``. Best-effort: any failure
+    leaves state unchanged so the SPL path still runs.
+    """
+    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        return state
+    dispatch = state.get("pipeline_dispatch")
+    if not isinstance(dispatch, dict):
+        return state
+    from app.chat.contracts.pipeline_dispatch import (
+        McpDiscoveryContext,
+        PipelineStage,
+        next_stage_after,
+    )
+
+    decision = dispatch.get("decision") or {}
+    runtime = dict(dispatch.get("runtime_context") or {})
+    schedule = [PipelineStage(s) for s in (decision.get("stage_schedule") or []) if s in PipelineStage._value2member_map_]
+    cursor_raw = runtime.get("dispatch_cursor")
+    cursor = PipelineStage(cursor_raw) if cursor_raw in PipelineStage._value2member_map_ else None
+    if next_stage_after(schedule, cursor) is not PipelineStage.pre_spl_mcp_discovery:
+        return state
+    if not bool(getattr(settings, "mcp_discovery_enabled", False)):
+        return state
+
+    handoff = (decision.get("slot_handoff") or {}).get("normalized_slots") or {}
+    required = [k for k in ("index", "sourcetype") if not handoff.get(k)]
+    try:
+        profile, trace = run_mcp_source_discovery(required_slots=required or None)
+    except Exception:  # noqa: BLE001 - discovery must never break the SPL path
+        logger.warning("pre_spl_mcp_discovery_failed", exc_info=True)
+        return state
+
+    indexes = [profile["index"]] if profile.get("index") else []
+    sourcetypes = [profile["sourcetype"]] if profile.get("sourcetype") else []
+    discovery_ctx = McpDiscoveryContext(
+        indexes=indexes,
+        sourcetypes=sourcetypes,
+        field_hints={k: str(v) for k, v in profile.items() if v},
+        discovery_hops=[trace] if isinstance(trace, dict) else [],
+        populated_at_stage="pre_spl_mcp_discovery",
+    )
+    runtime["mcp_discovery_context"] = discovery_ctx.model_dump(mode="json")
+    runtime["dispatch_cursor"] = PipelineStage.pre_spl_mcp_discovery.value
+    runtime["mcp_phase"] = "pre_spl"
+    next_dispatch = {**dispatch, "runtime_context": runtime}
+    return {**state, "pipeline_dispatch": next_dispatch}
+
+
 def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("generating_spl")
+    # Phase 5: run pre-SPL MCP discovery inline when scheduled (flag-gated). The
+    # dedicated conditional graph edge is wired in Phase 6; until then the node
+    # invokes discovery here so the discovered context reaches the SPL compiler.
+    state = graph_node_pre_spl_mcp_discovery(state)
     request = state["request"]
     routed = state["routed"]
     trace_id = state["trace_id"]
@@ -1714,6 +1773,9 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             llm_intent_advisory=state.get("llm_intent_advisory"),
             query_understanding=query_understanding,
             llm_turn_budget=state.get("llm_turn_budget"),
+            mcp_discovery_context=(
+                (state.get("pipeline_dispatch") or {}).get("runtime_context") or {}
+            ).get("mcp_discovery_context"),
         )
     # Phase 4B: persist the LLM detection plan (if any) onto canonical state so
     # downstream nodes prefer it over re-parsing the query. Node-only persistence;
@@ -4994,6 +5056,7 @@ def _candidate_spl_stage(
     llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
     query_understanding: Any | None = None,
     llm_turn_budget: Any | None = None,
+    mcp_discovery_context: dict[str, Any] | None = None,
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
@@ -5213,10 +5276,10 @@ def _candidate_spl_stage(
             "required_sources": (spl_governance or {}).get("required_sources"),
             # Phase 4A: 2C advisory threaded into the plan compiler (input
             # preservation). The grounding block extracts entity_slots_candidate.
-            # slot_handoff / mcp_discovery_context are wired from canonical state in
-            # Phase 2B / Phase 5 when they exist at Node 6.
+            # slot_handoff wired from canonical state in a later pass; the Phase 5
+            # pre-SPL MCP discovery context is threaded here when present.
             "slot_handoff": None,
-            "mcp_discovery_context": None,
+            "mcp_discovery_context": mcp_discovery_context,
             "llm_intent_advisory": (
                 llm_intent_advisory.model_dump()
                 if isinstance(llm_intent_advisory, LLMIntentAdvisory)
