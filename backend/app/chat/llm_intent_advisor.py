@@ -28,6 +28,83 @@ DROP_LLM_TIMED_OUT = "llm_timed_out"
 DROP_ADVISOR_DISABLED = "llm_intent_advisor_disabled"
 
 
+_TRUE_TOKENS = {"true", "yes", "y", "1", "t"}
+_FALSE_TOKENS = {"false", "no", "n", "0", "f", "", "n/a", "na", "none", "null"}
+_CONFIDENCE_WORDS = {"high": 0.9, "medium": 0.6, "med": 0.6, "moderate": 0.6, "low": 0.3, "none": 0.0}
+_BOOL_FIELDS = ("paraphrase_detected", "spl_authoring_request", "llm_called")
+
+
+def _coerce_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        token = value.strip().lower()
+        if token in _TRUE_TOKENS:
+            return True
+        if token in _FALSE_TOKENS:
+            return False
+    return None
+
+
+def _coerce_intent_advisory_payload(payload: Any) -> tuple[dict[str, Any], list[str]]:
+    """Normalize known 8B type quirks before strict schema validation.
+
+    The JSON extractor already parses the object; small instruct models then trip
+    strict pydantic on types — booleans emitted as "true"/"yes"/"n/a" and
+    confidence emitted as "high"/"low" rather than floats. Coerce those in place
+    so a well-formed-but-loosely-typed advisory is accepted (and recorded) instead
+    of dropped as schema_invalid. Advisory remains non-authoritative either way.
+    """
+    if not isinstance(payload, dict):
+        return {}, []
+    out = dict(payload)
+    warnings: list[str] = []
+
+    for field in _BOOL_FIELDS:
+        if field in out and not isinstance(out[field], bool):
+            coerced = _coerce_bool(out[field])
+            if coerced is None:
+                out.pop(field, None)
+                warnings.append(f"coerced_drop:{field}")
+            else:
+                out[field] = coerced
+                warnings.append(f"coerced_bool:{field}")
+
+    if "requires_source_profile" in out and out["requires_source_profile"] is not None:
+        if not isinstance(out["requires_source_profile"], bool):
+            coerced = _coerce_bool(out["requires_source_profile"])
+            out["requires_source_profile"] = coerced  # None is a valid value here
+            warnings.append("coerced_bool:requires_source_profile")
+
+    conf = out.get("entity_slot_confidence")
+    if isinstance(conf, dict):
+        fixed: dict[str, float] = {}
+        for key, val in conf.items():
+            if isinstance(val, bool):
+                continue
+            if isinstance(val, (int, float)):
+                fixed[str(key)] = float(val)
+            elif isinstance(val, str):
+                token = val.strip().lower()
+                if token in _CONFIDENCE_WORDS:
+                    fixed[str(key)] = _CONFIDENCE_WORDS[token]
+                    warnings.append("coerced_confidence_word")
+                else:
+                    try:
+                        fixed[str(key)] = float(token)
+                    except ValueError:
+                        continue
+        out["entity_slot_confidence"] = fixed
+
+    reasons = out.get("entity_slot_reasons")
+    if isinstance(reasons, dict):
+        out["entity_slot_reasons"] = {str(k): str(v) for k, v in reasons.items() if v is not None}
+
+    return out, warnings
+
+
 def _build_user_prompt(*, query: str, context_block: str, prompt_mode: Any | None) -> str:
     """Mode-specific prompt when a non-skip IntentPromptMode is supplied; else legacy.
 
@@ -132,8 +209,9 @@ def generate_llm_intent_advisory(
             adapter_warnings=[*extraction.warnings, *extraction.errors],
             provider_label=provider_label,
         )
+    payload, coercion_warnings = _coerce_intent_advisory_payload(extraction.payload)
     try:
-        advisory = LLMIntentAdvisory.model_validate(extraction.payload)
+        advisory = LLMIntentAdvisory.model_validate(payload)
     except ValidationError as exc:
         return LLMIntentAdvisory(
             llm_called=True,
@@ -144,7 +222,7 @@ def generate_llm_intent_advisory(
     return advisory.model_copy(
         update={
             "llm_called": True,
-            "adapter_warnings": [*advisory.adapter_warnings, *extraction.warnings],
+            "adapter_warnings": [*advisory.adapter_warnings, *extraction.warnings, *coercion_warnings],
             "provider_label": provider_label,
         }
     )
