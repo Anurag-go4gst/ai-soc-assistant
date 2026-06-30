@@ -203,6 +203,12 @@ def build_composer_prompt(
             "- Review-only safety: Do not claim live results, query execution, action authorization, "
             "confirmed severity, or technique support unless the contract explicitly says so."
         ),
+        (
+            "- Never state or imply that any system, account, or asset is compromised, breached, "
+            "attacked, or that an incident/threat is confirmed. Describe ONLY what the provided "
+            "evidence shows and what still needs validation. Use hedged language (\"may indicate\", "
+            "\"requires review\") — never a verdict."
+        ),
     ]
     # Front-load the required out-of-catalog notice so the model can copy it (the 8B
     # cannot echo a sentence it was never given — this was the top guard-block cause).
