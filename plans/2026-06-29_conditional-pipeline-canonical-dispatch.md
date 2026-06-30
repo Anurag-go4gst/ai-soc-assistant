@@ -31,7 +31,7 @@ todos:
     status: done
   - id: phase6-graph-executor
     content: LangGraph/executor dispatch_cursor + next_stage_after (ordered schedule); CP hub pre_spl vs post_spl phase; exact-order parity tests
-    status: partial
+    status: done
   - id: phase7-catalogue-scada-cisco
     content: Move scada_perf/cisco_asa to catalogue; remove T2 native early return; update routing tests
     status: done
@@ -55,6 +55,109 @@ isProject: false
 ---
 
 # Conditional pipeline + canonical dispatch plan (REV 4 — consistency pass)
+
+## Execution checklist (loop-asap)
+
+**Companion runner:** [`LOOP_RUNNER_pipeline_dispatch.md`](LOOP_RUNNER_pipeline_dispatch.md). **Template:** [`.cursor/templates/plan-checklist-template.md`](../.cursor/templates/plan-checklist-template.md).
+
+### Stop conditions
+
+- All checklist items `[x]` with recorded **Evidence**, **or**
+- Same **Verify** gate fails twice on one item, **or**
+- Decision needed (COE deferral, ambiguous requirement) — stop and ask
+
+### Dependency order
+
+`0 → 0.5 → 1A → 2A → 3 → 4 → 2B → 2C → 5 → 6 → 7 → 8 → REV5-A..E`
+
+### Drift log
+
+| Date | Note |
+|------|------|
+| 2026-06-30 | Phase 6 marked `partial` — dedicated `graph_node_spl_postprocessor` / pre-SPL LangGraph nodes deferred; cursor routing + `test_pipeline_dispatch_phase6.py` shipped inline. |
+| 2026-06-30 | **6c done** — `graph_node_spl_postprocessor` LangGraph node; inline postprocessor deferred when v2 on. Phase 6 checklist complete. |
+
+- [x] **0** — Canonical handoff fix + dispatch stubs + flag
+  - **Do:** `llm_intent_advisory` in evidence planner bindings; `SlotHandoffSummary`; `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` default false
+  - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_evidence_plan_handoff_drift.py app/tests/test_canonical_binding_handoff.py -q`
+  - **Depends on:** none
+  - **Evidence:** todos `phase0-handoff-fix` done; targeted tests pass on branch
+
+- [x] **0.5** — Final output debug trace
+  - **Do:** `build_final_output_trace`; merge into trace metadata; fix `answer_preview`
+  - **Verify:** `pytest app/tests/test_debug_summary_phase2c.py -q`
+  - **Depends on:** 0
+  - **Evidence:** todo `phase05-final-output` done
+
+- [x] **1A** — IntentDispatchDecision + table-driven 2C modes
+  - **Verify:** `pytest app/tests/test_intent_dispatch*.py -q`
+  - **Depends on:** 0
+  - **Evidence:** todo `phase1a-intent-dispatch` done
+
+- [x] **2A** — PipelineDispatchState shell + `next_stage_after`
+  - **Verify:** `pytest app/tests/test_pipeline_dispatch_phase2a.py -q`
+  - **Depends on:** 0
+  - **Evidence:** todo `phase2a-dispatch-shell` done
+
+- [x] **3** — Mandatory review-only SPL postprocessor (non-LLM paths)
+  - **Verify:** `pytest app/tests/test_review_only_spl_postprocessor.py -q`
+  - **Depends on:** 2A
+  - **Evidence:** todo `phase3-postprocessor` done
+
+- [x] **4** — LLM SPL input/output preservation + postprocessor on failover
+  - **Verify:** `pytest app/tests/test_pipeline_dispatch_phase4*.py -q`
+  - **Depends on:** 3
+  - **Evidence:** todo `phase4-spl-path` done
+
+- [x] **2B** — Full `build_pipeline_dispatch` authority + CP-off fallback
+  - **Verify:** `pytest app/tests/test_pipeline_dispatch*.py -q`
+  - **Depends on:** 4
+  - **Evidence:** todo `phase2b-dispatch-authority` done
+
+- [x] **2C** — Debug bundle dispatch/intent/output surfaces
+  - **Verify:** `pytest app/tests/test_debug_summary_phase2c.py -q`
+  - **Depends on:** 2B
+  - **Evidence:** todo `phase2c-debug-traces` done
+
+- [x] **5** — Pre-SPL MCP discovery inline + cursor advance
+  - **Verify:** `pytest app/tests/test_pipeline_dispatch_phase5.py -q`
+  - **Depends on:** 2B
+  - **Evidence:** todo `phase5-pre-spl-mcp` done
+
+- [x] **6a** — Cursor-driven LangGraph routing (`dispatch_v2_route_after_*` in `chat_workflow`)
+  - **Do:** Replace membership-only `_after_shadow_tail` / `_after_workflow_spl` predicates with `next_stage_after` + `dispatch_cursor` when v2 on
+  - **Verify:** `pytest app/tests/test_pipeline_dispatch_phase6.py app/tests/test_langgraph_shadow_phase12.py -q`; grep `dispatch_v2_route_after` in `backend/app/graph/chat_workflow.py`
+  - **Depends on:** 5
+  - **Evidence:** 20 passed (2026-06-30); `chat_workflow.py` lines 187–201 call `dispatch_v2_route_after_shadow_tail` / `dispatch_v2_route_after_workflow_spl`
+
+- [x] **6b** — Executor imperative parity (6 `request_mode` paths, exact stage order trace)
+  - **Do:** Mirror cursor semantics in `executor.py`; add parity tests asserting `scheduling_trace.cursor_path`
+  - **Verify:** `pytest app/tests/test_planner_executor.py -k dispatch app/tests/test_pipeline_dispatch_phase6b.py -q`
+  - **Depends on:** 6a
+  - **Evidence:** 13 passed (2026-06-30); `test_pipeline_dispatch_phase6b.py` — 6 modes × schedule + cursor_path + execute_plan_dispatch
+
+- [x] **6c** — Extract `graph_node_spl_postprocessor` (remove double-apply inline hook when flag on)
+  - **Do:** Dedicated LangGraph node per plan Phase 6 §1; inline hook disabled when node runs
+  - **Verify:** `pytest app/tests/test_pipeline_dispatch_phase6.py app/tests/test_pipeline_dispatch_phase6c.py app/tests/test_review_only_spl_postprocessor.py -q`
+  - **Depends on:** 6b
+  - **Evidence:** 47 passed (2026-06-30); `graph_node_spl_postprocessor` + LangGraph edge; inline gated via `_defer_spl_postprocessor_inline()`
+
+- [x] **7** — Catalogue SCADA/Cisco; retire T2 native early return
+  - **Verify:** `pytest app/tests/test_t1_spl_native_routing.py -q`
+  - **Depends on:** 4
+  - **Evidence:** todo `phase7-catalogue-scada-cisco` done
+
+- [x] **8** — Bundle regression F–J + dispatch matrix eval
+  - **Verify:** `pytest app/tests/test_run_contract_bundle.py -q`; `PYTHONPATH=backend:. python3 scripts/eval_pipeline_dispatch_matrix.py --check`
+  - **Depends on:** 2B, 4
+  - **Evidence:** todo `phase8-bundle-regression` done
+
+- [x] **REV5** — Authority wiring A–E (flags-on runtime uses `stage_schedule` + `llm_hops`)
+  - **Verify:** `pytest app/tests/test_dispatch_authority_wiring.py app/tests/test_run_contract_bundle.py -q`
+  - **Depends on:** 2B, 4, 8
+  - **Evidence:** todos `rev5-*` done
+
+---
 
 ## Problem (why details keep getting missed)
 

@@ -1718,6 +1718,95 @@ def advance_dispatch_cursor(
     return {**state, "pipeline_dispatch": {**dispatch, "runtime_context": runtime}}
 
 
+def _defer_spl_postprocessor_inline() -> bool:
+    """Dispatch v2: dedicated ``graph_node_spl_postprocessor`` owns the hook."""
+    return bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False))
+
+
+def _postprocessor_family_from_candidate(candidate: dict[str, Any]) -> tuple[str, bool]:
+    if candidate.get("template_id"):
+        return "governed_template", False
+    mode = str(candidate.get("generation_mode") or "")
+    if mode == "t2_spl_native_review":
+        t2 = candidate.get("t2_spl_native") if isinstance(candidate.get("t2_spl_native"), dict) else {}
+        return str(t2.get("runtime_operation") or "t2_spl_native"), False
+    if mode == "deterministic_lab_draft":
+        return str(candidate.get("detection_family") or "lab_draft"), False
+    if candidate.get("llm_fallback_used") or "llm" in mode:
+        return str(candidate.get("detection_family") or "llm_spl_advisory"), True
+    return str(candidate.get("detection_family") or mode or "spl_candidate"), False
+
+
+def graph_node_spl_postprocessor(state: ChatPipelineState) -> ChatPipelineState:
+    """Phase 6c — mandatory review-only SPL postprocessor (dedicated node when v2 on)."""
+    emit_stage("spl_postprocessor")
+    candidate = state.get("candidate_spl")
+    if not isinstance(candidate, dict):
+        return advance_dispatch_cursor(state, PipelineStage.spl_postprocessor)
+    raw_spl = str(candidate.get("candidate_spl") or "").strip()
+    if not raw_spl:
+        return advance_dispatch_cursor(state, PipelineStage.spl_postprocessor)
+
+    request = state["request"]
+    query_text = state.get("effective_query") or request.message
+    family, llm_gen = _postprocessor_family_from_candidate(candidate)
+    dispatch = state.get("pipeline_dispatch") if isinstance(state.get("pipeline_dispatch"), dict) else {}
+    decision = dispatch.get("decision") if isinstance(dispatch.get("decision"), dict) else {}
+    slot_handoff = decision.get("slot_handoff") or candidate.get("user_constraint_bindings")
+    mcp_ctx = ((dispatch.get("runtime_context") or {}).get("mcp_discovery_context"))
+
+    postprocessor_context = None
+    if str(candidate.get("generation_mode") or "") == "deterministic_lab_draft":
+        from app.spl.utility_spl_authoring import build_utility_postprocessor_context
+
+        postprocessor_context = build_utility_postprocessor_context(
+            query_text,
+            llm_generated=False,
+            target_log_family=family or None,
+            is_universal_spl=family == "universal_timestamp_spl",
+        )
+
+    postprocessed = finalize_review_only_spl(
+        raw_spl,
+        query=query_text,
+        family=family,
+        slot_handoff=slot_handoff,
+        llm_generated=llm_gen,
+        mcp_discovery_context=mcp_ctx,
+        postprocessor_context=postprocessor_context,
+    )
+    final_spl = postprocessed.normalized_spl
+    trace = dict(postprocessed.trace)
+    updated_candidate = {
+        **candidate,
+        "candidate_spl": final_spl,
+        "postprocessor_applied": bool(trace.get("postprocessor_applied")),
+        "review_only_spl_postprocessor_trace": trace,
+    }
+    if postprocessed.warnings:
+        updated_candidate["review_only_spl_postprocessor_warnings"] = list(postprocessed.warnings)
+
+    spl_validation = state.get("spl_validation")
+    updated_validation: dict[str, Any] | None = None
+    if isinstance(spl_validation, dict):
+        updated_validation = {
+            **spl_validation,
+            "review_only_spl_postprocessor_trace": trace,
+        }
+        if postprocessed.warnings:
+            updated_validation["review_only_spl_postprocessor_warnings"] = list(postprocessed.warnings)
+        if family != "governed_template" and spl_validation.get("normalized_spl"):
+            updated_validation["normalized_spl"] = final_spl
+
+    out: ChatPipelineState = {
+        **state,
+        "candidate_spl": updated_candidate,
+    }
+    if updated_validation is not None:
+        out["spl_validation"] = updated_validation
+    return advance_dispatch_cursor(out, PipelineStage.spl_postprocessor)
+
+
 def dispatch_v2_route_after_shadow_tail(state: ChatPipelineState) -> str | None:
     """Cursor-driven shadow-tail routing when dispatch v2 is on (Phase 6 partial)."""
     if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
@@ -1746,6 +1835,23 @@ def dispatch_v2_route_after_shadow_tail(state: ChatPipelineState) -> str | None:
 
 
 def dispatch_v2_route_after_workflow_spl(state: ChatPipelineState) -> str | None:
+    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        return None
+    dispatch = state.get("pipeline_dispatch")
+    if not isinstance(dispatch, dict):
+        return None
+    schedule, cursor = _dispatch_schedule_and_cursor(dispatch)
+    nxt = next_stage_after(schedule, cursor)
+    if nxt is PipelineStage.rag_early:
+        return "rag_early"
+    if nxt is PipelineStage.spl_postprocessor:
+        return "spl_postprocessor"
+    if nxt in {PipelineStage.spl_source_resolve, PipelineStage.mcp_execution}:
+        return "spl_source_resolve"
+    return None
+
+
+def dispatch_v2_route_after_spl_postprocessor(state: ChatPipelineState) -> str | None:
     if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
         return None
     dispatch = state.get("pipeline_dispatch")
@@ -1899,11 +2005,11 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     # the compiler/fallback never write state.
     if isinstance(candidate_spl, dict) and candidate_spl.get("detection_plan"):
         state = persist_llm_spl_plan(state, candidate_spl.get("detection_plan"))
-    # Phase 6: advance the dispatch cursor through the SPL stages this node owns
-    # (workflow_spl, then the inline spl_postprocessor) so the cursor path records
-    # exact ordered progression. Flag-gated; no-op when dispatch is absent.
+    # Phase 6: advance workflow_spl cursor; spl_postprocessor cursor advances in
+    # graph_node_spl_postprocessor when dispatch v2 defers inline postprocessing.
     state = advance_dispatch_cursor(state, PipelineStage.workflow_spl)
-    state = advance_dispatch_cursor(state, PipelineStage.spl_postprocessor)
+    if not _defer_spl_postprocessor_inline():
+        state = advance_dispatch_cursor(state, PipelineStage.spl_postprocessor)
     exact_105_pattern = candidate_mapped_pattern
     mapped_use_case_ids = (
         getattr(query_understanding, "mapped_use_case_ids", None) or []
@@ -4160,6 +4266,35 @@ _RUNTIME_PROFILE_CATALOGUE_TEMPLATES: dict[str, str] = {
 }
 
 
+def _catalogue_template_dependencies_met(template_id: str) -> bool:
+    """Live Splunk alignment for a catalogue template before execution.
+
+    Verifies the template's index + referenced lookup CSVs exist on the search
+    head via read-only MCP discovery. Returns False (degrade to token-SPL/HIL)
+    when anything is missing or discovery is unavailable. Best-effort.
+    """
+    template = get_spl_template(template_id)
+    if template is None:
+        return False
+    try:
+        from app.spl.template_dependency_verifier import (
+            required_lookups_for_template,
+            verify_template_dependencies,
+        )
+
+        rules = getattr(template, "validation_rules", None) or {}
+        required_indexes = [str(i) for i in (rules.get("allowed_indexes") or [])]
+        required_lookups = required_lookups_for_template(getattr(template, "spl_text", "") or "")
+        verification = verify_template_dependencies(
+            required_indexes=required_indexes,
+            required_lookups=required_lookups,
+        )
+        return bool(verification.verified)
+    except Exception:  # noqa: BLE001 - alignment check must never break the SPL path
+        logger.warning("catalogue_template_dependency_check_failed", exc_info=True)
+        return False
+
+
 def _run_legacy_dispatch_fallback(
     state: ChatPipelineState,
     *,
@@ -4184,23 +4319,32 @@ def _run_legacy_dispatch_fallback(
     state = {**state, "plan_dispatch_trace": trace}
 
     v2_hooks = imperative_hook_schedule_from_state(state)
-    if v2_hooks is not None:
+    # An EMPTY hook list (e.g. mitre_finalize / cve_adapter-only schedules that map
+    # to no imperative SPL/RAG hook) must fall through to the legacy branch, which
+    # runs the knowledge/rag-only flow and sets state["execution"] for finalize.
+    if v2_hooks:
         hook_nodes = {
             "prepare_rag_only": graph_node_prepare_rag_only,
             "rag_early": graph_node_rag_early,
             "workflow_spl": graph_node_workflow_spl,
+            "spl_postprocessor": graph_node_spl_postprocessor,
             "spl_source_resolve": graph_node_spl_source_resolve,
             "execution": graph_node_execution,
         }
+        ran_spl = False
         for hook_name in v2_hooks:
             node = hook_nodes.get(hook_name)
             if node is None:
                 continue
             state = node(state)
             trace["dispatch_schedule"].append(hook_name)
+            if hook_name == "workflow_spl":
+                ran_spl = True
         # SPL/hybrid schedules omit ``mcp_execution`` from stage_schedule but still
         # need the execution gate stub (legacy path always ran execution after SPL).
-        if "execution" not in state:
+        # Knowledge/MITRE/CVE schedules have no workflow_spl -> no workflow_plan, so
+        # the execution gate (which requires state["workflow_plan"]) must NOT run.
+        if ran_spl and "execution" not in state:
             state = graph_node_execution(state)
             trace["dispatch_schedule"].append("execution")
         return {**state, "plan_dispatch_trace": trace}
@@ -4231,6 +4375,7 @@ def _dispatch_hooks() -> DispatchHooks:
         rag_early=graph_node_rag_early,
         spl_source_resolve=graph_node_spl_source_resolve,
         workflow_spl=graph_node_workflow_spl,
+        spl_postprocessor=graph_node_spl_postprocessor,
         ensure_workflow_plan=graph_node_ensure_workflow_plan,
         execution=graph_node_execution,
     )
@@ -5326,23 +5471,46 @@ def _candidate_spl_stage(
             getattr(runtime_profile, "source_profile_id", "") or ""
         )
         if catalogue_template_id:
-            catalogue_candidate = _candidate_from_default_template(
-                trace_id=trace_id,
-                skill=skill,
-                user_query=user_query,
-                template_id=catalogue_template_id,
-                spl_governance=spl_governance,
-                telemetry=telemetry,
-                profile=profile,
-                slot_source=(
-                    "llm"
-                    if any(source == SLOT_SOURCE_LLM for source in user_bindings.slot_sources.values())
-                    else "user"
-                ),
-                user_constraint_bindings=user_bindings,
-            )
-            if catalogue_candidate is not None:
-                return catalogue_candidate
+            # Pre-execution Splunk server alignment: only when LIVE execution is
+            # intended (MCP_GLOBAL_EXECUTION_ENABLED), confirm the template's index +
+            # lookup CSVs exist on the search head via read-only discovery tools
+            # (splunk_get_indexes / splunk_get_knowledge_objects). Unmapped or
+            # unreachable -> drop to token-SPL + COE-HIL. Review-only posture
+            # (execution off, the default) keeps the catalogue artifact unchanged.
+            deps_ok = True
+            if bool(getattr(settings, "mcp_global_execution_enabled", False)):
+                deps_ok = _catalogue_template_dependencies_met(catalogue_template_id)
+            if deps_ok:
+                catalogue_candidate = _candidate_from_default_template(
+                    trace_id=trace_id,
+                    skill=skill,
+                    user_query=user_query,
+                    template_id=catalogue_template_id,
+                    spl_governance=spl_governance,
+                    telemetry=telemetry,
+                    profile=profile,
+                    slot_source=(
+                        "llm"
+                        if any(source == SLOT_SOURCE_LLM for source in user_bindings.slot_sources.values())
+                        else "user"
+                    ),
+                    user_constraint_bindings=user_bindings,
+                )
+                if catalogue_candidate is not None:
+                    return catalogue_candidate
+            else:
+                # Server alignment failed -> token-SPL degrade; source-resolve raises
+                # the COE-HIL slot clarification for the analyst.
+                token_degrade = _candidate_from_t2_spl_native(
+                    trace_id=trace_id,
+                    skill=skill,
+                    user_query=user_query,
+                    telemetry=telemetry,
+                    profile=profile,
+                    spl_governance=spl_governance,
+                )
+                if token_degrade is not None:
+                    return token_degrade
     template_candidate = _candidate_from_default_template(
         trace_id=trace_id,
         skill=skill,
@@ -5668,15 +5836,19 @@ def _candidate_from_default_template(
         user_query=user_query,
         template_profile=template.validation_rules,
     )
-    postprocessed = finalize_review_only_spl(
-        final_spl,
-        query=user_query,
-        family="governed_template",
-        slot_handoff=bindings.to_dict(),
-        llm_generated=False,
-    )
-    postprocessor_trace = postprocessed.trace
-    final_spl = postprocessed.normalized_spl
+    postprocessor_trace: dict[str, Any] = {}
+    if _defer_spl_postprocessor_inline():
+        pass
+    else:
+        postprocessed = finalize_review_only_spl(
+            final_spl,
+            query=user_query,
+            family="governed_template",
+            slot_handoff=bindings.to_dict(),
+            llm_generated=False,
+        )
+        postprocessor_trace = postprocessed.trace
+        final_spl = postprocessed.normalized_spl
     candidate_payload = {
         "trace_id": trace_id,
         "skill": skill,
@@ -6062,7 +6234,7 @@ def _candidate_from_t2_spl_native(
     }
     final_spl = artifact.candidate_spl
     postprocessor_trace: dict[str, Any] = {}
-    if bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+    if bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)) and not _defer_spl_postprocessor_inline():
         postprocessed = finalize_review_only_spl(
             artifact.candidate_spl,
             query=user_query,
@@ -6208,16 +6380,21 @@ def _candidate_from_lab_draft(
         target_log_family=family or None,
         is_universal_spl=family == "universal_timestamp_spl",
     )
-    postprocessed = finalize_review_only_spl(
-        draft_spl,
-        query=user_query,
-        family=family or "lab_draft",
-        llm_generated=False,
-        postprocessor_context=context,
-    )
-    final_spl = postprocessed.normalized_spl
-    postprocessor_trace = dict(postprocessed.trace)
-    postprocessor_warnings = list(postprocessed.warnings)
+    postprocessor_trace: dict[str, Any] = {}
+    postprocessor_warnings: list[str] = []
+    if _defer_spl_postprocessor_inline():
+        final_spl = draft_spl
+    else:
+        postprocessed = finalize_review_only_spl(
+            draft_spl,
+            query=user_query,
+            family=family or "lab_draft",
+            llm_generated=False,
+            postprocessor_context=context,
+        )
+        final_spl = postprocessed.normalized_spl
+        postprocessor_trace = dict(postprocessed.trace)
+        postprocessor_warnings = list(postprocessed.warnings)
 
     lab_labels = {
         "governed": False,
@@ -6614,7 +6791,12 @@ def _candidate_from_llm_fallback_tuple(
     postprocessor_trace_llm: dict[str, Any] = {}
     final_candidate_spl = result.candidate_spl if expose_spl else ""
     _dispatch_v2_on = bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False))
-    if _dispatch_v2_on and expose_spl and final_candidate_spl.strip():
+    if (
+        _dispatch_v2_on
+        and expose_spl
+        and final_candidate_spl.strip()
+        and not _defer_spl_postprocessor_inline()
+    ):
         pp = finalize_review_only_spl(
             final_candidate_spl,
             query=user_query,

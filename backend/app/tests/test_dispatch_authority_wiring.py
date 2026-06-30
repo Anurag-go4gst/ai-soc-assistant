@@ -53,6 +53,7 @@ def test_imperative_schedule_maps_stage_order(monkeypatch: pytest.MonkeyPatch) -
     )
     assert imperative_hook_schedule_from_state(state) == [
         "workflow_spl",
+        "spl_postprocessor",
         "spl_source_resolve",
     ]
 
@@ -82,6 +83,7 @@ def test_legacy_executor_schedule_uses_dispatch_v2(monkeypatch: pytest.MonkeyPat
         rag_early=lambda s: s,
         spl_source_resolve=lambda s: s,
         workflow_spl=lambda s: s,
+        spl_postprocessor=lambda s: s,
         ensure_workflow_plan=lambda s: s,
         execution=lambda s: s,
     )

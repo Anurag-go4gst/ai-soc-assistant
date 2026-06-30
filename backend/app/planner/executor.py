@@ -77,6 +77,7 @@ class DispatchHooks:
     rag_early: Node
     spl_source_resolve: Node
     workflow_spl: Node
+    spl_postprocessor: Node
     ensure_workflow_plan: Node
     execution: Node
 
@@ -225,12 +226,13 @@ def _legacy_predicate_dispatch_schedule(
 
 
 _HOOK_BY_NAME = {
-  "prepare_rag_only": lambda hooks: hooks.prepare_rag_only,
-  "rag_early": lambda hooks: hooks.rag_early,
-  "spl_source_resolve": lambda hooks: hooks.spl_source_resolve,
-  "workflow_spl": lambda hooks: hooks.workflow_spl,
-  "ensure_workflow_plan": lambda hooks: hooks.ensure_workflow_plan,
-  "execution": lambda hooks: hooks.execution,
+    "prepare_rag_only": lambda hooks: hooks.prepare_rag_only,
+    "rag_early": lambda hooks: hooks.rag_early,
+    "spl_source_resolve": lambda hooks: hooks.spl_source_resolve,
+    "workflow_spl": lambda hooks: hooks.workflow_spl,
+    "spl_postprocessor": lambda hooks: hooks.spl_postprocessor,
+    "ensure_workflow_plan": lambda hooks: hooks.ensure_workflow_plan,
+    "execution": lambda hooks: hooks.execution,
 }
 
 

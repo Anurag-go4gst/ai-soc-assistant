@@ -197,7 +197,8 @@ def imperative_hook_schedule_from_state(state: dict[str, Any] | None) -> list[st
             if "workflow_spl" not in hooks:
                 hooks.append("workflow_spl")
         elif stage is PipelineStage.spl_postprocessor:
-            continue
+            if "spl_postprocessor" not in hooks:
+                hooks.append("spl_postprocessor")
         elif stage is PipelineStage.spl_source_resolve:
             if "spl_source_resolve" not in hooks:
                 hooks.append("spl_source_resolve")
