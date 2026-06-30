@@ -5849,6 +5849,29 @@ def _candidate_from_default_template(
     )
     compatibility = check_template_compatibility(template.template_id, bindings, template=template)
     force_skeleton = compatibility.use_user_bound_skeleton
+    if (
+        force_skeleton
+        and bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False))
+        and bool(getattr(settings, "ai_soc_llm_spl_fallback_enabled", False))
+    ):
+        llm_candidate = _candidate_from_llm_fallback(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+            request_enabled=True,
+            llm_context={
+                "primary_skill": skill,
+                "use_case_id": template_id,
+                "pattern_type": (spl_governance or {}).get("pattern_type"),
+                "template_incompatible_reasons": list(compatibility.incompatible_reasons or []),
+                "slot_handoff": bindings.to_dict() if bindings is not None else None,
+            },
+        )
+        if llm_candidate is not None:
+            return llm_candidate
     rendered_spl, binding_trace = customize_template_spl_with_trace(
         template.template_id,
         template.spl_text,
