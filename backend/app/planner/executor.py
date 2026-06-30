@@ -17,7 +17,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
-from app.chat.contracts.pipeline_dispatch import imperative_hook_schedule_from_state
+from app.chat.contracts.pipeline_dispatch import (
+    imperative_hook_schedule_from_state,
+    projected_flags_from_state,
+)
 from app.config import settings
 from app.planner.resource_registry import load_resource_registry
 
@@ -257,6 +260,10 @@ def build_plan_dispatch_trace(
     "dispatch_schedule": schedule,
     "dispatch_parity_projection": derived,
   }
+  projected = projected_flags_from_state(state)
+  if projected is not None:
+    trace["dispatch_authority"] = "pipeline_dispatch_v2"
+    trace["projected_flags"] = projected
   if walk is not None:
     trace["step_walk_order"] = list(walk.step_walk_order)
     trace["skipped_step_reasons"] = dict(walk.skipped_step_reasons)

@@ -230,20 +230,32 @@ _NL_ZONE_PAIR_RE = re.compile(
 _NL_LOOKUP_RE = re.compile(r"\b([A-Za-z0-9_.-]+\.csv)\b", re.IGNORECASE)
 _NL_PROTOCOL_RE = re.compile(r"\b(modbus(?:\s+tcp)?|dnp3|smb|dns|http|https)\b", re.IGNORECASE)
 _NL_SERVICE_RE = re.compile(r"\b(smb|ssh|rdp|dns|http|https)\s+traffic\b", re.IGNORECASE)
+_NEGATED_INDEX_PROSE_RE = re.compile(
+    r"\b(?:without|not|no|don'?t)\s+(?:specifying|providing|stating|giving)\s+(?:an?\s+)?"
+    r"(?:index|sourcetype)(?:\s+or\s+(?:index|sourcetype))?\b",
+    re.IGNORECASE,
+)
+
+
+def _index_or_sourcetype_slot_negated(normalized: str) -> bool:
+    """Prose like 'without specifying index or sourcetype' must not bind fake slots."""
+    return bool(_NEGATED_INDEX_PROSE_RE.search(normalized))
 
 
 def extract_natural_language_slots(user_query: str) -> dict[str, Any]:
     normalized = " ".join(user_query.split())
     slots: dict[str, Any] = {}
+    index_negated = _index_or_sourcetype_slot_negated(normalized)
 
     search_index = _NL_SEARCH_INDEX_RE.search(normalized)
-    if search_index:
+    if search_index and not index_negated:
         slots.setdefault("index", search_index.group(1).lower())
 
-    for match in _NL_INDEX_RE.finditer(normalized):
-        index = match.group(1) or match.group(2)
-        if index:
-            slots.setdefault("index", index.lower())
+    if not index_negated:
+        for match in _NL_INDEX_RE.finditer(normalized):
+            index = match.group(1) or match.group(2)
+            if index and index.lower() not in {"specifying", "providing", "stating", "giving"}:
+                slots.setdefault("index", index.lower())
 
     multi = _NL_MULTI_INDEX_RE.search(normalized)
     if multi:

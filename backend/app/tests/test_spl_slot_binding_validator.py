@@ -297,3 +297,15 @@ def test_valid_template_render_includes_mcp_rbac_readiness_metadata() -> None:
     assert validation["mcp_execution_enabled"] is False
     assert validation["execution_eligible"] is False
     assert candidate["execution_eligible"] is False
+
+
+def test_without_specifying_index_does_not_bind_fake_index_slot() -> None:
+    from app.spl.spl_slot_binding_validator import extract_natural_language_slots
+
+    query = (
+        "Generate SPL for failed VPN logins by src_ip over 7 days "
+        "without specifying index or sourcetype"
+    )
+    slots = extract_natural_language_slots(query)
+    assert "index" not in slots
+    assert "sourcetype" not in slots

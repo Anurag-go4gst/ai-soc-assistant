@@ -117,3 +117,21 @@ def test_legacy_dispatch_fallback_uses_v2_hooks(monkeypatch: pytest.MonkeyPatch)
     out = _run_legacy_dispatch_fallback(state, dispatch_source="test")
     assert out["plan_dispatch_trace"]["dispatch_authority"] == "pipeline_dispatch_v2"
     assert calls == ["workflow_spl", "spl_source_resolve", "execution"]
+
+
+def test_build_plan_dispatch_trace_from_pipeline_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.chat.contracts.pipeline_dispatch import (
+        LlmHop,
+        build_plan_dispatch_trace_from_pipeline_dispatch,
+    )
+
+    monkeypatch.setattr("app.config.settings.ai_soc_pipeline_dispatch_v2_enabled", True)
+    state = _state(
+        schedule=[PipelineStage.pre_spl_mcp_discovery, PipelineStage.workflow_spl, PipelineStage.spl_postprocessor],
+        hops=[LlmHop.spl_plan_compiler],
+    )
+    trace = build_plan_dispatch_trace_from_pipeline_dispatch(state)
+    assert trace is not None
+    assert trace["dispatch_authority"] == "pipeline_dispatch_v2"
+    assert trace["dispatch_schedule"] == ["workflow_spl", "spl_postprocessor", "execution"]
+    assert trace["projected_flags"]["call_spl_llm"] is True
