@@ -90,3 +90,31 @@ def test_persist_llm_spl_plan_noop_on_empty() -> None:
     state = {"foo": 1}
     assert persist_llm_spl_plan(state, None) is state  # type: ignore[arg-type]
     assert persist_llm_spl_plan(state, {}) is state  # type: ignore[arg-type]
+
+
+def test_spl_candidate_stage_result_is_tuple_unpackable() -> None:
+    from app.chat.contracts.spl_candidate import SplCandidateStageResult
+
+    res = SplCandidateStageResult.from_value(
+        ({"candidate_spl": "x", "detection_plan": {"data_domain": "auth"}, "spl_plan_compiler_telemetry": {"role": "spl_plan_compiler"}}, {"approved": False})
+    )
+    assert res is not None
+    # Tuple-unpackable for legacy callers.
+    candidate, validation = res
+    assert candidate["candidate_spl"] == "x"
+    assert validation["approved"] is False
+    # Typed fields lifted off the candidate.
+    assert res.detection_plan == {"data_domain": "auth"}
+    assert res.compiler_telemetry == {"role": "spl_plan_compiler"}
+    assert SplCandidateStageResult.from_value(None) is None
+
+
+def test_candidate_from_llm_fallback_returns_typed_result_when_disabled(monkeypatch) -> None:
+    """request_enabled=False returns None (byte-identical legacy contract)."""
+    from app.chat import pipeline as chat_pipeline
+
+    out = chat_pipeline._candidate_from_llm_fallback(
+        trace_id="t", skill="attack_discovery", user_query="q",
+        telemetry=None, profile=None, request_enabled=False,
+    )
+    assert out is None

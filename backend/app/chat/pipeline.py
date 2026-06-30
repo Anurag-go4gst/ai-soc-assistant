@@ -6220,6 +6220,23 @@ def _candidate_from_lab_draft(
 
 
 def _candidate_from_llm_fallback(
+    **kwargs: Any,
+) -> "SplCandidateStageResult | None":
+    """Typed wrapper (Phase 4B): the LLM SPL fallback returns SplCandidateStageResult.
+
+    The tuple-producing implementation is unchanged; this lifts its
+    ``(candidate, validation)`` into the single return contract, pulling
+    ``detection_plan`` / ``spl_plan_compiler_telemetry`` off the candidate so the
+    workflow node can persist the plan without a tuple/dict smuggle. The result is
+    tuple-unpackable, so existing ``candidate, validation = ...`` call sites and
+    tests keep working unchanged.
+    """
+    from app.chat.contracts.spl_candidate import SplCandidateStageResult
+
+    return SplCandidateStageResult.from_value(_candidate_from_llm_fallback_tuple(**kwargs))
+
+
+def _candidate_from_llm_fallback_tuple(
     *,
     trace_id: str,
     skill: str,
