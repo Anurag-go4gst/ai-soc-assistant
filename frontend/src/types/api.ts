@@ -102,6 +102,25 @@ export interface PlaceholderResponse {
   ec_provenance?: EcProvenance | null;
   /** Per-stage recorded/replayed latency for staged-progress replay (B4). */
   ec_stage_latencies?: EcStageLatency[] | null;
+  /** Experience Center visual lanes (COE logic, MCP console, LLM insight). */
+  ec_visual_lanes?: EcVisualLanes | null;
+  intent_dispatch?: Record<string, unknown> | null;
+  pipeline_dispatch?: Record<string, unknown> | null;
+  plan_dispatch?: Record<string, unknown> | null;
+}
+
+export interface EcVisualLanes {
+  coe_logic?: {
+    title: string;
+    body: string;
+    slot_transitions?: Array<{ from: string; to: string }>;
+  } | null;
+  mcp_console?: { lines: string[] } | null;
+  llm_insight?: {
+    markdown?: string;
+    timeline?: Array<{ time: string; event: string }>;
+  } | null;
+  hil_banner?: { message: string; severity?: 'warning' | 'error' } | null;
 }
 
 /** Experience Center capture provenance — drives the MCP-transport honesty badge. */
@@ -547,6 +566,7 @@ export interface DemoScenarioSummary {
     | 'Guided (out-of-catalog)'
     | string;
   query: string;
+  canonical_query?: string;
   environment_mode: string;
   demo_badge: string;
   expected_skill: string;

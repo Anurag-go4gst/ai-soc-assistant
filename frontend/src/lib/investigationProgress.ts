@@ -339,7 +339,7 @@ export function buildInvestigationProgressSteps(options?: {
         id: 'workflow',
         label: 'Selecting MCP tool',
         description: 'Selecting the governed MCP tool and input contract.',
-        activity: ['Selecting splunk.search when Splunk evidence is required…', 'Applying safety gates…'],
+        activity: ['Selecting splunk_run_query when Splunk evidence is required…', 'Applying safety gates…'],
       },
       700,
     ),
@@ -359,7 +359,7 @@ export function buildInvestigationProgressSteps(options?: {
           id: 'spl_validation',
           label: 'Validating SPL',
           description: demo
-            ? 'Running deterministic SPL policy on fixture candidate (not executed).'
+            ? 'Running deterministic SPL policy on the governed candidate query.'
             : 'Running deterministic SPL policy checks on the candidate query.',
           activity: ['Policy spl-policy-v1…', 'Normalizing time range and index constraints…'],
         },
@@ -381,7 +381,7 @@ export function buildInvestigationProgressSteps(options?: {
             ? [
                 'Resolving splunk server from MCP registry…',
                 'TLS handshake 127.0.0.1 · bearer auth ✓',
-                'tools/list → splunk.search allowed for this skill ✓',
+                'tools/list → splunk_run_query allowed for this skill ✓',
                 `Submitting search job · sid=${jobSid}`,
                 `Polling job ${jobSid} · 1/3…`,
                 `Polling job ${jobSid} · 2/3…`,

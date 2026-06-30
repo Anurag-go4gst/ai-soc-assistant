@@ -545,11 +545,11 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
   return (
     <Card
       className={cn(
-        'flex h-full min-h-0 flex-col overflow-hidden',
+        'flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden',
         flush ? 'rounded-none border-0 bg-transparent shadow-none' : 'soc-panel',
       )}
     >
-      <CardHeader className={compactHeader ? 'border-b border-slate-800/70 py-3' : 'border-b border-slate-800/70'}>
+      <CardHeader className={cn('min-w-0 shrink-0 space-y-3 overflow-x-hidden', compactHeader ? 'border-b border-slate-800/70 py-3' : 'border-b border-slate-800/70')}>
         <CardTitle className="text-sm font-semibold">{title}</CardTitle>
         <label className="flex max-w-xl items-start gap-3 rounded-md border border-amber-400/25 bg-amber-500/5 px-3 py-2 text-xs text-slate-300">
           <input
@@ -573,9 +573,9 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
           </>
         ) : null}
       </CardHeader>
-      <CardContent className="min-h-0 flex-1 p-0">
-        <ScrollArea className="h-full">
-          <div className="space-y-4 px-5 pb-8 pt-4">
+      <CardContent className="min-h-0 min-w-0 flex-1 overflow-hidden p-0">
+        <ScrollArea className="h-full w-full min-w-0">
+          <div className="min-w-0 max-w-full space-y-4 overflow-x-hidden px-5 pb-8 pt-4">
             {messages.map((message) => (
               <ChatBubble
                 key={message.id}

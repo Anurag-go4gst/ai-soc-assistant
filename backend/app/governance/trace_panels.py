@@ -386,7 +386,7 @@ def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str,
         },
         "mcp_tool_selection": {
             "mcp_server": "splunk",
-            "mcp_tool": "search",
+            "mcp_tool": "splunk_run_query",
             "selection_reason": "validated SPL review for failed-login evidence",
             "input_contract": ["search_query", "earliest_time", "latest_time", "max_results"],
             "execution_mode": "Experience Center fixture result",
@@ -596,7 +596,7 @@ def _generic_experience_center_panels(
         rows = splunk_items[0].get("preview_rows") if splunk_items else []
         panels["mcp_tool_selection"] = {
             "mcp_server": selected_server or "splunk",
-            "mcp_tool": selected_tool or "search",
+            "mcp_tool": selected_tool or "splunk_run_query",
             "selection_reason": "MCP fixture tool selection for governed evidence review",
             "input_contract": ["search_query", "earliest_time", "latest_time", "max_results"],
             "execution_mode": "Experience Center fixture result",

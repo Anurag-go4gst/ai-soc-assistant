@@ -41,7 +41,7 @@ function McpTransportBadge({ provenance }: { provenance: EcProvenance }) {
       }
     >
       <Server className="h-3 w-3" />
-      {isLive ? 'MCP: live' : 'MCP: simulated lifecycle replay'}
+      {isLive ? 'MCP: live' : 'Splunk search replay'}
     </Badge>
   );
 }
