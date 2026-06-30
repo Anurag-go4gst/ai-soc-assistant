@@ -31,7 +31,7 @@ todos:
     status: done
   - id: phase6-graph-executor
     content: LangGraph/executor dispatch_cursor + next_stage_after (ordered schedule); CP hub pre_spl vs post_spl phase; exact-order parity tests
-    status: pending
+    status: done
   - id: phase7-catalogue-scada-cisco
     content: Move scada_perf/cisco_asa to catalogue; remove T2 native early return; update routing tests
     status: pending

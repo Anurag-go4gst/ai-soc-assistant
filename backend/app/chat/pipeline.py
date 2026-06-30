@@ -1651,6 +1651,44 @@ def graph_node_ensure_workflow_plan(state: ChatPipelineState) -> ChatPipelineSta
     return {**state, "workflow_plan": workflow_plan}
 
 
+def advance_dispatch_cursor(
+    state: ChatPipelineState, stage: "Any"
+) -> ChatPipelineState:
+    """Advance pipeline_dispatch.runtime_context.dispatch_cursor to ``stage`` (Phase 6).
+
+    Cursor-driven progression marker — flag-gated and no-op when dispatch is
+    absent. Only advances forward (to a stage at or after the current cursor in
+    the schedule) so re-entry can't rewind the cursor.
+    """
+    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+        return state
+    dispatch = state.get("pipeline_dispatch")
+    if not isinstance(dispatch, dict):
+        return state
+    from app.chat.contracts.pipeline_dispatch import PipelineStage
+
+    stage_value = stage.value if isinstance(stage, PipelineStage) else str(stage)
+    if stage_value not in PipelineStage._value2member_map_:
+        return state
+    decision = dispatch.get("decision") or {}
+    schedule = [s for s in (decision.get("stage_schedule") or []) if s in PipelineStage._value2member_map_]
+    if stage_value not in schedule:
+        return state
+    runtime = dict(dispatch.get("runtime_context") or {})
+    current = runtime.get("dispatch_cursor")
+    # Forward-only: ignore a stage that precedes the current cursor.
+    if current in schedule and schedule.index(stage_value) < schedule.index(current):
+        return state
+    runtime["dispatch_cursor"] = stage_value
+    trace = dict(runtime.get("scheduling_trace") or {})
+    visited = list(trace.get("cursor_path") or [])
+    if not visited or visited[-1] != stage_value:
+        visited.append(stage_value)
+    trace["cursor_path"] = visited
+    runtime["scheduling_trace"] = trace
+    return {**state, "pipeline_dispatch": {**dispatch, "runtime_context": runtime}}
+
+
 def graph_node_pre_spl_mcp_discovery(state: ChatPipelineState) -> ChatPipelineState:
     """Read-only MCP source discovery before SPL generation (Phase 5).
 
@@ -1782,6 +1820,13 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     # the compiler/fallback never write state.
     if isinstance(candidate_spl, dict) and candidate_spl.get("detection_plan"):
         state = persist_llm_spl_plan(state, candidate_spl.get("detection_plan"))
+    # Phase 6: advance the dispatch cursor through the SPL stages this node owns
+    # (workflow_spl, then the inline spl_postprocessor) so the cursor path records
+    # exact ordered progression. Flag-gated; no-op when dispatch is absent.
+    from app.chat.contracts.pipeline_dispatch import PipelineStage as _PStage
+
+    state = advance_dispatch_cursor(state, _PStage.workflow_spl)
+    state = advance_dispatch_cursor(state, _PStage.spl_postprocessor)
     exact_105_pattern = candidate_mapped_pattern
     mapped_use_case_ids = (
         getattr(query_understanding, "mapped_use_case_ids", None) or []
