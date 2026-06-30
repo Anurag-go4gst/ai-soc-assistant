@@ -510,6 +510,15 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     onClear?.();
   }, [onClear, welcome]);
 
+  // Clicking the already-active "Chat" item in the left nav starts a fresh chat
+  // (React Router no-ops same-route navigation, so the nav dispatches this event).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onNewChat = () => handleClear();
+    window.addEventListener('soc:new-chat', onNewChat);
+    return () => window.removeEventListener('soc:new-chat', onNewChat);
+  }, [handleClear]);
+
   const handleExecutionReview = async (payload: ChatExecutionReviewOptions, label: string) => {
     const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: label };
     setMessages((current) => [...current, userMessage]);

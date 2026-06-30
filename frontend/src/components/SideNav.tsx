@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   Activity,
   BookOpen,
@@ -31,6 +31,7 @@ interface SideNavProps {
 }
 
 export function SideNav({ debugAccess = false }: SideNavProps) {
+  const location = useLocation();
   const navItems = debugAccess
     ? [...baseNavItems, { to: '/debug', label: 'Debug', icon: Bug } as const]
     : baseNavItems;
@@ -56,6 +57,13 @@ export function SideNav({ debugAccess = false }: SideNavProps) {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={() => {
+                // Same-route nav is a no-op in React Router; clicking the active
+                // Chat item should still respond by starting a fresh chat.
+                if (item.to === '/chat' && location.pathname === '/chat') {
+                  window.dispatchEvent(new CustomEvent('soc:new-chat'));
+                }
+              }}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
