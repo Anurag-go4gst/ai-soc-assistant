@@ -30,49 +30,11 @@ class SplValidationPolicy:
     policy_version: str = POLICY_VERSION
 
 
-def _tenant_allowlist_overlay(tenant_id: str | None) -> dict[str, tuple[str, ...]]:
-    """Per-tenant index/sourcetype overlay from AI_SOC_TENANT_SOURCETYPE_MAP.
-
-    JSON shape: {"<tenant_id>": {"indexes": [...], "sourcetypes": [...]}}. Returns
-    {} for an unknown/None tenant so the global SPL_ALLOWED_* policy applies
-    unchanged (single-tenant default = byte-identical). This makes the allowlist a
-    runtime, tenant-scoped decision rather than a static-only config, without
-    requiring a tenant-auth system to be present.
-    """
-    if not tenant_id:
-        return {}
-    raw = (getattr(settings, "ai_soc_tenant_sourcetype_map", "") or "").strip()
-    if not raw:
-        return {}
-    try:
-        import json
-
-        mapping = json.loads(raw)
-    except (ValueError, TypeError):
-        return {}
-    entry = mapping.get(tenant_id) if isinstance(mapping, dict) else None
-    if not isinstance(entry, dict):
-        return {}
-    overlay: dict[str, tuple[str, ...]] = {}
-    idx = entry.get("indexes")
-    st = entry.get("sourcetypes")
-    if isinstance(idx, list) and idx:
-        overlay["allowed_indexes"] = tuple(str(x) for x in idx)
-    if isinstance(st, list) and st:
-        overlay["allowed_sourcetypes"] = tuple(str(x) for x in st)
-    return overlay
-
-
-def load_spl_policy(tenant_id: str | None = None) -> SplValidationPolicy:
-    overlay = _tenant_allowlist_overlay(tenant_id)
+def load_spl_policy() -> SplValidationPolicy:
     return SplValidationPolicy(
         enabled=settings.spl_validation_enabled,
-        allowed_indexes=overlay.get(
-            "allowed_indexes", _csv(settings.spl_allowed_indexes, ("pgcil_soc",))
-        ),
-        allowed_sourcetypes=overlay.get(
-            "allowed_sourcetypes", _csv(settings.spl_allowed_sourcetypes, ("pgcil:auth",))
-        ),
+        allowed_indexes=_csv(settings.spl_allowed_indexes, ("pgcil_soc",)),
+        allowed_sourcetypes=_csv(settings.spl_allowed_sourcetypes, ("pgcil:auth",)),
         default_earliest=settings.spl_default_earliest,
         default_latest=settings.spl_default_latest,
         max_result_limit=settings.spl_max_result_limit,

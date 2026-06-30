@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from app.spl.policy import load_spl_policy
@@ -80,25 +78,8 @@ def test_token_spl_resolves_by_validator_profile() -> None:
     assert token_spl_for_validator_profile(None) is None
 
 
-def test_allowlist_global_by_default() -> None:
+def test_allowlist_is_global_one_time_env_knowledge() -> None:
+    # Single global Environment Knowledge map / SPL_ALLOWED_* policy — no tenant
+    # IDs, no auth wiring. Configured once per deployment.
     policy = load_spl_policy()
-    # No tenant -> global SPL_ALLOWED_* policy (single-tenant default).
     assert "pgcil_soc" in policy.allowed_indexes
-
-
-def test_allowlist_tenant_overlay(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "app.spl.policy.settings.ai_soc_tenant_sourcetype_map",
-        json.dumps({"tenantA": {"indexes": ["acme_idx"], "sourcetypes": ["acme:fw"]}}),
-    )
-    base = load_spl_policy()
-    tenant = load_spl_policy(tenant_id="tenantA")
-    assert tenant.allowed_indexes == ("acme_idx",)
-    assert tenant.allowed_sourcetypes == ("acme:fw",)
-    # Unknown tenant falls back to the global policy (byte-identical).
-    assert load_spl_policy(tenant_id="ghost").allowed_indexes == base.allowed_indexes
-
-
-def test_allowlist_unknown_tenant_is_global_when_map_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.spl.policy.settings.ai_soc_tenant_sourcetype_map", "")
-    assert load_spl_policy(tenant_id="tenantA").allowed_indexes == load_spl_policy().allowed_indexes
