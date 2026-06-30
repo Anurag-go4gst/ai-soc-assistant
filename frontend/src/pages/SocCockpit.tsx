@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import type { PlaceholderResponse } from '@/types/api';
 
 export function SocCockpit() {
@@ -30,12 +31,14 @@ export function SocCockpit() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-slate-300">
-              <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
+              <div className="relative overflow-hidden rounded-md border border-slate-800 bg-slate-950/60 p-3 pl-4">
+                <span className="absolute inset-y-0 left-0 w-1 bg-rose-500/80" />
                 <Badge variant="destructive">Critical</Badge>
-                <p className="mt-2">Selected: brute-force login spike from VPN segment.</p>
+                <p className="mt-2 leading-relaxed">Selected: brute-force login spike from VPN segment.</p>
               </div>
               {lastTrace ? (
-                <div className="rounded-md border border-cyan-500/25 bg-cyan-500/8 p-3">
+                <div className="relative overflow-hidden rounded-md border border-cyan-500/25 bg-cyan-500/8 p-3 pl-4">
+                  <span className="absolute inset-y-0 left-0 w-1 bg-cyan-400/80" />
                   <Badge>Latest trace</Badge>
                   <p className="mt-2 break-all font-mono text-[0.7rem] text-cyan-100">{lastTrace.trace_id}</p>
                 </div>
@@ -100,43 +103,45 @@ export function SocCockpit() {
   );
 }
 
+function TraceStat({ label, value }: { label: string; value: string }) {
+  const empty = value === '—';
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <span className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</span>
+      <span className={cn('truncate text-xs font-medium', empty ? 'text-slate-600' : 'text-slate-100')}>{value}</span>
+    </div>
+  );
+}
+
 function TraceSummaryStrip({ trace }: { trace: PlaceholderResponse | null }) {
+  const stats: Array<{ label: string; value: string }> = [
+    { label: 'Route', value: trace?.selected_skill ?? '—' },
+    { label: 'Confidence', value: typeof trace?.confidence === 'number' ? trace.confidence.toFixed(2) : '—' },
+    { label: 'Plan', value: trace?.tool_plan?.join(' → ') ?? '—' },
+    {
+      label: 'Compare',
+      value: typeof trace?.disagreement === 'boolean' ? (trace.disagreement ? 'disagree' : 'agree') : '—',
+    },
+    {
+      label: 'Workflow',
+      value: trace?.workflow_plan ? `${trace.workflow_plan.steps.length} steps · ${trace.workflow_plan.status}` : '—',
+    },
+  ];
   return (
     <Card className="soc-panel shrink-0">
-      <CardContent className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs">
-        <div className="flex flex-wrap items-center gap-3 text-slate-400">
-          <span className="soc-eyebrow">Trace</span>
-          <span>
-            Route: <span className="font-medium text-slate-200">{trace?.selected_skill ?? '—'}</span>
-          </span>
-          <span>
-            Confidence:{' '}
-            <span className="font-medium text-slate-200">
-              {typeof trace?.confidence === 'number' ? trace.confidence.toFixed(2) : '—'}
-            </span>
-          </span>
-          <span>
-            Plan: <span className="font-medium text-slate-200">{trace?.tool_plan?.join(' → ') ?? '—'}</span>
-          </span>
-          <span>
-            Compare:{' '}
-            <span className="font-medium text-slate-200">
-              {typeof trace?.disagreement === 'boolean' ? (trace.disagreement ? 'disagree' : 'agree') : '—'}
-            </span>
-          </span>
-          <span>
-            Workflow:{' '}
-            <span className="font-medium text-slate-200">
-              {trace?.workflow_plan ? `${trace.workflow_plan.steps.length} steps, ${trace.workflow_plan.status}` : '—'}
-            </span>
-          </span>
+      <CardContent className="flex items-center gap-4 px-4 py-2.5">
+        <span className="soc-eyebrow shrink-0">Trace</span>
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
+          {stats.map((stat) => (
+            <TraceStat key={stat.label} label={stat.label} value={stat.value} />
+          ))}
         </div>
         <Link
           to={trace?.trace_id ? `/debug?trace_id=${encodeURIComponent(trace.trace_id)}` : '/debug'}
-          className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-900/70 px-2.5 py-1 font-medium text-slate-200 hover:border-cyan-500/50 hover:text-cyan-100"
+          className="inline-flex shrink-0 items-center gap-1.5 self-stretch rounded-md border border-slate-700 bg-slate-900/70 px-3 text-xs font-medium text-slate-200 transition hover:border-cyan-500/50 hover:text-cyan-100"
         >
           <Bug className="h-3.5 w-3.5" />
-          Open Debug
+          Debug
         </Link>
       </CardContent>
     </Card>
