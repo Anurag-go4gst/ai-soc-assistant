@@ -18,20 +18,30 @@ are **content/relevance** gaps, separate from dispatch. Curated evals pass
 
 ## Root-cause analysis (from live traces)
 
-### Finding A — non-SOC-STD deterministic skeleton is rejected, not normalized (P1)
+### Finding A — template-incompatible degrade BYPASSES the LLM compiler (P1, the real bug)
 Query: "Which users have excessive failed logins across Windows hosts in the last hour".
-- `generation_mode = deterministic_user_bound_skeleton`,
-  `selected_candidate_spl_provider = use_case_catalog_default_raw_template`.
-- Candidate SPL: `search (index=*) | eval event_code_norm=... | where event_code_norm IN (4625) | table ... | head 100`.
-- `reject_reasons`: `disallowed_command:eval,table`, `disallowed_index`,
-  `missing_aggregation`, `missing_binding:group_by_user`, `wildcard_index_not_allowed`,
-  `missing_sourcetype`, ... (9 total) → HIL `intent_clarification`/"source profile missing".
+Evidence (`spl_binding_trace.template_compatibility`):
+- Correct template MATCHED: `auth_failed_login_spike`.
+- `compatible: false`, `incompatible_reasons: ["drops_explicit_event_code:4625"]`
+  — template is `action=failure` (generic auth); the user asked Windows event
+  `4625`, which the rigid template would drop → flagged incompatible.
+- `use_user_bound_skeleton: true` → degraded to a LEGACY deterministic skeleton
+  builder → `search (index=*) | eval ... | where event_code_norm IN (4625) | table ... | head 100`.
+- Validator rejected (9 reasons: `disallowed_command:eval,table`,
+  `wildcard_index_not_allowed`, `missing_aggregation`, `missing_binding:group_by_user`,
+  `missing_sourcetype`, ...) → HIL.
 
-**Root cause:** the catalog *default raw template* (skeleton builder) emits a
-non-SOC-STD query (wildcard index, `eval`/`table`, no `stats` aggregation, no
-group-by on the asked entity `user`). It hits the validator **raw** and is
-rejected. There is no normalization/repair step between skeleton generation and
-validation. The same gap applies to free-form LLM SPL.
+**Root cause (NOT "needs more deterministic"):** when a governed template matches
+but is incompatible with the user's explicit constraints
+(`check_template_compatibility.use_user_bound_skeleton=true`), the code falls to a
+**legacy deterministic user-bound skeleton** in `_candidate_from_default_template`
+(`customize_template_spl_with_trace(force_user_skeleton=True)`). This fires
+**before** the LLM plan-compiler — even though dispatch already scheduled the
+`spl_plan_compiler` hop. So the LLM SPL path (built in the canonical-dispatch
+work) is **bypassed for exactly the queries that need it** (template-incompatible),
+and a non-SOC-STD skeleton is surfaced+rejected instead. Non-template queries DO
+reach the LLM (verified live: outbound-exfil → `llm_spl_advisory_fallback`
+`candidate_ready`), so the LLM works; the **precedence is wrong**.
 
 ### Finding B — index/sourcetype not bound from Environment Knowledge (P1)
 - `spl_source_resolve = {}` (empty) on the failing turn — the COE Environment
@@ -69,19 +79,25 @@ intent; MITRE technique IDs named in the query are not auto-mapped into
 
 ## Workstreams (atomic; Do / Verify / Depends / Evidence)
 
-### WS1 — Mandatory SPL normalization (paraphraser) before validation
-- [ ] **Do:** route every candidate SPL (skeleton + free-form LLM) through
-      `deterministic_spl_repair.repair_spl_candidate` (or the
-      `llm_plan_compiler` plan→compile shape) BEFORE `validate_spl`, so output is
-      SOC-STD by construction (allowed commands, coalesce `stats` aggregation,
-      group-by asked entity, strftime-after-stats, time bound, `head 100`).
-      **Verify:** the failed-logins-windows query yields an approved/clean SPL (or
-      a placeholder-only lab draft), not 9 reject reasons. `pytest` new case +
-      live re-probe trace shows `generation_mode` normalized, 0 `disallowed_command`.
-      **Depends:** none. **Evidence:** _____.
-- [ ] **Do:** keep normalization deterministic + review-only; never flip
-      `execution_eligible`. **Verify:** `execution_eligible=false` retained;
-      governance byte-identical on curated evals. **Evidence:** _____.
+### WS1 — Route template-incompatible to the LLM compiler (not the legacy skeleton)
+- [ ] **Do:** in `_candidate_from_default_template`, when
+      `check_template_compatibility.use_user_bound_skeleton` is true, do NOT emit
+      the legacy deterministic skeleton. Instead route to the LLM plan-compiler
+      (`generate_llm_spl_via_plan`, already scheduled via the `spl_plan_compiler`
+      hop) with the user's explicit constraints (e.g. event_code 4625, group-by
+      user) in the plan inputs. **Verify:** failed-logins-windows trace shows
+      `spl_path=llm_spl_advisory_fallback` (or plan-compiler), NOT
+      `used_user_bound_skeleton=true`. **Depends:** none. **Evidence:** _____.
+- [ ] **Do:** retire / fence the `force_user_skeleton` deterministic builder so it
+      can never surface non-SOC-STD SPL (it currently emits `index=*`+`eval/table`).
+      **Verify:** no candidate path produces `disallowed_command`/`wildcard_index`.
+      **Evidence:** _____.
+- [ ] **Do:** normalize the LLM/compiler output via the deterministic paraphraser
+      (`deterministic_spl_repair` / plan-compile shape) before `validate_spl` so it
+      is SOC-STD by construction; review-only, never flip `execution_eligible`.
+      **Verify:** approved/clean or placeholder lab draft, 0 reject reasons;
+      `execution_eligible=false`; governance byte-identical on curated evals.
+      **Evidence:** _____.
 
 ### WS2 — Environment-Knowledge index/sourcetype binding on ALL SPL paths
 - [ ] **Do:** wire `resolve_spl_source_profile` (COE `coe_env` tier) into the
