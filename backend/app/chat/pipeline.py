@@ -596,6 +596,21 @@ def _persist_live_chat_telemetry(
                 model=record.get("model"),
             )
             _count_llm_call(record)
+        try:
+            from app.chat.final_output_trace import build_final_output_trace
+
+            final_output = build_final_output_trace(payload)
+            telemetry.record_step(
+                trace_id,
+                "node.finalize_response",
+                run_status,
+                selected_skill=payload.get("selected_skill"),
+                answer_mode=answer_mode,
+                hil_required=bool(final_output.get("hil_required")) if final_output else None,
+                message_preview=(final_output.get("message") or "")[:240] or None,
+            )
+        except Exception:  # noqa: BLE001 - telemetry must never break chat
+            logger.warning("finalize_response_step_failed", exc_info=True)
         telemetry.end_trace(
             trace_id,
             status=run_status,

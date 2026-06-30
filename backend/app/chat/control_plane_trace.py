@@ -98,6 +98,12 @@ def build_control_plane_trace(
         "resource_planner": _resource_planner_trace(state),
         "llm_advisory_trace": _llm_advisory_trace(state),
         "spl_authoring_trace": _spl_authoring_trace(state),
+        "intent_dispatch": state.get("intent_dispatch")
+        if isinstance(state.get("intent_dispatch"), dict)
+        else None,
+        "pipeline_dispatch": state.get("pipeline_dispatch")
+        if isinstance(state.get("pipeline_dispatch"), dict)
+        else None,
     }
     run_contract = state.get("run_contract") if isinstance(state.get("run_contract"), dict) else None
     final_evidence_gate = (

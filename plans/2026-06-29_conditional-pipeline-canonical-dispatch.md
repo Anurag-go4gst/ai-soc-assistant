@@ -25,7 +25,7 @@ todos:
     status: done
   - id: phase2c-debug-traces
     content: final_output in debug bundle; extend debug_summary (output/intent/dispatch); fix answer_preview; DebugPage final answer panel
-    status: pending
+    status: done
   - id: phase5-pre-spl-mcp
     content: graph_node_pre_spl_mcp_discovery + optional mcp_tool_planner LlmHop; update mcp_discovery_context on PipelineRuntimeContext
     status: pending

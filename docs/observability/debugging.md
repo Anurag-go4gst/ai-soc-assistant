@@ -38,6 +38,10 @@ returns 404; when the user lacks access, 403.
 | **Why no LLM / was a model actually called** | `explainability.debug_summary.llm` (`live_calls`, `skipped_roles`, `spl_path`, `spl_live_called`) + trace list `llm_live_calls` (not `llm_used`, which tracks SPL advisory flags). Timeline `llm_call` events for per-hop detail. |
 | **Is the LLM working / why not** | readiness `llm` block + timeline `llm_call` events: `role`, `outcome` (`completed`/`timed_out`/`dropped`/`blocked`), `latency_ms`, `model`; counters `llm_calls_total`/`llm_calls_timed_out`/`llm_calls_fallback` |
 | **Why this route / catalog steal** | trace list `match_path` + `use_case_id` + `matched_pattern`; bundle `debug_summary.routing` |
+| **What answer did the analyst see** | `explainability.final_output` (redacted `message`, `analyst_summary`, severity, MITRE status, HIL) + trace list `answer_preview` (prefers real message over RunContract template) |
+| **2C intent / dispatch schedule** | `explainability.debug_summary.intent` (`prompt_mode`, `call_2c_llm`, slots) + `debug_summary.dispatch` (`request_mode`, `stage_schedule`, `llm_hops`); mirrored on `control_plane_trace.intent_dispatch` / `pipeline_dispatch` |
+| **SPL postprocessor proof** | `debug_summary.spl.postprocessor_evaluated`, `postprocessor_applied`, `no_op_reason`, `spl_raw_hash` / `spl_post_hash` |
+
 | **Is MCP working / why not** | readiness `mcp` block + timeline `mcp_execution` events (15 event types incl. block/fail reasons) |
 | **Is a response coming / why not** | run `status` (`completed`/`human_review`/`error`) + `duration_ms` |
 | **How the answer was produced / which nodes** | timeline `node.*` steps with per-node `duration_ms` |

@@ -1542,6 +1542,20 @@ export interface DebugSummarySkippedRole {
   reason: string;
 }
 
+export interface DebugFinalOutput {
+  message?: string | null;
+  analyst_summary?: string | null;
+  selected_skill?: string | null;
+  answer_mode?: string | null;
+  severity_label?: string | null;
+  mitre_status?: string | null;
+  hil_required?: boolean;
+  hil_reason?: string | null;
+  guard_status?: string | null;
+  final_answer_safety_status?: string | null;
+  execution_status?: string | null;
+}
+
 export interface DebugSummary {
   routing?: {
     match_path?: string | null;
@@ -1565,6 +1579,12 @@ export interface DebugSummary {
     approved?: boolean | null;
     reject_reasons?: string[];
     normalized_spl?: boolean;
+    postprocessor_evaluated?: boolean;
+    postprocessor_applied?: boolean;
+    no_op_reason?: string | null;
+    spl_raw_hash?: string | null;
+    spl_post_hash?: string | null;
+    detection_plan?: Record<string, unknown> | null;
   };
   mcp?: {
     allowed?: boolean;
@@ -1575,6 +1595,22 @@ export interface DebugSummary {
     required?: boolean;
     kind?: string | null;
     reason?: string | null;
+  };
+  output?: DebugFinalOutput;
+  intent?: {
+    call_2c_llm?: boolean | null;
+    prompt_mode?: string | null;
+    skip_reasons?: string[];
+    intent_family_candidate?: string | null;
+    entity_slots?: Record<string, string>;
+    llm_intent_assist_status?: string | null;
+  };
+  dispatch?: {
+    request_mode?: string | null;
+    stage_schedule?: string[];
+    llm_hops?: string[];
+    dispatch_reasons?: string[];
+    dispatch_cursor?: string | null;
   };
 }
 
@@ -1627,6 +1663,7 @@ export interface DebugTraceBundle {
     governance_trace?: Record<string, unknown> | null;
     lineage_summary?: Record<string, unknown> | null;
     llm_sidecars?: Record<string, unknown> | null;
+    final_output?: DebugFinalOutput | null;
   };
   turn_id?: string | null;
 }

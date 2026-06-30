@@ -254,6 +254,7 @@ _METADATA_PRIORITY_KEYS = (
     "llm_live_calls",
     "mcp_used",
     "debug_summary",
+    "final_output",
     "control_plane_trace",
     "run_contract",
     "match_path",
@@ -282,6 +283,8 @@ def _slim_control_plane_trace(control_plane_trace: dict[str, Any]) -> dict[str, 
         "llm_turn_budget",
         "llm_composer",
         "mcp_execution",
+        "intent_dispatch",
+        "pipeline_dispatch",
     )
     return {key: control_plane_trace[key] for key in keep if key in control_plane_trace}
 
