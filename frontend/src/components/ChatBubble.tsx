@@ -2,6 +2,7 @@ import { Bot, ChevronRight, ShieldAlert, User } from 'lucide-react';
 import { AnalystResponseCard } from '@/components/AnalystResponseCard';
 import { AnalystSummaryCard } from '@/components/AnalystSummaryCard';
 import { AnswerFeedbackControls } from '@/components/AnswerFeedbackControls';
+import { EcVisualLanesPanel } from '@/components/EcVisualLanesPanel';
 import { HumanReviewCard } from '@/components/HumanReviewCard';
 import { InvestigationLineagePanel } from '@/components/InvestigationLineagePanel';
 import { InvestigationProgressPanel } from '@/components/InvestigationProgressPanel';
@@ -105,6 +106,9 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
           />
         ) : null}
         {showSummaryOnly ? <AnalystSummaryCard trace={message.trace!} /> : null}
+        {showFullAnswer && message.trace?.ec_visual_lanes ? (
+          <EcVisualLanesPanel lanes={message.trace.ec_visual_lanes} />
+        ) : null}
         {showFullAnswer && message.trace?.analyst_response ? (
           <AnalystResponseCard
             response={message.trace.analyst_response}

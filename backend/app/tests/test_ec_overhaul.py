@@ -42,6 +42,7 @@ def _reset_fsm() -> None:
 def test_registry_has_ten_pickable_scenarios() -> None:
     pickable = S.list_demo_scenarios()
     assert len(pickable) == 10
+    assert pickable[0]["scenario_id"] == "firewall_deny_coordinated_attack"
     # The clarification (fsm_step==0) turn is internal, not pickable.
     ids = {item["scenario_id"] for item in pickable}
     assert "mitre_mapping_requires_context" not in ids
@@ -51,12 +52,9 @@ def test_registry_has_ten_pickable_scenarios() -> None:
 def test_categories_match_plan_buckets() -> None:
     categories = {item["category"] for item in S.list_demo_scenarios()}
     expected = {
-        "Alert Triage",
-        "Threat Hunt",
-        "SPL",
+        "Coordinated Firewall Incident",
         "MITRE",
         "Knowledge & Compliance",
-        "OT/ICS",
         "Guided (out-of-catalog)",
     }
     assert categories == expected
