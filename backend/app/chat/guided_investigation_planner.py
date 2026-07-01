@@ -142,6 +142,8 @@ def _merge_unique(baseline_values: list[str], proposal_values: list[str]) -> lis
 def validate_investigation_plan(
     baseline: InvestigationPlan,
     proposal: InvestigationPlan | dict[str, Any] | None = None,
+    *,
+    llm_attempted: bool = False,
 ) -> InvestigationPlan:
     """Validate and merge an InvestigationPlan proposal; baseline wins on conflict."""
     warnings: list[str] = list(baseline.validation_warnings)
@@ -223,8 +225,34 @@ def validate_investigation_plan(
         )
     )
     plan_source = baseline.plan_source
-    if proposal_data:
-        plan_source = "llm_proposed_validated" if accepted_proposal else "deterministic_only"
+    if llm_attempted:
+        plan_source = "llm_proposed_validated" if accepted_proposal else "llm_failed_baseline_only"
+    elif proposal_data and accepted_proposal:
+        plan_source = "llm_proposed_validated"
+
+    llm_budget_used = baseline.llm_budget_used
+    if llm_attempted:
+        llm_budget_used = max(llm_budget_used, 1)
+
+    spl_review_requested = baseline.spl_review_requested
+    if llm_attempted and proposal_data.get("spl_review_requested") is True:
+        spl_review_requested = True
+
+    clarification_needed = baseline.clarification_needed
+    if llm_attempted and proposal_data.get("clarification_needed") is True:
+        clarification_needed = True
+
+    refinement_recommended = baseline.refinement_recommended
+    if llm_attempted and proposal_data.get("refinement_recommended") is True:
+        refinement_recommended = True
+
+    refinement_rationale = baseline.refinement_rationale
+    proposed_rationale = proposal_data.get("refinement_rationale")
+    if isinstance(proposed_rationale, str) and proposed_rationale.strip():
+        if _contains_raw_spl(proposed_rationale):
+            warnings.append("dropped_unsafe_refinement_rationale")
+        else:
+            refinement_rationale = proposed_rationale.strip()[:400]
 
     return InvestigationPlan(
         investigation_objective=objective,
@@ -232,8 +260,10 @@ def validate_investigation_plan(
         evidence_needed=_merge_unique(baseline.evidence_needed, proposal_evidence),
         data_categories=_merge_unique(baseline.data_categories, proposal_categories),
         rag_sufficient=baseline.rag_sufficient,
-        env_kb_needed=baseline.env_kb_needed or bool(proposal_data.get("env_kb_needed")),
-        discovery_needed=baseline.discovery_needed,
+        env_kb_needed=baseline.env_kb_needed
+        or (llm_attempted and bool(proposal_data.get("env_kb_needed"))),
+        discovery_needed=baseline.discovery_needed
+        or (llm_attempted and bool(proposal_data.get("discovery_needed"))),
         environment_constraints=_merge_unique(
             baseline.environment_constraints,
             proposal_constraints,
@@ -247,19 +277,19 @@ def validate_investigation_plan(
             baseline.safe_spl_template_requests,
             proposal_templates,
         ),
-        spl_review_requested=baseline.spl_review_requested,
+        spl_review_requested=spl_review_requested,
         spl_review_reason=spl_review_reason,
-        clarification_needed=baseline.clarification_needed,
+        clarification_needed=clarification_needed,
         clarification_questions=_merge_unique(
             baseline.clarification_questions,
             proposal_questions,
         ),
-        refinement_recommended=baseline.refinement_recommended,
-        refinement_rationale=baseline.refinement_rationale,
+        refinement_recommended=refinement_recommended,
+        refinement_rationale=refinement_rationale,
         blocked_capabilities=list(baseline.blocked_capabilities),
         human_review_required=True,
         plan_source=plan_source,
         validation_warnings=warnings,
-        llm_budget_used=baseline.llm_budget_used,
+        llm_budget_used=llm_budget_used,
         refinement_round=baseline.refinement_round,
     )

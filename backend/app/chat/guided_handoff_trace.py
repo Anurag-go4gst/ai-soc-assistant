@@ -15,6 +15,7 @@ def build_guided_handoff_trace(
     resource_plan_pre_validation: ResourcePlan,
     resource_plan_validated: ResourcePlan,
     blocked_resources: list[dict[str, Any]],
+    investigation_plan_raw_llm: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build ``control_plane_trace.guided_handoff`` for batch 1."""
     safe_template_ids = [
@@ -29,7 +30,7 @@ def build_guided_handoff_trace(
     ]
     return {
         "investigation_plan_validated": investigation_plan_validated.model_dump(),
-        "investigation_plan_raw_llm": None,
+        "investigation_plan_raw_llm": investigation_plan_raw_llm,
         "resource_plan_pre_validation": resource_plan_pre_validation.summary(),
         "resource_plan_validated": resource_plan_validated.summary(),
         "blocked_resources": blocked_resources,

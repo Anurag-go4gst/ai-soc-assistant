@@ -757,17 +757,51 @@ Sample probe query (all phases):
 
 ---
 
-## Checklist (REV3 full roadmap — batch 2+)
+## Checklist (REV4 batch 2 — phases P9–P14)
 
-Legacy items **9–18** from original checklist remain for batch 2 after batch 1 handoff is green:
+Sample probe query (all phases):
 
-| Legacy ID | Batch 2 scope |
-|-----------|---------------|
-| 6 (LLM) | Bounded LLM propose on blocking path |
-| 8–9 | MCP capability classes + safe SPL catalog allowlist + execution hop |
-| 10 | Pre-dispatch skip (partially in P8) |
-| 11 | Full collection inside dispatch |
-| 13–18 | Refinement, Final Evidence Gate integration, AnswerContract, HIL offer, negative tests, docs |
+`How should I investigate unusual outbound traffic from an OT host overnight?`
+
+- [x] **P9** — Bounded LLM InvestigationPlan propose (blocking path)
+  - **Do:** Add `guided_investigation_plan_llm.propose_investigation_plan_llm()`; wire into `_run_guided_hybrid_dispatch` before Validator A; populate `guided_handoff.investigation_plan_raw_llm`; budget ≤15s; fallback `plan_source=llm_failed_baseline_only` on failure.
+  - **Verify:** `pytest app/tests/test_guided_investigation_plan_llm.py -q`; mock LLM merges hypotheses; timeout → baseline only + `llm_failed_baseline_only`; flag-off unchanged.
+  - **Depends on:** P1–P8 (merged)
+  - **Evidence:** `pytest app/tests/test_guided_investigation_plan_llm.py app/tests/test_guided_hybrid_dispatch.py app/tests/test_guided_hybrid_trace_baseline.py -q` → **30 passed**; `guided_investigation_plan_llm.py` wired in `_run_guided_hybrid_dispatch`; role `guided_investigation_plan_proposer` @ 15s timeout.
+
+- [ ] **P10** — `guided_safe_spl_catalog.json` allowlist + COE stub
+  - **Do:** Create allowlist JSON with per-template caps; Validator B reads allowlist; no execution hop yet.
+  - **Verify:** `pytest app/tests -k guided_safe_spl_catalog -q`; unknown template ID blocked with stable reason code.
+  - **Depends on:** P9
+  - **Evidence:** _(filled when done)_
+
+- [ ] **P11** — MCP capability classes in playbook + registry
+  - **Do:** Add `capability_class` to `mcp_tool_playbook.json`; mirror in `resource_registry_v1.json`; Validator B enforces class allowlist.
+  - **Verify:** `pytest app/tests/test_guided_capability_validator.py -q` extended; freeform/action tools blocked on guided plan.
+  - **Depends on:** P10
+  - **Evidence:** _(filled when done)_
+
+- [ ] **P12** — Safe evidence collection inside hybrid dispatch
+  - **Do:** Execute approved `mcp_discovery` + `safe_catalog_query` steps only when capabilities allow; update `evidence_collected` in `guided_handoff`; still no `graph_node_execution` / freeform `run_query`.
+  - **Verify:** `pytest app/tests/test_guided_hybrid_dispatch.py -q` collection cases; `evidence_collected` increments only for collected hops.
+  - **Depends on:** P10, P11
+  - **Evidence:** _(filled when done)_
+
+- [ ] **P13** — Refinement round + AnswerContract safe-catalog surfacing
+  - **Do:** Honor `refinement_recommended` with `MAX_GUIDED_INVESTIGATION_ROUNDS`; surface safe-catalog + discovery metadata on AnswerContract.
+  - **Verify:** refinement cap test; AnswerContract fields present flag-on only.
+  - **Depends on:** P12
+  - **Evidence:** _(filled when done)_
+
+- [ ] **P14** — Governance + flag-off byte-identity
+  - **Do:** Run targeted suite + `./scripts/run_stage3_governance_regression.sh`; sync docs.
+  - **Verify:** governance PASS or document known-unrelated drift; flag-off guided hybrid byte-identical.
+  - **Depends on:** P13
+  - **Evidence:** _(filled when done)_
+
+### Batch 2 dependency order
+
+`P9 → P10 → P11 → P12 → P13 → P14`
 
 ---
 

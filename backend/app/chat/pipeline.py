@@ -242,6 +242,7 @@ from app.chat.debug_summary import build_debug_summary
 from app.chat.guided_discovery_promotion import build_guided_discovery_promotion_offer
 from app.chat.guided_handoff_trace import blocked_resources_wire, build_guided_handoff_trace
 from app.chat.guided_hybrid_dispatch import uses_guided_hybrid_dispatch_from_state
+from app.chat.guided_investigation_plan_llm import propose_investigation_plan_llm
 from app.chat.guided_investigation_planner import validate_investigation_plan
 from app.chat.guided_capability_validator import validate_guided_resource_plan
 from app.chat.guided_spl_review_gate import build_guided_spl_draft_preview_if_allowed
@@ -4561,7 +4562,23 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         if isinstance(state.get("soc_kb_retrieval"), dict)
         else None,
     )
-    validated_plan = validate_investigation_plan(baseline)
+    llm_result = propose_investigation_plan_llm(query=query, baseline=baseline)
+    validated_plan = validate_investigation_plan(
+        baseline,
+        llm_result.proposal,
+        llm_attempted=llm_result.attempted,
+    )
+    dispatch_steps = ["guided_baseline"]
+    if llm_result.attempted:
+        dispatch_steps.append("guided_investigation_plan_llm")
+    dispatch_steps.extend(
+        [
+            "validator_a",
+            "compose_guided_resource_plan",
+            "validator_b",
+            "rag_early",
+        ]
+    )
     match_path = getattr(state.get("query_understanding"), "deterministic_match_path", None)
     pre_plan = compose_guided_resource_plan(evidence, validated_plan, match_path=match_path)
     validation = validate_guided_resource_plan(evidence, pre_plan)
@@ -4571,6 +4588,7 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         resource_plan_pre_validation=pre_plan,
         resource_plan_validated=validated_resource,
         blocked_resources=blocked_resources_wire(validation),
+        investigation_plan_raw_llm=llm_result.raw_llm,
     )
 
     evidence_payload["resource_plan"] = validated_resource.model_dump()
@@ -4608,13 +4626,7 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     emit_mcp_status_from_execution(execution)
     trace = {
         "dispatch_source": "guided_hybrid_dispatch",
-        "dispatch_schedule": [
-            "guided_baseline",
-            "validator_a",
-            "compose_guided_resource_plan",
-            "validator_b",
-            "rag_early",
-        ],
+        "dispatch_schedule": dispatch_steps,
     }
     updated: ChatPipelineState = {
         **state,

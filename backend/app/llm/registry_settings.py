@@ -48,6 +48,20 @@ ROLE_DEFAULTS: tuple[dict[str, Any], ...] = (
         "execution_eligible": False,
     },
     {
+        "role": "guided_investigation_plan_proposer",
+        "preferred_provider": INSTRUCT_PROVIDER_ID,
+        "preferred_model": INSTRUCT_DEFAULT_MODEL,
+        "mode": "advisory",
+        "output": "guided_investigation_plan_propose JSON",
+        "authority": "low",
+        "validator_required": True,
+        "strict_json": True,
+        "temperature": 0.0,
+        "max_input_tokens": 3000,
+        "max_output_tokens": 700,
+        "execution_eligible": False,
+    },
+    {
         "role": "investigation_note_drafter",
         "preferred_provider": INSTRUCT_PROVIDER_ID,
         "preferred_model": INSTRUCT_DEFAULT_MODEL,
@@ -219,6 +233,10 @@ ROLE_DEFAULTS: tuple[dict[str, Any], ...] = (
 
 ROLE_ENV_MAP: dict[str, tuple[str, str]] = {
     "intent_shadow_classifier": ("ai_soc_llm_intent_provider", "ai_soc_llm_intent_model"),
+    "guided_investigation_plan_proposer": (
+        "ai_soc_llm_intent_provider",
+        "ai_soc_llm_intent_model",
+    ),
     "analyst_response_drafter": ("ai_soc_llm_synthesis_provider", "ai_soc_llm_synthesis_model"),
     "investigation_note_drafter": ("ai_soc_llm_synthesis_provider", "ai_soc_llm_synthesis_model"),
     "pattern_reasoner": ("ai_soc_llm_reasoning_provider", "ai_soc_llm_reasoning_model"),
