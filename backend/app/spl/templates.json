@@ -1874,6 +1874,74 @@
       "result_limit_required": true
     },
     {
+      "template_id": "email_phishing_header_review",
+      "status": "planned",
+      "use_case_id": "email_phishing_header_review",
+      "name": "Email phishing header review (planned)",
+      "description": "Planned read-only mail aggregation for header/authentication review. Disabled until COE enables.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<mail_index> sourcetype=<mail_sourcetype> earliest=-24h latest=now | stats count values(sender) as sender values(return_path) as return_path values(reply_to) as reply_to values(spf_result) as SPF values(dkim_result) as DKIM values(dmarc_result) as DMARC by recipient | head 100",
+      "returned_fields": [
+        "sender",
+        "return_path",
+        "reply_to",
+        "SPF",
+        "DKIM",
+        "DMARC",
+        "recipient"
+      ],
+      "validation_rules": {
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:mail"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "validator_profile": "raw_search_v1"
+    },
+    {
+      "template_id": "endpoint_ransomware_impact_review",
+      "status": "planned",
+      "use_case_id": "endpoint_ransomware_impact_review",
+      "name": "Endpoint ransomware impact review (planned)",
+      "description": "Planned read-only endpoint aggregation for encryption/impact signals. Disabled until COE enables.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now | stats count as file_rename_count values(extension_pattern) as extension_pattern values(affected_paths) as affected_paths values(process_name) as process_name min(_time) as first_seen max(_time) as last_seen by host | head 100",
+      "returned_fields": [
+        "host",
+        "file_rename_count",
+        "extension_pattern",
+        "affected_paths",
+        "process_name",
+        "first_seen",
+        "last_seen"
+      ],
+      "validation_rules": {
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:edr"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "validator_profile": "raw_search_v1"
+    },
+    {
       "template_id": "sample_powershell_suspicious_execution",
       "status": "sample",
       "use_case_id": "sample_powershell_suspicious_execution",
