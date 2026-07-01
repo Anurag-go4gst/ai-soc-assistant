@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "profiles": [
+    {
+      "id": "coe",
+      "label": "COE (Velocis LAN)",
+      "description": "COE final testing: Foundation-Sec 8B reasoning @ 10.52.1.13:8002, full control plane, mock MCP execution, PowerGrid source profiles.",
+      "example_file": "coe.env.example",
+      "recommended_for": ["coe", "velocis", "powergrid"]
+    },
+    {
+      "id": "development",
+      "label": "Development (VPS llama-server)",
+      "description": "On-host llama-server via host.docker.internal:8081 (Foundation-Sec instruct GGUF). Same governance flags as COE lab profile.",
+      "example_file": "development.env.example",
+      "recommended_for": ["vps", "dev", "local"]
+    }
+  ]
+}

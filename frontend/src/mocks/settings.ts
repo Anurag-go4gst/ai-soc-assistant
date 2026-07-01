@@ -275,6 +275,40 @@ export const MOCK_SETTINGS_STATUS: SettingsStatus = {
     fallback_count: 0,
     direct_llm_to_mcp_tool_calling: false,
   },
+  deployment: {
+    active_profile_id: 'coe',
+    active_profile: {
+      id: 'coe',
+      label: 'COE (Velocis LAN)',
+      description: 'Foundation-Sec 8B reasoning @ 10.52.1.13:8002',
+      example_file: 'coe.env.example',
+      recommended_for: ['coe'],
+      example_exists: true,
+    },
+    profiles: [
+      {
+        id: 'coe',
+        label: 'COE (Velocis LAN)',
+        description: 'Foundation-Sec 8B reasoning @ 10.52.1.13:8002',
+        example_file: 'coe.env.example',
+        recommended_for: ['coe'],
+        example_exists: true,
+      },
+      {
+        id: 'development',
+        label: 'Development (VPS llama-server)',
+        description: 'host.docker.internal:8081 instruct',
+        example_file: 'development.env.example',
+        recommended_for: ['dev'],
+        example_exists: true,
+      },
+    ],
+    profile_example_path: 'env/profiles/coe.env.example',
+    profile_example_exists: true,
+    active_profile_file: 'env/active.profile',
+    root_env_path: '.env',
+    reload_note: 'Restart backend after profile change.',
+  },
 };
 
 export const MOCK_PROVIDER_SETTINGS_STATUS: ProviderSettingsStatus = {

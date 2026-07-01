@@ -30,6 +30,7 @@ from app.connectors.mcp.registry import SUPPORTED_MCP_TYPES, SUPPORTED_TRANSPORT
 from app.connectors.rag import get_rag_connector
 from app.connectors.telemetry import get_telemetry_connector, metrics
 from app.auth.session import require_auth
+from app.env_profiles import build_env_profile_status, select_profile
 from app.intel.ioc_registry import save_ioc_registry_document, summarize_ioc_registry_for_settings
 from app.environment.asset_registry_store import (
     import_asset_registry_payload,
@@ -116,6 +117,19 @@ class LlmRoleMappingDraft(BaseModel):
     role: str
     provider: str = ""
     model: str = ""
+
+
+class EnvProfileSelectRequest(BaseModel):
+    profile_id: str
+
+
+def _require_env_profile_admin(user: dict) -> None:
+    role = str(user.get("role") or "").strip().lower()
+    if role not in {"soc_lead", "platform_admin", "security_admin"}:
+        raise HTTPException(
+            status_code=403,
+            detail="env_profile_admin_required",
+        )
 
 
 class LlmSettingsDraftCheckRequest(BaseModel):
@@ -380,6 +394,7 @@ def settings_status() -> dict:
             "fallback_count": 0,
             "direct_llm_to_mcp_tool_calling": False,
         },
+        "deployment": build_env_profile_status(),
     }
 
 
@@ -1943,4 +1958,52 @@ def save_ioc_registry_settings(payload: IocRegistrySaveRequest) -> dict:
     return {
         "saved": True,
         **summary,
+    }
+
+
+@router.get("/settings/env-profiles")
+def get_env_profiles_settings() -> dict:
+    return build_env_profile_status()
+
+
+@router.post("/settings/env-profile")
+def post_env_profile_settings(
+    payload: EnvProfileSelectRequest,
+    user: dict = Depends(require_auth),
+) -> dict:
+    _require_env_profile_admin(user)
+    try:
+        result = select_profile(payload.profile_id.strip())
+    except ValueError as exc:
+        code = str(exc)
+        status_code = 404 if code in {"unknown_profile", "profile_example_missing"} else 400
+        raise HTTPException(status_code=status_code, detail=code) from exc
+    return {
+        "accepted": True,
+        "requested_by": str(user.get("username") or "unknown"),
+        **result,
+    }
+
+
+@router.get("/settings/env-profiles")
+def get_env_profiles_settings() -> dict:
+    return build_env_profile_status()
+
+
+@router.post("/settings/env-profile")
+def post_env_profile_settings(
+    payload: EnvProfileSelectRequest,
+    user: dict = Depends(require_auth),
+) -> dict:
+    _require_env_profile_admin(user)
+    try:
+        result = select_profile(payload.profile_id.strip())
+    except ValueError as exc:
+        code = str(exc)
+        status_code = 404 if code in {"unknown_profile", "profile_example_missing"} else 400
+        raise HTTPException(status_code=status_code, detail=code) from exc
+    return {
+        "accepted": True,
+        "requested_by": str(user.get("username") or "unknown"),
+        **result,
     }

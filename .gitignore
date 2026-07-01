@@ -1,4 +1,6 @@
 .env
+env/profiles/*.env
+!env/profiles/*.env.example
 __pycache__/
 .pytest_cache/
 .venv/

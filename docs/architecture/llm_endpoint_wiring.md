@@ -31,3 +31,21 @@ No Qwen hop. Sidecars and narration use Instruct via `LOCAL_*` (or instruct vars
 If no endpoint is configured, sidecars skip and answers stay deterministic.
 
 Code: `backend/app/llm/clients/endpoint_resolver.py`.
+
+## COE Foundation-Sec 8B reasoning (`:8002`)
+
+Verified smoke test — full notes: [`docs/coe/COE_FOUNDATION_SEC_8B_REASONING_HANDOFF.md`](../coe/COE_FOUNDATION_SEC_8B_REASONING_HANDOFF.md).
+
+```env
+AI_SOC_LLM_ENABLED=true
+AI_SOC_LLM_MODE=local
+AI_SOC_LLM_LOCAL_BASE_URL=http://10.52.1.13:8002/v1
+AI_SOC_LLM_LOCAL_API_KEY=not-needed
+AI_SOC_LLM_LOCAL_MODEL=foundation-sec-8b-reasoning
+AI_SOC_LLM_FOUNDATION_SEC_REASONING_BASE_URL=http://10.52.1.13:8002/v1
+AI_SOC_LLM_FOUNDATION_SEC_REASONING_MODEL=foundation-sec-8b-reasoning
+AI_SOC_LLM_MAX_INPUT_TOKENS=12000
+AI_SOC_LLM_TIMEOUT_SECONDS=120
+```
+
+**Caveats from smoke test:** JSON `response_format` returned `{}`; reasoning tags may appear in `content`. SPL LLM failover needs infra JSON fix before production reliance.
