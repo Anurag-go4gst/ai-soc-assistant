@@ -382,6 +382,10 @@ class Settings(BaseSettings):
     # Two-stage pipeline dispatch authority (intent_dispatch + pipeline_dispatch).
     # Default false until Phase 8 green; operator .env may set true for on-host probes.
     ai_soc_pipeline_dispatch_v2_enabled: bool = False
+    # Guided hybrid investigation orchestrator (REV4). Moves ResourcePlan composition
+    # behind validated InvestigationPlan inside guided_hybrid_dispatch. Requires
+    # control_plane_enabled; default false preserves flag-off byte-identical behavior.
+    ai_soc_guided_hybrid_investigation_enabled: bool = False
     # Batch 5 — lightweight investigation session pins (structured only, no transcript).
     ai_soc_session_context_enabled: bool = True
     ai_soc_session_context_ttl_minutes: int = 30
