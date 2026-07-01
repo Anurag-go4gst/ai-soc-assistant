@@ -1816,6 +1816,186 @@
         "spl_code",
         "recommended_actions"
       ]
+    },
+    {
+      "template_id": "sample_ioc_correlation_indicator_match",
+      "status": "sample",
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "name": "Sample: Detection anchor \u2014 IOC indicator correlation (sample, matrix-only)",
+      "description": "BL-004 S1b sample detection-family anchor. Disabled and non-production.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": true,
+      "safety_notes": "Disabled sample anchor for offline coverage matrix only. Runtime routing unchanged.",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_ioc_correlation_indicator_match */",
+      "returned_fields": [
+        "host"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [],
+      "answer_sections_supported": [],
+      "time_bound_required": true,
+      "result_limit_required": true
+    },
+    {
+      "template_id": "sample_threshold_anomaly_volume_spike",
+      "status": "sample",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "name": "Sample: Detection anchor \u2014 threshold / volume anomaly (sample, matrix-only)",
+      "description": "BL-004 S1b sample detection-family anchor. Disabled and non-production.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": true,
+      "safety_notes": "Disabled sample anchor for offline coverage matrix only. Runtime routing unchanged.",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_threshold_anomaly_volume_spike */",
+      "returned_fields": [
+        "host"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [],
+      "answer_sections_supported": [],
+      "time_bound_required": true,
+      "result_limit_required": true
+    },
+    {
+      "template_id": "email_phishing_header_review",
+      "status": "planned",
+      "use_case_id": "email_phishing_header_review",
+      "name": "Email phishing header review (planned)",
+      "description": "Planned read-only mail aggregation for header/authentication review. Disabled until COE enables.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<mail_index> sourcetype=<mail_sourcetype> earliest=-24h latest=now | stats count values(sender) as sender values(return_path) as return_path values(reply_to) as reply_to values(spf_result) as SPF values(dkim_result) as DKIM values(dmarc_result) as DMARC by recipient | head 100",
+      "returned_fields": [
+        "sender",
+        "return_path",
+        "reply_to",
+        "SPF",
+        "DKIM",
+        "DMARC",
+        "recipient"
+      ],
+      "validation_rules": {
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:mail"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "validator_profile": "raw_search_v1"
+    },
+    {
+      "template_id": "endpoint_ransomware_impact_review",
+      "status": "planned",
+      "use_case_id": "endpoint_ransomware_impact_review",
+      "name": "Endpoint ransomware impact review (planned)",
+      "description": "Planned read-only endpoint aggregation for encryption/impact signals. Disabled until COE enables.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": false,
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now | stats count as file_rename_count values(extension_pattern) as extension_pattern values(affected_paths) as affected_paths values(process_name) as process_name min(_time) as first_seen max(_time) as last_seen by host | head 100",
+      "returned_fields": [
+        "host",
+        "file_rename_count",
+        "extension_pattern",
+        "affected_paths",
+        "process_name",
+        "first_seen",
+        "last_seen"
+      ],
+      "validation_rules": {
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:edr"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "validator_profile": "raw_search_v1"
+    },
+    {
+      "template_id": "sample_powershell_suspicious_execution",
+      "status": "sample",
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "name": "Sample: Detection anchor \u2014 suspicious PowerShell / process execution (sample, matrix-only)",
+      "description": "BL-004 S1b sample detection-family anchor. Disabled and non-production.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": true,
+      "safety_notes": "Disabled sample anchor for offline coverage matrix only. Runtime routing unchanged.",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_powershell_suspicious_execution */",
+      "returned_fields": [
+        "host"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [],
+      "answer_sections_supported": [],
+      "time_bound_required": true,
+      "result_limit_required": true
+    },
+    {
+      "template_id": "sample_dlp_exfiltration_volume",
+      "status": "sample",
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "name": "Sample: Detection anchor \u2014 DLP / data exfiltration volume (sample, matrix-only)",
+      "description": "BL-004 S1b sample detection-family anchor. Disabled and non-production.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": true,
+      "safety_notes": "Disabled sample anchor for offline coverage matrix only. Runtime routing unchanged.",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_dlp_exfiltration_volume */",
+      "returned_fields": [
+        "host"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [],
+      "answer_sections_supported": [],
+      "time_bound_required": true,
+      "result_limit_required": true
     }
   ]
 }

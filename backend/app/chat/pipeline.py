@@ -259,6 +259,12 @@ from app.chat.guided_spl_review_gate import build_guided_spl_draft_preview_if_al
 from app.chat.investigation_plan_builder import build_deterministic_investigation_plan
 from app.planner.composer import compose_guided_resource_plan
 from app.chat.pipeline_visibility import build_pipeline_visibility
+from app.chat.pipeline_state_v2 import project_chat_pipeline_state_v2
+from app.chat.routing_skill_nodes import (
+    graph_node_load_skill_enrichment,
+    graph_node_resolve_planning_skill,
+    graph_node_route_live_skill,
+)
 from app.chat.session_context import (
     SessionContextResolution,
     SessionPins,
@@ -353,6 +359,15 @@ class ChatPipelineState(TypedDict, total=False):
     mcp_required_produces: list[str]
     mcp_loop: dict[str, Any]
     mcp_loop_planner: dict[str, Any] | None
+    # C1/C9 v2 additive visibility (packaging mirrors response; routed stays authority).
+    live_execution_skill: str | None
+    planning_or_analytic_skill: str | None
+    skill_enrichment: dict[str, Any] | None
+    spl_template_status: str | None
+    mitre_evidence_status: dict[str, str] | None
+    execution_decision: dict[str, Any] | None
+    final_answer_validation: dict[str, Any] | None
+    node_trace: list[dict[str, Any]]
     response: PlaceholderResponse
 
 
@@ -413,6 +428,10 @@ def _run_live_chat_pipeline(
         "effective_query": session_resolution.effective_query,
     }
     state = _timed_node(state, "init_routing", graph_node_init_routing)
+    if settings.ai_soc_pipeline_split_routing_nodes_enabled:
+        state = _timed_node(state, "route_live_skill", graph_node_route_live_skill)
+        state = _timed_node(state, "resolve_planning_skill", graph_node_resolve_planning_skill)
+        state = _timed_node(state, "load_skill_enrichment", graph_node_load_skill_enrichment)
     state = _timed_node(state, "query_to_intent", graph_node_query_to_intent)
     state = _timed_node(state, "route_resolution", graph_node_route_resolution)
     state = _timed_node(state, "route_contract", graph_node_route_contract)
@@ -3916,6 +3935,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             severity_decision=severity_decision,
             session_context_resolution=session_resolution if isinstance(session_resolution, SessionContextResolution) else None,
         )
+        state = {
+            **state,
+            **project_chat_pipeline_state_v2(
+                state,
+                visibility=visibility,
+                final_answer_validation=final_answer_validation,
+                execution=execution if isinstance(execution, dict) else None,
+                human_review=human_review if isinstance(human_review, dict) else None,
+                use_case_id=use_case_id_for_visibility,
+            ),
+        }
     if settings.control_plane_enabled or guided_without_control_plane or utility_without_control_plane:
         trace_state = {
             **state,

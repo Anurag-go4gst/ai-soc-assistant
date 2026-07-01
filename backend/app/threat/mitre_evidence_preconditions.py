@@ -94,6 +94,18 @@ PRECONDITIONS: tuple[TechniquePrecondition, ...] = (
         "No supporting DNS command-and-control/tunneling telemetry observed; DNS "
         "volume alone is not proof of DNS-based C2.",
     ),
+    TechniquePrecondition(
+        "T1190",
+        "Exploit Public-Facing Application",
+        ("initial_access_evidence",),
+        "No initial-access or exploit evidence observed.",
+    ),
+    TechniquePrecondition(
+        "T1046",
+        "Network Service Discovery",
+        ("discovery_evidence",),
+        "No network service discovery evidence observed.",
+    ),
 )
 
 PRECONDITION_BY_ID: dict[str, TechniquePrecondition] = {

@@ -1,6 +1,8 @@
-# Environment profiles for AI-SOC
+# AI-SOC environment profiles
 
 Stop maintaining multiple full `.env` copies. Use **one profile** + **one secrets file**.
+
+**COE rollout (post S2–S6d):** [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md) — recommended flags, smoke checklist, status classification.
 
 ## Layout
 

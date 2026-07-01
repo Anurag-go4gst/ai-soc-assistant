@@ -39,7 +39,7 @@
 | `docs/skills/pending_skill_enrichment_backlog.md` | D3 | **Done** (slice 0) |
 | `docs/skills/skill_enrichment_status_matrix.md` | D4 | **Done** (slice 0) |
 | `docs/skills/README.md` | D6 | **Done** (slice 0) |
-| `docs/evals/skill_coverage_matrix.json` | D5 / B9 | **Baseline done** (S1a/O8); BL-004 github joins pending |
+| `docs/evals/skill_coverage_matrix.json` | D5 / B9 | **BL-004 closed (S1c)** — 41/105 mapped; 64 genuine gaps |
 
 ### External GitHub reference repository (read-only — not installed in runtime)
 
@@ -1295,7 +1295,7 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 | O3 MITRE status reconcile | **Complete** | `rg '_status_for\(' backend/app/threat/mitre_kb.py` → zero on closeout branch; batch3 + mitre_decision tests |
 | Forward roadmap §P / §K / §R | **Open** | Tracking table below; not closed by this acceptance loop |
 
-**Do not confuse with future work:** This closeout completes the **§O acceptance loop** only. It does **not** complete the forward implementation roadmap. §P / §K / §R remain the active backlog. The next practical slice is **S1a / BL-004** authoritative mapping curation unless reprioritized.
+**Do not confuse with forward work:** §O is closed. **BL-004 offline mapping closed (S1c).** **S2–S6d engineering complete (2026-07-01).** Next: COE rollout config ([`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md)), corpus curation (64 gaps), operator-only MCP, QA decision on split-routing flag.
 
 ### Planning (this document)
 
@@ -1397,13 +1397,13 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 | D2 | D | Rejection log | **Done** (slice 0) | Rejected skills | Markdown table + reason codes | `docs/skills/rejected_github_skills.md` | P0 | D1 | — | **Done** |
 | D3 | D | Pending enrichment backlog | **Done** (slice 0) | Deferred / future skills | Markdown backlog table | `docs/skills/pending_skill_enrichment_backlog.md` | P1 | D1 | — | **Done** |
 | D4 | D | Enrichment status matrix | **Done** (slice 0) | Accepted → use cases | Per use-case implementation columns | `docs/skills/skill_enrichment_status_matrix.md` | P0 | D1, D7 | — | **Done** |
-| D5 | D | Coverage matrix master link | B9 baseline landed | 105 questions | BL-004 curated joins → `github_reference_skill` on more rows | `docs/evals/skill_coverage_matrix.json` | P0 | D1, B9 | `build_skill_coverage_matrix.py --check` | **Partial** (105 rows; 1/105 mapped) |
+| D5 | D | Coverage matrix master link | B9 + BL-004 S1a–S1c | 105 questions | Runtime enrichment joins (S3+) | `docs/evals/skill_coverage_matrix.json` | P0 | D1, B9 | `build_skill_coverage_matrix.py --check` | **Done** (41/105 mapped; 64 gaps documented) |
 | D6 | D | Intake decision workflow | Informal | N/A | Document 9-step process in plan + README stub | `docs/skills/README.md` (optional) | P0 | D1 | — | Proposed |
 | D7 | D | First batch (7 skills) | **Done** (slice 0) | 7 mandatory skills | Populate D1 with accept/partial + mappings | `github_skill_intake_register.json` | P0 | D1 | — | **Done** |
 | C1 | C | Graph state model v2 | `ChatPipelineState` partial | N/A | Add session, dual skill, enrichment, node_trace fields | `pipeline.py`, `schemas/responses.py` | P0 | — | Schema unit tests | Proposed |
 | C9 | C | Node-level trace | `control_plane_trace` partial | N/A | Per-node input/output/decision in trace | `control_plane_trace.py`, `pipeline.py` | P0 | C1 | Trace snapshot tests | Proposed |
 | A1 | A | HIL mock MCP hardening | Batch 1 shipped | `triaging-security-alerts-in-splunk` disposition | Durable approval store for real MCP (forward) | `mcp_execution_gate.py`, `config.py`, `pipeline.py` | P0 | — | HIL matrix tests | **Done** (O2) |
-| B9 | B | Skill coverage matrix | S1a landed | `ATTACK_COVERAGE.md` pattern | BL-004 curation for use-case joins | `docs/evals/skill_coverage_matrix.json` + generator | P0 | — | `--check` 105 rows | **Done** (baseline) |
+| B9 | B | Skill coverage matrix | S1a–S1c landed | `ATTACK_COVERAGE.md` pattern | S3 runtime enrichment wiring | `docs/evals/skill_coverage_matrix.json` + generator | P0 | — | `--check` 105 rows | **Done** (BL-004 closed) |
 | B1 | B | content_enrichment schema | **Sidecar shipped** (7 pilots in `content_enrichment.json`) | SKILL.md frontmatter | Pydantic model + loader validation; optional catalog rows for P3/P6/P7 | `content_enrichment.json`, `models.py` | P0 | — | Enrichment schema/loader test | **Partial** |
 | B2 | B | Domain taxonomy | `category` only | GitHub domain/subdomain | Normalize domains for pilots | `content_enrichment.json`, `catalog.json` | P1 | B1 | — | Proposed |
 | B3 | B | MITRE precondition wiring | **98 techniques** shipped (`curated-subset-v4`); T1059.001/T1566*/T1071/T1486 present | Reference skills | Extend `mitre_evidence_preconditions` + remove `_status_for()` (pairs with A2) — **not** bulk technique import | `mitre_kb.py`, `mitre_evidence_preconditions.py` | P1 | B1, A2 | `test_mitre_decision_runtime.py` | **Partial** |
@@ -1592,9 +1592,44 @@ Execute **S1a (B9)** and **S1b (C1/C9)** in parallel (docs-only, zero governance
 
 > **🟡 Track D data gap (surfaced S1a, BL-004 partially closed):** there is **no precomputed, offline question→`use_case_id` mapping** in any non-runtime source — the 105 questions and 46 catalog use cases are different corpora (0 exact `example_queries` matches). Question→use_case resolution otherwise happens only at runtime inside the router (`app.*`, forbidden to import). The generator deliberately does **not** reconstruct the router to fake a join.
 >
-> **BL-004 (landed 2026-06-06):** a mapping layer now exists — `docs/evals/question_use_case_map.json` (hand-curated, evidence-cited) + deterministic auto-derivation (manifest `template_ref` == unique catalog `default_spl_template`). Every matrix row carries `mapping_status` / `mapping_source_file` / `mapping_confidence`. Coverage today: **1 / 105 mapped** (`q0.q062` → `auth_failed_login_spike`, high confidence) — that row populates `use_case_id`, both GitHub refs, intake decision, evidence requirements, and MITRE candidate end-to-end; 104 remain `missing_authoritative_mapping`. Raise coverage by curating `question_use_case_map.json` (one row per defensible offline source) — see backlog BL-004. Independent of mapping, the matrix carries real per-question signal: `mitre_permitted` (76 rows), `live`/`planning` skill (all rows), `spl_template_status` (active ×10).
+> **BL-004 closeout (S1c, 2026-07-01):** offline mapping layer closed at **41 / 105** mapped rows (**64** `missing_authoritative_mapping` warnings remain as documented corpus gaps). Commits: `bf98c56` (S1a+S1a.1), `b454b9f` (S1b), `278a12b` (S1c). Report: `docs/evals/bl004_coverage_closeout_report.md`.
+>
+> **Forward roadmap S2–S6d (2026-07-01) — engineering complete.** Commits: `b365f1e` … `f3484f2`, `96d35d3` (plan closeout). **COE rollout configuration:** [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md). Remaining work is **not** all COE-driven — see classification below.
 
-**S1b (C1/C9) — landed.** `docs/architecture/chat_pipeline_state_v2_and_node_trace.md` (spec only). Reconciliation findings vs the plan's C1/C9 text (all verified against code):
+### Post-roadmap status classification (2026-07-01)
+
+| Category | Items |
+|----------|--------|
+| **Engineering complete** | Guided hybrid; runtime enrichment loader; `node_trace` / state v2; MITRE preconditions; SPL template metadata; P3–P7 pilots; Answer Guard lab flag; session store file backend |
+| **Corpus curation open** | **64** BL-004 `missing_authoritative_mapping` rows (`docs/evals/bl004_coverage_closeout_report.md`) |
+| **COE rollout config** | Enable safe flags in `env/profiles/coe.env.example` — see COE rollout doc §2 |
+| **Operator-only** | Live Splunk MCP activation, credentials, network, staging smoke |
+| **Engineering / QA decision** | `AI_SOC_PIPELINE_SPLIT_ROUTING_NODES_ENABLED=true` after parity review |
+| **COE sign-off required** | `email_phishing_header_review` / `endpoint_ransomware_impact_review` template `enabled=true` against real COE data |
+
+**S1b (BL-004 detection-family anchors) — landed (`b454b9f`).** Four sample-only detection anchors + 30 curated mappings. Warnings **94 → 64**; mapped **11 → 41**.
+
+**S1c (BL-004 closeout) — landed (`278a12b`).** Offline mapping closed at **41/105** mapped; **64** genuine corpus gaps documented in `docs/evals/bl004_coverage_closeout_report.md`.
+
+**S2 (C1/C9 graph state v2 + node_trace) — landed (`b365f1e`).** `NodeTraceRecord` schema, `project_chat_pipeline_state_v2`, additive `ChatPipelineState` keys; flag-off byte-identical.
+
+**S3 (B1/C3 runtime enrichment) — landed (`c25e145`).** `AI_SOC_RUNTIME_ENRICHMENT_ENABLED`, `UseCaseContentEnrichment` alias, `load_skill_enrichment()`.
+
+**S4 (A2/B3/B4 MITRE preconditions) — landed (`0ef892a`).** `T1190`, `T1046` global preconditions; pilot behavior preserved.
+
+**S5 (C2/C3 split routing) — landed (`463ce01`).** `AI_SOC_PIPELINE_SPLIT_ROUTING_NODES_ENABLED`, trace-only `routing_skill_nodes.py`.
+
+**S6a (A3/B6 SPL templates) — landed (`3d87de9`).** Planned metadata for phishing + ransomware templates; governance tests.
+
+**S6b (P3–P7 pilots) — landed (`aedc01c`).** Output-contract tests for pilot enrichment blocks.
+
+**S6c (A6 answer guard lab) — landed (`2e23961`).** `AI_SOC_ANSWER_GUARD_LAB_ENABLED` alias OR-path.
+
+**S6d (A5 session store) — landed (`f3484f2`).** File-backed pin store (`AI_SOC_SESSION_STORE_BACKEND=file`).
+
+**COE rollout (docs, 2026-07-01):** [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md) — flag table, smoke checklist, classification. Canonical profile: `env/profiles/coe.env.example`. Code defaults in `config.py` remain safe/off; COE enables selected flags only via profile.
+
+**S1b (C1/C9 spec, §R legacy id) — landed.** `docs/architecture/chat_pipeline_state_v2_and_node_trace.md` (spec only). Reconciliation findings vs the plan's C1/C9 text (all verified against code):
 
 - `ChatPipelineState` has **62 fields**, not "~30" or the earlier **38** (`pipeline.py:282–345`; verify at implementation).
 - Node sequence is **9 nodes with an `rag_only` branch**, not linear; LangGraph wrapper mirrors the same 9 functions for parity (`graph/chat_workflow.py`), gated by `langgraph_orchestration_enabled` (default false).

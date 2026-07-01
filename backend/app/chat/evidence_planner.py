@@ -740,7 +740,10 @@ def _apply_curated_enrichment(
     if not use_case_id:
         return plan
 
-    if not settings.ai_soc_curated_enrichment_activation_enabled:
+    if not (
+        settings.ai_soc_curated_enrichment_activation_enabled
+        or settings.ai_soc_runtime_enrichment_enabled
+    ):
         if use_case_id in _CATALOG_PROJECTION_WHEN_INACTIVE:
             return _apply_catalog_projection(
                 plan,

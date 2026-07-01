@@ -62,6 +62,10 @@ class CuratedEnrichmentContext(BaseModel):
     activation_decision: UseCaseActivationDecision
 
 
+# Public alias for master-plan S3 (content_enrichment record model).
+UseCaseContentEnrichment = CuratedEnrichmentContext
+
+
 @lru_cache(maxsize=1)
 def load_content_enrichment() -> dict[str, Any]:
     """Load curated enrichment metadata from the local app bundle only."""
@@ -221,9 +225,19 @@ def resolve_use_case_activation(use_case_id: str | None) -> UseCaseActivationDec
 
 def runtime_enrichment_activation_allowed(use_case_id: str | None) -> bool:
     """Return True when curated enrichment may be used on runtime/evidence paths."""
-    if not use_case_id or not settings.ai_soc_curated_enrichment_activation_enabled:
+    if not use_case_id:
+        return False
+    if not (
+        settings.ai_soc_runtime_enrichment_enabled
+        or settings.ai_soc_curated_enrichment_activation_enabled
+    ):
         return False
     return resolve_use_case_activation(use_case_id).governed_enrichment_load_allowed
+
+
+def load_skill_enrichment(use_case_id: str | None) -> UseCaseContentEnrichment | None:
+    """Load curated enrichment for a use case when runtime enrichment is enabled."""
+    return get_runtime_curated_enrichment(use_case_id)
 
 
 def get_runtime_curated_enrichment(use_case_id: str | None) -> CuratedEnrichmentContext | None:
