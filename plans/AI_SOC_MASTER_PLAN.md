@@ -1295,7 +1295,7 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 | O3 MITRE status reconcile | **Complete** | `rg '_status_for\(' backend/app/threat/mitre_kb.py` → zero on closeout branch; batch3 + mitre_decision tests |
 | Forward roadmap §P / §K / §R | **Open** | Tracking table below; not closed by this acceptance loop |
 
-**Do not confuse with forward work:** §O is closed. **BL-004 offline mapping is closed (S1c, 2026-07-01).** Next slice: **S2 — C1/C9 graph state v2 + formal `node_trace`** (additive runtime; see §R execution log).
+**Do not confuse with forward work:** §O is closed. **BL-004 offline mapping is closed (S1c, 2026-07-01).** Forward roadmap slices **S2–S6d closed (2026-07-01)**. Next work is operator/COE-gated (see §R execution log deferrals).
 
 ### Planning (this document)
 
@@ -1592,13 +1592,31 @@ Execute **S1a (B9)** and **S1b (C1/C9)** in parallel (docs-only, zero governance
 
 > **🟡 Track D data gap (surfaced S1a, BL-004 partially closed):** there is **no precomputed, offline question→`use_case_id` mapping** in any non-runtime source — the 105 questions and 46 catalog use cases are different corpora (0 exact `example_queries` matches). Question→use_case resolution otherwise happens only at runtime inside the router (`app.*`, forbidden to import). The generator deliberately does **not** reconstruct the router to fake a join.
 >
-> **BL-004 closeout (S1c, 2026-07-01):** offline mapping layer closed at **41 / 105** mapped rows (**64** `missing_authoritative_mapping` warnings remain as documented corpus gaps). Commits: `bf98c56` (S1a+S1a.1 curated + 3 analytics sample anchors), `b454b9f` (S1b four detection-family sample anchors + 30 curated mappings). Report: `docs/evals/bl004_coverage_closeout_report.md`. **Next:** S2 — C1/C9 graph state v2 + formal `node_trace` (additive).
+> **BL-004 closeout (S1c, 2026-07-01):** offline mapping layer closed at **41 / 105** mapped rows (**64** `missing_authoritative_mapping` warnings remain as documented corpus gaps). Commits: `bf98c56` (S1a+S1a.1), `b454b9f` (S1b), `278a12b` (S1c). Report: `docs/evals/bl004_coverage_closeout_report.md`.
+>
+> **Forward roadmap S2–S6d (2026-07-01) — closed.** Commits: `b365f1e` (S2 trace), `c25e145` (S3 enrichment), `0ef892a` (S4 MITRE), `463ce01` (S5 pipeline split), `3d87de9` (S6a SPL), `aedc01c` (S6b pilots), `2e23961` (S6c answer guard), `f3484f2` (S6d session). **Next:** operator/COE-only items below; no further serial slices in this loop.
 
-**S1b (BL-004 detection-family anchors) — landed (`b454b9f`).** Four sample-only detection anchors (`sample_ioc_correlation_indicator_match`, `sample_threshold_anomaly_volume_spike`, `sample_powershell_suspicious_execution`, `sample_dlp_exfiltration_volume`) + 30 curated mappings. Warnings **94 → 64**; mapped **11 → 41**.
+**S1b (BL-004 detection-family anchors) — landed (`b454b9f`).** Four sample-only detection anchors + 30 curated mappings. Warnings **94 → 64**; mapped **11 → 41**.
 
 **S1c (BL-004 closeout) — landed (`278a12b`).** Offline mapping closed at **41/105** mapped; **64** genuine corpus gaps documented in `docs/evals/bl004_coverage_closeout_report.md`.
 
-**S2 (C1/C9 graph state v2 + node_trace) — in progress.** Formal `NodeTraceRecord` schema + `project_chat_pipeline_state_v2` additive state projection.
+**S2 (C1/C9 graph state v2 + node_trace) — landed (`b365f1e`).** `NodeTraceRecord` schema, `project_chat_pipeline_state_v2`, additive `ChatPipelineState` keys; flag-off byte-identical.
+
+**S3 (B1/C3 runtime enrichment) — landed (`c25e145`).** `AI_SOC_RUNTIME_ENRICHMENT_ENABLED`, `UseCaseContentEnrichment` alias, `load_skill_enrichment()`.
+
+**S4 (A2/B3/B4 MITRE preconditions) — landed (`0ef892a`).** `T1190`, `T1046` global preconditions; pilot behavior preserved.
+
+**S5 (C2/C3 split routing) — landed (`463ce01`).** `AI_SOC_PIPELINE_SPLIT_ROUTING_NODES_ENABLED`, trace-only `routing_skill_nodes.py`.
+
+**S6a (A3/B6 SPL templates) — landed (`3d87de9`).** Planned metadata for phishing + ransomware templates; governance tests.
+
+**S6b (P3–P7 pilots) — landed (`aedc01c`).** Output-contract tests for pilot enrichment blocks.
+
+**S6c (A6 answer guard lab) — landed (`2e23961`).** `AI_SOC_ANSWER_GUARD_LAB_ENABLED` alias OR-path.
+
+**S6d (A5 session store) — landed (`f3484f2`).** File-backed pin store (`AI_SOC_SESSION_STORE_BACKEND=file`).
+
+**Deferred / operator-only (unchanged):** live Splunk MCP activation; `CONTROL_PLANE_ENABLED` COE rollout; GitHub SKILL.md runtime import; sample-anchor routability; eval baseline refresh; remaining **64** BL-004 corpus-gap mappings.
 
 **S1b (C1/C9 spec, §R legacy id) — landed.** `docs/architecture/chat_pipeline_state_v2_and_node_trace.md` (spec only). Reconciliation findings vs the plan's C1/C9 text (all verified against code):
 
