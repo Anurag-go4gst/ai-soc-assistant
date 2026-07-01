@@ -2,6 +2,9 @@
 
 This guide explains how to turn on **every supported lever** for COE validation, what still requires **engineering work** (not just `.env`), and how to get **Experience Center parity** in the main chat UI.
 
+**COE rollout (recommended flags + smoke checklist):** [`COE_ROLLOUT_CONFIGURATION.md`](COE_ROLLOUT_CONFIGURATION.md)  
+**Canonical profile:** [`env/profiles/coe.env.example`](../../env/profiles/coe.env.example)
+
 ## Quick start
 
 1. Copy the profile into your local env (never commit secrets):

@@ -16,7 +16,7 @@ Implementation specs live here (versioned in git). **Agent rules** live in [`AGE
 | Canonical handoff core | consolidated plan §Inventory shipped | **Done** on `master` (`ca3249b`, PRs #38–#45) |
 | Deferred handoff closure | consolidated plan §Batch 0 | **Done** — merged PR #39 |
 | Legacy: full handoff / discipline / T2 binding | `2026-06-26_*.md` | **Superseded** — see consolidated plan |
-| Master roadmap | [`AI_SOC_MASTER_PLAN.md`](AI_SOC_MASTER_PLAN.md) | Active |
+| Master roadmap | [`AI_SOC_MASTER_PLAN.md`](AI_SOC_MASTER_PLAN.md) | S2–S6d complete; COE rollout: [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md) |
 
 ## Canonical references
 

@@ -1295,7 +1295,7 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 | O3 MITRE status reconcile | **Complete** | `rg '_status_for\(' backend/app/threat/mitre_kb.py` → zero on closeout branch; batch3 + mitre_decision tests |
 | Forward roadmap §P / §K / §R | **Open** | Tracking table below; not closed by this acceptance loop |
 
-**Do not confuse with forward work:** §O is closed. **BL-004 offline mapping is closed (S1c, 2026-07-01).** Forward roadmap slices **S2–S6d closed (2026-07-01)**. Next work is operator/COE-gated (see §R execution log deferrals).
+**Do not confuse with forward work:** §O is closed. **BL-004 offline mapping closed (S1c).** **S2–S6d engineering complete (2026-07-01).** Next: COE rollout config ([`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md)), corpus curation (64 gaps), operator-only MCP, QA decision on split-routing flag.
 
 ### Planning (this document)
 
@@ -1594,7 +1594,18 @@ Execute **S1a (B9)** and **S1b (C1/C9)** in parallel (docs-only, zero governance
 >
 > **BL-004 closeout (S1c, 2026-07-01):** offline mapping layer closed at **41 / 105** mapped rows (**64** `missing_authoritative_mapping` warnings remain as documented corpus gaps). Commits: `bf98c56` (S1a+S1a.1), `b454b9f` (S1b), `278a12b` (S1c). Report: `docs/evals/bl004_coverage_closeout_report.md`.
 >
-> **Forward roadmap S2–S6d (2026-07-01) — closed.** Commits: `b365f1e` (S2 trace), `c25e145` (S3 enrichment), `0ef892a` (S4 MITRE), `463ce01` (S5 pipeline split), `3d87de9` (S6a SPL), `aedc01c` (S6b pilots), `2e23961` (S6c answer guard), `f3484f2` (S6d session). **Next:** operator/COE-only items below; no further serial slices in this loop.
+> **Forward roadmap S2–S6d (2026-07-01) — engineering complete.** Commits: `b365f1e` … `f3484f2`, `96d35d3` (plan closeout). **COE rollout configuration:** [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md). Remaining work is **not** all COE-driven — see classification below.
+
+### Post-roadmap status classification (2026-07-01)
+
+| Category | Items |
+|----------|--------|
+| **Engineering complete** | Guided hybrid; runtime enrichment loader; `node_trace` / state v2; MITRE preconditions; SPL template metadata; P3–P7 pilots; Answer Guard lab flag; session store file backend |
+| **Corpus curation open** | **64** BL-004 `missing_authoritative_mapping` rows (`docs/evals/bl004_coverage_closeout_report.md`) |
+| **COE rollout config** | Enable safe flags in `env/profiles/coe.env.example` — see COE rollout doc §2 |
+| **Operator-only** | Live Splunk MCP activation, credentials, network, staging smoke |
+| **Engineering / QA decision** | `AI_SOC_PIPELINE_SPLIT_ROUTING_NODES_ENABLED=true` after parity review |
+| **COE sign-off required** | `email_phishing_header_review` / `endpoint_ransomware_impact_review` template `enabled=true` against real COE data |
 
 **S1b (BL-004 detection-family anchors) — landed (`b454b9f`).** Four sample-only detection anchors + 30 curated mappings. Warnings **94 → 64**; mapped **11 → 41**.
 
@@ -1616,7 +1627,7 @@ Execute **S1a (B9)** and **S1b (C1/C9)** in parallel (docs-only, zero governance
 
 **S6d (A5 session store) — landed (`f3484f2`).** File-backed pin store (`AI_SOC_SESSION_STORE_BACKEND=file`).
 
-**Deferred / operator-only (unchanged):** live Splunk MCP activation; `CONTROL_PLANE_ENABLED` COE rollout; GitHub SKILL.md runtime import; sample-anchor routability; eval baseline refresh; remaining **64** BL-004 corpus-gap mappings.
+**COE rollout (docs, 2026-07-01):** [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md) — flag table, smoke checklist, classification. Canonical profile: `env/profiles/coe.env.example`. Code defaults in `config.py` remain safe/off; COE enables selected flags only via profile.
 
 **S1b (C1/C9 spec, §R legacy id) — landed.** `docs/architecture/chat_pipeline_state_v2_and_node_trace.md` (spec only). Reconciliation findings vs the plan's C1/C9 text (all verified against code):
 
