@@ -233,48 +233,66 @@ def plan_evidence(
         )
 
     if family == "guided_investigation":
-        return with_enrichment(
-            EvidencePlan(
-                answer_mode="guided_investigation",
-                rag_phase="rag_only",
-                needs_rag=True,
-                needs_spl=False,
-                needs_mcp=False,
-                needs_mitre=False,
-                spl_allowed=False,
-                mcp_allowed=False,
-                policy_context_required=False,
-                policy_context_recommended=True,
-                requires_hil=True,
-                needs_hil=True,
-                needs_clarification=False,
-                action_mode="recommend_only",
-                rag_no_match_behavior="general_guidance_allowed",
-                reasons=["out_of_registry_guided_investigation"],
-                limitations=[
-                    "This question is outside the approved 105-question and use-case registries.",
-                    "No live query was performed; validate the checklist against local telemetry and playbooks.",
-                    "No MITRE technique or incident severity is asserted without evidence.",
-                ],
-                checklist=[
-                    "Confirm the asset owner, criticality, and expected communications.",
-                    "Review firewall, DNS, proxy, and endpoint telemetry for the destination.",
-                    "Compare first-seen time, periodicity, bytes, ports, and peer hosts against baseline.",
-                    "Validate vendor, maintenance, and approved remote-access activity.",
-                    "Document findings and escalate only after evidence is corroborated.",
-                ],
-                investigation_workflow=[
-                    "Scope the affected OT and IT assets and the observation window.",
-                    "Collect network and endpoint evidence without executing candidate SPL.",
-                    "Test benign, misconfiguration, compromise, and vendor-access hypotheses.",
-                    "Have an analyst validate conclusions and next actions.",
-                ],
-                required_sources=["firewall", "dns", "proxy", "endpoint"],
-                optional_sources=["asset_inventory", "change_records", "vendor_access_records"],
-                unsupported_claims_avoid=["confirmed compromise", "confirmed MITRE technique", "P1/P2 severity"],
-                evidence_plan_reason="out_of_registry_guided_investigation",
-            )
+        hybrid_enabled = bool(
+            settings.control_plane_enabled
+            and settings.ai_soc_guided_hybrid_investigation_enabled
         )
+        guided_plan = EvidencePlan(
+            answer_mode="guided_investigation",
+            rag_phase="rag_only",
+            needs_rag=True,
+            needs_spl=False,
+            needs_mcp=False,
+            needs_mitre=False,
+            spl_allowed=False,
+            mcp_allowed=False,
+            policy_context_required=False,
+            policy_context_recommended=True,
+            requires_hil=True,
+            needs_hil=True,
+            needs_clarification=False,
+            action_mode="recommend_only",
+            rag_no_match_behavior="general_guidance_allowed",
+            reasons=["out_of_registry_guided_investigation"],
+            limitations=[
+                "This question is outside the approved 105-question and use-case registries.",
+                "No live query was performed; validate the checklist against local telemetry and playbooks.",
+                "No MITRE technique or incident severity is asserted without evidence.",
+            ],
+            checklist=[
+                "Confirm the asset owner, criticality, and expected communications.",
+                "Review firewall, DNS, proxy, and endpoint telemetry for the destination.",
+                "Compare first-seen time, periodicity, bytes, ports, and peer hosts against baseline.",
+                "Validate vendor, maintenance, and approved remote-access activity.",
+                "Document findings and escalate only after evidence is corroborated.",
+            ],
+            investigation_workflow=[
+                "Scope the affected OT and IT assets and the observation window.",
+                "Collect network and endpoint evidence without executing candidate SPL.",
+                "Test benign, misconfiguration, compromise, and vendor-access hypotheses.",
+                "Have an analyst validate conclusions and next actions.",
+            ],
+            required_sources=["firewall", "dns", "proxy", "endpoint"],
+            optional_sources=["asset_inventory", "change_records", "vendor_access_records"],
+            unsupported_claims_avoid=["confirmed compromise", "confirmed MITRE technique", "P1/P2 severity"],
+            evidence_plan_reason="out_of_registry_guided_investigation",
+        )
+        if hybrid_enabled:
+            guided_plan = guided_plan.model_copy(
+                update={
+                    "discovery_allowed": True,
+                    "investigation_planning_enabled": True,
+                    "spl_review_allowed": True,
+                    "safe_spl_execution_allowed": False,
+                    "freeform_spl_execution_allowed": False,
+                    "mcp_action_allowed": False,
+                    "reasons": [
+                        *guided_plan.reasons,
+                        "guided_hybrid_investigation_enabled",
+                    ],
+                }
+            )
+        return with_enrichment(guided_plan)
 
     if family in {"policy_knowledge", "sop_or_playbook"}:
         return with_enrichment(
@@ -661,8 +679,16 @@ def _attach_resource_plan(
 ) -> EvidencePlan:
     """Attach the composed step plan (WS0 T0.3). Booleans stay authoritative;
     composition failure must never break evidence planning."""
+    from app.config import settings
     from app.planner.composer import compose_resource_plan
     from app.planner.llm_plan_bridge import bridge_enabled, bridge_trigger_match
+
+    if (
+        plan.answer_mode == "guided_investigation"
+        and settings.control_plane_enabled
+        and settings.ai_soc_guided_hybrid_investigation_enabled
+    ):
+        return plan
 
     match_path = getattr(query_understanding, "deterministic_match_path", None)
     try:
