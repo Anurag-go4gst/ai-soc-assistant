@@ -206,6 +206,7 @@ def assess_loop(
     chronology = list(state.get("mcp_chronology") or [])
     cursor = int(state.get("mcp_cursor", 0))
     required = [str(item) for item in (state.get("mcp_required_produces") or [])]
+    discovery_only = bool(state.get("mcp_discovery_only"))
 
     # Honest capability gap: a required produce that no governed tool can yield.
     capability_gaps = sorted(set(required) & UNSERVABLE_REQUIREMENTS)
@@ -222,6 +223,13 @@ def assess_loop(
 
     # Execution re-entry: the run_query result decides loop/broaden/finalize.
     if execution is not None:
+        if discovery_only:
+            return LoopDecision(
+                route=ROUTE_FINALIZE,
+                reason="discovery-only lane; execution hop not permitted",
+                sufficiency="sufficient",
+                capability_gaps=capability_gaps,
+            )
         status = str(execution.get("status") or "")
         result_count = int(execution.get("result_count") or 0)
         if status == "executed" and result_count > 0:
@@ -274,6 +282,14 @@ def assess_loop(
     missing = sorted((set(required) - delivered) - UNSERVABLE_REQUIREMENTS)
 
     if "splunk_run_query" in pending:
+        if discovery_only:
+            return LoopDecision(
+                route=ROUTE_FINALIZE,
+                reason="discovery-only lane; run_query not permitted",
+                sufficiency="sufficient" if not missing else "needs_more",
+                missing=missing,
+                capability_gaps=capability_gaps,
+            )
         return LoopDecision(
             route=ROUTE_EXECUTE,
             reason="discovery complete; proceed to gated run_query",

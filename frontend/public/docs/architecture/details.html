@@ -1546,7 +1546,7 @@
         <div>
           <h2 id="s4b">4B. Governed evidence-collection loop (Stage 4B) <span class="badge-new">new</span></h2>
           <p>
-            When control plane is on and <code>mcp_allowed</code>, a bounded cyclic evidence loop runs around <code>graph_node_evidence_planning</code> (the HUB). Pure logic lives in <code>evidence_loop.py</code>; discovery I/O in <code>mcp_loop_discovery.py</code>; merge into governed evidence in <code>source_evidence.py</code>.
+            When control plane is on and (<code>mcp_allowed</code> or guided <code>discovery_allowed</code> with <code>AI_SOC_GUIDED_MCP_DISCOVERY_ENABLED</code>), a bounded cyclic evidence loop runs around <code>graph_node_evidence_planning</code> (the HUB). On the guided discovery-only lane, the assessor never routes to <code>execute</code> / <code>splunk_run_query</code>. Pure logic lives in <code>evidence_loop.py</code>; discovery I/O in <code>mcp_loop_discovery.py</code>; merge into governed evidence in <code>source_evidence.py</code>.
           </p>
         </div>
       </div>
@@ -2212,7 +2212,7 @@ output template</pre>
       <div class="section-title">
         <div>
           <h2>9. Resource Planner — guided investigation example</h2>
-          <p>What <code>resource_decisions</code> records for branch 3B. MCP discovery is <strong>planned-only</strong> when execution gates are closed; the same tools become <strong>collected</strong> hops when global + server execution is enabled (see <a href="#s4b">§4B</a>).</p>
+          <p>What <code>resource_decisions</code> records for branch 3B. With <code>AI_SOC_GUIDED_MCP_DISCOVERY_ENABLED=false</code> (default), guided has <strong>no</strong> in-turn MCP discovery — only RAG + checklist. When the flag is on (COE sign-off), read-only metadata tools are <strong>planned</strong> while execution gates stay closed; the same hops become <strong>collected</strong> when global + server execution is enabled (see <a href="#s4b">§4B</a>). Promotion to a governed route is an <strong>HIL offer</strong>, never an automatic route change.</p>
         </div>
       </div>
       <div class="card">
@@ -2236,12 +2236,7 @@ output template</pre>
   "mcp": {
     "needed": false,
     "allowed": false,
-    "skip_reason": "Execution gates closed; checklist runnable manually by analyst",
-    "planned_discovery": [
-      "splunk_get_indexes",
-      "splunk_get_metadata",
-      "splunk_get_knowledge_objects"
-    ]
+    "skip_reason": "Execution gates closed; checklist runnable manually by analyst"
   },
   "mitre": {
     "allowed": false,

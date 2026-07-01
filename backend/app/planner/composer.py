@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from app.connectors.mcp.mcp_tool_chronology import deterministic_default_chronology
 from app.connectors.mcp.splunk_mcp_readiness import plan_splunk_discovery_calls
 from app.planner.resource_plan import PlanStep, ResourcePlan
 from app.planner.resource_registry import ResourceRegistry, load_resource_registry
@@ -265,7 +266,23 @@ def build_guided_investigation_resource_decisions(
     *,
     match_path: str | None = None,
 ) -> dict[str, Any]:
-    discovery_calls = plan_splunk_discovery_calls(include_knowledge_objects=True)
+    discovery_allowed = bool(getattr(evidence_plan, "discovery_allowed", False))
+    if discovery_allowed:
+        planned_tools = deterministic_default_chronology(
+            spl_approved=False,
+            include_knowledge_objects=True,
+        )
+        discovery_calls = plan_splunk_discovery_calls(include_knowledge_objects=True)
+        mcp_block = _mcp_discovery_decision_block(
+            discovery_calls,
+            needed=True,
+            allowed=False,
+            skip_reason="Read-only discovery planned; execution + run_query stay gated.",
+        )
+        mcp_block["planned_discovery"] = planned_tools
+    else:
+        discovery_calls = plan_splunk_discovery_calls(include_knowledge_objects=True)
+        mcp_block = _mcp_discovery_decision_block(discovery_calls, needed=False, allowed=False)
     limitations = list(getattr(evidence_plan, "limitations", []) or []) or [
         "No live query was executed.",
         "No MITRE technique or incident severity is asserted without evidence.",
@@ -282,7 +299,7 @@ def build_guided_investigation_resource_decisions(
             "review_only": True,
             "skip_reason": "No existing deterministic draft family matched this out-of-registry hunt.",
         },
-        "mcp": _mcp_discovery_decision_block(discovery_calls, needed=False, allowed=False),
+        "mcp": mcp_block,
         "mitre": {"allowed": False, "skip_reason": "No evidence-supported technique claim is available."},
         "severity": {"allowed": False, "skip_reason": "No grounded incident severity is available."},
         "hil": {"required": True, "reason": "Analyst validates hypotheses and local data scope."},

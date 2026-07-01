@@ -292,6 +292,16 @@ def plan_evidence(
                     ],
                 }
             )
+        elif settings.ai_soc_guided_mcp_discovery_enabled:
+            guided_plan = guided_plan.model_copy(
+                update={
+                    "discovery_allowed": True,
+                    "reasons": [
+                        *guided_plan.reasons,
+                        "guided_mcp_discovery_lane_enabled",
+                    ],
+                }
+            )
         return with_enrichment(guided_plan)
 
     if family in {"policy_knowledge", "sop_or_playbook"}:

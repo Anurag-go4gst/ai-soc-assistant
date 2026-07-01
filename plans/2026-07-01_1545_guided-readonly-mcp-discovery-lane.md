@@ -787,3 +787,12 @@ Legacy items **9–18** from original checklist remain for batch 2 after batch 1
 - **2026-07-01 REV4:** Handoff audit accepted — ResourcePlan composition moves behind validated InvestigationPlan (guided only). **Batch 1** = phases P1–P8 (flag, InvestigationPlan, Validator A/B, deferred compose, trace, SPL preview gate, dispatch). **Batch 2** = LLM propose, MCP/safe-SPL collection, refinement, AnswerContract, docs.
 - **2026-07-01 REV4.1:** Pre-coding clarifications — P7 gate on hybrid path/shared helper (not legacy rag-only only); P8 explicit no collection in batch 1; P4 split fallback P4a/P4c; phase-by-phase pacing (P1 first, review before P2–P4); dependency P8 before P7.
 - **2026-07-01 REV4.2:** Post-review fixes tightened Batch 1 boundaries: guided trace labels remain out of the generic executor schedule, guided hybrid dispatch now requires the EvidencePlan `investigation_planning_enabled` capability, and safe SPL collection remains deferred to Batch 2 while review-only SPL stays gated.
+
+---
+
+## Appendix A — Guided read-only MCP discovery lane (shipped 2026-07-01)
+
+Separate default-off flag `AI_SOC_GUIDED_MCP_DISCOVERY_ENABLED` (legacy guided path only; hybrid batch 1 uses `AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED`). Items **1–9** complete — see commit after `1d19eb3`. Flag-off byte-identical; discovery loop enters when `discovery_allowed=true` and `mcp_allowed=false`; HIL promotion offer on knowledge-object hits; no `splunk_run_query`.
+
+**Verify:** `pytest app/tests/test_guided_mcp_discovery_lane.py app/tests/test_guided_hybrid_trace_baseline.py -q`
+
