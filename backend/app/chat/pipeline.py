@@ -2277,6 +2277,8 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
 
 def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("retrieving_knowledge")
+    if not isinstance(state.get("workflow_plan"), dict):
+        state = graph_node_prepare_rag_only(state)
     request = state["request"]
     query_text = state.get("effective_query") or request.message
     query_understanding = state.get("query_understanding")
@@ -2573,8 +2575,27 @@ def _environment_hygiene_envelope(state: ChatPipelineState) -> dict[str, Any] | 
     }
 
 
+def _ensure_context_finalize_state(state: ChatPipelineState) -> ChatPipelineState:
+    """Guarantee finalize prerequisites when LangGraph shortcuts skip execution/RAG hooks."""
+    updated: ChatPipelineState = dict(state)
+    if not isinstance(updated.get("execution"), dict):
+        updated["execution"] = {"status": "skipped", "block_reason": "finalize_stage_default"}
+    if not isinstance(updated.get("human_review"), dict):
+        updated["human_review"] = {"required": False}
+    if not isinstance(updated.get("workflow_plan"), dict):
+        skill = str((updated.get("routed") or {}).get("skill") or "knowledge_recall")
+        updated["workflow_plan"] = {
+            "skill": skill,
+            "steps": [],
+            "execution_enabled": False,
+            "required_sources": [],
+        }
+    return updated
+
+
 def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("mapping_mitre")
+    state = _ensure_context_finalize_state(state)
     request = state["request"]
     routed = state["routed"]
     trace_id = state["trace_id"]
@@ -3949,6 +3970,22 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
         spl_artifact_handoff=_spl_handoff,
     )
+    from app.chat.answer_quality_enrichment import apply_answer_quality_enrichment
+
+    message, analyst_response = apply_answer_quality_enrichment(
+        message,
+        analyst_response,
+        user_query=request.message,
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+        path_type=path_type,
+        answer_contract=answer_contract,
+    )
+    from app.chat.coe_checklist_repair import repair_duplicate_soc_review_checklist
+
+    analyst_response, message = repair_duplicate_soc_review_checklist(analyst_response, message)
+    analyst_response = _collapse_card_summary_when_sections_own_details(analyst_response)
+    analyst_response = _strip_priority_prefixes_when_severity_unassigned(analyst_response)
+    message = _collapse_top_level_message_when_card_owns_sections(message, analyst_response)
     visible_spl_draft_preview = (
         None
         if _is_universal_spl_authoring_review(candidate_spl, spl_validation)
@@ -4182,16 +4219,28 @@ def _is_coe_stop_condition_violation(violation: str) -> bool:
 
 def _apply_coe_stop_condition_gate(response: PlaceholderResponse, *, query: str) -> PlaceholderResponse:
     """Fail closed on COE stop-condition violations after RunContract packaging."""
+    from app.chat.coe_checklist_repair import repair_duplicate_soc_review_checklist
     from app.evals.answer_efficacy_checks import evaluate_universal_efficacy
 
-    payload = response.model_dump(mode="json")
+    repaired_response = response
+    if response.analyst_response is not None or str(response.message or "").strip():
+        analyst_response, message = repair_duplicate_soc_review_checklist(
+            response.analyst_response,
+            str(response.message or ""),
+        )
+        if analyst_response is not response.analyst_response or message != str(response.message or ""):
+            repaired_response = response.model_copy(
+                update={"analyst_response": analyst_response, "message": message}
+            )
+
+    payload = repaired_response.model_dump(mode="json")
     violations = [
         violation
         for violation in evaluate_universal_efficacy(query=query, payload=payload)
         if _is_coe_stop_condition_violation(violation)
     ]
     if not violations:
-        return response
+        return repaired_response
 
     first = violations[0]
     blocked_reason = f"COE stop-condition validation failed: {first}."

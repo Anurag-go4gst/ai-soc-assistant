@@ -334,6 +334,11 @@ def _resolve_path_type(
     if family == "clarification_required":
         action_mode = str(intent.get("action_mode") or "")
         if action_mode == "recommend_only" and bool(intent.get("requires_hil")):
+            raw_query = getattr(query_understanding, "raw_query", None)
+            if isinstance(raw_query, str) and raw_query.strip():
+                signals = extract_query_signals(raw_query)
+                if signals.get("explicit_run_spl") and not signals.get("block_or_contain"):
+                    return "spl_review"
             return "unsafe_blocked"
         return "clarification_required"
 
@@ -477,12 +482,18 @@ def _unsafe_containment_detected(intent: dict[str, Any], query_understanding: An
         intent, query_understanding
     ):
         return False
-    if str(intent.get("primary_intent") or "") == "human_review" and bool(intent.get("requires_hil")):
-        return True
     raw_query = getattr(query_understanding, "raw_query", None)
+    signals: dict[str, Any] = {}
     if isinstance(raw_query, str) and raw_query.strip():
         signals = extract_query_signals(raw_query)
-        return bool(signals.get("block_or_contain") or signals.get("explicit_run_spl"))
+    # Explicit run-SPL / live-results asks are HIL-gated execution intents, not
+    # containment unsafe actions (unless paired with block/contain language).
+    if signals.get("explicit_run_spl") and not signals.get("block_or_contain"):
+        return False
+    if signals.get("block_or_contain"):
+        return True
+    if str(intent.get("primary_intent") or "") == "human_review" and bool(intent.get("requires_hil")):
+        return True
     return False
 
 

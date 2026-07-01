@@ -46,3 +46,29 @@ def test_triage_guidance_includes_checklist_marker() -> None:
     )
     assert severity == "pass"
     assert not violations
+
+
+def test_triage_guidance_tails_common_soc_domains() -> None:
+    vpn = build_investigation_triage_guidance(
+        "A privileged user logged in from a new source IP. What should SOC validate?"
+    )
+    assert "MFA outcome" in vpn
+    assert "approved maintenance" in vpn
+
+    firewall = build_investigation_triage_guidance(
+        "An allowed firewall connection crossed IT to OT. What should SOC review?"
+    )
+    assert "rule name" in firewall
+    assert "zone" in firewall
+
+    dns = build_investigation_triage_guidance(
+        "A workstation is making periodic DNS requests to a rare domain. How should SOC investigate?"
+    )
+    assert "periodicity" in dns
+    assert "candidate-only" in dns
+
+    endpoint = build_investigation_triage_guidance(
+        "We saw suspicious PowerShell on an endpoint. What evidence should SOC collect?"
+    )
+    assert "process tree" in endpoint
+    assert "command line" in endpoint
