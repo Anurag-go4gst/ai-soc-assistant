@@ -11,13 +11,25 @@ from app.demo.ec_mcp_lifecycle_fixture import (
     build_mcp_console_lines,
 )
 
-_FIREWALL_BASELINE_SPL = (
+
+def _ec_resolve_slots(spl: str) -> str:
+    """Replace <slot> placeholders with COE Environment KB values at module load time."""
+    from app.spl.source_profile_store import load_persisted_source_profile
+
+    for slot, value in load_persisted_source_profile().items():
+        spl = spl.replace(f"<{slot}>", value)
+    return spl
+
+
+_FIREWALL_BASELINE_SPL = _ec_resolve_slots(
     "search index=<firewall_index> sourcetype=<firewall_sourcetype> "
     "earliest=-24h latest=now action=deny "
     "| stats count as deny_count dc(dest_port) as distinct_ports by src, dest "
     "| sort -deny_count | head 100"
 )
 
+# <scada_index> is intentionally unmapped in the env KB (key is ot_asset_index, not
+# scada_index) — keeps the Q5 HIL-gate demo honest.
 _SCADA_PERF_SPL = (
     "search index=<scada_index> sourcetype=ot:scada earliest=-30d latest=now "
     "rtu_id=* transmission_error_count=* "
@@ -37,11 +49,15 @@ def visual_lanes_for_scenario(
 
     if sid == "firewall_baseline_template_spl":
         lanes["coe_logic"] = {
-            "title": "Governed SPL template · slot placeholders visible",
-            "slot_transitions": [],
+            "title": "Governed SPL template · Environment KB slots resolved",
+            "slot_transitions": [
+                {"from": "<firewall_index>", "to": "pgcil_soc"},
+                {"from": "<firewall_sourcetype>", "to": "pgcil:firewall"},
+            ],
             "body": (
                 "V.AI SOC selected the firewall baseline template. "
-                "Index and sourcetype remain as Environment KB placeholders until an analyst confirms mapping."
+                "Environment KB resolved firewall_index → pgcil_soc and firewall_sourcetype → pgcil:firewall. "
+                "Candidate SPL is review-only — analyst approval required before execution."
             ),
         }
         return lanes
@@ -328,10 +344,10 @@ def build_firewall_incident_scenarios() -> dict[str, Any]:
             saia_available=True,
             rag_available=False,
             candidate_spl=_FIREWALL_BASELINE_SPL,
-            analyst_summary="Governed firewall baseline SPL with Environment KB placeholders for index and sourcetype — review-only artifact.",
+            analyst_summary="Governed firewall baseline SPL with Environment KB slots resolved (pgcil_soc / pgcil:firewall) — candidate artifact ready for analyst review before execution.",
             trace_explanation=[
                 "Routed to spl_generation for governed template authoring.",
-                "Placeholders remain visible until Environment KB mapping is confirmed.",
+                "Environment KB resolved firewall_index → pgcil_soc and firewall_sourcetype → pgcil:firewall at load time.",
             ],
         ),
         "splunk_env_asa_ti_readiness": DemoScenario(
@@ -623,11 +639,14 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             **base,
             "response_profile": "spl_only",
             "finding_title": "Firewall baseline SPL template",
-            "one_sentence_finding": "Governed firewall baseline template with Environment KB placeholders — review before use.",
+            "one_sentence_finding": (
+                "Governed firewall baseline template with Environment KB slots resolved "
+                "(pgcil_soc / pgcil:firewall) — candidate SPL ready for analyst review before execution."
+            ),
             "spl_code": _FIREWALL_BASELINE_SPL,
             "spl_status_detail": {
                 "status": "validated",
-                "message": "Governed template artifact — Environment KB placeholders visible for analyst confirmation.",
+                "message": "Environment KB resolved: firewall_index → pgcil_soc, firewall_sourcetype → pgcil:firewall. Candidate only — analyst approval required before execution.",
                 "template_status": "active",
                 "generation_status": "generated",
             },
