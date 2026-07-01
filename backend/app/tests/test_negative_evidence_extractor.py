@@ -82,6 +82,8 @@ def test_precondition_negated_for_absent_evidence() -> None:
     assert precondition_negated("T1078", {"successful_login"}) is False
     # technique with no precondition entry is never demoted by this rule
     assert precondition_negated("T1110.001", set()) is False
+    assert precondition_negated("T1190", set()) is True
+    assert precondition_negated("T1190", {"initial_access_evidence"}) is False
     assert "outbound" in not_claimed_reason("T1041").lower()
 
 
