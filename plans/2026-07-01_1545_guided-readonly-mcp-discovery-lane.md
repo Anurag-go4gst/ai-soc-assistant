@@ -799,11 +799,11 @@ Sample probe query (all phases):
   - **Depends on:** P12
   - **Evidence:** `pytest app/tests/test_guided_answer_contract.py -q` → **5 passed**; `guided_answer_contract.py` + AnswerContract fields `guided_collection_posture`, `discovery_evidence_summary`, `safe_catalog_evidence_summary`, `evidence_planned`, `evidence_collected`, `blocked_resources`.
 
-- [ ] **P14** — Governance + flag-off byte-identity
+- [x] **P14** — Governance + flag-off byte-identity
   - **Do:** Run targeted suite + `./scripts/run_stage3_governance_regression.sh`; sync docs.
   - **Verify:** governance PASS or document known-unrelated drift; flag-off guided hybrid byte-identical.
   - **Depends on:** P13b
-  - **Evidence:** _(filled when done)_
+  - **Evidence:** `./scripts/run_stage3_governance_regression.sh` → **FAIL** at sentinel T-PRE (`q0.q049` baseline drift: `response_mode` / `analyst_enabled_sections` — unrelated to guided hybrid); `pytest app/tests/test_guided_hybrid_trace_baseline.py -q` → **6 passed** (flag-off byte-stable); flag-on sample-query probe → all posture checks **PASS** (`guided_hybrid_dispatch`, `mcp_allowed=false`, HIL required, `guided_collection_posture` present, planned hops not counted as collected); docs synced in `docs/architecture/details.html` + `frontend/public/docs/architecture/details.html` (§7D hybrid orchestrator, LLM planner exception, Validator B / safe-catalog surfacing).
 
 ### Batch 2 dependency order
 
