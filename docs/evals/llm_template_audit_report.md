@@ -1,8 +1,8 @@
 # LLM Template Audit Report (Phase F)
 
-Generated: 2026-06-26T13:09:37.577132+00:00
-Active templates: 16
-Pass: 16 · Review: 0
+Generated: 2026-07-01T18:22:21.645860+00:00
+Active templates: 18
+Pass: 18 · Review: 0
 
 | template_id | use_case_id | approved | relevant | pipes | status | findings |
 |---|---|---:|---:|---:|---|---|
@@ -22,3 +22,5 @@ Pass: 16 · Review: 0
 | notable_critical_review_mitre | critical_notable_mitre_review | yes | — | 8 | pass | verbosity_high |
 | edr_suspicious_process | edr_suspicious_process | yes | — | 3 | pass | — |
 | edr_powershell_suspicious_command | edr_powershell_suspicious_command | yes | — | 5 | pass | — |
+| scada_perf_threshold_anomaly | scada_perf_threshold_anomaly | yes | — | 9 | pass | verbosity_high |
+| cisco_asa_ioc_lookup | cisco_asa_ioc_lookup | yes | — | 6 | pass | — |
