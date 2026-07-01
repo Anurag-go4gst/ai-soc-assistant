@@ -18,7 +18,9 @@ def run_answer_guard_lab(
     severity_label: str | None,
     action_policy: dict[str, Any],
 ) -> AnswerGuardStatus:
-    if not settings.ai_soc_llm_answer_guard_enabled:
+    if not (
+        settings.ai_soc_llm_answer_guard_enabled or settings.ai_soc_answer_guard_lab_enabled
+    ):
         return AnswerGuardStatus(
             enabled=False,
             guard_status="disabled",
