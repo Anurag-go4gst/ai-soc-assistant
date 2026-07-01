@@ -239,6 +239,13 @@ from app.chat.hil_resolution import resolve_effective_hil_required
 from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.debug_summary import build_debug_summary
+from app.chat.guided_handoff_trace import blocked_resources_wire, build_guided_handoff_trace
+from app.chat.guided_hybrid_dispatch import uses_guided_hybrid_dispatch_from_state
+from app.chat.guided_investigation_planner import validate_investigation_plan
+from app.chat.guided_capability_validator import validate_guided_resource_plan
+from app.chat.guided_spl_review_gate import build_guided_spl_draft_preview_if_allowed
+from app.chat.investigation_plan_builder import build_deterministic_investigation_plan
+from app.planner.composer import compose_guided_resource_plan
 from app.chat.pipeline_visibility import build_pipeline_visibility
 from app.chat.session_context import (
     SessionContextResolution,
@@ -398,9 +405,12 @@ def _run_live_chat_pipeline(
     state = _timed_node(state, "route_resolution", graph_node_route_resolution)
     state = _timed_node(state, "route_contract", graph_node_route_contract)
     state = _timed_node(state, "evidence_planning", graph_node_evidence_planning)
-    state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
+    if not _uses_guided_hybrid_dispatch(state):
+        state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
     state = _timed_node(state, "shadow_tail", graph_node_shadow_tail)
-    if has_composed_plan(state) and not _session_spl_refine_active(state):
+    if _uses_guided_hybrid_dispatch(state) and not _session_spl_refine_active(state):
+        state = _timed_node(state, "guided_hybrid_dispatch", _run_guided_hybrid_dispatch)
+    elif has_composed_plan(state) and not _session_spl_refine_active(state):
         # WS0 T0.4 / Batch C: ResourcePlan step-walk dispatch with parity trace.
         state = _timed_node(state, "plan_dispatch", lambda s: execute_plan_dispatch(s, _dispatch_hooks()))
     elif settings.control_plane_enabled and not _session_spl_refine_active(state):
@@ -1337,6 +1347,8 @@ def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[
     if _mcp_allowed_decision_from_plan(evidence_payload)["allowed"] is not True:
         return False
     provisional = {**state, "evidence_plan": evidence_payload}
+    if _uses_guided_hybrid_dispatch(provisional):
+        return False
     if _uses_rag_only_path(provisional):
         return False
     return True
@@ -2233,8 +2245,11 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
         query=request.message,
         trace_id=trace_id,
     )
+    hybrid_dispatch_active = guided and uses_guided_hybrid_dispatch_from_state(state)
     spl_draft_preview = (
-        build_draft_preview(
+        None
+        if hybrid_dispatch_active
+        else build_draft_preview(
             state.get("effective_query") or request.message,
             unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
             llm_intent_advisory=(
@@ -3884,6 +3899,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             plan_dispatch_trace = build_plan_dispatch_trace_from_pipeline_dispatch(state)
         if isinstance(plan_dispatch_trace, dict) and plan_dispatch_trace:
             control_plane_trace["plan_dispatch"] = plan_dispatch_trace
+        guided_handoff_trace = state.get("guided_handoff_trace")
+        if isinstance(guided_handoff_trace, dict) and guided_handoff_trace:
+            control_plane_trace["guided_handoff"] = guided_handoff_trace
         if resource_plan_shadow_trace is not None:
             control_plane_trace["resource_plan_shadow"] = resource_plan_shadow_trace
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
@@ -4503,6 +4521,101 @@ def _session_spl_refine_active(state: ChatPipelineState) -> bool:
         and resolution.pins is not None
         and bool(resolution.pins.last_candidate_spl)
     )
+
+
+def _uses_guided_hybrid_dispatch(state: ChatPipelineState) -> bool:
+    return uses_guided_hybrid_dispatch_from_state(state)
+
+
+def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
+    """Guided hybrid rail: InvestigationPlan → Validator A → compose → Validator B → RAG."""
+    from app.chat.contracts.evidence_plan import EvidencePlan
+
+    request = state["request"]
+    trace_id = state["trace_id"]
+    query = state.get("effective_query") or request.message
+    evidence_payload = dict(_evidence_plan(state))
+    evidence = EvidencePlan.model_validate(evidence_payload)
+
+    baseline = build_deterministic_investigation_plan(
+        query=query,
+        soc_kb_retrieval=state.get("soc_kb_retrieval")
+        if isinstance(state.get("soc_kb_retrieval"), dict)
+        else None,
+    )
+    validated_plan = validate_investigation_plan(baseline)
+    match_path = getattr(state.get("query_understanding"), "deterministic_match_path", None)
+    pre_plan = compose_guided_resource_plan(evidence, validated_plan, match_path=match_path)
+    validation = validate_guided_resource_plan(evidence, pre_plan)
+    validated_resource = validation.validated_resource_plan
+    handoff_trace = build_guided_handoff_trace(
+        investigation_plan_validated=validated_plan,
+        resource_plan_pre_validation=pre_plan,
+        resource_plan_validated=validated_resource,
+        blocked_resources=blocked_resources_wire(validation),
+    )
+
+    evidence_payload["resource_plan"] = validated_resource.model_dump()
+    rc = _routes_chat()
+    workflow_plan = rc.plan_workflow(
+        selected_skill="guided_investigation",
+        tool_plan=["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"],
+        query=request.message,
+        trace_id=trace_id,
+    )
+    spl_draft_preview = build_guided_spl_draft_preview_if_allowed(
+        query=query,
+        evidence_plan=evidence,
+        investigation_plan=validated_plan,
+        unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
+        llm_intent_advisory=(
+            state["llm_intent_advisory"].model_dump()
+            if isinstance(state.get("llm_intent_advisory"), LLMIntentAdvisory)
+            else state.get("llm_intent_advisory")
+            if isinstance(state.get("llm_intent_advisory"), dict)
+            else None
+        ),
+        query_understanding=state.get("query_understanding"),
+    )
+    execution, human_review = _execution_stage(
+        trace_id=trace_id,
+        selected_skill="guided_investigation",
+        workflow_plan=workflow_plan,
+        spl_validation=None,
+        precondition_evaluation=state.get("route_plan_shadow", {}).get("precondition_evaluation"),
+        requested_mcp_server=request.requested_mcp_server,
+        requested_mcp_tool=request.requested_mcp_tool,
+        mcp_allowed=False,
+    )
+    emit_mcp_status_from_execution(execution)
+    trace = {
+        "dispatch_source": "guided_hybrid_dispatch",
+        "dispatch_schedule": [
+            "guided_baseline",
+            "validator_a",
+            "compose_guided_resource_plan",
+            "validator_b",
+            "rag_early",
+        ],
+    }
+    updated: ChatPipelineState = {
+        **state,
+        "evidence_plan": evidence_payload,
+        "workflow_plan": workflow_plan,
+        "candidate_spl": None,
+        "spl_validation": None,
+        "spl_draft_preview": spl_draft_preview,
+        "execution": execution,
+        "human_review": human_review,
+        "guided_handoff_trace": handoff_trace,
+        "plan_dispatch_trace": trace,
+    }
+    updated = _record_guided_resource_outcome(
+        updated,
+        spl_draft_preview=spl_draft_preview,
+        update_spl=True,
+    )
+    return graph_node_rag_early(updated)
 
 
 def _uses_rag_only_path(state: ChatPipelineState) -> bool:

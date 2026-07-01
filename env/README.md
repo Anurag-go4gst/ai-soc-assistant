@@ -52,6 +52,18 @@ docker compose up -d --force-recreate backend
 Settings → **Deployment** → choose profile → Apply. Then restart the backend container
 (profile changes require a restart; the UI cannot hot-reload env vars).
 
+## COE guided hybrid Batch 1
+
+With `AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED=true` and `CONTROL_PLANE_ENABLED=true`,
+out-of-catalog guided hunts use `guided_hybrid_dispatch` (not legacy `rag_early`).
+
+Sample query: *How should I investigate unusual outbound traffic from an OT host overnight?*
+
+Expected trace signals: `dispatch_source=guided_hybrid_dispatch`, `investigation_planning_enabled=true`,
+`safe_spl_execution_allowed=false`, `execution.status=skipped`.
+
+Batch 1 profile keeps `MCP_GLOBAL_EXECUTION_ENABLED=false` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=false`.
+
 ## COE LLM endpoint
 
 | Field | Value |

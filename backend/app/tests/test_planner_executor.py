@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
+
 from app.evals.sentinel_eval import BASELINE_PATH, capture_row
 from app.planner.executor import (
     DispatchHooks,
@@ -67,6 +69,31 @@ def test_dispatch_matches_legacy_rag_only_branch() -> None:
         [{"step_id": "rag", "resource_id": "rag_corpus:soc_kb", "purpose": "knowledge_retrieval"}]
     )
     execute_plan_dispatch(state, _hooks(calls, rag_only=True))
+    assert calls == ["prepare_rag_only", "rag_early"]
+
+
+def test_execute_plan_dispatch_does_not_use_guided_trace_hook_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Guided hybrid labels belong on pipeline handoff trace only, not executor hooks."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", True)
+    calls: list[str] = []
+    state = {
+        "planning_decision": {"path_type": "guided_investigation"},
+        "evidence_plan": {
+            "answer_mode": "guided_investigation",
+            "investigation_planning_enabled": True,
+            "needs_rag": True,
+            "rag_phase": "rag_only",
+        },
+    }
+    result = execute_plan_dispatch(state, _hooks(calls, rag_only=True))
+    schedule = (result.get("plan_dispatch_trace") or {}).get("dispatch_schedule") or []
+    assert "guided_baseline" not in schedule
+    assert "validator_a" not in schedule
     assert calls == ["prepare_rag_only", "rag_early"]
 
 

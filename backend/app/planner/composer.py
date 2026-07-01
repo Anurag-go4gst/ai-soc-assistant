@@ -11,13 +11,17 @@ degrade chains for the execution loop (T0.4).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.connectors.mcp.splunk_mcp_readiness import plan_splunk_discovery_calls
 from app.planner.resource_plan import PlanStep, ResourcePlan
 from app.planner.resource_registry import ResourceRegistry, load_resource_registry
 
+if TYPE_CHECKING:
+    from app.chat.contracts.investigation_plan import InvestigationPlan
+
 _COMPOSER_VERSION = "deterministic_v1"
+_GUIDED_HYBRID_COMPOSER_VERSION = "guided_hybrid_v1"
 
 
 def compose_resource_plan(
@@ -141,6 +145,114 @@ def compose_resource_plan(
             path_type=_infer_path_type_for_discovery(evidence_plan, intent_family=intent_family),
             match_path=match_path,
         )
+    return ResourcePlan(
+        steps=steps,
+        plan_source="deterministic",
+        provenance=provenance,
+    )
+
+
+def compose_guided_resource_plan(
+    evidence_plan: Any,
+    validated_investigation_plan: InvestigationPlan,
+    *,
+    match_path: str | None = None,
+    registry: ResourceRegistry | None = None,
+) -> ResourcePlan:
+    """Map a validated InvestigationPlan to a guided-only ResourcePlan."""
+    registry = registry or load_resource_registry()
+    steps: list[PlanStep] = []
+
+    if getattr(evidence_plan, "needs_rag", False):
+        steps.append(_rag_step(evidence_plan))
+
+    for index, tool_id in enumerate(validated_investigation_plan.read_only_tool_requests):
+        if registry.by_id(tool_id) is None:
+            continue
+        steps.append(
+            PlanStep(
+                step_id=f"discovery_{index}",
+                resource_id=tool_id,
+                purpose="mcp_discovery",
+                status="planned",
+                policy_checks=[
+                    "guided_metadata_discovery",
+                    "discovery_allowed",
+                    "analyst_validation_required",
+                ],
+            )
+        )
+
+    for index, template_id in enumerate(validated_investigation_plan.safe_spl_template_requests):
+        resource_id = f"spl_template_family:{template_id}"
+        if registry.by_id(resource_id) is None:
+            continue
+        steps.append(
+            PlanStep(
+                step_id=f"safe_catalog_{index}",
+                resource_id=resource_id,
+                purpose="safe_catalog_query",
+                status="planned",
+                policy_checks=[
+                    "guided_safe_catalog",
+                    "safe_spl_execution_allowed",
+                    "analyst_validation_required",
+                ],
+            )
+        )
+
+    if (
+        getattr(evidence_plan, "spl_review_allowed", False)
+        and validated_investigation_plan.spl_review_requested
+    ):
+        steps.append(
+            PlanStep(
+                step_id="spl_review",
+                resource_id="skill:spl_generation",
+                purpose="spl_artifact",
+                status="planned",
+                policy_checks=[
+                    "review_only",
+                    "spl_review_allowed",
+                    "execution_eligible_false",
+                    "analyst_validation_required",
+                ],
+            )
+        )
+
+    steps.extend(
+        [
+            PlanStep(
+                step_id="evidence",
+                resource_id="skill:evidence_collection",
+                purpose="evidence_collection",
+                policy_checks=["metadata_only", "analyst_validation_required"],
+                status="planned",
+            ),
+            PlanStep(
+                step_id="sufficiency",
+                resource_id="skill:context_sufficiency",
+                purpose="context_sufficiency",
+                policy_checks=["no_unsupported_claims", "analyst_validation_required"],
+                status="planned",
+            ),
+            PlanStep(
+                step_id="narration",
+                resource_id="llm_role:narration",
+                purpose="narration",
+                policy_checks=["answer_guard", "deterministic_fallback_on_failure"],
+                status="planned",
+            ),
+        ]
+    )
+
+    provenance: dict[str, Any] = {
+        "composer": _GUIDED_HYBRID_COMPOSER_VERSION,
+        "match_path": match_path,
+        "investigation_plan_source": validated_investigation_plan.plan_source,
+        "investigation_objective": validated_investigation_plan.investigation_objective[:240],
+        "validation_warnings": list(validated_investigation_plan.validation_warnings),
+    }
     return ResourcePlan(
         steps=steps,
         plan_source="deterministic",
