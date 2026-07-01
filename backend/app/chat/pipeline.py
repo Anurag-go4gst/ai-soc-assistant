@@ -100,6 +100,12 @@ from app.splunk.spl_services import (
 )
 from app.answer_guard.runner import run_answer_guard_lab
 from app.llm.governed_context_package import build_governed_context_package_for_contract
+from app.llm.guided_llm_budget import (
+    build_guided_turn_budget,
+    guided_turn_deadline_seconds,
+    is_guided_investigation_route,
+    should_skip_intent_advisor_for_guided,
+)
 from app.llm.turn_llm_budget import TurnLlmBudget
 from app.synthesis.composer_context_builders import (
     mcp_tool_hints_from_registry,
@@ -253,6 +259,12 @@ from app.chat.guided_hybrid_refinement import (
 from app.chat.guided_hybrid_dispatch import uses_guided_hybrid_dispatch_from_state
 from app.chat.guided_hybrid_collection import collect_guided_hybrid_evidence
 from app.chat.guided_investigation_plan_llm import propose_investigation_plan_llm
+from app.chat.guided_investigation_synthesizer import (
+    build_guided_llm_degraded_message,
+    build_guided_llm_trace,
+    resolve_guided_composer_timeout,
+)
+from app.chat.guided_step_sanitizer import filter_analyst_facing_steps
 from app.chat.guided_investigation_planner import validate_investigation_plan
 from app.chat.guided_capability_validator import validate_guided_resource_plan
 from app.chat.guided_spl_review_gate import build_guided_spl_draft_preview_if_allowed
@@ -734,6 +746,11 @@ def _compute_turn_deadline_for_state(query_understanding: Any, routed: dict[str,
         selected_skill=selected_skill,
         soc_investigation_shaped=soc_shaped,
     )
+    if (
+        settings.ai_soc_guided_llm_enabled
+        and is_guided_investigation_route(routed_skill=selected_skill)
+    ):
+        return guided_turn_deadline_seconds()
     return cap_turn_deadline_for_t2_advisory(
         match_path=match_path,
         catalog_row=catalog_row,
@@ -791,6 +808,13 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case=selected_use_case,
         query_understanding=query_understanding,
     )
+    routed_skill = str(routed.get("skill") or "")
+    if is_guided_investigation_route(routed_skill=routed_skill) and settings.ai_soc_guided_llm_enabled:
+        llm_budget = build_guided_turn_budget()
+    else:
+        llm_budget = TurnLlmBudget(
+            deadline_seconds=_compute_turn_deadline_for_state(query_understanding, routed),
+        )
     return {
         **state,
         "trace_id": trace_id,
@@ -798,9 +822,7 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
         "selected_use_case": selected_use_case,
         "routed": routed,
         "route_plan_shadow": route_plan_shadow,
-        "llm_turn_budget": TurnLlmBudget(
-            deadline_seconds=_compute_turn_deadline_for_state(query_understanding, routed),
-        ),
+        "llm_turn_budget": llm_budget,
     }
 
 
@@ -876,6 +898,13 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     ):
         skip_advisory = True
         skip_reason = "guided_hunt_deterministic_routing"
+    guided_skip, guided_skip_reason = should_skip_intent_advisor_for_guided(
+        routed_skill=routed_skill,
+        query_signals=preliminary_signals,
+    )
+    if guided_skip:
+        skip_advisory = True
+        skip_reason = guided_skip_reason or "guided_route_locked_skip_intent_advisor"
     if (
         not skip_advisory
         and _high_confidence_registry_match_t0(qu)
@@ -902,6 +931,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             "deterministic_exact_match_t0",
             "registry_backed_high_confidence_t0",
             "guided_hunt_deterministic_routing",
+            "guided_route_locked_skip_intent_advisor",
         }
         and should_prioritize_intent_advisor(
         query_text,
@@ -3579,7 +3609,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                         guided_grounding_block.to_prompt_block() if guided_grounding_block else None
                     ),
                 )
-            _composer_timeout = budget.capped_hop_timeout_seconds(role="governed_composer")
+            _composer_timeout = resolve_guided_composer_timeout(budget)
             if _composer_timeout is None:
                 # Budget drained between the narration gate and here: keep the complete
                 # deterministic envelope rather than start an unbounded narration hop.
@@ -3676,10 +3706,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if llm_turn_budget_trace is not None:
             llm_turn_budget_trace = budget.to_trace_dict()
     if path_type == "guided_investigation":
+        guided_trace = build_guided_llm_trace(
+            path_type=path_type,
+            composer_trace=composer_trace,
+        )
+        llm_used = bool(composer_trace.get("llm_composer_used"))
         composer_trace = {
             **composer_trace,
-            "deterministic_guided_fallback": True,
-            "guided_fallback_used": not bool(composer_trace.get("llm_composer_used")),
+            **guided_trace.to_dict(),
+            "deterministic_guided_fallback": not llm_used,
+            "guided_fallback_used": not llm_used,
         }
     elif answer_contract is not None and skip_composer and analyst_response is not None:
         composer_trace = {
@@ -4100,6 +4136,50 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         answer_contract=answer_contract,
         user_query=request.message,
     )
+    if analyst_response is not None and path_type == "guided_investigation":
+        filtered_steps = filter_analyst_facing_steps(list(analyst_response.investigation_steps or []))
+        filtered_actions = filter_analyst_facing_steps(list(analyst_response.recommended_actions or []))
+        filtered_checklist = filter_analyst_facing_steps(list(analyst_response.analyst_checklist or []))
+        if (
+            filtered_steps != list(analyst_response.investigation_steps or [])
+            or filtered_actions != list(analyst_response.recommended_actions or [])
+            or filtered_checklist != list(analyst_response.analyst_checklist or [])
+        ):
+            analyst_response = analyst_response.model_copy(
+                update={
+                    "investigation_steps": filtered_steps,
+                    "recommended_actions": filtered_actions,
+                    "analyst_checklist": filtered_checklist,
+                }
+            )
+    if path_type == "guided_investigation" and composer_trace.get("guided_llm_degraded_fallback"):
+        evidence_plan_payload = (
+            state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+        )
+        checklist = list(evidence_plan_payload.get("checklist") or [])
+        degraded_message = build_guided_llm_degraded_message(
+            checklist=checklist,
+            failure_reason=composer_trace.get("guided_llm_failure_reason"),
+        )
+        message = degraded_message
+        if analyst_response is not None:
+            filtered_steps = filter_analyst_facing_steps(
+                list(analyst_response.investigation_steps or checklist)
+            )
+            analyst_response = analyst_response.model_copy(
+                update={
+                    "direct_answer_summary": degraded_message[:2000],
+                    "one_sentence_finding": degraded_message[:500],
+                    "investigation_steps": filtered_steps,
+                    "recommended_actions": filtered_steps[:8],
+                    "analyst_checklist": filtered_steps[:8],
+                    "severity_label": None,
+                    "review_notice": (
+                        "Guided LLM planner unavailable — deterministic checklist only; "
+                        "no live telemetry was queried."
+                    ),
+                }
+            )
     from app.chat.coe_checklist_repair import repair_duplicate_soc_review_checklist
 
     analyst_response, message = repair_duplicate_soc_review_checklist(
@@ -4639,7 +4719,19 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
             if isinstance(state.get("soc_kb_retrieval"), dict)
             else None,
         ).model_copy(update={"refinement_round": refinement_round})
-        llm_result = propose_investigation_plan_llm(query=query, baseline=baseline)
+        if settings.ai_soc_guided_llm_enabled:
+            from app.chat.guided_investigation_plan_llm import InvestigationPlanLlmResult
+
+            llm_result = InvestigationPlanLlmResult(
+                raw_llm=None,
+                proposal=None,
+                attempted=False,
+                timed_out=False,
+                provider_label=None,
+                dropped_reasons=["guided_finalize_composer_reserved"],
+            )
+        else:
+            llm_result = propose_investigation_plan_llm(query=query, baseline=baseline)
         if refinement_round == 0 and llm_result.attempted:
             dispatch_steps.append("guided_investigation_plan_llm")
         validated_plan = validate_investigation_plan(

@@ -203,6 +203,20 @@ _TEMPLATES: dict[SignalClass, dict[str, list[str]]] = {
             "Endpoint telemetry where available: initiating process, user, and parent process.",
         ],
     },
+    "firewall_aggregation": {
+        "hypotheses": [
+            "Distributed scanning or brute-force producing a high deny volume across many sources.",
+            "Targeted activity concentrated on a few sources, destinations, or ports after an account breach.",
+            "Change-window or automation misconfiguration generating a benign deny spike.",
+        ],
+        "evidence": [
+            "Firewall deny/block logs: top source IPs, destination IPs, ports, actions, and rule IDs for the window.",
+            "Timeline: deny spike before vs after the reported internal account breach.",
+            "Overlap between top blocked sources/destinations and breached server account activity.",
+            "DNS/proxy/endpoint corroboration for highest-volume offenders (metadata only).",
+            "Concentration vs distributed pattern — treat coordinated activity as a hypothesis until corroborated.",
+        ],
+    },
     "wireless_physical": {
         "hypotheses": [
             "Authorized temporary wireless bridge for maintenance.",
@@ -243,10 +257,13 @@ def extract_ot_terms(query: str) -> list[str]:
 
 def classify_signal_class(query: str, entities: dict[str, Any] | None = None) -> SignalClass:
     """Deterministic signal-class classifier over query + entities."""
-    from app.chat.query_signals import is_cve_focus_query
+    from app.chat.query_signals import extract_query_signals, is_cve_focus_query
 
     if is_cve_focus_query(query):
         return "unknown"
+    signals = extract_query_signals(query)
+    if signals.get("security_log_aggregation_investigation"):
+        return "firewall_aggregation"
     normalized = " ".join(query.lower().split())
     entity_text = " ".join(
         str(item)
@@ -395,7 +412,7 @@ def build_signal_class_guidance(query: str, entities: dict[str, Any] | None = No
         return (
             "Guided investigation (review-only)\n\n"
             f"{term_line}"
-            "No specialised OT family is mapped for this signal yet — using a generic hunt skeleton.\n\n"
+            "No specialised signal family is mapped for this query yet — using a generic hunt skeleton.\n\n"
             "Hypotheses\n- Expected operational activity or a recent approved change.\n"
             "- Telemetry drift producing an apparent anomaly.\n"
             "- Suspicious activity requiring corroboration across independent sources.\n\n"

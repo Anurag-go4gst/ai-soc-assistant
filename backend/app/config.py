@@ -395,6 +395,11 @@ class Settings(BaseSettings):
     # Guided read-only MCP discovery lane (metadata tools only; no run_query/SPL execution).
     # Default false — flag-off preserves legacy guided_investigation byte-identical behavior.
     ai_soc_guided_mcp_discovery_enabled: bool = False
+    ai_soc_guided_llm_enabled: bool = False
+    ai_soc_guided_llm_timeout_seconds: float = 120.0
+    ai_soc_guided_llm_min_final_reserve_seconds: float = 90.0
+    ai_soc_guided_llm_intent_advisor_timeout_seconds: float = 15.0
+    ai_soc_guided_llm_max_calls: int = 1
     # Batch 5 — lightweight investigation session pins (structured only, no transcript).
     ai_soc_session_context_enabled: bool = True
     ai_soc_session_context_ttl_minutes: int = 30
