@@ -3,6 +3,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=lib/plan-discipline-common.sh
+source "$(dirname "$0")/lib/plan-discipline-common.sh"
+
 input="$(cat)"
 path="$(echo "$input" | jq -r '.tool_input.path // .tool_input.file_path // empty')"
 
@@ -21,6 +24,16 @@ esac
 basename="${path##*/}"
 if [[ "$basename" == "README.md" ]]; then
   exit 0
+fi
+
+plan_rel=""
+case "$path" in
+  "$ROOT"/plans/*.md) plan_rel="${path#"$ROOT"/}" ;;
+  plans/*.md) plan_rel="$path" ;;
+  */plans/*.md) plan_rel="plans/${path##*/plans/}" ;;
+esac
+if [[ -n "$plan_rel" ]]; then
+  bind_active_plan "$ROOT" "$plan_rel" || true
 fi
 
 jq -n --arg p "$path" --arg msg "$(cat <<CTX

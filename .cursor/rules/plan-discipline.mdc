@@ -39,7 +39,7 @@ When the user prompt contains **`loop-asap`** (case-insensitive):
 2. **Audit first** — Run `.cursor/hooks/audit-plan-discipline.sh <plan-path>`; fix every reported gap in the plan/checklist.
 3. **Then execute** the loop above until stop condition.
 
-Hooks arm `loop-asap` for stop-time continuation when the agent ends mid-loop.
+Hooks arm `loop-asap` for stop-time continuation when the agent ends mid-loop (up to 5 turns per arm). Hook-injected follow-ups do **not** re-arm. Type **`loop-asap stop`** to end the loop. The loop also stops when every checklist item is `- [x]` with at least one checked item.
 
 ## Checklist item format (required)
 
