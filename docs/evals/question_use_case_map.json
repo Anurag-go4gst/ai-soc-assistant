@@ -8,6 +8,38 @@
     "After editing, re-run: python3 scripts/build_skill_coverage_matrix.py && python3 scripts/build_skill_coverage_matrix.py --check"
   ],
   "mappings": {
+    "q0.q011": {
+      "question_id": "q0.q011",
+      "use_case_id": "edr_lateral_movement_candidate",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=lateral_movement; question 'Which hosts made SMB connections to many peers?' describes SMB peer-to-peer lateral movement, the canonical indicator for use_case_id=edr_lateral_movement_candidate in backend/app/use_cases/catalog.json; no other catalog use_case covers SMB peer-lateral-movement detection."
+    },
+    "q0.q031": {
+      "question_id": "q0.q031",
+      "use_case_id": "dns_beaconing_candidate",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=dns_beaconing_dga_behavior; question 'Which hosts repeatedly contacted the same destination at regular intervals?' describes the textbook beaconing detection pattern (periodic regular contact = beacon); use_case_id=dns_beaconing_candidate in backend/app/use_cases/catalog.json with default_spl_template=dns_beaconing_candidate is the authoritative catalog anchor for beaconing detection; no other catalog use_case covers this pattern."
+    },
+    "q0.q043": {
+      "question_id": "q0.q043",
+      "use_case_id": "dns_beaconing_candidate",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=dns_beaconing_dga_behavior; question 'Which hosts show consistent low-volume outbound connections?' describes low-and-slow beaconing (consistent = periodic, low-volume = evasive beacon); use_case_id=dns_beaconing_candidate in backend/app/use_cases/catalog.json with default_spl_template=dns_beaconing_candidate covers this beaconing detection pattern."
+    },
+    "q0.q060": {
+      "question_id": "q0.q060",
+      "use_case_id": "auth_success_after_failure",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=success_after_failure is an exact suffix of use_case_id=auth_success_after_failure in catalog; question 'Which accounts had a successful login after repeated failures?' explicitly describes the success-after-failure auth detection pattern; backend/app/use_cases/catalog.json has exactly one use case with default_spl_template=auth_success_after_failure; no other catalog use_case covers this pattern."
+    },
     "q0.q062": {
       "question_id": "q0.q062",
       "use_case_id": "auth_failed_login_spike",
@@ -15,6 +47,30 @@
       "mapping_source_file": "docs/evals/question_use_case_map.json",
       "mapping_confidence": "high",
       "evidence_note": "Exact stable template evidence: backend/app/coverage/pattern_coverage_v1.json entry cov.q062.auth_failed_login_spike_raw has question_ref=q0.q062 and template_ref=auth_failed_login_spike; backend/app/use_cases/catalog.json has exactly one use case with default_spl_template=auth_failed_login_spike."
+    },
+    "q0.q072": {
+      "question_id": "q0.q072",
+      "use_case_id": "edr_lateral_movement_candidate",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=lateral_movement; question 'Which hosts show signs of lateral movement?' explicitly names the detection family use_case_id=edr_lateral_movement_candidate in backend/app/use_cases/catalog.json; intent_patterns for that use_case include 'lateral movement' which exactly matches the question's framing."
+    },
+    "q0.q074": {
+      "question_id": "q0.q074",
+      "use_case_id": "edr_lateral_movement_candidate",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=lateral_movement; question 'Which hosts show SMB connections to many peers?' describes SMB peer-lateral-movement (paraphrase of q0.q011); use_case_id=edr_lateral_movement_candidate in backend/app/use_cases/catalog.json is the authoritative anchor for this detection pattern."
+    },
+    "q0.q089": {
+      "question_id": "q0.q089",
+      "use_case_id": "auth_success_after_failure",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=success_after_failure is an exact suffix of use_case_id=auth_success_after_failure in catalog; question 'Which users authenticated to VPN after repeated MFA failures?' explicitly describes the success-after-failure auth detection pattern (authenticated = success, after repeated failures); backend/app/use_cases/catalog.json has exactly one use case with default_spl_template=auth_success_after_failure; no other catalog use_case covers this pattern."
     }
   },
   "reviewed_unmapped": [
@@ -27,11 +83,6 @@
       "question_id": "q0.q023",
       "candidate_area": "dns_beaconing_candidate",
       "reason": "Runtime row has pattern_type=dns_beaconing_dga_behavior but no manifest coverage ID, template_ref, use_case_id, or exact catalog example match."
-    },
-    {
-      "question_id": "q0.q046",
-      "candidate_area": "auth_failed_login_spike",
-      "reason": "Manifest entry cov.q046.excessive_failed_logins_sample has template_ref=sample_auth_failed_login_top_users_tstats, which is not a catalog default_spl_template."
     },
     {
       "question_id": "q0.q049",
@@ -47,11 +98,6 @@
       "question_id": "q0.q053",
       "candidate_area": "dns_beaconing_candidate",
       "reason": "Runtime row has pattern_type=dns_beaconing_dga_behavior but no manifest coverage ID, template_ref, use_case_id, or exact catalog example match."
-    },
-    {
-      "question_id": "q0.q060",
-      "candidate_area": "auth_success_after_failure",
-      "reason": "Runtime row has pattern_type=success_after_failure but no manifest coverage ID, template_ref, use_case_id, or exact catalog example match."
     },
     {
       "question_id": "q0.q064",

@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_github_batch_intake",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-30T05:58:31+00:00",
+  "generated_at": "2026-07-01T16:50:48+00:00",
   "row_counts": {
     "accepted_for_enrichment": 12,
     "batches": 1,

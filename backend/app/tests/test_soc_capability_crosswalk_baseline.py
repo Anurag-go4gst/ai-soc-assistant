@@ -68,9 +68,9 @@ def crosswalk() -> dict:
 def test_crosswalk_file_exists_with_schema(crosswalk: dict) -> None:
     assert REQUIRED_TOP_LEVEL_KEYS.issubset(crosswalk.keys())
     assert crosswalk["row_counts"]["question_rows"] == 105
-    assert crosswalk["row_counts"]["use_case_rows"] == 61
+    assert crosswalk["row_counts"]["use_case_rows"] == 64
     assert crosswalk["row_counts"]["github_skill_rows"] == 12
-    assert crosswalk["row_counts"]["catalog_use_cases"] == 58
+    assert crosswalk["row_counts"]["catalog_use_cases"] == 61
     assert crosswalk["row_counts"]["enrichment_records"] == 13
     assert crosswalk["row_counts"]["enrichment_only_use_cases"] == 3
 
@@ -136,7 +136,7 @@ def test_knowledge_export_includes_soc_capability_crosswalk() -> None:
 
     assert payload["artifact"] == "soc_capability_crosswalk"
     assert payload["row_counts"]["question_rows"] == 105
-    assert payload["row_counts"]["use_case_rows"] == 61
+    assert payload["row_counts"]["use_case_rows"] == 64
     assert payload["row_counts"]["github_skill_rows"] == 12
     assert len(payload["question_rows"]) == 105
     assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE

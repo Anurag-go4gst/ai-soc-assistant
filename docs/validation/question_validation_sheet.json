@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_questions",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-06-30T05:58:31+00:00",
+  "generated_at": "2026-07-01T16:50:48+00:00",
   "row_counts": {
     "questions": 105
   },
@@ -16,13 +16,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "mapped_from_existing_metadata",
       "question": "Which source IPs generated the most outbound connections?",
       "question_id": "q0.q002",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_network_top_outbound_src"
     },
     {
       "disposition": "metadata_only",
@@ -97,13 +97,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts made SMB connections to many peers?",
       "question_id": "q0.q011",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "edr_lateral_movement_candidate"
     },
     {
       "disposition": "metadata_only",
@@ -151,13 +151,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "mapped_from_existing_metadata",
       "question": "Which hosts generated the most DNS queries?",
       "question_id": "q0.q017",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_dns_top_query_hosts"
     },
     {
       "disposition": "metadata_only",
@@ -277,13 +277,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "runtime_active",
+      "mapping_status": "curated_manual",
       "question": "Which hosts repeatedly contacted the same destination at regular intervals?",
       "question_id": "q0.q031",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "runtime_active",
+      "use_case_id": "dns_beaconing_candidate"
     },
     {
       "disposition": "metadata_only",
@@ -385,13 +385,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "runtime_active",
+      "mapping_status": "curated_manual",
       "question": "Which hosts show consistent low-volume outbound connections?",
       "question_id": "q0.q043",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "runtime_active",
+      "use_case_id": "dns_beaconing_candidate"
     },
     {
       "disposition": "metadata_only",
@@ -412,13 +412,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "mapped_from_existing_metadata",
       "question": "Which users have excessive failed logins?",
       "question_id": "q0.q046",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_auth_failed_login_top_users"
     },
     {
       "disposition": "metadata_only",
@@ -538,13 +538,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "runtime_active",
+      "mapping_status": "curated_manual",
       "question": "Which accounts had a successful login after repeated failures?",
       "question_id": "q0.q060",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "runtime_active",
+      "use_case_id": "auth_success_after_failure"
     },
     {
       "disposition": "metadata_only",
@@ -646,13 +646,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts show signs of lateral movement?",
       "question_id": "q0.q072",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "edr_lateral_movement_candidate"
     },
     {
       "disposition": "metadata_only",
@@ -664,13 +664,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts show SMB connections to many peers?",
       "question_id": "q0.q074",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "edr_lateral_movement_candidate"
     },
     {
       "disposition": "metadata_only",
@@ -799,13 +799,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "runtime_active",
+      "mapping_status": "curated_manual",
       "question": "Which users authenticated to VPN after repeated MFA failures?",
       "question_id": "q0.q089",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "runtime_active",
+      "use_case_id": "auth_success_after_failure"
     },
     {
       "disposition": "metadata_only",

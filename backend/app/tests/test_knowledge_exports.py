@@ -28,7 +28,7 @@ def test_mapping_summary_endpoint_matches_crosswalk() -> None:
     crosswalk = build_soc_capability_crosswalk_export_payload()
 
     assert summary["row_counts"]["question_rows"] == 105
-    assert summary["row_counts"]["use_case_rows"] == 61
+    assert summary["row_counts"]["use_case_rows"] == 64
     assert summary["row_counts"]["github_skill_rows"] == 12
     assert summary["live_route_skills"] == list(
         ("alert_summary", "spl_generation", "attack_discovery", "knowledge_recall", "guided_investigation")
@@ -106,7 +106,7 @@ def test_soc_capability_crosswalk_json_export_contains_expected_rows() -> None:
 
     assert payload["artifact"] == "soc_capability_crosswalk"
     assert payload["row_counts"]["question_rows"] == 105
-    assert payload["row_counts"]["use_case_rows"] == 61
+    assert payload["row_counts"]["use_case_rows"] == 64
     assert payload["row_counts"]["github_skill_rows"] == 12
     assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
 

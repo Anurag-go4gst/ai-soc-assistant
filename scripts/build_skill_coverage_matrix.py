@@ -55,12 +55,18 @@ RUNTIME_MAP_PATH = REPO_ROOT / "backend" / "app" / "coverage" / "question_runtim
 MANIFEST_PATH = REPO_ROOT / "backend" / "app" / "coverage" / "pattern_coverage_v1.json"
 CATALOG_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "catalog.json"
 CONTENT_ENRICHMENT_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "content_enrichment.json"
+SPL_TEMPLATES_PATH = REPO_ROOT / "backend" / "app" / "spl" / "templates.json"
 INTAKE_REGISTER_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_intake_register.json"
 CURATED_MAP_PATH = REPO_ROOT / "docs" / "evals" / "question_use_case_map.json"
 OUTPUT_PATH = REPO_ROOT / "docs" / "evals" / "skill_coverage_matrix.json"
 
 # Relative labels recorded in each row's ``mapping_source_file`` (stable across hosts).
 _MANIFEST_SOURCE_LABEL = "backend/app/coverage/pattern_coverage_v1.json+backend/app/use_cases/catalog.json"
+_MANIFEST_VIA_REGISTRY_SOURCE_LABEL = (
+    "backend/app/coverage/pattern_coverage_v1.json"
+    "+backend/app/spl/templates.json"
+    "+backend/app/use_cases/catalog.json"
+)
 _CURATED_SOURCE_LABEL = "docs/evals/question_use_case_map.json"
 
 
@@ -155,6 +161,34 @@ def _index_enrichment_by_use_case(enrichment: Any, warnings: list[str]) -> dict[
     return index
 
 
+def _index_spl_registry_by_template_id(templates: Any, warnings: list[str]) -> dict[str, str]:
+    """Return a ``template_id -> use_case_id`` index from the SPL template registry.
+
+    Used as a 3rd auto-derivation hop: ``manifest.template_ref`` ->
+    ``spl_registry[template_id].use_case_id`` -> catalog.  This covers cases
+    where the manifest's ``template_ref`` is not a ``catalog.default_spl_template``
+    directly but the SPL registry carries an explicit ``use_case_id`` link.
+    Tolerates a missing or malformed registry by returning an empty index.
+    """
+    index: dict[str, str] = {}
+    if not isinstance(templates, dict):
+        if templates is not None:
+            warnings.append("templates.json is not an object; SPL registry index empty")
+        return index
+    template_list = templates.get("templates")
+    if not isinstance(template_list, list):
+        warnings.append("templates.json missing a 'templates' list; SPL registry index empty")
+        return index
+    for record in template_list:
+        if not isinstance(record, dict):
+            continue
+        template_id = record.get("template_id")
+        use_case_id = record.get("use_case_id")
+        if isinstance(template_id, str) and template_id and isinstance(use_case_id, str) and use_case_id:
+            index[template_id] = use_case_id
+    return index
+
+
 def _index_manifest_template_by_question(manifest: Any, warnings: list[str]) -> dict[str, str]:
     """Return a ``question_ref -> template_ref`` index from the coverage manifest.
 
@@ -226,6 +260,8 @@ def _resolve_use_case_id(
     manifest_template_index: dict[str, str],
     template_to_use_case: dict[str, list[str]],
     curated_index: dict[str, dict],
+    spl_registry_index: dict[str, str] | None = None,
+    catalog_index: dict[str, dict] | None = None,
 ) -> tuple[str | None, str, str | None, str | None]:
     """Resolve a deterministic ``use_case_id`` for a runtime-map question.
 
@@ -234,7 +270,11 @@ def _resolve_use_case_id(
       1. curated manual entry -> ``curated_manual``
       2. manifest ``template_ref`` == exactly one catalog ``default_spl_template``
          -> ``mapped_from_existing_metadata``
-      3. otherwise -> ``missing_authoritative_mapping`` (use_case_id None)
+      3. manifest ``template_ref`` -> SPL registry ``use_case_id`` -> catalog
+         (when the manifest template_ref is not itself a catalog default_spl_template
+         but the SPL registry explicitly carries a catalog-present use_case_id)
+         -> ``mapped_from_existing_metadata`` (medium confidence, 3-hop chain)
+      4. otherwise -> ``missing_authoritative_mapping`` (use_case_id None)
     """
     question_ref = entry.get("question_ref")
 
@@ -246,9 +286,21 @@ def _resolve_use_case_id(
 
     template_ref = manifest_template_index.get(question_ref) if isinstance(question_ref, str) else None
     if template_ref:
+        # Path 2: manifest template_ref == catalog default_spl_template (exact 1-hop)
         use_case_ids = template_to_use_case.get(template_ref)
         if use_case_ids and len(use_case_ids) == 1:
             return use_case_ids[0], "mapped_from_existing_metadata", _MANIFEST_SOURCE_LABEL, "high"
+
+        # Path 3: manifest template_ref -> SPL registry use_case_id -> catalog (3-hop)
+        if spl_registry_index is not None and catalog_index is not None:
+            registry_uc_id = spl_registry_index.get(template_ref)
+            if registry_uc_id and registry_uc_id in catalog_index:
+                return (
+                    registry_uc_id,
+                    "mapped_from_existing_metadata",
+                    _MANIFEST_VIA_REGISTRY_SOURCE_LABEL,
+                    "medium",
+                )
 
     return None, "missing_authoritative_mapping", None, None
 
@@ -379,6 +431,7 @@ def build_rows(
     register_index: dict[str, list[dict]],
     enrichment_index: dict[str, dict],
     warnings: list[str],
+    spl_registry_index: dict[str, str] | None = None,
 ) -> list[dict]:
     """Build one coverage-matrix row per runtime-map question, sorted by question_id.
 
@@ -405,7 +458,12 @@ def build_rows(
             continue
 
         use_case_id, mapping_status, mapping_source, mapping_confidence = _resolve_use_case_id(
-            entry, manifest_template_index, template_to_use_case, curated_index
+            entry,
+            manifest_template_index,
+            template_to_use_case,
+            curated_index,
+            spl_registry_index=spl_registry_index,
+            catalog_index=catalog_index,
         )
         if use_case_id is None:
             warnings.append(
@@ -460,6 +518,7 @@ def generate_matrix(warnings: list[str]) -> list[dict]:
     manifest = _load_json(MANIFEST_PATH, warnings)
     catalog = _load_json(CATALOG_PATH, warnings)
     enrichment = _load_json(CONTENT_ENRICHMENT_PATH, warnings)
+    spl_templates = _load_json(SPL_TEMPLATES_PATH, warnings)
     register = _load_json(INTAKE_REGISTER_PATH, warnings)
     curated = _load_json(CURATED_MAP_PATH, warnings)
 
@@ -468,6 +527,7 @@ def generate_matrix(warnings: list[str]) -> list[dict]:
     register_index = _index_register_by_use_case(register, warnings)
     manifest_template_index = _index_manifest_template_by_question(manifest, warnings)
     template_to_use_case = _index_template_to_use_case(catalog_index)
+    spl_registry_index = _index_spl_registry_by_template_id(spl_templates, warnings)
     curated_index = _load_curated_map(curated, warnings)
 
     return build_rows(
@@ -479,6 +539,7 @@ def generate_matrix(warnings: list[str]) -> list[dict]:
         register_index,
         enrichment_index,
         warnings,
+        spl_registry_index=spl_registry_index,
     )
 
 

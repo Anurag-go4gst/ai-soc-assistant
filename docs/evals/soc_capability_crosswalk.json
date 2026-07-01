@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-06-27T18:37:52+00:00",
+  "generated_at": "2026-07-01T16:50:48+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -585,28 +585,38 @@
     },
     {
       "answer_rules_status": "missing",
-      "catalog_present": false,
+      "catalog_present": true,
       "enrichment_present": false,
-      "evidence_requirements": null,
+      "evidence_requirements": {
+        "optional_entities": [
+          "src_ip",
+          "time_window"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
       "github_reference_skills": [],
       "github_reuse_type": [],
       "investigation_workflow_status": "missing",
       "live_execution_skill": "attack_discovery",
-      "mapping_confidence": null,
-      "mapping_status": "missing_authoritative_mapping",
+      "mapping_confidence": "high",
+      "mapping_status": "mapped_from_existing_metadata",
       "mitre_blocked": [],
       "mitre_candidates": [],
       "mitre_metadata_role": null,
       "planning_or_analytic_skill": "aggregate_and_rank",
       "question": "Which source IPs generated the most outbound connections?",
       "question_id": "q0.q002",
-      "question_match_status": "unmapped",
+      "question_match_status": "exact",
       "rag_status": "missing",
-      "runtime_support_status": "metadata_only",
-      "spl_template_id": null,
-      "spl_template_status": "active",
+      "runtime_support_status": "planned",
+      "spl_template_id": "sample_network_top_outbound_src_tstats",
+      "spl_template_status": "sample",
       "tests_added": false,
-      "use_case_id": null,
+      "use_case_id": "sample_network_top_outbound_src",
       "validation_status": "needs_soc_review"
     },
     {
@@ -819,28 +829,47 @@
     },
     {
       "answer_rules_status": "missing",
-      "catalog_present": false,
+      "catalog_present": true,
       "enrichment_present": false,
-      "evidence_requirements": null,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "user"
+        ],
+        "optional_sources": [
+          "edr",
+          "identity"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
       "github_reference_skills": [],
       "github_reuse_type": [],
       "investigation_workflow_status": "missing",
       "live_execution_skill": "attack_discovery",
-      "mapping_confidence": null,
-      "mapping_status": "missing_authoritative_mapping",
-      "mitre_blocked": [],
-      "mitre_candidates": [],
-      "mitre_metadata_role": null,
+      "mapping_confidence": "high",
+      "mapping_status": "curated_manual",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1078",
+        "T1110.001"
+      ],
+      "mitre_candidates": [
+        "T1021"
+      ],
+      "mitre_metadata_role": "metadata_not_evidence",
       "planning_or_analytic_skill": "behavioral_detection_binding",
       "question": "Which hosts made SMB connections to many peers?",
       "question_id": "q0.q011",
-      "question_match_status": "unmapped",
+      "question_match_status": "exact",
       "rag_status": "missing",
-      "runtime_support_status": "metadata_only",
+      "runtime_support_status": "planned",
       "spl_template_id": null,
       "spl_template_status": "unavailable",
       "tests_added": false,
-      "use_case_id": null,
+      "use_case_id": "edr_lateral_movement_candidate",
       "validation_status": "needs_soc_review"
     },
     {
@@ -975,28 +1004,38 @@
     },
     {
       "answer_rules_status": "missing",
-      "catalog_present": false,
+      "catalog_present": true,
       "enrichment_present": false,
-      "evidence_requirements": null,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "time_window"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
       "github_reference_skills": [],
       "github_reuse_type": [],
       "investigation_workflow_status": "missing",
       "live_execution_skill": "attack_discovery",
-      "mapping_confidence": null,
-      "mapping_status": "missing_authoritative_mapping",
+      "mapping_confidence": "high",
+      "mapping_status": "mapped_from_existing_metadata",
       "mitre_blocked": [],
       "mitre_candidates": [],
       "mitre_metadata_role": null,
       "planning_or_analytic_skill": "aggregate_and_rank",
       "question": "Which hosts generated the most DNS queries?",
       "question_id": "q0.q017",
-      "question_match_status": "unmapped",
+      "question_match_status": "exact",
       "rag_status": "missing",
-      "runtime_support_status": "metadata_only",
-      "spl_template_id": null,
-      "spl_template_status": "active",
+      "runtime_support_status": "planned",
+      "spl_template_id": "sample_dns_top_query_hosts_from_datamodel",
+      "spl_template_status": "sample",
       "tests_added": false,
-      "use_case_id": null,
+      "use_case_id": "sample_dns_top_query_hosts",
       "validation_status": "needs_soc_review"
     },
     {
@@ -1338,30 +1377,53 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
-      "catalog_present": false,
-      "enrichment_present": false,
-      "evidence_requirements": null,
-      "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "answer_rules_status": "present",
+      "catalog_present": true,
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "src",
+        "dest",
+        "domain",
+        "periodicity",
+        "jitter",
+        "bytes_out",
+        "DNS_query_count",
+        "rare_domain_indicator",
+        "user_host_association"
+      ],
+      "github_reference_skills": [
+        "skills/hunting-for-command-and-control-beaconing/SKILL.md"
+      ],
+      "github_reuse_type": [
+        "evidence_reference",
+        "mitre_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
-      "mapping_confidence": null,
-      "mapping_status": "missing_authoritative_mapping",
-      "mitre_blocked": [],
-      "mitre_candidates": [],
-      "mitre_metadata_role": null,
+      "mapping_confidence": "high",
+      "mapping_status": "curated_manual",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003",
+        "T1078",
+        "T1110.001"
+      ],
+      "mitre_candidates": [
+        "T1071"
+      ],
+      "mitre_metadata_role": "metadata_not_evidence",
       "planning_or_analytic_skill": "behavioral_detection_binding",
       "question": "Which hosts repeatedly contacted the same destination at regular intervals?",
       "question_id": "q0.q031",
-      "question_match_status": "unmapped",
-      "rag_status": "missing",
-      "runtime_support_status": "metadata_only",
-      "spl_template_id": null,
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": null,
-      "validation_status": "needs_soc_review"
+      "question_match_status": "exact",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
+      "spl_template_id": "dns_beaconing_candidate",
+      "spl_template_status": "active",
+      "tests_added": true,
+      "use_case_id": "dns_beaconing_candidate",
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",
@@ -1650,30 +1712,53 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
-      "catalog_present": false,
-      "enrichment_present": false,
-      "evidence_requirements": null,
-      "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "answer_rules_status": "present",
+      "catalog_present": true,
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "src",
+        "dest",
+        "domain",
+        "periodicity",
+        "jitter",
+        "bytes_out",
+        "DNS_query_count",
+        "rare_domain_indicator",
+        "user_host_association"
+      ],
+      "github_reference_skills": [
+        "skills/hunting-for-command-and-control-beaconing/SKILL.md"
+      ],
+      "github_reuse_type": [
+        "evidence_reference",
+        "mitre_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
-      "mapping_confidence": null,
-      "mapping_status": "missing_authoritative_mapping",
-      "mitre_blocked": [],
-      "mitre_candidates": [],
-      "mitre_metadata_role": null,
+      "mapping_confidence": "high",
+      "mapping_status": "curated_manual",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003",
+        "T1078",
+        "T1110.001"
+      ],
+      "mitre_candidates": [
+        "T1071"
+      ],
+      "mitre_metadata_role": "metadata_not_evidence",
       "planning_or_analytic_skill": "behavioral_detection_binding",
       "question": "Which hosts show consistent low-volume outbound connections?",
       "question_id": "q0.q043",
-      "question_match_status": "unmapped",
-      "rag_status": "missing",
-      "runtime_support_status": "metadata_only",
-      "spl_template_id": null,
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": null,
-      "validation_status": "needs_soc_review"
+      "question_match_status": "exact",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
+      "spl_template_id": "dns_beaconing_candidate",
+      "spl_template_status": "active",
+      "tests_added": true,
+      "use_case_id": "dns_beaconing_candidate",
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",
@@ -1729,28 +1814,38 @@
     },
     {
       "answer_rules_status": "missing",
-      "catalog_present": false,
+      "catalog_present": true,
       "enrichment_present": false,
-      "evidence_requirements": null,
+      "evidence_requirements": {
+        "optional_entities": [
+          "user",
+          "time_window"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
       "github_reference_skills": [],
       "github_reuse_type": [],
       "investigation_workflow_status": "missing",
       "live_execution_skill": "attack_discovery",
-      "mapping_confidence": null,
-      "mapping_status": "missing_authoritative_mapping",
+      "mapping_confidence": "high",
+      "mapping_status": "mapped_from_existing_metadata",
       "mitre_blocked": [],
       "mitre_candidates": [],
       "mitre_metadata_role": null,
       "planning_or_analytic_skill": "threshold_anomaly",
       "question": "Which users have excessive failed logins?",
       "question_id": "q0.q046",
-      "question_match_status": "unmapped",
+      "question_match_status": "exact",
       "rag_status": "missing",
-      "runtime_support_status": "metadata_only",
-      "spl_template_id": null,
-      "spl_template_status": "active",
+      "runtime_support_status": "planned",
+      "spl_template_id": "sample_auth_failed_login_top_users_tstats",
+      "spl_template_status": "sample",
       "tests_added": false,
-      "use_case_id": null,
+      "use_case_id": "sample_auth_failed_login_top_users",
       "validation_status": "needs_soc_review"
     },
     {
@@ -2092,30 +2187,53 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
-      "catalog_present": false,
-      "enrichment_present": false,
-      "evidence_requirements": null,
-      "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "answer_rules_status": "present",
+      "catalog_present": true,
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "user",
+        "src",
+        "host",
+        "fail_count",
+        "success_count",
+        "first_failure",
+        "last_success",
+        "source_ip_novelty"
+      ],
+      "github_reference_skills": [
+        "skills/detecting-rdp-brute-force-attacks/SKILL.md",
+        "skills/triaging-security-alerts-in-splunk/SKILL.md"
+      ],
+      "github_reuse_type": [
+        "evidence_reference",
+        "mitre_reference",
+        "sop_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
-      "mapping_confidence": null,
-      "mapping_status": "missing_authoritative_mapping",
-      "mitre_blocked": [],
-      "mitre_candidates": [],
-      "mitre_metadata_role": null,
+      "mapping_confidence": "high",
+      "mapping_status": "curated_manual",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003"
+      ],
+      "mitre_candidates": [
+        "T1110.001",
+        "T1078"
+      ],
+      "mitre_metadata_role": "metadata_not_evidence",
       "planning_or_analytic_skill": "sequence_detection",
       "question": "Which accounts had a successful login after repeated failures?",
       "question_id": "q0.q060",
-      "question_match_status": "unmapped",
-      "rag_status": "missing",
-      "runtime_support_status": "metadata_only",
-      "spl_template_id": null,
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": null,
-      "validation_status": "needs_soc_review"
+      "question_match_status": "exact",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
+      "spl_template_id": "auth_success_after_failure",
+      "spl_template_status": "active",
+      "tests_added": true,
+      "use_case_id": "auth_success_after_failure",
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",
@@ -2429,28 +2547,47 @@
     },
     {
       "answer_rules_status": "missing",
-      "catalog_present": false,
+      "catalog_present": true,
       "enrichment_present": false,
-      "evidence_requirements": null,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "user"
+        ],
+        "optional_sources": [
+          "edr",
+          "identity"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
       "github_reference_skills": [],
       "github_reuse_type": [],
       "investigation_workflow_status": "missing",
       "live_execution_skill": "attack_discovery",
-      "mapping_confidence": null,
-      "mapping_status": "missing_authoritative_mapping",
-      "mitre_blocked": [],
-      "mitre_candidates": [],
-      "mitre_metadata_role": null,
+      "mapping_confidence": "high",
+      "mapping_status": "curated_manual",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1078",
+        "T1110.001"
+      ],
+      "mitre_candidates": [
+        "T1021"
+      ],
+      "mitre_metadata_role": "metadata_not_evidence",
       "planning_or_analytic_skill": "behavioral_detection_binding",
       "question": "Which hosts show signs of lateral movement?",
       "question_id": "q0.q072",
-      "question_match_status": "unmapped",
+      "question_match_status": "exact",
       "rag_status": "missing",
-      "runtime_support_status": "metadata_only",
+      "runtime_support_status": "planned",
       "spl_template_id": null,
       "spl_template_status": "unavailable",
       "tests_added": false,
-      "use_case_id": null,
+      "use_case_id": "edr_lateral_movement_candidate",
       "validation_status": "needs_soc_review"
     },
     {
@@ -2481,28 +2618,47 @@
     },
     {
       "answer_rules_status": "missing",
-      "catalog_present": false,
+      "catalog_present": true,
       "enrichment_present": false,
-      "evidence_requirements": null,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "user"
+        ],
+        "optional_sources": [
+          "edr",
+          "identity"
+        ],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
       "github_reference_skills": [],
       "github_reuse_type": [],
       "investigation_workflow_status": "missing",
       "live_execution_skill": "attack_discovery",
-      "mapping_confidence": null,
-      "mapping_status": "missing_authoritative_mapping",
-      "mitre_blocked": [],
-      "mitre_candidates": [],
-      "mitre_metadata_role": null,
+      "mapping_confidence": "high",
+      "mapping_status": "curated_manual",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1078",
+        "T1110.001"
+      ],
+      "mitre_candidates": [
+        "T1021"
+      ],
+      "mitre_metadata_role": "metadata_not_evidence",
       "planning_or_analytic_skill": "behavioral_detection_binding",
       "question": "Which hosts show SMB connections to many peers?",
       "question_id": "q0.q074",
-      "question_match_status": "unmapped",
+      "question_match_status": "exact",
       "rag_status": "missing",
-      "runtime_support_status": "metadata_only",
+      "runtime_support_status": "planned",
       "spl_template_id": null,
       "spl_template_status": "unavailable",
       "tests_added": false,
-      "use_case_id": null,
+      "use_case_id": "edr_lateral_movement_candidate",
       "validation_status": "needs_soc_review"
     },
     {
@@ -2870,30 +3026,53 @@
       "validation_status": "needs_soc_review"
     },
     {
-      "answer_rules_status": "missing",
-      "catalog_present": false,
-      "enrichment_present": false,
-      "evidence_requirements": null,
-      "github_reference_skills": [],
-      "github_reuse_type": [],
-      "investigation_workflow_status": "missing",
+      "answer_rules_status": "present",
+      "catalog_present": true,
+      "enrichment_present": true,
+      "evidence_requirements": [
+        "user",
+        "src",
+        "host",
+        "fail_count",
+        "success_count",
+        "first_failure",
+        "last_success",
+        "source_ip_novelty"
+      ],
+      "github_reference_skills": [
+        "skills/detecting-rdp-brute-force-attacks/SKILL.md",
+        "skills/triaging-security-alerts-in-splunk/SKILL.md"
+      ],
+      "github_reuse_type": [
+        "evidence_reference",
+        "mitre_reference",
+        "sop_reference",
+        "workflow_reference"
+      ],
+      "investigation_workflow_status": "present",
       "live_execution_skill": "attack_discovery",
-      "mapping_confidence": null,
-      "mapping_status": "missing_authoritative_mapping",
-      "mitre_blocked": [],
-      "mitre_candidates": [],
-      "mitre_metadata_role": null,
+      "mapping_confidence": "high",
+      "mapping_status": "curated_manual",
+      "mitre_blocked": [
+        "T1562.001",
+        "T1003"
+      ],
+      "mitre_candidates": [
+        "T1110.001",
+        "T1078"
+      ],
+      "mitre_metadata_role": "metadata_not_evidence",
       "planning_or_analytic_skill": "sequence_detection",
       "question": "Which users authenticated to VPN after repeated MFA failures?",
       "question_id": "q0.q089",
-      "question_match_status": "unmapped",
-      "rag_status": "missing",
-      "runtime_support_status": "metadata_only",
-      "spl_template_id": null,
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": null,
-      "validation_status": "needs_soc_review"
+      "question_match_status": "exact",
+      "rag_status": "configured",
+      "runtime_support_status": "runtime_active",
+      "spl_template_id": "auth_success_after_failure",
+      "spl_template_status": "active",
+      "tests_added": true,
+      "use_case_id": "auth_success_after_failure",
+      "validation_status": "tests_added"
     },
     {
       "answer_rules_status": "missing",
@@ -3313,7 +3492,7 @@
     }
   ],
   "row_counts": {
-    "catalog_use_cases": 58,
+    "catalog_use_cases": 61,
     "discovery_skills": 754,
     "enrichment_only_use_cases": 3,
     "enrichment_records": 13,
@@ -3321,7 +3500,7 @@
     "proposed_use_case_rows": 3,
     "question_rows": 105,
     "triage_scores": 754,
-    "use_case_rows": 61
+    "use_case_rows": 64
   },
   "schema_version": "2026-06-07-phase0b-v1",
   "use_case_rows": [
@@ -5493,6 +5672,114 @@
       "enrichment_present": false,
       "evidence_requirements": {
         "optional_entities": [
+          "user",
+          "time_window"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "spl_generation",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": null,
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "sample_auth_failed_login_top_users_tstats",
+      "spl_template_status": "sample",
+      "tests_added": false,
+      "use_case_id": "sample_auth_failed_login_top_users",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "host",
+          "time_window"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "spl_generation",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": null,
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "sample_dns_top_query_hosts_from_datamodel",
+      "spl_template_status": "sample",
+      "tests_added": false,
+      "use_case_id": "sample_dns_top_query_hosts",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
+          "src_ip",
+          "time_window"
+        ],
+        "optional_sources": [],
+        "required_entities": [],
+        "required_sources": [
+          "mcp:splunk"
+        ]
+      },
+      "github_reference_skills": [],
+      "github_reuse_type": [],
+      "investigation_workflow_status": "missing",
+      "live_execution_skill": "spl_generation",
+      "mapping_confidence": "high",
+      "mapping_status": "catalog_export_row",
+      "mitre_blocked": [],
+      "mitre_candidates": [],
+      "mitre_metadata_role": null,
+      "planning_or_analytic_skill": null,
+      "question": null,
+      "question_id": null,
+      "question_match_status": "n/a_use_case_only",
+      "rag_status": "missing",
+      "runtime_support_status": "planned",
+      "spl_template_id": "sample_network_top_outbound_src_tstats",
+      "spl_template_status": "sample",
+      "tests_added": false,
+      "use_case_id": "sample_network_top_outbound_src",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "answer_rules_status": "missing",
+      "catalog_present": true,
+      "enrichment_present": false,
+      "evidence_requirements": {
+        "optional_entities": [
           "alert_id"
         ],
         "optional_sources": [
@@ -5961,7 +6248,6 @@
   ],
   "warnings": [
     "q0.q001: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q002: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q003: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q004: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q005: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
@@ -5970,13 +6256,11 @@
     "q0.q008: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q009: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q010: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q011: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q012: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q013: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q014: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q015: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q016: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q017: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q018: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q019: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q020: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
@@ -5990,7 +6274,6 @@
     "q0.q028: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q029: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q030: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q031: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q032: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q033: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q034: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
@@ -6002,10 +6285,8 @@
     "q0.q040: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q041: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q042: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q043: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q044: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q045: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q046: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q047: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q048: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q049: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
@@ -6019,7 +6300,6 @@
     "q0.q057: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q058: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q059: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q060: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q061: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q063: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q064: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
@@ -6030,9 +6310,7 @@
     "q0.q069: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q070: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q071: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q072: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q073: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q074: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q075: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q076: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q077: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
@@ -6047,7 +6325,6 @@
     "q0.q086: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q087: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q088: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q089: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q090: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q091: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
     "q0.q092: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
