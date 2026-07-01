@@ -65,6 +65,8 @@ def _is_summary_output_request(
     query_understanding: QueryUnderstandingResult | None,
 ) -> bool:
     """Analyst asks for a concise handoff/summary, not log search or SPL drafting."""
+    if signals.get("security_log_aggregation_investigation"):
+        return False
     if signals.get("explicit_search_intent") or signals.get("explicit_run_spl") or signals.get("run_execution"):
         return False
     if signals.get("github_investigation_shaped") or is_github_investigation_query(query):
@@ -289,6 +291,20 @@ def classify_intent(
         return _build_github_investigation_classification(
             reason="GitHub PAT/workflow/commit investigation; governed review-only guidance.",
             confidence=0.78,
+        )
+
+    if (
+        str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+        and signals.get("security_log_aggregation_investigation")
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+    ):
+        return _build_guided_investigation_classification(
+            reason=(
+                "Out-of-registry security-log investigation with top-N / coordination / "
+                "time-window framing; preserve guided review-only posture (no alert_summary demotion)."
+            ),
+            confidence=0.68,
         )
 
     if (
