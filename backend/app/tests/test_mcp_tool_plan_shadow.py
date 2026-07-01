@@ -89,6 +89,31 @@ def test_shadow_can_disable_llm_advisory_per_turn(monkeypatch) -> None:
     assert out["planner"]["skipped_reason"] == "llm_advisory_disabled_for_turn"
 
 
+def test_experience_center_fixture_never_calls_planner_llm(monkeypatch) -> None:
+    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.settings.control_plane_enabled", True)
+    monkeypatch.setattr(
+        "app.connectors.mcp.mcp_tool_plan_shadow.mcp_tool_plan_llm_advisory_enabled",
+        lambda: True,
+    )
+
+    def _fail_planner(*args, **kwargs):
+        raise AssertionError("Experience Center fixture must not invoke planner LLM")
+
+    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.plan_tool_chronology", _fail_planner)
+
+    out = run_mcp_tool_plan_shadow(
+        query="Investigate failed login spike on APP-01",
+        target_index="pgcil_soc",
+        spl_approved=True,
+        session_role="demo_analyst",
+        needs_mcp=True,
+        experience_center_fixture=True,
+    )
+    assert out is not None
+    assert out["planner"]["llm_called"] is False
+    assert out["planner"]["skipped_reason"] == "experience_center_fixture"
+
+
 def test_shadow_surfaces_turn_budget_skip_reason(monkeypatch) -> None:
     monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.settings.control_plane_enabled", True)
     monkeypatch.setattr(

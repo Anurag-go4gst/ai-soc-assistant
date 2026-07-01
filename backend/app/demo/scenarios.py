@@ -748,6 +748,7 @@ def _experience_center_llm_sidecars(
         "resource_plan_shadow": resource_plan_shadow,
     }
     needs_mcp = scenario.expected_skill in {"attack_discovery", "spl_generation"}
+    # Never block EC on live planner LLM — nginx /api/ times out at 120s.
     mcp_tool_plan_shadow = run_mcp_tool_plan_shadow(
         query=scenario.query,
         target_index=_target_index_from_spl_validation(spl_validation),
@@ -755,6 +756,7 @@ def _experience_center_llm_sidecars(
         session_role="demo_analyst",
         needs_mcp=needs_mcp,
         needs_spl=spl_validation is not None,
+        experience_center_fixture=True,
     )
     if mcp_tool_plan_shadow is not None:
         mcp_tool_plan_shadow = {
