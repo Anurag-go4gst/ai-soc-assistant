@@ -240,6 +240,20 @@ export async function getSettingsStatus(): Promise<SettingsStatus> {
   return response.json();
 }
 
+export async function selectEnvProfile(profileId: string): Promise<import('@/types/api').EnvProfileSelectResult> {
+  const response = await fetch(`${API_BASE_URL}/settings/env-profile`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profile_id: profileId }),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `Env profile select failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export interface LlmRuntimeHealth {
   reachable: boolean;
   tok_per_s: number | null;

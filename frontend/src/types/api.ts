@@ -1278,6 +1278,41 @@ export interface SettingsStatus {
     fallback_count: number;
     direct_llm_to_mcp_tool_calling?: boolean;
   };
+  deployment?: EnvProfileStatus;
+}
+
+export interface EnvProfileSummary {
+  id: string;
+  label: string;
+  description: string;
+  example_file: string;
+  recommended_for: string[];
+  example_exists: boolean;
+}
+
+export interface EnvProfileStatus {
+  active_profile_id: string;
+  active_profile: EnvProfileSummary | null;
+  profiles: EnvProfileSummary[];
+  profile_example_path: string;
+  profile_example_exists: boolean;
+  active_profile_file: string;
+  root_env_path: string;
+  reload_note: string;
+}
+
+export interface EnvProfileSelectResult {
+  accepted: boolean;
+  requested_by: string;
+  profile_id: string;
+  active_profile_file: string;
+  profile_example: string;
+  root_env_updated: boolean;
+  root_env_path: string;
+  root_env_error: string | null;
+  restart_required: boolean;
+  restart_command: string;
+  cli_command: string;
 }
 
 export type ProviderTypeValue =

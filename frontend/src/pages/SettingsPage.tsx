@@ -8,6 +8,7 @@ import { LlmSettingsPanel } from '@/components/settings/LlmSettingsPanel';
 import { LlmConnectionPanel } from '@/components/settings/LlmConnectionPanel';
 import { McpSettingsPanel } from '@/components/settings/McpSettingsPanel';
 import { ObservabilityPanel } from '@/components/settings/ObservabilityPanel';
+import { EnvProfileSettingsPanel } from '@/components/settings/EnvProfileSettingsPanel';
 import { UserProfilePanel } from '@/components/settings/UserProfilePanel';
 import { ProvidersSettingsPanel } from '@/components/settings/ProvidersSettingsPanel';
 import { RagSettingsPanel } from '@/components/settings/RagSettingsPanel';
@@ -112,6 +113,7 @@ export function SettingsPage() {
             <TabsTrigger value="routing">Routing</TabsTrigger>
             <TabsTrigger value="safeguards">Safeguards</TabsTrigger>
             <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="deployment">Deployment</TabsTrigger>
             <TabsTrigger value="observability">Observability</TabsTrigger>
           </TabsList>
           <div className="mt-3">
@@ -142,6 +144,14 @@ export function SettingsPage() {
             </TabsContent>
             <TabsContent value="profile" className="m-0">
               <UserProfilePanel />
+            </TabsContent>
+            <TabsContent value="deployment" className="m-0">
+              <EnvProfileSettingsPanel
+                deployment={status.deployment}
+                onRefresh={() => {
+                  void getSettingsStatus().then(setStatus).catch(() => undefined);
+                }}
+              />
             </TabsContent>
             <TabsContent value="observability" className="m-0">
               <ObservabilityPanel status={status.observability} />
