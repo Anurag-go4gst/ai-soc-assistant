@@ -1596,6 +1596,10 @@ Execute **S1a (B9)** and **S1b (C1/C9)** in parallel (docs-only, zero governance
 
 **S1b (BL-004 detection-family anchors) — landed (`b454b9f`).** Four sample-only detection anchors (`sample_ioc_correlation_indicator_match`, `sample_threshold_anomaly_volume_spike`, `sample_powershell_suspicious_execution`, `sample_dlp_exfiltration_volume`) + 30 curated mappings. Warnings **94 → 64**; mapped **11 → 41**.
 
+**S1c (BL-004 closeout) — landed (`278a12b`).** Offline mapping closed at **41/105** mapped; **64** genuine corpus gaps documented in `docs/evals/bl004_coverage_closeout_report.md`.
+
+**S2 (C1/C9 graph state v2 + node_trace) — in progress.** Formal `NodeTraceRecord` schema + `project_chat_pipeline_state_v2` additive state projection.
+
 **S1b (C1/C9 spec, §R legacy id) — landed.** `docs/architecture/chat_pipeline_state_v2_and_node_trace.md` (spec only). Reconciliation findings vs the plan's C1/C9 text (all verified against code):
 
 - `ChatPipelineState` has **62 fields**, not "~30" or the earlier **38** (`pipeline.py:282–345`; verify at implementation).

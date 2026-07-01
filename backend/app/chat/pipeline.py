@@ -259,6 +259,7 @@ from app.chat.guided_spl_review_gate import build_guided_spl_draft_preview_if_al
 from app.chat.investigation_plan_builder import build_deterministic_investigation_plan
 from app.planner.composer import compose_guided_resource_plan
 from app.chat.pipeline_visibility import build_pipeline_visibility
+from app.chat.pipeline_state_v2 import project_chat_pipeline_state_v2
 from app.chat.session_context import (
     SessionContextResolution,
     SessionPins,
@@ -353,6 +354,15 @@ class ChatPipelineState(TypedDict, total=False):
     mcp_required_produces: list[str]
     mcp_loop: dict[str, Any]
     mcp_loop_planner: dict[str, Any] | None
+    # C1/C9 v2 additive visibility (packaging mirrors response; routed stays authority).
+    live_execution_skill: str | None
+    planning_or_analytic_skill: str | None
+    skill_enrichment: dict[str, Any] | None
+    spl_template_status: str | None
+    mitre_evidence_status: dict[str, str] | None
+    execution_decision: dict[str, Any] | None
+    final_answer_validation: dict[str, Any] | None
+    node_trace: list[dict[str, Any]]
     response: PlaceholderResponse
 
 
@@ -3916,6 +3926,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             severity_decision=severity_decision,
             session_context_resolution=session_resolution if isinstance(session_resolution, SessionContextResolution) else None,
         )
+        state = {
+            **state,
+            **project_chat_pipeline_state_v2(
+                state,
+                visibility=visibility,
+                final_answer_validation=final_answer_validation,
+                execution=execution if isinstance(execution, dict) else None,
+                human_review=human_review if isinstance(human_review, dict) else None,
+                use_case_id=use_case_id_for_visibility,
+            ),
+        }
     if settings.control_plane_enabled or guided_without_control_plane or utility_without_control_plane:
         trace_state = {
             **state,
