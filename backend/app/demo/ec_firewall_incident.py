@@ -625,6 +625,8 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             "spl_status_detail": {
                 "status": "validated",
                 "message": "Governed template artifact — Environment KB placeholders visible for analyst confirmation.",
+                "template_status": "active",
+                "generation_status": "generated",
             },
         }
     if scenario_id == "splunk_env_asa_ti_readiness":
@@ -673,6 +675,12 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
                     "Actions": "deny,reset",
                 },
             ],
+            "recommended_actions": [
+                f"P1: Extend blast-radius pivot to 10.20.4.55 and 10.20.8.90 — confirm whether deny-only hosts attempted lateral movement from 10.20.1.10.",
+                f"P1: Review EDR/process telemetry on 10.20.1.10 for all activity by svc_jump_ops during and after the allow window.",
+                f"P1: Revoke active sessions for svc_jump_ops and disable the account pending identity team review.",
+                f"P2: Correlate VPN and identity logs for {PRIMARY_ATTACKER_IP} and svc_jump_ops in the same time window.",
+            ],
         }
     if scenario_id == "scada_critical_telemetry_health":
         return {
@@ -688,11 +696,21 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             "spl_status_detail": {
                 "status": "blocked",
                 "message": "OT index placeholder unresolved — SPL held for analyst mapping before validation.",
+                "template_status": "planned",
+                "generation_status": "blocked",
             },
+            "recommended_actions": [
+                "P2: Confirm the correct Splunk index name for SCADA/OT telemetry with the OT engineering team and update the Environment Knowledge Base.",
+                "P2: Once the index is mapped, re-run this query to verify telemetry coverage before treating silence as absence of activity.",
+                "P3: Review the SCADA data-source onboarding runbook and confirm the OT sourcetype profile is registered.",
+                "P3: Validate whether current telemetry gaps affect incident detection SLAs before closing this check.",
+            ],
         }
     if scenario_id == "ir_containment_advisory_firewall_incident":
         return {
             **base,
+            "response_profile": "knowledge_recall",
+            "spl_status": "not_required",
             "retrieved_playbook": {
                 "title": "Perimeter incident response advisory",
                 "id": "SOC-IR-ADV-FW",
