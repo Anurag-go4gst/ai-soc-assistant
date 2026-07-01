@@ -5,6 +5,8 @@
 **Baseline:** `master` @ `84b77f8` (PR #6 + PR #7 merged) + Batch 6 docs commit `d1a7b24`  
 **Canonical plan:** [`plans/AI_SOC_MASTER_PLAN.md`](../../plans/AI_SOC_MASTER_PLAN.md)
 
+> **Post-2026-07-01 status note:** This review is a historical Batch 1–6 audit. Later work added a live `splunk_run_query` adapter and bounded search lifecycle, still default-off and COE-gated. Use [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../coe/COE_ROLLOUT_CONFIGURATION.md) and [`docs/architecture/real_splunk_mcp_safety_contract.md`](../architecture/real_splunk_mcp_safety_contract.md) for current rollout posture.
+
 ---
 
 ## A. Executive summary
@@ -25,7 +27,7 @@ Batches **1–6** delivered the intended **governed hardening path** without rep
 
 **Largest remaining gaps before real Splunk MCP or broad skill expansion:**
 
-1. COE-supplied real MCP adapter, signed schema, approval store, audit sink (Batch 6 contract gates).
+1. COE-supplied connection details, signed schema, approval hardening, audit sink (Batch 6 contract gates).
 2. A2 reconcile: remove `mitre_kb._status_for()` from live paths.
 3. SPL templates for P4/P5/P3/P7 pilots still `planned` / `unavailable`.
 4. Authoritative 105-question → use-case mapping: **1 / 105** curated (`q0.q062`).
@@ -46,7 +48,7 @@ Batches **1–6** delivered the intended **governed hardening path** without rep
 | Did we preserve `legacy_router_intent_hint` and `proposed_primary_skill`? | **Yes** | Coverage matrix + routing tests; dual-skill semantics documented in plan §A |
 | Did we keep SPL template-first and validation-gated? | **Yes** | `validate_spl()` required; `AI_SOC_LLM_SPL_FALLBACK_ENABLED=false` default |
 | Did we keep MITRE evidence-based? | **Mostly** | `mitre_decision.resolve_mitre_decision` + `mitre_evidence_preconditions`; legacy `_status_for()` still in `mitre_kb.map_mitre_for_use_case` |
-| Did we avoid real Splunk MCP execution? | **Yes** | `real_mcp_adapter_not_implemented`; `splunk_mcp.py` placeholder; execution flags default false |
+| Did we avoid real Splunk MCP execution? | **Yes** | At this historical baseline, non-mock execution was blocked and execution flags defaulted false |
 | Did we avoid LLM-to-Splunk direct tool calling? | **Yes** | `supports_tool_calling` false; deterministic tool selection; LLM never calls MCP |
 
 ---
@@ -179,7 +181,7 @@ Post-merge fix: `db02f20` — streamed `/clear` clears backend session pins.
 |------|--------|
 | **Files** | `docs/architecture/real_splunk_mcp_safety_contract.md`, `splunk_mcp.py`, `mcp_execution_gate.py` |
 | **Behavior** | **Docs only** — 15+ activation gates documented |
-| **Tests** | Existing gate tests assert `real_mcp_adapter_not_implemented` |
+| **Tests** | Existing gate tests asserted non-mock execution stayed blocked |
 | **Status** | **Contract done**; implementation **not started** |
 | **Gaps** | COE connection, adapter, audit, approval workflow |
 
@@ -262,7 +264,7 @@ Post-merge fix: `db02f20` — streamed `/clear` clears backend session pins.
 
 **Blocked commands:** Still enforced in `spl_validator.py`.
 
-**Real Splunk MCP:** **Disabled** — `real_mcp_adapter_not_implemented`.
+**Real Splunk MCP:** **Disabled** at this historical baseline; see the post-2026-07-01 status note for current adapter posture.
 
 ---
 

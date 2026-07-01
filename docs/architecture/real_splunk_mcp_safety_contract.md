@@ -1,12 +1,12 @@
 # Real Splunk MCP Safety Contract
 
-Status: Batch 6 planning contract only. Do not implement or enable real Splunk MCP from this document alone.
+Status: Safety contract for live Splunk MCP. Do not enable real Splunk MCP from this document alone.
 
-This contract defines the safety, approval, audit, and technical requirements that must be satisfied before AI SOC Assistant can use a real Splunk MCP adapter. The current repository baseline still blocks real MCP execution: `backend/app/connectors/mcp/splunk_mcp.py` is a placeholder, `mcp_execution_gate.py` returns `real_mcp_adapter_not_implemented` for non-mock mode, and `MCP_GLOBAL_EXECUTION_ENABLED` plus per-server execution flags default to false.
+This contract defines the safety, approval, audit, and technical requirements that must be satisfied before AI SOC Assistant can use real Splunk MCP in a COE environment. The repository now includes a live `splunk_run_query` adapter and async search lifecycle, but real execution remains default-off and fail-closed behind registry configuration, `MCP_GLOBAL_EXECUTION_ENABLED`, per-server execution flags, URL/token configuration, deterministic tool allowlisting, SPL validation, and per-call analyst confirmation.
 
 ## Non-Goals
 
-- Do not enable real Splunk MCP.
+- Do not enable real Splunk MCP from documentation alone.
 - Do not add live server URLs, tokens, credentials, or secret references with real values.
 - Do not execute SPL against real Splunk.
 - Do not bypass `validate_spl()`, human review, or MCP execution gates.
@@ -18,14 +18,15 @@ This contract defines the safety, approval, audit, and technical requirements th
 
 Relevant files inspected for this contract:
 
-- `backend/app/connectors/mcp/splunk_mcp.py`: real connector placeholder; all calls are unavailable or `NotImplementedError`.
+- `backend/app/connectors/mcp/splunk_mcp.py`: live `splunk_run_query` adapter over streamable HTTP; discovery execution remains out of v1 scope.
+- `backend/app/connectors/mcp/splunk_search_lifecycle.py`: submit -> bounded poll -> fetch lifecycle with timeout / denied / failed / schema-invalid outcomes.
 - `backend/app/connectors/mcp/mock.py`: mock-only execution returns synthetic rows and `mock=true`.
 - `backend/app/orchestration/mcp_tool_selector.py`: deterministic tool selection for `spl_search`; execution-eligible live skills are `attack_discovery` and `spl_generation`.
-- `backend/app/orchestration/mcp_execution_gate.py`: validates tool selection, global/server execution flags, tool capability, HIL, and blocks non-mock mode today.
+- `backend/app/orchestration/mcp_execution_gate.py`: validates tool selection, global/server execution flags, tool capability, SPL approval, unresolved source slots, live endpoint configuration, and per-call confirmation before calling the connector.
 - `backend/app/safeguards/spl_validator.py`: blocks unsafe commands, missing time bounds, missing result limit, disallowed indexes/sourcetypes, macros/subsearches/external calls/secrets.
 - `backend/app/splunk/capabilities.py`: current expected Splunk tool names and SAIA/core tool capability profile.
 - `backend/app/spl/templates.json`: active templates include status, use case, validation rules, time bounds, and result limits.
-- `.env.example` and `backend/app/config.py`: execution and connector defaults are disabled or placeholders.
+- `.env.example` and `backend/app/config.py`: execution and connector defaults are disabled or placeholders; COE profile values are rollout posture, not production defaults.
 
 ## Confirmed Air-Gapped Tool Surface (2026-06-12)
 
@@ -63,14 +64,14 @@ All of the following gates must pass before any future real Splunk execution is 
 | Result limit | `head`/limit or equivalent required, max rows enforced | `spl_validator.py`, future adapter caps |
 | Index/sourcetype | Every index and sourcetype is allowlisted | `spl_validator.py`, env policy |
 | Blocked commands | `delete`, `collect`, `outputlookup`, `inputlookup`, `rest`, `script`, `map`, `loadjob`, `sendemail`, saved-search execution commands absent | `spl_validator.py` |
-| Human approval | Current approval state is `approved_for_read_only_search` for this exact normalized SPL hash or trace action | future approval store |
+| Human approval | Current turn confirms this exact normalized SPL before `splunk_run_query` is called; durable approval store remains a future production hardening item | `execution_confirmation.py`, future approval store |
 | Global execution | `MCP_GLOBAL_EXECUTION_ENABLED=true` | config |
 | Server execution | target Splunk server `execution_enabled=true` | MCP registry/server config |
 | Real server mode | server type/mode is explicitly real Splunk MCP, not mock or unconfirmed fallback | MCP registry + connector |
 | Tool allowlist | selected tool capability is `spl_search` and tool name is allowlisted | `mcp_tool_selector.py`, registry |
 | User/request authority | authenticated user or request context is authorized to request approval | future approval layer |
 | Audit enabled | durable audit sink is available before live execution starts | future audit readiness gate |
-| Result adapter confirmed | real MCP response schema is signed/confirmed; no `real_schema_unverified` execution result may be treated as live evidence | `splunk_result_adapter.py`, future COE sample |
+| Result adapter confirmed | real MCP response schema is signed/confirmed by COE smoke before production reliance; unrecognized/failing envelopes remain blocked/failed | `splunk_result_adapter.py`, COE sample |
 
 Failure of any gate must produce `execution_status_label=not_executed` and either `review_required`, `admin_action_required`, `denied`, `expired`, or `failed`, never `live_executed`.
 

@@ -7,17 +7,18 @@ This guide explains how to turn on **every supported lever** for COE validation,
 
 ## Quick start
 
-1. Copy the profile into your local env (never commit secrets):
+1. Create the local secrets selector (never commit secrets):
 
    ```bash
-   cp .env.coe-live-testing.example .env
+   cp .env.selector.example .env
    ```
 
-2. Set `APP_AUTH_PASSWORD`, `APP_AUTH_SESSION_SECRET`, and LLM/MCP endpoints/tokens COE provides.
+2. Set `AI_SOC_ENV_PROFILE=coe`, `APP_AUTH_PASSWORD`, `APP_AUTH_SESSION_SECRET`, and any LLM/MCP endpoints/tokens COE provides.
 
-3. Rebuild and restart:
+3. Select the COE profile, rebuild, and restart:
 
    ```bash
+   ./scripts/select_env_profile.sh coe
    docker compose build backend
    docker compose up -d
    cd frontend && npm run build
@@ -31,9 +32,9 @@ This guide explains how to turn on **every supported lever** for COE validation,
 |-------|----------------|---------------------------|------------------------|
 | **1 — EC parity in `/chat`** | Same analyst cards as Experience Center | `AI_SOC_LIVE_CHAT_EC_PARITY_ENABLED=true` | Only when user text **exactly** matches a scenario query (normalized). Use picker text or copy query from `/demo/scenarios`. |
 | **2 — Mock MCP on live pipeline** | Generate SPL + run → table row | `MCP_MODE=mock`, both execution flags `true`, `CONTROL_PLANE_ENABLED=true` | Mock heuristic rows, not COE Splunk events. No Foundation-sec fixture narrative unless layer 1 matches. |
-| **3 — Real Splunk MCP + live LLM answers** | Query real `pgcil_soc` data + model narrative | Set `MCP_MODE=registry` + Splunk URL/token (see example file) | **`real_mcp_adapter_not_implemented`** in `mcp_execution_gate.py`. Synthesis lab is **deterministic**, not live Foundation-sec prose. |
+| **3 — Real Splunk MCP + governed live narration** | Query real `pgcil_soc` data + Foundation-Sec prose | Set `MCP_MODE=registry`, Splunk URL/token, per-server allowlist/execution flags, and synthesis flags | Adapter exists, but execution still requires approved SPL, allowlisted `splunk_run_query`, global + server execution flags, per-call analyst confirmation, and COE schema smoke. LLM prose is non-authoritative and falls back to deterministic text. |
 
-**Setting every flag to `true` does not implement layer 3.** That needs the real MCP adapter and signed-off synthesis stage ([`plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md`](../../plans/2026-05-30_1845_query-to-answer-live-mcp-llm-readiness.md)).
+**Setting every flag to `true` is not a safe layer-3 rollout.** Real execution also needs COE credentials, a reviewed tool allowlist, schema smoke, and an analyst confirmation on the exact normalized SPL.
 
 ## Recommended COE phases
 
@@ -53,7 +54,7 @@ You get the same governed fixture payload as `/demo/scenarios/{id}/run`.
 
 ### Phase B — Live pipeline + mock Splunk (control-flow testing)
 
-Use the full [`.env.coe-live-testing.example`](../../.env.coe-live-testing.example) **with** `AI_SOC_LIVE_CHAT_EC_PARITY_ENABLED=false` if you want to exercise routing, validation, and the MCP gate without EC shortcut.
+Use `env/profiles/coe.env.example` **with** `AI_SOC_LIVE_CHAT_EC_PARITY_ENABLED=false` if you want to exercise routing, validation, and the MCP gate without the EC shortcut.
 
 Requires:
 
@@ -70,15 +71,17 @@ Before flipping registry mode, COE must supply:
 
 - MCP URL, transport, auth
 - Discovered tool names and **exact** argument schema
-- Approval workflow for execution
+- `MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST` including `splunk_run_query`
+- Global + per-server execution flags
+- Per-call analyst confirmation for the exact normalized SPL
 
-Until `app/connectors/mcp/splunk_mcp.py` implements `call_tool`, registry mode stops at **`real_mcp_adapter_not_implemented`**.
+The live search adapter is implemented. Registry mode still fails closed as `splunk_mcp_not_configured`, `mcp_global_execution_disabled`, `mcp_server_execution_disabled`, `live_transport_unconfigured`, or a confirmation review until all gates pass.
 
 ### Phase D — Live LLM final answers
 
 Configure `AI_SOC_LLM_*` endpoints for sidecars (route-plan, MITRE candidates, etc.).
 
-`AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED=true` enables the **governed synthesis lab** (deterministic draft from evidence). It does **not** call Foundation-sec for production narrative yet.
+`AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED=true` plus `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED=true` enables the governed answer composer to call Foundation-Sec for analyst prose when a non-mock provider is configured. The model rewrites only contract-grounded text; severity, MITRE status, SPL approval, and execution facts remain deterministic authority, and failures fall back to deterministic text.
 
 ## Settings reference
 
@@ -87,10 +90,10 @@ Configure `AI_SOC_LLM_*` endpoints for sidecars (route-plan, MITRE candidates, e
 | EC = live chat | `AI_SOC_LIVE_CHAT_EC_PARITY_ENABLED=true` |
 | Intent / MCP policy | `CONTROL_PLANE_ENABLED=true` |
 | Mock execute SPL | `MCP_MODE=mock`, `MCP_GLOBAL_EXECUTION_ENABLED=true`, `MCP_SERVER_MOCK_EXECUTION_ENABLED=true` |
-| Real Splunk (blocked until adapter) | `MCP_MODE=registry`, `MCP_SERVER_SPLUNK_SOC_*` |
+| Real Splunk search | `MCP_MODE=registry`, `MCP_SERVER_SPLUNK_SOC_*`, `SPLUNK_MCP_BASE_URL`, `SPLUNK_MCP_TOKEN`, execution flags, per-call confirmation |
 | SOC-KB in trace | `SOC_KB_RETRIEVAL_ENABLED=true`, `RAG_MODE=mock` |
 | LLM sidecars | `AI_SOC_LLM_ENABLED=true`, `AI_SOC_LLM_MODE=cisco_foundation_sec`, provider URLs/keys |
-| Synthesis lab draft | `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED=true` |
+| Governed live narration | `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED=true`, `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED=true` |
 | SPL bounds | `SPL_ALLOWED_INDEXES`, `SPL_ALLOWED_SOURCETYPES`, `SPL_MAX_RESULT_LIMIT` |
 
 Also see [`.env.live-full-throttle.example`](../../.env.live-full-throttle.example) and [p0 live flow-check profile](../gap_closure/p0_live_flow_check_profile.md).
@@ -110,6 +113,6 @@ After login, POST `/chat` with an exact EC query should return `demo_mode: true`
 ## Safety
 
 - Never expose Docker ports publicly; use Nginx on `cisco-vai.vnudge.com`.
-- Do not set `MCP_GLOBAL_EXECUTION_ENABLED` in production without COE approval.
+- Do not set `MCP_GLOBAL_EXECUTION_ENABLED` or per-server execution flags in production without COE approval.
 - Candidate SPL is never executed; only approved `normalized_spl` enters the gate.
 - LLM must not call MCP directly (backend mediates).
