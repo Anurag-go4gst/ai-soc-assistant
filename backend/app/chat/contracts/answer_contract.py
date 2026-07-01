@@ -89,6 +89,8 @@ class AnswerContract(BaseModel):
     allow_mitre_mapping: bool = False
     allow_severity_assessment: bool = False
     run_contract_mirrored: bool = False
+    # Guided MCP discovery lane — HIL promotion metadata only; no route authority.
+    promotion_offer: dict[str, Any] | None = None
 
 
 _SECTION_PRIORITY: dict[str, int] = {

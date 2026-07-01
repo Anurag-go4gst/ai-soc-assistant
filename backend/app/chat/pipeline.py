@@ -239,6 +239,7 @@ from app.chat.hil_resolution import resolve_effective_hil_required
 from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.debug_summary import build_debug_summary
+from app.chat.guided_discovery_promotion import build_guided_discovery_promotion_offer
 from app.chat.guided_handoff_trace import blocked_resources_wire, build_guided_handoff_trace
 from app.chat.guided_hybrid_dispatch import uses_guided_hybrid_dispatch_from_state
 from app.chat.guided_investigation_planner import validate_investigation_plan
@@ -1233,15 +1234,18 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         chronology,
         required_produces=_loop_required_produces(evidence_payload),
     )
-    loop_state = {**loop_init}
-    if loop_planner is not None:
-        loop_state["mcp_loop_planner"] = loop_planner
+    discovery_only = (
+        evidence_payload.get("discovery_allowed") is True
+        and evidence_payload.get("mcp_allowed") is not True
+    )
+    loop_state = {**loop_init, "mcp_discovery_only": discovery_only}
     next_state = {
         **state,
         "evidence_plan": evidence_payload,
         "planning_decision": planning_payload,
         "route_adjudication": route_adjudication_payload,
         **loop_init,
+        "mcp_discovery_only": discovery_only,
         "mcp_loop_planner": loop_planner,
         "mcp_loop": assess_loop(loop_state).to_dict(),
     }
@@ -1344,11 +1348,15 @@ def _resolve_vulnerability_source_status(state: ChatPipelineState) -> dict[str, 
 def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[str, Any]) -> bool:
     if not settings.control_plane_enabled:
         return False
-    if _mcp_allowed_decision_from_plan(evidence_payload)["allowed"] is not True:
+    mcp_allowed = _mcp_allowed_decision_from_plan(evidence_payload)["allowed"] is True
+    discovery_allowed = evidence_payload.get("discovery_allowed") is True
+    if not mcp_allowed and not discovery_allowed:
         return False
     provisional = {**state, "evidence_plan": evidence_payload}
     if _uses_guided_hybrid_dispatch(provisional):
         return False
+    if discovery_allowed and not mcp_allowed:
+        return evidence_payload.get("answer_mode") == "guided_investigation"
     if _uses_rag_only_path(provisional):
         return False
     return True
@@ -3195,6 +3203,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             if no_match_limitation not in limitations:
                 limitations.append(no_match_limitation)
                 answer_contract = answer_contract.model_copy(update={"limitations": limitations})
+        if (
+            path_type == "guided_investigation"
+            and settings.ai_soc_guided_mcp_discovery_enabled
+            and answer_contract is not None
+        ):
+            promotion_offer = build_guided_discovery_promotion_offer(
+                state.get("mcp_evidence") if isinstance(state.get("mcp_evidence"), list) else None
+            )
+            if promotion_offer is not None:
+                answer_contract = answer_contract.model_copy(update={"promotion_offer": promotion_offer})
         if path_type == "guided_investigation":
             guided_grounding_block = build_guided_hunt_grounding(
                 query=request.message,

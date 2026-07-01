@@ -388,6 +388,9 @@ class Settings(BaseSettings):
     # behind validated InvestigationPlan inside guided_hybrid_dispatch. Requires
     # control_plane_enabled; default false preserves flag-off byte-identical behavior.
     ai_soc_guided_hybrid_investigation_enabled: bool = False
+    # Guided read-only MCP discovery lane (metadata tools only; no run_query/SPL execution).
+    # Default false — flag-off preserves legacy guided_investigation byte-identical behavior.
+    ai_soc_guided_mcp_discovery_enabled: bool = False
     # Batch 5 — lightweight investigation session pins (structured only, no transcript).
     ai_soc_session_context_enabled: bool = True
     ai_soc_session_context_ttl_minutes: int = 30

@@ -62,7 +62,7 @@ class EvidencePlan(BaseModel):
     resource_plan: dict | None = None
     evidence_legs: list[dict] = Field(default_factory=list)
     correlation: dict | None = None
-    # REV4 guided hybrid capability posture (omit from wire when unset/false).
+    # REV4 guided hybrid / read-only MCP discovery lane (omit from wire when unset).
     discovery_allowed: bool | None = None
     investigation_planning_enabled: bool | None = None
     spl_review_allowed: bool | None = None
