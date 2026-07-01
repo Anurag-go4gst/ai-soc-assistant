@@ -10,6 +10,7 @@ from app.query_understanding.soc_investigation_shape import (
     detect_soc_investigation_shape,
     prefers_guided_investigation_over_catalog,
 )
+from app.chat.query_signals import detect_security_log_aggregation_investigation_query
 from app.query_understanding.time_window import normalize_time_window
 from app.use_cases.registry import load_use_case_catalog, match_use_cases
 from app.use_cases.routing_authority import catalog_authority_row, llm_advisory_recommended
@@ -151,6 +152,8 @@ def _requested_output(normalized: str, use_case_template: str | None) -> tuple[R
         return RequestedOutputType.NOTE, OutputTemplate.NOTE_RESPONSE
     if any(term in normalized for term in ("next pivots", "recommend pivots", "action plan", "containment plan")):
         return RequestedOutputType.ACTION_PLAN, OutputTemplate.INVESTIGATION_ANSWER
+    if detect_security_log_aggregation_investigation_query(normalized):
+        return RequestedOutputType.INVESTIGATION, OutputTemplate.INVESTIGATION_ANSWER
     if any(term in normalized for term in ("summarize", "summary")):
         return RequestedOutputType.SUMMARY, OutputTemplate.INVESTIGATION_ANSWER
     if use_case_template:

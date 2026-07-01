@@ -191,6 +191,33 @@ def adjudicate_route(
             reason="Out-of-registry SOC investigation shape preserves the governed guided route.",
         )
 
+    if (
+        intent.intent_family == "alert_summary"
+        and match_path == "out_of_registry"
+        and (
+            signals.get("security_log_aggregation_investigation")
+            or (
+                deterministic_route == "guided_investigation"
+                and signals.get("security_log_investigation")
+                and (
+                    signals.get("analytics_aggregation")
+                    or signals.get("top_offenders_aggregation")
+                    or signals.get("coordinated_activity_assessment")
+                    or signals.get("time_windowed_security_volume")
+                )
+            )
+        )
+    ):
+        return finish(
+            final_route="guided_investigation",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="security_log_investigation_over_summary",
+            reason=(
+                "Security-log investigation with aggregation/coordination signals preserves "
+                "guided_investigation over summary-only demotion."
+            ),
+        )
+
     if intent.intent_family == "alert_summary":
         return finish(
             final_route="alert_summary",

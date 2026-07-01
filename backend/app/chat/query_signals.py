@@ -59,6 +59,90 @@ _KNOWLEDGE_TRIAGE_PREFIX_RE = re.compile(
     r"^(?:how\s+(?:do|should)\s+analysts?\s+(?:usually\s+)?triage|how\s+to\s+triage)\b",
     re.IGNORECASE,
 )
+_FIREWALL_BLOCK_DENY_RE = re.compile(
+    r"\b(?:firewall\s+(?:block|deny|drop)s?|(?:block|deny|drop)(?:ed|s)?\s+(?:connection|traffic)s?)\b",
+    re.IGNORECASE,
+)
+_TOP_OFFENDERS_AGG_RE = re.compile(
+    r"\b(?:top\s+offenders?|top\s+sources?|top\s+destinations?|top\s+talkers?)\b",
+    re.IGNORECASE,
+)
+_COORDINATED_ASSESSMENT_RE = re.compile(
+    r"\b(?:coordinated(?:\s+(?:activity|attack|campaign|effort))?|looks?\s+coordinated)\b",
+    re.IGNORECASE,
+)
+_TIME_WINDOWED_VOLUME_RE = re.compile(
+    r"\b(?:last\s+(?:hour|24\s*hours?|day)|past\s+hour|in\s+the\s+last\s+hour|"
+    r"more\s+than\s+[\d,]+\s+(?:firewall\s+)?(?:block|deny))\b",
+    re.IGNORECASE,
+)
+_BREACH_ACCOUNT_CONTEXT_RE = re.compile(
+    r"\b(?:successful\s+(?:breach|login|logon)|internal\s+server\s+account|"
+    r"account\s+breach|breach\s+on\s+an?\s+internal)\b",
+    re.IGNORECASE,
+)
+_KNOWN_ALERT_SUMMARY_RE = re.compile(
+    r"\b(?:summarize|summary)\b.{0,48}\balert\s+(?:alt-|inc-|notable\s+)?[\w-]+\b",
+    re.IGNORECASE,
+)
+
+
+def detect_security_log_aggregation_investigation_query(
+    query: str,
+    *,
+    alert_context_present: bool = False,
+    sop_show_request: bool = False,
+) -> bool:
+    """Out-of-registry security-log investigation with top-N / coordination / volume framing.
+
+    ``summarize`` alone must not demote these asks to alert_summary; they are review-only
+    guided investigations until index/sourcetype/profile is confirmed.
+    """
+    normalized = " ".join(str(query or "").lower().split())
+    if not normalized:
+        return False
+    if alert_context_present or sop_show_request or _KNOWN_ALERT_SUMMARY_RE.search(normalized):
+        return False
+    if any(
+        normalized.startswith(prefix)
+        for prefix in ("explain ", "what is the ", "show sop", "show me the sop", "show me the playbook")
+    ):
+        if any(term in normalized for term in ("sop", "playbook", "runbook")) and not _TOP_OFFENDERS_AGG_RE.search(
+            normalized
+        ):
+            return False
+
+    firewall_signal = bool(
+        _FIREWALL_BLOCK_DENY_RE.search(normalized)
+        or ("firewall" in normalized and any(term in normalized for term in ("block", "deny", "drop")))
+    )
+    security_log = firewall_signal or any(
+        term in normalized for term in ("proxy log", "vpn log", "dns log", "endpoint log")
+    )
+    if not security_log:
+        return False
+
+    aggregation_signal = bool(
+        _TOP_OFFENDERS_AGG_RE.search(normalized)
+        or _COORDINATED_ASSESSMENT_RE.search(normalized)
+        or _TIME_WINDOWED_VOLUME_RE.search(normalized)
+        or _BREACH_ACCOUNT_CONTEXT_RE.search(normalized)
+        or re.search(r"\b[\d,]{3,}\+?\s+(?:firewall\s+)?(?:block|deny)", normalized)
+    )
+    investigation_framing = bool(
+        _COORDINATED_ASSESSMENT_RE.search(normalized)
+        or "assess whether" in normalized
+        or _TOP_OFFENDERS_AGG_RE.search(normalized)
+        or (
+            "summarize" in normalized
+            and (
+                _TOP_OFFENDERS_AGG_RE.search(normalized)
+                or firewall_signal
+                or _TIME_WINDOWED_VOLUME_RE.search(normalized)
+            )
+        )
+    )
+    return aggregation_signal and investigation_framing
 
 
 def _generic_explicit_log_search_floor(normalized: str) -> bool:
@@ -131,6 +215,7 @@ _ANALYTICS_PHRASES = (
     "top ports",
     "top sources",
     "top hosts",
+    "top offenders",
     "still open",
     "open and unresolved",
 )
@@ -500,6 +585,24 @@ def extract_query_signals(
         and not _ANALYTICS_SUBJECT_RE.search(normalized)
     )
     dga = "dga" in normalized or "domain generation" in normalized
+    _sop_playbook_knowledge_framing = (
+        any(
+            normalized.startswith(prefix)
+            for prefix in (
+                "explain ",
+                "what is the ",
+                "what is ",
+                "show me the sop",
+                "show sop",
+                "show me the playbook",
+                "show me the runbook",
+            )
+        )
+        and any(
+            term in normalized
+            for term in ("sop", "playbook", "runbook", "standard operating procedure")
+        )
+    )
     block_or_contain = any(
         term in normalized
         for term in (
@@ -590,7 +693,10 @@ def extract_query_signals(
         # "denied/dropped traffic" (adjective, ASA log queries) is unaffected
         # because it lacks the "firewall" token paired with the imperative verb.
         re.search(r"\b(add|create|insert|apply|push|configure)\b[^.?!]{0,30}\bfirewall\b", normalized)
-        or re.search(r"\bfirewall\b[^.?!]{0,30}\b(drop|deny|block)\b", normalized)
+        or (
+            re.search(r"\bfirewall\b[^.?!]{0,30}\b(drop|deny|block)\b", normalized)
+            and not _sop_playbook_knowledge_framing
+        )
     )
     # Containment DECISION-SUPPORT (not an enforcement command): the analyst is
     # asking whether/how to contain, not ordering an action. These must reach the
@@ -706,6 +812,22 @@ def extract_query_signals(
             "control room",
             "engineering workstation",
         )
+    )
+    firewall_block_or_deny = bool(
+        _FIREWALL_BLOCK_DENY_RE.search(normalized)
+        or ("firewall" in normalized and any(term in normalized for term in ("block", "deny", "drop")))
+    )
+    top_offenders_aggregation = bool(_TOP_OFFENDERS_AGG_RE.search(normalized))
+    coordinated_activity_assessment = bool(_COORDINATED_ASSESSMENT_RE.search(normalized))
+    time_windowed_security_volume = bool(
+        _TIME_WINDOWED_VOLUME_RE.search(normalized)
+        or re.search(r"\b[\d,]{3,}\+?\s+(?:firewall\s+)?(?:block|deny)", normalized)
+    )
+    breach_or_account_context = bool(_BREACH_ACCOUNT_CONTEXT_RE.search(normalized))
+    security_log_aggregation_investigation = detect_security_log_aggregation_investigation_query(
+        query,
+        alert_context_present=alert_context_present,
+        sop_show_request=sop_show_request,
     )
     investigation_hypothesis_guidance = detect_investigation_hypothesis_guidance(query)
     investigation_triage_guidance = any(
@@ -837,6 +959,7 @@ def extract_query_signals(
     analytics_aggregation = bool(
         (_ANALYTICS_SUBJECT_RE.search(normalized) and _ANALYTICS_RANK_RE.search(normalized))
         or any(term in normalized for term in _ANALYTICS_PHRASES)
+        or _TOP_OFFENDERS_AGG_RE.search(normalized)
     )
     exact_105_match = bool(
         qu is not None
@@ -1046,6 +1169,12 @@ def extract_query_signals(
         "investigation_hypothesis_guidance": investigation_hypothesis_guidance,
         "investigation_triage_guidance": investigation_triage_guidance,
         "security_log_investigation": security_log_investigation,
+        "firewall_block_or_deny": firewall_block_or_deny,
+        "top_offenders_aggregation": top_offenders_aggregation,
+        "coordinated_activity_assessment": coordinated_activity_assessment,
+        "time_windowed_security_volume": time_windowed_security_volume,
+        "breach_or_account_context": breach_or_account_context,
+        "security_log_aggregation_investigation": security_log_aggregation_investigation,
         "success_after_failure": success_after_failure,
         "positive_successful_login": positive_successful_login,
         "spray_breadth": spray_breadth,
