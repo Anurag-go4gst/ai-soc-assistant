@@ -313,6 +313,14 @@
       "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=dlp_exfiltration; question 'Which endpoints accessed USB storage recently?' is in the dlp_exfiltration detection family; use_case_id=sample_dlp_exfiltration_volume in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
     }
   },
+  "bl004_closeout": {
+    "status": "closed_offline_mapping",
+    "slice": "S1c",
+    "mapped_rows": 41,
+    "unmapped_rows": 64,
+    "report": "docs/evals/bl004_coverage_closeout_report.md",
+    "note": "Remaining unmapped rows are genuine corpus gaps. Do not add mappings without explicit offline evidence. Sample anchors (registry_tier=sample) are matrix-only and non-routable."
+  },
   "reviewed_unmapped": [
     {
       "question_id": "q0.q008",

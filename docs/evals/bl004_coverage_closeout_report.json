@@ -1,0 +1,48 @@
+{
+  "schema_version": "1",
+  "generated_at": "2026-07-01T17:18:57.766348+00:00",
+  "slice": "S1c",
+  "totals": {
+    "questions": 105,
+    "mapped_rows": 41,
+    "unmapped_rows": 64,
+    "warnings": 64,
+    "github_joins": 5,
+    "catalog_use_cases": 65,
+    "sample_anchors": 7,
+    "curated_manual_mappings": 38,
+    "metadata_derived_mappings": 3,
+    "reviewed_unmapped": 10
+  },
+  "mapping_status_breakdown": {
+    "mapped_from_existing_metadata": 3,
+    "curated_manual": 38
+  },
+  "remaining_unmapped_by_pattern_type": {
+    "new_or_unusual_source": 14,
+    "dns_beaconing_dga_behavior": 8,
+    "multi_signal_correlation": 8,
+    "top_n_aggregation": 7,
+    "notable_risk_lookup": 5,
+    "suspicious_process_powershell": 5,
+    "asset_identity_context": 5,
+    "case_state_lookup": 3,
+    "persistence_scheduled_task_service": 3,
+    "data_source_health": 2,
+    "threat_intel_enrichment": 1,
+    "other_or_unclear": 1,
+    "dlp_exfiltration": 1,
+    "ioc_correlation": 1
+  },
+  "sample_anchor_ids": [
+    "sample_network_top_outbound_src",
+    "sample_dns_top_query_hosts",
+    "sample_auth_failed_login_top_users",
+    "sample_ioc_correlation_indicator_match",
+    "sample_threshold_anomaly_volume_spike",
+    "sample_powershell_suspicious_execution",
+    "sample_dlp_exfiltration_volume"
+  ],
+  "closeout_decision": "Remaining 64 rows are genuine offline corpus gaps \u2014 no authoritative question\u2192use_case join without runtime router reconstruction, fuzzy intent match, or false family join.",
+  "next_unlocked": "S2 \u2014 C1/C9 graph state v2 + formal node_trace (additive, flag-safe)"
+}
