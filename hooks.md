@@ -60,15 +60,26 @@ When a plan is ready to execute, type **`loop-asap`** **with the plan path** (re
 
 > loop-asap — execute `plans/2026-06-29_conditional-pipeline-canonical-dispatch.md`
 
-If you omit the path, the hook falls back to the most recently edited file under `plans/` (excluding `LOOP_RUNNER_*` and `*_TEMPLATE.md`).
+**Plan binding (avoids wrong-plan loops):**
+
+1. Path in your `loop-asap` prompt (best)
+2. `plans/.active-plan` (one line: `plans/<file>.md`) — auto-updated when you edit a plan
+3. Bound plan stored in `.cursor/hooks/.loop-asap-requested` for the current session
+4. Latest mtime under `plans/` **only** if you create `.cursor/hooks/ALLOW_LOOP_ASAP_LATEST_PLAN_FALLBACK` (not recommended in multi-chat)
+
+If you omit the path, the hook **does not** silently pick the newest plan unless (4) is enabled.
 
 The agent will:
 
 1. Run the audit script and fix checklist gaps in the plan.
 2. Loop: implement → verify (stated method) → check off with evidence → next item.
-3. Stop only on decision-needed, same gate fails twice, or all items checked with evidence.
+3. Stop when **all checklist items are checked**, **5 follow-up turns** are used, you type **`loop-asap stop`**, or a decision-needed / same-gate-twice stop condition hits.
 
-If the agent stops mid-loop, `stop-loop-asap-handoff.sh` injects up to **5** follow-up turns to continue.
+If the agent stops mid-loop, `stop-loop-asap-handoff.sh` injects up to **5** follow-up turns (same armed session). Hook-injected follow-ups **do not** re-arm the loop (fixes runaway loops after ship).
+
+**End the loop manually:**
+
+> loop-asap stop
 
 **Hard-disable loop-asap follow-ups:**
 
