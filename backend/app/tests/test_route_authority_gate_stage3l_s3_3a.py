@@ -29,6 +29,7 @@ from app.routing.route_authority_gate import (
     evaluate_route_authority,
 )
 from app.schemas.requests import ChatRequest
+from app.tests.support.chat_visible import assert_governed_spl_review_posture
 from app.tests.test_route_plan_stage3k_r2 import (
     _patch_common_chat_dependencies,
     _valid_route_plan_candidate,
@@ -180,7 +181,7 @@ def test_d_global_kill_switch_preserves_selected_skill(monkeypatch: pytest.Monke
     response = chat(ChatRequest(message="Find top 10 users with failed Okta logins in 24h."))
 
     assert response.selected_skill == "attack_discovery"
-    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
+    assert_governed_spl_review_posture(response)
     compare = response.route_plan_shadow.route_authority_compare
     assert compare["authority_fallback_reason"] == FALLBACK_GLOBAL_KILL_SWITCH_DISABLED
     assert compare["operation_authoritative_applied"] is False

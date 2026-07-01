@@ -19,6 +19,7 @@ from app.routing.intent_to_operation_bridge import (
     evaluate_intent_operation_bridge,
 )
 from app.schemas.requests import ChatRequest
+from app.tests.support.chat_visible import assert_governed_spl_review_posture
 from app.tests.test_route_plan_stage3k_r2 import _patch_common_chat_dependencies, _valid_route_plan_candidate
 
 
@@ -42,7 +43,7 @@ def test_chat_selected_skill_and_message_unchanged_with_bridge(monkeypatch) -> N
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
     assert response.selected_skill == "attack_discovery"
-    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
+    assert_governed_spl_review_posture(response)
     bridge = response.route_plan_shadow.intent_operation_bridge if response.route_plan_shadow else None
     assert bridge is not None
     assert bridge["bridge_status"] == BRIDGE_STATUS_NOT_EVALUATED

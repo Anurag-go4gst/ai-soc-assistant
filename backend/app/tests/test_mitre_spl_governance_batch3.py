@@ -281,15 +281,33 @@ def test_demo_critical_templates_are_active_validated_and_evidence_aligned(
     assert rendered.execution_eligible is False
 
 
-def test_pilot_mitre_kb_mapping_does_not_use_legacy_status_for(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(mitre_kb, "_status_for", lambda *_args: "confirmed")
+def test_pilot_mitre_kb_mapping_uses_evidence_precondition_resolver(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    original = mitre_kb.evaluate_pilot_mitre_evidence_status
+
+    def _spy(**kwargs):
+        calls.append(str(kwargs.get("use_case_id")))
+        return original(**kwargs)
+
+    monkeypatch.setattr(mitre_kb, "evaluate_pilot_mitre_evidence_status", _spy)
 
     decisions = mitre_kb.map_mitre_for_use_case("auth_success_after_failure", source_refs=["test"])
     statuses = {decision.technique_id: decision.evidence_status for decision in decisions}
 
+    assert "auth_success_after_failure" in calls
     assert statuses["T1110.001"] == "candidate"
     assert statuses["T1078"] == "not_claimed"
     assert all(decision.status != "confirmed" for decision in decisions)
+
+
+def test_non_pilot_mitre_mapping_fail_closed_to_requires_validation() -> None:
+    status, evidence_status, _why_text, keys = mitre_kb._status_for_mapping(
+        "future_non_pilot_use_case",
+        "T1078",
+    )
+    assert status == "requires_validation"
+    assert evidence_status == "requires_validation"
+    assert keys == []
 
 
 def test_llm_fallback_cannot_bypass_validation(monkeypatch: pytest.MonkeyPatch) -> None:

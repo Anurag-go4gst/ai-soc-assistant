@@ -10,6 +10,7 @@ from app.config import settings
 from app.schemas.requests import ChatRequest
 from app.synthesis.lab_runner import run_governed_synthesis_lab
 from app.synthesis.models import build_governed_synthesis_package
+from app.tests.support.chat_visible import assert_governed_spl_review_posture
 from app.tests.test_route_plan_stage3k_r2 import _patch_common_chat_dependencies
 
 
@@ -71,7 +72,7 @@ def test_p6_flags_off_parity_with_prior_chat_surface(monkeypatch: pytest.MonkeyP
     assert response.answer_guard is not None
     assert response.answer_guard.enabled is False
     assert response.analyst_summary is None
-    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
+    assert_governed_spl_review_posture(response)
 
 
 def test_p6_synthesis_on_produces_deterministic_summary_when_ready(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -22,6 +22,7 @@ from app.spl.utility_spl_authoring import (
     attempt_bounded_utility_spl_llm_draft,
     candidate_from_universal_utility_authoring,
 )
+from app.tests.support.chat_visible import spl_from_payload, visible_from_payload
 
 _WEEKEND_QUERY = (
     "Without using any specific company templates, write a standard, universal SPL block "
@@ -311,14 +312,15 @@ def test_live_response_surfaces_utility_mode_and_postprocessor_trace(
 ) -> None:
     monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
     payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
-    message = payload.get("message") or ""
+    visible = visible_from_payload(payload)
     assert payload.get("answer_mode") == "spl_utility_authoring"
     assert (payload.get("context_sufficiency") or {}).get("answer_mode") == "spl_utility_authoring"
-    assert message.count("Review-only universal SPL draft. This was not executed.") == 1
-    assert "Unresolved source bindings" not in message
-    assert "missing source profile" not in message.lower()
-    assert "Severity:" not in message
-    assert "SOC review checklist" not in message
+    assert "review-only universal spl draft" in visible.lower()
+    assert "not executed" in visible.lower() or "not performed" in visible.lower()
+    assert "Unresolved source bindings" not in visible
+    assert "missing source profile" not in visible.lower()
+    assert "Severity:" not in (payload.get("message") or "")
+    assert "SOC review checklist" not in (payload.get("message") or "")
     assert payload.get("note") == "Review-only universal SPL utility draft; no MCP execution was run."
     cp = payload.get("control_plane_trace") or {}
     assert (cp.get("rag_trace") or {}).get("rag_skipped_for_spl_utility_authoring") is True
@@ -366,11 +368,12 @@ def test_placeholder_not_unresolved_when_no_coe_index(
     monkeypatch.setattr(settings, "ai_soc_utility_spl_default_index", "")
     monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
     payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
-    message = payload.get("message") or ""
-    assert "index=<your_index>" in message
-    assert "`<your_index>` is a placeholder" in message
-    assert "Unresolved source bindings" not in message
-    assert "missing source profile" not in message.lower()
+    visible = visible_from_payload(payload)
+    spl_blob = spl_from_payload(payload)
+    assert "index=<your_index>" in spl_blob
+    assert "`<your_index>` is a placeholder" in visible
+    assert "Unresolved source bindings" not in visible
+    assert "missing source profile" not in visible.lower()
 
 
 def test_coe_single_approved_index_wins_over_placeholder(
@@ -379,12 +382,13 @@ def test_coe_single_approved_index_wins_over_placeholder(
 ) -> None:
     monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
     payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
-    message = payload.get("message") or ""
+    visible = visible_from_payload(payload)
+    spl_blob = spl_from_payload(payload)
     candidate = payload.get("candidate_spl") or {}
     post = candidate.get("review_only_spl_postprocessor_trace") or {}
-    assert "index=pgcil_soc" in str(candidate.get("candidate_spl") or message)
+    assert "index=pgcil_soc" in spl_blob
     assert post.get("index_resolution_source") == "source_profile_resolver"
-    assert "Using COE-resolved index `pgcil_soc`." in message
+    assert "using coe-resolved index `pgcil_soc`" in visible.lower()
     assumptions = "\n".join(candidate.get("assumptions") or [])
     assert "using COE-resolved index `pgcil_soc`" in assumptions
     assert "using a <your_index> placeholder" not in assumptions

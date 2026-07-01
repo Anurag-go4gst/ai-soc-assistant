@@ -29,6 +29,7 @@ from app.routing.llm_route_plan_json import extract_route_plan_candidate_json
 from app.routing.route_plan_models import ROUTE_PLAN_GENERATOR_ROLE
 from app.routing.route_plan_preflight import preflight_route_plan
 from app.schemas.requests import ChatRequest
+from app.tests.support.chat_visible import assert_governed_spl_review_posture
 from app.tests.test_route_plan_stage3k_r2 import (
     _patch_common_chat_dependencies,
     _valid_route_plan_candidate,
@@ -213,7 +214,7 @@ def test_chat_llm_shadow_candidate_does_not_change_analyst_answer(monkeypatch: p
 
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
-    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
+    assert_governed_spl_review_posture(response)
     assert response.route_plan_shadow is not None
     assert response.route_plan_shadow.llm_called is True
     assert response.route_plan_shadow.llm_candidate_route_plan_available is True

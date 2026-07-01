@@ -12,6 +12,7 @@ from app.chat.pipeline import build_live_chat_response
 from app.config import settings
 from app.schemas.requests import ChatRequest
 from app.spl.draft_preview import build_draft_preview
+from app.tests.support.chat_visible import spl_from_payload, visible_from_payload
 
 _WINEVENT_OFF_SHIFT = (
     "Run a Splunk search on the wineventlog index for Event ID 4624 (Successful Logon) "
@@ -70,12 +71,11 @@ def test_winevent_off_shift_is_not_firewall_boundary_query() -> None:
 
 def test_winevent_answer_framing_avoids_it_to_ot_boundary() -> None:
     payload = _chat_payload(_WINEVENT_OFF_SHIFT)
-    msg = payload.get("message") or ""
-    low = msg.lower()
-    assert "it-to-ot" not in low
-    assert "firewall boundary" not in low
-    assert "windows logon" in low or "off-shift" in low or "off shift" in low
-    spl = str((payload.get("candidate_spl") or {}).get("candidate_spl") or "")
+    visible = visible_from_payload(payload).lower()
+    assert "it-to-ot" not in visible
+    assert "firewall boundary" not in visible
+    assert "windows logon" in visible or "off-shift" in visible or "off shift" in visible
+    spl = spl_from_payload(payload)
     assert "index=wineventlog" in spl
     assert "login_hour" in spl
     assert "login_hour < 6" in spl and "login_hour >= 22" in spl
@@ -117,11 +117,10 @@ def test_generic_spl_meta_routes_soc_generate_spl() -> None:
 def test_generic_spl_meta_answer_is_review_only_with_clean_metadata() -> None:
     payload = _chat_payload(_GENERIC_SPL_META)
     _assert_gate_review_only(payload)
-    msg = payload.get("message") or ""
-    low = msg.lower()
-    assert "t1 spl-generation review" in low or "lab draft" in low
-    assert "not executed" in low
-    assert "exact_105" not in low and "t0 exact" not in low
+    visible = visible_from_payload(payload).lower()
+    assert "t1 spl-generation review" in visible or "lab draft" in visible
+    assert "not executed" in visible or "not performed" in visible
+    assert "exact_105" not in visible and "t0 exact" not in visible
     cs = payload.get("candidate_spl") or {}
     assert cs.get("execution_eligible") is False
     contract = payload.get("run_contract") or {}

@@ -281,6 +281,110 @@ def classify_signal_class(query: str, entities: dict[str, Any] | None = None) ->
     return "unknown"
 
 
+_OUT_OF_REGISTRY_MATCH_PATHS = frozenset({"out_of_registry", "semantic_out_of_registry"})
+
+# Generic/fallback families — no governed template authority; signal-class supplement may attach.
+_GENERIC_DETECTION_FAMILIES = frozenset(
+    {
+        "unmapped_live_data_request",
+        "universal_timestamp_spl",
+    }
+)
+
+
+def _governed_family_draft_authority_present(
+    draft_preview: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None,
+) -> bool:
+    """True when a specific detection-family draft owns the answer (not a generic skeleton)."""
+    for source in (draft_preview, candidate_spl):
+        if not isinstance(source, dict):
+            continue
+        family = str(source.get("detection_family") or "").strip()
+        if family and family not in _GENERIC_DETECTION_FAMILIES:
+            return True
+    return False
+
+
+def _should_attach_signal_class_supplement(
+    user_query: str | None,
+    *,
+    match_path: str | None,
+    draft_preview: dict[str, Any] | None = None,
+    candidate_spl: dict[str, Any] | None = None,
+) -> bool:
+    if not user_query or str(match_path or "") not in _OUT_OF_REGISTRY_MATCH_PATHS:
+        return False
+    return build_signal_class_review_supplement(user_query) is not None
+
+
+def resolve_signal_class_review_supplement(
+    user_query: str | None,
+    *,
+    match_path: str | None,
+    draft_preview: dict[str, Any] | None = None,
+    candidate_spl: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Attach signal-class supplement for out-of-registry review-only SPL surfaces.
+
+    When a governed detection-family draft already owns the answer, keep only the
+    signal-class header (OT probe markers) and omit generic template hypotheses that
+    would compete with the family draft framing.
+    """
+    if not _should_attach_signal_class_supplement(
+        user_query,
+        match_path=match_path,
+        draft_preview=draft_preview,
+        candidate_spl=candidate_spl,
+    ):
+        return None
+    supplement = build_signal_class_review_supplement(str(user_query))
+    if supplement is None:
+        return None
+    if _governed_family_draft_authority_present(draft_preview, candidate_spl):
+        return {**supplement, "hypotheses": [], "evidence": []}
+    return supplement
+
+
+def build_signal_class_review_supplement(
+    query: str, entities: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
+    """Structured signal-class header + hypotheses for review-only SPL surfaces.
+
+    Keeps OT out-of-catalog probes honest: visible text carries ``signal class`` and
+    ``review-only`` markers plus hypothesis vocabulary without claiming live results.
+    """
+    signal_class = classify_signal_class(query, entities)
+    if signal_class == "unknown":
+        return None
+    template = _TEMPLATES.get(signal_class) or {}
+    header = (
+        f"Guided investigation — signal class: {signal_class.replace('_', ' ')} (review-only)"
+    )
+    return {
+        "signal_class": signal_class,
+        "header": header,
+        "hypotheses": list(template.get("hypotheses") or []),
+        "evidence": list(template.get("evidence") or []),
+    }
+
+
+def format_signal_class_review_supplement(supplement: dict[str, Any]) -> list[str]:
+    """Render supplement lines for inclusion in a review-only SPL answer."""
+    lines = [str(supplement.get("header") or "").strip(), ""]
+    hypotheses = supplement.get("hypotheses") or []
+    if hypotheses:
+        lines.append("Hypotheses")
+        lines.extend(f"- {item}" for item in hypotheses)
+        lines.append("")
+    evidence = supplement.get("evidence") or []
+    if evidence:
+        lines.append("Evidence to collect")
+        lines.extend(f"- {item}" for item in evidence)
+        lines.append("")
+    return [line for line in lines if line is not None]
+
+
 def build_signal_class_guidance(query: str, entities: dict[str, Any] | None = None) -> str:
     """Shaped hypotheses + evidence for the resolved signal class."""
     signal_class = classify_signal_class(query, entities)

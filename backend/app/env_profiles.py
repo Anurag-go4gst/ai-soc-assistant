@@ -15,20 +15,34 @@ from pathlib import Path
 from typing import Any
 
 _PROFILE_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
+_MANIFEST_REL = Path("env") / "profiles" / "manifest.json"
+
+
+def _has_profile_manifest(root: Path) -> bool:
+    return (root / _MANIFEST_REL).is_file()
 
 
 def _repo_root() -> Path:
     configured = os.getenv("AI_SOC_REPO_ROOT", "").strip()
     if configured:
         return Path(configured).resolve()
-    # backend/app/env_profiles.py -> repo root
-    return Path(__file__).resolve().parents[2]
+    # Docker Compose mounts the monorepo at /workspace while backend code lives in /app.
+    workspace = Path("/workspace")
+    if _has_profile_manifest(workspace):
+        return workspace
+    # Bare-metal / pytest: backend/app/env_profiles.py -> repo root (three parents up).
+    candidate = Path(__file__).resolve().parents[2]
+    if _has_profile_manifest(candidate):
+        return candidate
+    return candidate
 
 
 def _env_base_dir() -> Path:
     override = os.getenv("AI_SOC_ENV_PROFILES_DIR", "").strip()
     if override:
-        return Path(override).resolve()
+        path = Path(override).resolve()
+        if path.is_dir():
+            return path
     return _repo_root() / "env"
 
 

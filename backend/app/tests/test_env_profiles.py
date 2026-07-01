@@ -60,3 +60,13 @@ def test_read_active_profile_id_from_active_file(
     monkeypatch.setattr(settings, "ai_soc_env_profile", "")
     (env_profiles_tree / "active.profile").write_text("development\n", encoding="utf-8")
     assert read_active_profile_id() == "development"
+
+
+def test_env_base_dir_ignores_missing_override_dir(
+    env_profiles_tree: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.env_profiles import list_profiles
+
+    monkeypatch.setenv("AI_SOC_ENV_PROFILES_DIR", "/does/not/exist")
+    monkeypatch.setenv("AI_SOC_REPO_ROOT", str(tmp_path))
+    assert len(list_profiles()) == 2

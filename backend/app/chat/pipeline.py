@@ -147,6 +147,7 @@ from app.planner.executor import (
     has_composed_plan,
 )
 from app.chat.contracts.answer_contract import build_answer_contract
+from app.chat.contracts.investigation_plan import InvestigationPlan
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.chat.answer_shape_router import (
     build_shaped_guidance,
@@ -240,8 +241,18 @@ from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.debug_summary import build_debug_summary
 from app.chat.guided_discovery_promotion import build_guided_discovery_promotion_offer
+from app.chat.guided_answer_contract import enhance_answer_contract_for_guided_hybrid
 from app.chat.guided_handoff_trace import blocked_resources_wire, build_guided_handoff_trace
+from app.chat.guided_hybrid_refinement import (
+    MAX_GUIDED_INVESTIGATION_ROUNDS,
+    apply_refinement_cap_warning,
+    count_collected_guided_hops,
+    refinement_cap_reached,
+    should_run_refinement_pass,
+)
 from app.chat.guided_hybrid_dispatch import uses_guided_hybrid_dispatch_from_state
+from app.chat.guided_hybrid_collection import collect_guided_hybrid_evidence
+from app.chat.guided_investigation_plan_llm import propose_investigation_plan_llm
 from app.chat.guided_investigation_planner import validate_investigation_plan
 from app.chat.guided_capability_validator import validate_guided_resource_plan
 from app.chat.guided_spl_review_gate import build_guided_spl_draft_preview_if_allowed
@@ -3213,6 +3224,21 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             )
             if promotion_offer is not None:
                 answer_contract = answer_contract.model_copy(update={"promotion_offer": promotion_offer})
+        if (
+            path_type == "guided_investigation"
+            and settings.ai_soc_guided_hybrid_investigation_enabled
+            and answer_contract is not None
+        ):
+            answer_contract = enhance_answer_contract_for_guided_hybrid(
+                answer_contract,
+                guided_handoff=state.get("guided_handoff_trace")
+                if isinstance(state.get("guided_handoff_trace"), dict)
+                else None,
+                mcp_evidence=state.get("mcp_evidence")
+                if isinstance(state.get("mcp_evidence"), list)
+                else None,
+                evidence_plan=contract_evidence_plan,
+            )
         if path_type == "guided_investigation":
             guided_grounding_block = build_guided_hunt_grounding(
                 query=request.message,
@@ -4017,6 +4043,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
         candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
         spl_artifact_handoff=_spl_handoff,
+        user_query=request.message,
+        match_path=(
+            (state.get("query_to_intent") or {}).get("candidate_mappings") or {}
+        ).get("match_path")
+        if isinstance(state.get("query_to_intent"), dict)
+        else None,
     )
     from app.chat.answer_quality_enrichment import apply_answer_quality_enrichment
 
@@ -4554,23 +4586,93 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     query = state.get("effective_query") or request.message
     evidence_payload = dict(_evidence_plan(state))
     evidence = EvidencePlan.model_validate(evidence_payload)
-
-    baseline = build_deterministic_investigation_plan(
-        query=query,
-        soc_kb_retrieval=state.get("soc_kb_retrieval")
-        if isinstance(state.get("soc_kb_retrieval"), dict)
-        else None,
-    )
-    validated_plan = validate_investigation_plan(baseline)
     match_path = getattr(state.get("query_understanding"), "deterministic_match_path", None)
-    pre_plan = compose_guided_resource_plan(evidence, validated_plan, match_path=match_path)
-    validation = validate_guided_resource_plan(evidence, pre_plan)
-    validated_resource = validation.validated_resource_plan
+
+    dispatch_steps = ["guided_baseline"]
+    refinement_rounds: list[int] = []
+    collection_state: ChatPipelineState = dict(state)
+    validated_plan: InvestigationPlan | None = None
+    pre_plan = None
+    validation = None
+    validated_resource = None
+    llm_result = None
+    refinement_round = 0
+
+    while True:
+        refinement_rounds.append(refinement_round)
+        if refinement_round > 0:
+            dispatch_steps.append("guided_refinement")
+
+        baseline = build_deterministic_investigation_plan(
+            query=query,
+            soc_kb_retrieval=state.get("soc_kb_retrieval")
+            if isinstance(state.get("soc_kb_retrieval"), dict)
+            else None,
+        ).model_copy(update={"refinement_round": refinement_round})
+        llm_result = propose_investigation_plan_llm(query=query, baseline=baseline)
+        if refinement_round == 0 and llm_result.attempted:
+            dispatch_steps.append("guided_investigation_plan_llm")
+        validated_plan = validate_investigation_plan(
+            baseline,
+            llm_result.proposal,
+            llm_attempted=llm_result.attempted,
+        )
+        if refinement_round == 0:
+            dispatch_steps.extend(
+                [
+                    "validator_a",
+                    "compose_guided_resource_plan",
+                    "validator_b",
+                ]
+            )
+        pre_plan = compose_guided_resource_plan(evidence, validated_plan, match_path=match_path)
+        validation = validate_guided_resource_plan(evidence, pre_plan)
+        validated_resource = validation.validated_resource_plan
+        collection_state, _ = collect_guided_hybrid_evidence(
+            collection_state,
+            validated_resource=validated_resource,
+        )
+        if any(
+            step.purpose in {"mcp_discovery", "safe_catalog_query"}
+            for step in validated_resource.steps
+        ):
+            if "guided_hybrid_collection" not in dispatch_steps:
+                dispatch_steps.append("guided_hybrid_collection")
+
+        if refinement_cap_reached(
+            refinement_round=refinement_round,
+            refinement_recommended=validated_plan.refinement_recommended,
+        ):
+            validated_plan = apply_refinement_cap_warning(validated_plan)
+            break
+        if not should_run_refinement_pass(
+            refinement_round=refinement_round,
+            refinement_recommended=validated_plan.refinement_recommended,
+        ):
+            break
+        refinement_round += 1
+        if refinement_round >= MAX_GUIDED_INVESTIGATION_ROUNDS:
+            break
+
+    dispatch_steps.append("rag_early")
+    collected_count = count_collected_guided_hops(
+        collection_state.get("mcp_evidence")
+        if isinstance(collection_state.get("mcp_evidence"), list)
+        else None
+    )
+    assert validated_plan is not None
+    assert pre_plan is not None
+    assert validation is not None
+    assert validated_resource is not None
+    assert llm_result is not None
     handoff_trace = build_guided_handoff_trace(
         investigation_plan_validated=validated_plan,
         resource_plan_pre_validation=pre_plan,
         resource_plan_validated=validated_resource,
         blocked_resources=blocked_resources_wire(validation),
+        investigation_plan_raw_llm=llm_result.raw_llm,
+        evidence_collected=collected_count,
+        refinement_rounds=refinement_rounds,
     )
 
     evidence_payload["resource_plan"] = validated_resource.model_dump()
@@ -4608,16 +4710,10 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     emit_mcp_status_from_execution(execution)
     trace = {
         "dispatch_source": "guided_hybrid_dispatch",
-        "dispatch_schedule": [
-            "guided_baseline",
-            "validator_a",
-            "compose_guided_resource_plan",
-            "validator_b",
-            "rag_early",
-        ],
+        "dispatch_schedule": dispatch_steps,
     }
     updated: ChatPipelineState = {
-        **state,
+        **collection_state,
         "evidence_plan": evidence_payload,
         "workflow_plan": workflow_plan,
         "candidate_spl": None,

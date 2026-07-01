@@ -10,6 +10,7 @@ from app.chat.pipeline import build_live_chat_response
 from app.config import settings
 from app.schemas.requests import ChatRequest
 from app.spl.draft_preview import GENERIC_LIVE_DATA_FAMILY_ID
+from app.tests.support.chat_visible import assert_review_only_title
 
 _SUBSTATION_QUERY = (
     "Show me all external connections or remote access sessions currently mapping "
@@ -80,10 +81,10 @@ def test_bundle_a_substation_live_data() -> None:
     # Dedicated review-only SPL renderer owns the answer shape: the review-only title
     # (em-dash, matching the RunContract answer preview) is the card heading and the
     # summary header carries the status block.
-    assert analyst.get("finding_title") == "Review-only SPL draft — no live query was executed"
+    assert_review_only_title(str(analyst.get("finding_title") or ""))
     summary = analyst.get("direct_answer_summary") or ""
     assert "Severity: Not assigned from this question alone" in summary
-    assert "Execution: Not executed" in summary
+    assert "Execution: Not executed" in summary or "Execution: Not performed" in summary
     assert analyst.get("severity_label") == "Not assigned from this question alone"
     assert "```" not in (analyst.get("direct_answer_summary") or "")
     assert "search index=" not in (analyst.get("direct_answer_summary") or "").lower()

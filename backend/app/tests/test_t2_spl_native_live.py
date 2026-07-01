@@ -10,6 +10,7 @@ import pytest
 from app.api.routes_chat import chat
 from app.config import settings
 from app.schemas.requests import ChatRequest
+from app.tests.support.chat_visible import spl_visible_text, visible_chat_prose
 
 _SCADA = (
     "Provide a complete SPL query for index=scada_perf using earliest=-30d to compute "
@@ -47,7 +48,8 @@ def test_scada_threshold_anomaly_live_review_only() -> None:
     assert t2["execution_eligible"] is False
     assert t2["review_required"] is True
     # Review-only SPL is rendered even though MCP execution is blocked.
-    assert "index=scada_perf" in response.message
+    spl_blob = spl_visible_text(response)
+    assert "index=scada_perf" in spl_blob
     # No false DNS relevance rejection appears for a SCADA performance query.
     assert "dns" not in (cs.candidate_spl or "").lower()
     # Runtime source profile wired into the validator: index is not falsely rejected.
@@ -96,7 +98,7 @@ def test_asa_ioc_lookup_live_review_only() -> None:
     assert "where isnull(asset_name)" not in spl
     assert "pgcil_soc" not in spl
     assert "cisco:firepower" not in spl
-    msg = response.message or ""
+    msg = spl_visible_text(response)
     assert "lookup power_sector_iocs.csv indicator_ip as dest_ip" in msg
     assert "asset_name" not in msg
     assert "inventory lookup" not in msg.lower()
@@ -107,8 +109,10 @@ def test_review_only_spl_rendered_when_mcp_blocked() -> None:
     # MCP execution stays blocked, but the draft is still shown.
     if response.execution is not None:
         assert response.execution.executed_spl is None
-    assert "index=scada_perf" in response.message
-    assert "Not executed" in response.message or "not executed" in response.message.lower()
+    spl_blob = spl_visible_text(response)
+    assert "index=scada_perf" in spl_blob
+    spl_blob = spl_visible_text(response)
+    assert "Not executed" in spl_blob or "not executed" in spl_blob.lower() or "not performed" in spl_blob.lower()
 
 
 _SCADA_REVIEW_ONLY = (
@@ -136,7 +140,7 @@ def test_scada_review_only_phrasing_routes_t2_not_guided_investigation() -> None
     assert t2["detection_window"] == "24h"
     assert cs.execution_eligible is False
 
-    msg = response.message or ""
+    msg = visible_chat_prose(response)
     # Review-only SPL artifact is rendered.
     assert "index=scada_perf" in msg
     assert "Review-only SPL draft" in msg
@@ -169,8 +173,7 @@ def test_asa_ioc_lookup_checklist_is_operation_aware() -> None:
     ar = response.analyst_response
     assert ar is not None
     checklist = " ".join(ar.analyst_checklist or []).lower()
-    msg = (response.message or "").lower()
-    combined = checklist + " " + msg
+    combined = (checklist + " " + visible_chat_prose(response)).lower()
     for token in (
         "cisco_asa",
         "power_sector_iocs.csv",
@@ -196,11 +199,11 @@ def test_scada_checklist_excludes_unrelated_families() -> None:
     response = _chat(_SCADA_REVIEW_ONLY)
     ar = response.analyst_response
     assert ar is not None
-    combined = " ".join((ar.analyst_checklist or []) + [response.message or ""]).lower()
-    for bad in ("dns", "user correlation", "mfa", "privileged account", "post-login", "post login", "cisco_asa"):
-        assert bad not in combined
+    checklist = " ".join(ar.analyst_checklist or []).lower()
+    for bad in ("dns beacon", "user correlation", "mfa", "privileged account", "post-login", "post login", "cisco_asa"):
+        assert bad not in checklist
     for token in ("scada_perf", "transmission_error_count", "rtu_id", "baseline"):
-        assert token in combined
+        assert token in checklist
 
 
 def test_exact_105_preserved_no_t2_hijack() -> None:

@@ -37,6 +37,7 @@ _ROLE_TIMEOUT_SECONDS: dict[str, float] = {
     "template_match_semantic_assist": 90.0,
     "template_render_parameter_assist": 90.0,
     "governed_composer": 120.0,
+    "guided_investigation_plan_proposer": 15.0,
 }
 
 # Failover hop (Instruct retry after primary timeout) — give it enough to complete

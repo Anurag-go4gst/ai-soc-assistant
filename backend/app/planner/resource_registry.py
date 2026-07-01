@@ -44,6 +44,7 @@ class ResourceDescriptor(BaseModel):
     policy_tier: int = 1
     fallback_of: str | None = None
     notes: str | None = None
+    capability_class: str | None = None
 
 
 class ResourceRegistry(BaseModel):

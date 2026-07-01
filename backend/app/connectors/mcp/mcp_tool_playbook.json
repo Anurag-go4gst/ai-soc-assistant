@@ -20,6 +20,7 @@
       "produces": ["server_version", "server_name", "readiness"],
       "next_tools": ["splunk_get_indexes"],
       "capability": "discovery_context",
+      "capability_class": "metadata_discovery",
       "read_only": true,
       "blocked": false,
       "rbac_roles": ["viewer", "analyst", "soc_lead"]
@@ -33,6 +34,7 @@
       "produces": ["accessible_indexes"],
       "next_tools": ["splunk_get_metadata", "splunk_get_index_info"],
       "capability": "index_context",
+      "capability_class": "metadata_discovery",
       "read_only": true,
       "blocked": false,
       "rbac_roles": ["viewer", "analyst", "soc_lead"]
@@ -46,6 +48,7 @@
       "produces": ["sourcetypes", "hosts", "sources"],
       "next_tools": ["splunk_get_index_info", "splunk_get_knowledge_objects", "splunk_run_query"],
       "capability": "metadata_context",
+      "capability_class": "metadata_discovery",
       "read_only": true,
       "blocked": false,
       "rbac_roles": ["viewer", "analyst", "soc_lead"]
@@ -59,6 +62,7 @@
       "produces": ["index_detail"],
       "next_tools": ["splunk_get_knowledge_objects", "splunk_run_query"],
       "capability": "index_context",
+      "capability_class": "metadata_discovery",
       "read_only": true,
       "blocked": false,
       "optional": true,
@@ -73,6 +77,7 @@
       "produces": ["saved_searches", "macros", "data_models", "eventtypes"],
       "next_tools": ["splunk_run_query"],
       "capability": "knowledge_object_discovery",
+      "capability_class": "metadata_discovery",
       "read_only": true,
       "blocked": false,
       "optional": true,
@@ -87,6 +92,7 @@
       "produces": ["result_rows"],
       "next_tools": [],
       "capability": "spl_search",
+      "capability_class": "freeform_query_execution",
       "read_only": false,
       "execution_gated": true,
       "blocked": false,
@@ -101,6 +107,7 @@
       "produces": ["current_user_identity"],
       "next_tools": [],
       "capability": "identity_lookup",
+      "capability_class": "read_only_lookup",
       "read_only": true,
       "blocked": false,
       "rbac_gated": true,
@@ -108,14 +115,15 @@
     },
     "splunk_get_user_list": {
       "phase": "blocked",
+      "capability_class": "action_execution",
       "when": "Never via the agent.",
       "why": "Enumerates all users (directory recon + PII). Out of scope for read-only evidence collection.",
       "blocked": true,
       "blocked_reason": "admin_or_sensitive_tool"
     },
-    "saia_generate_spl": {"phase": "blocked", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional (Splunk AI Assistant for SPL app) + generative. SPL authoring stays in the governed template/validator path."},
-    "saia_optimize_spl": {"phase": "blocked", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional + generative; optimization stays deterministic (spl_simplifier)."},
-    "saia_explain_spl": {"phase": "blocked", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional + generative; explanation stays deterministic."},
-    "saia_ask_splunk_question": {"phase": "blocked", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional + generative free-form Q&A; out of governed scope."}
+    "saia_generate_spl": {"phase": "blocked", "capability_class": "action_execution", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional (Splunk AI Assistant for SPL app) + generative. SPL authoring stays in the governed template/validator path."},
+    "saia_optimize_spl": {"phase": "blocked", "capability_class": "action_execution", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional + generative; optimization stays deterministic (spl_simplifier)."},
+    "saia_explain_spl": {"phase": "blocked", "capability_class": "action_execution", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional + generative; explanation stays deterministic."},
+    "saia_ask_splunk_question": {"phase": "blocked", "capability_class": "action_execution", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional + generative free-form Q&A; out of governed scope."}
   }
 }

@@ -757,17 +757,57 @@ Sample probe query (all phases):
 
 ---
 
-## Checklist (REV3 full roadmap — batch 2+)
+## Checklist (REV4 batch 2 — phases P9–P14)
 
-Legacy items **9–18** from original checklist remain for batch 2 after batch 1 handoff is green:
+Sample probe query (all phases):
 
-| Legacy ID | Batch 2 scope |
-|-----------|---------------|
-| 6 (LLM) | Bounded LLM propose on blocking path |
-| 8–9 | MCP capability classes + safe SPL catalog allowlist + execution hop |
-| 10 | Pre-dispatch skip (partially in P8) |
-| 11 | Full collection inside dispatch |
-| 13–18 | Refinement, Final Evidence Gate integration, AnswerContract, HIL offer, negative tests, docs |
+`How should I investigate unusual outbound traffic from an OT host overnight?`
+
+- [x] **P9** — Bounded LLM InvestigationPlan propose (blocking path)
+  - **Do:** Add `guided_investigation_plan_llm.propose_investigation_plan_llm()`; wire into `_run_guided_hybrid_dispatch` before Validator A; populate `guided_handoff.investigation_plan_raw_llm`; budget ≤15s; fallback `plan_source=llm_failed_baseline_only` on failure.
+  - **Verify:** `pytest app/tests/test_guided_investigation_plan_llm.py -q`; mock LLM merges hypotheses; timeout → baseline only + `llm_failed_baseline_only`; flag-off unchanged.
+  - **Depends on:** P1–P8 (merged)
+  - **Evidence:** `pytest app/tests/test_guided_investigation_plan_llm.py app/tests/test_guided_hybrid_dispatch.py app/tests/test_guided_hybrid_trace_baseline.py -q` → **30 passed**; `guided_investigation_plan_llm.py` wired in `_run_guided_hybrid_dispatch`; role `guided_investigation_plan_proposer` @ 15s timeout.
+
+- [x] **P10** — `guided_safe_spl_catalog.json` allowlist + COE stub
+  - **Do:** Create allowlist JSON with per-template caps; Validator B reads allowlist; no execution hop yet.
+  - **Verify:** `pytest app/tests -k guided_safe_spl_catalog -q`; unknown template ID blocked with stable reason code.
+  - **Depends on:** P9
+  - **Evidence:** `pytest app/tests -k guided_safe_spl_catalog -q` → **4 passed**; `backend/app/spl/guided_safe_spl_catalog.json` (4 COE-stub entries, `coe_signed=false`); Validator A/B use `guided_safe_template_ids()`; `catalog_template_not_allowlisted` reason code on unknown IDs.
+
+- [x] **P11** — MCP capability classes in playbook + registry
+  - **Do:** Add `capability_class` to `mcp_tool_playbook.json`; mirror in `resource_registry_v1.json`; Validator B enforces class allowlist.
+  - **Verify:** `pytest app/tests/test_guided_capability_validator.py -q` extended; freeform/action tools blocked on guided plan.
+  - **Depends on:** P10
+  - **Evidence:** `pytest app/tests/test_guided_capability_validator.py app/tests/test_mcp_tool_chronology.py -q` → **15 passed**; `capability_class` on Splunk playbook + registry rows; Validator B uses `_resolve_capability_class()` with `catalog_template_not_allowlisted` + `freeform_query_blocked` tests.
+
+- [x] **P12** — Safe evidence collection inside hybrid dispatch
+  - **Do:** Execute approved `mcp_discovery` + `safe_catalog_query` steps only when capabilities allow; update `evidence_collected` in `guided_handoff`; still no `graph_node_execution` / freeform `run_query`.
+  - **Verify:** `pytest app/tests/test_guided_hybrid_dispatch.py -q` collection cases; `evidence_collected` increments only for collected hops.
+  - **Depends on:** P10, P11
+  - **Evidence:** `pytest app/tests/test_guided_hybrid_collection.py app/tests/test_guided_hybrid_dispatch.py -q` → **5 passed**; `guided_hybrid_collection.py` records planned discovery + safe-catalog hops; `evidence_collected` stays 0 under default-off MCP execution; no `splunk_run_query`.
+
+- [x] **P13a** — Refinement round cap (`MAX_GUIDED_INVESTIGATION_ROUNDS`)
+  - **Do:** Honor `refinement_recommended` with bounded in-dispatch refinement loop; trace `refinement_round` / `refinement_rounds`; no execution widening.
+  - **Verify:** `pytest app/tests/test_guided_hybrid_refinement.py -q`; cap stops at 3 rounds; flag-off unchanged.
+  - **Depends on:** P12
+  - **Evidence:** `pytest app/tests/test_guided_hybrid_refinement.py app/tests/test_guided_hybrid_trace_baseline.py -q` → **16 passed**; `guided_hybrid_refinement.py` + loop in `_run_guided_hybrid_dispatch`; handoff trace carries `refinement_round` / `refinement_rounds`.
+
+- [x] **P13b** — AnswerContract guided evidence surfacing
+  - **Do:** Surface planned/collected discovery + safe-catalog metadata on dedicated AnswerContract fields only; HIL required; never `spl_execution_eligible=true`.
+  - **Verify:** `pytest app/tests/test_guided_answer_contract.py -q`; planned hops marked `planned_only`; flag-off fields absent.
+  - **Depends on:** P12
+  - **Evidence:** `pytest app/tests/test_guided_answer_contract.py -q` → **5 passed**; `guided_answer_contract.py` + AnswerContract fields `guided_collection_posture`, `discovery_evidence_summary`, `safe_catalog_evidence_summary`, `evidence_planned`, `evidence_collected`, `blocked_resources`.
+
+- [x] **P14** — Governance + flag-off byte-identity
+  - **Do:** Run targeted suite + `./scripts/run_stage3_governance_regression.sh`; sync docs.
+  - **Verify:** governance PASS or document known-unrelated drift; flag-off guided hybrid byte-identical.
+  - **Depends on:** P13b
+  - **Evidence:** `./scripts/run_stage3_governance_regression.sh` → **FAIL** at sentinel T-PRE (`q0.q049` baseline drift: `response_mode` / `analyst_enabled_sections` — unrelated to guided hybrid); `pytest app/tests/test_guided_hybrid_trace_baseline.py -q` → **6 passed** (flag-off byte-stable); flag-on sample-query probe → all posture checks **PASS** (`guided_hybrid_dispatch`, `mcp_allowed=false`, HIL required, `guided_collection_posture` present, planned hops not counted as collected); docs synced in `docs/architecture/details.html` + `frontend/public/docs/architecture/details.html` (§7D hybrid orchestrator, LLM planner exception, Validator B / safe-catalog surfacing).
+
+### Batch 2 dependency order
+
+`P9 → P10 → P11 → P12 → P13a → P13b → P14`
 
 ---
 

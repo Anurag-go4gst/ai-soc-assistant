@@ -36,6 +36,7 @@
       "cost_class": "expensive",
       "availability": "fixture_only",
       "policy_tier": 2,
+      "capability_class": "freeform_query_execution",
       "notes": "Canonical air-gapped read-only search; validator-approved normalized SPL only; mock connector remains fixture-only"
     },
     {
@@ -49,6 +50,7 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
+      "capability_class": "metadata_discovery",
       "notes": "Confirmed air-gapped read-only discovery tool; not evidence authority"
     },
     {
@@ -62,6 +64,7 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
+      "capability_class": "metadata_discovery",
       "notes": "Confirmed air-gapped read-only discovery tool; results are service-account permission scoped"
     },
     {
@@ -79,6 +82,7 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
+      "capability_class": "metadata_discovery",
       "notes": "Confirmed air-gapped read-only discovery tool"
     },
     {
@@ -96,6 +100,7 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
+      "capability_class": "metadata_discovery",
       "notes": "Confirmed air-gapped read-only discovery tool"
     },
     {
@@ -109,6 +114,7 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
+      "capability_class": "read_only_lookup",
       "notes": "Read-only current-authenticated-user (self) identity. Enabled in air-gapped; access governed by RBAC role (capability rbac_gated, tier 2), not hard-blocked. Distinct from splunk_get_user_list (enumerates all users) which stays blocked. availability=not_implemented = not yet wired live, same as the other read tools."
     },
     {
@@ -122,6 +128,7 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
+      "capability_class": "metadata_discovery",
       "notes": "Confirmed air-gapped read-only discovery tool; existing detections and macros are metadata only"
     },
     {

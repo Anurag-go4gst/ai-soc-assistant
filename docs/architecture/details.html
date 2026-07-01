@@ -1356,7 +1356,7 @@
             <div class="tagrow"><span class="tag det">deterministic final route</span><span class="tag llm">resource-plan shadow only</span></div>
             <span class="see-section">Trace → §8b</span>
           </div>
-          <div class="arch-arrow">↓ dispatch one of three execution paths</div>
+          <div class="arch-arrow">↓ dispatch one of three execution paths (four when guided hybrid flag on)</div>
 
           <div class="arch-branch-row three-up">
             <div class="arch-box branch-box purple">
@@ -1365,11 +1365,17 @@
               <h3>Planner-led composed plan</h3>
               <p>When the Resource Planner composed an executable plan: runs the same nodes through it, with per-step status and degrade-chain recording.</p>
             </div>
+            <div class="arch-box branch-box cyan">
+              <span class="arch-seq branch">7D</span>
+              <span class="nodetag">guided_hybrid_dispatch</span>
+              <h3>Guided hybrid orchestrator</h3>
+              <p>When <code>AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED=true</code> and <code>investigation_planning_enabled</code>: deterministic InvestigationPlan baseline → bounded LLM propose (first-class planner inside guided, not route authority) → Validator A → Resource Planner maps the <strong>validated</strong> InvestigationPlan only → Validator B capability gates → planned discovery / safe-catalog collection → optional bounded refinement → RAG. No <code>graph_node_execution</code>; <code>mcp_allowed</code> stays false; free-form <code>splunk_run_query</code> and MCP action tools remain blocked.</p>
+            </div>
             <div class="arch-box branch-box green">
               <span class="arch-seq branch">7B</span>
               <span class="nodetag">prepare_rag_only › rag_early</span>
-              <h3>RAG-only path</h3>
-              <p>Guided / knowledge / <code>rag_only</code> → governed SOC-KB retrieval into SourceEvidence. No SPL, no MCP. Works CP on or off.</p>
+              <h3>Legacy RAG-only path</h3>
+              <p>Flag-off guided / knowledge / <code>rag_only</code> → governed SOC-KB retrieval into SourceEvidence. No SPL, no MCP. Preserves byte-identical wire when the hybrid flag is off.</p>
             </div>
             <div class="arch-box branch-box amber">
               <span class="arch-seq branch">7C</span>
@@ -1415,11 +1421,11 @@
           <span class="legend-item"><span class="dot" style="background:#0891b2"></span> 5B = Stage 4B discovery hops (when loop on)</span>
           <span class="legend-item"><span class="dot" style="background:#16a34a"></span> M1–M5 = query-understanding match paths</span>
           <span class="legend-item"><span class="dot" style="background:#475569"></span> S1–S5 = the five live route skills</span>
-          <span class="legend-item"><span class="dot" style="background:#d97706"></span> 7A–7C = dispatch (one execution path)</span>
+          <span class="legend-item"><span class="dot" style="background:#d97706"></span> 7A–7D = dispatch (one execution path; 7D when guided hybrid flag on)</span>
         </div>
 
         <div class="note warn-note" style="margin-top: 18px;">
-          <strong>Authority is deterministic at every node.</strong> The LLM only suggests routes (shadow), proposes SPL / plan candidates (validated), and rewrites prose (guarded). It never selects the final route, sets severity / MITRE status / SPL approval / <code>execution_eligible</code>, or runs an MCP tool. Guided rescue uses <code>primary_intent=investigation_guidance</code> and keeps the out-of-catalog notice (no turn-blocking HIL). Every LLM failure falls back to the deterministic answer.
+          <strong>Authority is deterministic at every node.</strong> The LLM only suggests routes (shadow), proposes SPL / plan candidates (validated), and rewrites prose (guarded). It never selects the final route, sets severity / MITRE status / SPL approval / <code>execution_eligible</code>, or runs an MCP tool. <strong>Exception (guided hybrid flag on):</strong> inside <code>guided_hybrid_dispatch</code> the LLM is a first-class <em>InvestigationPlan proposer</em> — still not route authority; Validator A + Resource Planner + Validator B enforce capability gates before any collection. Safe-catalog evidence is surfaced on dedicated AnswerContract fields (<code>guided_collection_posture</code>, <code>safe_catalog_evidence_summary</code>) — not generic <code>spl_execution_eligible</code>. Guided rescue uses <code>primary_intent=investigation_guidance</code> and keeps the out-of-catalog notice (no turn-blocking HIL). Every LLM failure falls back to the deterministic answer.
         </div>
         <div class="note" style="margin-top: 12px;">
           <strong>Live runner:</strong> default <code>/chat</code> uses the <strong>imperative</strong> node sequence in <code>pipeline.py</code> (<code>LANGGRAPH_ORCHESTRATION_ENABLED=false</code>) for session-context parity. The same <code>graph_node_*</code> functions also wire into a cyclic LangGraph topology when orchestration is explicitly enabled — see <a href="#s4b">§4B</a>.
@@ -1875,7 +1881,7 @@ output template</pre>
         </div>
         <div class="mini-card cyan">
           <h3>guided_investigation</h3>
-          <p>Deterministic rescue for <code>out_of_registry</code> + hunt-shaped questions. Review-only guidance; no MCP execution.</p>
+          <p>Deterministic rescue for <code>out_of_registry</code> + hunt-shaped questions. With the hybrid flag off: legacy review-only RAG guidance. With <code>AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED</code>: hybrid orchestrator (InvestigationPlan → validated ResourcePlan → planned discovery / safe-catalog hops). No MCP execution or free-form SPL.</p>
         </div>
       </div>
       <div class="note success-note" style="margin-top: 18px;">
@@ -1991,8 +1997,8 @@ output template</pre>
             <tr>
               <td><code>guided_investigation</code></td>
               <td>Yes</td>
-              <td>Route Skill for OOD investigation → Resource Planner → Guided answer</td>
-              <td>Safe rescue for unmapped hunt-shaped questions: hypotheses, data sources, evidence checklist, limitations.</td>
+              <td>Route Skill for OOD investigation → <code>guided_hybrid_dispatch</code> (flag on) or legacy RAG-only → Guided answer</td>
+              <td>Safe rescue for unmapped hunt-shaped questions: hypotheses, evidence checklist, limitations; hybrid path adds validated InvestigationPlan, Validator B gates, and planned discovery / safe-catalog evidence (not generic SPL execution).</td>
             </tr>
             <tr>
               <td><code>mitre_mapping</code></td>
@@ -2059,8 +2065,9 @@ output template</pre>
             <li>Clarification question wording</li>
             <li>Review-only SPL draft suggestions on governed paths</li>
             <li>Readable narration of deterministic analyst-summary prose</li>
+            <li><strong>Guided hybrid (flag on):</strong> bounded InvestigationPlan propose inside <code>guided_hybrid_dispatch</code> — validated by Validator A before Resource Planner mapping</li>
           </ul>
-          <p style="margin:12px 0 0;color:var(--muted);font-size:14px;">Guided investigation content (hypotheses, checklist, limitations) is deterministic from <code>guidance_templates.py</code>, not live LLM authority.</p>
+          <p style="margin:12px 0 0;color:var(--muted);font-size:14px;">Legacy guided (hybrid flag off) keeps deterministic hypotheses/checklist from <code>guidance_templates.py</code>. Hybrid flag on adds LLM propose as planner input only; Validator B still blocks free-form query and action tools; safe-catalog rows are not surfaced as generic SPL execution eligibility.</p>
         </div>
         <div class="card red">
           <h3>LLM cannot do</h3>
@@ -2108,6 +2115,10 @@ output template</pre>
             <tr>
               <td><code>planning_decision.resource_plan_summary</code></td>
               <td>Same decision map when CP is off — guided hunts still carry resource skip reasons.</td>
+            </tr>
+            <tr>
+              <td><code>guided_handoff</code> <span class="badge-new">new</span></td>
+              <td>Hybrid dispatch handoff (flag on): validated InvestigationPlan, ResourcePlan pre/post Validator B, <code>blocked_resources</code>, <code>evidence_planned</code> / <code>evidence_collected</code> (collected = outcome <code>collected</code> only), <code>refinement_round</code>, safe-catalog template IDs, MCP discovery tool IDs. Planned hops are not counted as collected evidence on the AnswerContract.</td>
             </tr>
             <tr>
               <td><code>llm_advisory_trace</code></td>

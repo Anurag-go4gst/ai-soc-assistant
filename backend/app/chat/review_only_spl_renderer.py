@@ -26,6 +26,10 @@ from app.chat.t2_review_checklist import (
     t2_card_overlays,
     t2_spl_native_block,
 )
+from app.chat.signal_class_guidance import (
+    format_signal_class_review_supplement,
+    resolve_signal_class_review_supplement,
+)
 from app.spl.binding_semantics import format_profile_binding_line
 
 _MAIN_TITLE = "Review-only SPL draft — no live query was executed"
@@ -400,6 +404,8 @@ def render_review_only_spl_answer(
     t2_source_profile: str | None = None,
     candidate_spl: dict[str, Any] | None = None,
     spl_artifact_handoff: dict[str, Any] | None = None,
+    user_query: str | None = None,
+    match_path: str | None = None,
 ) -> str:
     """Compose the single clean visible answer for a review-only SPL draft.
 
@@ -423,6 +429,15 @@ def render_review_only_spl_answer(
     lines.append(_ANALYST_VALIDATION_LINE)
     lines.append(f"Scope: {_scope_line(analyst_response, t2_source_profile=t2_source_profile, draft_preview=draft_preview).removeprefix('Scope: ')}")
     lines.append("")
+
+    supplement = resolve_signal_class_review_supplement(
+        user_query,
+        match_path=match_path,
+        draft_preview=draft_preview,
+        candidate_spl=candidate_spl,
+    )
+    if supplement:
+        lines.extend(format_signal_class_review_supplement(supplement))
 
     lines.append(_REVIEW_ONLY_NOTICE)
     lines.append("")
@@ -502,6 +517,8 @@ def apply_review_only_spl_render(
     draft_preview: dict[str, Any] | None,
     candidate_spl: dict[str, Any] | None = None,
     spl_artifact_handoff: dict[str, Any] | None = None,
+    user_query: str | None = None,
+    match_path: str | None = None,
 ) -> tuple[Any, str]:
     """For review-only SPL answers, own the visible answer and suppress competing producers.
 
@@ -548,6 +565,8 @@ def apply_review_only_spl_render(
         t2_source_profile=t2_source_profile,
         candidate_spl=candidate_spl,
         spl_artifact_handoff=spl_artifact_handoff,
+        user_query=user_query,
+        match_path=match_path,
     )
 
     # Concise SPL-first card for explicit universal/template-free authoring only.
@@ -603,6 +622,15 @@ def apply_review_only_spl_render(
         _ANALYST_VALIDATION_LINE,
         _scope_line(analyst_response, t2_source_profile=t2_source_profile, draft_preview=draft_preview),
     ]
+    supplement = resolve_signal_class_review_supplement(
+        user_query,
+        match_path=match_path,
+        draft_preview=draft_preview,
+        candidate_spl=candidate_spl,
+    )
+    if supplement:
+        header_lines.append(str(supplement.get("header") or ""))
+        header_lines.extend(format_signal_class_review_supplement(supplement))
 
     updates: dict[str, Any] = {
         "finding_title": _MAIN_TITLE,

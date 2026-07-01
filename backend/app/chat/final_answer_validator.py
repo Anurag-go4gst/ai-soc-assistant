@@ -445,13 +445,15 @@ def _is_review_only_spl_answer(analyst_response: Any) -> bool:
 
     Used to scope Gate 3A renderer-ownership checks (short summary + separate
     checklist/SPL sections) to SPL-draft answers, not knowledge/SOP/guidance answers.
+
+    Governed approved template SPL surfaces on ``spl_code`` (not lab draft); do not
+    treat that as review-only or Gate 3A will null honest template answers (e.g. q0.q049).
     """
     draft = getattr(analyst_response, "spl_draft_preview", None)
     if isinstance(draft, dict) and any(str(draft.get(k) or "").strip() for k in ("draft_spl", "warning")):
         return True
-    for field in ("draft_spl_code", "spl_code", "candidate_spl"):
-        if str(getattr(analyst_response, field, "") or "").strip():
-            return True
+    if str(getattr(analyst_response, "draft_spl_code", "") or "").strip():
+        return True
     return False
 
 

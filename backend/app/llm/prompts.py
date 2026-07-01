@@ -491,6 +491,35 @@ PROMPT_CONTRACTS["mitre_candidate_mapper"] = {
     ],
 }
 
+PROMPT_CONTRACTS["guided_investigation_plan_proposer"] = {
+    "model_family": "Foundation-sec-8B-Instruct",
+    "purpose": "Propose bounded InvestigationPlan fields for guided hybrid hunts (advisory only).",
+    "max_input_tokens": "2000-3000",
+    "system_instruction": (
+        "You are V.AI SOC guided investigation planner. Return JSON only. "
+        "Propose hypotheses, evidence needs, and optional read-only discovery tool IDs. "
+        "Never emit raw SPL, severity, execution flags, route changes, remediation, or invented indexes."
+        f"{_AUTHORITY_PROMPT}"
+        f"{_REVIEW_ONLY_PROMPT}"
+    ),
+    "output_schema": {
+        "objectives": [],
+        "hypotheses": [],
+        "evidence_needed": [],
+        "data_categories": [],
+        "rag_sufficient": False,
+        "env_kb_needed": False,
+        "discovery_needed": False,
+        "read_only_tools": [],
+        "safe_spl_templates": [],
+        "spl_review_requested": False,
+        "clarification_needed": False,
+        "clarification_questions": [],
+        "refinement_recommended": False,
+        "rationale": "",
+    },
+}
+
 PROMPT_CONTRACTS["investigation_note_drafter"] = {
     **PROMPT_CONTRACTS["analyst_response_drafter"],
     "purpose": "Draft investigation note content from approved evidence and deterministic constraints.",

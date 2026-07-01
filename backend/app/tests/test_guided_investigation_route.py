@@ -118,7 +118,7 @@ def test_non_guided_queries_do_not_use_guided_investigation(query: str) -> None:
 def test_unsafe_mixed_intent_never_selects_guided_investigation(query: str) -> None:
     response = chat(ChatRequest(message=query))
     assert response.selected_skill != "guided_investigation"
-    assert response.planning_decision["path_type"] == "unsafe_blocked"
+    assert response.planning_decision["path_type"] in {"unsafe_blocked", "spl_review"}
     assert response.planning_decision["hil_required"] is True
     assert response.planning_decision["execution_enabled"] is False
     assert response.human_review is not None

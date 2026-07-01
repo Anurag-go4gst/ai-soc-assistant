@@ -134,12 +134,18 @@ def apply_answer_quality_enrichment(
 
     if is_unsafe_blocked_path(path_type):
         enriched = scrub_unsafe_refusal_visible_text(enriched)
+        safe_actions = [
+            "Escalate containment decisions to SOC lead or incident commander.",
+            "Gather alert context and evidence before any firewall or network block.",
+            "Use the approved change workflow — automated enforcement is not authorized.",
+        ]
         if analyst_response is None:
             analyst_response = AnalystResponseEnvelope(
                 finding_title="Unsafe action refused",
                 one_sentence_finding=enriched[:240],
                 direct_answer_summary=None,
-                review_notice=None,
+                review_notice=enriched,
+                recommended_actions=safe_actions,
                 response_profile="hybrid_alert_review",
             )
         else:
@@ -148,11 +154,11 @@ def apply_answer_quality_enrichment(
                     "finding_title": "Unsafe action refused",
                     "one_sentence_finding": enriched[:240],
                     "direct_answer_summary": None,
-                    "review_notice": None,
+                    "review_notice": enriched,
                     "foundation_sec_analysis": None,
                     "evidence_summary": None,
                     "investigation_steps": [],
-                    "recommended_actions": [],
+                    "recommended_actions": safe_actions,
                     "scenario_label": None,
                 }
             )

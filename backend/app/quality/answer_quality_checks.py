@@ -18,6 +18,10 @@ from app.synthesis import claim_patterns
 
 _SEVERITY_CLAIM = re.compile(r"\bP([1-4])\b")
 _MITRE_ID = re.compile(r"\bT\d{4}(?:\.\d{3})?\b")
+_INSTRUCTIONAL_EVIDENCE_SUPPORTED = re.compile(
+    r"before\s+(?:labeling|elevating|assigning)\b[^.\n]{0,160}\bevidence[- ]supported\b",
+    re.IGNORECASE,
+)
 
 # Analyst-card fields whose text reaches the analyst as prose.
 _PROSE_FIELDS = (
@@ -49,6 +53,10 @@ _SEVERITY_PROSE_FIELDS = (
     "severity_rationale",
     "mitre_status_summary",
 )
+
+# Procedural lists may teach the evidence-supported vocabulary without asserting
+# a technique already reached that status — keep those out of the MITRE-claim scan.
+_EVIDENCE_SUPPORTED_CLAIM_FIELDS = _SEVERITY_PROSE_FIELDS
 
 # Enabled render section -> analyst_response fields that must back it.
 # A section listed here with none of its backing fields populated is an
@@ -263,6 +271,19 @@ def _honesty_limitations(
     return CheckResult(check_id, True, "execution claims honest; limitations stated where due")
 
 
+def _collect_field_text(analyst: dict[str, Any], field: str) -> str:
+    value = analyst.get(field)
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\n".join(str(item) for item in value if isinstance(item, (str, int, float)))
+    return ""
+
+
+def _scrub_instructional_evidence_supported_phrasing(text: str) -> str:
+    return _INSTRUCTIONAL_EVIDENCE_SUPPORTED.sub("", text)
+
+
 def _no_forbidden_claims(prose: str, prose_parts: list[str], payload: dict[str, Any]) -> CheckResult:
     check_id = "no_forbidden_claims"
     lowered = prose.lower()
@@ -279,8 +300,16 @@ def _no_forbidden_claims(prose: str, prose_parts: list[str], payload: dict[str, 
             return CheckResult(check_id, False, "prose asserts compromise without negation framing")
 
     contract = payload.get("answer_contract") or {}
+    analyst = payload.get("analyst_response") or {}
+    claim_parts = [
+        str(payload.get("message") or ""),
+        *(_collect_field_text(analyst, field) for field in _EVIDENCE_SUPPORTED_CLAIM_FIELDS),
+    ]
+    claim_prose = _scrub_instructional_evidence_supported_phrasing(
+        "\n".join(part for part in claim_parts if part)
+    ).lower()
     if not contract.get("evidence_supported_mitre") and re.search(
-        r"\bevidence[- ]supported\b", lowered
+        r"\bevidence[- ]supported\b", claim_prose
     ):
         statuses = str(payload.get("mitre_evidence_status") or "")
         if "evidence_supported" not in statuses:
