@@ -3027,6 +3027,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             message = audit_review["safe_message_for_user"]
             note = "Novel operation proposals stop at audit/HIL; no MCP or SPL execution is authorized."
 
+    from app.chat.explicit_run_spl_hil import apply_explicit_run_spl_hil_wiring
+
+    human_review, execution = apply_explicit_run_spl_hil_wiring(
+        user_query=request.message,
+        path_type=path_type,
+        human_review=human_review if isinstance(human_review, dict) else None,
+        execution=execution if isinstance(execution, dict) else None,
+    )
+
     if (
         spl_draft_preview
         and synthesis_status.status != "partial_timeout"
