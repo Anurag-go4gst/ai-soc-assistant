@@ -304,13 +304,22 @@ def _build_deterministic_lab_draft(
         status = permitted.status if permitted else str(item.get("status") or "requires_validation")
         mitre_payload.append({"technique_id": technique_id, "status": status, "name": item.get("name")})
 
+    from app.risk.severity_policy import ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
+
     priority = _priority_from_severity(severity_label)
+    draft_severity = severity_label
+    severity_status = None
+    severity_explanation = None
+    if severity_label == ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL:
+        draft_severity = None
+        severity_status = "not_assigned"
+        severity_explanation = ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
+        priority = None
     allowed_actions = [row.action_id for row in package.permitted_actions if row.allowed][:4]
 
-    return {
+    draft: dict[str, Any] = {
         "analyst_summary": " ".join(part for part in summary_parts if part)[:1200],
-        "severity_label": severity_label,
-        "priority": priority,
+        "severity_label": draft_severity,
         "mitre_mappings": mitre_payload,
         "splunk_results_table": preview_rows,
         "recommended_actions": allowed_actions,
@@ -320,6 +329,12 @@ def _build_deterministic_lab_draft(
         "sent_to_mcp": False,
         "draft_source": "deterministic_lab",
     }
+    if priority is not None:
+        draft["priority"] = priority
+    if severity_status is not None:
+        draft["severity_status"] = severity_status
+        draft["severity_explanation"] = severity_explanation
+    return draft
 
 
 def _narrate_with_progress_and_timeout(

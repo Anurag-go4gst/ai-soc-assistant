@@ -175,7 +175,12 @@ def guard_action_tier(payload: dict[str, Any], action_policy: dict[str, Any]) ->
 def guard_priority_enum(payload: dict[str, Any]) -> list[GuardResult]:
     findings: list[GuardResult] = []
     for field in ("priority", "recommended_priority", "severity_priority"):
-        if field in payload and payload[field] not in ALLOWED_PRIORITIES:
+        value = payload.get(field)
+        if value is None or value == "":
+            continue
+        if value in {"not_applicable", "not_assigned"}:
+            continue
+        if value not in ALLOWED_PRIORITIES:
             findings.append(_finding("guard.priority_enum", "fail", "blocking_candidate", f"`{field}` must use P1/P2/P3/P4.", field))
     return findings or [pass_result("guard.priority_enum")]
 
