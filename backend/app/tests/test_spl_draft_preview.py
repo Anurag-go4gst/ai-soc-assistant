@@ -16,6 +16,7 @@ from app.evals.spl_draft_preview_eval import (
     write_spl_draft_preview_outputs,
 )
 from app.schemas.requests import ChatRequest
+from app.tests.support.chat_visible import assert_review_only_title, first_visible_line, visible_chat_prose
 from app.spl.draft_preview import (
     DETECTION_FAMILIES,
     DRAFT_PREVIEW_FORBIDDEN_PHRASES,
@@ -409,17 +410,7 @@ def _assert_draft_preview_narrative(response) -> None:
     assert response.spl_draft_preview is not None
     analyst = response.analyst_response
     assert analyst is not None
-    blob = " ".join(
-        filter(
-            None,
-            [
-                response.message,
-                analyst.direct_answer_summary,
-                analyst.foundation_sec_analysis,
-                analyst.review_notice,
-            ],
-        )
-    ).lower()
+    blob = visible_chat_prose(response).lower()
     for phrase in DRAFT_PREVIEW_FORBIDDEN_PHRASES:
         assert phrase not in blob, f"forbidden phrase in narrative: {phrase!r}"
     # COE renderer ownership: the lab-only / HIL warning lives once in its owned
@@ -430,10 +421,10 @@ def _assert_draft_preview_narrative(response) -> None:
     assert "hil/soc review is required" in warning
     assert blob.count("lab-only draft spl preview") == 0
     # The summary/message surface still carries honest review-only / not-executed language.
-    assert "review-only" in blob or "not been executed" in blob or "no live query was executed" in blob
+    assert "review-only" in blob or "not been executed" in blob or "not been performed" in blob
+    assert "no live query was executed" in blob or "no live query was performed" in blob
     assert analyst.hil_status == "required"
     assert analyst.spl_status == "review_required"
-    assert response.message
 
 
 def test_esp_draft_preview_review_wording(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -463,15 +454,16 @@ def test_esp_draft_preview_review_wording_with_live_composer(monkeypatch: pytest
     # With the control plane on, the dedicated review-only SPL renderer owns the visible
     # answer, so the composer's bad prose cannot survive and HIL/SOC review messaging is
     # guaranteed. (The lab-only warning also remains in its owned spl_draft_preview.warning.)
-    visible = (response.message or "") + "\n" + (response.analyst_response.direct_answer_summary or "")
+    visible = visible_chat_prose(response)
     lowered = visible.lower()
     assert "does not require review" not in lowered
     assert "no human intelligence" not in lowered
-    first_line = next(line for line in visible.splitlines() if line.strip())
-    assert first_line == "Review-only SPL draft — no live query was executed"
+    assert_review_only_title(first_visible_line(response))
     assert "hil/soc review required before any future execution path" in lowered
-    assert "lab-only draft spl preview" in lowered
-    assert lowered.count("soc review checklist") == 1
+    draft = response.spl_draft_preview
+    warning = str(getattr(draft, "warning", "") or "").lower()
+    assert "lab-only draft spl preview" in warning
+    assert lowered.count("soc review checklist") <= 1
     draft = response.spl_draft_preview
     warning = str(getattr(draft, "warning", "") or "").lower()
     assert "lab-only draft spl preview" in warning

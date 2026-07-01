@@ -14,6 +14,7 @@ from app.governance.trace_panels import (
     MITRE_MAPPING_AUTH_ALERT_SEVERITY_PARITY_GAP,
 )
 from app.schemas.requests import ChatRequest
+from app.tests.support.chat_visible import assert_governed_spl_review_posture
 from app.tests.test_chat_routing import FakeTelemetry, fake_plan_workflow
 
 
@@ -74,7 +75,7 @@ def test_chat_includes_governance_trace_without_demo_mode(monkeypatch) -> None:
     assert response.governance_trace.skills_operations.intent_skill == response.selected_skill == "attack_discovery"
     assert response.execution is not None
     assert response.execution.executed_spl is None
-    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
+    assert_governed_spl_review_posture(response)
 
 
 def test_chat_governance_severity_uses_policy_not_curated_failed_login_bullets(monkeypatch) -> None:

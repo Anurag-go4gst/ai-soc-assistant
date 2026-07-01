@@ -5,6 +5,7 @@ from typing import Any
 from app.api.routes_chat import chat
 from app.api.routes_scenarios import run_demo_scenario_fixture
 from app.schemas.requests import ChatRequest
+from app.tests.support.chat_visible import assert_governed_spl_review_posture
 
 
 def test_chat_behavior_unchanged_with_route_plan_shadow(monkeypatch) -> None:
@@ -13,7 +14,7 @@ def test_chat_behavior_unchanged_with_route_plan_shadow(monkeypatch) -> None:
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
     assert response.selected_skill == "attack_discovery"
-    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
+    assert_governed_spl_review_posture(response)
     assert response.note.startswith("Candidate SPL generated and approved by deterministic validation.")
     assert response.candidate_spl is not None
     assert response.spl_validation is not None

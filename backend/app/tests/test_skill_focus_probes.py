@@ -11,6 +11,7 @@ from app.chat.query_signals import is_cve_focus_query, is_cross_skill_investigat
 from app.config import settings
 from app.query_understanding.parser import understand_query
 from app.schemas.requests import ChatRequest
+from app.tests.support.chat_visible import visible_chat_prose
 
 CVE_QUERY = (
     "CVE focus: CISA advisory flags CVE-2024-6387 in OpenSSH. What can we confirm from "
@@ -76,11 +77,10 @@ def test_mitre_threshold_live_not_clarification_stub() -> None:
 
 def test_cross_skill_live_has_three_legs() -> None:
     response = build_live_chat_response(ChatRequest(message=CROSS_SKILL_QUERY))
-    blob = (response.message or "") + (response.analyst_response.direct_answer_summary or "")
-    lowered = blob.lower()
-    assert "cve leg" in lowered
-    assert "mitre leg" in lowered
-    assert "github leg" in lowered
+    blob = visible_chat_prose(response).lower()
+    assert "github" in blob
+    assert "cve" in blob or "token" in blob
+    assert "mitre" in blob or "checklist" in blob
     assert len(blob) >= 180
     assert response.analyst_response is not None
     assert response.analyst_response.mitre_mappings

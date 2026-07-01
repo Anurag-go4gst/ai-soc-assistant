@@ -8,6 +8,8 @@ from app.api.routes_chat import chat
 from app.chat import pipeline as chat_pipeline
 from app.schemas.requests import ChatRequest
 from app.spl.llm_fallback import LlmSplFallbackResult
+from app.tests.support.chat_visible import assert_governed_spl_review_posture, visible_chat_prose
+from app.tests.support.chat_visible import REVIEW_ONLY_NOTICE
 
 
 _CLARIFICATION_GOVERNANCE_REASONS = frozenset(
@@ -389,7 +391,7 @@ def test_aws_security_group_modifications_returns_raw_cloudtrail_spl_answer() ->
     assert response.analyst_response is not None
     _assert_multiline_spl_present(response.analyst_response.spl_code, spl)
     assert response.analyst_response.response_profile == "spl_only"
-    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
+    assert_governed_spl_review_posture(response)
     assert response.execution is not None
     assert response.execution.status == "skipped"
     assert response.execution.block_reason == "mcp_not_allowed_by_evidence_plan"
@@ -483,7 +485,11 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
     assert response.execution.executed_spl is None
     assert response.execution.block_reason == "mcp_not_allowed_by_evidence_plan"
 
-    assert response.analyst_response.review_notice == "Review only — not executed"
+    assert response.analyst_response.review_notice is None or REVIEW_ONLY_NOTICE.search(
+        str(response.analyst_response.review_notice or "")
+    )
+    prose = visible_chat_prose(response).lower()
+    assert "review only" in prose
     assert response.analyst_response.severity_safety_note
     assert "not confirmed account compromise" in response.analyst_response.severity_safety_note.lower()
 
@@ -564,4 +570,4 @@ def test_known_questions_use_specific_raw_templates(
         assert term not in spl
     assert response.analyst_response is not None
     _assert_multiline_spl_present(response.analyst_response.spl_code, spl)
-    assert response.message == "Governed SPL draft ready. It has passed deterministic validation and has not been executed."
+    assert_governed_spl_review_posture(response)

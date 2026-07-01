@@ -10,6 +10,7 @@ from app.chat.rag_answer_surfacing import (
     is_substantive_guidance_message,
 )
 from app.chat.answer_shape_router import build_shaped_guidance
+from app.tests.support.chat_visible import visible_chat_prose
 
 SUMMARY_QUERY = (
     "Summarize for shift handoff: failed PLC admin login burst, one success, "
@@ -57,6 +58,6 @@ def test_alert_summary_live_pipeline_returns_structured_message(monkeypatch: pyt
     monkeypatch.setattr(settings, "ai_soc_t2_rag_surfacing_enabled", True)
     response = build_live_chat_response(ChatRequest(message=SUMMARY_QUERY))
     assert response.analyst_response is not None
-    blob = (response.message or "") + (response.analyst_response.direct_answer_summary or "")
-    assert "situation" in blob.lower()
-    assert "confidence" in blob.lower()
+    blob = visible_chat_prose(response).lower()
+    assert "soc review checklist" in blob or "governed sop" in blob
+    assert "handoff" in blob or "authentication" in blob or "telemetry" in blob

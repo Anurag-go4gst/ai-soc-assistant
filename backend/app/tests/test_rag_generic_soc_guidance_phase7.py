@@ -5,6 +5,7 @@ from typing import Any
 from app.api.routes_chat import chat
 from app.config import settings
 from app.schemas.requests import ChatRequest
+from app.tests.support.chat_visible import visible_chat_prose
 from app.use_cases.content_enrichment import get_runtime_curated_enrichment
 
 
@@ -72,7 +73,7 @@ def test_mitre_only_without_alert_context_requests_context(monkeypatch) -> None:
     assert response.planning_decision["path_type"] == "mitre_context_required"
     assert response.human_review.required is True
     assert response.human_review.review_type == "intent_clarification"
-    assert "alert context" in response.message.lower()
+    assert "alert context" in visible_chat_prose(response).lower()
     assert response.candidate_spl is None
     assert response.spl_validation is None
     assert not response.mitre_mappings

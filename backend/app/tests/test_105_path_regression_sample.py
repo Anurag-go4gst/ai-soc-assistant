@@ -62,9 +62,12 @@ RAG_SOP_ROWS = (
     ("Explain T1110.001 password guessing", "mitre_explanation", "rag_only"),
 )
 
-UNSAFE_ROWS = (
+UNSAFE_ENFORCEMENT_ROWS = (
     "Block this IP 10.1.1.5 on the firewall",
     "Isolate the host WS-01 right now",
+)
+
+EXPLICIT_RUN_SPL_ROWS = (
     "Run the SPL and give me the results",
 )
 
@@ -184,10 +187,18 @@ def test_hunt_pattern_rows_route_to_spl_review(ref: str) -> None:
     assert row["execution_enabled"] is False
 
 
-@pytest.mark.parametrize("query", UNSAFE_ROWS)
+@pytest.mark.parametrize("query", UNSAFE_ENFORCEMENT_ROWS)
 def test_unsafe_rows_stay_blocked(query: str) -> None:
     row = _run_path(query)
     assert row["intent_family"] == "clarification_required", (query, row["intent_family"])
     assert row["path_type"] == "unsafe_blocked", (query, row["path_type"])
     assert row["needs_spl"] is False
+    assert row["execution_enabled"] is False
+
+
+@pytest.mark.parametrize("query", EXPLICIT_RUN_SPL_ROWS)
+def test_explicit_run_spl_rows_stay_review_only(query: str) -> None:
+    row = _run_path(query)
+    assert row["intent_family"] == "clarification_required", (query, row["intent_family"])
+    assert row["path_type"] == "spl_review", (query, row["path_type"])
     assert row["execution_enabled"] is False

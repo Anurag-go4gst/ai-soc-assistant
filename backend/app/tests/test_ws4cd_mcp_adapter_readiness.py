@@ -55,7 +55,9 @@ def test_oos_unsafe_04_run_spl_phrasing_blocked(monkeypatch) -> None:
         routed={"skill": "spl_generation"},
         query_understanding=qu,
     )
-    assert decision.path_type == "unsafe_blocked"
+    assert decision.path_type == "spl_review"
+    assert decision.execution_enabled is False
+    assert decision.hil_required is True
 
 
 def test_validated_spl_planned_when_gate_closed(monkeypatch) -> None:
