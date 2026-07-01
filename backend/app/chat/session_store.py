@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from threading import Lock
 from typing import Any
 from uuid import uuid4
@@ -53,11 +55,50 @@ def default_ttl() -> timedelta:
     return timedelta(minutes=minutes)
 
 
+def _session_store_dir() -> Path:
+    return Path(settings.ai_soc_session_store_file_dir)
+
+
+def _file_path(session_id: str) -> Path:
+    safe_id = "".join(ch for ch in session_id if ch.isalnum() or ch in "-_")
+    return _session_store_dir() / f"{safe_id}.json"
+
+
+def _read_file_pins(session_id: str) -> dict[str, Any] | None:
+    path = _file_path(session_id)
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _write_file_pins(session_id: str, payload: dict[str, Any]) -> None:
+    directory = _session_store_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    _file_path(session_id).write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _delete_file_pins(session_id: str) -> None:
+    path = _file_path(session_id)
+    if path.exists():
+        path.unlink(missing_ok=True)
+
+
+def _use_file_backend() -> bool:
+    return str(settings.ai_soc_session_store_backend or "memory").strip().lower() == "file"
+
+
 def get_session_pins(session_id: str | None) -> SessionPins | None:
     if not session_id:
         return None
     with _store_lock:
-        raw = _pins_by_session.get(session_id)
+        if _use_file_backend():
+            raw = _read_file_pins(session_id)
+        else:
+            raw = _pins_by_session.get(session_id)
     if not raw:
         return None
     pins = SessionPins.model_validate(raw)
@@ -79,8 +120,12 @@ def save_session_pins(pins: SessionPins, *, refresh_ttl: bool = True) -> Session
         )
     else:
         updated = pins
+    payload = updated.model_dump(mode="json")
     with _store_lock:
-        _pins_by_session[updated.session_id] = updated.model_dump(mode="json")
+        if _use_file_backend():
+            _write_file_pins(updated.session_id, payload)
+        else:
+            _pins_by_session[updated.session_id] = payload
     return updated
 
 
@@ -88,9 +133,18 @@ def delete_session_pins(session_id: str | None) -> None:
     if not session_id:
         return
     with _store_lock:
-        _pins_by_session.pop(session_id, None)
+        if _use_file_backend():
+            _delete_file_pins(session_id)
+        else:
+            _pins_by_session.pop(session_id, None)
 
 
 def clear_all_session_pins_for_tests() -> None:
     with _store_lock:
-        _pins_by_session.clear()
+        if _use_file_backend():
+            directory = _session_store_dir()
+            if directory.exists():
+                for path in directory.glob("*.json"):
+                    path.unlink(missing_ok=True)
+        else:
+            _pins_by_session.clear()
