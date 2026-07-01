@@ -260,6 +260,11 @@ from app.chat.investigation_plan_builder import build_deterministic_investigatio
 from app.planner.composer import compose_guided_resource_plan
 from app.chat.pipeline_visibility import build_pipeline_visibility
 from app.chat.pipeline_state_v2 import project_chat_pipeline_state_v2
+from app.chat.routing_skill_nodes import (
+    graph_node_load_skill_enrichment,
+    graph_node_resolve_planning_skill,
+    graph_node_route_live_skill,
+)
 from app.chat.session_context import (
     SessionContextResolution,
     SessionPins,
@@ -423,6 +428,10 @@ def _run_live_chat_pipeline(
         "effective_query": session_resolution.effective_query,
     }
     state = _timed_node(state, "init_routing", graph_node_init_routing)
+    if settings.ai_soc_pipeline_split_routing_nodes_enabled:
+        state = _timed_node(state, "route_live_skill", graph_node_route_live_skill)
+        state = _timed_node(state, "resolve_planning_skill", graph_node_resolve_planning_skill)
+        state = _timed_node(state, "load_skill_enrichment", graph_node_load_skill_enrichment)
     state = _timed_node(state, "query_to_intent", graph_node_query_to_intent)
     state = _timed_node(state, "route_resolution", graph_node_route_resolution)
     state = _timed_node(state, "route_contract", graph_node_route_contract)
