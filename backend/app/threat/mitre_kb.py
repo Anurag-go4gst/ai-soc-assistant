@@ -114,8 +114,9 @@ def _status_for_mapping(use_case_id: str, technique_id: str) -> tuple[str, str, 
             return status, evidence_status, _why(status, technique_id), list(detail.get("evidence_keys") or [])
         return status, evidence_status, str(detail["reason"]), list(detail.get("evidence_keys") or [])
 
-    status = _status_for(use_case_id, technique_id)
-    return status, _legacy_evidence_status_for(status), _why(status, technique_id), []
+    evidence_status = "requires_validation"
+    status = "requires_validation"
+    return status, evidence_status, _why(evidence_status, technique_id), []
 
 
 def _legacy_present_evidence_for_mapping(use_case_id: str) -> set[str]:
@@ -130,14 +131,6 @@ def _legacy_mapping_status_from_evidence_status(evidence_status: str) -> str:
     return evidence_status
 
 
-def _status_for(use_case_id: str, technique_id: str) -> str:
-    if technique_id == "T1110.001" and use_case_id == "auth_failed_login_spike":
-        return "supported"
-    if technique_id == "T1078":
-        return "candidate"
-    return "requires_validation"
-
-
 def _why(status: str, technique_id: str) -> str:
     if status == "evidence_supported":
         return f"{technique_id} is evidence-supported by the observed use-case pattern; analyst validation is still required before stronger claims."
@@ -150,13 +143,3 @@ def _why(status: str, technique_id: str) -> str:
     if status == "candidate":
         return f"{technique_id} is a candidate until success/account legitimacy evidence is reviewed."
     return f"{technique_id} requires additional validation evidence."
-
-
-def _legacy_evidence_status_for(status: str) -> str:
-    if status == "supported":
-        return "evidence_supported"
-    if status in MITRE_EVIDENCE_STATUSES:
-        return status
-    if status in {"confirmed", "analyst_review"}:
-        return "requires_validation"
-    return "candidate" if status == "candidate" else "requires_validation"
