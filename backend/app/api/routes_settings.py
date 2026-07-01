@@ -578,6 +578,17 @@ def llm_endpoint_health_status(force: bool = False) -> dict:
     return llm_endpoint_health(force=force)
 
 
+@router.get("/settings/llm/control-status")
+def llm_control_status() -> dict:
+    """Fast control-plane snapshot — no generation probe (runtime-health can take 60s+)."""
+    from app.llm.runtime_control import control_available, last_result
+
+    return {
+        "control_available": control_available(),
+        "last_control_result": last_result(),
+    }
+
+
 @router.get("/settings/llm/runtime-health")
 def llm_runtime_health() -> dict:
     """Live generation-throughput probe (real tok/s), plus control availability.

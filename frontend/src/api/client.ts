@@ -254,6 +254,19 @@ export async function selectEnvProfile(profileId: string): Promise<import('@/typ
   return response.json();
 }
 
+export interface LlmControlStatus {
+  control_available: boolean;
+  last_control_result?: Record<string, unknown> | null;
+}
+
+export async function getLlmControlStatus(): Promise<LlmControlStatus> {
+  const response = await fetch(`${API_BASE_URL}/settings/llm/control-status`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`LLM control status failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export interface LlmRuntimeHealth {
   reachable: boolean;
   tok_per_s: number | null;
