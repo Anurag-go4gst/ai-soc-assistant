@@ -283,15 +283,67 @@ def classify_signal_class(query: str, entities: dict[str, Any] | None = None) ->
 
 _OUT_OF_REGISTRY_MATCH_PATHS = frozenset({"out_of_registry", "semantic_out_of_registry"})
 
+# Generic/fallback families — no governed template authority; signal-class supplement may attach.
+_GENERIC_DETECTION_FAMILIES = frozenset(
+    {
+        "unmapped_live_data_request",
+        "universal_timestamp_spl",
+    }
+)
+
+
+def _governed_family_draft_authority_present(
+    draft_preview: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None,
+) -> bool:
+    """True when a specific detection-family draft owns the answer (not a generic skeleton)."""
+    for source in (draft_preview, candidate_spl):
+        if not isinstance(source, dict):
+            continue
+        family = str(source.get("detection_family") or "").strip()
+        if family and family not in _GENERIC_DETECTION_FAMILIES:
+            return True
+    return False
+
 
 def _should_attach_signal_class_supplement(
     user_query: str | None,
     *,
     match_path: str | None,
+    draft_preview: dict[str, Any] | None = None,
+    candidate_spl: dict[str, Any] | None = None,
 ) -> bool:
     if not user_query or str(match_path or "") not in _OUT_OF_REGISTRY_MATCH_PATHS:
         return False
     return build_signal_class_review_supplement(user_query) is not None
+
+
+def resolve_signal_class_review_supplement(
+    user_query: str | None,
+    *,
+    match_path: str | None,
+    draft_preview: dict[str, Any] | None = None,
+    candidate_spl: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Attach signal-class supplement for out-of-registry review-only SPL surfaces.
+
+    When a governed detection-family draft already owns the answer, keep only the
+    signal-class header (OT probe markers) and omit generic template hypotheses that
+    would compete with the family draft framing.
+    """
+    if not _should_attach_signal_class_supplement(
+        user_query,
+        match_path=match_path,
+        draft_preview=draft_preview,
+        candidate_spl=candidate_spl,
+    ):
+        return None
+    supplement = build_signal_class_review_supplement(str(user_query))
+    if supplement is None:
+        return None
+    if _governed_family_draft_authority_present(draft_preview, candidate_spl):
+        return {**supplement, "hypotheses": [], "evidence": []}
+    return supplement
 
 
 def build_signal_class_review_supplement(

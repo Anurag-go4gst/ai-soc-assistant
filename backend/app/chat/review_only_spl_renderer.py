@@ -27,9 +27,8 @@ from app.chat.t2_review_checklist import (
     t2_spl_native_block,
 )
 from app.chat.signal_class_guidance import (
-    build_signal_class_review_supplement,
     format_signal_class_review_supplement,
-    _should_attach_signal_class_supplement,
+    resolve_signal_class_review_supplement,
 )
 from app.spl.binding_semantics import format_profile_binding_line
 
@@ -431,10 +430,11 @@ def render_review_only_spl_answer(
     lines.append(f"Scope: {_scope_line(analyst_response, t2_source_profile=t2_source_profile, draft_preview=draft_preview).removeprefix('Scope: ')}")
     lines.append("")
 
-    supplement = (
-        build_signal_class_review_supplement(user_query)
-        if _should_attach_signal_class_supplement(user_query, match_path=match_path)
-        else None
+    supplement = resolve_signal_class_review_supplement(
+        user_query,
+        match_path=match_path,
+        draft_preview=draft_preview,
+        candidate_spl=candidate_spl,
     )
     if supplement:
         lines.extend(format_signal_class_review_supplement(supplement))
@@ -622,10 +622,11 @@ def apply_review_only_spl_render(
         _ANALYST_VALIDATION_LINE,
         _scope_line(analyst_response, t2_source_profile=t2_source_profile, draft_preview=draft_preview),
     ]
-    supplement = (
-        build_signal_class_review_supplement(user_query)
-        if _should_attach_signal_class_supplement(user_query, match_path=match_path)
-        else None
+    supplement = resolve_signal_class_review_supplement(
+        user_query,
+        match_path=match_path,
+        draft_preview=draft_preview,
+        candidate_spl=candidate_spl,
     )
     if supplement:
         header_lines.append(str(supplement.get("header") or ""))
