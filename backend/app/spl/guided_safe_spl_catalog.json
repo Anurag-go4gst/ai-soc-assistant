@@ -1,0 +1,77 @@
+{
+  "version": "1",
+  "coe_signed": false,
+  "description": "COE stub allowlist — subset of enabled templates.json IDs permitted for guided hybrid safe-catalog execution. COE sign-off required before production enablement.",
+  "entries": [
+    {
+      "template_id": "dns_beaconing_candidate",
+      "max_lookback_hours": 24,
+      "max_rows": 100,
+      "allowed_commands": [
+        "search",
+        "stats",
+        "eval",
+        "where",
+        "table",
+        "sort",
+        "head"
+      ],
+      "required_source_profile_slots": [
+        "dns_index",
+        "dns_sourcetype"
+      ],
+      "enabled": true
+    },
+    {
+      "template_id": "firewall_deny_spike",
+      "max_lookback_hours": 24,
+      "max_rows": 100,
+      "allowed_commands": [
+        "search",
+        "stats",
+        "where",
+        "sort",
+        "head"
+      ],
+      "required_source_profile_slots": [
+        "index",
+        "sourcetype"
+      ],
+      "enabled": true
+    },
+    {
+      "template_id": "auth_failed_login_spike",
+      "max_lookback_hours": 24,
+      "max_rows": 100,
+      "allowed_commands": [
+        "search",
+        "stats",
+        "where",
+        "sort",
+        "head"
+      ],
+      "required_source_profile_slots": [
+        "auth_index",
+        "auth_sourcetype"
+      ],
+      "enabled": true
+    },
+    {
+      "template_id": "cisco_asa_ioc_lookup",
+      "max_lookback_hours": 24,
+      "max_rows": 100,
+      "allowed_commands": [
+        "search",
+        "stats",
+        "where",
+        "sort",
+        "head"
+      ],
+      "required_source_profile_slots": [
+        "index",
+        "sourcetype"
+      ],
+      "enabled": true
+    }
+  ]
+}

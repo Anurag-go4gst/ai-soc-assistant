@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.planner.resource_plan import PlanStep, ResourcePlan
 from app.planner.resource_registry import ResourceRegistry, load_resource_registry
+from app.spl.guided_safe_spl_catalog import guided_safe_template_ids
 from app.spl.template_registry import load_spl_templates
 
 CapabilityClass = Literal[
@@ -24,6 +25,7 @@ _BLOCKED_REASON = Literal[
     "discovery_not_allowed",
     "spl_review_not_allowed",
     "safe_catalog_not_allowed",
+    "catalog_template_not_allowlisted",
     "freeform_query_blocked",
     "action_tool_blocked",
     "unknown_resource",
@@ -37,6 +39,16 @@ _CORE_GUIDED_PURPOSES = frozenset(
         "evidence_collection",
         "context_sufficiency",
         "narration",
+    }
+)
+_CAPABILITY_CLASS_VALUES = frozenset(
+    {
+        "metadata_discovery",
+        "read_only_lookup",
+        "safe_query_execution",
+        "freeform_query_execution",
+        "action_execution",
+        "core_guided",
     }
 )
 _METADATA_TOOL_PREFIX = "mcp_tool:splunk_get_"
@@ -55,6 +67,11 @@ class GuidedCapabilityValidationResult(BaseModel):
 
 
 @lru_cache(maxsize=1)
+def _guided_catalog_template_ids() -> frozenset[str]:
+    return guided_safe_template_ids()
+
+
+@lru_cache(maxsize=1)
 def _enabled_template_ids() -> frozenset[str]:
     return frozenset(
         template.template_id
@@ -63,7 +80,7 @@ def _enabled_template_ids() -> frozenset[str]:
     )
 
 
-def _capability_class_for_step(step: PlanStep, descriptor: Any | None) -> CapabilityClass:
+def _infer_capability_class(step: PlanStep, descriptor: Any | None) -> CapabilityClass:
     purpose = str(step.purpose or "")
     resource_id = str(step.resource_id or "")
     if purpose in _CORE_GUIDED_PURPOSES:
@@ -88,6 +105,13 @@ def _template_id_from_resource(resource_id: str) -> str | None:
     return None
 
 
+def _resolve_capability_class(step: PlanStep, descriptor: Any | None) -> CapabilityClass:
+    declared = getattr(descriptor, "capability_class", None) if descriptor is not None else None
+    if isinstance(declared, str) and declared in _CAPABILITY_CLASS_VALUES:
+        return declared  # type: ignore[return-value]
+    return _infer_capability_class(step, descriptor)
+
+
 def validate_guided_resource_plan(
     evidence_plan: Any,
     resource_plan: ResourcePlan,
@@ -107,7 +131,7 @@ def validate_guided_resource_plan(
 
     for step in resource_plan.steps:
         descriptor = registry.by_id(step.resource_id)
-        capability = _capability_class_for_step(step, descriptor)
+        capability = _resolve_capability_class(step, descriptor)
         reason: _BLOCKED_REASON | None = None
 
         if descriptor is None and capability != "core_guided":
@@ -118,12 +142,18 @@ def validate_guided_resource_plan(
             reason = "policy_tier_exceeded"
         elif capability == "metadata_discovery" and not discovery_allowed:
             reason = "discovery_not_allowed"
+        elif capability == "read_only_lookup" and not discovery_allowed:
+            reason = "discovery_not_allowed"
         elif capability == "safe_query_execution":
             template_id = _template_id_from_resource(step.resource_id)
             if not safe_catalog_allowed:
                 reason = "safe_catalog_not_allowed"
-            elif template_id is None or template_id not in _enabled_template_ids():
+            elif template_id is None:
                 reason = "safe_catalog_not_allowed"
+            elif template_id not in _guided_catalog_template_ids():
+                reason = "catalog_template_not_allowlisted"
+            elif template_id not in _enabled_template_ids():
+                reason = "catalog_template_not_allowlisted"
         elif capability == "read_only_lookup" and step.purpose == "spl_artifact":
             if not spl_review_allowed:
                 reason = "spl_review_not_allowed"

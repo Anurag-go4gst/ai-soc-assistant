@@ -769,23 +769,23 @@ Sample probe query (all phases):
   - **Depends on:** P1–P8 (merged)
   - **Evidence:** `pytest app/tests/test_guided_investigation_plan_llm.py app/tests/test_guided_hybrid_dispatch.py app/tests/test_guided_hybrid_trace_baseline.py -q` → **30 passed**; `guided_investigation_plan_llm.py` wired in `_run_guided_hybrid_dispatch`; role `guided_investigation_plan_proposer` @ 15s timeout.
 
-- [ ] **P10** — `guided_safe_spl_catalog.json` allowlist + COE stub
+- [x] **P10** — `guided_safe_spl_catalog.json` allowlist + COE stub
   - **Do:** Create allowlist JSON with per-template caps; Validator B reads allowlist; no execution hop yet.
   - **Verify:** `pytest app/tests -k guided_safe_spl_catalog -q`; unknown template ID blocked with stable reason code.
   - **Depends on:** P9
-  - **Evidence:** _(filled when done)_
+  - **Evidence:** `pytest app/tests -k guided_safe_spl_catalog -q` → **4 passed**; `backend/app/spl/guided_safe_spl_catalog.json` (4 COE-stub entries, `coe_signed=false`); Validator A/B use `guided_safe_template_ids()`; `catalog_template_not_allowlisted` reason code on unknown IDs.
 
-- [ ] **P11** — MCP capability classes in playbook + registry
+- [x] **P11** — MCP capability classes in playbook + registry
   - **Do:** Add `capability_class` to `mcp_tool_playbook.json`; mirror in `resource_registry_v1.json`; Validator B enforces class allowlist.
   - **Verify:** `pytest app/tests/test_guided_capability_validator.py -q` extended; freeform/action tools blocked on guided plan.
   - **Depends on:** P10
-  - **Evidence:** _(filled when done)_
+  - **Evidence:** `pytest app/tests/test_guided_capability_validator.py app/tests/test_mcp_tool_chronology.py -q` → **15 passed**; `capability_class` on Splunk playbook + registry rows; Validator B uses `_resolve_capability_class()` with `catalog_template_not_allowlisted` + `freeform_query_blocked` tests.
 
-- [ ] **P12** — Safe evidence collection inside hybrid dispatch
+- [x] **P12** — Safe evidence collection inside hybrid dispatch
   - **Do:** Execute approved `mcp_discovery` + `safe_catalog_query` steps only when capabilities allow; update `evidence_collected` in `guided_handoff`; still no `graph_node_execution` / freeform `run_query`.
   - **Verify:** `pytest app/tests/test_guided_hybrid_dispatch.py -q` collection cases; `evidence_collected` increments only for collected hops.
   - **Depends on:** P10, P11
-  - **Evidence:** _(filled when done)_
+  - **Evidence:** `pytest app/tests/test_guided_hybrid_collection.py app/tests/test_guided_hybrid_dispatch.py -q` → **5 passed**; `guided_hybrid_collection.py` records planned discovery + safe-catalog hops; `evidence_collected` stays 0 under default-off MCP execution; no `splunk_run_query`.
 
 - [ ] **P13** — Refinement round + AnswerContract safe-catalog surfacing
   - **Do:** Honor `refinement_recommended` with `MAX_GUIDED_INVESTIGATION_ROUNDS`; surface safe-catalog + discovery metadata on AnswerContract.

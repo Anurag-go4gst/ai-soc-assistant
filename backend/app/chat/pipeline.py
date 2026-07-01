@@ -242,6 +242,7 @@ from app.chat.debug_summary import build_debug_summary
 from app.chat.guided_discovery_promotion import build_guided_discovery_promotion_offer
 from app.chat.guided_handoff_trace import blocked_resources_wire, build_guided_handoff_trace
 from app.chat.guided_hybrid_dispatch import uses_guided_hybrid_dispatch_from_state
+from app.chat.guided_hybrid_collection import collect_guided_hybrid_evidence
 from app.chat.guided_investigation_plan_llm import propose_investigation_plan_llm
 from app.chat.guided_investigation_planner import validate_investigation_plan
 from app.chat.guided_capability_validator import validate_guided_resource_plan
@@ -4583,12 +4584,22 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     pre_plan = compose_guided_resource_plan(evidence, validated_plan, match_path=match_path)
     validation = validate_guided_resource_plan(evidence, pre_plan)
     validated_resource = validation.validated_resource_plan
+    collection_state, collected_count = collect_guided_hybrid_evidence(
+        state,
+        validated_resource=validated_resource,
+    )
+    if any(
+        step.purpose in {"mcp_discovery", "safe_catalog_query"}
+        for step in validated_resource.steps
+    ):
+        dispatch_steps.insert(dispatch_steps.index("rag_early"), "guided_hybrid_collection")
     handoff_trace = build_guided_handoff_trace(
         investigation_plan_validated=validated_plan,
         resource_plan_pre_validation=pre_plan,
         resource_plan_validated=validated_resource,
         blocked_resources=blocked_resources_wire(validation),
         investigation_plan_raw_llm=llm_result.raw_llm,
+        evidence_collected=collected_count,
     )
 
     evidence_payload["resource_plan"] = validated_resource.model_dump()
@@ -4629,7 +4640,7 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         "dispatch_schedule": dispatch_steps,
     }
     updated: ChatPipelineState = {
-        **state,
+        **collection_state,
         "evidence_plan": evidence_payload,
         "workflow_plan": workflow_plan,
         "candidate_spl": None,

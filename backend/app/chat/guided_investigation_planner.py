@@ -8,6 +8,7 @@ from typing import Any
 
 from app.chat.contracts.investigation_plan import InvestigationPlan
 from app.planner.resource_registry import load_resource_registry
+from app.spl.guided_safe_spl_catalog import guided_safe_template_ids
 from app.spl.policy import load_spl_policy
 from app.spl.template_registry import load_spl_templates
 
@@ -50,6 +51,11 @@ def _metadata_tool_ids() -> frozenset[str]:
         and str(item.resource_id).startswith("mcp_tool:splunk_get_")
         and item.availability != "blocked"
     )
+
+
+@lru_cache(maxsize=1)
+def _guided_safe_template_ids() -> frozenset[str]:
+    return guided_safe_template_ids()
 
 
 @lru_cache(maxsize=1)
@@ -108,7 +114,7 @@ def _filter_string_items(
         return []
     kept: list[str] = []
     known_tools = _metadata_tool_ids()
-    known_templates = _enabled_template_ids()
+    known_templates = _guided_safe_template_ids()
     for raw in values:
         item = str(raw or "").strip()
         if not item:

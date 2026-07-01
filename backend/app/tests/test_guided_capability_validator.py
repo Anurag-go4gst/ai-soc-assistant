@@ -90,6 +90,37 @@ def test_validator_blocks_freeform_query_and_action_tools() -> None:
     assert result.blocked_resources[0].reason_code == "freeform_query_blocked"
 
 
+def test_registry_declared_capability_class_blocks_freeform_run_query() -> None:
+    evidence = _hybrid_evidence_plan()
+    plan = ResourcePlan(
+        steps=[
+            PlanStep(
+                step_id="mcp_exec",
+                resource_id="mcp_tool:splunk_run_query",
+                purpose="mcp_execution",
+            ),
+        ]
+    )
+    result = validate_guided_resource_plan(evidence, plan)
+    assert result.blocked_resources[0].reason_code == "freeform_query_blocked"
+
+
+def test_read_only_lookup_allowed_when_discovery_enabled() -> None:
+    evidence = _hybrid_evidence_plan()
+    plan = ResourcePlan(
+        steps=[
+            PlanStep(
+                step_id="identity_0",
+                resource_id="mcp_tool:splunk_get_user_info",
+                purpose="mcp_discovery",
+            ),
+        ]
+    )
+    result = validate_guided_resource_plan(evidence, plan)
+    assert len(result.validated_resource_plan.steps) == 1
+    assert result.blocked_resources == []
+
+
 def test_compose_then_validate_keeps_core_guided_steps() -> None:
     evidence = _hybrid_evidence_plan()
     investigation = InvestigationPlan(
