@@ -792,13 +792,337 @@
       .lane-card:not(:last-child)::after { content:"↓"; right:auto; left:50%; top:auto; bottom:-13px; transform:translateX(-50%); }
     }
   </style>
+
+  <!-- ============================================================
+       2026-07 redesign layer — vibrant palette, breathing room,
+       responsive de-cramped grids. Loaded last so it wins the cascade;
+       body markup and class names are unchanged.
+       ============================================================ -->
+  <style>
+    :root {
+      /* Vibrant modern system */
+      --ink: #0b1120;
+      --ink-2: #131a2e;
+      --paper: #f5f7fe;
+      --card: #ffffff;
+      --muted: #5a6683;
+      --text: #101528;
+      --border: #e5e9f5;
+      --border-soft: #eef1fb;
+
+      --indigo: #4f46e5;
+      --violet: #7c3aed;
+      --cyan: #06b6d4;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --sky: #0ea5e9;
+
+      --accent: var(--indigo);
+      --accent-2: var(--cyan);
+      --green: var(--emerald);
+      --red: var(--rose);
+      --purple: var(--violet);
+
+      --soft-blue: #eef2ff;
+      --soft-cyan: #ecfeff;
+      --soft-green: #ecfdf5;
+      --soft-amber: #fffbeb;
+      --soft-red: #fff1f3;
+      --soft-purple: #f5f3ff;
+
+      --radius: 20px;
+      --radius-lg: 26px;
+      --shadow: 0 18px 44px -20px rgba(30, 27, 90, 0.35);
+      --shadow-soft: 0 10px 30px -18px rgba(30, 27, 90, 0.28);
+      --ring: 0 0 0 1px rgba(79, 70, 229, 0.12);
+    }
+
+    body {
+      color: var(--text);
+      background:
+        radial-gradient(1100px 720px at 8% -10%, rgba(124, 58, 237, 0.10), transparent 55%),
+        radial-gradient(1000px 720px at 105% -6%, rgba(6, 182, 212, 0.10), transparent 52%),
+        radial-gradient(900px 900px at 50% 120%, rgba(16, 185, 129, 0.06), transparent 60%),
+        #f4f6fe;
+    }
+
+    /* ---------- Sticky navigator ---------- */
+    .docnav {
+      background: rgba(244, 246, 254, 0.72);
+      backdrop-filter: saturate(160%) blur(16px);
+      -webkit-backdrop-filter: saturate(160%) blur(16px);
+      border-bottom: 1px solid rgba(120, 130, 175, 0.16);
+    }
+    .docnav-inner { padding: 12px 32px; gap: 7px; }
+    .docnav a {
+      font-size: 12.5px; font-weight: 600; padding: 7px 13px; border-radius: 999px;
+      color: var(--muted);
+    }
+    .docnav a:hover {
+      color: #fff;
+      background: linear-gradient(120deg, var(--indigo), var(--violet));
+      border-color: transparent;
+      box-shadow: 0 6px 16px -8px rgba(79, 70, 229, 0.7);
+    }
+    .docnav .brandtag {
+      font-size: 13px; letter-spacing: 0.02em; color: var(--ink);
+      background: linear-gradient(120deg, var(--indigo), var(--cyan));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      border-right-color: rgba(120,130,175,0.2);
+    }
+
+    /* ---------- Hero ---------- */
+    header {
+      position: relative;
+      overflow: hidden;
+      padding: 70px 32px 60px;
+      background:
+        radial-gradient(700px 420px at 8% 0%, rgba(124, 58, 237, 0.55), transparent 60%),
+        radial-gradient(680px 460px at 100% 4%, rgba(6, 182, 212, 0.42), transparent 58%),
+        radial-gradient(600px 520px at 62% 120%, rgba(16, 185, 129, 0.30), transparent 60%),
+        linear-gradient(135deg, #0a0f24 0%, #141a38 52%, #1a1147 100%);
+    }
+    header::after {
+      content: "";
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+      background-size: 46px 46px;
+      -webkit-mask-image: radial-gradient(900px 500px at 30% 0%, #000, transparent 75%);
+      mask-image: radial-gradient(900px 500px at 30% 0%, #000, transparent 75%);
+      pointer-events: none;
+    }
+    .hero-grid { position: relative; z-index: 1; gap: 34px; }
+    .eyebrow {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(255,255,255,0.22);
+      color: #c7d2fe; letter-spacing: 0.02em;
+    }
+    .eyebrow::before {
+      content: ""; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--emerald); box-shadow: 0 0 0 4px rgba(16,185,129,0.25);
+    }
+    h1 {
+      background: linear-gradient(180deg, #ffffff 30%, #c9d2ff 100%);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .subtitle { color: #b9c2e6; }
+    .hero-card {
+      background: linear-gradient(160deg, rgba(255,255,255,0.14), rgba(255,255,255,0.05));
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 24px 60px -30px rgba(0,0,0,0.6);
+    }
+    .hero-card h3 {
+      background: linear-gradient(120deg, #a5b4fc, #67e8f9);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      font-family: "Sora"; letter-spacing: -0.01em;
+    }
+    .pill {
+      background: rgba(255,255,255,0.09);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: #dbe4ff;
+    }
+
+    /* ---------- Section headings ---------- */
+    main { padding: 44px 32px 90px; }
+    section { margin-bottom: 46px; }
+    .section-title h2 {
+      font-size: clamp(24px, 3vw, 33px);
+      background: linear-gradient(120deg, var(--ink) 40%, var(--indigo));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .section-title p { color: var(--muted); font-size: 15px; }
+
+    /* ---------- Cards ---------- */
+    .card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 30px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.9)),
+        var(--card);
+    }
+    .card.blue { background: linear-gradient(180deg, #fbfcff, #f4f7ff); border-color: #dbe4ff; }
+    .card.green { background: linear-gradient(180deg, #fbfffd, #edfdf6); border-color: #bbf7d0; }
+    .card.red { background: linear-gradient(180deg, #fffbfc, #fff1f3); border-color: #fecdd3; }
+
+    .mini-card {
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow-soft);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .mini-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+    .mini-card h3 { font-family: "Sora"; letter-spacing: -0.01em; }
+
+    /* vibrant tinted surfaces */
+    .blue { background: var(--soft-blue); border-color: #c7d2fe; }
+    .green { background: var(--soft-green); border-color: #a7f3d0; }
+    .amber { background: var(--soft-amber); border-color: #fcd34d; }
+    .red { background: var(--soft-red); border-color: #fecdd3; }
+    .purple { background: var(--soft-purple); border-color: #ddd6fe; }
+    .cyan { background: var(--soft-cyan); border-color: #a5f3fc; }
+
+    /* ---------- Notes ---------- */
+    .note {
+      border-left: 4px solid var(--indigo);
+      background: linear-gradient(100deg, var(--soft-blue), #ffffff 85%);
+      border-radius: 16px; padding: 18px 20px; color: #312e81; font-weight: 600;
+    }
+    .success-note { border-left-color: var(--emerald); background: linear-gradient(100deg, var(--soft-green), #fff 85%); color: #065f46; }
+    .warn-note { border-left-color: var(--amber); background: linear-gradient(100deg, var(--soft-amber), #fff 85%); color: #7c2d12; }
+
+    /* ---------- FLOW: de-cramp 8-col into a breathing 4-up grid ---------- */
+    .flow {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .flow-step {
+      border-radius: 18px;
+      padding: 20px 18px;
+      min-height: 0;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #ffffff, #fbfcff);
+      box-shadow: var(--shadow-soft);
+    }
+    .flow-step::before {
+      content: "";
+      position: absolute; left: 0; top: 18px; bottom: 18px; width: 4px;
+      border-radius: 4px;
+      background: linear-gradient(180deg, var(--indigo), var(--cyan));
+      opacity: 0.85;
+    }
+    .flow-step { padding-left: 22px; }
+    /* drop the horizontal arrow that broke on wrap */
+    .flow-step:not(:last-child)::after { content: none; }
+    .flow-step h3 { font-family: "Sora"; font-size: 15.5px; }
+    .step-num {
+      background: linear-gradient(135deg, var(--indigo), var(--violet));
+      box-shadow: 0 6px 14px -6px rgba(79,70,229,0.8);
+      width: 30px; height: 30px;
+    }
+
+    /* ---------- de-cramp the 5-up grids everywhere ---------- */
+    .grid-5 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+    .grid-3 { gap: 20px; }
+    .grid-2 { gap: 22px; }
+    .arch-branch-row.five-up { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    .arch-branch-row.three-up { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+    .lane { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+    .lane-card:not(:last-child)::after { content: none; }
+    .lane-card { border-radius: 18px; min-height: 0; }
+
+    /* ---------- Architecture boxes ---------- */
+    .arch-box {
+      border-radius: 18px;
+      padding: 20px 20px 20px 62px;
+      box-shadow: var(--shadow-soft);
+    }
+    .arch-box h3 { font-family: "Sora"; font-size: 16.5px; }
+    .arch-seq {
+      background: linear-gradient(135deg, var(--indigo), var(--violet));
+      box-shadow: 0 8px 18px -8px rgba(79,70,229,0.75);
+    }
+    .arch-arrow { color: #94a0c4; font-size: 20px; }
+    .arch-box.branch-box { padding-left: 56px; }
+
+    /* ---------- Tables ---------- */
+    table { border-radius: 18px; box-shadow: var(--shadow-soft); border-color: var(--border); }
+    th {
+      background: linear-gradient(180deg, #f1f4ff, #eaeeff);
+      color: #3730a3; font-size: 12px; letter-spacing: 0.05em;
+    }
+    tbody tr:nth-child(even) td { background: #fbfcff; }
+    td { color: #2b3350; }
+
+    /* ---------- Tabs ---------- */
+    .tab { border-radius: 999px; font-weight: 700; border-color: var(--border); }
+    .tab.active {
+      background: linear-gradient(120deg, var(--indigo), var(--violet));
+      border-color: transparent;
+      box-shadow: 0 8px 18px -8px rgba(79,70,229,0.7);
+    }
+
+    /* ---------- code / pre ---------- */
+    code, .mono { background: #eef1fb; color: #3730a3; border: 1px solid #e0e5f6; }
+    pre {
+      background: linear-gradient(160deg, #0b1120, #141a38);
+      border: 1px solid rgba(124,58,237,0.25);
+      border-radius: 18px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+
+    /* ---------- badges / tags / chips ---------- */
+    .badge-new {
+      background: linear-gradient(120deg, #ecfdf5, #d1fae5);
+      border-color: #6ee7b7; color: #065f46;
+    }
+    .tag.det { color:#3730a3; background:var(--soft-blue); border-color:#c7d2fe; }
+    .tag.llm { color:#6d28d9; background:var(--soft-purple); border-color:#ddd6fe; }
+    .stage-chip { background: linear-gradient(120deg, #e0f2fe, #cffafe); color:#0e7490; }
+
+    /* answer card head */
+    .answer-card { border-radius: var(--radius-lg); box-shadow: var(--shadow); border-color: var(--border); }
+    .answer-card .answer-head {
+      background:
+        radial-gradient(500px 200px at 0% 0%, rgba(124,58,237,0.5), transparent 60%),
+        radial-gradient(400px 200px at 100% 0%, rgba(6,182,212,0.4), transparent 60%),
+        #0b1120;
+    }
+    .answer-label { color: #3730a3; }
+
+    /* footer */
+    .footer { color: #8a93b4; }
+
+    /* meeting-script hero placement */
+    .meeting-hero .card {
+      background:
+        radial-gradient(600px 300px at 100% 0%, rgba(124,58,237,0.08), transparent 60%),
+        linear-gradient(180deg, #ffffff, #f7f9ff);
+      border-color: #d7deff;
+    }
+    .meeting-hero h2 {
+      background: linear-gradient(120deg, var(--violet), var(--cyan));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .script-step {
+      display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start;
+      padding: 14px 0; border-bottom: 1px dashed var(--border);
+    }
+    .script-step:last-child { border-bottom: none; }
+    .script-step .n {
+      width: 30px; height: 30px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--indigo), var(--violet)); color: #fff;
+      font-family: "Sora"; font-weight: 800; font-size: 13px;
+      display: inline-flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 16px -8px rgba(79,70,229,0.7);
+    }
+    .script-step p { margin: 3px 0 0; color: #2b3350; font-size: 15px; line-height: 1.6; }
+
+    @media (max-width: 860px) {
+      .flow { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    @media (max-width: 560px) {
+      .flow { grid-template-columns: 1fr; }
+      main { padding: 32px 18px 70px; }
+      header { padding: 52px 20px 44px; }
+      .card { padding: 22px; }
+    }
+  </style>
 </head>
 <body>
   <nav class="docnav">
     <div class="docnav-inner">
       <span class="brandtag">SOC FLOW</span>
+      <a href="#script">Meeting script ★</a>
       <a href="#s1">1 · Traversal</a>
       <a href="#s2">2 · Diagram</a>
+      <a href="#s2b">2b · RunContract ✦</a>
+      <a href="#s2c">2c · Dispatch V2 ✦</a>
       <a href="#s8c">Sidecar pipeline ✦</a>
       <a href="#s8">8 · LLM usage</a>
       <a href="#s8b">8b · Trace</a>
@@ -833,8 +1157,9 @@
           <span class="pill">SPL review-only</span>
           <span class="pill">MCP gated</span>
           <span class="pill">MITRE governed</span>
+          <span class="pill">RunContract canonical</span>
+          <span class="pill">Dispatch V2 (flag-off)</span>
           <span class="pill">4B evidence loop</span>
-          <span class="pill">Detection gaps UI</span>
           <span class="pill">HIL protected</span>
         </div>
       </div>
@@ -842,6 +1167,44 @@
   </header>
 
   <main>
+    <section class="meeting-hero" id="script">
+      <div class="section-title">
+        <div>
+          <h2>Meeting script <span class="badge-new">read first</span></h2>
+          <p>The 60-second walkthrough for a leadership or customer demo. Say this top-to-bottom; every claim below is backed by a section in this guide.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="script-step">
+          <span class="n">1</span>
+          <p>“Every SOC question travels the <strong>same governed pipeline</strong> — ten <code>pipeline.py</code> nodes (§1, §2). It is not a free-form agent: deterministic policy owns routing, SPL approval, MCP execution, MITRE status, and severity. The LLM only advises and narrates.”</p>
+        </div>
+        <div class="script-step">
+          <span class="n">2</span>
+          <p>“<strong>Query Understanding</strong> checks the 105 taxonomy and the use-case catalog (§4). A match uses a governed route. An out-of-registry but hunt-shaped question takes the <strong>fifth skill, <code>guided_investigation</code></strong> — not weak knowledge recall (§5, §6). Unsafe containment requests are blocked to human review and never enter guided mode.”</p>
+        </div>
+        <div class="script-step">
+          <span class="n">3</span>
+          <p>“One <strong>canonical <code>RunContract</code></strong> is the single source of truth for the turn — preview, HIL, source-evidence counts, and route authority all read from it, so the trace can’t contradict the answer (§2b, §2c).”</p>
+        </div>
+        <div class="script-step">
+          <span class="n">4</span>
+          <p>“When MCP is allowed, the <strong>Stage 4B evidence loop</strong> runs bounded, read-only discovery hops before adjudication and again after any gated execution (§4B). Execution is <strong>OFF by default</strong> and fails closed without credentials.”</p>
+        </div>
+        <div class="script-step">
+          <span class="n">5</span>
+          <p>“Every LLM hop is a <strong>governed sidecar</strong> — failover chain, per-turn budget, grounding guards, and a fail-closed validator. Any failure falls back to a deterministic answer that is byte-identical to running with the LLM off (§8c).”</p>
+        </div>
+        <div class="script-step">
+          <span class="n">6</span>
+          <p>“Finalize merges discovery into <code>source_evidence</code>, runs the sidecar lane, and produces an <strong>analyst response card</strong> — not raw LLM prose (§12). The Knowledge page shows MITRE detection gaps read-only (§14).”</p>
+        </div>
+        <div class="note" style="margin-top:20px;">
+          <strong>One-line close:</strong> “The LLM makes it fluent and fast; deterministic policy makes it safe. Severity, MITRE, SPL execution, and MCP never leave governed control.”
+        </div>
+      </div>
+    </section>
+
     <section>
       <div class="section-title">
         <div>
@@ -1060,6 +1423,120 @@
         </div>
         <div class="note" style="margin-top: 12px;">
           <strong>Live runner:</strong> default <code>/chat</code> uses the <strong>imperative</strong> node sequence in <code>pipeline.py</code> (<code>LANGGRAPH_ORCHESTRATION_ENABLED=false</code>) for session-context parity. The same <code>graph_node_*</code> functions also wire into a cyclic LangGraph topology when orchestration is explicitly enabled — see <a href="#s4b">§4B</a>.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s2b">2b. Canonical <code>RunContract</code> — one source of truth <span class="badge-new">new</span></h2>
+          <p>
+            Every live <code>/chat</code> turn (control plane <strong>on or off</strong>) now builds a single <code>RunContract</code> / <code>RouteContract</code> in graph state. It ends the “competing truths” class of bug: the analyst card, the audit trace, HIL, and evidence counts all read from the same contract instead of re-deriving state in each surface.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="grid-3">
+          <div class="mini-card blue">
+            <h3>Single HIL truth</h3>
+            <p><code>action_capability.hil</code> = <code>governance_trace.effective_hil</code> = <code>run_contract.effective_hil</code>. One human-in-the-loop verdict, projected everywhere — never two disagreeing gates.</p>
+          </div>
+          <div class="mini-card green">
+            <h3>Honest evidence counts</h3>
+            <p><code>collected_evidence_count</code> comes only from telemetry that was actually collected. Collected / review-only / candidate artifacts are kept in separate buckets so the card can’t imply data it never fetched.</p>
+          </div>
+          <div class="mini-card purple">
+            <h3>One route authority</h3>
+            <p>Shadow comparisons (<code>route_authority_compare</code>, <code>routing_skill_resolution</code>) re-project onto <code>canonical_run_contract</code>; the raw shadow lives under <code>raw_shadow_compare</code> for audit only.</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:26px;">What the contract fixes</h3>
+        <table>
+          <thead>
+            <tr><th>Surface</th><th>Before (competing truths)</th><th>Now (reads the contract)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Preview / answer card</td><td>Re-derived preview and lineage per render</td><td>Render gates read <code>run_contract</code></td></tr>
+            <tr><td>HIL gate</td><td>Capability vs governance could disagree</td><td>Single <code>effective_hil</code> everywhere</td></tr>
+            <tr><td>Source evidence</td><td>Collected mixed with review / candidate</td><td>Separated buckets; count from collected only</td></tr>
+            <tr><td>Route authority</td><td>Shadow compare could leak as truth</td><td>Re-projected; raw under <code>raw_shadow_compare</code></td></tr>
+          </tbody>
+        </table>
+
+        <div class="note success-note" style="margin-top:18px;">
+          <strong>Governance/honesty hardening shipped with it:</strong> MITRE tier caps to <code>requires_validation</code> when MCP is off; the analytics severity sentinel (“Not assigned from this question alone”) is preserved; and the severity gate is tightened for knowledge / guidance answers. Live suite green; Experience Center parity kept. <span style="color:var(--muted);">Merged — PR&nbsp;#32.</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s2c">2c. Pipeline Dispatch V2 — mid-pipeline dispatch authority <span class="badge-new">preview · flag-off</span></h2>
+          <p>
+            A two-stage dispatch authority that replaces scattered mid-pipeline branching with one routing surface. It is <strong>fully built but dormant</strong>: behind <code>AI_SOC_PIPELINE_DISPATCH_V2_ENABLED</code> (default <code>false</code>), and flag-off is byte-identical to today. Documented here so leadership sees where the pipeline is heading before COE flips it on.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="grid-2">
+          <div class="mini-card blue">
+            <h3>Stage 1 · <code>IntentDispatchDecision</code></h3>
+            <p>Computed <em>before</em> intent classification (pre-2C). Chooses a table-driven prompt mode for the intent LLM instead of one monolithic prompt.</p>
+          </div>
+          <div class="mini-card purple">
+            <h3>Stage 2 · <code>PipelineDispatchContract</code></h3>
+            <p>Computed after evidence planning. Emits <code>stage_schedule</code> + <code>llm_hops</code> — the <strong>sole routing surface</strong> for the rest of the turn, with a clean discovery-vs-execution split and a CP-off fallback.</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:26px;">Request modes (deterministic, table-driven)</h3>
+        <div class="pill-row" style="margin-bottom:8px;">
+          <span class="stage-chip">clarification</span>
+          <span class="stage-chip">knowledge</span>
+          <span class="stage-chip">mitre_knowledge</span>
+          <span class="stage-chip">cve_review</span>
+          <span class="stage-chip">utility_spl</span>
+          <span class="stage-chip">spl_authoring</span>
+          <span class="stage-chip">spl_and_run</span>
+          <span class="stage-chip">hybrid</span>
+          <span class="stage-chip">live_investigation</span>
+        </div>
+        <p style="color:var(--muted);font-size:14px;margin:6px 0 0;">Each mode maps deterministically to a <code>stage_schedule</code> (which nodes run) and <code>llm_hops</code> (which sidecars are allowed). No mode lets the LLM select the route.</p>
+
+        <h3 style="margin-top:26px;">What V2 adds</h3>
+        <table>
+          <thead>
+            <tr><th>Capability</th><th>What it does</th><th>Authority</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Mandatory SPL postprocessor</td>
+              <td>Runs on <strong>every</strong> SPL source (template, LLM, lab). Hash trace + byte-identity check against governed templates.</td>
+              <td><span class="tag det">deterministic · review-only</span></td>
+            </tr>
+            <tr>
+              <td>LLM SPL plan preservation</td>
+              <td>Compiler grounding inputs + the LLM <code>detection_plan</code> flow through <code>SplCandidateStageResult</code> → <code>persist_llm_spl_plan</code> → downstream <code>consumed_by</code>.</td>
+              <td><span class="tag llm">LLM plan</span> <span class="tag det">validated</span></td>
+            </tr>
+            <tr>
+              <td>Pre-SPL MCP discovery</td>
+              <td>Cursor-driven read-only discovery node scheduled before SPL when the plan needs schema context.</td>
+              <td><span class="tag det">gated · read-only</span></td>
+            </tr>
+            <tr>
+              <td>Debug <code>final_output</code> trace</td>
+              <td>Adds dispatch surfaces and a final-output span to the <code>/debug</code> trace for reproducibility.</td>
+              <td><span class="tag det">observability</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="note warn-note" style="margin-top:18px;">
+          <strong>Posture:</strong> all 12 phases are implemented and governance-green, but <code>AI_SOC_PIPELINE_DISPATCH_V2_ENABLED</code> stays <code>false</code> — the imperative <code>pipeline.py</code> sequence (§2) remains the live path and MCP execution flags are unchanged. V2 is a shadow/preview lane until COE approves promotion. Nothing in this section changes today’s answers.
         </div>
       </div>
     </section>
@@ -2160,27 +2637,6 @@ output template</pre>
             <div class="answer-content">Validate destination ownership, source asset role, traffic frequency, volume, process context, and whether communication is expected.</div>
           </div>
         </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="card">
-        <h2>Meeting script</h2>
-        <p>
-          “Every SOC question follows the same eight steps in section 1. Section 2 shows where the pipeline branches: at step 3 for route triage, and at step 7 for RAG-first versus investigation execution.
-        </p>
-        <p>
-          Query Understanding checks the 105 taxonomy and catalog. If the question matches, we use a governed route. If it is out-of-registry but clearly asks for a hunt, step 3B selects <code>guided_investigation</code> — not weak knowledge recall. Unsafe requests go to step 3C and never enter guided mode.
-        </p>
-        <p>
-          Steps 4–6 set intent, resource decisions, and — when control plane is on — route adjudication. When <code>mcp_allowed</code>, Stage&nbsp;4B may run bounded discovery hops (planned or collected) before adjudication and again after gated execution.
-        </p>
-        <p>
-          Guided hunts take step 7B/7A: governed SOC-KB RAG, optional review-only SPL, and Splunk discovery via the evidence loop or a manual checklist. Step 8 merges discovery into <code>source_evidence</code>, runs the governed sidecar lane, and produces an analyst card. The Knowledge page exposes MITRE detection gaps read-only (<a href="#s14">§14</a>).
-        </p>
-        <p>
-          The LLM may narrate prose, but severity, MITRE, SPL execution, and MCP remain under deterministic policy.”
-        </p>
       </div>
     </section>
 
