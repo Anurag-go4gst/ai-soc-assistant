@@ -17,6 +17,7 @@ def build_guided_handoff_trace(
     blocked_resources: list[dict[str, Any]],
     investigation_plan_raw_llm: dict[str, Any] | None = None,
     evidence_collected: int | None = None,
+    refinement_rounds: list[int] | None = None,
 ) -> dict[str, Any]:
     """Build ``control_plane_trace.guided_handoff`` for batch 1."""
     safe_template_ids = [
@@ -39,6 +40,8 @@ def build_guided_handoff_trace(
         "mcp_tool_ids": mcp_tool_ids,
         "evidence_planned": len(resource_plan_validated.steps),
         "evidence_collected": 0 if evidence_collected is None else evidence_collected,
+        "refinement_round": investigation_plan_validated.refinement_round,
+        "refinement_rounds": list(refinement_rounds or [investigation_plan_validated.refinement_round]),
         "answer_evidence_refs": [],
     }
 

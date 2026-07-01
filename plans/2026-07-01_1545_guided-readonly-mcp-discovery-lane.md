@@ -787,21 +787,27 @@ Sample probe query (all phases):
   - **Depends on:** P10, P11
   - **Evidence:** `pytest app/tests/test_guided_hybrid_collection.py app/tests/test_guided_hybrid_dispatch.py -q` → **5 passed**; `guided_hybrid_collection.py` records planned discovery + safe-catalog hops; `evidence_collected` stays 0 under default-off MCP execution; no `splunk_run_query`.
 
-- [ ] **P13** — Refinement round + AnswerContract safe-catalog surfacing
-  - **Do:** Honor `refinement_recommended` with `MAX_GUIDED_INVESTIGATION_ROUNDS`; surface safe-catalog + discovery metadata on AnswerContract.
-  - **Verify:** refinement cap test; AnswerContract fields present flag-on only.
+- [x] **P13a** — Refinement round cap (`MAX_GUIDED_INVESTIGATION_ROUNDS`)
+  - **Do:** Honor `refinement_recommended` with bounded in-dispatch refinement loop; trace `refinement_round` / `refinement_rounds`; no execution widening.
+  - **Verify:** `pytest app/tests/test_guided_hybrid_refinement.py -q`; cap stops at 3 rounds; flag-off unchanged.
   - **Depends on:** P12
-  - **Evidence:** _(filled when done)_
+  - **Evidence:** `pytest app/tests/test_guided_hybrid_refinement.py app/tests/test_guided_hybrid_trace_baseline.py -q` → **16 passed**; `guided_hybrid_refinement.py` + loop in `_run_guided_hybrid_dispatch`; handoff trace carries `refinement_round` / `refinement_rounds`.
+
+- [x] **P13b** — AnswerContract guided evidence surfacing
+  - **Do:** Surface planned/collected discovery + safe-catalog metadata on dedicated AnswerContract fields only; HIL required; never `spl_execution_eligible=true`.
+  - **Verify:** `pytest app/tests/test_guided_answer_contract.py -q`; planned hops marked `planned_only`; flag-off fields absent.
+  - **Depends on:** P12
+  - **Evidence:** `pytest app/tests/test_guided_answer_contract.py -q` → **5 passed**; `guided_answer_contract.py` + AnswerContract fields `guided_collection_posture`, `discovery_evidence_summary`, `safe_catalog_evidence_summary`, `evidence_planned`, `evidence_collected`, `blocked_resources`.
 
 - [ ] **P14** — Governance + flag-off byte-identity
   - **Do:** Run targeted suite + `./scripts/run_stage3_governance_regression.sh`; sync docs.
   - **Verify:** governance PASS or document known-unrelated drift; flag-off guided hybrid byte-identical.
-  - **Depends on:** P13
+  - **Depends on:** P13b
   - **Evidence:** _(filled when done)_
 
 ### Batch 2 dependency order
 
-`P9 → P10 → P11 → P12 → P13 → P14`
+`P9 → P10 → P11 → P12 → P13a → P13b → P14`
 
 ---
 

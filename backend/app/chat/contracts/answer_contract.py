@@ -91,6 +91,13 @@ class AnswerContract(BaseModel):
     run_contract_mirrored: bool = False
     # Guided MCP discovery lane — HIL promotion metadata only; no route authority.
     promotion_offer: dict[str, Any] | None = None
+    # Guided hybrid evidence surfacing (flag-on only; never sets spl_execution_eligible).
+    guided_collection_posture: dict[str, Any] | None = None
+    discovery_evidence_summary: list[dict[str, Any]] | None = None
+    safe_catalog_evidence_summary: list[dict[str, Any]] | None = None
+    evidence_planned: int | None = None
+    evidence_collected: int | None = None
+    blocked_resources: list[dict[str, Any]] | None = None
 
 
 _SECTION_PRIORITY: dict[str, int] = {

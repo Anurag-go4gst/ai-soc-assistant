@@ -80,6 +80,8 @@ def test_guided_handoff_trace_segments() -> None:
         "mcp_tool_ids",
         "evidence_planned",
         "evidence_collected",
+        "refinement_round",
+        "refinement_rounds",
     ):
         assert key in trace
     assert trace["investigation_plan_raw_llm"] is None
