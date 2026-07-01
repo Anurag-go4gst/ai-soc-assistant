@@ -146,3 +146,30 @@ def test_forbidden_fails_on_unbacked_evidence_supported_claim() -> None:
     payload = _payload()
     payload["analyst_response"]["mitre_status_summary"] = "T1110 is evidence-supported."
     assert not _result(payload, "no_forbidden_claims").passed
+
+
+def test_forbidden_passes_on_instructional_evidence_supported_checklist_line() -> None:
+    payload = _payload()
+    payload["analyst_response"]["direct_answer_summary"] = (
+        "Governed SPL draft for review only.\n\n"
+        "SOC review checklist:\n"
+        "- Confirm threshold evidence before labeling brute-force activity evidence-supported."
+    )
+    assert _result(payload, "no_forbidden_claims").passed
+
+
+def test_forbidden_allows_instructional_evidence_supported_in_steps() -> None:
+    payload = _payload()
+    payload["analyst_response"]["investigation_steps"] = [
+        "Confirm threshold evidence before labeling brute-force activity evidence-supported."
+    ]
+    assert _result(payload, "no_forbidden_claims").passed
+
+
+def test_forbidden_allows_instructional_phrasing_in_direct_summary() -> None:
+    payload = _payload()
+    payload["analyst_response"]["direct_answer_summary"] = (
+        "Review checklist:\n"
+        "- Confirm threshold evidence before labeling brute-force activity evidence-supported."
+    )
+    assert _result(payload, "no_forbidden_claims").passed

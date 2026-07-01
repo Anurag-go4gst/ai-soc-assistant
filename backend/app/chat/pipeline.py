@@ -4043,6 +4043,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
         candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
         spl_artifact_handoff=_spl_handoff,
+        user_query=request.message,
+        match_path=(
+            (state.get("query_to_intent") or {}).get("candidate_mappings") or {}
+        ).get("match_path")
+        if isinstance(state.get("query_to_intent"), dict)
+        else None,
     )
     from app.chat.answer_quality_enrichment import apply_answer_quality_enrichment
 

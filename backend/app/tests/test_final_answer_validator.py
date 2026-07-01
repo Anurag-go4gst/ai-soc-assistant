@@ -164,6 +164,22 @@ def test_direct_summary_narrating_steps_passes_for_knowledge_answer() -> None:
     assert "final.direct_summary_contains_full_checklist" not in result.failed_checks
 
 
+def test_governed_approved_spl_code_does_not_trigger_gate_3a() -> None:
+    # q0.q049-style: governed template SPL on spl_code (approved), not lab draft.
+    result = validate_final_answer(
+        analyst_response=_answer(
+            direct_answer_summary="Confirm source profile. Validate owner. Preserve evidence.",
+            analyst_checklist=["Confirm source profile.", "Validate owner.", "Preserve evidence."],
+            spl_code="index=wineventlog sourcetype=WinEventLog:Security | stats count by host",
+        ),
+        answer_contract=_contract(mitre_answer_visible=False, execution_status="skipped"),
+        evidence_plan={"answer_mode": "live_investigation"},
+        mitre_decision={},
+    )
+    assert "final.direct_summary_contains_full_checklist" not in result.failed_checks
+    assert result.guard_status != "blocked"
+
+
 def test_duplicate_lab_warning_blocks() -> None:
     warning = "Lab-only draft SPL preview. Not governed, not approved, not executed."
     result = validate_final_answer(

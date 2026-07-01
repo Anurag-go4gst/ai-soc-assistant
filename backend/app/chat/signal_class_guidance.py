@@ -281,6 +281,58 @@ def classify_signal_class(query: str, entities: dict[str, Any] | None = None) ->
     return "unknown"
 
 
+_OUT_OF_REGISTRY_MATCH_PATHS = frozenset({"out_of_registry", "semantic_out_of_registry"})
+
+
+def _should_attach_signal_class_supplement(
+    user_query: str | None,
+    *,
+    match_path: str | None,
+) -> bool:
+    if not user_query or str(match_path or "") not in _OUT_OF_REGISTRY_MATCH_PATHS:
+        return False
+    return build_signal_class_review_supplement(user_query) is not None
+
+
+def build_signal_class_review_supplement(
+    query: str, entities: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
+    """Structured signal-class header + hypotheses for review-only SPL surfaces.
+
+    Keeps OT out-of-catalog probes honest: visible text carries ``signal class`` and
+    ``review-only`` markers plus hypothesis vocabulary without claiming live results.
+    """
+    signal_class = classify_signal_class(query, entities)
+    if signal_class == "unknown":
+        return None
+    template = _TEMPLATES.get(signal_class) or {}
+    header = (
+        f"Guided investigation — signal class: {signal_class.replace('_', ' ')} (review-only)"
+    )
+    return {
+        "signal_class": signal_class,
+        "header": header,
+        "hypotheses": list(template.get("hypotheses") or []),
+        "evidence": list(template.get("evidence") or []),
+    }
+
+
+def format_signal_class_review_supplement(supplement: dict[str, Any]) -> list[str]:
+    """Render supplement lines for inclusion in a review-only SPL answer."""
+    lines = [str(supplement.get("header") or "").strip(), ""]
+    hypotheses = supplement.get("hypotheses") or []
+    if hypotheses:
+        lines.append("Hypotheses")
+        lines.extend(f"- {item}" for item in hypotheses)
+        lines.append("")
+    evidence = supplement.get("evidence") or []
+    if evidence:
+        lines.append("Evidence to collect")
+        lines.extend(f"- {item}" for item in evidence)
+        lines.append("")
+    return [line for line in lines if line is not None]
+
+
 def build_signal_class_guidance(query: str, entities: dict[str, Any] | None = None) -> str:
     """Shaped hypotheses + evidence for the resolved signal class."""
     signal_class = classify_signal_class(query, entities)
