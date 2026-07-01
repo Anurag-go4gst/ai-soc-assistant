@@ -1,8 +1,8 @@
 # AI SOC Assistant — Master Plan
 
 **Document:** `plans/AI_SOC_MASTER_PLAN.md` — **single canonical plan** for hardening, skill enrichment, pipeline/LangGraph, and GitHub skill intake tracking.
-**Date:** 2026-06-06 (amended 2026-06-27)
-**Status:** Active implementation roadmap — Batches 1 through 6 completed on `master`; **consolidated handoff/T2 closure complete** (`ca3249b`, PRs #38–#45, Batches 0–F). Operator rollout documented in [`2026-06-27_operator_closure_checklist.md`](2026-06-27_operator_closure_checklist.md). Next implementation phase requires explicit scope approval (see [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md)).
+**Date:** 2026-06-06 (amended 2026-07-01)
+**Status:** **§O acceptance loop CLOSED (2026-07-01).** Batches 1–6 + consolidated handoff/T2 closure complete (`ca3249b`, PRs #38–#45, Batches 0–F). Guided Hybrid Investigation Orchestrator complete ([`plans/2026-07-01_1545_guided-readonly-mcp-discovery-lane.md`](2026-07-01_1545_guided-readonly-mcp-discovery-lane.md)). **Forward roadmap §P / §K / §R remains open** — next slice requires explicit scope approval (see [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md)).
 **Canonical for:** Tracks A–D, pilot enrichments P1–P7, execution order, tracking table (§P)
 
 > **Single plan only.** Do not use `plans/2026-06-06_*.md` drafts (removed). All amendments live here.
@@ -89,7 +89,7 @@
 | **1** — HIL mock MCP hardening | **Done** | PR #4 (`7222937`) | Yes | HIL labels + mock execution gates hardened | Durable approval store for real MCP |
 | **2** — 7 SOC skill enrichment baseline | **Done** | PR #5 (`4e1a2f3`) | Metadata only | `content_enrichment.json` + intake register linked | Runtime enrichment load (C3) not wired |
 | **2.1** — Offline question→use-case mapping | **Done** | PR #5 / `b164cb2` | Tooling | `question_use_case_map.json` + matrix generator | **1 / 105** authoritative mappings |
-| **3** — MITRE evidence + SPL governance | **Done** | PR #6 (`9faac7c`) | Yes | Evidence-status vocabulary + template governance | Expand preconditions beyond pilots (A2 §P forward) |
+| **3** — MITRE evidence + SPL governance | **Done** | PR #6 (`9faac7c`) | Yes | Evidence-status vocabulary + template governance | Expand preconditions beyond pilots (A2 §P forward); O3 shim removed on this branch |
 | **3.1** — Pilot output contracts | **Done** | PR #6 | Yes | Contract tests + `pilot_evidence_contracts_batch3_1.md` | More pilots need golden cases |
 | **4** — Pipeline visibility + answer guard | **Done** | PR #6 | Yes | Top-level visibility + finalize-time `node_trace` + final validator | Incremental streaming trace; UI polish |
 | **5** — Session context | **Done** | PR #7 (`84b77f8`) | Yes | Structured pins, TTL, follow-ups, `session_context_status` | In-process only; not multi-worker durable |
@@ -98,14 +98,15 @@
 
 Full audit: [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md).
 
-### Recent shipments (2026-06-27)
+### Recent shipments (2026-06-27 — updated 2026-07-01)
 
 | Work | Status | Reference |
 |------|--------|-----------|
 | PR #38 — T2 SPL-native / handoff stabilization | **Merged** (`master` @ `e5a4d40`) | `feat/llm-lab-direct-ask` |
-| Post-PR #38 prod smoke — near-105 route + unsafe containment | **Shipped** (PR #40 open) | `fix/post-pr38-smoke-routing`; see handoff plan §Post-PR #38 smoke fix |
-| Operator-reviewed promotion writes + row-authority refresh | **Done** | PR #39 merged |
-| Full canonical handoff Phases 2–10 | **Pending** | [`2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md`](2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md) |
+| Post-PR #38 prod smoke — near-105 route + unsafe containment | **Merged** (`d04c083`, PR #40) | `fix/post-pr38-smoke-routing`; see consolidated handoff §Batch 0 |
+| Operator-reviewed promotion writes + row-authority refresh | **Merged** (PR #39) | Batch 0 |
+| Destructive containment paraphrase → unsafe | **Merged** (`809d3b6`, PR #50) | `query_signals.py` + `test_unsafe_action_paraphrase_lexicon.py`; aligns with P6/P7 no-destructive-containment policy |
+| Full canonical handoff Phases 2–10 | **Shipped / Superseded** | [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) (`ca3249b`, PRs #40–#45); prior [`2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md`](2026-06-26_full-canonical-handoff-t0-t1-t2-mcp.md) `status: superseded` |
 
 
 ---
@@ -159,7 +160,7 @@ flowchart TB
     B7[answer rules]
     B9[coverage matrix]
     P1[P1-P7 pilots]
-    B3[MITRE KB expand]
+    B3[MITRE precondition wiring]
     B6[SPL templates]
   end
   subgraph TrackC [Track C - Pipeline]
@@ -191,7 +192,7 @@ flowchart TB
 | 0b | 0–1 | **D1–D4** | `github_skill_intake_register.json`, rejection log, backlog, status matrix (docs) |
 | 1 | 1–2 | C1, C9, A1 | Explicit HIL; trace field plan |
 | 2 | 2–3 | B9, B1, B4, B5, **D5** | Coverage matrix JSON; enrichment schema; intake ↔ matrix links |
-| 3 | 3–5 | P1–P7, A2, B3, **D4** | Seven pilots + MITRE; update implementation status per skill |
+| 3 | 3–5 | P1–P7, A2, B3, **D4** | Pilot enrichment (sidecar shipped); MITRE precondition wiring + `_status_for()` removal (B3/A2 partial); update D4 implementation status |
 | 4 | 5–7 | C2–C5, C4, B6, A3 | Node split; templates active/planned |
 | 5 | 7–9 | C8, A6, A5 | Guard + session pins |
 | 6 | 10+ | A4 | COE Splunk MCP (if approved) |
@@ -278,7 +279,7 @@ Skills count:  754
 | Shadow/planning (~10) | `backend/app/routing/runtime_skill_catalog.py` | Route-plan shadow; mirrors to legacy when control plane on |
 | Use cases | `backend/app/use_cases/catalog.json` | Templates, `mitre_registry`, routing patterns |
 | 105 questions | `backend/app/coverage/question_runtime_map_v1.json` | `legacy_router_intent_hint` + `proposed_primary_skill` |
-| MITRE KB | `backend/app/threat/mitre_attack_subset.json` | 4 techniques today (verify count at implementation) |
+| MITRE KB | `backend/app/threat/mitre_attack_subset.json` | **98 techniques** (`curated-subset-v4`); **8** `curated_use_case_mappings` in metadata (includes pilot ids P3/P6/P7) |
 | MITRE runtime | `backend/app/threat/mitre_kb.py`, `mitre_decision.py`, `mitre_evidence_preconditions.py` | Pilots: precondition resolver; non-pilot: fail-closed `requires_validation` (§O O3). Full A2 expansion → §P |
 | Pipeline | `backend/app/chat/pipeline.py` | Imperative graph nodes; `ChatPipelineState` TypedDict |
 | LangGraph | `backend/app/graph/chat_workflow.py` | Wrapper parity; `langgraph_orchestration_enabled=false` default |
@@ -302,7 +303,7 @@ Skills count:  754
 
 **Objective:** Human review explicit across mock and real execution paths.
 
-**§O O2 / Batch 1 (done):** Mock success requires HIL when `AI_SOC_REQUIRE_HIL_FOR_MOCK_EXECUTION=true` (default). **§P forward:** durable approval store for real MCP.
+**Current issue:** `evaluate_mcp_execution()` returns `no_human_review()` after successful mock execution (`backend/app/orchestration/mcp_execution_gate.py`, symbol `no_human_review` — verify line at implementation time).
 
 **Files:** `backend/app/orchestration/mcp_execution_gate.py`, `backend/app/orchestration/human_review.py`, `backend/app/config.py`, `backend/app/schemas/responses.py`, `backend/app/chat/pipeline.py`, `frontend/src/components/.../AnalystResponseCard.tsx`
 
@@ -341,7 +342,7 @@ AI_SOC_REQUIRE_HIL_FOR_MOCK_EXECUTION=true
 
 **Files:** `backend/app/threat/mitre_kb.py`, `mitre_decision.py`, `mitre_evidence_preconditions.py`, `mitre_attack_subset.json`, `use_cases/catalog.json`, `question_runtime_map_v1.json`
 
-**Authoring rule (§Q1.1/Q1.2):** Catalog/enrichment authors **`technique_id` + `required_evidence` (+ thresholds)** only. Status strings are **emitted at runtime** in the vocabulary below — never stored in `catalog.json`.
+**Authoring rule (§Q1.1/Q1.2):** Enrichment authors (`content_enrichment.json`) **`technique_id` + `required_evidence` (+ thresholds)** only. Status strings are **emitted at runtime** in the vocabulary below — never stored in enrichment records or `catalog.json`.
 
 **Target status vocabulary (runtime output only):**
 
@@ -450,11 +451,13 @@ A2 = reconciliation + additive hardening, **not** a breaking schema replacement.
 
 ### B1 — Content enrichment schema
 
-**Recommendation (least disruptive):** Add `content_enrichment` block **inside `use_cases/catalog.json`** for pilot use cases first. Reasons:
+**Shipped location (Batch 2, PR #5):** Pilot enrichment lives in **`backend/app/use_cases/content_enrichment.json`** — a sidecar keyed by `use_case_id`, loaded by `load_skill_enrichment(use_case_id)` without changing routing. `use_cases/catalog.json` owns routing (`mitre_registry`, `default_spl_template`, `primary_skill`, patterns); it has **no** inline `content_enrichment` blocks (0 occurrences by design).
 
-- Use cases already own `mitre_registry`, `default_spl_template`, `primary_skill`, RAG collections.
+**Why sidecar (not in-catalog):**
+
+- Keeps the routing catalog stable while enrichment grows (7 pilot records shipped; P3/P6/P7 **catalog routing rows** deferred per B8).
+- Use cases already own `mitre_registry`, `default_spl_template`, `primary_skill`, RAG collections in `catalog.json`.
 - `skills/catalog.json` stays execution-governance (18 skills); no duplicate authority.
-- **Phase 2 optional:** `backend/app/use_cases/enrichment/` sidecar JSON keyed by `use_case_id` if catalog grows too large — loaded by `load_skill_enrichment(use_case_id)` without changing routing.
 
 **Schema:**
 
@@ -526,11 +529,13 @@ Map from GitHub `domain`/`subdomain` but use our catalog `category` as secondary
 
 ---
 
-### B3 — MITRE technique expansion
+### B3 — MITRE precondition wiring (technique corpus shipped)
 
-Expand `mitre_attack_subset.json` for pilot techniques only. Sync `mitre_registry` and `mitre_evidence_preconditions.py` keys.
+**Current tree:** `mitre_attack_subset.json` carries **98 techniques** (`curated-subset-v4`) with **8** `curated_use_case_mappings` (includes P3/P6/P7 ids). Pilot anchor techniques (T1059.001, T1566*, T1071, T1486, etc.) are **already present** — bulk import is closed.
 
-Do **not** claim full ATT&CK coverage. Document version: `curated-pilot-v1` (separate from GitHub v19.1).
+**Remaining work:** extend `mitre_evidence_preconditions.py` for pilot-specific rows; remove `_status_for()` call site in `mitre_kb.py` (pairs with **A2**). Sync `mitre_registry` keys where catalog rows exist.
+
+Do **not** claim full ATT&CK coverage. Document version in subset metadata (`curated-subset-v4`), not a separate pilot-only file.
 
 ---
 
@@ -946,7 +951,7 @@ flowchart LR
 
 ### D7 — First batch tracking (7 mandatory GitHub skills)
 
-**Slice 0 (2026-06-06):** All seven records live in [`docs/skills/github_skill_intake_register.json`](../docs/skills/github_skill_intake_register.json). Summary table below; `implementation_status` flags remain `false` until Track B.
+**Slice 0 (2026-06-06):** Batch-1 **seven mandatory skills** recorded in [`docs/skills/github_skill_intake_register.json`](../docs/skills/github_skill_intake_register.json) (**12 records** total as of later intake growth). Summary table below covers the mandatory seven; `implementation_status` flags remain `false` until Track B runtime wiring (C3).
 
 Planning-time status for batch 1:
 
@@ -984,7 +989,7 @@ Planning-time status for batch 1:
 | `rejected_github_skills.md` | Avoid rework | Security review; onboarding |
 | `skill_coverage_matrix.json` | 105-question truth | Golden tests; governance regression; “are we improving coverage?” |
 
-**Track B** implements accepted skills into `use_cases/catalog.json` `content_enrichment` blocks.
+**Track B** implements accepted skills into **`content_enrichment.json`** records (keyed by `use_case_id`). Catalog routing rows in `use_cases/catalog.json` are updated separately when a pilot needs a new routable `use_case_id` (P3/P6/P7 catalog rows deferred per B8).
 **Track D** never writes to runtime — it records decisions and links GitHub `github_skill_id` → `use_case_id` → `question_id`.
 When a pilot moves to `content_added`, update D4 row, D1 `implementation_status`, and B9 matrix `implementation_status` / `test_status` together.
 
@@ -1204,10 +1209,10 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 | **6** | **Batch 6** | Real Splunk MCP safety contract (docs only) — **Done** |
 | **7** | **Batch 7** | Plan status review and gap audit — **Done** |
 | 1 | C1, C9 | State field spec + `node_trace` schema in docs — **Done** (Batch 4 runtime) |
-| 2 | A1 | HIL for mock MCP + response labels | **Done** (Batch 1 + O2) |
-| 3 | B9, **D5** | `skill_coverage_matrix.json` (≥105 monotonic `question_id`s) linked to intake register | **Baseline done** (O8); BL-004 joins forward |
-| 4 | B1 | Pydantic model + 2 pilot enrichments (P1, P2); update D4 status | Forward (§P) |
-| 5 | A2 | Expand KB + preconditions for P1/P2 techniques | **Partial** (O3 legacy `_status_for` removed); B3/B4 forward |
+| 2 | A1 | HIL for mock MCP + response labels |
+| 3 | B9, **D5** | `skill_coverage_matrix.json` (≥105 monotonic `question_id`s) linked to intake register |
+| 4 | B1 | Pydantic model + 2 pilot enrichments (P1, P2); update D4 status |
+| 5 | A2 | Remove `_status_for()`; expand KB for P1/P2 techniques |
 | 6 | C2, C3 | Split planning skill resolution + enrichment load (flag-gated) |
 | 7 | B6, A3 | Mark templates planned/active; PowerShell/beacon stubs |
 | 8 | P3–P7 | Remaining pilots + proposed use cases; sync D1 impl flags |
@@ -1250,7 +1255,7 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 - LLM SPL fallback in production
 - LLM → Splunk tool calling
 - Full ATT&CK mirror
-- Phishing/ransomware use cases in catalog (until P3/P7 schema proven)
+- Phishing/IR/ransomware catalog routing rows (P3/P6/P7 **enrichment shipped** in `content_enrichment.json`; `catalog.json` entries deferred per B8)
 - P8 lateral movement enrichment (optional — see D3 backlog BL-001–BL-003)
 - `graph/state.py` `InvestigationState` merge (separate investigation graph stub)
 - Bulk import of 754 skills into intake register (review incrementally via D6 workflow)
@@ -1276,6 +1281,22 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 
 ## O. Acceptance criteria
 
+### §O closeout summary (2026-07-01)
+
+| Area | Status | Evidence |
+|------|--------|----------|
+| §O acceptance loop | **Complete** | O1–O11 below (single checklist; no duplicate summary) |
+| Governance regression | **Pass** | `./scripts/run_stage3_governance_regression.sh` |
+| Backend pytest | **Pass** | `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q` |
+| Sentinel | **Pass** | `scripts/eval_sentinel.py --check` → 17/17 |
+| Tier-D answer quality | **Pass** | `scripts/eval_answer_quality.py --check` → 17/17 |
+| OT probe | **Pass** | `scripts/eval_out_of_catalog_ot_probe.py --check` → 6/6 |
+| Guided hybrid orchestrator | **Complete** | P13 `d1b78da`; P14 docs `347ca18`; plan [`2026-07-01_1545_guided-readonly-mcp-discovery-lane.md`](2026-07-01_1545_guided-readonly-mcp-discovery-lane.md) |
+| O3 MITRE status reconcile | **Complete** | `rg '_status_for\(' backend/app/threat/mitre_kb.py` → zero on closeout branch; batch3 + mitre_decision tests |
+| Forward roadmap §P / §K / §R | **Open** | Tracking table below; not closed by this acceptance loop |
+
+**Do not confuse with future work:** This closeout completes the **§O acceptance loop** only. It does **not** complete the forward implementation roadmap. §P / §K / §R remain the active backlog. The next practical slice is **S1a / BL-004** authoritative mapping curation unless reprioritized.
+
 ### Planning (this document)
 
 - [x] Four tracks documented (A–D)
@@ -1292,9 +1313,9 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 - [x] Dual skill semantics preserved
 - [x] No code changes; no runtime skill loading
 
-### Future implementation (loop checklist)
+### §O implementation loop (O1–O11) — CLOSED 2026-07-01
 
-> **§O acceptance loop — CLOSED 2026-07-01.** O1–O11 checked with evidence; `./scripts/run_stage3_governance_regression.sh` PASS. Forward implementation remains **§P / §K / §R** (not started in this closeout).
+> **Single source of truth** for runtime acceptance. Do not maintain a parallel unchecked bullet list — that caused two-writers-one-fact drift vs this block.
 
 **Stop conditions:** all items checked with evidence, same gate fails twice on one item, or explicit scope/COE decision needed.
 
@@ -1325,10 +1346,10 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
   - **Evidence:** 2026-07-01 — `config.py` default false; batch3 bypass test green. **Drift:** `env/profiles/coe.env.example` may enable fallback for lab — COE profile override, not prod default.
 
 - [x] **O5** — Seven pilots have `content_enrichment` + GitHub provenance
-  - **Do:** P1–P7 records in `content_enrichment.json` with `github_reference_skills`
+  - **Do:** P1–P7 records in `content_enrichment.json` with `github_reference_skills` (catalog routing rows for P3/P6/P7 deferred per B8)
   - **Verify:** `python3 -c "import json; r=json.load(open('backend/app/use_cases/content_enrichment.json'))['records']; pilots=['auth_failed_login_spike','auth_success_after_failure','email_phishing_header_review','edr_powershell_suspicious_command','dns_beaconing_candidate','soc_incident_triage','endpoint_ransomware_impact_review']; assert all(p in r for p in pilots)"`
-  - **Depends on:** B1 schema (Batch 2)
-  - **Evidence:** 2026-07-01 — assert passed (all 7 pilot keys present).
+  - **Depends on:** B1 schema (Batch 2 sidecar)
+  - **Evidence:** 2026-07-01 — assert passed (all 7 pilot keys present in sidecar).
 
 - [x] **O6** — GitHub intake register batch-1 (≥7 skills) with `repo_commit`
   - **Do:** D7 records in `docs/skills/github_skill_intake_register.json`
@@ -1383,36 +1404,36 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 | C9 | C | Node-level trace | `control_plane_trace` partial | N/A | Per-node input/output/decision in trace | `control_plane_trace.py`, `pipeline.py` | P0 | C1 | Trace snapshot tests | Proposed |
 | A1 | A | HIL mock MCP hardening | Batch 1 shipped | `triaging-security-alerts-in-splunk` disposition | Durable approval store for real MCP (forward) | `mcp_execution_gate.py`, `config.py`, `pipeline.py` | P0 | — | HIL matrix tests | **Done** (O2) |
 | B9 | B | Skill coverage matrix | S1a landed | `ATTACK_COVERAGE.md` pattern | BL-004 curation for use-case joins | `docs/evals/skill_coverage_matrix.json` + generator | P0 | — | `--check` 105 rows | **Done** (baseline) |
-| B1 | B | content_enrichment schema | Use cases lack enrichment block | SKILL.md frontmatter | Add block to `use_cases/catalog.json`; Pydantic model | `catalog.json`, `models.py` | P0 | — | Catalog validation test | Proposed |
-| B2 | B | Domain taxonomy | `category` only | GitHub domain/subdomain | Normalize domains for pilots | `catalog.json` | P1 | B1 | — | Proposed |
-| B3 | B | MITRE KB pilot expand | 4 techniques | 7 reference skills' mitre_attack lists | Add T1059.001, T1566.*, T1071, T1486, etc. | `mitre_attack_subset.json` | P1 | B1 | `test_mitre_decision_runtime.py` | Proposed |
-| B4 | B | Evidence requirements | Partial preconditions | Prerequisites sections | Per-use-case required/optional/thresholds | `catalog.json`, `mitre_evidence_preconditions.py` | P0 | B1 | `test_negative_evidence_extractor.py` | Proposed |
-| B5 | B | Investigation workflows | Generic blueprints only | Workflow sections | 8-step workflow arrays in enrichment | `catalog.json` | P1 | B1 | Demo scenario tests | Proposed |
+| B1 | B | content_enrichment schema | **Sidecar shipped** (7 pilots in `content_enrichment.json`) | SKILL.md frontmatter | Pydantic model + loader validation; optional catalog rows for P3/P6/P7 | `content_enrichment.json`, `models.py` | P0 | — | Enrichment schema/loader test | **Partial** |
+| B2 | B | Domain taxonomy | `category` only | GitHub domain/subdomain | Normalize domains for pilots | `content_enrichment.json`, `catalog.json` | P1 | B1 | — | Proposed |
+| B3 | B | MITRE precondition wiring | **98 techniques** shipped (`curated-subset-v4`); T1059.001/T1566*/T1071/T1486 present | Reference skills | Extend `mitre_evidence_preconditions` + remove `_status_for()` (pairs with A2) — **not** bulk technique import | `mitre_kb.py`, `mitre_evidence_preconditions.py` | P1 | B1, A2 | `test_mitre_decision_runtime.py` | **Partial** |
+| B4 | B | Evidence requirements | Partial preconditions | Prerequisites sections | Per-use-case required/optional/thresholds in sidecar | `content_enrichment.json`, `mitre_evidence_preconditions.py` | P0 | B1 | `test_negative_evidence_extractor.py` | Proposed |
+| B5 | B | Investigation workflows | Generic blueprints only | Workflow sections | 8-step workflow arrays in enrichment sidecar | `content_enrichment.json` | P1 | B1 | Demo scenario tests | Proposed |
 | B6 | B | SPL template activation | planned/null templates | Splunk/beacon/PS skills | active/planned/unavailable per template | `spl/templates.json` | P1 | B1 | `test_spl_generation_stage.py` | Proposed |
-| B7 | B | Analyst answer rules | Demo fixtures only | Expected Output | answer_rules + limitations per pilot | `catalog.json`, `answer_contract.py` | P1 | B1 | `test_answer_contract.py` | Proposed |
+| B7 | B | Analyst answer rules | Demo fixtures only | Expected Output | answer_rules + limitations per pilot in sidecar | `content_enrichment.json`, `answer_contract.py` | P1 | B1 | `test_answer_contract.py` | Proposed |
 | B8 | B | 105 dual-skill compatibility | Golden misalignment risk | N/A | Matrix columns; don't overwrite proposed_primary_skill | `question_runtime_map_v1.json`, matrix JSON | P1 | B9 | `test_golden_answer_runner.py` | Proposed |
 | A2 | A | MITRE evidence status | O3 legacy shim removed | Reference skills | B3/B4 expand preconditions to all use cases | `mitre_kb.py`, `mitre_decision.py` | P0 | B3, B4, P1-P7 | Pilot MITRE tests | **Partial** (O3) |
 | A3 | A | SPL governance | LLM fallback disabled | Splunk triage skill | Template-family + lab-only fallback | `spl_validator.py`, `llm_fallback.py` | P1 | B6, C4 | `test_llm_spl_fallback.py` | Proposed |
 | A4 | A | Splunk MCP safety plan | NotImplementedError | N/A | COE checklist doc only | `splunk_mcp.py`, docs | P3 | A1, A3 | — | Deferred |
-| A5 | A | Session memory | No backend memory | N/A | session_id + structured pins in `chat/session_store.py` | `requests.py`, `session_store.py`, `pipeline.py`, frontend client | P2 | C1, B5 | Session follow-up tests | Proposed |
+| A5 | A | Session memory | Batch 5 pins shipped | N/A | Durable multi-worker session store (§P) | `session_store.py`, `pipeline.py` | P2 | C1, B5 | `test_batch5_session_context.py` | **Partial** (O11) |
 | A6 | A | Answer guard lab | Flag off | Limitations sections | Enable in lab; HIL on block | `answer_guard/runner.py`, `config.py` | P1 | B7, C8 | `test_p6_guarded_synthesis_lab.py` | Proposed |
 | C2 | C | Split route vs planning | Mixed in init_routing | N/A | `route_live_skill` + `resolve_planning_skill` nodes | `pipeline.py`, `chat_workflow.py` | P1 | B8, C1 | Parity tests | Proposed |
-| C3 | C | Evidence plan node | `graph_node_evidence_planning` basic | N/A | Enrichment-aware evidence plan | `evidence_planner.py`, `pipeline.py` | P1 | B1, B4 | `test_control_plane_behavior_matrix.py` | Proposed |
+| C3 | C | Evidence plan node | Basic planner exists | N/A | Enrichment-aware evidence plan + runtime load (§P) | `evidence_planner.py`, `pipeline.py` | P1 | B1, B4 | `test_control_plane_behavior_matrix.py` | **Partial** |
 | C4 | C | SPL node split | Combined workflow_spl | N/A | select/bind/validate/execution_decision | `pipeline.py` | P1 | A3, B6 | SPL stage tests | Proposed |
 | C5 | C | MITRE evidence node | Inside context_finalize | N/A | `resolve_mitre_evidence_status` node | `mitre_decision.py`, `pipeline.py` | P1 | A2 | MITRE pilot tests | Proposed |
 | C6 | C | Severity node formalize | `decide_severity()` inline | N/A | Explicit node; conservative on missing evidence | `severity_policy.py`, `pipeline.py` | P2 | C3 | Severity tests | Proposed |
 | C7 | C | RAG/SOP node | `graph_node_rag_early` | IR playbook (SOP only) | `retrieve_sop_context` with rag_doc_ids | `soc_kb_retriever.py` | P1 | B1 | `test_soc_kb_*` | Proposed |
 | C8 | C | Answer node split | finalize monolith | N/A | contract → summary → guard → validate → envelope | `pipeline.py`, `analyst_response_builder.py` | P1 | A6, B7 | Final answer validator tests | Proposed |
 | C10 | C | Backward compat | PlaceholderResponse stable | N/A | Additive fields only | `responses.py`, `api.ts` | P0 | C1 | Frontend build | Proposed |
-| P1 | B | Pilot auth_failed_login_spike | Catalog entry basic | detecting-rdp-brute-force + splunk triage | Full enrichment §I P1; update D4 | `catalog.json`, templates | P0 | B1, B4, D7 | Behavior matrix auth | Proposed |
-| P2 | B | Pilot auth_success_after_failure | Catalog entry basic | Same | Full enrichment §I P2; update D4 | `catalog.json` | P0 | P1, D7 | MITRE success-after-failure tests | Proposed |
-| P3 | B | Pilot phishing | **No use case yet** | email-headers skill | Propose `email_phishing_header_review` | catalog, templates | P1 | B1 | New routing tests | Proposed |
-| P4 | B | Pilot PowerShell | No template | anomalous-powershell skill | Enrichment + planned template | `catalog.json`, templates | P1 | B6 | SPL tests | Proposed |
-| P5 | B | Pilot beaconing | Template planned | c2-beaconing skill | Enrichment + planned template | `catalog.json`, templates | P1 | B6 | SPL tests | Proposed |
-| P6 | B | Pilot IR triage | Partial via soc_show_sop | ir-playbook skill | Propose `soc_incident_triage` or extend SOP | catalog, RAG | P1 | B1 | Demo + knowledge tests | Proposed |
-| P7 | B | Pilot ransomware | **No use case yet** | ransomware-encryption skill | Propose `endpoint_ransomware_impact_review` | catalog, templates | P1 | B1 | MITRE T1486 tests | Proposed |
+| P1 | B | Pilot auth_failed_login_spike | Catalog + enrichment shipped | detecting-rdp-brute-force + splunk triage | Full enrichment §I P1; update D4 | `content_enrichment.json`, `catalog.json`, templates | P0 | B1, B4, D7 | Behavior matrix auth | **Partial** |
+| P2 | B | Pilot auth_success_after_failure | Catalog + enrichment shipped | Same | Full enrichment §I P2; update D4 | `content_enrichment.json`, `catalog.json` | P0 | P1, D7 | MITRE success-after-failure tests | **Partial** |
+| P3 | B | Pilot phishing | **Enrichment landed**; catalog row deferred | email-headers skill | Add `email_phishing_header_review` to `catalog.json` when B8 routing ready | `content_enrichment.json`, catalog, templates | P1 | B1, B8 | New routing tests | **Partial** |
+| P4 | B | Pilot PowerShell | Catalog + enrichment shipped | anomalous-powershell skill | Enrichment + planned template | `content_enrichment.json`, `catalog.json`, templates | P1 | B6 | SPL tests | **Partial** |
+| P5 | B | Pilot beaconing | Catalog + enrichment shipped | c2-beaconing skill | Enrichment + planned template | `content_enrichment.json`, `catalog.json`, templates | P1 | B6 | SPL tests | **Partial** |
+| P6 | B | Pilot IR triage | **Enrichment landed**; catalog row deferred | ir-playbook skill | Add `soc_incident_triage` to `catalog.json` when B8 routing ready | `content_enrichment.json`, catalog, RAG | P1 | B1, B8 | Demo + knowledge tests | **Partial** |
+| P7 | B | Pilot ransomware | **Enrichment landed**; catalog row deferred | ransomware-encryption skill | Add `endpoint_ransomware_impact_review` to `catalog.json` when B8 routing ready | `content_enrichment.json`, catalog, templates | P1 | B1, B8 | MITRE T1486 tests | **Partial** |
 | P8 | B | Optional lateral movement | `edr_lateral_movement_candidate` exists | detecting-lateral-movement-with-splunk | Optional enrichment | catalog | P3 | P1-P7 | — | Deferred |
-| G1 | A+B+C+D | Governance regression | O1 green | N/A | Keep green after each §P slice | `scripts/run_stage3_governance_regression.sh` | P0 | All | Full regression | **Done** (O1) |
+| G1 | A+B+C+D | Governance regression | Baseline green | N/A | No regressions after each phase | `scripts/run_stage3_governance_regression.sh` | P0 | All | Full regression | Proposed |
 
 ### Proposed Track D tracking files (summary)
 
@@ -1462,10 +1483,10 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 - **Bug:** A2 defines a 5-value controlled vocabulary (`candidate`, `evidence_supported`, `requires_validation`, `not_claimed`, `ruled_out`). B1 uses `{status_default: "candidate", evidence_required: [...]}`. §I pilots invent free-form compound strings (`not_claimed_without_spray_pattern`, `evidence_supported_when: [fail_count_gte_threshold]`). An implementer has no single shape to code against.
 - **Fix:** Pick one representation — recommend: status is **never** authored, only the A2 vocabulary is emitted at runtime by `resolve_mitre_decision`; the catalog authors only `technique_id` + `required_evidence` (+ optional `thresholds`). Replace every `default:`/`status_default:`/`evidence_supported_when:` form in §I and B1 with that single shape. Add a catalog-validation test asserting no enrichment row carries a status string outside the A2 enum.
 
-**Q1.3 — `_status_for()` cleanup = reconcile, not rebuild. [High]** — **Applied §A2, §D; closed §O O3 (2026-07-01).**
+**Q1.3 — `_status_for()` cleanup = reconcile, not rebuild. [High]** — **Applied §A2, §D.**
 
-- **Evidence (2026-06 review):** `mitre_kb.py` previously defined `_status_for()` and called it for non-pilot use cases.
-- **Fix (shipped O3):** Removed `_status_for()` / `_legacy_evidence_status_for()`; pilots use `evaluate_pilot_mitre_evidence_status`; non-pilot fail-closed to `requires_validation`. **§P forward:** B3/B4 expand preconditions beyond pilots.
+- **Evidence:** `backend/app/threat/mitre_kb.py:72` still defines `_status_for(use_case_id, technique_id)` and `mitre_kb.py:56` still calls it. So hardcoded status **and** the data-driven precondition module currently coexist (the D-table "Mixed hardcoded + preconditions" note is accurate).
+- **Fix:** A2 should explicitly state its job is to **remove the remaining `_status_for()` call site** and route through `mitre_decision.resolve_mitre_decision` / `mitre_evidence_preconditions`, not to author a new vocabulary from scratch (the vocabulary largely exists). Add a regression test that `_status_for` is unreferenced after the change.
 
 **Q1.4 — Mis-attributed file paths; an implementer cannot resolve them. [High]**
 
@@ -1505,14 +1526,14 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 
 | Claim checked | Result |
 |---------------|--------|
-| Mock success returns `no_human_review()` | **Superseded** — Batch 1 + O2 require HIL when flag on |
-| `_status_for()` in `mitre_kb.py` | **Superseded** — removed §O O3 (2026-07-01) |
+| Mock success returns `no_human_review()` | **Confirmed** — `mcp_execution_gate.py:140` |
+| `_status_for()` still live | **Confirmed** — `mitre_kb.py:72` (called at `:56`) |
 | Preconditions module replaced not-claimed hardcoding | **Confirmed** — module docstring |
 | `contracts/skill_enum.py` exists | **Confirmed** — repo root; but `validate_skill` is in `backend/app/routing/skills.py` |
 | `answer_contract.py` path | **Corrected** — `backend/app/chat/contracts/answer_contract.py` |
 | `quality/store.py` is the answer-quality ledger | **Confirmed** |
 | EC path early-returns before gate | **Confirmed** — `routes_chat.py` EC branch vs `build_live_chat_response` |
-| MITRE subset technique count = 4 | **Confirmed** |
+| MITRE subset technique count = 4 | **Stale** — subset is **98 techniques** (`curated-subset-v4`), **8** `curated_use_case_mappings`; see §D MITRE KB row |
 | `EXECUTION_ELIGIBLE_SKILLS` = {attack_discovery, spl_generation} | **Confirmed** — `mcp_tool_selector.py:10` |
 
 ---
@@ -1526,15 +1547,15 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 | Slice | ID | Type | Runtime risk | Gate before merge |
 |-------|-----|------|--------------|-------------------|
 | **S0** | D1–D4, README | docs | none | files valid; **DONE** |
-| **S1a** | B9 | docs/JSON + generator script | none (read-only generator) | **DONE** (O8) |
-| **S1b** | C1/C9 | docs (state v2 + node_trace spec) | none | spec landed — runtime refactor still §P |
-| **S2** | A1 | **runtime** (HIL on mock MCP) | **behavior change** | **DONE** (Batch 1 + O2) |
+| **S1a** | B9 | docs/JSON + generator script | none (read-only generator) | matrix covers full 105 corpus; generator deterministic; no backend import |
+| **S1b** | C1/C9 | docs (state v2 + node_trace spec) | none | spec only; zero code touched |
+| **S2** | A1 | **runtime** (HIL on mock MCP) | **behavior change** | governance regression green; HIL matrix tests pass |
 | **S3** | B1 + P1/P2 | runtime (enrichment schema + 2 pilots) | additive | catalog validation test; preconditions-driven (no `not_claimed_defaults`) |
-| **S4** | A2 | runtime (MITRE reconcile) | additive | **Partial** — O3 legacy removed; B3/B4 expansion forward |
+| **S4** | A2 | runtime (MITRE reconcile) | additive | `_status_for` unreferenced; pilot MITRE tests |
 | **S5** | C2/C3 | runtime (node split, flag-gated default off) | flagged | LangGraph parity test |
 | **S6+** | B6/A3, P3–P7, C4/C5/C8, A6, A5 | runtime | per §L | per-item tests + regression |
 
-**S1a/S1b/S2 and §O O1–O11 are done.** Next §P slices (explicit scope approval): **S3** (B1 + runtime enrichment wiring), **S5** (C2/C3), or **BL-004** curation for D5 joins — do not batch without go-ahead.
+**S1a and S1b are independent and docs-only → parallelizable now.** S2 onward is serial (each depends on prior runtime state) and each needs explicit go-ahead since it changes behavior.
 
 ### R.2 — Per-slice definition of done
 
@@ -1563,7 +1584,7 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 
 ### R.5 — Immediate next action
 
-§O acceptance loop closed (2026-07-01). **Do not start §P implementation without explicit scope approval.** Candidate next slices: **S3** (B1 + P1/P2 runtime), **S5** (C2/C3 flag-gated), or **BL-004** (D5 matrix joins). See [`docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md`](../docs/reviews/ai_soc_plan_status_review_after_batches_1_6.md).
+Execute **S1a (B9)** and **S1b (C1/C9)** in parallel (docs-only, zero governance risk), review, commit as two scoped commits. Then stop for go-ahead on **S2 (A1)** — first behavior change.
 
 ### R.6 — Execution log + findings (2026-06-06)
 
@@ -1575,7 +1596,7 @@ Track C phase 0 (C1/C9) precedes behavior changes so trace fields exist before H
 
 **S1b (C1/C9) — landed.** `docs/architecture/chat_pipeline_state_v2_and_node_trace.md` (spec only). Reconciliation findings vs the plan's C1/C9 text (all verified against code):
 
-- `ChatPipelineState` has **38 fields**, not "~30" (`pipeline.py:89–127`).
+- `ChatPipelineState` has **62 fields**, not "~30" or the earlier **38** (`pipeline.py:282–345`; verify at implementation).
 - Node sequence is **9 nodes with an `rag_only` branch**, not linear; LangGraph wrapper mirrors the same 9 functions for parity (`graph/chat_workflow.py`), gated by `langgraph_orchestration_enabled` (default false).
 - `answer_guard_result` (C1) **duplicates** the existing `answer_guard` field — drop it.
 - `final_answer_validation` already exists as a response field (`responses.py:393`); only its promotion to a state key is new.
