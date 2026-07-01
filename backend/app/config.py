@@ -267,6 +267,8 @@ class Settings(BaseSettings):
     ai_soc_t2_rag_surfacing_enabled: bool = False
     # Phase 4/5: curated enrichment activation for runtime evidence/planner paths. Default off.
     ai_soc_curated_enrichment_activation_enabled: bool = False
+    # S3 master-plan alias: runtime enrichment loader gate (default off; OR with curated flag).
+    ai_soc_runtime_enrichment_enabled: bool = False
     ai_soc_llm_reasoning_provider: str = ""
     ai_soc_llm_reasoning_model: str = ""
     ai_soc_llm_synthesis_provider: str = ""
@@ -352,6 +354,8 @@ class Settings(BaseSettings):
     # Hard kill-switches. Default false; no synthesis or answer guard exists yet.
     ai_soc_llm_final_synthesis_enabled: bool = False
     ai_soc_llm_answer_guard_enabled: bool = False
+    # S6c — lab-only Answer Guard alias (OR with ai_soc_llm_answer_guard_enabled).
+    ai_soc_answer_guard_lab_enabled: bool = False
     # When true (and final synthesis is on, mode is not mock/disabled, and a
     # local/openai-compatible endpoint is configured), the live-chat synthesis
     # narrates the analyst summary with the real model instead of the
@@ -394,6 +398,11 @@ class Settings(BaseSettings):
     # Batch 5 — lightweight investigation session pins (structured only, no transcript).
     ai_soc_session_context_enabled: bool = True
     ai_soc_session_context_ttl_minutes: int = 30
+    # S6d — durable session pin store backend: memory (default) or file.
+    ai_soc_session_store_backend: str = "memory"
+    ai_soc_session_store_file_dir: str = "/tmp/ai_soc_session_pins"
+    # S5 — split live route skill from planning skill (trace-only; default off).
+    ai_soc_pipeline_split_routing_nodes_enabled: bool = False
 
     embeddings_mode: str = "mock"
     telemetry_mode: str = "db"
