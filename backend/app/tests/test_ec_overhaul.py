@@ -120,6 +120,17 @@ def test_unknown_query_resolves_to_none() -> None:
     assert S.resolve_demo_scenario_id_for_query("what is the capital of france") is None
 
 
+def test_firewall_deny_display_query_matches_with_or_without_trailing_period() -> None:
+    with_period = (
+        "We have more than 5,000 firewall blocks in the last hour and a successful breach "
+        "on an internal server account — summarize top offenders and assess whether this "
+        "looks coordinated."
+    )
+    without_period = with_period.rstrip(".")
+    assert S.resolve_demo_scenario_id_for_query(with_period) == "firewall_deny_coordinated_attack"
+    assert S.resolve_demo_scenario_id_for_query(without_period) == "firewall_deny_coordinated_attack"
+
+
 # --- Phase 4 / Track D2: multi-turn MITRE FSM -----------------------------------
 
 

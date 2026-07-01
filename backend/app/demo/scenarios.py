@@ -133,6 +133,14 @@ def _normalize_query(text: str) -> str:
     return extract_query_signals(text)["normalized_query"]
 
 
+def _alias_lookup_variants(normalized: str) -> tuple[str, ...]:
+    """Normalized phrases that should resolve to the same Experience Center scenario."""
+    stripped = normalized.rstrip(".?!")
+    if stripped == normalized:
+        return (normalized,)
+    return (normalized, stripped)
+
+
 def _build_alias_index() -> dict[str, str]:
     """Map every normalized {query} ∪ {aliases} phrase to exactly one scenario id.
 
@@ -148,21 +156,22 @@ def _build_alias_index() -> dict[str, str]:
             normalized = _normalize_query(phrase)
             if not normalized:
                 continue
-            existing = index.get(normalized)
-            if existing is not None and existing != scenario.scenario_id:
-                collisions.setdefault(normalized, [existing]).append(scenario.scenario_id)
-                # Deterministic tie-breaker (defense-in-depth): keep the lexicographically
-                # smallest scenario id so resolution stays stable even under collision.
-                winner = min(existing, scenario.scenario_id)
-                _logger.error(
-                    "experience_center_alias_collision normalized=%r scenarios=%s tiebreak_winner=%s",
-                    normalized,
-                    sorted({existing, scenario.scenario_id}),
-                    winner,
-                )
-                index[normalized] = winner
-            else:
-                index[normalized] = scenario.scenario_id
+            for variant in _alias_lookup_variants(normalized):
+                existing = index.get(variant)
+                if existing is not None and existing != scenario.scenario_id:
+                    collisions.setdefault(variant, [existing]).append(scenario.scenario_id)
+                    # Deterministic tie-breaker (defense-in-depth): keep the lexicographically
+                    # smallest scenario id so resolution stays stable even under collision.
+                    winner = min(existing, scenario.scenario_id)
+                    _logger.error(
+                        "experience_center_alias_collision normalized=%r scenarios=%s tiebreak_winner=%s",
+                        variant,
+                        sorted({existing, scenario.scenario_id}),
+                        winner,
+                    )
+                    index[variant] = winner
+                else:
+                    index[variant] = scenario.scenario_id
     if collisions:
         detail = ", ".join(
             f"{phrase!r}->{sorted(set(ids))}" for phrase, ids in collisions.items()
@@ -1623,6 +1632,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     if scenario.scenario_id == "cert_in_ot_reporting_obligation":
         return {
             **base,
+            "response_profile": "knowledge_recall",
+            "spl_status": "not_required",
             "retrieved_playbook": None,
             "sop_guidance": None,
             "finding_title": "CERT-In 6-hour OT incident reporting obligation",
@@ -1952,6 +1963,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     if scenario.scenario_id == "guided_investigation_supply_chain":
         return {
             **base,
+            "response_profile": "knowledge_recall",
+            "spl_status": "not_required",
             "retrieved_playbook": None,
             "sop_guidance": None,
             "status_badge": "Out-of-catalog - guided review only",
@@ -1976,6 +1989,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     if scenario.scenario_id == "ot_modbus_scada_rtu_anomaly":
         return {
             **base,
+            "response_profile": "knowledge_recall",
+            "spl_status": "not_required",
             "retrieved_playbook": None,
             "sop_guidance": None,
             "status_badge": "OT/ICS - guided review only",
@@ -2000,6 +2015,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     if scenario.scenario_id == "ot_hmi_unauthorized_access":
         return {
             **base,
+            "response_profile": "knowledge_recall",
+            "spl_status": "not_required",
             "retrieved_playbook": None,
             "sop_guidance": None,
             "status_badge": "OT/ICS - guided review only",
