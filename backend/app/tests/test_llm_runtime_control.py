@@ -98,3 +98,25 @@ def test_runtime_health_disabled_is_reported_not_raised(monkeypatch) -> None:
     monkeypatch.setattr("app.config.settings.ai_soc_llm_mode", "disabled")
     out = rh.measure_runtime()
     assert out["healthy"] is False and out["reason"] == "llm_disabled"
+
+
+def test_control_status_endpoint_fast(monkeypatch, tmp_path) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.auth.session import require_auth
+    from app.main import app
+
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_control_enabled", True)
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_control_dir", str(tmp_path))
+    (tmp_path / "last_result.json").write_text('{"action": "restart", "ok": true}')
+
+    app.dependency_overrides[require_auth] = lambda: {"username": "test", "role": "admin"}
+    try:
+        response = TestClient(app).get("/settings/llm/control-status")
+    finally:
+        app.dependency_overrides.pop(require_auth, None)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["control_available"] is True
+    assert payload["last_control_result"]["action"] == "restart"

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, RefreshCw, Power, RotateCcw, Play } from 'lucide-react';
 import { toast } from 'sonner';
-import { controlLlm, getLlmRuntimeHealth, type LlmRuntimeHealth } from '@/api/client';
+import { controlLlm, getLlmControlStatus, getLlmRuntimeHealth, type LlmControlStatus, type LlmRuntimeHealth } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,23 +19,35 @@ const REASON_TONE: Record<string, string> = {
 
 export function LlmRuntimeHealthPanel() {
   const [health, setHealth] = useState<LlmRuntimeHealth | null>(null);
+  const [controlStatus, setControlStatus] = useState<LlmControlStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+
+  const refreshControl = useCallback(async () => {
+    try {
+      setControlStatus(await getLlmControlStatus());
+    } catch {
+      setControlStatus(null);
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setHealth(await getLlmRuntimeHealth());
+      const [nextHealth] = await Promise.all([getLlmRuntimeHealth(), refreshControl()]);
+      setHealth(nextHealth);
     } catch (err) {
       toast.error(`LLM health probe failed: ${(err as Error).message}`);
+      void refreshControl();
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshControl]);
 
   useEffect(() => {
+    void refreshControl();
     void refresh();
-  }, [refresh]);
+  }, [refresh, refreshControl]);
 
   const control = async (action: 'restart' | 'stop' | 'start') => {
     if (action !== 'start' && !window.confirm(`Confirm: ${action} the LLM service? In-flight generations will be interrupted.`)) {
@@ -45,7 +57,10 @@ export function LlmRuntimeHealthPanel() {
     try {
       await controlLlm(action);
       toast.success(`LLM ${action} requested — host watcher will apply it shortly.`);
-      window.setTimeout(() => void refresh(), 4000);
+      window.setTimeout(() => {
+        void refreshControl();
+        void refresh();
+      }, 4000);
     } catch (err) {
       toast.error(`LLM ${action} failed: ${(err as Error).message}`);
     } finally {
@@ -55,7 +70,7 @@ export function LlmRuntimeHealthPanel() {
 
   const tone = health ? REASON_TONE[health.reason] ?? REASON_TONE.rate_unknown : REASON_TONE.rate_unknown;
   const rate = health?.tok_per_s;
-  const controlOn = Boolean(health?.control_available);
+  const controlOn = Boolean(controlStatus?.control_available ?? health?.control_available);
 
   return (
     <Card className="soc-panel">
@@ -116,10 +131,10 @@ export function LlmRuntimeHealthPanel() {
               </span>
             )}
           </div>
-          {health?.last_control_result ? (
+          {controlStatus?.last_control_result ?? health?.last_control_result ? (
             <p className="mt-2 text-[0.65rem] text-slate-500">
-              Last action: {String((health.last_control_result as { action?: string }).action ?? '?')} ·{' '}
-              {(health.last_control_result as { ok?: boolean }).ok ? 'applied' : 'failed'}
+              Last action: {String(((controlStatus?.last_control_result ?? health?.last_control_result) as { action?: string }).action ?? '?')} ·{' '}
+              {((controlStatus?.last_control_result ?? health?.last_control_result) as { ok?: boolean }).ok ? 'applied' : 'failed'}
             </p>
           ) : null}
         </div>

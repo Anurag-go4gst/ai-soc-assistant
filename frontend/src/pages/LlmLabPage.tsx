@@ -14,8 +14,8 @@ import {
   Wand2,
   Zap,
 } from 'lucide-react';
-import { askLlmLab, controlLlm, getLlmLabStatus, getLlmRuntimeHealth } from '@/api/client';
-import type { LlmLabAnswer, LlmLabStatus, LlmRuntimeHealth } from '@/api/client';
+import { askLlmLab, controlLlm, getLlmControlStatus, getLlmLabStatus, getLlmRuntimeHealth } from '@/api/client';
+import type { LlmControlStatus, LlmLabAnswer, LlmLabStatus, LlmRuntimeHealth } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 export function LlmLabPage() {
   const [status, setStatus] = useState<LlmLabStatus | null>(null);
   const [health, setHealth] = useState<LlmRuntimeHealth | null>(null);
+  const [controlStatus, setControlStatus] = useState<LlmControlStatus | null>(null);
   const [prompt, setPrompt] = useState('');
   const [result, setResult] = useState<LlmLabAnswer | null>(null);
   const [asking, setAsking] = useState(false);
@@ -40,6 +41,10 @@ export function LlmLabPage() {
     void getLlmRuntimeHealth().then(setHealth).catch(() => setHealth(null));
   };
 
+  const loadControlStatus = () => {
+    void getLlmControlStatus().then(setControlStatus).catch(() => setControlStatus(null));
+  };
+
   useEffect(() => {
     void getLlmLabStatus()
       .then((s) => {
@@ -47,8 +52,12 @@ export function LlmLabPage() {
         setSelectedModel(s.active_model ?? s.available_models[0] ?? '');
       })
       .catch(() => setStatus(null));
+    loadControlStatus();
     loadHealth();
-    const id = window.setInterval(loadHealth, 30_000);
+    const id = window.setInterval(() => {
+      loadControlStatus();
+      loadHealth();
+    }, 30_000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -96,7 +105,10 @@ export function LlmLabPage() {
       await controlLlm('restart');
       setRestartNote('Restart requested — service is coming back up, this can take ~30–60s.');
       // Re-probe shortly so the health cards reflect the bounce.
-      window.setTimeout(loadHealth, 8_000);
+      window.setTimeout(() => {
+        loadControlStatus();
+        loadHealth();
+      }, 8_000);
     } catch (err) {
       setRestartNote(err instanceof Error ? err.message : 'Restart request failed');
     } finally {
@@ -113,6 +125,7 @@ export function LlmLabPage() {
   };
 
   const available = status?.available ?? false;
+  const controlAvailable = controlStatus?.control_available ?? health?.control_available ?? false;
 
   return (
     <ScrollArea className="h-full">
@@ -145,10 +158,10 @@ export function LlmLabPage() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={restarting || !(health?.control_available ?? false)}
+                  disabled={restarting || !controlAvailable}
                   onClick={() => void onRestart()}
                   title={
-                    health?.control_available
+                    controlAvailable
                       ? 'Gracefully restart the on-prem LLM service'
                       : 'LLM control is disabled on this deployment'
                   }
