@@ -3985,7 +3985,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         path_type=path_type,
         answer_contract=answer_contract,
     )
-    message, analyst_response = apply_guidance_summary_render(
+    analyst_response, message = apply_guidance_summary_render(
         analyst_response,
         message,
         path_type=path_type,
