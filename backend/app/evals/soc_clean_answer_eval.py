@@ -233,6 +233,15 @@ def _answer_text(response: Any) -> str:
     parts: list[str] = []
     analyst = response.analyst_response
     if analyst is not None:
+        # The frontend card only ever renders one of these two fields, picking
+        # direct_answer_summary with one_sentence_finding as its fallback
+        # (AnalystResponseCard.tsx: `direct_answer_summary ?? one_sentence_finding`).
+        # one_sentence_finding is a truncated copy of the same text when both are
+        # set, so appending both here double-counts the governed SPL preamble.
+        has_direct_summary = bool(
+            isinstance(getattr(analyst, "direct_answer_summary", None), str)
+            and str(getattr(analyst, "direct_answer_summary")).strip()
+        )
         for field in (
             "direct_answer_summary",
             "one_sentence_finding",
@@ -243,6 +252,8 @@ def _answer_text(response: Any) -> str:
             "review_notice",
             "spl_status",
         ):
+            if field == "one_sentence_finding" and has_direct_summary:
+                continue
             value = getattr(analyst, field, None)
             if isinstance(value, str) and value.strip():
                 parts.append(value)

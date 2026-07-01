@@ -10,11 +10,13 @@ from pathlib import Path
 
 import pytest
 
+from app.chat.pipeline import build_live_chat_response
 from app.evals.langgraph_dual_parity import build_parity_index, run_dual_parity_eval
 from app.evals.soc_clean_answer_eval import (
     ANSWERS_SCHEMA_VERSION,
     EXPECTED_105_COUNT,
     SCHEMA_VERSION,
+    _answer_text,
     build_answers_report,
     classify_clean_response,
     final_verdict,
@@ -25,6 +27,7 @@ from app.evals.soc_clean_answer_eval import (
     validate_check_report,
     write_clean_answer_outputs,
 )
+from app.schemas.requests import ChatRequest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "run_soc_clean_answer_eval.py"
@@ -296,6 +299,23 @@ def test_final_verdict_mapping() -> None:
     assert final_verdict("display", source="105_map") == "REVIEW"
     assert final_verdict("major", source="manual") == "FAIL"
     assert final_verdict("pass", source="manual", timed_out=True) == "REVIEW"
+
+
+def test_auth_failed_login_spike_spl_preamble_appears_once() -> None:
+    """Regression: eval extractor must not double-count the governed SPL preamble.
+
+    direct_answer_summary and one_sentence_finding are fallback alternatives on
+    the analyst card (AnalystResponseCard.tsx renders `direct_answer_summary ??
+    one_sentence_finding`, never both) — _answer_text must not append both.
+    """
+    response = build_live_chat_response(
+        ChatRequest(message="Investigate a spike of failed logins for a user/source")
+    )
+    text = _answer_text(response)
+    assert text.count("Governed SPL draft ready") == 1
+    assert "has not been performed" in text or "has not been executed" in text
+    assert response.execution.status != "executed"
+    assert response.analyst_response is not None
 
 
 def test_cli_check_passes_on_subset() -> None:
