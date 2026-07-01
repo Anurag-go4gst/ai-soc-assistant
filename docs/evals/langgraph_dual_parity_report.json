@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-26T13:09:27.015138+00:00",
+  "generated_at": "2026-07-01T18:22:12.165887+00:00",
   "profile": {
     "ai_soc_curated_enrichment_activation_enabled": true,
     "ai_soc_langgraph_shadow_enabled": true,
@@ -26,6 +26,15 @@
         "evidence_plan": {
           "action_mode": "recommend_only",
           "answer_mode": "live_investigation",
+          "answer_pack_summary": {
+            "case_id": "auth_failed_login_spike",
+            "mitre_candidate_status": "candidate_only",
+            "provenance": "coe_reviewed_answer_pack_seed",
+            "raw_llm_prose_loaded": false,
+            "review_status": "reviewed",
+            "runtime_authority": "evidence_plan_enrichment_only",
+            "spl_family_suggestion_loaded": true
+          },
           "answer_rules": [
             "Do not claim account compromise from failed logins alone.",
             "Mark brute force as evidence-supported only after threshold evidence exists.",
@@ -38,9 +47,12 @@
             "Review asset or account criticality before severity claims."
           ],
           "correlation": null,
+          "discovery_allowed": null,
           "enrichment_driven": true,
           "evidence_legs": [],
           "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
+          "freeform_spl_execution_allowed": null,
+          "investigation_planning_enabled": null,
           "investigation_workflow": [
             "Scope authentication failures by user, source, host, and time window.",
             "Confirm threshold evidence before labeling brute-force activity evidence-supported.",
@@ -49,9 +61,16 @@
           ],
           "limitations": [
             "Failed login telemetry alone does not establish credential validity.",
-            "Source IP reuse, NAT, or scanner behavior may require analyst review."
+            "Source IP reuse, NAT, or scanner behavior may require analyst review.",
+            "Reviewed answer pack enriches EvidencePlan only; it does not authorize live result claims or SPL execution."
           ],
+          "mcp_action_allowed": null,
           "mcp_allowed": true,
+          "mcp_allowed_normalized": {
+            "allowed": true,
+            "reason": "explicit_true",
+            "source": "evidence_plan"
+          },
           "missing_required_evidence": [
             "user",
             "src",
@@ -69,11 +88,27 @@
           "needs_mitre": false,
           "needs_rag": false,
           "needs_spl": true,
+          "normalized_slot_summary": {
+            "normalized_slots": {
+              "action_semantic": "failed_login"
+            },
+            "planning_snapshot": true,
+            "shift_hour_binding_trace": {},
+            "slot_sources": {
+              "action_semantic": "user_explicit"
+            },
+            "unbound_constraints": [],
+            "validation_status": {
+              "action_semantic": "accepted"
+            }
+          },
           "optional_evidence_keys": [
             "account_compromise",
             "valid_account_abuse",
             "credential_dumping",
-            "malware"
+            "malware",
+            "source_ip",
+            "host"
           ],
           "optional_sources": [
             "rag:sop",
@@ -90,12 +125,24 @@
             "first_failure",
             "last_failure"
           ],
+          "promotion_lifecycle_summary": {
+            "answer_pack_loaded": true,
+            "authority_of_record": "catalogue_runtime_map",
+            "demotion_reasons": [
+              "row_authority_not_ready"
+            ],
+            "effective_promotion_status": "demoted_this_turn",
+            "runtime_demoted": true,
+            "stored_promotion_status": "in_manifest",
+            "stored_status_mutated": false
+          },
           "rag_no_match_behavior": null,
           "rag_phase": "post_mcp",
           "reasons": [
             "live_investigation",
             "curated_enrichment_evidence_requirements",
-            "missing_required_curated_evidence"
+            "missing_required_curated_evidence",
+            "reviewed_answer_pack_projection"
           ],
           "recommended_pivots": [],
           "required_evidence_keys": [
@@ -105,10 +152,12 @@
             "fail_count",
             "time_window",
             "first_failure",
-            "last_failure"
+            "last_failure",
+            "failed_login_count"
           ],
           "required_sources": [
-            "mcp:splunk"
+            "mcp:splunk",
+            "authentication_logs"
           ],
           "requires_hil": true,
           "resource_plan": {
@@ -124,7 +173,8 @@
                 },
                 "limitations": [
                   "Failed login telemetry alone does not establish credential validity.",
-                  "Source IP reuse, NAT, or scanner behavior may require analyst review."
+                  "Source IP reuse, NAT, or scanner behavior may require analyst review.",
+                  "Reviewed answer pack enriches EvidencePlan only; it does not authorize live result claims or SPL execution."
                 ],
                 "match_path": "use_case_catalog",
                 "mcp": {
@@ -208,7 +258,7 @@
                 "policy_checks": [
                   "spl_validator",
                   "execution_eligible_false",
-                  "required_evidence:fail_count,first_failure,host,last_failure,src,time_window,user",
+                  "required_evidence:fail_count,failed_login_count,first_failure,host,last_failure,src,time_window,user",
                   "skill_required_evidence:source_evidence"
                 ],
                 "purpose": "spl_artifact",
@@ -247,20 +297,44 @@
               }
             ]
           },
+          "row_authority_summary": {
+            "blockers": [],
+            "dependency_class": "threshold_baseline_plus_source",
+            "manifest_coverage_id": "cov.q062.auth_failed_login_spike_raw",
+            "manifest_readiness": "source_ready",
+            "promotion_status": "in_manifest",
+            "question_ref": "q0.q062",
+            "route_blocked": false,
+            "row_authority_status": "exact_known_weak_needs_enrichment",
+            "s3_authority_ready": false
+          },
           "runtime_support_status": "runtime_active",
+          "safe_spl_execution_allowed": null,
+          "source_profile_binding_summary": {
+            "environment_kb_is_telemetry": false,
+            "environment_knowledge_lookup_attempted": true,
+            "source_profile_bindings_applied": [],
+            "source_profile_bindings_found": [],
+            "source_profile_bindings_missing": [],
+            "source_profile_lookup_attempted": true
+          },
           "spl_allowed": true,
+          "spl_review_allowed": null,
           "unsupported_claims_avoid": [
             "account_compromise",
             "valid_account_abuse",
             "credential_dumping",
-            "malware"
+            "malware",
+            "account_compromise_without_successful_login_evidence",
+            "confirmed_brute_force_without_threshold_context"
           ],
           "use_case_id": "auth_failed_login_spike"
         },
         "hil_status": null,
         "limitations": [
           "Failed login telemetry alone does not establish credential validity.",
-          "Source IP reuse, NAT, or scanner behavior may require analyst review."
+          "Source IP reuse, NAT, or scanner behavior may require analyst review.",
+          "Reviewed answer pack enriches EvidencePlan only; it does not authorize live result claims or SPL execution."
         ],
         "missing_evidence": [],
         "mitre_branch_result": null,
@@ -366,6 +440,15 @@
           "evidence_plan": {
             "action_mode": "recommend_only",
             "answer_mode": "live_investigation",
+            "answer_pack_summary": {
+              "case_id": "auth_failed_login_spike",
+              "mitre_candidate_status": "candidate_only",
+              "provenance": "coe_reviewed_answer_pack_seed",
+              "raw_llm_prose_loaded": false,
+              "review_status": "reviewed",
+              "runtime_authority": "evidence_plan_enrichment_only",
+              "spl_family_suggestion_loaded": true
+            },
             "answer_rules": [
               "Do not claim account compromise from failed logins alone.",
               "Mark brute force as evidence-supported only after threshold evidence exists.",
@@ -378,9 +461,12 @@
               "Review asset or account criticality before severity claims."
             ],
             "correlation": null,
+            "discovery_allowed": null,
             "enrichment_driven": true,
             "evidence_legs": [],
             "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
+            "freeform_spl_execution_allowed": null,
+            "investigation_planning_enabled": null,
             "investigation_workflow": [
               "Scope authentication failures by user, source, host, and time window.",
               "Confirm threshold evidence before labeling brute-force activity evidence-supported.",
@@ -389,9 +475,16 @@
             ],
             "limitations": [
               "Failed login telemetry alone does not establish credential validity.",
-              "Source IP reuse, NAT, or scanner behavior may require analyst review."
+              "Source IP reuse, NAT, or scanner behavior may require analyst review.",
+              "Reviewed answer pack enriches EvidencePlan only; it does not authorize live result claims or SPL execution."
             ],
+            "mcp_action_allowed": null,
             "mcp_allowed": true,
+            "mcp_allowed_normalized": {
+              "allowed": true,
+              "reason": "explicit_true",
+              "source": "evidence_plan"
+            },
             "missing_required_evidence": [
               "user",
               "src",
@@ -409,11 +502,27 @@
             "needs_mitre": false,
             "needs_rag": false,
             "needs_spl": true,
+            "normalized_slot_summary": {
+              "normalized_slots": {
+                "action_semantic": "failed_login"
+              },
+              "planning_snapshot": true,
+              "shift_hour_binding_trace": {},
+              "slot_sources": {
+                "action_semantic": "user_explicit"
+              },
+              "unbound_constraints": [],
+              "validation_status": {
+                "action_semantic": "accepted"
+              }
+            },
             "optional_evidence_keys": [
               "account_compromise",
               "valid_account_abuse",
               "credential_dumping",
-              "malware"
+              "malware",
+              "source_ip",
+              "host"
             ],
             "optional_sources": [
               "rag:sop",
@@ -430,12 +539,24 @@
               "first_failure",
               "last_failure"
             ],
+            "promotion_lifecycle_summary": {
+              "answer_pack_loaded": true,
+              "authority_of_record": "catalogue_runtime_map",
+              "demotion_reasons": [
+                "row_authority_not_ready"
+              ],
+              "effective_promotion_status": "demoted_this_turn",
+              "runtime_demoted": true,
+              "stored_promotion_status": "in_manifest",
+              "stored_status_mutated": false
+            },
             "rag_no_match_behavior": null,
             "rag_phase": "post_mcp",
             "reasons": [
               "live_investigation",
               "curated_enrichment_evidence_requirements",
-              "missing_required_curated_evidence"
+              "missing_required_curated_evidence",
+              "reviewed_answer_pack_projection"
             ],
             "recommended_pivots": [],
             "required_evidence_keys": [
@@ -445,10 +566,12 @@
               "fail_count",
               "time_window",
               "first_failure",
-              "last_failure"
+              "last_failure",
+              "failed_login_count"
             ],
             "required_sources": [
-              "mcp:splunk"
+              "mcp:splunk",
+              "authentication_logs"
             ],
             "requires_hil": true,
             "resource_plan": {
@@ -464,7 +587,8 @@
                   },
                   "limitations": [
                     "Failed login telemetry alone does not establish credential validity.",
-                    "Source IP reuse, NAT, or scanner behavior may require analyst review."
+                    "Source IP reuse, NAT, or scanner behavior may require analyst review.",
+                    "Reviewed answer pack enriches EvidencePlan only; it does not authorize live result claims or SPL execution."
                   ],
                   "match_path": "use_case_catalog",
                   "mcp": {
@@ -548,7 +672,7 @@
                   "policy_checks": [
                     "spl_validator",
                     "execution_eligible_false",
-                    "required_evidence:fail_count,first_failure,host,last_failure,src,time_window,user",
+                    "required_evidence:fail_count,failed_login_count,first_failure,host,last_failure,src,time_window,user",
                     "skill_required_evidence:source_evidence"
                   ],
                   "purpose": "spl_artifact",
@@ -587,20 +711,44 @@
                 }
               ]
             },
+            "row_authority_summary": {
+              "blockers": [],
+              "dependency_class": "threshold_baseline_plus_source",
+              "manifest_coverage_id": "cov.q062.auth_failed_login_spike_raw",
+              "manifest_readiness": "source_ready",
+              "promotion_status": "in_manifest",
+              "question_ref": "q0.q062",
+              "route_blocked": false,
+              "row_authority_status": "exact_known_weak_needs_enrichment",
+              "s3_authority_ready": false
+            },
             "runtime_support_status": "runtime_active",
+            "safe_spl_execution_allowed": null,
+            "source_profile_binding_summary": {
+              "environment_kb_is_telemetry": false,
+              "environment_knowledge_lookup_attempted": true,
+              "source_profile_bindings_applied": [],
+              "source_profile_bindings_found": [],
+              "source_profile_bindings_missing": [],
+              "source_profile_lookup_attempted": true
+            },
             "spl_allowed": true,
+            "spl_review_allowed": null,
             "unsupported_claims_avoid": [
               "account_compromise",
               "valid_account_abuse",
               "credential_dumping",
-              "malware"
+              "malware",
+              "account_compromise_without_successful_login_evidence",
+              "confirmed_brute_force_without_threshold_context"
             ],
             "use_case_id": "auth_failed_login_spike"
           },
           "hil_status": null,
           "limitations": [
             "Failed login telemetry alone does not establish credential validity.",
-            "Source IP reuse, NAT, or scanner behavior may require analyst review."
+            "Source IP reuse, NAT, or scanner behavior may require analyst review.",
+            "Reviewed answer pack enriches EvidencePlan only; it does not authorize live result claims or SPL execution."
           ],
           "missing_evidence": [],
           "mitre_branch_result": null,
@@ -730,6 +878,7 @@
         "evidence_plan": {
           "action_mode": "recommend_only",
           "answer_mode": "live_investigation",
+          "answer_pack_summary": null,
           "answer_rules": [
             "State 'successful login after failures observed.'",
             "Do not state 'compromised account' unless additional evidence exists.",
@@ -742,9 +891,12 @@
             "Look for follow-on activity before compromise language."
           ],
           "correlation": null,
+          "discovery_allowed": null,
           "enrichment_driven": true,
           "evidence_legs": [],
           "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
+          "freeform_spl_execution_allowed": null,
+          "investigation_planning_enabled": null,
           "investigation_workflow": [
             "Correlate failures followed by successful authentication for the same user, source, host, and time window.",
             "Check source IP novelty where available.",
@@ -754,7 +906,13 @@
             "Sequence evidence can be benign if the user retried successfully.",
             "Novelty is optional and may be unavailable in current telemetry."
           ],
+          "mcp_action_allowed": null,
           "mcp_allowed": true,
+          "mcp_allowed_normalized": {
+            "allowed": true,
+            "reason": "explicit_true",
+            "source": "evidence_plan"
+          },
           "missing_required_evidence": [
             "user",
             "src",
@@ -771,6 +929,20 @@
           "needs_mitre": false,
           "needs_rag": false,
           "needs_spl": true,
+          "normalized_slot_summary": {
+            "normalized_slots": {
+              "action_semantic": "failed_login"
+            },
+            "planning_snapshot": true,
+            "shift_hour_binding_trace": {},
+            "slot_sources": {
+              "action_semantic": "user_explicit"
+            },
+            "unbound_constraints": [],
+            "validation_status": {
+              "action_semantic": "accepted"
+            }
+          },
           "optional_evidence_keys": [
             "account_compromise",
             "credential_dumping",
@@ -793,6 +965,7 @@
             "last_success",
             "success_count"
           ],
+          "promotion_lifecycle_summary": null,
           "rag_no_match_behavior": null,
           "rag_phase": "post_mcp",
           "reasons": [
@@ -951,8 +1124,19 @@
               }
             ]
           },
+          "row_authority_summary": null,
           "runtime_support_status": "runtime_active",
+          "safe_spl_execution_allowed": null,
+          "source_profile_binding_summary": {
+            "environment_kb_is_telemetry": false,
+            "environment_knowledge_lookup_attempted": true,
+            "source_profile_bindings_applied": [],
+            "source_profile_bindings_found": [],
+            "source_profile_bindings_missing": [],
+            "source_profile_lookup_attempted": true
+          },
           "spl_allowed": true,
+          "spl_review_allowed": null,
           "unsupported_claims_avoid": [
             "account_compromise",
             "credential_dumping",
@@ -1023,7 +1207,7 @@
       ],
       "imperative": {
         "answer_mode": "live_investigation",
-        "answer_profile": "spl_only",
+        "answer_profile": null,
         "branches": [
           "evidence",
           "severity",
@@ -1068,6 +1252,7 @@
           "evidence_plan": {
             "action_mode": "recommend_only",
             "answer_mode": "live_investigation",
+            "answer_pack_summary": null,
             "answer_rules": [
               "State 'successful login after failures observed.'",
               "Do not state 'compromised account' unless additional evidence exists.",
@@ -1080,9 +1265,12 @@
               "Look for follow-on activity before compromise language."
             ],
             "correlation": null,
+            "discovery_allowed": null,
             "enrichment_driven": true,
             "evidence_legs": [],
             "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
+            "freeform_spl_execution_allowed": null,
+            "investigation_planning_enabled": null,
             "investigation_workflow": [
               "Correlate failures followed by successful authentication for the same user, source, host, and time window.",
               "Check source IP novelty where available.",
@@ -1092,7 +1280,13 @@
               "Sequence evidence can be benign if the user retried successfully.",
               "Novelty is optional and may be unavailable in current telemetry."
             ],
+            "mcp_action_allowed": null,
             "mcp_allowed": true,
+            "mcp_allowed_normalized": {
+              "allowed": true,
+              "reason": "explicit_true",
+              "source": "evidence_plan"
+            },
             "missing_required_evidence": [
               "user",
               "src",
@@ -1109,6 +1303,20 @@
             "needs_mitre": false,
             "needs_rag": false,
             "needs_spl": true,
+            "normalized_slot_summary": {
+              "normalized_slots": {
+                "action_semantic": "failed_login"
+              },
+              "planning_snapshot": true,
+              "shift_hour_binding_trace": {},
+              "slot_sources": {
+                "action_semantic": "user_explicit"
+              },
+              "unbound_constraints": [],
+              "validation_status": {
+                "action_semantic": "accepted"
+              }
+            },
             "optional_evidence_keys": [
               "account_compromise",
               "credential_dumping",
@@ -1131,6 +1339,7 @@
               "last_success",
               "success_count"
             ],
+            "promotion_lifecycle_summary": null,
             "rag_no_match_behavior": null,
             "rag_phase": "post_mcp",
             "reasons": [
@@ -1289,8 +1498,19 @@
                 }
               ]
             },
+            "row_authority_summary": null,
             "runtime_support_status": "runtime_active",
+            "safe_spl_execution_allowed": null,
+            "source_profile_binding_summary": {
+              "environment_kb_is_telemetry": false,
+              "environment_knowledge_lookup_attempted": true,
+              "source_profile_bindings_applied": [],
+              "source_profile_bindings_found": [],
+              "source_profile_bindings_missing": [],
+              "source_profile_lookup_attempted": true
+            },
             "spl_allowed": true,
+            "spl_review_allowed": null,
             "unsupported_claims_avoid": [
               "account_compromise",
               "credential_dumping",
@@ -1383,7 +1603,7 @@
       "runtime_active": true,
       "shadow": {
         "answer_mode": "live_investigation",
-        "answer_profile": "spl_only",
+        "answer_profile": null,
         "branches": [
           "evidence",
           "severity",
@@ -1430,6 +1650,7 @@
         "evidence_plan": {
           "action_mode": "recommend_only",
           "answer_mode": "live_investigation",
+          "answer_pack_summary": null,
           "answer_rules": [
             "Do not claim C2 confirmed from periodicity alone.",
             "Use candidate/evidence-supported wording based on multiple signals."
@@ -1441,9 +1662,12 @@
             "Tie traffic to a host or user before impact language."
           ],
           "correlation": null,
+          "discovery_allowed": null,
           "enrichment_driven": true,
           "evidence_legs": [],
           "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
+          "freeform_spl_execution_allowed": null,
+          "investigation_planning_enabled": null,
           "investigation_workflow": [
             "Review periodicity, jitter, outbound volume, and domain rarity together.",
             "Associate source with user or host identity when possible.",
@@ -1453,7 +1677,13 @@
             "Periodic traffic may be benign polling or monitoring.",
             "Parent T1071 is used unless evidence supports a specific sub-technique."
           ],
+          "mcp_action_allowed": null,
           "mcp_allowed": true,
+          "mcp_allowed_normalized": {
+            "allowed": true,
+            "reason": "explicit_true",
+            "source": "evidence_plan"
+          },
           "missing_required_evidence": [
             "src",
             "dest",
@@ -1471,6 +1701,14 @@
           "needs_mitre": false,
           "needs_rag": false,
           "needs_spl": true,
+          "normalized_slot_summary": {
+            "normalized_slots": {},
+            "planning_snapshot": true,
+            "shift_hour_binding_trace": {},
+            "slot_sources": {},
+            "unbound_constraints": [],
+            "validation_status": {}
+          },
           "optional_evidence_keys": [
             "c2_confirmed",
             "malware",
@@ -1484,6 +1722,7 @@
             "periodicity",
             "rare_domain_indicator"
           ],
+          "promotion_lifecycle_summary": null,
           "rag_no_match_behavior": null,
           "rag_phase": "post_mcp",
           "reasons": [
@@ -1643,8 +1882,19 @@
               }
             ]
           },
+          "row_authority_summary": null,
           "runtime_support_status": "runtime_active",
+          "safe_spl_execution_allowed": null,
+          "source_profile_binding_summary": {
+            "environment_kb_is_telemetry": false,
+            "environment_knowledge_lookup_attempted": true,
+            "source_profile_bindings_applied": [],
+            "source_profile_bindings_found": [],
+            "source_profile_bindings_missing": [],
+            "source_profile_lookup_attempted": true
+          },
           "spl_allowed": true,
+          "spl_review_allowed": null,
           "unsupported_claims_avoid": [
             "c2_confirmed",
             "malware",
@@ -1722,7 +1972,7 @@
         "execution_intent": "spl_search",
         "execution_status": "requires_human_review",
         "hil_required": true,
-        "hil_review_type": "precondition_review",
+        "hil_review_type": "spl_revision",
         "live_execution_skill": "attack_discovery",
         "missing_evidence_count": 6,
         "mitre_answer_visible": false,
@@ -1756,6 +2006,7 @@
           "evidence_plan": {
             "action_mode": "recommend_only",
             "answer_mode": "live_investigation",
+            "answer_pack_summary": null,
             "answer_rules": [
               "Do not claim C2 confirmed from periodicity alone.",
               "Use candidate/evidence-supported wording based on multiple signals."
@@ -1767,9 +2018,12 @@
               "Tie traffic to a host or user before impact language."
             ],
             "correlation": null,
+            "discovery_allowed": null,
             "enrichment_driven": true,
             "evidence_legs": [],
             "evidence_plan_reason": "curated_enrichment_required_evidence_missing",
+            "freeform_spl_execution_allowed": null,
+            "investigation_planning_enabled": null,
             "investigation_workflow": [
               "Review periodicity, jitter, outbound volume, and domain rarity together.",
               "Associate source with user or host identity when possible.",
@@ -1779,7 +2033,13 @@
               "Periodic traffic may be benign polling or monitoring.",
               "Parent T1071 is used unless evidence supports a specific sub-technique."
             ],
+            "mcp_action_allowed": null,
             "mcp_allowed": true,
+            "mcp_allowed_normalized": {
+              "allowed": true,
+              "reason": "explicit_true",
+              "source": "evidence_plan"
+            },
             "missing_required_evidence": [
               "src",
               "dest",
@@ -1797,6 +2057,14 @@
             "needs_mitre": false,
             "needs_rag": false,
             "needs_spl": true,
+            "normalized_slot_summary": {
+              "normalized_slots": {},
+              "planning_snapshot": true,
+              "shift_hour_binding_trace": {},
+              "slot_sources": {},
+              "unbound_constraints": [],
+              "validation_status": {}
+            },
             "optional_evidence_keys": [
               "c2_confirmed",
               "malware",
@@ -1810,6 +2078,7 @@
               "periodicity",
               "rare_domain_indicator"
             ],
+            "promotion_lifecycle_summary": null,
             "rag_no_match_behavior": null,
             "rag_phase": "post_mcp",
             "reasons": [
@@ -1969,8 +2238,19 @@
                 }
               ]
             },
+            "row_authority_summary": null,
             "runtime_support_status": "runtime_active",
+            "safe_spl_execution_allowed": null,
+            "source_profile_binding_summary": {
+              "environment_kb_is_telemetry": false,
+              "environment_knowledge_lookup_attempted": true,
+              "source_profile_bindings_applied": [],
+              "source_profile_bindings_found": [],
+              "source_profile_bindings_missing": [],
+              "source_profile_lookup_attempted": true
+            },
             "spl_allowed": true,
+            "spl_review_allowed": null,
             "unsupported_claims_avoid": [
               "c2_confirmed",
               "malware",
@@ -2070,7 +2350,7 @@
         "execution_intent": "spl_search",
         "execution_status": "requires_human_review",
         "hil_required": true,
-        "hil_review_type": "precondition_review",
+        "hil_review_type": "spl_revision",
         "live_execution_skill": "attack_discovery",
         "missing_evidence_count": 6,
         "mitre_answer_visible": false,
@@ -2110,15 +2390,25 @@
         "evidence_plan": {
           "action_mode": "hil_required",
           "answer_mode": "clarification",
+          "answer_pack_summary": null,
           "answer_rules": [],
           "checklist": [],
           "correlation": null,
+          "discovery_allowed": null,
           "enrichment_driven": false,
           "evidence_legs": [],
           "evidence_plan_reason": null,
+          "freeform_spl_execution_allowed": null,
+          "investigation_planning_enabled": null,
           "investigation_workflow": [],
           "limitations": [],
+          "mcp_action_allowed": null,
           "mcp_allowed": false,
+          "mcp_allowed_normalized": {
+            "allowed": false,
+            "reason": "explicit_false",
+            "source": "evidence_plan"
+          },
           "missing_required_evidence": [],
           "mitre_candidates_metadata_only": [],
           "needs_clarification": false,
@@ -2127,11 +2417,26 @@
           "needs_mitre": false,
           "needs_rag": false,
           "needs_spl": false,
+          "normalized_slot_summary": {
+            "normalized_slots": {
+              "host": "an"
+            },
+            "planning_snapshot": true,
+            "shift_hour_binding_trace": {},
+            "slot_sources": {
+              "host": "user_explicit"
+            },
+            "unbound_constraints": [],
+            "validation_status": {
+              "host": "accepted"
+            }
+          },
           "optional_evidence_keys": [],
           "optional_sources": [],
           "policy_context_recommended": false,
           "policy_context_required": false,
           "present_evidence_keys": [],
+          "promotion_lifecycle_summary": null,
           "rag_no_match_behavior": null,
           "rag_phase": "rag_only",
           "reasons": [
@@ -2156,8 +2461,19 @@
             },
             "steps": []
           },
+          "row_authority_summary": null,
           "runtime_support_status": null,
+          "safe_spl_execution_allowed": null,
+          "source_profile_binding_summary": {
+            "environment_kb_is_telemetry": false,
+            "environment_knowledge_lookup_attempted": true,
+            "source_profile_bindings_applied": [],
+            "source_profile_bindings_found": [],
+            "source_profile_bindings_missing": [],
+            "source_profile_lookup_attempted": true
+          },
           "spl_allowed": false,
+          "spl_review_allowed": null,
           "unsupported_claims_avoid": [],
           "use_case_id": null
         },
@@ -2245,15 +2561,25 @@
           "evidence_plan": {
             "action_mode": "hil_required",
             "answer_mode": "clarification",
+            "answer_pack_summary": null,
             "answer_rules": [],
             "checklist": [],
             "correlation": null,
+            "discovery_allowed": null,
             "enrichment_driven": false,
             "evidence_legs": [],
             "evidence_plan_reason": null,
+            "freeform_spl_execution_allowed": null,
+            "investigation_planning_enabled": null,
             "investigation_workflow": [],
             "limitations": [],
+            "mcp_action_allowed": null,
             "mcp_allowed": false,
+            "mcp_allowed_normalized": {
+              "allowed": false,
+              "reason": "explicit_false",
+              "source": "evidence_plan"
+            },
             "missing_required_evidence": [],
             "mitre_candidates_metadata_only": [],
             "needs_clarification": false,
@@ -2262,11 +2588,26 @@
             "needs_mitre": false,
             "needs_rag": false,
             "needs_spl": false,
+            "normalized_slot_summary": {
+              "normalized_slots": {
+                "host": "an"
+              },
+              "planning_snapshot": true,
+              "shift_hour_binding_trace": {},
+              "slot_sources": {
+                "host": "user_explicit"
+              },
+              "unbound_constraints": [],
+              "validation_status": {
+                "host": "accepted"
+              }
+            },
             "optional_evidence_keys": [],
             "optional_sources": [],
             "policy_context_recommended": false,
             "policy_context_required": false,
             "present_evidence_keys": [],
+            "promotion_lifecycle_summary": null,
             "rag_no_match_behavior": null,
             "rag_phase": "rag_only",
             "reasons": [
@@ -2291,8 +2632,19 @@
               },
               "steps": []
             },
+            "row_authority_summary": null,
             "runtime_support_status": null,
+            "safe_spl_execution_allowed": null,
+            "source_profile_binding_summary": {
+              "environment_kb_is_telemetry": false,
+              "environment_knowledge_lookup_attempted": true,
+              "source_profile_bindings_applied": [],
+              "source_profile_bindings_found": [],
+              "source_profile_bindings_missing": [],
+              "source_profile_lookup_attempted": true
+            },
             "spl_allowed": false,
+            "spl_review_allowed": null,
             "unsupported_claims_avoid": [],
             "use_case_id": null
           },
@@ -2398,15 +2750,25 @@
         "evidence_plan": {
           "action_mode": "recommend_only",
           "answer_mode": "rag_only",
+          "answer_pack_summary": null,
           "answer_rules": [],
           "checklist": [],
           "correlation": null,
+          "discovery_allowed": null,
           "enrichment_driven": false,
           "evidence_legs": [],
           "evidence_plan_reason": "curated_enrichment_not_runtime_active",
+          "freeform_spl_execution_allowed": null,
+          "investigation_planning_enabled": null,
           "investigation_workflow": [],
           "limitations": [],
+          "mcp_action_allowed": null,
           "mcp_allowed": false,
+          "mcp_allowed_normalized": {
+            "allowed": false,
+            "reason": "explicit_false",
+            "source": "evidence_plan"
+          },
           "missing_required_evidence": [],
           "mitre_candidates_metadata_only": [],
           "needs_clarification": false,
@@ -2415,11 +2777,20 @@
           "needs_mitre": false,
           "needs_rag": true,
           "needs_spl": false,
+          "normalized_slot_summary": {
+            "normalized_slots": {},
+            "planning_snapshot": true,
+            "shift_hour_binding_trace": {},
+            "slot_sources": {},
+            "unbound_constraints": [],
+            "validation_status": {}
+          },
           "optional_evidence_keys": [],
           "optional_sources": [],
           "policy_context_recommended": false,
           "policy_context_required": true,
           "present_evidence_keys": [],
+          "promotion_lifecycle_summary": null,
           "rag_no_match_behavior": "insufficient_policy_context",
           "rag_phase": "rag_only",
           "reasons": [
@@ -2472,8 +2843,19 @@
               }
             ]
           },
+          "row_authority_summary": null,
           "runtime_support_status": "planned",
+          "safe_spl_execution_allowed": null,
+          "source_profile_binding_summary": {
+            "environment_kb_is_telemetry": false,
+            "environment_knowledge_lookup_attempted": true,
+            "source_profile_bindings_applied": [],
+            "source_profile_bindings_found": [],
+            "source_profile_bindings_missing": [],
+            "source_profile_lookup_attempted": true
+          },
           "spl_allowed": false,
+          "spl_review_allowed": null,
           "unsupported_claims_avoid": [],
           "use_case_id": "soc_show_sop"
         },
@@ -2523,7 +2905,7 @@
         "execution_intent": "none",
         "execution_status": "skipped",
         "hil_required": false,
-        "hil_review_type": "none",
+        "hil_review_type": "execution_approval",
         "live_execution_skill": "knowledge_recall",
         "missing_evidence_count": 0,
         "mitre_answer_visible": false,
@@ -2555,15 +2937,25 @@
           "evidence_plan": {
             "action_mode": "recommend_only",
             "answer_mode": "rag_only",
+            "answer_pack_summary": null,
             "answer_rules": [],
             "checklist": [],
             "correlation": null,
+            "discovery_allowed": null,
             "enrichment_driven": false,
             "evidence_legs": [],
             "evidence_plan_reason": "curated_enrichment_not_runtime_active",
+            "freeform_spl_execution_allowed": null,
+            "investigation_planning_enabled": null,
             "investigation_workflow": [],
             "limitations": [],
+            "mcp_action_allowed": null,
             "mcp_allowed": false,
+            "mcp_allowed_normalized": {
+              "allowed": false,
+              "reason": "explicit_false",
+              "source": "evidence_plan"
+            },
             "missing_required_evidence": [],
             "mitre_candidates_metadata_only": [],
             "needs_clarification": false,
@@ -2572,11 +2964,20 @@
             "needs_mitre": false,
             "needs_rag": true,
             "needs_spl": false,
+            "normalized_slot_summary": {
+              "normalized_slots": {},
+              "planning_snapshot": true,
+              "shift_hour_binding_trace": {},
+              "slot_sources": {},
+              "unbound_constraints": [],
+              "validation_status": {}
+            },
             "optional_evidence_keys": [],
             "optional_sources": [],
             "policy_context_recommended": false,
             "policy_context_required": true,
             "present_evidence_keys": [],
+            "promotion_lifecycle_summary": null,
             "rag_no_match_behavior": "insufficient_policy_context",
             "rag_phase": "rag_only",
             "reasons": [
@@ -2629,8 +3030,19 @@
                 }
               ]
             },
+            "row_authority_summary": null,
             "runtime_support_status": "planned",
+            "safe_spl_execution_allowed": null,
+            "source_profile_binding_summary": {
+              "environment_kb_is_telemetry": false,
+              "environment_knowledge_lookup_attempted": true,
+              "source_profile_bindings_applied": [],
+              "source_profile_bindings_found": [],
+              "source_profile_bindings_missing": [],
+              "source_profile_lookup_attempted": true
+            },
             "spl_allowed": false,
+            "spl_review_allowed": null,
             "unsupported_claims_avoid": [],
             "use_case_id": "soc_show_sop"
           },
@@ -2698,7 +3110,7 @@
         "execution_intent": "none",
         "execution_status": "skipped",
         "hil_required": false,
-        "hil_review_type": "none",
+        "hil_review_type": "execution_approval",
         "live_execution_skill": "knowledge_recall",
         "missing_evidence_count": 0,
         "mitre_answer_visible": false,
@@ -2736,15 +3148,25 @@
         "evidence_plan": {
           "action_mode": "hil_required",
           "answer_mode": "clarification",
+          "answer_pack_summary": null,
           "answer_rules": [],
           "checklist": [],
           "correlation": null,
+          "discovery_allowed": null,
           "enrichment_driven": false,
           "evidence_legs": [],
           "evidence_plan_reason": "curated_enrichment_not_runtime_active",
+          "freeform_spl_execution_allowed": null,
+          "investigation_planning_enabled": null,
           "investigation_workflow": [],
           "limitations": [],
+          "mcp_action_allowed": null,
           "mcp_allowed": false,
+          "mcp_allowed_normalized": {
+            "allowed": false,
+            "reason": "explicit_false",
+            "source": "evidence_plan"
+          },
           "missing_required_evidence": [],
           "mitre_candidates_metadata_only": [],
           "needs_clarification": false,
@@ -2753,11 +3175,20 @@
           "needs_mitre": false,
           "needs_rag": false,
           "needs_spl": false,
+          "normalized_slot_summary": {
+            "normalized_slots": {},
+            "planning_snapshot": true,
+            "shift_hour_binding_trace": {},
+            "slot_sources": {},
+            "unbound_constraints": [],
+            "validation_status": {}
+          },
           "optional_evidence_keys": [],
           "optional_sources": [],
           "policy_context_recommended": false,
           "policy_context_required": false,
           "present_evidence_keys": [],
+          "promotion_lifecycle_summary": null,
           "rag_no_match_behavior": null,
           "rag_phase": "rag_only",
           "reasons": [
@@ -2782,8 +3213,19 @@
             },
             "steps": []
           },
+          "row_authority_summary": null,
           "runtime_support_status": "planned",
+          "safe_spl_execution_allowed": null,
+          "source_profile_binding_summary": {
+            "environment_kb_is_telemetry": false,
+            "environment_knowledge_lookup_attempted": true,
+            "source_profile_bindings_applied": [],
+            "source_profile_bindings_found": [],
+            "source_profile_bindings_missing": [],
+            "source_profile_lookup_attempted": true
+          },
           "spl_allowed": false,
+          "spl_review_allowed": null,
           "unsupported_claims_avoid": [],
           "use_case_id": "soc_map_alert_mitre"
         },
@@ -2824,7 +3266,7 @@
       ],
       "imperative": {
         "answer_mode": "clarification",
-        "answer_profile": null,
+        "answer_profile": "hybrid_alert_review",
         "branches": [
           "clarification",
           "hil"
@@ -2871,15 +3313,25 @@
           "evidence_plan": {
             "action_mode": "hil_required",
             "answer_mode": "clarification",
+            "answer_pack_summary": null,
             "answer_rules": [],
             "checklist": [],
             "correlation": null,
+            "discovery_allowed": null,
             "enrichment_driven": false,
             "evidence_legs": [],
             "evidence_plan_reason": "curated_enrichment_not_runtime_active",
+            "freeform_spl_execution_allowed": null,
+            "investigation_planning_enabled": null,
             "investigation_workflow": [],
             "limitations": [],
+            "mcp_action_allowed": null,
             "mcp_allowed": false,
+            "mcp_allowed_normalized": {
+              "allowed": false,
+              "reason": "explicit_false",
+              "source": "evidence_plan"
+            },
             "missing_required_evidence": [],
             "mitre_candidates_metadata_only": [],
             "needs_clarification": false,
@@ -2888,11 +3340,20 @@
             "needs_mitre": false,
             "needs_rag": false,
             "needs_spl": false,
+            "normalized_slot_summary": {
+              "normalized_slots": {},
+              "planning_snapshot": true,
+              "shift_hour_binding_trace": {},
+              "slot_sources": {},
+              "unbound_constraints": [],
+              "validation_status": {}
+            },
             "optional_evidence_keys": [],
             "optional_sources": [],
             "policy_context_recommended": false,
             "policy_context_required": false,
             "present_evidence_keys": [],
+            "promotion_lifecycle_summary": null,
             "rag_no_match_behavior": null,
             "rag_phase": "rag_only",
             "reasons": [
@@ -2917,8 +3378,19 @@
               },
               "steps": []
             },
+            "row_authority_summary": null,
             "runtime_support_status": "planned",
+            "safe_spl_execution_allowed": null,
+            "source_profile_binding_summary": {
+              "environment_kb_is_telemetry": false,
+              "environment_knowledge_lookup_attempted": true,
+              "source_profile_bindings_applied": [],
+              "source_profile_bindings_found": [],
+              "source_profile_bindings_missing": [],
+              "source_profile_lookup_attempted": true
+            },
             "spl_allowed": false,
+            "spl_review_allowed": null,
             "unsupported_claims_avoid": [],
             "use_case_id": "soc_map_alert_mitre"
           },
@@ -2979,7 +3451,7 @@
       "runtime_active": false,
       "shadow": {
         "answer_mode": "clarification",
-        "answer_profile": null,
+        "answer_profile": "hybrid_alert_review",
         "branches": [
           "clarification",
           "hil"
@@ -3028,15 +3500,25 @@
         "evidence_plan": {
           "action_mode": "hil_required",
           "answer_mode": "clarification",
+          "answer_pack_summary": null,
           "answer_rules": [],
           "checklist": [],
           "correlation": null,
+          "discovery_allowed": null,
           "enrichment_driven": false,
           "evidence_legs": [],
           "evidence_plan_reason": null,
+          "freeform_spl_execution_allowed": null,
+          "investigation_planning_enabled": null,
           "investigation_workflow": [],
           "limitations": [],
+          "mcp_action_allowed": null,
           "mcp_allowed": false,
+          "mcp_allowed_normalized": {
+            "allowed": false,
+            "reason": "explicit_false",
+            "source": "evidence_plan"
+          },
           "missing_required_evidence": [],
           "mitre_candidates_metadata_only": [],
           "needs_clarification": false,
@@ -3045,11 +3527,20 @@
           "needs_mitre": false,
           "needs_rag": false,
           "needs_spl": false,
+          "normalized_slot_summary": {
+            "normalized_slots": {},
+            "planning_snapshot": true,
+            "shift_hour_binding_trace": {},
+            "slot_sources": {},
+            "unbound_constraints": [],
+            "validation_status": {}
+          },
           "optional_evidence_keys": [],
           "optional_sources": [],
           "policy_context_recommended": false,
           "policy_context_required": false,
           "present_evidence_keys": [],
+          "promotion_lifecycle_summary": null,
           "rag_no_match_behavior": null,
           "rag_phase": "rag_only",
           "reasons": [
@@ -3074,8 +3565,19 @@
             },
             "steps": []
           },
+          "row_authority_summary": null,
           "runtime_support_status": null,
+          "safe_spl_execution_allowed": null,
+          "source_profile_binding_summary": {
+            "environment_kb_is_telemetry": false,
+            "environment_knowledge_lookup_attempted": true,
+            "source_profile_bindings_applied": [],
+            "source_profile_bindings_found": [],
+            "source_profile_bindings_missing": [],
+            "source_profile_lookup_attempted": true
+          },
           "spl_allowed": false,
+          "spl_review_allowed": null,
           "unsupported_claims_avoid": [],
           "use_case_id": null
         },
@@ -3163,15 +3665,25 @@
           "evidence_plan": {
             "action_mode": "hil_required",
             "answer_mode": "clarification",
+            "answer_pack_summary": null,
             "answer_rules": [],
             "checklist": [],
             "correlation": null,
+            "discovery_allowed": null,
             "enrichment_driven": false,
             "evidence_legs": [],
             "evidence_plan_reason": null,
+            "freeform_spl_execution_allowed": null,
+            "investigation_planning_enabled": null,
             "investigation_workflow": [],
             "limitations": [],
+            "mcp_action_allowed": null,
             "mcp_allowed": false,
+            "mcp_allowed_normalized": {
+              "allowed": false,
+              "reason": "explicit_false",
+              "source": "evidence_plan"
+            },
             "missing_required_evidence": [],
             "mitre_candidates_metadata_only": [],
             "needs_clarification": false,
@@ -3180,11 +3692,20 @@
             "needs_mitre": false,
             "needs_rag": false,
             "needs_spl": false,
+            "normalized_slot_summary": {
+              "normalized_slots": {},
+              "planning_snapshot": true,
+              "shift_hour_binding_trace": {},
+              "slot_sources": {},
+              "unbound_constraints": [],
+              "validation_status": {}
+            },
             "optional_evidence_keys": [],
             "optional_sources": [],
             "policy_context_recommended": false,
             "policy_context_required": false,
             "present_evidence_keys": [],
+            "promotion_lifecycle_summary": null,
             "rag_no_match_behavior": null,
             "rag_phase": "rag_only",
             "reasons": [
@@ -3209,8 +3730,19 @@
               },
               "steps": []
             },
+            "row_authority_summary": null,
             "runtime_support_status": null,
+            "safe_spl_execution_allowed": null,
+            "source_profile_binding_summary": {
+              "environment_kb_is_telemetry": false,
+              "environment_knowledge_lookup_attempted": true,
+              "source_profile_bindings_applied": [],
+              "source_profile_bindings_found": [],
+              "source_profile_bindings_missing": [],
+              "source_profile_lookup_attempted": true
+            },
             "spl_allowed": false,
+            "spl_review_allowed": null,
             "unsupported_claims_avoid": [],
             "use_case_id": null
           },
@@ -3316,15 +3848,25 @@
         "evidence_plan": {
           "action_mode": "recommend_only",
           "answer_mode": "clarification",
+          "answer_pack_summary": null,
           "answer_rules": [],
           "checklist": [],
           "correlation": null,
+          "discovery_allowed": null,
           "enrichment_driven": false,
           "evidence_legs": [],
           "evidence_plan_reason": null,
+          "freeform_spl_execution_allowed": null,
+          "investigation_planning_enabled": null,
           "investigation_workflow": [],
           "limitations": [],
+          "mcp_action_allowed": null,
           "mcp_allowed": false,
+          "mcp_allowed_normalized": {
+            "allowed": false,
+            "reason": "explicit_false",
+            "source": "evidence_plan"
+          },
           "missing_required_evidence": [],
           "mitre_candidates_metadata_only": [],
           "needs_clarification": false,
@@ -3333,11 +3875,20 @@
           "needs_mitre": false,
           "needs_rag": false,
           "needs_spl": false,
+          "normalized_slot_summary": {
+            "normalized_slots": {},
+            "planning_snapshot": true,
+            "shift_hour_binding_trace": {},
+            "slot_sources": {},
+            "unbound_constraints": [],
+            "validation_status": {}
+          },
           "optional_evidence_keys": [],
           "optional_sources": [],
           "policy_context_recommended": false,
           "policy_context_required": false,
           "present_evidence_keys": [],
+          "promotion_lifecycle_summary": null,
           "rag_no_match_behavior": null,
           "rag_phase": "rag_only",
           "reasons": [
@@ -3362,8 +3913,19 @@
             },
             "steps": []
           },
+          "row_authority_summary": null,
           "runtime_support_status": null,
+          "safe_spl_execution_allowed": null,
+          "source_profile_binding_summary": {
+            "environment_kb_is_telemetry": false,
+            "environment_knowledge_lookup_attempted": true,
+            "source_profile_bindings_applied": [],
+            "source_profile_bindings_found": [],
+            "source_profile_bindings_missing": [],
+            "source_profile_lookup_attempted": true
+          },
           "spl_allowed": false,
+          "spl_review_allowed": null,
           "unsupported_claims_avoid": [],
           "use_case_id": null
         },
@@ -3461,15 +4023,25 @@
           "evidence_plan": {
             "action_mode": "recommend_only",
             "answer_mode": "clarification",
+            "answer_pack_summary": null,
             "answer_rules": [],
             "checklist": [],
             "correlation": null,
+            "discovery_allowed": null,
             "enrichment_driven": false,
             "evidence_legs": [],
             "evidence_plan_reason": null,
+            "freeform_spl_execution_allowed": null,
+            "investigation_planning_enabled": null,
             "investigation_workflow": [],
             "limitations": [],
+            "mcp_action_allowed": null,
             "mcp_allowed": false,
+            "mcp_allowed_normalized": {
+              "allowed": false,
+              "reason": "explicit_false",
+              "source": "evidence_plan"
+            },
             "missing_required_evidence": [],
             "mitre_candidates_metadata_only": [],
             "needs_clarification": false,
@@ -3478,11 +4050,20 @@
             "needs_mitre": false,
             "needs_rag": false,
             "needs_spl": false,
+            "normalized_slot_summary": {
+              "normalized_slots": {},
+              "planning_snapshot": true,
+              "shift_hour_binding_trace": {},
+              "slot_sources": {},
+              "unbound_constraints": [],
+              "validation_status": {}
+            },
             "optional_evidence_keys": [],
             "optional_sources": [],
             "policy_context_recommended": false,
             "policy_context_required": false,
             "present_evidence_keys": [],
+            "promotion_lifecycle_summary": null,
             "rag_no_match_behavior": null,
             "rag_phase": "rag_only",
             "reasons": [
@@ -3507,8 +4088,19 @@
               },
               "steps": []
             },
+            "row_authority_summary": null,
             "runtime_support_status": null,
+            "safe_spl_execution_allowed": null,
+            "source_profile_binding_summary": {
+              "environment_kb_is_telemetry": false,
+              "environment_knowledge_lookup_attempted": true,
+              "source_profile_bindings_applied": [],
+              "source_profile_bindings_found": [],
+              "source_profile_bindings_missing": [],
+              "source_profile_lookup_attempted": true
+            },
             "spl_allowed": false,
+            "spl_review_allowed": null,
             "unsupported_claims_avoid": [],
             "use_case_id": null
           },
