@@ -1,10 +1,10 @@
 {
-  "catalog_count": 61,
+  "catalog_count": 65,
   "catalog_path": "backend/app/use_cases/catalog.json",
   "manifest_path": "backend/app/coverage/pattern_coverage_v1.json",
   "projection_mismatches": [],
   "question_105_count": 105,
-  "row_count": 166,
+  "row_count": 170,
   "rows": [
     {
       "blockers": [
@@ -7731,6 +7731,34 @@
         "t0_exact_authority_false",
         "human_review_required"
       ],
+      "default_spl_template": "sample_dlp_exfiltration_volume",
+      "display_name": "Detection anchor — DLP / data exfiltration volume (sample, matrix-only)",
+      "existing_s3_authority_ready": null,
+      "human_review_required": true,
+      "llm_advisory_recommended": false,
+      "may_skip_llm": false,
+      "mitre_candidates": [],
+      "optional_sources": [],
+      "question": null,
+      "question_ref": null,
+      "registry_tier": "sample",
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "requires_t2_shape_check": false,
+      "row_authority_status": "catalog_weak_needs_enrichment",
+      "row_id": "sample_dlp_exfiltration_volume",
+      "row_kind": "catalog",
+      "s3_authority_ready": false,
+      "t0_exact_authority": false,
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "use_case_type": "detection_anchor"
+    },
+    {
+      "blockers": [
+        "t0_exact_authority_false",
+        "human_review_required"
+      ],
       "default_spl_template": "sample_dns_top_query_hosts_from_datamodel",
       "display_name": "Analytics anchor — DNS top-N query volume by host (sample template binding)",
       "existing_s3_authority_ready": null,
@@ -7759,6 +7787,34 @@
         "t0_exact_authority_false",
         "human_review_required"
       ],
+      "default_spl_template": "sample_ioc_correlation_indicator_match",
+      "display_name": "Detection anchor — IOC indicator correlation (sample, matrix-only)",
+      "existing_s3_authority_ready": null,
+      "human_review_required": true,
+      "llm_advisory_recommended": false,
+      "may_skip_llm": false,
+      "mitre_candidates": [],
+      "optional_sources": [],
+      "question": null,
+      "question_ref": null,
+      "registry_tier": "sample",
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "requires_t2_shape_check": false,
+      "row_authority_status": "catalog_weak_needs_enrichment",
+      "row_id": "sample_ioc_correlation_indicator_match",
+      "row_kind": "catalog",
+      "s3_authority_ready": false,
+      "t0_exact_authority": false,
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "use_case_type": "detection_anchor"
+    },
+    {
+      "blockers": [
+        "t0_exact_authority_false",
+        "human_review_required"
+      ],
       "default_spl_template": "sample_network_top_outbound_src_tstats",
       "display_name": "Analytics anchor — network top-N outbound source connections (sample template binding)",
       "existing_s3_authority_ready": null,
@@ -7781,6 +7837,62 @@
       "t0_exact_authority": false,
       "use_case_id": "sample_network_top_outbound_src",
       "use_case_type": "analytics_anchor"
+    },
+    {
+      "blockers": [
+        "t0_exact_authority_false",
+        "human_review_required"
+      ],
+      "default_spl_template": "sample_powershell_suspicious_execution",
+      "display_name": "Detection anchor — suspicious PowerShell / process execution (sample, matrix-only)",
+      "existing_s3_authority_ready": null,
+      "human_review_required": true,
+      "llm_advisory_recommended": false,
+      "may_skip_llm": false,
+      "mitre_candidates": [],
+      "optional_sources": [],
+      "question": null,
+      "question_ref": null,
+      "registry_tier": "sample",
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "requires_t2_shape_check": false,
+      "row_authority_status": "catalog_weak_needs_enrichment",
+      "row_id": "sample_powershell_suspicious_execution",
+      "row_kind": "catalog",
+      "s3_authority_ready": false,
+      "t0_exact_authority": false,
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "use_case_type": "detection_anchor"
+    },
+    {
+      "blockers": [
+        "t0_exact_authority_false",
+        "human_review_required"
+      ],
+      "default_spl_template": "sample_threshold_anomaly_volume_spike",
+      "display_name": "Detection anchor — threshold / volume anomaly (sample, matrix-only)",
+      "existing_s3_authority_ready": null,
+      "human_review_required": true,
+      "llm_advisory_recommended": false,
+      "may_skip_llm": false,
+      "mitre_candidates": [],
+      "optional_sources": [],
+      "question": null,
+      "question_ref": null,
+      "registry_tier": "sample",
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "requires_t2_shape_check": false,
+      "row_authority_status": "catalog_weak_needs_enrichment",
+      "row_id": "sample_threshold_anomaly_volume_spike",
+      "row_kind": "catalog",
+      "s3_authority_ready": false,
+      "t0_exact_authority": false,
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "use_case_type": "detection_anchor"
     },
     {
       "blockers": [
@@ -8112,7 +8224,7 @@
   "runtime_map_path": "backend/app/coverage/question_runtime_map_v1.json",
   "schema_version": "2026-06-row-authority-v1",
   "status_counts": {
-    "catalog_weak_needs_enrichment": 61,
+    "catalog_weak_needs_enrichment": 65,
     "exact_known_needs_clarification": 4,
     "exact_known_needs_detection_binding": 28,
     "exact_known_needs_lookup": 9,

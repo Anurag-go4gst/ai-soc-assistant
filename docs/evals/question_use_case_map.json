@@ -71,6 +71,246 @@
       "mapping_source_file": "docs/evals/question_use_case_map.json",
       "mapping_confidence": "high",
       "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=success_after_failure is an exact suffix of use_case_id=auth_success_after_failure in catalog; question 'Which users authenticated to VPN after repeated MFA failures?' explicitly describes the success-after-failure auth detection pattern (authenticated = success, after repeated failures); backend/app/use_cases/catalog.json has exactly one use case with default_spl_template=auth_success_after_failure; no other catalog use_case covers this pattern."
+    },
+    "q0.q004": {
+      "question_id": "q0.q004",
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=ioc_correlation; question 'Which hosts contacted known malicious IPs today?' is in the ioc_correlation detection family; use_case_id=sample_ioc_correlation_indicator_match in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q022": {
+      "question_id": "q0.q022",
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=ioc_correlation; question 'Which hosts contacted IPs in an IOC lookup?' is in the ioc_correlation detection family; use_case_id=sample_ioc_correlation_indicator_match in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q033": {
+      "question_id": "q0.q033",
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=ioc_correlation; question 'Which hosts communicated with suspicious destination domains and IPs?' is in the ioc_correlation detection family; use_case_id=sample_ioc_correlation_indicator_match in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q036": {
+      "question_id": "q0.q036",
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=ioc_correlation; question 'Which hosts reached known malicious domains from lookup data?' is in the ioc_correlation detection family; use_case_id=sample_ioc_correlation_indicator_match in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q042": {
+      "question_id": "q0.q042",
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=ioc_correlation; question 'Which hosts contacted both malicious IPs and domains?' is in the ioc_correlation detection family; use_case_id=sample_ioc_correlation_indicator_match in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q052": {
+      "question_id": "q0.q052",
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=ioc_correlation; question 'Did any host contact known malicious IPs?' is in the ioc_correlation detection family; use_case_id=sample_ioc_correlation_indicator_match in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q057": {
+      "question_id": "q0.q057",
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=ioc_correlation; question 'Did any endpoint run this suspicious hash?' is in the ioc_correlation detection family; use_case_id=sample_ioc_correlation_indicator_match in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q009": {
+      "question_id": "q0.q009",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Which hosts communicated with many unique external IPs?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q016": {
+      "question_id": "q0.q016",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Which hosts contacted the same external IP many times?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q026": {
+      "question_id": "q0.q026",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Which hosts have unusually high connection counts to one destination?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q035": {
+      "question_id": "q0.q035",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Which hosts generated the largest DNS response volumes?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q038": {
+      "question_id": "q0.q038",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Which hosts had large inbound traffic from a single source?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q041": {
+      "question_id": "q0.q041",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Which systems have repeated hits to the same suspicious URL path?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q047": {
+      "question_id": "q0.q047",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Is one IP attacking many accounts?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q067": {
+      "question_id": "q0.q067",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Which hosts are generating unusual DNS query volumes?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q070": {
+      "question_id": "q0.q070",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Which users changed their password multiple times in a short window?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q078": {
+      "question_id": "q0.q078",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Which systems had repeated malware detections?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q082": {
+      "question_id": "q0.q082",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=threshold_anomaly; question 'Which domains were queried by multiple hosts in a short period?' is in the threshold_anomaly detection family; use_case_id=sample_threshold_anomaly_volume_spike in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q051": {
+      "question_id": "q0.q051",
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=suspicious_process_powershell; question 'What unusual processes ran on critical servers?' is in the suspicious_process_powershell detection family; use_case_id=sample_powershell_suspicious_execution in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q063": {
+      "question_id": "q0.q063",
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=suspicious_process_powershell; question 'Which endpoints spawned script interpreters recently?' is in the suspicious_process_powershell detection family; use_case_id=sample_powershell_suspicious_execution in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q075": {
+      "question_id": "q0.q075",
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=suspicious_process_powershell; question 'Which endpoints created suspicious archive files?' is in the suspicious_process_powershell detection family; use_case_id=sample_powershell_suspicious_execution in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q079": {
+      "question_id": "q0.q079",
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=suspicious_process_powershell; question 'Which files were modified by suspicious processes?' is in the suspicious_process_powershell detection family; use_case_id=sample_powershell_suspicious_execution in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q083": {
+      "question_id": "q0.q083",
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=suspicious_process_powershell; question 'Which hosts have suspicious parent-child process chains?' is in the suspicious_process_powershell detection family; use_case_id=sample_powershell_suspicious_execution in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q097": {
+      "question_id": "q0.q097",
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=suspicious_process_powershell; question 'Which systems show signs of webshell activity?' is in the suspicious_process_powershell detection family; use_case_id=sample_powershell_suspicious_execution in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q098": {
+      "question_id": "q0.q098",
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=suspicious_process_powershell; question 'Which hosts downloaded executables from the internet?' is in the suspicious_process_powershell detection family; use_case_id=sample_powershell_suspicious_execution in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q013": {
+      "question_id": "q0.q013",
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=dlp_exfiltration; question 'Which systems generated large outbound data transfers?' is in the dlp_exfiltration detection family; use_case_id=sample_dlp_exfiltration_volume in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q014": {
+      "question_id": "q0.q014",
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=dlp_exfiltration; question 'Which hosts showed potential data exfiltration to cloud apps?' is in the dlp_exfiltration detection family; use_case_id=sample_dlp_exfiltration_volume in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q054": {
+      "question_id": "q0.q054",
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=dlp_exfiltration; question 'Who is sending large amounts of data outbound?' is in the dlp_exfiltration detection family; use_case_id=sample_dlp_exfiltration_volume in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q076": {
+      "question_id": "q0.q076",
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=dlp_exfiltration; question 'Which hosts uploaded large amounts of data to cloud services?' is in the dlp_exfiltration detection family; use_case_id=sample_dlp_exfiltration_volume in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
+    },
+    "q0.q077": {
+      "question_id": "q0.q077",
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "mapping_status": "curated_manual",
+      "mapping_source_file": "docs/evals/question_use_case_map.json",
+      "mapping_confidence": "high",
+      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=dlp_exfiltration; question 'Which endpoints accessed USB storage recently?' is in the dlp_exfiltration detection family; use_case_id=sample_dlp_exfiltration_volume in backend/app/use_cases/catalog.json is the BL-004 S1b sample anchor (registry_tier=sample, intent_patterns=[], runtime-invisible)."
     }
   },
   "reviewed_unmapped": [

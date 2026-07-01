@@ -2,7 +2,7 @@
   "artifact": "soc_validation_combination_matrix",
   "csv_supported": false,
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-07-01T16:50:48+00:00",
+  "generated_at": "2026-07-01T17:12:26+00:00",
   "row_counts": {
     "cases": 8
   },
@@ -27,10 +27,10 @@
       "example_use_case_ids": [
         "q0.q001",
         "q0.q003",
-        "q0.q004",
         "q0.q005",
         "q0.q006",
-        "q0.q007"
+        "q0.q007",
+        "q0.q008"
       ],
       "planner_runtime_behavior": "No full runtime support; routing hint/eval only; RAG/generic/clarification.",
       "review_note": ""

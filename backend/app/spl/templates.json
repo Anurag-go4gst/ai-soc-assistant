@@ -1816,6 +1816,118 @@
         "spl_code",
         "recommended_actions"
       ]
+    },
+    {
+      "template_id": "sample_ioc_correlation_indicator_match",
+      "status": "sample",
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "name": "Sample: Detection anchor \u2014 IOC indicator correlation (sample, matrix-only)",
+      "description": "BL-004 S1b sample detection-family anchor. Disabled and non-production.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": true,
+      "safety_notes": "Disabled sample anchor for offline coverage matrix only. Runtime routing unchanged.",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_ioc_correlation_indicator_match */",
+      "returned_fields": [
+        "host"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [],
+      "answer_sections_supported": [],
+      "time_bound_required": true,
+      "result_limit_required": true
+    },
+    {
+      "template_id": "sample_threshold_anomaly_volume_spike",
+      "status": "sample",
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "name": "Sample: Detection anchor \u2014 threshold / volume anomaly (sample, matrix-only)",
+      "description": "BL-004 S1b sample detection-family anchor. Disabled and non-production.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": true,
+      "safety_notes": "Disabled sample anchor for offline coverage matrix only. Runtime routing unchanged.",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_threshold_anomaly_volume_spike */",
+      "returned_fields": [
+        "host"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [],
+      "answer_sections_supported": [],
+      "time_bound_required": true,
+      "result_limit_required": true
+    },
+    {
+      "template_id": "sample_powershell_suspicious_execution",
+      "status": "sample",
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "name": "Sample: Detection anchor \u2014 suspicious PowerShell / process execution (sample, matrix-only)",
+      "description": "BL-004 S1b sample detection-family anchor. Disabled and non-production.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": true,
+      "safety_notes": "Disabled sample anchor for offline coverage matrix only. Runtime routing unchanged.",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_powershell_suspicious_execution */",
+      "returned_fields": [
+        "host"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [],
+      "answer_sections_supported": [],
+      "time_bound_required": true,
+      "result_limit_required": true
+    },
+    {
+      "template_id": "sample_dlp_exfiltration_volume",
+      "status": "sample",
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "name": "Sample: Detection anchor \u2014 DLP / data exfiltration volume (sample, matrix-only)",
+      "description": "BL-004 S1b sample detection-family anchor. Disabled and non-production.",
+      "query_shape": "raw_search",
+      "enabled": false,
+      "production_ready": false,
+      "sample_only": true,
+      "safety_notes": "Disabled sample anchor for offline coverage matrix only. Runtime routing unchanged.",
+      "required_entities": [],
+      "default_time_window": "earliest=-24h latest=now",
+      "spl_text": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_dlp_exfiltration_volume */",
+      "returned_fields": [
+        "host"
+      ],
+      "validation_rules": {
+        "sample_only": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [],
+      "answer_sections_supported": [],
+      "time_bound_required": true,
+      "result_limit_required": true
     }
   ]
 }

@@ -1,9 +1,9 @@
 {
   "artifact": "soc_validation_use_cases",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-07-01T16:50:48+00:00",
+  "generated_at": "2026-07-01T17:12:26+00:00",
   "row_counts": {
-    "use_cases": 64
+    "use_cases": 68
   },
   "rows": [
     {
@@ -666,6 +666,19 @@
       "runtime_support_status": "planned",
       "spl_template_status": "sample",
       "tests_added": false,
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "catalog_present": true,
+      "enrichment_present": false,
+      "live_execution_skill": "spl_generation",
+      "notes": "",
+      "rag_status": "missing",
+      "review_decision": "",
+      "runtime_support_status": "planned",
+      "spl_template_status": "sample",
+      "tests_added": false,
       "use_case_id": "sample_dns_top_query_hosts",
       "validation_status": "needs_soc_review"
     },
@@ -679,7 +692,46 @@
       "runtime_support_status": "planned",
       "spl_template_status": "sample",
       "tests_added": false,
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "catalog_present": true,
+      "enrichment_present": false,
+      "live_execution_skill": "spl_generation",
+      "notes": "",
+      "rag_status": "missing",
+      "review_decision": "",
+      "runtime_support_status": "planned",
+      "spl_template_status": "sample",
+      "tests_added": false,
       "use_case_id": "sample_network_top_outbound_src",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "catalog_present": true,
+      "enrichment_present": false,
+      "live_execution_skill": "spl_generation",
+      "notes": "",
+      "rag_status": "missing",
+      "review_decision": "",
+      "runtime_support_status": "planned",
+      "spl_template_status": "sample",
+      "tests_added": false,
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "validation_status": "needs_soc_review"
+    },
+    {
+      "catalog_present": true,
+      "enrichment_present": false,
+      "live_execution_skill": "spl_generation",
+      "notes": "",
+      "rag_status": "missing",
+      "review_decision": "",
+      "runtime_support_status": "planned",
+      "spl_template_status": "sample",
+      "tests_added": false,
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
       "validation_status": "needs_soc_review"
     },
     {

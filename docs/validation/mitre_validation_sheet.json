@@ -1,10 +1,10 @@
 {
   "artifact": "soc_validation_mitre",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-07-01T16:50:48+00:00",
+  "generated_at": "2026-07-01T17:12:26+00:00",
   "mitre_metadata_role": "metadata_not_evidence",
   "row_counts": {
-    "use_cases": 64
+    "use_cases": 68
   },
   "rows": [
     {
@@ -655,6 +655,14 @@
       "mitre_candidates": [],
       "mitre_metadata_role": "metadata_not_evidence",
       "soc_review_notes": "",
+      "use_case_id": "sample_dlp_exfiltration_volume"
+    },
+    {
+      "evidence_status_source": "Runtime MITRE evidence status comes only from the planner MITRE branch (resolve_mitre_decision); registry/crosswalk candidates are metadata_not_evidence and never evidence_supported on their own.",
+      "mitre_blocked": [],
+      "mitre_candidates": [],
+      "mitre_metadata_role": "metadata_not_evidence",
+      "soc_review_notes": "",
       "use_case_id": "sample_dns_top_query_hosts"
     },
     {
@@ -663,7 +671,31 @@
       "mitre_candidates": [],
       "mitre_metadata_role": "metadata_not_evidence",
       "soc_review_notes": "",
+      "use_case_id": "sample_ioc_correlation_indicator_match"
+    },
+    {
+      "evidence_status_source": "Runtime MITRE evidence status comes only from the planner MITRE branch (resolve_mitre_decision); registry/crosswalk candidates are metadata_not_evidence and never evidence_supported on their own.",
+      "mitre_blocked": [],
+      "mitre_candidates": [],
+      "mitre_metadata_role": "metadata_not_evidence",
+      "soc_review_notes": "",
       "use_case_id": "sample_network_top_outbound_src"
+    },
+    {
+      "evidence_status_source": "Runtime MITRE evidence status comes only from the planner MITRE branch (resolve_mitre_decision); registry/crosswalk candidates are metadata_not_evidence and never evidence_supported on their own.",
+      "mitre_blocked": [],
+      "mitre_candidates": [],
+      "mitre_metadata_role": "metadata_not_evidence",
+      "soc_review_notes": "",
+      "use_case_id": "sample_powershell_suspicious_execution"
+    },
+    {
+      "evidence_status_source": "Runtime MITRE evidence status comes only from the planner MITRE branch (resolve_mitre_decision); registry/crosswalk candidates are metadata_not_evidence and never evidence_supported on their own.",
+      "mitre_blocked": [],
+      "mitre_candidates": [],
+      "mitre_metadata_role": "metadata_not_evidence",
+      "soc_review_notes": "",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
       "evidence_status_source": "Runtime MITRE evidence status comes only from the planner MITRE branch (resolve_mitre_decision); registry/crosswalk candidates are metadata_not_evidence and never evidence_supported on their own.",

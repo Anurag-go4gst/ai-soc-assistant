@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_questions",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-07-01T16:50:48+00:00",
+  "generated_at": "2026-07-01T17:12:26+00:00",
   "row_counts": {
     "questions": 105
   },
@@ -34,13 +34,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts contacted known malicious IPs today?",
       "question_id": "q0.q004",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_ioc_correlation_indicator_match"
     },
     {
       "disposition": "metadata_only",
@@ -79,13 +79,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts communicated with many unique external IPs?",
       "question_id": "q0.q009",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
       "disposition": "metadata_only",
@@ -115,22 +115,22 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which systems generated large outbound data transfers?",
       "question_id": "q0.q013",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_dlp_exfiltration_volume"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts showed potential data exfiltration to cloud apps?",
       "question_id": "q0.q014",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_dlp_exfiltration_volume"
     },
     {
       "disposition": "metadata_only",
@@ -142,13 +142,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts contacted the same external IP many times?",
       "question_id": "q0.q016",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
       "disposition": "planned",
@@ -196,13 +196,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts contacted IPs in an IOC lookup?",
       "question_id": "q0.q022",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_ioc_correlation_indicator_match"
     },
     {
       "disposition": "metadata_only",
@@ -232,13 +232,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts have unusually high connection counts to one destination?",
       "question_id": "q0.q026",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
       "disposition": "metadata_only",
@@ -295,13 +295,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts communicated with suspicious destination domains and IPs?",
       "question_id": "q0.q033",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_ioc_correlation_indicator_match"
     },
     {
       "disposition": "metadata_only",
@@ -313,22 +313,22 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts generated the largest DNS response volumes?",
       "question_id": "q0.q035",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts reached known malicious domains from lookup data?",
       "question_id": "q0.q036",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_ioc_correlation_indicator_match"
     },
     {
       "disposition": "metadata_only",
@@ -340,13 +340,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts had large inbound traffic from a single source?",
       "question_id": "q0.q038",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
       "disposition": "metadata_only",
@@ -367,22 +367,22 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which systems have repeated hits to the same suspicious URL path?",
       "question_id": "q0.q041",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts contacted both malicious IPs and domains?",
       "question_id": "q0.q042",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_ioc_correlation_indicator_match"
     },
     {
       "disposition": "runtime_active",
@@ -421,13 +421,13 @@
       "use_case_id": "sample_auth_failed_login_top_users"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Is one IP attacking many accounts?",
       "question_id": "q0.q047",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
       "disposition": "metadata_only",
@@ -457,22 +457,22 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "What unusual processes ran on critical servers?",
       "question_id": "q0.q051",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_powershell_suspicious_execution"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Did any host contact known malicious IPs?",
       "question_id": "q0.q052",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_ioc_correlation_indicator_match"
     },
     {
       "disposition": "metadata_only",
@@ -484,13 +484,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Who is sending large amounts of data outbound?",
       "question_id": "q0.q054",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_dlp_exfiltration_volume"
     },
     {
       "disposition": "metadata_only",
@@ -511,13 +511,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Did any endpoint run this suspicious hash?",
       "question_id": "q0.q057",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_ioc_correlation_indicator_match"
     },
     {
       "disposition": "metadata_only",
@@ -565,13 +565,13 @@
       "use_case_id": "auth_failed_login_spike"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which endpoints spawned script interpreters recently?",
       "question_id": "q0.q063",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_powershell_suspicious_execution"
     },
     {
       "disposition": "metadata_only",
@@ -601,13 +601,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts are generating unusual DNS query volumes?",
       "question_id": "q0.q067",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
       "disposition": "metadata_only",
@@ -628,13 +628,13 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which users changed their password multiple times in a short window?",
       "question_id": "q0.q070",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
       "disposition": "metadata_only",
@@ -673,49 +673,49 @@
       "use_case_id": "edr_lateral_movement_candidate"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which endpoints created suspicious archive files?",
       "question_id": "q0.q075",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_powershell_suspicious_execution"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts uploaded large amounts of data to cloud services?",
       "question_id": "q0.q076",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_dlp_exfiltration_volume"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which endpoints accessed USB storage recently?",
       "question_id": "q0.q077",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_dlp_exfiltration_volume"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which systems had repeated malware detections?",
       "question_id": "q0.q078",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which files were modified by suspicious processes?",
       "question_id": "q0.q079",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_powershell_suspicious_execution"
     },
     {
       "disposition": "metadata_only",
@@ -736,22 +736,22 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which domains were queried by multiple hosts in a short period?",
       "question_id": "q0.q082",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_threshold_anomaly_volume_spike"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts have suspicious parent-child process chains?",
       "question_id": "q0.q083",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_powershell_suspicious_execution"
     },
     {
       "disposition": "metadata_only",
@@ -871,22 +871,22 @@
       "use_case_id": null
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which systems show signs of webshell activity?",
       "question_id": "q0.q097",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_powershell_suspicious_execution"
     },
     {
-      "disposition": "metadata_only",
-      "mapping_status": "missing_authoritative_mapping",
+      "disposition": "planned",
+      "mapping_status": "curated_manual",
       "question": "Which hosts downloaded executables from the internet?",
       "question_id": "q0.q098",
-      "question_match_status": "unmapped",
-      "runtime_support_status": "metadata_only",
-      "use_case_id": null
+      "question_match_status": "exact",
+      "runtime_support_status": "planned",
+      "use_case_id": "sample_powershell_suspicious_execution"
     },
     {
       "disposition": "metadata_only",

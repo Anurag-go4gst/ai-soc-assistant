@@ -75,15 +75,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071",
@@ -94,7 +105,7 @@
     "question_id": "q0.q004",
     "spl_template_status": "active",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_ioc_correlation_indicator_match"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -191,15 +202,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071"
@@ -209,7 +231,7 @@
     "question_id": "q0.q009",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -296,15 +318,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1041",
@@ -315,20 +348,31 @@
     "question_id": "q0.q013",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_dlp_exfiltration_volume"
   },
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1048"
@@ -338,7 +382,7 @@
     "question_id": "q0.q014",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_dlp_exfiltration_volume"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -366,15 +410,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071"
@@ -384,7 +439,7 @@
     "question_id": "q0.q016",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -510,15 +565,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071"
@@ -528,7 +594,7 @@
     "question_id": "q0.q022",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_ioc_correlation_indicator_match"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -600,15 +666,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071"
@@ -618,7 +695,7 @@
     "question_id": "q0.q026",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -785,15 +862,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071"
@@ -803,7 +891,7 @@
     "question_id": "q0.q033",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_ioc_correlation_indicator_match"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -829,15 +917,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071.004"
@@ -847,20 +946,31 @@
     "question_id": "q0.q035",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071.004"
@@ -870,7 +980,7 @@
     "question_id": "q0.q036",
     "spl_template_status": "active",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_ioc_correlation_indicator_match"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -898,15 +1008,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [],
     "planning_or_analytic_skill": "threshold_anomaly",
@@ -914,7 +1035,7 @@
     "question_id": "q0.q038",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -963,15 +1084,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071.001"
@@ -981,20 +1113,31 @@
     "question_id": "q0.q041",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071"
@@ -1004,7 +1147,7 @@
     "question_id": "q0.q042",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_ioc_correlation_indicator_match"
   },
   {
     "enrichment_evidence_requirements": [
@@ -1135,15 +1278,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1110.001"
@@ -1153,7 +1307,7 @@
     "question_id": "q0.q047",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -1228,15 +1382,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1059"
@@ -1246,20 +1411,31 @@
     "question_id": "q0.q051",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_powershell_suspicious_execution"
   },
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071"
@@ -1269,7 +1445,7 @@
     "question_id": "q0.q052",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_ioc_correlation_indicator_match"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -1298,15 +1474,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1041",
@@ -1317,7 +1504,7 @@
     "question_id": "q0.q054",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_dlp_exfiltration_volume"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -1368,15 +1555,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1204"
@@ -1386,7 +1584,7 @@
     "question_id": "q0.q057",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_ioc_correlation_indicator_match"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -1577,15 +1775,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1059"
@@ -1595,7 +1804,7 @@
     "question_id": "q0.q063",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_powershell_suspicious_execution"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -1669,15 +1878,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071.004"
@@ -1687,7 +1907,7 @@
     "question_id": "q0.q067",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -1738,15 +1958,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1098"
@@ -1756,7 +1987,7 @@
     "question_id": "q0.q070",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -1883,15 +2114,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1560"
@@ -1901,20 +2143,31 @@
     "question_id": "q0.q075",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_powershell_suspicious_execution"
   },
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1048"
@@ -1924,20 +2177,31 @@
     "question_id": "q0.q076",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_dlp_exfiltration_volume"
   },
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1052"
@@ -1947,20 +2211,31 @@
     "question_id": "q0.q077",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_dlp_exfiltration_volume"
   },
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [],
     "planning_or_analytic_skill": "threshold_anomaly",
@@ -1968,20 +2243,31 @@
     "question_id": "q0.q078",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1105"
@@ -1991,7 +2277,7 @@
     "question_id": "q0.q079",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_powershell_suspicious_execution"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -2044,15 +2330,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1071.004"
@@ -2062,20 +2359,31 @@
     "question_id": "q0.q082",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_threshold_anomaly_volume_spike"
   },
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1059",
@@ -2086,7 +2394,7 @@
     "question_id": "q0.q083",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_powershell_suspicious_execution"
   },
   {
     "enrichment_evidence_requirements": null,
@@ -2418,15 +2726,26 @@
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1505.003"
@@ -2436,20 +2755,31 @@
     "question_id": "q0.q097",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_powershell_suspicious_execution"
   },
   {
     "enrichment_evidence_requirements": null,
     "enrichment_status": null,
-    "evidence_requirements": null,
+    "evidence_requirements": {
+      "optional_entities": [
+        "host",
+        "user",
+        "time_window"
+      ],
+      "optional_sources": [],
+      "required_entities": [],
+      "required_sources": [
+        "mcp:splunk"
+      ]
+    },
     "github_intake_decision": null,
     "github_reference_skill": null,
     "github_reference_skills": null,
     "implementation_status": "not_started",
     "live_execution_skill": "attack_discovery",
-    "mapping_confidence": null,
-    "mapping_source_file": null,
-    "mapping_status": "missing_authoritative_mapping",
+    "mapping_confidence": "high",
+    "mapping_source_file": "docs/evals/question_use_case_map.json",
+    "mapping_status": "curated_manual",
     "mitre_candidates": [],
     "mitre_permitted": [
       "T1105"
@@ -2459,7 +2789,7 @@
     "question_id": "q0.q098",
     "spl_template_status": "unavailable",
     "test_status": "unknown",
-    "use_case_id": null
+    "use_case_id": "sample_powershell_suspicious_execution"
   },
   {
     "enrichment_evidence_requirements": null,
