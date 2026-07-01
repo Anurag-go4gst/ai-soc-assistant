@@ -34,9 +34,14 @@ def run_mcp_tool_plan_shadow(
     needs_spl: bool = False,
     allow_llm_advisory: bool = True,
     llm_advisory_skip_reason: str | None = None,
+    experience_center_fixture: bool = False,
     client: Any | None = None,
 ) -> dict[str, Any] | None:
     """Return advisory chronology metadata for control_plane_trace; None when skipped."""
+    if experience_center_fixture:
+        allow_llm_advisory = False
+        llm_advisory_skip_reason = llm_advisory_skip_reason or "experience_center_fixture"
+
     if not needs_mcp and not needs_spl:
         return None
     if not mcp_tool_plan_shadow_enabled() and not needs_mcp:

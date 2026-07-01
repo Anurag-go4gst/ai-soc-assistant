@@ -66,3 +66,21 @@ def test_critical_alerts_mcp_tool_plan_shadow_ec_parity() -> None:
     assert isinstance(panel.get("mcp_tool_plan_shadow"), str)
     assert "splunk_run_query" not in panel["mcp_tool_plan_shadow"]  # summary prose, not raw tool list
     assert "RBAC role analyst" in panel["mcp_tool_plan_shadow"]
+
+
+def test_experience_center_demo_skips_planner_llm_even_when_advisory_on(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.connectors.mcp.mcp_tool_plan_shadow.mcp_tool_plan_llm_advisory_enabled",
+        lambda: True,
+    )
+
+    def _fail_planner(*args, **kwargs):
+        raise AssertionError("Experience Center must not invoke live planner LLM")
+
+    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.plan_tool_chronology", _fail_planner)
+
+    payload = run_demo_scenario("failed_login_spike_app01")
+    shadow = payload["control_plane_trace"].get("mcp_tool_plan_shadow")
+    assert shadow is not None
+    assert shadow["planner"]["llm_called"] is False
+    assert shadow["planner"]["skipped_reason"] == "experience_center_fixture"
