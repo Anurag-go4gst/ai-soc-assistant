@@ -330,7 +330,7 @@ AI_SOC_REQUIRE_HIL_FOR_MOCK_EXECUTION=true
 | Valid SPL + mock MCP + live path | `human_review.required=true` (or explicit mock-executed label + review) |
 | Valid SPL + EC fixture path | No MCP gate invocation; canned response only |
 | Invalid SPL | `review_type=spl_revision` |
-| Real MCP / not implemented | `admin_action_required` |
+| Real MCP / not configured or gated | `admin_action_required` |
 
 ---
 
@@ -395,9 +395,9 @@ A2 = reconciliation + additive hardening, **not** a breaking schema replacement.
 
 ---
 
-### A4 — Splunk MCP execution safety — **Done (Batch 6 planning contract)**
+### A4 — Splunk MCP execution safety — **Done (Batch 6 contract; live adapter default-off)**
 
-**Objective:** Document COE requirements; defer implementation.
+**Objective:** Document COE requirements and keep live execution fail-closed unless every operator gate passes.
 
 **Files:** `connectors/mcp/splunk_mcp.py`, `mcp_execution_gate.py`, `splunk_result_adapter.py`, `splunk/capabilities.py`
 
@@ -405,7 +405,7 @@ A2 = reconciliation + additive hardening, **not** a breaking schema replacement.
 
 **COE checklist (document only):** server URL, auth, allowed tools (read-only search), timeouts, result caps, audit trail, approval workflow, air-gap policy.
 
-**Batch 6 result:** Real Splunk MCP remains disabled/not implemented. The contract requires `validate_spl()` approval, active allowed template, read-only SPL, HIL approval bound to normalized SPL hash/trace, global + per-server execution flags, allowlisted `spl_search` tool, confirmed real result schema, and audit readiness before live execution.
+**Current result (2026-07-01):** Real Splunk MCP execution remains disabled by default. A live `splunk_run_query` adapter and bounded search lifecycle exist, but execution still requires `validate_spl()` approval, resolved source slots, read-only SPL, per-call analyst confirmation, global + per-server execution flags, URL/token configuration, an allowlisted `spl_search` tool, and COE schema smoke before production reliance.
 
 ---
 
