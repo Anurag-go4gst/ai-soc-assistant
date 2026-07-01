@@ -1355,16 +1355,31 @@ def _pretty_spl(spl: str) -> str:
     return head + "".join(f"\n| {segment}" for segment in rest)
 
 
-# Production-optimized auth SPL, sourced from the governed template registry so the
-# Experience Center always renders the same query production generates.
-FAILED_SPIKE_SPL = _scoped_template_spl("auth_failed_login_spike", host="APP-01")
-SUCCESS_AFTER_FAILURES_SPL = _scoped_template_spl("auth_success_after_failure", host="APP-01")
+def _ec_resolve_env_kb_slots(spl: str) -> str:
+    """Pre-bake Environment KB slot values into EC SPL at module load time.
+
+    EC scenarios are fixtures — live slot resolution is not needed. Replaces all
+    known <slot> placeholders with COE environment values from the persisted source
+    profile so analysts see real index/sourcetype names, not angle-bracket tokens.
+    Unknown slots are left unchanged.
+    """
+    from app.spl.source_profile_store import load_persisted_source_profile
+
+    for slot, value in load_persisted_source_profile().items():
+        spl = spl.replace(f"<{slot}>", value)
+    return spl
+
+
+# Production-optimized SPL, sourced from the governed template registry and pre-baked
+# with Environment KB slot values so EC analysts see real index/sourcetype names.
+FAILED_SPIKE_SPL = _ec_resolve_env_kb_slots(_scoped_template_spl("auth_failed_login_spike", host="APP-01"))
+SUCCESS_AFTER_FAILURES_SPL = _ec_resolve_env_kb_slots(_scoped_template_spl("auth_success_after_failure", host="APP-01"))
 SUCCESS_AFTER_FAILURES_VISIBLE_SPL = _pretty_spl(SUCCESS_AFTER_FAILURES_SPL)
-LOCKOUT_SPL = _scoped_template_spl("auth_account_lockout_trend")
+LOCKOUT_SPL = _ec_resolve_env_kb_slots(_scoped_template_spl("auth_account_lockout_trend"))
 LOCKOUT_VISIBLE_SPL = _pretty_spl(LOCKOUT_SPL)
-DNS_BEACONING_SPL = _scoped_template_spl("dns_beaconing_candidate")
+DNS_BEACONING_SPL = _ec_resolve_env_kb_slots(_scoped_template_spl("dns_beaconing_candidate"))
 DNS_BEACONING_VISIBLE_SPL = _pretty_spl(DNS_BEACONING_SPL)
-CRITICAL_NOTABLE_SPL = _scoped_template_spl("notable_critical_review_mitre")
+CRITICAL_NOTABLE_SPL = _ec_resolve_env_kb_slots(_scoped_template_spl("notable_critical_review_mitre"))
 CRITICAL_NOTABLE_VISIBLE_SPL = _pretty_spl(CRITICAL_NOTABLE_SPL)
 
 _CRITICAL_ALERT_FIXTURE_ROWS = [

@@ -141,8 +141,11 @@ def build_firewall_incident_scenarios() -> dict[str, Any]:
     _fact = S._fact
     _rag_row = S._rag_row
     _scoped_template_spl = S._scoped_template_spl
+    _ec_resolve_env_kb_slots = S._ec_resolve_env_kb_slots
 
-    deny_spl = _scoped_template_spl("firewall_deny_spike")
+    # Pre-bake Environment KB slots so the display SPL shows real index/sourcetype names.
+    deny_spl = _ec_resolve_env_kb_slots(_scoped_template_spl("firewall_deny_spike"))
+    # cisco_asa_ioc_lookup uses literal 'index=cisco_asa' (Splunk alias, not a <slot>).
     asa_spl = _scoped_template_spl("cisco_asa_ioc_lookup")
 
     q1_rows = [
@@ -635,10 +638,13 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             "finding_title": "Splunk environment readiness",
             "one_sentence_finding": (
                 "Splunk MCP discovery confirms pgcil_soc (Environment KB alias for cisco_asa) and Wave-3 "
-                "lookup power_sector_iocs.csv — ready for governed IOC searches on the resolved index."
+                "lookup power_sector_iocs.csv — TI enrichment is active and the index is ready for governed IOC searches."
             ),
             "recommended_actions": [
-                "P2: Proceed to IOC blast-radius search once SOC lead approves the investigation scope.",
+                "P1: Confirm Wave-3 TI lookup power_sector_iocs.csv is current and the threat-intel feed was updated within the last 24 hours before pivoting to IOC search.",
+                "P2: Proceed to IOC blast-radius search on pgcil_soc once SOC lead approves the investigation scope.",
+                "P2: Verify cisco_asa alias is registered in the Environment KB for all relevant sourcetypes (cisco:asa, cisco:firepower) before running governed SPL.",
+                "P3: Document the confirmed index alias mapping in the incident record so follow-on analysts use the same resolved index.",
             ],
         }
     if scenario_id == "network_blast_radius_attacker_ip":
@@ -707,6 +713,8 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             ],
         }
     if scenario_id == "ir_containment_advisory_firewall_incident":
+        from app.demo.ec_mcp_lifecycle_fixture import PRIMARY_ATTACKER_IP
+
         return {
             **base,
             "response_profile": "knowledge_recall",
@@ -718,19 +726,32 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             },
             "finding_title": "Perimeter response advisory",
             "one_sentence_finding": (
-                "Decision-support only: perimeter deny, segment affected hosts during change window, "
-                "and revoke suspicious sessions — all require explicit approval."
+                "Decision-support only: perimeter deny on approved block list, segment blast-radius hosts "
+                "in the next change window, and revoke suspicious sessions — all require explicit approval before action."
             ),
+            "initial_assessment": [
+                "Response posture: decision-support advisory. No automated enforcement; each action requires explicit approval.",
+                f"Attacker {PRIMARY_ATTACKER_IP}: recommend perimeter deny after SOC lead sign-off.",
+                "Blast-radius hosts 10.20.1.10, 10.20.4.55, 10.20.8.90: segment during next change window.",
+                "svc_jump_ops on 10.20.1.10: force re-auth and revoke active sessions via identity team.",
+            ],
             "narrative_summary": (
-                "### Recommended response steps\n"
-                "1. **Perimeter deny (approval required)** — Add attacker to approved block list after SOC lead sign-off.\n"
-                "2. **Segment affected hosts (change window)** — Isolate blast-radius hosts during scheduled maintenance.\n"
-                "3. **Revoke sessions (identity team)** — Force re-auth for accounts on affected jump hosts."
+                "### Recommended response steps\n\n"
+                f"1. **Perimeter deny (SOC lead approval)** — Add {PRIMARY_ATTACKER_IP} to the approved block list "
+                "after SOC lead sign-off. Confirm no legitimate business traffic originates from this IP before blocking.\n\n"
+                "2. **Segment blast-radius hosts (change window)** — Isolate 10.20.1.10, 10.20.4.55, and 10.20.8.90 "
+                "during the next scheduled change window. Coordinate with the operations team to minimize service impact.\n\n"
+                "3. **Revoke sessions (identity team)** — Force re-authentication for svc_jump_ops and any other accounts "
+                "active on 10.20.1.10 during the alert window. Notify the identity team before taking action.\n\n"
+                "4. **SCADA isolation advisory** — If SCADA/OT telemetry confirms any OT-segment reach by the attacker, "
+                "escalate to the OT safety team immediately before taking any containment actions in the OT environment."
             ),
             "recommended_actions": [
-                "P1: Perimeter deny on approved block list — SOC lead approval required.",
-                "P1: Segment affected hosts during the next change window.",
-                "P2: Identity team session revocation for impacted accounts.",
+                f"P1: Add {PRIMARY_ATTACKER_IP} to the approved perimeter block list — SOC lead sign-off required before any block is applied.",
+                "P1: Force re-authentication and revoke active sessions for svc_jump_ops — coordinate with identity team before action.",
+                "P1: Segment 10.20.1.10 (confirmed breach host) from the corporate VLAN during the next change window.",
+                "P2: Extend segmentation review to 10.20.4.55 and 10.20.8.90 — deny-only so far, but lateral movement risk remains open.",
+                "P3: Escalate to OT safety team if any evidence of OT-segment reach emerges from the SCADA telemetry check.",
             ],
         }
     if scenario_id == "executive_incident_mitre_summary":
@@ -741,18 +762,40 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             "severity_label": "P1 Critical",
             "finding_title": f"Executive summary · {INCIDENT_ID}",
             "one_sentence_finding": (
-                f"Coordinated perimeter incident {INCIDENT_ID}: dominant external actor {PRIMARY_ATTACKER_IP}, "
-                "~5,200 denies with confirmed svc_jump_ops allow on 10.20.1.10; MITRE T1110.001 supported "
-                "and T1078 validation-required."
+                f"Coordinated perimeter incident {INCIDENT_ID}: dominant external actor {PRIMARY_ATTACKER_IP} "
+                "drove ~5,200 firewall denies with three confirmed allow events on jump host 10.20.1.10 for "
+                "svc_jump_ops; MITRE T1110.001 supported, T1078 validation-required, T1048 candidate pending "
+                "data-movement proof."
+            ),
+            "initial_assessment": [
+                f"Incident {INCIDENT_ID}: P1 Critical — coordinated perimeter attack with internal account breach.",
+                f"Primary external actor {PRIMARY_ATTACKER_IP}: ~5,200 denies / 3 allow events; blast radius covers 3 internal hosts.",
+                "MITRE ATT&CK alignment: T1110.001 Supported · T1078 Requires validation · T1048 Candidate.",
+                "Next step: identity + endpoint corroboration for svc_jump_ops on 10.20.1.10 before executive brief.",
+            ],
+            "narrative_summary": (
+                f"### Incident {INCIDENT_ID} — Executive summary\n\n"
+                f"**External actor {PRIMARY_ATTACKER_IP}** launched a coordinated perimeter campaign generating "
+                "~5,200 firewall denies in under one hour. Three **allow** events on jump host **10.20.1.10** "
+                "for account **svc_jump_ops** indicate a likely credential-access success.\n\n"
+                "**Blast radius:** Three internal hosts exposed — 10.20.1.10 (breach), 10.20.4.55, 10.20.8.90 "
+                "(deny-only so far). SCADA telemetry check is on hold pending OT index mapping.\n\n"
+                "**MITRE ATT&CK alignment:**\n"
+                "- T1110.001 Password Guessing — **Supported** by deny-volume pattern\n"
+                "- T1078 Valid Accounts — **Requires validation** after identity review of svc_jump_ops\n"
+                "- T1048 Exfiltration Over Alternative Protocol — **Candidate** pending data-movement evidence"
             ),
             "mitre_mappings": [
-                {"Technique": "T1110.001", "Name": "Password Guessing", "Status": "Supported"},
-                {"Technique": "T1078", "Name": "Valid Accounts", "Status": "Requires validation"},
-                {"Technique": "T1048", "Name": "Exfiltration Over Alternative Protocol", "Status": "Candidate"},
+                {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Status": "Supported", "Evidence": "~5,200 denies from single external source in under one hour"},
+                {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Status": "Requires validation", "Evidence": "Three allow events for svc_jump_ops after sustained deny burst on 10.20.1.10"},
+                {"Technique": "T1048", "Name": "Exfiltration Over Alternative Protocol", "Tactic": "Exfiltration", "Status": "Candidate", "Evidence": "Pending — data-movement proof from egress or endpoint telemetry not yet collected"},
             ],
             "recommended_actions": [
-                "P1: Brief executive stakeholders with evidence package and open questions.",
-                "P2: Continue identity and endpoint corroboration for blast-radius hosts.",
+                "P1: Brief executive stakeholders with the incident evidence package and open validation questions (T1078/T1048).",
+                "P1: Confirm svc_jump_ops account status — active sessions, privilege level, and owner — before the executive brief.",
+                "P2: Continue identity and endpoint corroboration for blast-radius hosts 10.20.1.10, 10.20.4.55, and 10.20.8.90.",
+                "P2: Escalate to P1 incident commander if T1078 identity evidence confirms account compromise.",
+                "P3: Capture the evidence package and ATT&CK mapping in the incident record for stakeholder reporting.",
             ],
         }
     return None
