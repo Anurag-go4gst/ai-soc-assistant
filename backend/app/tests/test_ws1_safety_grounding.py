@@ -78,6 +78,6 @@ def test_conceptual_mitre_guidance_direct_negation() -> None:
 
 def test_unsafe_action_guidance_blocks_execution() -> None:
     text = build_unsafe_action_guidance().lower()
-    assert "was performed" in text or "not executed" in text
-    assert "hil" in text or "approval" in text
-    assert "blocked" in text or "not authorized" in text
+    assert "was performed" in text or "not performed" in text
+    assert "hil" in text or "approval" in text or "human review" in text
+    assert "refused" in text or "not authorized" in text

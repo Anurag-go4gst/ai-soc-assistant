@@ -36,6 +36,15 @@ def _adjudicate_for_query(
     return result.model_dump()
 
 
+def test_explicit_run_spl_adjudicates_to_spl_generation_not_knowledge_recall() -> None:
+    result = _adjudicate_for_query(
+        "Run the SPL and give me results.",
+        deterministic_route="knowledge_recall",
+    )
+    assert result["final_route"] == "spl_generation"
+    assert result["authority_source"] == "explicit_run_spl_hil_gate"
+
+
 def test_policy_escalation_failed_login_is_knowledge_recall_not_attack_discovery() -> None:
     result = _adjudicate_for_query(
         "What is the escalation policy for repeated failed login alerts?",

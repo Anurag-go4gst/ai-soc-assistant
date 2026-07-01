@@ -30,9 +30,9 @@ _EVIDENCE_SUPPORTED_DISPLAY = re.compile(
 )
 
 _UNSAFE_ACTION_MESSAGE = (
-    "No containment or enforcement action was performed. Change approval and human-in-the-loop "
-    "(HIL) review are required before any block, disable, quarantine, or firewall change. "
-    "I can provide investigation guidance only — automated enforcement is blocked and not authorized."
+    "No containment or enforcement action was performed. Human review and approval are required "
+    "before any block, disable, quarantine, or firewall change. "
+    "I can provide investigation guidance only — automated enforcement is refused and not authorized."
 )
 
 
@@ -55,7 +55,12 @@ def scrub_ec_analyst_visible_phrasing(text: str) -> str:
     scrubbed = scrub_blocked_context_display_phrasing(text)
     replacements = (
         ("not governed, not approved, not executed", "not governed, not approved, not performed"),
+        ("has not been executed", "has not been performed"),
+        ("have not been executed", "have not been performed"),
         ("was not executed", "was not performed"),
+        ("was executed", "was performed"),
+        ("query was executed", "query was performed"),
+        ("no live query was executed", "no live query was performed"),
         ("and was not executed", "and was not performed"),
         ("not executed", "not performed"),
         ("is not executed", "is not performed"),
@@ -223,12 +228,40 @@ def build_investigation_triage_guidance(query: str) -> str:
             "Correlate successful logins before and after the MFA failures.",
             "Escalate only after threshold evidence is collected.",
         ]
-    elif "service start" in normalized or "failed service" in normalized:
+    elif any(term in normalized for term in ("vpn", "remote access", "privileged user", "admin user")):
         checklist = [
-            "Review service names, parent process, and account used for the starts.",
-            "Correlate failed starts with recent logon and privilege changes.",
-            "Check endpoint telemetry for persistence or lateral movement signals.",
-            "Validate whether changes align with approved maintenance.",
+            "Confirm the user, privilege level, source IP or country, and device posture.",
+            "Compare failures and successes for the same user in the same time window.",
+            "Review MFA outcome, impossible-travel indicators, and first-seen source context.",
+            "Check approved maintenance, vendor access, shift roster, and ticket evidence.",
+            "Correlate endpoint or OT session activity after any successful login.",
+        ]
+    elif any(term in normalized for term in ("firewall", "it to ot", "ot to it", "esp", "perimeter", "allowed connection")):
+        checklist = [
+            "Confirm source, destination, port, protocol, action, and rule name.",
+            "Map both endpoints to asset owner, zone, and criticality.",
+            "Check whether the flow matches an approved change or maintenance window.",
+            "Review bytes, duration, first-seen status, and peer flows for the same zone pair.",
+            "Escalate only after validating business justification and local policy.",
+        ]
+    elif any(term in normalized for term in ("dns", "beacon", "domain", "proxy", "c2", "command and control")):
+        checklist = [
+            "Measure query periodicity, jitter, volume, and bytes out over a bounded window.",
+            "Review domain age, rarity, reputation, category, and resolver path.",
+            "Tie the DNS activity to host, user, process, and asset criticality where available.",
+            "Compare peer hosts and approved vendor or maintenance destinations.",
+            "Keep C2/MITRE language candidate-only until independent signals align.",
+        ]
+    elif any(
+        term in normalized
+        for term in ("powershell", "scheduled task", "service start", "failed service", "endpoint")
+    ):
+        checklist = [
+            "Review host, user, process tree, command line, signer, and parent process.",
+            "Correlate with logon events, privilege changes, file writes, and network activity.",
+            "Check whether the activity matches software deployment or maintenance tooling.",
+            "Compare against peer hosts and first-seen execution for the same account.",
+            "Preserve endpoint evidence before severity, MITRE, or containment decisions.",
         ]
     else:
         checklist = [
@@ -329,7 +362,7 @@ def build_unsafe_action_guidance() -> str:
 
 _SPL_EXECUTION_REFUSAL_MESSAGE = (
     "Splunk search execution is blocked. No SPL query was run and no live results were returned. "
-    "Human-in-the-loop (HIL) review and approval required before any Splunk search execution. "
+    "Human review and approval are required before any Splunk search can execute. "
     "I can provide review-only investigation guidance or a candidate SPL draft when available."
 )
 

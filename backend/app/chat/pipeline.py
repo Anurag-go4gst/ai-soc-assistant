@@ -156,6 +156,7 @@ from app.chat.answer_shape_router import (
     should_bypass_shape_router,
 )
 from app.chat.final_answer_validator import validate_final_answer
+from app.chat.guidance_summary_renderer import is_guidance_summary_path
 from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.llm.missing_evidence_reasoner import (
     MissingEvidenceReasonerResult,
@@ -2277,6 +2278,8 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
 
 def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("retrieving_knowledge")
+    if not isinstance(state.get("workflow_plan"), dict):
+        state = graph_node_prepare_rag_only(state)
     request = state["request"]
     query_text = state.get("effective_query") or request.message
     query_understanding = state.get("query_understanding")
@@ -2573,8 +2576,27 @@ def _environment_hygiene_envelope(state: ChatPipelineState) -> dict[str, Any] | 
     }
 
 
+def _ensure_context_finalize_state(state: ChatPipelineState) -> ChatPipelineState:
+    """Guarantee finalize prerequisites when LangGraph shortcuts skip execution/RAG hooks."""
+    updated: ChatPipelineState = dict(state)
+    if not isinstance(updated.get("execution"), dict):
+        updated["execution"] = {"status": "skipped", "block_reason": "finalize_stage_default"}
+    if not isinstance(updated.get("human_review"), dict):
+        updated["human_review"] = {"required": False}
+    if not isinstance(updated.get("workflow_plan"), dict):
+        skill = str((updated.get("routed") or {}).get("skill") or "knowledge_recall")
+        updated["workflow_plan"] = {
+            "skill": skill,
+            "steps": [],
+            "execution_enabled": False,
+            "required_sources": [],
+        }
+    return updated
+
+
 def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("mapping_mitre")
+    state = _ensure_context_finalize_state(state)
     request = state["request"]
     routed = state["routed"]
     trace_id = state["trace_id"]
@@ -3004,6 +3026,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             human_review = audit_review
             message = audit_review["safe_message_for_user"]
             note = "Novel operation proposals stop at audit/HIL; no MCP or SPL execution is authorized."
+
+    from app.chat.explicit_run_spl_hil import apply_explicit_run_spl_hil_wiring
+
+    human_review, execution = apply_explicit_run_spl_hil_wiring(
+        user_query=request.message,
+        path_type=path_type,
+        human_review=human_review if isinstance(human_review, dict) else None,
+        execution=execution if isinstance(execution, dict) else None,
+    )
 
     if (
         spl_draft_preview
@@ -3646,7 +3677,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
             user_query=request.message,
         )
-    analyst_response = _collapse_card_summary_when_sections_own_details(analyst_response)
+    analyst_response = _collapse_card_summary_when_sections_own_details(
+        analyst_response, path_type=path_type
+    )
     analyst_response = _strip_priority_prefixes_when_severity_unassigned(analyst_response)
     message = _collapse_top_level_message_when_card_owns_sections(message, analyst_response)
     final_answer_validation = None
@@ -3949,6 +3982,36 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
         spl_artifact_handoff=_spl_handoff,
     )
+    from app.chat.answer_quality_enrichment import apply_answer_quality_enrichment
+
+    from app.chat.guidance_summary_renderer import apply_guidance_summary_render
+
+    message, analyst_response = apply_answer_quality_enrichment(
+        message,
+        analyst_response,
+        user_query=request.message,
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+        path_type=path_type,
+        answer_contract=answer_contract,
+    )
+    analyst_response, message = apply_guidance_summary_render(
+        analyst_response,
+        message,
+        path_type=path_type,
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+        answer_contract=answer_contract,
+        user_query=request.message,
+    )
+    from app.chat.coe_checklist_repair import repair_duplicate_soc_review_checklist
+
+    analyst_response, message = repair_duplicate_soc_review_checklist(
+        analyst_response, message, path_type=path_type
+    )
+    analyst_response = _collapse_card_summary_when_sections_own_details(
+        analyst_response, path_type=path_type
+    )
+    analyst_response = _strip_priority_prefixes_when_severity_unassigned(analyst_response)
+    message = _collapse_top_level_message_when_card_owns_sections(message, analyst_response)
     visible_spl_draft_preview = (
         None
         if _is_universal_spl_authoring_review(candidate_spl, spl_validation)
@@ -4141,9 +4204,17 @@ def _strip_priority_prefixes_when_severity_unassigned(analyst_response: Any | No
     return analyst_response.model_copy(update=updates)
 
 
-def _collapse_card_summary_when_sections_own_details(analyst_response: Any | None) -> Any | None:
+def _collapse_card_summary_when_sections_own_details(
+    analyst_response: Any | None,
+    *,
+    path_type: str | None = None,
+) -> Any | None:
     if analyst_response is None:
         return None
+    if is_guidance_summary_path(path_type):
+        return analyst_response
+    if str(getattr(analyst_response, "response_profile", "") or "") == "spl_only":
+        return analyst_response
     summary = str(getattr(analyst_response, "direct_answer_summary", "") or "").strip()
     if not summary:
         return analyst_response
@@ -4182,16 +4253,33 @@ def _is_coe_stop_condition_violation(violation: str) -> bool:
 
 def _apply_coe_stop_condition_gate(response: PlaceholderResponse, *, query: str) -> PlaceholderResponse:
     """Fail closed on COE stop-condition violations after RunContract packaging."""
+    from app.chat.coe_checklist_repair import repair_duplicate_soc_review_checklist
     from app.evals.answer_efficacy_checks import evaluate_universal_efficacy
 
-    payload = response.model_dump(mode="json")
+    repaired_response = response
+    if response.analyst_response is not None or str(response.message or "").strip():
+        analyst_response, message = repair_duplicate_soc_review_checklist(
+            response.analyst_response,
+            str(response.message or ""),
+            path_type=(
+                response.planning_decision.get("path_type")
+                if isinstance(response.planning_decision, dict)
+                else None
+            ),
+        )
+        if analyst_response is not response.analyst_response or message != str(response.message or ""):
+            repaired_response = response.model_copy(
+                update={"analyst_response": analyst_response, "message": message}
+            )
+
+    payload = repaired_response.model_dump(mode="json")
     violations = [
         violation
         for violation in evaluate_universal_efficacy(query=query, payload=payload)
         if _is_coe_stop_condition_violation(violation)
     ]
     if not violations:
-        return response
+        return repaired_response
 
     first = violations[0]
     blocked_reason = f"COE stop-condition validation failed: {first}."

@@ -143,6 +143,22 @@ def adjudicate_route(
             ),
         )
 
+    if (
+        intent.requires_clarification
+        and signals.get("explicit_run_spl")
+        and not signals.get("block_or_contain")
+        and intent.primary_intent == "human_review"
+    ):
+        return finish(
+            final_route="spl_generation",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="explicit_run_spl_hil_gate",
+            reason=(
+                "Explicit SPL execution/results request routed to review-only SPL "
+                "generation with human review; live execution is blocked."
+            ),
+        )
+
     if intent.requires_clarification:
         return finish(
             final_route="knowledge_recall",
