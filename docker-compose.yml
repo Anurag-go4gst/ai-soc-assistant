@@ -5,9 +5,12 @@ services:
     ports:
       - "127.0.0.1:8010:8010"
     env_file:
+      - env/profiles/${AI_SOC_ENV_PROFILE:-coe}.env.example
       - .env
     environment:
       PYTHONPATH: /app:/workspace
+      AI_SOC_REPO_ROOT: /workspace
+      AI_SOC_ENV_PROFILES_DIR: /app/env_profiles
     # Reach the host-bound llama-server (127.0.0.1:8081 on the VPS) from inside
     # the container via host.docker.internal. Required for AI_SOC_LLM local mode.
     extra_hosts:
@@ -15,6 +18,7 @@ services:
     volumes:
       - ./backend:/app
       - .:/workspace:ro
+      - ./env:/app/env_profiles:rw
       # Shared LLM-control queue: the backend writes control-request sentinels here;
       # a HOST watcher (scripts/llm_control_watcher.py) reads them and runs systemctl.
       # The backend gets NO host systemd/docker-socket access. Set

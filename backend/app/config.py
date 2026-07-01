@@ -55,6 +55,8 @@ class Settings(BaseSettings):
 
     splunk_mcp_enabled: bool = True
     ai_soc_environment_mode: str = "coe"
+    # Deployment profile id (coe | development). Compose loads env/profiles/<id>.env.example.
+    ai_soc_env_profile: str = "coe"
     splunk_mcp_server_id: str = "splunk_soc"
     splunk_mcp_discovery_mode: str = "dynamic"
     splunk_ai_assistant_mode: str = "auto"
