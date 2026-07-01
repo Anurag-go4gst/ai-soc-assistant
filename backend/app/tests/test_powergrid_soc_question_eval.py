@@ -252,6 +252,21 @@ def test_explicit_spl_execution_request_requires_visible_hil() -> None:
     assert any(v["category"] == "hil_required_not_gated" for v in violations)
 
 
+def test_spl_execution_request_rejects_knowledge_recall_path() -> None:
+    from app.evals.powergrid_soc_question_eval import _path_type_acceptable
+
+    assert not _path_type_acceptable(
+        "spl_review",
+        "rag_only",
+        category="spl_execution_request",
+    )
+    assert _path_type_acceptable(
+        "spl_review",
+        "spl_review",
+        category="spl_execution_request",
+    )
+
+
 def test_expected_path_mismatch_is_review_item() -> None:
     question = {
         "expected_path_type": "hybrid_investigation",

@@ -23,7 +23,7 @@ def test_collapse_duplicate_checklist_sections_in_text() -> None:
     assert "Validate account lockout" in out
 
 
-def test_repair_strips_inline_checklist_when_structured_fields_own_items() -> None:
+def test_repair_preserves_guidance_checklist_in_summary() -> None:
     envelope = AnalystResponseEnvelope(
         direct_answer_summary=(
             "VPN investigation guidance.\n\n"
@@ -34,7 +34,30 @@ def test_repair_strips_inline_checklist_when_structured_fields_own_items() -> No
         analyst_checklist=["Check geo", "Review MFA"],
         recommended_actions=["Check geo"],
     )
-    repaired, message = repair_duplicate_soc_review_checklist(envelope, "")
+    repaired, message = repair_duplicate_soc_review_checklist(
+        envelope,
+        "",
+        path_type="guided_investigation",
+    )
+    assert repaired is not None
+    summary = str(repaired.direct_answer_summary or "")
+    assert "SOC review checklist" in summary
+    assert "Check geo" in summary
+
+
+def test_repair_strips_inline_checklist_when_structured_fields_own_items() -> None:
+    envelope = AnalystResponseEnvelope(
+        response_profile="spl_only",
+        direct_answer_summary=(
+            "VPN investigation guidance.\n\n"
+            "SOC review checklist:\n"
+            "- Check geo\n"
+            "- Review MFA"
+        ),
+        analyst_checklist=["Check geo", "Review MFA"],
+        recommended_actions=["Check geo"],
+    )
+    repaired, message = repair_duplicate_soc_review_checklist(envelope, "", path_type="spl_review")
     assert repaired is not None
     summary = str(repaired.direct_answer_summary or "")
     assert summary.lower().count("soc review checklist") == 0
@@ -45,6 +68,6 @@ def test_repair_leaves_single_checklist_unchanged() -> None:
     envelope = AnalystResponseEnvelope(
         direct_answer_summary="SOC review checklist:\n- One item only",
     )
-    repaired, message = repair_duplicate_soc_review_checklist(envelope, "")
+    repaired, message = repair_duplicate_soc_review_checklist(envelope, "", path_type="spl_review")
     assert repaired is not None
     assert "One item only" in str(repaired.direct_answer_summary or "")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.chat.guidance_summary_renderer import is_guidance_summary_path
 from app.evals.answer_efficacy_checks import analyst_card_text
 
 _CHECKLIST_HEADER = re.compile(
@@ -71,6 +72,8 @@ def _surface_marker_count(analyst_response: Any | None, message: str) -> int:
 
 
 def _strip_inline_checklist_from_summary(analyst_response: Any) -> Any:
+    if str(getattr(analyst_response, "response_profile", "") or "") != "spl_only":
+        return analyst_response
     owns_structured_checklist = bool(
         getattr(analyst_response, "analyst_checklist", None)
         or getattr(analyst_response, "recommended_actions", None)
@@ -88,12 +91,14 @@ def _strip_inline_checklist_from_summary(analyst_response: Any) -> Any:
 def repair_duplicate_soc_review_checklist(
     analyst_response: Any | None,
     message: str,
+    *,
+    path_type: str | None = None,
 ) -> tuple[Any | None, str]:
     """Normalize duplicate checklist markers on the card and message surfaces."""
     if analyst_response is None and not str(message or "").strip():
         return analyst_response, message
 
-    if analyst_response is not None:
+    if analyst_response is not None and not is_guidance_summary_path(path_type):
         analyst_response = _strip_inline_checklist_from_summary(analyst_response)
 
     if _surface_marker_count(analyst_response, message) <= 1:

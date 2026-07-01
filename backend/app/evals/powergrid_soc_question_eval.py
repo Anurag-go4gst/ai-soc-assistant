@@ -418,12 +418,24 @@ def _analyst_dict(payload: dict[str, Any]) -> dict[str, Any]:
     return analyst if isinstance(analyst, dict) else {}
 
 
-def _path_type_acceptable(expected: str | None, actual: str | None) -> bool:
+def _path_type_acceptable(
+    expected: str | None,
+    actual: str | None,
+    *,
+    category: str | None = None,
+) -> bool:
     """True when actual path is the expected path or a governed equivalent."""
     if not expected or not actual:
         return True
     if expected == actual:
         return True
+    strict_by_category: dict[str, frozenset[str]] = {
+        "spl_execution_request": frozenset(
+            {"spl_review", "spl_review_plus_rag", "hybrid_investigation"}
+        ),
+    }
+    if category and category in strict_by_category:
+        return actual in strict_by_category[category]
     equivalents: dict[str, frozenset[str]] = {
         "hybrid_investigation": frozenset(
             {"hybrid_investigation", "spl_review_plus_rag", "guided_investigation"}
@@ -766,7 +778,11 @@ def classify_powergrid_response(
     # Major checks
     expected_path = question.get("expected_path_type")
     actual_path = record.get("path_type")
-    if expected_path and actual_path and not _path_type_acceptable(str(expected_path), str(actual_path)):
+    if expected_path and actual_path and not _path_type_acceptable(
+        str(expected_path),
+        str(actual_path),
+        category=str(question.get("category") or "") or None,
+    ):
         violations.append(
             _violation(
                 "major",

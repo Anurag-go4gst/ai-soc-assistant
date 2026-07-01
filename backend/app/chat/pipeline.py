@@ -156,6 +156,7 @@ from app.chat.answer_shape_router import (
     should_bypass_shape_router,
 )
 from app.chat.final_answer_validator import validate_final_answer
+from app.chat.guidance_summary_renderer import is_guidance_summary_path
 from app.chat.negative_evidence_extractor import extract_negative_evidence
 from app.llm.missing_evidence_reasoner import (
     MissingEvidenceReasonerResult,
@@ -3667,7 +3668,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
             user_query=request.message,
         )
-    analyst_response = _collapse_card_summary_when_sections_own_details(analyst_response)
+    analyst_response = _collapse_card_summary_when_sections_own_details(
+        analyst_response, path_type=path_type
+    )
     analyst_response = _strip_priority_prefixes_when_severity_unassigned(analyst_response)
     message = _collapse_top_level_message_when_card_owns_sections(message, analyst_response)
     final_answer_validation = None
@@ -3972,6 +3975,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     from app.chat.answer_quality_enrichment import apply_answer_quality_enrichment
 
+    from app.chat.guidance_summary_renderer import apply_guidance_summary_render
+
     message, analyst_response = apply_answer_quality_enrichment(
         message,
         analyst_response,
@@ -3980,10 +3985,22 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         path_type=path_type,
         answer_contract=answer_contract,
     )
+    message, analyst_response = apply_guidance_summary_render(
+        analyst_response,
+        message,
+        path_type=path_type,
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+        answer_contract=answer_contract,
+        user_query=request.message,
+    )
     from app.chat.coe_checklist_repair import repair_duplicate_soc_review_checklist
 
-    analyst_response, message = repair_duplicate_soc_review_checklist(analyst_response, message)
-    analyst_response = _collapse_card_summary_when_sections_own_details(analyst_response)
+    analyst_response, message = repair_duplicate_soc_review_checklist(
+        analyst_response, message, path_type=path_type
+    )
+    analyst_response = _collapse_card_summary_when_sections_own_details(
+        analyst_response, path_type=path_type
+    )
     analyst_response = _strip_priority_prefixes_when_severity_unassigned(analyst_response)
     message = _collapse_top_level_message_when_card_owns_sections(message, analyst_response)
     visible_spl_draft_preview = (
@@ -4178,9 +4195,17 @@ def _strip_priority_prefixes_when_severity_unassigned(analyst_response: Any | No
     return analyst_response.model_copy(update=updates)
 
 
-def _collapse_card_summary_when_sections_own_details(analyst_response: Any | None) -> Any | None:
+def _collapse_card_summary_when_sections_own_details(
+    analyst_response: Any | None,
+    *,
+    path_type: str | None = None,
+) -> Any | None:
     if analyst_response is None:
         return None
+    if is_guidance_summary_path(path_type):
+        return analyst_response
+    if str(getattr(analyst_response, "response_profile", "") or "") == "spl_only":
+        return analyst_response
     summary = str(getattr(analyst_response, "direct_answer_summary", "") or "").strip()
     if not summary:
         return analyst_response
@@ -4227,6 +4252,11 @@ def _apply_coe_stop_condition_gate(response: PlaceholderResponse, *, query: str)
         analyst_response, message = repair_duplicate_soc_review_checklist(
             response.analyst_response,
             str(response.message or ""),
+            path_type=(
+                response.planning_decision.get("path_type")
+                if isinstance(response.planning_decision, dict)
+                else None
+            ),
         )
         if analyst_response is not response.analyst_response or message != str(response.message or ""):
             repaired_response = response.model_copy(
