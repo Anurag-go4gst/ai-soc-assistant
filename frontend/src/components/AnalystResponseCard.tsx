@@ -862,6 +862,21 @@ function SplStatusDetail({
             <span className="text-slate-400">Reason:</span> {detail.reason_display ?? detail.reason}
           </li>
         ) : null}
+        {detail.message ? (
+          <li>
+            <span className="text-slate-400">Grounding:</span> {detail.message}
+          </li>
+        ) : null}
+        {detail.environment_fields_used?.length ? (
+          <li>
+            <span className="text-slate-400">Environment fields used:</span> {detail.environment_fields_used.join(', ')}
+          </li>
+        ) : null}
+        {detail.query_complexity ? (
+          <li>
+            <span className="text-slate-400">Query complexity:</span> {detail.query_complexity}
+          </li>
+        ) : null}
         {detail.required_fields?.length ? (
           <li>
             <span className="text-slate-400">Required fields:</span> {detail.required_fields.join(', ')}

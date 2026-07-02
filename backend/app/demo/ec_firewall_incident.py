@@ -22,10 +22,17 @@ def _ec_resolve_slots(spl: str) -> str:
 
 
 _FIREWALL_BASELINE_SPL = _ec_resolve_slots(
-    "search index=<firewall_index> sourcetype=<firewall_sourcetype> "
-    "earliest=-24h latest=now action=deny "
-    "| stats count as deny_count dc(dest_port) as distinct_ports by src, dest "
-    "| sort -deny_count | head 100"
+    "search index=<firewall_index> sourcetype=<firewall_sourcetype> earliest=-7d latest=now "
+    "| bucket _time span=1h "
+    "| stats count as event_count, "
+    "count(eval(action=\"deny\")) as deny_count, "
+    "dc(dest_port) as distinct_ports by _time, src "
+    "| stats avg(deny_count) as avg_deny, stdev(deny_count) as stdev_deny, "
+    "avg(distinct_ports) as avg_ports, stdev(distinct_ports) as stdev_ports by src "
+    "| eval deny_upper_bound=round(avg_deny + (2*stdev_deny), 2) "
+    "| eval port_upper_bound=round(avg_ports + (2*stdev_ports), 2) "
+    "| table src, avg_deny, deny_upper_bound, avg_ports, port_upper_bound "
+    "| head 100"
 )
 
 # <scada_index> is intentionally unmapped in the env KB (key is ot_asset_index, not
@@ -641,15 +648,45 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             "finding_title": "Firewall baseline SPL template",
             "one_sentence_finding": (
                 "Governed firewall baseline template with Environment KB slots resolved "
-                "(pgcil_soc / pgcil:firewall) — candidate SPL ready for analyst review before execution."
+                "(pgcil_soc / pgcil:firewall) and normalized fields action, src, dest, and dest_port."
+            ),
+            "direct_answer_summary": (
+                "This query builds a per-source, 7-day statistical profile of firewall deny-rate and "
+                "port-scan behavior. Output is one row per src IP with upper-bound thresholds for deny "
+                "volume and destination-port spread; save the result as the firewall baseline and let "
+                "downstream detections compare current activity against these bounds instead of "
+                "recomputing the baseline on every alert."
             ),
             "spl_code": _FIREWALL_BASELINE_SPL,
+            "spl_status": "ready_for_review",
             "spl_status_detail": {
-                "status": "validated",
-                "message": "Environment KB resolved: firewall_index → pgcil_soc, firewall_sourcetype → pgcil:firewall. Candidate only — analyst approval required before execution.",
+                "status": "grounded",
+                "message": (
+                    "Environment KB resolved firewall_index and firewall_sourcetype before rendering "
+                    "the review artifact."
+                ),
                 "template_status": "active",
-                "generation_status": "generated",
+                "generation_status": "generated / grounded to environment knowledge",
+                "environment_fields_used": [
+                    "index=pgcil_soc",
+                    "sourcetype=pgcil:firewall",
+                    "normalized fields: action, src, dest, dest_port",
+                ],
+                "query_complexity": "O(n) single pass over events, hourly bucketed; no subsearches and no regex on _raw.",
             },
+            "key_fields": [
+                "src - source IP for the baseline row",
+                "avg_deny - average hourly deny count over the 7-day baseline window",
+                "deny_upper_bound - avg_deny + 2 standard deviations, rounded for detection thresholds",
+                "avg_ports - average hourly distinct destination-port spread",
+                "port_upper_bound - avg_ports + 2 standard deviations for port-scan thresholding",
+            ],
+            "analyst_checklist": [
+                "Review the 7-day window against maintenance calendars before saving this as a baseline.",
+                "Optionally append `| outputlookup firewall_baseline.csv` after analyst approval to persist the table.",
+                "Use the saved lookup in downstream detections; do not auto-update it without a documented change ticket.",
+            ],
+            "review_notice": "Candidate baseline artifact only. Review source mapping, baseline window, and threshold policy before operational use.",
         }
     if scenario_id == "splunk_env_asa_ti_readiness":
         return {
@@ -716,6 +753,13 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
                 "SCADA performance telemetry cannot auto-run — <scada_index> is unmapped in the Environment "
                 "Knowledge Base; analyst must confirm OT index mapping before SPL approval."
             ),
+            "direct_answer_summary": (
+                "This is a source-health check, not a detection verdict. The draft shows the intended "
+                "hourly SCADA telemetry aggregation, but V.AI SOC holds it because the OT performance "
+                "index is not mapped yet. The correct next move is to bind the SCADA index in the "
+                "Environment Knowledge Base, then re-run the health check before treating missing "
+                "telemetry as operational evidence."
+            ),
             "review_notice": "Analyst review required for unmapped SCADA index placeholder.",
             "spl_code": _SCADA_PERF_SPL,
             "spl_status_detail": {
@@ -723,7 +767,23 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
                 "message": "OT index placeholder unresolved — SPL held for analyst mapping before validation.",
                 "template_status": "planned",
                 "generation_status": "blocked",
+                "environment_fields_used": [
+                    "sourcetype=ot:scada",
+                    "unresolved index slot: <scada_index>",
+                    "normalized fields: rtu_id, transmission_error_count",
+                ],
+                "query_complexity": "O(n) hourly aggregation after source binding; no subsearches and no regex on _raw.",
             },
+            "key_fields": [
+                "_time - hourly telemetry bucket after the SCADA index is mapped",
+                "rtu_id - RTU or telemetry source identifier",
+                "hourly_metric - average transmission_error_count for that RTU and hour",
+            ],
+            "analyst_checklist": [
+                "Confirm the authoritative SCADA/OT performance index with OT engineering.",
+                "Update the Environment Knowledge Base before approving this SPL.",
+                "Validate recent telemetry coverage before treating missing results as a collection outage.",
+            ],
             "recommended_actions": [
                 "P2: Confirm the correct Splunk index name for SCADA/OT telemetry with the OT engineering team and update the Environment Knowledge Base.",
                 "P2: Once the index is mapped, re-run this query to verify telemetry coverage before treating silence as absence of activity.",
