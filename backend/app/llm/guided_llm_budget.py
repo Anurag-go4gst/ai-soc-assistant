@@ -51,15 +51,17 @@ def build_guided_turn_budget() -> TurnLlmBudget:
 
 def guided_composer_timeout_seconds(budget: TurnLlmBudget) -> float | None:
     """Wall-clock timeout for the guided governed-composer hop."""
-    reserve = float(
-        getattr(settings, "ai_soc_guided_llm_min_final_reserve_seconds", 90.0) or 90.0
-    )
+    from app.llm.sidecar_clients import sidecar_timeout_seconds
+
+    hop_cap = float(sidecar_timeout_seconds("governed_composer"))
     remaining = budget.remaining_seconds()
     if remaining is None:
-        return reserve
+        return hop_cap
     if remaining <= 1.0:
         return None
-    return max(1.0, min(reserve, remaining))
+    # Use the full remaining guided turn budget up to the governed-composer hop cap.
+    # (min_final_reserve_seconds applies to post-compose finalize, not composer wall time.)
+    return max(1.0, min(hop_cap, remaining))
 
 
 def guided_turn_deadline_seconds() -> float:

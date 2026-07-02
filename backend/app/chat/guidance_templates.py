@@ -391,8 +391,12 @@ def should_skip_llm_composer(
     promotion_lifecycle_summary: dict | None = None,
     registry_warnings: list[str] | None = None,
     catalog_row: dict | None = None,
+    selected_skill: str | None = None,
 ) -> tuple[bool, str]:
     """Return whether governed composer must stay deterministic for this request."""
+    from app.llm.guided_llm_budget import is_guided_investigation_route
+
+    _is_guided = is_guided_investigation_route(routed_skill=selected_skill, path_type=path_type)
     if match_path and promotion_lifecycle_summary is not None:
         skip_t0, t0_reason = should_skip_sidecar(
             match_path=match_path,
@@ -406,16 +410,23 @@ def should_skip_llm_composer(
         return True, "unsafe_blocked_deterministic_guidance"
     if is_explicit_run_spl_query(query):
         return True, "explicit_run_spl_deterministic_guidance"
-    if is_mitre_evidence_threshold_query(query):
-        return True, "mitre_evidence_threshold_deterministic_guidance"
-    if is_conceptual_mitre_confirm_query(query):
-        return True, "conceptual_mitre_deterministic_guidance"
-    if use_case_review_guidance or is_policy_escalation_guidance_query(query):
-        return True, "guidance_only_deterministic_envelope"
-    if intent_family in {
-        "sop_or_playbook",
-        "policy_knowledge",
-        "mitre_explanation",
-    }:
-        return True, "guidance_only_deterministic_envelope"
+    # guided_investigation is already routed out-of-registry; MITRE-confirm/threshold
+    # guards are for in-catalogue conceptual paths. The hunt composer's own prompt and
+    # answer_contract limitations block MITRE over-assertion independently.
+    if not _is_guided:
+        if is_mitre_evidence_threshold_query(query):
+            return True, "mitre_evidence_threshold_deterministic_guidance"
+        if is_conceptual_mitre_confirm_query(query):
+            return True, "conceptual_mitre_deterministic_guidance"
+    # guided_investigation narrates hunt guidance — use_case_review_guidance and
+    # policy-escalation checks are not applicable; skip them for this path.
+    if not _is_guided:
+        if use_case_review_guidance or is_policy_escalation_guidance_query(query):
+            return True, "guidance_only_deterministic_envelope"
+        if intent_family in {
+            "sop_or_playbook",
+            "policy_knowledge",
+            "mitre_explanation",
+        }:
+            return True, "guidance_only_deterministic_envelope"
     return False, ""

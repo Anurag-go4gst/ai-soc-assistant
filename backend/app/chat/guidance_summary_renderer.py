@@ -42,6 +42,7 @@ def apply_guidance_summary_render(
     evidence_plan: dict[str, Any] | None,
     answer_contract: Any | None,
     user_query: str,
+    llm_composer_used: bool = False,
 ) -> tuple[AnalystResponseEnvelope | None, str]:
     """Pull evidence-plan checklist/workflow into the card summary for guidance paths."""
     if not is_guidance_summary_path(path_type) or analyst_response is None:
@@ -50,12 +51,14 @@ def apply_guidance_summary_render(
         return analyst_response, message
 
     summary = str(analyst_response.direct_answer_summary or message or "").strip()
+    thin_stub = _is_thin_guidance_stub(summary)
+    if llm_composer_used and summary:
+        return analyst_response, message or summary
     items = _collect_guidance_items(
         analyst_response=analyst_response,
         evidence_plan=evidence_plan,
         answer_contract=answer_contract,
     )
-    thin_stub = _is_thin_guidance_stub(summary)
     has_checklist = _CHECKLIST_MARKER in summary.lower()
     if not items and not thin_stub:
         return analyst_response, message
@@ -92,6 +95,10 @@ def _is_thin_guidance_stub(text: str) -> bool:
 
 
 def _lead_prose(summary: str, *, user_query: str, path_type: str | None) -> str:
+    body = str(summary or "").strip()
+    if body and not _is_thin_guidance_stub(body):
+        if _CHECKLIST_MARKER not in body.lower():
+            return body[:1200]
     for line in summary.splitlines():
         cleaned = line.strip()
         if not cleaned:
