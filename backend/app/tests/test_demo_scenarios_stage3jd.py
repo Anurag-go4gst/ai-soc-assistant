@@ -191,6 +191,52 @@ def test_success_after_failures_spl_correlates_success_and_failure() -> None:
     assert "svc_grid_ops" not in visible
 
 
+def test_firewall_baseline_template_is_environment_grounded_and_explained() -> None:
+    response = _run("firewall_baseline_template_spl")
+
+    assert response.candidate_spl is not None
+    spl = response.candidate_spl.candidate_spl
+    assert "index=pgcil_soc" in spl
+    assert "sourcetype=pgcil:firewall" in spl
+    assert "earliest=-7d" in spl
+    assert "| bucket _time span=1h" in spl
+    assert 'count(eval(action="deny")) as deny_count' in spl
+    assert "deny_upper_bound" in spl
+    assert "port_upper_bound" in spl
+    assert "sort -deny_count" not in spl
+
+    assert response.analyst_response is not None
+    analyst = response.analyst_response
+    assert analyst.response_profile == "spl_only"
+    assert analyst.spl_code == spl
+    assert analyst.spl_status_detail is not None
+    assert analyst.spl_status_detail["template_status"] == "active"
+    assert analyst.spl_status_detail["generation_status"] == "generated / grounded to environment knowledge"
+    assert "index=pgcil_soc" in analyst.spl_status_detail["environment_fields_used"]
+    assert "sourcetype=pgcil:firewall" in analyst.spl_status_detail["environment_fields_used"]
+    assert "no subsearches" in analyst.spl_status_detail["query_complexity"]
+    assert analyst.direct_answer_summary is not None
+    assert "7-day statistical profile" in analyst.direct_answer_summary
+    assert "downstream detections" in analyst.direct_answer_summary
+    assert any("outputlookup firewall_baseline.csv" in item for item in analyst.analyst_checklist)
+    assert any("deny_upper_bound" in item for item in analyst.key_fields)
+
+
+def test_scada_telemetry_health_explains_unresolved_environment_mapping() -> None:
+    response = _run("scada_critical_telemetry_health")
+
+    assert response.analyst_response is not None
+    analyst = response.analyst_response
+    assert analyst.spl_status_detail is not None
+    assert analyst.spl_status_detail["generation_status"] == "blocked"
+    assert "unresolved index slot: <scada_index>" in analyst.spl_status_detail["environment_fields_used"]
+    assert analyst.direct_answer_summary is not None
+    assert "source-health check" in analyst.direct_answer_summary
+    assert "Environment Knowledge Base" in analyst.direct_answer_summary
+    assert any("rtu_id" in item for item in analyst.key_fields)
+    assert any("OT engineering" in item for item in analyst.analyst_checklist)
+
+
 def test_sop_demo_does_not_generate_spl() -> None:
     response = _run("brute_force_sop_guidance")
 

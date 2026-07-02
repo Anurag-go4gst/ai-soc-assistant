@@ -511,6 +511,9 @@ export interface AnalystResponseEnvelope {
     reason_display?: string;
     required_fields?: string[];
     template_id?: string;
+    message?: string;
+    environment_fields_used?: string[];
+    query_complexity?: string;
   } | null;
   section_order?: string[];
   render_sections?: Record<string, boolean>;
