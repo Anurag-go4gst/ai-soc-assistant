@@ -366,10 +366,22 @@ def validate_grounding(text: str, allowed_corpus: str) -> tuple[bool, str | None
     return True, None
 
 
-def out_of_catalog_notice_preserved(text: str, contract: AnswerContract) -> tuple[bool, str | None]:
-    """When the contract carries an out-of-catalog notice, the body must keep it."""
+def out_of_catalog_notice_preserved(
+    text: str,
+    contract: AnswerContract,
+    *,
+    path_type: str | None = None,
+) -> tuple[bool, str | None]:
+    """When the contract carries an out-of-catalog notice, the body must keep it.
+
+    Guided-investigation is a vetted rescue skill — the notice is set mechanically by
+    the out-of-registry routing rescue, not because the content is truly unvetted.
+    Skip the phrase-check so the LLM can narrate the analysis without being blocked.
+    """
     notice = str(getattr(contract, "out_of_catalog_notice", "") or "").strip()
     if not notice:
+        return True, None
+    if str(path_type or "") == "guided_investigation":
         return True, None
     lowered = text.lower()
     if "out-of-catalog" in lowered or "out of catalog" in lowered or "not a vetted" in lowered:
@@ -565,7 +577,7 @@ def compose_governed_answer(
         # Phase 2.5: cite-only grounding + out-of-catalog notice (corpus = prompt + facts).
         passed, blocked_reason = validate_grounding(composed, prompt + "\n" + str(contract.model_dump()))
     if passed:
-        passed, blocked_reason = out_of_catalog_notice_preserved(composed, contract)
+        passed, blocked_reason = out_of_catalog_notice_preserved(composed, contract, path_type=path_type)
     if not passed:
         return GovernedComposerResult(
             envelope=fallback_envelope,
