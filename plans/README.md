@@ -1,34 +1,14 @@
 # Plans index
 
-Implementation specs live here (versioned in git). **Agent rules** live in [`AGENTS.md`](../AGENTS.md) — read that first, then the active plan for your task.
+For the COE handoff repository, historical implementation plans were intentionally pruned.
 
-## Active work (check before coding)
+## Kept in git
 
-| Track | Plan | Status |
-|-------|------|--------|
-| Intent cascade | [`2026-06-17_1730_intent-node-cascade-hardening.md`](2026-06-17_1730_intent-node-cascade-hardening.md) | **Done** (Batch 0–0.2) |
-| Cisco Environment KB + 50-Q catalogue | `.cursor/plans/environment_kb_cisco_catalogue_1eddd12f.plan.md` (local) — copy to `plans/` when Batch 1 starts | **Next** — read Review Addendum §A–D before implementation |
-| Final resolution (routing + answer quality) | `plans/` + branch `cp-final-resolution-answer-quality` | **Done** — focused 20-probe 100/100 mean (`fdc8fac`) |
-| Cross-stream FinalEvidenceGate | [`2026-06-25_final-evidence-gate-cross-stream.md`](2026-06-25_final-evidence-gate-cross-stream.md) | **Done** — gate computed in `graph_node_context_finalize()`, not as a new router edge |
-| SPL query fidelity | [`2026-06-25_spl-query-fidelity-completion.md`](2026-06-25_spl-query-fidelity-completion.md) | **Done** — user-constraint bindings, table-driven render, draft source-profile auto-fill |
-| **Handoff + T2 closure (SSOT)** | [`2026-06-27_handoff-t2-completion-consolidated.md`](2026-06-27_handoff-t2-completion-consolidated.md) | **Done** — Batches 0–F merged (`ca3249b`); operator checklist: [`2026-06-27_operator_closure_checklist.md`](2026-06-27_operator_closure_checklist.md) |
-| Post-PR #38 prod smoke | consolidated plan §Batch 0 | **Done** — merged PR #40 |
-| Canonical handoff core | consolidated plan §Inventory shipped | **Done** on `master` (`ca3249b`, PRs #38–#45) |
-| Deferred handoff closure | consolidated plan §Batch 0 | **Done** — merged PR #39 |
-| Legacy: full handoff / discipline / T2 binding | `2026-06-26_*.md` | **Superseded** — see consolidated plan |
-| Master roadmap | [`AI_SOC_MASTER_PLAN.md`](AI_SOC_MASTER_PLAN.md) | S2–S6d complete; COE rollout: [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md) |
+- `AI_SOC_MASTER_PLAN.md` — master roadmap and stage-level architecture history.
+- `README.md` — this index.
 
-## Canonical references
+## Operational references
 
-| Doc | Use when |
-|-----|----------|
-| [`AGENTS.md`](../AGENTS.md) | Safety, execution playbook, verification (all agents) |
-| [`CLAUDE.md`](../CLAUDE.md) | Claude Code entry + stack/gotchas |
-| [`docs/evals/regression_baseline.md`](../docs/evals/regression_baseline.md) | Expected green counts |
-| [`plans/AI_SOC_MASTER_PLAN.md`](AI_SOC_MASTER_PLAN.md) | Long-range tracks A–D |
-
-## Before claiming a plan todo is pending
-
-1. `grep` / read tests for existing implementation.
-2. Check plan **Review Addendum** or repo-state tables (plans often lag the tree).
-3. Extend existing modules; do not recreate loaders, maps, or test files that already exist.
+- [`AGENTS.md`](../AGENTS.md) — repository operating rules and verification gates.
+- [`CLAUDE.md`](../CLAUDE.md) — project context, stack, and deployment notes.
+- [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md) — COE rollout profile and smoke checklist.
