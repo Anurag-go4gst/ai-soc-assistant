@@ -14,6 +14,13 @@
       "description": "On-host llama-server via host.docker.internal:8081 (Foundation-Sec instruct GGUF). Same governance flags as COE lab profile.",
       "example_file": "development.env.example",
       "recommended_for": ["vps", "dev", "local"]
+    },
+    {
+      "id": "production",
+      "label": "Production Scaffold",
+      "description": "Minimal production scaffold for COE handoff completion; fill operator-managed values before use.",
+      "example_file": "production.env.example",
+      "recommended_for": ["coe", "prod"]
     }
   ]
 }
