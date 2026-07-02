@@ -122,6 +122,10 @@ Fix every `GAP:` before implementation. Generic loop runner: [`plans/LOOP_RUNNER
 - **Cisco Environment KB + 50-Q catalogue:** Next — full spec in `.cursor/plans/environment_kb_cisco_catalogue_1eddd12f.plan.md`; read **Review Addendum §A–D** before Batch 1 (repo-state, phased eval gates, security). Loader/map largely exist — extend, do not recreate.
 - **Master roadmap:** [`plans/AI_SOC_MASTER_PLAN.md`](plans/AI_SOC_MASTER_PLAN.md).
 
+## Agent skills
+
+Claude Code sessions must use the project skills in `.claude/skills/` instead of improvising process: `/execute-plan-item` for any `plans/` checklist item; `/invariant-check` before any commit that touches pipeline/planner/SPL/MCP/LLM code. Agents without skill support (Cursor/Codex) should read those two `SKILL.md` files and follow them manually — they encode this repo's execution discipline and governance pre-commit review.
+
 ## Operating Rules
 
 - Read the local code before changing behavior. Preserve the existing FastAPI + React/Vite structure.

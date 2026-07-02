@@ -248,6 +248,7 @@ Most-relevant in-flight/recent plans:
 
 | Plan | Status |
 |------|--------|
+| `plans/2026-07-02_1327_dynamic-resource-planning-out-of-catalogue.md` | Draft rev 2.2 (reviewed, executor-ready) — LLM-primary planner out of shadow, MCP eligibility all tiers + SPL vigilance, O5c multi-call, CVE/MITRE resources, canonical fact spine, mock-ITSM action lane (DG-3 resolved), staged flag rightsizing (DG-4 per batch) |
 | `plans/2026-06-29_conditional-pipeline-canonical-dispatch.md` | In Progress (`feat/pipeline-dispatch-v2`) — all 12 phases done behind `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` (default false, flag-off byte-identical) |
 | `plans/2026-07-01_1545_guided-readonly-mcp-discovery-lane.md` | Draft — read-only MCP discovery lane for `guided_investigation`, behind `AI_SOC_GUIDED_MCP_DISCOVERY_ENABLED` |
 | `plans/2026-06-24_run-contract-canonical-state.md` | Done — RunContract/RouteContract canonical state, single authority for HIL/evidence/route (PR #32) |
@@ -261,6 +262,16 @@ Most-relevant in-flight/recent plans:
 | `/root/.cursor/plans/guided_investigation_5th_skill_098a0cdf.plan.md` | Done — 5th route + air-gapped Splunk MCP 7-tool binding |
 
 Older stage plans (`2026-05-24` through `2026-06-13`, Stage 3G.1/3J/3J-B/3J-C/3J-I/3J-J/3J-K0, SPL audit completion, MCP/LLM readiness, answer-quality ledger) are all **Done** — see `plans/README.md` and git log for detail rather than duplicating here.
+
+## Agent skills (invoke these — do not re-derive the discipline)
+
+Project skills in `.claude/skills/` (auto-listed in every Claude Code session here); user-level counterparts live in `~/.claude/skills/`:
+
+- **`/execute-plan-item`** — executing any checklist item under `plans/`: anchor verification, verbatim Verify, Evidence recording, stop conditions. Use for every plan item; do not free-style plan execution.
+- **`/invariant-check`** — REQUIRED before any commit touching pipeline/planner/SPL/MCP/LLM code: 7-group governance diff review (LLM↔MCP mediation, SPL executability, EC purity, redaction, state channels, flags, test honesty).
+- **`/deep-think`** (user-level) — start of any non-trivial task: verify-before-trust protocol.
+- **`/self-improve-loop`** (user-level) — metric-target quality pushes (e.g. scorecard improvements): evaluator-first, one-hypothesis iterations, KEEP/REVERT ledger.
+- **`/handoff`** (user-level) — ending a session mid-plan: 7-section state note for the next agent.
 
 ## Git Notes
 
