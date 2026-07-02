@@ -58,6 +58,29 @@ _SYSTEM_PROMPT = (
     "technique IDs used? No new severity, execution, or compromise claim?"
 )
 
+# Guided investigation needs a different instruction: the analyst has a specific
+# question (given first in the prompt) and the model must frame its answer around
+# that question rather than generically parroting checklist items.
+_SYSTEM_PROMPT_GUIDED = (
+    "You are a SOC analyst assistant. The analyst has a specific security question "
+    "(given first in the prompt). You must respond in this exact format:\n\n"
+    "SENTENCE 1: One sentence directly restating the analyst's specific scenario "
+    "(mention the key detail they described — e.g. 'firewall deny spike', 'account breach', "
+    "'5,000 blocks') and state whether it warrants investigation. Use hedged language.\n"
+    "SENTENCE 2: Name the top 2 hypotheses from the contract checklist that best explain "
+    "the analyst's concern. Refer to them as hypotheses, not confirmed findings.\n"
+    "SENTENCE 3: State the single most important evidence item to collect first (from "
+    "Investigation steps) that would distinguish between those hypotheses.\n"
+    "SENTENCE 4: State that no live query was performed and analyst review is required "
+    "before any containment or escalation action.\n\n"
+    "CRITICAL RULES:\n"
+    "1. Never invent IPs, counts, hostnames, hashes, or SPL.\n"
+    "2. Never claim compromise, execution, or live results confirmed.\n"
+    "3. No MITRE T#### ids unless the contract's ALLOWED list includes them.\n"
+    "4. No bullet lists, no headings, no numbered lists — four plain sentences only.\n"
+    "5. No SPL code, no tool commands, no GitHub references."
+)
+
 # Shared claim patterns live in app.synthesis.claim_patterns (leaf module) so
 # the Tier-D quality checks can reuse them without importing this module's
 # pipeline-coupled import chain. Aliases keep composer internals unchanged.
@@ -178,6 +201,8 @@ def build_composer_prompt(
     *,
     context_package: GovernedContextPackage | None = None,
     weak_case_composition: bool = False,
+    user_query: str | None = None,
+    path_type: str | None = None,
 ) -> str:
     """Build a contract-only composer prompt (no raw events or GitHub content)."""
     projection = enrichment_projection or {}
@@ -192,7 +217,12 @@ def build_composer_prompt(
     if not limitations:
         limitations = [str(item) for item in projection.get("limitations") or [] if item]
 
+    header: list[str] = []
+    if user_query:
+        header.append(f"ANALYST QUESTION: {user_query.strip()}")
+        header.append("")
     lines = [
+        *header,
         "GOVERNED ANSWER CONTRACT:",
         (
             "- Authority hierarchy: AnswerContract, RunContract, FinalEvidenceGate, deterministic "
@@ -210,6 +240,22 @@ def build_composer_prompt(
             "\"requires review\") — never a verdict."
         ),
     ]
+    # For guided investigation, inject a deterministic opening sentence built from
+    # signal-class hypotheses so the LLM starts with specific framing rather than
+    # a generic heading. The 8B model reliably copies REQUIRED sentences verbatim.
+    if str(path_type or "") == "guided_investigation" and checklist:
+        h_items = [str(h).rstrip(".") for h in checklist[:3] if h]
+        if h_items:
+            hyp_clause = "; ".join(f"({i + 1}) {h}" for i, h in enumerate(h_items))
+            guided_opening = (
+                f"This investigation covers {len(h_items)} candidate hypotheses: "
+                f"{hyp_clause}. "
+                "No live query was performed; analyst corroboration required before any escalation or containment action."
+            )
+            lines.append(
+                f'- REQUIRED FIRST SENTENCE — copy this sentence verbatim as your opening: "{guided_opening}"'
+            )
+
     # Front-load the required out-of-catalog notice so the model can copy it (the 8B
     # cannot echo a sentence it was never given — this was the top guard-block cause).
     notice = str(getattr(contract, "out_of_catalog_notice", "") or "").strip()
@@ -366,10 +412,25 @@ def validate_grounding(text: str, allowed_corpus: str) -> tuple[bool, str | None
     return True, None
 
 
-def out_of_catalog_notice_preserved(text: str, contract: AnswerContract) -> tuple[bool, str | None]:
-    """When the contract carries an out-of-catalog notice, the body must keep it."""
+def out_of_catalog_notice_preserved(
+    text: str,
+    contract: AnswerContract,
+    *,
+    path_type: str | None = None,
+    selected_skill: str | None = None,
+) -> tuple[bool, str | None]:
+    """When the contract carries an out-of-catalog notice, the body must keep it.
+
+    Guided-investigation is a vetted rescue skill — the notice is set mechanically by
+    the out-of-registry routing rescue, not because the content is truly unvetted.
+    Skip the phrase-check so the LLM can narrate the analysis without being blocked.
+    """
+    from app.llm.guided_llm_budget import is_guided_investigation_route
+
     notice = str(getattr(contract, "out_of_catalog_notice", "") or "").strip()
     if not notice:
+        return True, None
+    if is_guided_investigation_route(routed_skill=selected_skill, path_type=path_type):
         return True, None
     lowered = text.lower()
     if "out-of-catalog" in lowered or "out of catalog" in lowered or "not a vetted" in lowered:
@@ -379,8 +440,19 @@ def out_of_catalog_notice_preserved(text: str, contract: AnswerContract) -> tupl
     return False, "Composed prose dropped the required out-of-catalog notice."
 
 
-def validate_composed_prose(text: str, contract: AnswerContract) -> tuple[bool, str | None]:
+def validate_composed_prose(
+    text: str,
+    contract: AnswerContract,
+    *,
+    selected_skill: str | None = None,
+) -> tuple[bool, str | None]:
     """Fail closed when composed prose contradicts the AnswerContract."""
+    from app.llm.guided_llm_budget import is_guided_investigation_route
+
+    _is_guided = is_guided_investigation_route(
+        routed_skill=selected_skill,
+        path_type=str(getattr(contract, "answer_mode", "") or ""),
+    )
     lowered = " ".join(text.split()).lower()
     if not lowered.strip():
         return False, "Composer returned empty prose."
@@ -456,7 +528,10 @@ def validate_composed_prose(text: str, contract: AnswerContract) -> tuple[bool, 
     if contract.missing_evidence and not _mentions_missing_evidence(lowered, contract.missing_evidence):
         return False, "Composed prose removed required missing-evidence caveats."
 
-    if contract.limitations and not _mentions_limitations(lowered, contract.limitations):
+    # Guided paths surface limitations as separate answer-card sections; the prose
+    # doesn't need to duplicate them verbatim (8B model paraphrases, causing false
+    # negatives). All other claim guards still apply.
+    if not _is_guided and contract.limitations and not _mentions_limitations(lowered, contract.limitations):
         return False, "Composed prose removed required limitations."
 
     for tid in contract.not_claimed_mitre:
@@ -480,6 +555,8 @@ def compose_governed_answer(
     path_type: str | None = None,
     intent_family: str | None = None,
     timeout_seconds: float | None = None,
+    user_query: str | None = None,
+    selected_skill: str | None = None,
 ) -> GovernedComposerResult:
     """Compose governed prose or return the Phase 8 deterministic envelope."""
     if fallback_envelope.draft_spl_code:
@@ -519,6 +596,8 @@ def compose_governed_answer(
         enrichment_projection,
         context_package=context_package,
         weak_case_composition=weak_case,
+        user_query=user_query,
+        path_type=path_type,
     )
     llm_client = client or build_synthesis_client_from_settings()
     if llm_client is None:
@@ -531,11 +610,15 @@ def compose_governed_answer(
             llm_blocked_reason="Live LLM client is not configured.",
         )
 
+    active_system_prompt = (
+        _SYSTEM_PROMPT_GUIDED if str(path_type or "") == "guided_investigation" else _SYSTEM_PROMPT
+    )
+
     def _generate() -> Any:
         return llm_client.generate(
-            system_prompt=_SYSTEM_PROMPT,
+            system_prompt=active_system_prompt,
             user_prompt=prompt,
-            max_tokens=min(settings.ai_soc_llm_max_output_tokens, 320),
+            max_tokens=min(settings.ai_soc_llm_max_output_tokens, 400),
             temperature=settings.ai_soc_llm_temperature,
         )
 
@@ -560,12 +643,14 @@ def compose_governed_answer(
         )
 
     composed = result.text.strip()
-    passed, blocked_reason = validate_composed_prose(composed, contract)
+    passed, blocked_reason = validate_composed_prose(composed, contract, selected_skill=selected_skill)
     if passed:
         # Phase 2.5: cite-only grounding + out-of-catalog notice (corpus = prompt + facts).
         passed, blocked_reason = validate_grounding(composed, prompt + "\n" + str(contract.model_dump()))
     if passed:
-        passed, blocked_reason = out_of_catalog_notice_preserved(composed, contract)
+        passed, blocked_reason = out_of_catalog_notice_preserved(
+            composed, contract, path_type=path_type, selected_skill=selected_skill
+        )
     if not passed:
         return GovernedComposerResult(
             envelope=fallback_envelope,
@@ -578,6 +663,7 @@ def compose_governed_answer(
 
     payload = fallback_envelope.model_dump()
     payload["direct_answer_summary"] = composed[:1200]
+    payload["one_sentence_finding"] = composed[:500]
     provider_label = result.answered_label or None
     if not provider_label:
         chain = getattr(llm_client, "chain", None)

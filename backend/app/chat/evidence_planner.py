@@ -49,11 +49,14 @@ def plan_evidence(
     routed: dict[str, Any] | None = None,
     query_understanding: Any = None,
     selected_use_case: Any = None,
+    user_query: str | None = None,
 ) -> EvidencePlan:
     """Plan evidence paths from intent only.
 
     `query_to_intent` and `routed` are accepted for future trace/HIL hints; this
     phase deliberately avoids re-reading user text or legacy route keywords.
+    `user_query` is accepted solely for guided_investigation signal-class resolution
+    so the checklist/investigation_workflow carry query-specific items.
     """
     intent = (
         intent_classification
@@ -237,6 +240,24 @@ def plan_evidence(
             settings.control_plane_enabled
             and settings.ai_soc_guided_hybrid_investigation_enabled
         )
+        # Resolve signal-class-specific hypotheses and evidence items from the query.
+        # These flow into the AnswerContract (analyst_checklist_safe / investigation_steps)
+        # so the synthesis LLM narrates specific items instead of a generic fallback.
+        _query_for_signal = user_query or (
+            getattr(query_understanding, "normalized_query", None)
+            if query_understanding is not None and not isinstance(query_understanding, dict)
+            else (query_understanding or {}).get("normalized_query")
+            if isinstance(query_understanding, dict)
+            else None
+        )
+        _sc_checklist: list[str] = []
+        _sc_workflow: list[str] = []
+        if _query_for_signal:
+            from app.chat.signal_class_guidance import _TEMPLATES, classify_signal_class
+            _sc = classify_signal_class(_query_for_signal)
+            _tmpl = _TEMPLATES.get(_sc) or {}
+            _sc_checklist = [str(h) for h in (_tmpl.get("hypotheses") or []) if h]
+            _sc_workflow = [str(e) for e in (_tmpl.get("evidence") or []) if e]
         guided_plan = EvidencePlan(
             answer_mode="guided_investigation",
             rag_phase="rag_only",
@@ -259,14 +280,14 @@ def plan_evidence(
                 "No live query was performed; validate the checklist against local telemetry and playbooks.",
                 "No MITRE technique or incident severity is asserted without evidence.",
             ],
-            checklist=[
+            checklist=_sc_checklist or [
                 "Confirm the asset owner, criticality, and expected communications.",
                 "Review firewall, DNS, proxy, and endpoint telemetry for the destination.",
                 "Compare first-seen time, periodicity, bytes, ports, and peer hosts against baseline.",
                 "Validate vendor, maintenance, and approved remote-access activity.",
                 "Document findings and escalate only after evidence is corroborated.",
             ],
-            investigation_workflow=[
+            investigation_workflow=_sc_workflow or [
                 "Scope the affected OT and IT assets and the observation window.",
                 "Collect network and endpoint evidence without executing candidate SPL.",
                 "Test benign, misconfiguration, compromise, and vendor-access hypotheses.",

@@ -48,15 +48,17 @@ def build_guided_llm_degraded_message(
     checklist: list[str] | None = None,
     failure_reason: str | None = None,
 ) -> str:
-    reason = str(failure_reason or "timeout_or_unavailable").replace("_", " ")
+    reason = str(failure_reason or "timeout_or_unavailable").strip().rstrip(".")
+    if reason:
+        reason = reason[0].lower() + reason[1:] if len(reason) > 1 else reason.lower()
     items = filter_analyst_facing_steps(list(checklist or []))[:6]
     checklist_block = ""
     if items:
         checklist_block = "\n".join(f"- {item}" for item in items)
         checklist_block = f"\n\nMinimal deterministic checklist:\n{checklist_block}"
     return (
-        "Guided investigation requires the local LLM planner, but it "
-        f"{reason}. No live telemetry was queried. "
+        "Guided investigation requires the local LLM planner, but the planner is "
+        f"unavailable ({reason}). No live telemetry was queried. "
         "Retry when the on-prem model is healthy or increase "
         "AI_SOC_GUIDED_LLM_TIMEOUT_SECONDS."
         f"{checklist_block}"

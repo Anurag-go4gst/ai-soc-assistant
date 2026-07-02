@@ -45,3 +45,35 @@ def test_guidance_summary_render_skips_spl_only_profile() -> None:
     assert rendered is not None
     assert rendered.direct_answer_summary == envelope.direct_answer_summary
     assert message == "composed spl body"
+
+
+def test_guidance_summary_render_preserves_llm_composer_prose() -> None:
+    composed = (
+        "We are observing a significant spike in firewall denies totaling 5000 over the last hour. "
+        "Prioritize top blocked source and destination IPs and assess overlap with the breached "
+        "internal server account before treating the pattern as coordinated."
+    )
+    envelope = AnalystResponseEnvelope(
+        direct_answer_summary=composed,
+        one_sentence_finding=composed[:200],
+    )
+    rendered, message = apply_guidance_summary_render(
+        envelope,
+        "",
+        path_type="guided_investigation",
+        evidence_plan={
+            "checklist": ["Validate VPN geo anomalies", "Review MFA posture"],
+            "investigation_workflow": ["Correlate source IPs across auth logs"],
+        },
+        answer_contract=None,
+        user_query=(
+            "We have more than 5,000 firewall blocks in the last hour and a successful breach "
+            "on an internal server account — summarize top offenders and assess whether this "
+            "looks coordinated."
+        ),
+        llm_composer_used=True,
+    )
+    assert rendered is not None
+    assert rendered.direct_answer_summary == composed
+    assert "Guided investigation prepared for analyst review" not in str(rendered.direct_answer_summary)
+    assert message == composed

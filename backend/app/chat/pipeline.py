@@ -1247,12 +1247,14 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
             evidence_plan=None,
             planning_decision=planning_payload,
         )
+    _req_for_evidence = state.get("request")
     plan = plan_evidence(
         intent,
         query_to_intent=state.get("query_to_intent"),
         routed=state.get("routed"),
         query_understanding=state.get("query_understanding"),
         selected_use_case=state.get("selected_use_case"),
+        user_query=getattr(_req_for_evidence, "message", None) if _req_for_evidence is not None else None,
     )
     evidence_payload = plan.model_dump()
     evidence_payload["mcp_allowed_normalized"] = _mcp_allowed_decision_from_plan(evidence_payload)
@@ -2975,6 +2977,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
 
     planning_decision = state.get("planning_decision")
     path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
+    # LangGraph parity mode: planning_decision.path_type is "hybrid_investigation" even
+    # when routing resolves to guided_investigation. Downstream guards use path_type to
+    # gate guided-specific logic, so normalise to the canonical skill name here.
+    if is_guided_investigation_route(routed_skill=_effective_routing_skill(state), path_type=path_type):
+        path_type = "guided_investigation"
     qu = state.get("query_understanding")
     entities_payload: dict[str, Any] | None = None
     if qu is not None and hasattr(qu, "entities"):
@@ -3315,6 +3322,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
             registry_warnings=_registry_warnings,
             catalog_row=_catalog_row,
+            selected_skill=_effective_routing_skill(state),
         )
         _draft_preview_active = isinstance(spl_draft_preview, dict) and bool(
             str(spl_draft_preview.get("draft_spl") or "").strip()
@@ -3548,6 +3556,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
         registry_warnings=_registry_warnings,
         catalog_row=_catalog_row,
+        selected_skill=_effective_routing_skill(state),
     )
     if (
         answer_contract is not None
@@ -3635,6 +3644,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                     path_type=path_type,
                     intent_family=intent_family or None,
                     timeout_seconds=_composer_timeout,
+                    user_query=request.message or None,
+                    selected_skill=_effective_routing_skill(state),
                 )
                 composer_trace = {**composer_trace, **composer_result.trace_payload()}
             if composer_result.llm_composer_used:
@@ -4135,6 +4146,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
         answer_contract=answer_contract,
         user_query=request.message,
+        llm_composer_used=bool(composer_trace.get("llm_composer_used")),
     )
     if analyst_response is not None and path_type == "guided_investigation":
         filtered_steps = filter_analyst_facing_steps(list(analyst_response.investigation_steps or []))
@@ -4798,6 +4810,13 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     )
 
     evidence_payload["resource_plan"] = validated_resource.model_dump()
+    # Replace generic evidence_planner checklist with signal-class-specific items from
+    # the InvestigationPlan so AnswerContract.analyst_checklist_safe / investigation_steps
+    # carry specific hypotheses and evidence to synthesis instead of the generic fallback.
+    if validated_plan.hypotheses:
+        evidence_payload["checklist"] = list(validated_plan.hypotheses)
+    if validated_plan.evidence_needed:
+        evidence_payload["investigation_workflow"] = list(validated_plan.evidence_needed)
     rc = _routes_chat()
     workflow_plan = rc.plan_workflow(
         selected_skill="guided_investigation",

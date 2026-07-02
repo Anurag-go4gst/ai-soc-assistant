@@ -11,7 +11,11 @@ from app.chat.pipeline import build_live_chat_response
 from app.chat.signal_class_guidance import build_signal_class_guidance, classify_signal_class
 from app.config import settings
 from app.graph.chat_workflow import run_chat_via_langgraph
-from app.llm.guided_llm_budget import should_skip_intent_advisor_for_guided
+from app.llm.guided_llm_budget import (
+    build_guided_turn_budget,
+    guided_composer_timeout_seconds,
+    should_skip_intent_advisor_for_guided,
+)
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import AnalystResponseEnvelope
 from app.synthesis.governed_answer_composer import GovernedComposerResult
@@ -40,6 +44,15 @@ def _base_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_t2_answer_shape_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_answer_guard_lab_enabled", True)
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", False)
+
+
+def test_guided_composer_timeout_uses_remaining_turn_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_guided_llm_timeout_seconds", 120.0)
+    budget = build_guided_turn_budget()
+    timeout = guided_composer_timeout_seconds(budget)
+    assert timeout is not None
+    assert timeout >= 100.0
+    assert timeout <= 120.0
 
 
 def test_skip_intent_advisor_when_guided_route_locked(monkeypatch: pytest.MonkeyPatch) -> None:
