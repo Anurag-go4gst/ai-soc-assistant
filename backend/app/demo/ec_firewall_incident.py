@@ -640,6 +640,29 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
                 "P1: Open P1 incident record and assign incident commander.",
                 "P2: Extend blast-radius search on pgcil_soc for lateral movement from 10.20.1.10.",
             ],
+            "interactive_actions": [
+                {
+                    "id": "open_p1_incident_ticket",
+                    "ui_action": "render_interactive_ticket",
+                    "label": "Click to Execute: Open P1 Incident Ticket",
+                    "success_label": "P1 Ticket created",
+                    "status": "SUCCESS",
+                    "ticket_details": {
+                        "ticket_id": "INC-2026-89412",
+                        "priority": "P1 - CRITICAL",
+                        "assignment_group": "SOC-Incident-Response",
+                        "incident_commander": "On-Duty SOC Lead",
+                        "summary": (
+                            "Coordinated firewall attack from 198.51.100.42 resulting in breach "
+                            "of account svc_jump_ops on 10.20.1.10"
+                        ),
+                        "auto_attached_evidence": [
+                            "ev-fw-deny-q1",
+                            "Splunk_Search_firewall_5_rows",
+                        ],
+                    },
+                }
+            ],
         }
     if scenario_id == "firewall_baseline_template_spl":
         return {

@@ -477,6 +477,7 @@ export interface AnalystResponseEnvelope {
   sop_guidance?: Record<string, unknown> | null;
   foundation_sec_analysis?: string | null;
   recommended_actions?: string[];
+  interactive_actions?: InteractiveActionEnvelope[];
   spl_code?: string | null;
   draft_spl_code?: string | null;
   spl_draft_preview?: SplDraftPreviewEnvelope | null;
@@ -517,6 +518,23 @@ export interface AnalystResponseEnvelope {
   } | null;
   section_order?: string[];
   render_sections?: Record<string, boolean>;
+}
+
+export interface InteractiveActionEnvelope {
+  id?: string;
+  ui_action?: 'render_interactive_ticket' | string;
+  label?: string;
+  success_label?: string;
+  status?: string;
+  ticket_details?: {
+    ticket_id?: string;
+    priority?: string;
+    assignment_group?: string;
+    incident_commander?: string;
+    summary?: string;
+    auto_attached_evidence?: string[];
+    [key: string]: unknown;
+  };
 }
 
 export interface FoundationSecCapturedOutput {

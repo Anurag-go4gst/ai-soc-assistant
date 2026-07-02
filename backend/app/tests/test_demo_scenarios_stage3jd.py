@@ -106,6 +106,28 @@ def test_each_demo_scenario_marks_fixture_origin_and_no_live_data() -> None:
         assert response.analyst_response is not None
 
 
+def test_firewall_incident_exposes_interactive_p1_ticket_action() -> None:
+    response = _run("firewall_deny_coordinated_attack")
+
+    assert response.analyst_response is not None
+    analyst = response.analyst_response
+    assert any("Open P1 incident record" in action for action in analyst.recommended_actions)
+    assert len(analyst.interactive_actions) == 1
+    action = analyst.interactive_actions[0]
+    assert action["ui_action"] == "render_interactive_ticket"
+    assert action["label"] == "Click to Execute: Open P1 Incident Ticket"
+    assert action["success_label"] == "P1 Ticket created"
+    assert action["status"] == "SUCCESS"
+    details = action["ticket_details"]
+    assert details["ticket_id"] == "INC-2026-89412"
+    assert details["priority"] == "P1 - CRITICAL"
+    assert details["assignment_group"] == "SOC-Incident-Response"
+    assert details["incident_commander"] == "On-Duty SOC Lead"
+    assert "198.51.100.42" in details["summary"]
+    assert "svc_jump_ops" in details["summary"]
+    assert details["auto_attached_evidence"] == ["ev-fw-deny-q1", "Splunk_Search_firewall_5_rows"]
+
+
 def test_failed_login_spike_includes_t1110_and_source_refs() -> None:
     response = _run("failed_login_spike_app01")
 

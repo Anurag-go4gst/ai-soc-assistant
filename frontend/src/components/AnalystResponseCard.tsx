@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import {
   BookOpen,
@@ -8,10 +9,12 @@ import {
   Database,
   FileSearch,
   ListChecks,
+  LoaderCircle,
   ShieldAlert,
   Terminal,
+  TicketCheck,
 } from 'lucide-react';
-import type { AnalystResponseEnvelope, FoundationSecGovernance } from '@/types/api';
+import type { AnalystResponseEnvelope, FoundationSecGovernance, InteractiveActionEnvelope } from '@/types/api';
 import { cn } from '@/lib/utils';
 
 type PhaseAccent = 'cyan' | 'violet' | 'emerald' | 'amber';
@@ -39,6 +42,36 @@ export function AnalystResponseCard({
   response: AnalystResponseEnvelope;
   foundationSecGovernance?: FoundationSecGovernance | null;
 }) {
+  const [expandedInteractiveActionId, setExpandedInteractiveActionId] = useState<string | null>(null);
+  const [pendingInteractiveActionId, setPendingInteractiveActionId] = useState<string | null>(null);
+  const interactiveActionTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (interactiveActionTimerRef.current !== null) {
+        window.clearTimeout(interactiveActionTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleInteractiveActionToggle = (actionId: string) => {
+    if (pendingInteractiveActionId) return;
+    if (expandedInteractiveActionId === actionId) {
+      setExpandedInteractiveActionId(null);
+      return;
+    }
+    if (interactiveActionTimerRef.current !== null) {
+      window.clearTimeout(interactiveActionTimerRef.current);
+    }
+    setExpandedInteractiveActionId(null);
+    setPendingInteractiveActionId(actionId);
+    interactiveActionTimerRef.current = window.setTimeout(() => {
+      setPendingInteractiveActionId(null);
+      setExpandedInteractiveActionId(actionId);
+      interactiveActionTimerRef.current = null;
+    }, 950);
+  };
+
   const playbookTitle = formatPlaybook(response.retrieved_playbook);
   const triageSteps = stringList(response.sop_guidance?.triage_steps);
   const validationNotes = stringList(response.sop_guidance?.validation_notes);
@@ -47,6 +80,7 @@ export function AnalystResponseCard({
   const title = stripSeverityPrefix(response.finding_title);
   const policyChecks = validationNotes.length ? validationNotes : triageSteps;
   const priorityActions = response.recommended_actions ?? [];
+  const interactiveActions = response.interactive_actions ?? [];
   const renderSections = response.render_sections ?? {};
   const splOnly = response.response_profile === 'spl_only';
   const isKnowledgeRecall = response.response_profile === 'knowledge_recall';
@@ -393,7 +427,7 @@ export function AnalystResponseCard({
     });
   }
 
-  if (showInvestigationPlan || response.escalation_criteria?.length || response.closure_conditions?.length) {
+  if (showInvestigationPlan || interactiveActions.length || response.escalation_criteria?.length || response.closure_conditions?.length) {
     phases.push({
       key: 'plan',
       label: hasPriorityInvestigation ? 'Investigation plan' : 'What to look for',
@@ -413,6 +447,14 @@ export function AnalystResponseCard({
             ) : (
               <BulletList items={uniquePriorityActions} />
             )
+          ) : null}
+          {interactiveActions.length ? (
+            <InteractiveActionsPanel
+              actions={interactiveActions}
+              expandedActionId={expandedInteractiveActionId}
+              pendingActionId={pendingInteractiveActionId}
+              onToggle={handleInteractiveActionToggle}
+            />
           ) : null}
           {response.escalation_criteria?.length ? (
             <div className="mt-4">
@@ -759,6 +801,129 @@ function RecommendationList({ items }: { items: string[] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function InteractiveActionsPanel({
+  actions,
+  expandedActionId,
+  pendingActionId,
+  onToggle,
+}: {
+  actions: InteractiveActionEnvelope[];
+  expandedActionId: string | null;
+  pendingActionId: string | null;
+  onToggle: (actionId: string) => void;
+}) {
+  return (
+    <div className="mt-4 space-y-3">
+      {actions.map((action, index) => {
+        const actionId = action.id ?? `${action.ui_action ?? 'interactive-action'}-${index}`;
+        const expanded = expandedActionId === actionId;
+        const pending = pendingActionId === actionId;
+        const details = action.ticket_details;
+        return (
+          <div
+            key={actionId}
+            className={cn(
+              'rounded-lg border border-red-400/25 bg-red-500/10 p-3 transition-colors',
+              pending && 'border-red-300/60 bg-red-500/15',
+            )}
+          >
+            <button
+              type="button"
+              aria-busy={pending}
+              aria-expanded={expanded || pending}
+              disabled={Boolean(pendingActionId)}
+              onClick={() => onToggle(actionId)}
+              className={cn(
+                'flex w-full items-center justify-between gap-3 text-left transition-opacity',
+                pendingActionId && !pending && 'opacity-60',
+              )}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                {pending ? (
+                  <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-red-100" />
+                ) : (
+                  <TicketCheck className="h-4 w-4 shrink-0 text-red-200" />
+                )}
+                <span className="text-sm font-semibold text-red-50">
+                  {pending ? 'Calling incident workflow...' : action.label ?? 'Open incident ticket'}
+                </span>
+              </span>
+              {pending ? (
+                <span className="flex shrink-0 items-center gap-1" aria-hidden="true">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-100" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-100 [animation-delay:150ms]" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-100 [animation-delay:300ms]" />
+                </span>
+              ) : (
+                <ChevronRight
+                  className={cn('h-4 w-4 shrink-0 text-red-100 transition-transform', expanded && 'rotate-90')}
+                />
+              )}
+            </button>
+            {pending ? (
+              <div className="mt-3 overflow-hidden rounded-full bg-slate-950/70">
+                <div className="h-1.5 w-2/3 animate-pulse rounded-full bg-red-200" />
+              </div>
+            ) : null}
+            {pending ? (
+              <p className="mt-2 text-xs text-red-100/90">
+                Creating P1 ticket and attaching evidence package...
+              </p>
+            ) : null}
+            {expanded ? (
+              <div className="mt-3 rounded-lg border border-slate-700/80 bg-slate-950/70 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="success">{action.success_label ?? 'Ticket created'}</Badge>
+                  {action.status ? <Badge variant="outline">Status: {action.status}</Badge> : null}
+                </div>
+                {details ? <TicketDetails details={details} /> : null}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TicketDetails({ details }: { details: NonNullable<InteractiveActionEnvelope['ticket_details']> }) {
+  const evidence = details.auto_attached_evidence ?? [];
+  return (
+    <div className="mt-3 grid gap-2 text-sm leading-6 text-slate-200 sm:grid-cols-2">
+      <TicketDetail label="Ticket ID" value={details.ticket_id} />
+      <TicketDetail label="Priority" value={details.priority} />
+      <TicketDetail label="Assignment group" value={details.assignment_group} />
+      <TicketDetail label="Incident commander" value={details.incident_commander} />
+      {details.summary ? (
+        <div className="sm:col-span-2">
+          <p className="text-xs font-semibold uppercase text-slate-400">Summary</p>
+          <p className="mt-1 text-slate-100">{details.summary}</p>
+        </div>
+      ) : null}
+      {evidence.length ? (
+        <div className="sm:col-span-2">
+          <p className="text-xs font-semibold uppercase text-slate-400">Auto-attached evidence</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {evidence.map((item) => (
+              <Badge key={item} variant="outline">{item}</Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TicketDetail({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
+      <p className="mt-1 text-slate-100">{value}</p>
     </div>
   );
 }

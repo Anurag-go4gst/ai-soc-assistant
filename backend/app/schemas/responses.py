@@ -371,6 +371,7 @@ class AnalystResponseEnvelope(BaseModel):
     sop_guidance: dict[str, object] | None = None
     foundation_sec_analysis: str | None = None
     recommended_actions: list[str] = []
+    interactive_actions: list[dict[str, object]] = []
     spl_code: str | None = None
     spl_draft_preview: dict[str, object] | None = None
     spl_unbound_constraints: list[dict[str, object]] = []
