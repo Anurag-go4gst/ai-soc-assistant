@@ -82,6 +82,7 @@ from app.spl.draft_preview import (
 )
 from app.llm.clients.local_chat_client import LocalChatError
 from app.spl.llm_fallback import generate_llm_spl_fallback
+from app.spl.llm_lineage_vigilance import classify_llm_spl_risk
 from app.spl.llm_plan_compiler import generate_llm_spl_via_plan
 from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
 from app.spl.spl_relevance_check import check_spl_relevance
@@ -327,6 +328,8 @@ class ChatPipelineState(TypedDict, total=False):
     spl_validation: dict[str, Any] | None
     spl_draft_preview: dict[str, Any] | None
     llm_spl_candidate: dict[str, Any] | None
+    spl_source_resolve: dict[str, Any] | None
+    llm_derived_spl_artifact: dict[str, Any] | None
     execution: dict[str, Any]
     human_review: dict[str, Any]
     source_evidence: list[dict[str, Any]]
@@ -1436,7 +1439,14 @@ def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[
     if _uses_guided_hybrid_dispatch(provisional):
         return False
     if discovery_allowed and not mcp_allowed:
-        return evidence_payload.get("answer_mode") == "guided_investigation"
+        # Evidence loop for all tiers (2026-07 directive, item 2.2): guided_investigation
+        # keeps its unconditional discovery-only admission; other families granted
+        # discovery-only (e.g. spl_generation_only without a live-data ask, item 2.1)
+        # are admitted too unless they are RAG-only shaped — discovery is read-only
+        # and safe regardless of family, so the same exclusion applies as below.
+        if evidence_payload.get("answer_mode") == "guided_investigation":
+            return True
+        return not _uses_rag_only_path(provisional)
     if _uses_rag_only_path(provisional):
         return False
     return True
@@ -2202,6 +2212,45 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
                 else:
                     state = {**state, "spl_validation": spl_validation}
 
+    # Item 2.3/2.4 derived-artifact wiring (respec'd 2026-07-03): only a non-blocked
+    # llm_derived_spl_artifact may enter the gate, and only in place of — never in
+    # addition to — the raw lab-tier spl_validation (which stays approved=false).
+    # A high-risk derived artifact never reaches evaluate_mcp_execution at all.
+    llm_lineage_auto_eligible = False
+    derived_artifact = state.get("llm_derived_spl_artifact")
+    if isinstance(derived_artifact, dict):
+        if derived_artifact.get("blocked"):
+            execution = {
+                "status": "skipped",
+                "execution_intent": "none",
+                "selected_mcp_server": None,
+                "selected_mcp_tool": None,
+                "tool_selection_status": "blocked_by_llm_lineage_vigilance",
+                "tool_selection_reason": derived_artifact.get("blocked_reason") or "llm_lineage_vigilance_blocked",
+                "executed_spl": None,
+                "result_count": 0,
+                "results_preview": [],
+                "block_reason": derived_artifact.get("blocked_reason") or "llm_lineage_vigilance_blocked",
+                "duration_ms": 0,
+                "evidence_source": "unavailable",
+                "execution_status_label": "not_executed",
+                "llm_lineage_risk_tier": derived_artifact.get("risk_tier"),
+            }
+            human_review_result = no_human_review()
+            emit_mcp_status_from_execution(execution)
+            return {**state, "spl_validation": spl_validation, "execution": execution, "human_review": human_review_result}
+        if derived_artifact.get("normalized_spl"):
+            spl_validation = {
+                **(spl_validation or {}),
+                "approved": True,
+                "normalized_spl": derived_artifact["normalized_spl"],
+                "reject_reasons": [],
+                "execution_eligible": True,
+                "llm_lineage_risk_tier": derived_artifact.get("risk_tier"),
+                "llm_lineage_source": derived_artifact.get("producer_lineage"),
+            }
+            llm_lineage_auto_eligible = bool(derived_artifact.get("auto_eligible"))
+
     execution, human_review = _execution_stage(
         trace_id=state["trace_id"],
         selected_skill=_effective_routing_skill(state),
@@ -2210,6 +2259,7 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         precondition_evaluation=state.get("route_plan_shadow", {}).get("precondition_evaluation"),
         requested_mcp_server=request.requested_mcp_server,
         requested_mcp_tool=request.requested_mcp_tool,
+        llm_lineage_auto_eligible=llm_lineage_auto_eligible,
         mcp_allowed=_mcp_allowed(state),
         execution_review_action=getattr(request, "execution_review_action", None),
         analyst_provided_spl=getattr(request, "analyst_provided_spl", None),
@@ -2526,6 +2576,24 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
             updated["spl_validation"] = {
                 **validation,
                 "source_resolve_tiers": resolve_result.tiers_used,
+            }
+            # Item 2.3 (respec'd 2026-07-03): the raw lab-tier candidate above is
+            # untouched — still review-only, execution_eligible stays false. A
+            # SEPARATE derived artifact may become execution-eligible only after
+            # passing the real validator (already true here: resolve_result.
+            # validation.approved) AND harmful-SPL vigilance risk classification.
+            # Never falls back to a lab draft on its own account — this branch
+            # only runs when resolution already fully succeeded.
+            vigilance = classify_llm_spl_risk(
+                normalized_spl=resolve_result.validation.get("normalized_spl"),
+                validator_result=resolve_result.validation,
+                user_query=query_text,
+            )
+            updated["llm_derived_spl_artifact"] = {
+                "normalized_spl": resolve_result.validation.get("normalized_spl") if not vigilance.blocked else None,
+                "producer_lineage": "llm_plan_compiler",
+                "source_resolve_tiers": resolve_result.tiers_used,
+                **vigilance.to_trace_dict(),
             }
             return updated
         resolved_validation = {
@@ -8111,6 +8179,7 @@ def _execution_stage(
     analyst_provided_spl: str | None = None,
     pending_execution: dict[str, Any] | None = None,
     rbac_role: str | None = None,
+    llm_lineage_auto_eligible: bool = False,
 ) -> tuple[dict, dict]:
     if spl_validation is None:
         return (
@@ -8160,6 +8229,7 @@ def _execution_stage(
         analyst_provided_spl=analyst_provided_spl,
         pending_execution=pending_execution,
         rbac_role=rbac_role,
+        llm_lineage_auto_eligible=llm_lineage_auto_eligible,
     )
 
 
