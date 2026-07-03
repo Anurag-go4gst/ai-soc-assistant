@@ -32,9 +32,11 @@ from app.planner.resource_plan import PlanStepV2, ResourcePlanV2
 # --- recipe registry shape ----------------------------------------------------
 
 
-def test_registry_ships_two_governed_recipes() -> None:
+def test_registry_ships_three_governed_recipes() -> None:
+    # hunt_baseline added item 3.2 (2026-07-03): discovery -> bounded search
+    # -> on-empty broaden edge to HIL.
     registry = load_recipe_registry()
-    assert set(registry) == {"single_search", "broaden_scope_on_empty"}
+    assert set(registry) == {"single_search", "broaden_scope_on_empty", "hunt_baseline"}
 
 
 def test_all_shipped_recipes_validate() -> None:

@@ -201,9 +201,53 @@ def _broaden_scope_on_empty_recipe() -> Recipe:
     )
 
 
+def _hunt_baseline_recipe() -> Recipe:
+    """Discovery -> bounded search -> on-empty broaden edge to HIL (item 3.2).
+
+    A hunt-shaped turn gets one read-only discovery hop for context (no HIL —
+    metadata only), then one bounded governed search. Unlike the other two
+    recipes, an empty search result here is NOT a silent finalize: it routes
+    to analyst hand-off (`on_empty="hil"`) since a hunt-shaped ask with zero
+    rows is exactly the case where an analyst should decide whether to widen
+    scope, not the loop.
+    """
+    return Recipe(
+        recipe_id="hunt_baseline",
+        eligible_skills=["attack_discovery", "guided_investigation"],
+        eligible_path_types=["spl_review", "spl_review_plus_rag", "hybrid_investigation"],
+        max_calls=2,
+        calls=[
+            RecipeCall(
+                call_id="c1_discovery",
+                purpose="Read-only metadata discovery to scope the hunt before searching.",
+                call_class="metadata_discovery",
+                activation_condition="always",
+                resource_capability="metadata_discovery",
+                produces_evidence_keys=["discovery_context"],
+                on_empty="terminal",
+                requires_hil=False,
+            ),
+            RecipeCall(
+                call_id="c2_bounded_search",
+                purpose="Run the bounded governed hunt search.",
+                call_class="evidence_search",
+                depends_on=["c1_discovery"],
+                activation_condition="always",
+                resource_capability="spl_search",
+                spl_source="template_family",
+                produces_evidence_keys=["hunt_search_rows"],
+                on_empty="hil",
+                requires_hil=True,
+                validation_chain=list(_SEARCH_VALIDATION_CHAIN),
+                terminal=True,
+            ),
+        ],
+    )
+
+
 _RECIPES: dict[str, Recipe] = {
     recipe.recipe_id: recipe
-    for recipe in (_single_search_recipe(), _broaden_scope_on_empty_recipe())
+    for recipe in (_single_search_recipe(), _broaden_scope_on_empty_recipe(), _hunt_baseline_recipe())
 }
 
 
@@ -215,6 +259,27 @@ def load_recipe_registry() -> dict[str, Recipe]:
 def get_recipe(recipe_id: str) -> Recipe | None:
     recipe = _RECIPES.get(recipe_id)
     return recipe.model_copy(deep=True) if recipe is not None else None
+
+
+def select_recipe_for_plan(
+    *,
+    resource_plan_purposes: set[str] | list[str] | tuple[str, ...],
+    answer_shape: str | None,
+    mcp_allowed: bool,
+    discovery_allowed: bool = False,
+) -> str | None:
+    """Deterministic recipe selection (item 3.2): promoted plan purposes +
+    answer shape -> at most one governed recipe. The LLM never names a
+    recipe directly — this maps already-validated plan/shape data to a
+    registry id; the caller loads the actual Recipe via `get_recipe`."""
+    purposes = set(resource_plan_purposes)
+    if not (purposes & {"mcp_execution", "mcp_discovery"}):
+        return None
+    if not (mcp_allowed or discovery_allowed):
+        return None
+    if answer_shape == "hunt":
+        return "hunt_baseline"
+    return None
 
 
 def recipes_for_skill(skill_id: str) -> list[Recipe]:

@@ -147,3 +147,51 @@ def test_control_plane_trace_includes_dispatch_projection() -> None:
     )
     assert trace["intent_dispatch"]["prompt_mode"] == "skip"
     assert trace["pipeline_dispatch"]["decision"]["request_mode"] == "spl_authoring"
+
+
+def test_mcp_calls_trace_empty_when_no_recipe_active() -> None:
+    # The vast majority of turns today — no recipe means an empty list, never None.
+    trace = build_control_plane_trace({})
+    assert trace["mcp_calls"] == []
+    assert trace["mcp_loop"] is None
+
+
+def test_mcp_calls_trace_populated_for_recipe_driven_turn() -> None:
+    trace = build_control_plane_trace(
+        {
+            "mcp_recipe_id": "hunt_baseline",
+            "mcp_call_records": [
+                {"call_id": "c1_discovery", "sequence": 0, "outcome": "ok", "result_count": 1},
+                {"call_id": "c2_bounded_search", "sequence": 1, "outcome": "empty", "result_count": 0},
+            ],
+            "mcp_loop": {"route": "human_review", "reason": "test verdict"},
+        }
+    )
+    calls = trace["mcp_calls"]
+    assert len(calls) == 2
+    assert calls[0] == {
+        "call_id": "c1_discovery",
+        "call_class": "metadata_discovery",
+        "outcome": "ok",
+        "evidence_keys_resolved": ["discovery_context"],
+        "result_count": 1,
+        "block_reason": None,
+    }
+    assert calls[1]["call_class"] == "evidence_search"
+    assert calls[1]["evidence_keys_resolved"] == ["hunt_search_rows"]
+    assert trace["mcp_loop"]["route"] == "human_review"
+
+
+def test_mcp_calls_trace_failed_call_resolves_no_evidence_keys() -> None:
+    trace = build_control_plane_trace(
+        {
+            "mcp_recipe_id": "hunt_baseline",
+            "mcp_call_records": [
+                {"call_id": "c1_discovery", "sequence": 0, "outcome": "blocked", "result_count": 0, "error_type": "mcp_discovery_disabled"},
+            ],
+        }
+    )
+    call = trace["mcp_calls"][0]
+    assert call["outcome"] == "blocked"
+    assert call["evidence_keys_resolved"] == []
+    assert call["block_reason"] == "mcp_discovery_disabled"

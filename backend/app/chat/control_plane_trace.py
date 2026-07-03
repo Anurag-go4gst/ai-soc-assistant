@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.planner.recipe_registry import get_recipe
 from app.spl.spl_artifact_trace_projection import build_spl_artifact_handoff_summary
 from app.governance.trace_authority import (
     TIER_ADVISORY,
@@ -114,6 +115,15 @@ def build_control_plane_trace(
         "llm_derived_spl_artifact": state.get("llm_derived_spl_artifact")
         if isinstance(state.get("llm_derived_spl_artifact"), dict)
         else None,
+        # O5c multi-call lineage (item 3.3, 2026-07-03): per-call records for a
+        # recipe-driven turn (item 3.1/3.2), enriched with the call's class and
+        # declared evidence keys from the recipe definition, plus the raw
+        # deterministic loop verdict (mcp_loop, shared by both the chronology
+        # and recipe-driven hub paths — already written by items already shipped).
+        "mcp_calls": _mcp_calls_trace(state),
+        "mcp_loop": state.get("mcp_loop")
+        if isinstance(state.get("mcp_loop"), dict)
+        else None,
     }
     run_contract = state.get("run_contract") if isinstance(state.get("run_contract"), dict) else None
     final_evidence_gate = (
@@ -153,6 +163,47 @@ def build_control_plane_trace(
     return _redact(trace)
 
 
+
+
+def _mcp_calls_trace(state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Per-call lineage for a recipe-driven turn (item 3.3): each accumulated
+    mcp_call_records entry enriched with the call's class and declared
+    evidence keys from the recipe definition. Empty list — never None — when
+    no recipe is active (the vast majority of turns today, since item 3.2's
+    selector is the only thing that ever sets mcp_recipe_id)."""
+    raw_records = state.get("mcp_call_records")
+    if not isinstance(raw_records, list) or not raw_records:
+        return []
+    recipe_id = state.get("mcp_recipe_id")
+    recipe = None
+    if isinstance(recipe_id, str) and recipe_id:
+        recipe = get_recipe(recipe_id)
+    calls: list[dict[str, Any]] = []
+    for record in raw_records:
+        if not isinstance(record, dict):
+            continue
+        call_id = str(record.get("call_id") or "")
+        call_def = recipe.call_by_id(call_id) if recipe is not None else None
+        outcome = record.get("outcome")
+        # A call only resolves its declared evidence keys on a resolving
+        # outcome (ok/partial/empty) — a failed/blocked/timeout/denied call
+        # resolved nothing, matching orchestration_scheduler's own definition.
+        resolved = (
+            list(call_def.produces_evidence_keys)
+            if call_def is not None and outcome in ("ok", "partial", "empty")
+            else []
+        )
+        calls.append(
+            {
+                "call_id": call_id,
+                "call_class": call_def.call_class if call_def is not None else None,
+                "outcome": outcome,
+                "evidence_keys_resolved": resolved,
+                "result_count": record.get("result_count"),
+                "block_reason": record.get("error_type"),
+            }
+        )
+    return calls
 
 
 def _spl_authoring_trace(state: dict[str, Any]) -> dict[str, Any] | None:
